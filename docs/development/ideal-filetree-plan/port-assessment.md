@@ -1,5 +1,23 @@
 # Port assessment and cutovers
 
+## Current remaining implementation ports
+
+The task schedule was reconciled against `de65ff68` on 2026-10-06; its source
+delta from the audit pin is documentation only. **One Go→Rust implementation
+port remains**, the native `soda-forgejo-tailnet` helper and its exclusive
+configuration rewrite, specified by [N07](reviews/N07.md) and
+[C04](implementation-tasks.md#c04-project-tailnet-and-forgejo-helper-port).
+**No Rust→Go implementation port is selected.** Package moves, concern splits,
+consolidations and retirement of already-ported predecessors are separate tasks.
+
+`soda-candidate-check` is already declared in
+`rust/soda-release-tools/Cargo.toml` and calls the current Rust `check_cli`
+implementation; its old Go source is absent. Current Rust host Tailnet controls
+also exist. Do not derive additional port tasks from historical predecessor rows.
+The [Python cutover reconciliation](#python-cutover-closure) below records current
+probe/test source, including the already-landed shell/Go implementations.
+These are inspected source facts, not compiled or installed qualification.
+
 ## Was the Rust port a good choice?
 
 The source supports selective assessment, not a blanket language verdict. No
@@ -13,7 +31,7 @@ including comments and tests; they do not measure performance or safety.
 | Project terminal | Replaces four embedded Python programs at one existing installed helper boundary; native file descriptors, PTY and process handling stay inside the Project | Retain one helper and split its real terminal/subscription/key concerns. This is the strongest current boundary for a selective native port; benefit still needs runtime evidence. |
 | Identity broker | Real replacement of the former Go broker; retains an established custody service | Consolidate provider packages. Reassess handwritten PostgreSQL transport/codecs and cross-language schema/wire maintenance before expanding them. The separate service predates the language change. |
 | Installer + image import | Rust release-build/deliver and native installer/import owners are current; predecessor Go release code is absent. D05/D11 compare their actual guarantees and caller contracts. | Retain both native commands. Select existing release-deliver payload/content as the delivered wire/admission owner and existing release-build OCI/layout as the pure OCI/content owner, as recorded in D11-T3/E8. Rebind only after exact null/duplicate/error/result/confinement/compression and dependency cutover checks. Preserve native installer authority and cancelled importer lifecycle; no FFI, RPC, extra crate or service. |
-| Acceptance | Rust owns outside driver/remote handling; Go installed probe orchestration remains live | Retain Rust acceptance and its remote binary. Retire obsolete Go driver/evidence/process execution and tests; preserve live probe input support. Replace embedded Python payloads and tests that still execute predecessors before claiming cutover complete. |
+| Acceptance | Rust owns outside driver/remote handling; Go installed probe orchestration and the personal-Git shell payload remain live | Retain real owners and remote binary; reconcile actual probe assumptions and old guidance. Python predecessors are absent in the inspected current source; no new Python port is scheduled. Preserve live probe input support. |
 | Factory CLI + Muse wrappers | Actual thin client/helper duties; Rust adds manual flag, transport and Go compatibility parsing | Retain the recorded Rust owners and assess maintenance/primitive consolidation against actual callers. A language-change recommendation requires an explicit owner decision; it cannot silently override the selected target. The coordinator remains Go. |
 | Asset fetch/render/locales | Actual build-time replacements under release orchestration (Rust after cutover); several recreate Python parsing/CLI behavior | Consolidate the seven binaries into one build-tools package. The language decision is made; no alternative-stack migration follows. |
 | Release pipeline + tools (new) | Four Rust crates landed (#30/#32/#33/#34) and cut over: tools → image → build/deliver is wired, candidate-check and payload data preserved, Go removed | Retain the four crates under `lib/` and split their actual concerns in the [release decomposition reviews](decomposition/release-production.md). |
@@ -301,14 +319,15 @@ deliver dependencies. Connect these existing crates and CLI phases directly,
 preserving worker identity, source admission, exact outputs and cleanup. Do not
 delete Go merely because the standalone Rust oracle suites pass.
 
-The candidate verification successor is concrete:
-`lib/soda-release-tools/src/candidate_check.rs` and
-`src/bin/soda-candidate-check.rs`, in the existing package, call
-`soda_release_deliver::check::check_candidate`. Declare that binary and the real
-deliver dependency in its manifest. Keep `--candidate`, `--arch`,
+The candidate verification port is already present: the current
+`rust/soda-release-tools/src/bin/soda-candidate-check.rs` calls `check_cli::main`,
+and its manifest already declares the binary and release-deliver dependency.
+The desired concern owner is `lib/soda-release-tools/src/candidate_check.rs`
+with the retained `src/bin/soda-candidate-check.rs` entrypoint. Rebind the
+existing implementation/imports as part of the move/split. Keep `--candidate`, `--arch`,
 `--soda-revision`, `--forgejo-revision`, current parsing/refusal order, quiet
-success and one-line error/exit behavior. Repoint `scripts/check-native.sh:29`
-to this binary; retain delivered archive verification and exact Soda/Fountain
+success and one-line error/exit behavior. Preserve `scripts/check-native.sh`
+through this already-Rust binary; retain delivered archive verification and exact Soda/Fountain
 revision binding. Its existing CLI suite gains `soda_candidate_check.rs` rather
 than another test harness or package. The Go command is absent from the target.
 
@@ -328,19 +347,22 @@ owners; no facade crate, FFI, RPC or additional service follows from this work.
 The target has no Soda-authored Python program, including executable strings
 inside Go tests or probes. Third-party package implementation languages and
 historical prose are separate from this authored-source inventory; this plan
-does not invent a replacement for the existing Compose tool. The source still
-contains Python execution. These are pending conversions, not completed ports:
+does not invent a replacement for the existing Compose tool. At the scheduling
+source, `git ls-files '*.py'` returns no paths. Inspected personal-Git probe source
+is POSIX shell, lifecycle observation is Go, and current probe/build tests use
+their native subjects rather than Python drivers. This is a source census, not
+a run of the active no-Python gate. The former conversion rows are reconciled
+below; do not schedule ports of deleted programs:
 
 | Current source / caller | Target owner and required cutover |
 | --- | --- |
-| `internal/acceptance/personal_git.go:33-66,164-173,238-244` | Keep the Go probe's prepare/exercise/unlock orchestration. Move the existing user-scoped key/agent payload into `tools/acceptance/src/personal_git.rs`, dispatched through the existing ephemeral `soda-acceptance-remote` payload. Preserve the SSH login identity, protected passphrase input, public-key-only output, live-agent refusal and encrypted-key lifetime. Remove the Python template and `python3 -` transport; do not add a service or credential broker. |
-| `internal/acceptance/lifecycle_state.go:27-34,150,199` | Keep the Go snapshot/comparison orchestration. Execute the existing Rust `project_state` payload through `soda-acceptance-remote project-state`. The embedded SQLite host query is obsolete against the canonical PostgreSQL store; reconcile the host observation's actual records and read-only caller before implementing its replacement. Do not port that stale query or introduce a second database. |
-| `tools/soda-installed-probes/{cockpit_account,project_state}_test.go`, `tests/build/u08_state_test.go` | Exercise the existing Rust cockpit/project-state implementation and remote binary under the actual fixtures. Remove Python import drivers and assertions against deleted `.py` source. Keep the PAM denial/error distinction, root/native admission, private-file content refusal and snapshot bounds. |
-| `project-os/rootfs/usr/libexec/soda/{project-account,project-factory-roles}` | Retain these two installed executable identities as compiled outputs of the existing project-terminal Cargo package. Concrete entrypoints are `cmd/soda-project-terminal/src/bin/project-account.rs` and `project-factory-roles.rs`; a private library root shares the real project-local modules. Account provisioning and factory-role duties stay separate from terminal dispatch. Do not track generated binaries or Python wrappers in rootfs. |
+| `internal/acceptance/personal_git.go` | Current `gitRemoteTemplate` is POSIX shell piped to `sh -se`, with a real no-Python assertion. Keep Go prepare/exercise/unlock orchestration and preserve the actual key/agent flow. The selected existing Rust remote payload may be rebound only after exact caller equivalence; this is reuse/cutover, not a new Python port. Preserve SSH identity, protected passphrase input, public-key-only output, live-agent refusal and encrypted-key lifetime. |
+| `internal/acceptance/lifecycle_state.go` | Current observer is Go and imports SQLite; the retired Python header does not establish current language. Reconcile actual PostgreSQL observation records/read-only callers and existing Rust project-state payload before redirecting the caller; preserve the established comparison scope. Do not translate the stale SQLite query or create a second database. |
+| `tools/soda-installed-probes/{cockpit_account,project_state}_test.go`, `tests/build/u08_state_test.go` | Current native test subjects are retained. Rebind moved actual Rust cockpit/project-state/remote owners and preserve PAM denial/error distinction, root/native admission, private-file refusal and snapshot bounds. Do not schedule removal of already-absent Python import drivers. |
+| Historical `project-os/rootfs/usr/libexec/soda/{project-account,project-factory-roles}` | Python sources are absent; current compiled Rust helper crates and tests exist. Fold those existing implementations into the Project-terminal package and preserve both installed executable identities, explicit build/hash selectors and real tests. Do not track generated outputs or add wrappers. |
 | `tests/build/{project_account,project_factory_roles}_test.go` | Current Rust compiled-helper drivers remain active. Preserve their actual assertions and explicit requested binary selection during Project-terminal package consolidation; historical Python SourceFileLoader disposition is obsolete. Exact current production/test seams are recorded in project-runtime.md and P03/P07. |
-| `tests/build/{source_checks,workload_probe}_test.go`, `tests/build/helpers.go:142-160` | Replace Python PATH-tool doubles with the existing Go subprocess-test pattern or inert shell fixtures where sufficient. Keep command order, environment, status and no-replayed-mutation observations. Remove `Python3` after its callers move. |
-| `tests/build/project_foundation_test.go:36` | Replace the Python `os.defpath` observation with the real admitted helper environment/argv contract; do not retain an interpreter merely for this assertion. |
-| `scripts/{check-source,check-native}.sh`, `tests/build/source_checks_test.go` | Remove obsolete unittest invocations and update the actual source/native check sequence. `check-native.sh` invokes the Rust `soda-candidate-check` binary with the same candidate, architecture and exact revisions; it must keep verification enabled. |
+| `tests/build/{source_checks,workload_probe,project_foundation}_test.go`, `tests/build/helpers.go` | Current Go/shell fixtures replace the old Python doubles. Rebind actual command/environment/status/ordering assertions; the stale driveModule/Python3 comment is not a live helper. Preserve real admitted helper environment and no-replayed-mutation evidence. |
+| `scripts/{check-source,check-native,check-no-python}.sh`, `tests/build/source_checks_test.go` | Preserve the existing Go/Rust/Bun/no-Python sequence and verification CLI. `check-native.sh` already invokes Rust `soda-candidate-check` with the candidate, architecture and exact revisions; only actual moved selectors require rebinding. |
 | Former `scripts/{check-ruff-format,check-ruff,check-py-complexity,ruff-env}.sh`, `pyproject.toml`, `requirements-ruff.txt` | These Python-only tool inputs are already absent at the audit pin; they have no successor or remaining deletion task. Retain current source gates and do not recreate Ruff tooling. |
 | `docs/development/python.md` | Retain its current active Python-elimination and gate contract at the same path. Its earlier tooling-guide content is gone; the remaining canonical policy document is not dead code. Correct stale Python setup/tooling labels in the owning development indexes during separately scoped guidance upkeep. |
 

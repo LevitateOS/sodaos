@@ -14,7 +14,12 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
-Last maintained: **2026-10-05**. The latest coverage pass accounts for all
+Last maintained: **2026-10-06**. The execution schedule now provides
+[parallel implementation lanes](implementation-lanes.md) and a
+[dependency-ordered task list](implementation-tasks.md), prepared against
+`de65ff68`. That checkout's delta from the audit source is documentation only;
+this scheduling update does not advance the audit or historical structural
+baseline and does not start implementation. The latest coverage pass accounts for all
 **1,719 tracked paths** and their mixed responsibilities across **80 candidate
 review slices**, at `0d8d3b8ebb5a7df36759685529f27f417d96fac8`. The complete
 proposed tree, package counts and historical decomposition use the structural
@@ -112,6 +117,8 @@ single-file plan has been split without executing the proposed code refactor.
 | [Complete proposed tree](proposed-tree.md) | The entire desired repository tree, including this plan folder |
 | [Decomposition index](decomposition/README.md) | Historical oversized-file concern reviews, grouped by source component |
 | [Integration](integration.md) | Retained documents/data, wiring changes and review/implementation limits |
+| [Implementation lanes](implementation-lanes.md) | Three-worker scheduling, exclusive file ownership, shared integration and verification order |
+| [Implementation tasks](implementation-tasks.md) | 27 primary work packets covering all 80 slices, shared extraction and precise dependent gates |
 | [Slice catalog](slices/README.md) | All 80 candidate review slices in nine capability groups |
 | [Review input baseline](review-baseline.md) | Exact source commit, committed delta scope and byte identities of uncommitted guidance |
 | [Slice review format](review-format.md) | Intended models, review coverage, findings, evidence limits and explicit correction targets |
@@ -135,7 +142,8 @@ explicit target allocations separately. Unresolved questions remain visible and
 block their dependent implementation instructions; review completion never
 authorizes executing the plan.
 
-The review baseline, format and assignments are new H06 planning documents awaiting
-inclusion in a committed source baseline. They are present in the proposed tree;
-the pinned
-1,719-path inventory continues to describe `0d8d3b8e`.
+The two implementation scheduling documents are new H06 planning additions
+outside the older coverage snapshot and enter the proposed tree immediately.
+The review inputs/records are already committed at the scheduling checkout;
+the pinned 1,719-path inventory continues to describe `0d8d3b8e` rather than
+claiming a full new structural reconciliation.

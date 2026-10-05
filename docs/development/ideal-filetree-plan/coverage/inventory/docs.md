@@ -4,6 +4,14 @@
 
 ## Coverage inventory: docs
 
+Scheduling additions prepared at `de65ff68`, separately from this inventory's
+`0d8d3b8e` source snapshot:
+[implementation-lanes.md](../../implementation-lanes.md) and
+[implementation-tasks.md](../../implementation-tasks.md) belong to
+[H06 documentation upkeep](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure).
+Both enter the desired tree immediately. The scheduling checklist does not
+change the reviewed implementation scope or certify its behavior.
+
 Pending planning additions outside this committed snapshot:
 [review-baseline.md](../../review-baseline.md),
 [review-format.md](../../review-format.md) and

@@ -186,6 +186,10 @@ Cross-slice priorities for the intended-model review:
 
 ### Coverage navigation
 
+- The [implementation tasks](../implementation-tasks.md) map every catalog
+  slice to one primary packet; [parallel lanes](../implementation-lanes.md)
+  route shared files to one writer. These H06 scheduling additions are recorded
+  separately from this coverage snapshot in the documentation inventory.
 - [Tracked-file inventories](inventory/README.md) list each recorded path once.
 - [Responsibility maps](maps/README.md) retain the deeper resolution for mixed and oversized files.
 - [Slice catalog](../slices/README.md) describes the candidate review owners.

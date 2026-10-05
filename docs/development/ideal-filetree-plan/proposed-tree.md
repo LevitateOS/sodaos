@@ -793,6 +793,8 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   │   ├── server-and-state.md
 │   │   │   │   └── verification-and-support.md
 │   │   │   ├── ideal-filetree-plan.md
+│   │   │   ├── implementation-lanes.md
+│   │   │   ├── implementation-tasks.md
 │   │   │   ├── integration.md
 │   │   │   ├── maintenance.md
 │   │   │   ├── package-ownership.md

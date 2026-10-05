@@ -24,6 +24,10 @@ baseline. A planning update never starts the deferred refactor.
    files. Keep pending-branch observations separate from merged-source coverage.
 3. Update the complete desired tree, package ownership, port recommendations,
    affected concern notes, source references and coverage counts together.
+   Refresh the [implementation tasks](implementation-tasks.md) and
+   [lane schedule](implementation-lanes.md): remove already-landed ports/tasks,
+   update exact handoffs and dependencies, and retain separate M/C/V and native
+   readiness. A completed move does not close a correctness finding.
    Account for additions, deletions, renamed files, changed large-file seams
    and any actual new process boundary. Do not infer sidecars from package splits.
 4. Remove proposals already implemented or superseded and mark unsettled choices
@@ -86,7 +90,10 @@ itself as documented there. Pinning inputs does not start the audit.
 
 Keep implementation deferred until the owner selects work that fits available
 time. Before that work starts, reconcile this plan against current source and
-resolve the affected ownership/language choices. Select a small, coherent
+resolve the affected ownership/language choices. Use the
+[task list](implementation-tasks.md) and [parallel lanes](implementation-lanes.md)
+to select ready work, give shared files one writer and integrate actual wiring.
+Select a small, coherent
 boundary including its real callers, manifests, tests and installation wiring;
 do not begin the entire repository migration merely because the plan exists.
 Replace proposed seams with implemented paths as work lands, remove obsolete

@@ -79,6 +79,13 @@ Locks, complete data fixtures, attribution and canonical documentation owners ar
 
 ## Review and implementation boundary
 
+The [implementation task list](implementation-tasks.md) covers all 80 slices
+through 27 primary packets and a shared extraction packet. Its
+[parallel schedule](implementation-lanes.md) gives three workers and the
+coordinator exclusive shared-file handoffs, dependency order and progressively
+larger verification. These are deferred execution instructions under later
+matching authorization, not a source change or new runtime proof.
+
 The [80-slice source audit](reviews/README.md#completed-source-audit-coverage)
 closes responsibility, established workflow, independent challenge and exact
 selected target dimensions at `f7e9cf9d`. Its corrections remain proposed and
@@ -112,14 +119,16 @@ inventory. The latest coverage ledger accounts for all 1,719 tracked paths at
 five-file source delta and documentation split are reconciled; unchanged code
 reuses its earlier inspection. No tests or native operations were run for upkeep.
 
-The primary tree now contains 2,531 unique leaves after excluding 11 obsolete
+The primary tree now contains 2,533 unique leaves after excluding 11 obsolete
 proposals found by the coverage pass and replacing the single plan document
 with its 122 Markdown sections and adding the new settlement test
 at its existing Go package destination, shared review inputs, actual slice records
 the active Python-elimination policy document formerly omitted as old tooling,
-and explicit active Muse/shared factory lifecycle modules in the Rust host.
-The plan folder now has 206 maintained Markdown documents. The new review
-documents are planning additions outside the pinned committed inventory. The
+and explicit active Muse/shared factory lifecycle modules in the Rust host,
+plus the two current implementation scheduling documents.
+The plan folder now has 208 maintained Markdown documents. The review and
+scheduling documents are planning additions outside the older pinned coverage
+inventory; their current tracked status does not advance that inventory. The
 tree retains
 27 Cargo package manifests plus the root workspace manifest. These counts include proposed native
 entrypoints and concern splits, not measured final implementation sizes. Full

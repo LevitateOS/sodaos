@@ -164,13 +164,13 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | `internal/release/**` (Go implementation/tests) | Retire at release cutover; owners are `lib/soda-release-*` |
 | `assets/branding/forgejo/forgejo-payload.json` | `frontend/forgejo/payload.json`; this is the current live manifest at f7. Move all actual loaders, build/stage inputs and fixtures with it; preserve installed destinations and the full intentional page overrides. The former Go release manifest path is a historical predecessor, with no separate future leaf. |
 | `tools/soda-build/**`, `tools/soda-candidate/**`, `tools/soda-artifacts/**` | Retire at release cutover; owner is `lib/soda-release-tools` |
-| `tests/build/*.py`, `tests/installed/*.py` | Retire at PR42; Go successors already landed |
-| `project-os/.../project-account`, `project-factory-roles` (extensionless Python) | Rust entrypoints/modules in the existing project-terminal package; compiled installed paths unchanged; source cutover pending |
+| Historical `tests/build/*.py`, `tests/installed/*.py` | Already absent at the scheduling source; preserve current Go/Rust test subjects, not another Python port/deletion task |
+| Historical `project-os/.../project-account`, `project-factory-roles` (extensionless Python) | Already replaced by compiled Rust helpers; fold existing crates into the Project-terminal package, preserving compiled installed paths and actual helper tests |
 | `internal/acceptance/process.go` | Retire; do not create `internal/process` or `process_command.go` |
 | `internal/acceptance/evidence.go` | Retire Evidence; fold live PrivateFile into existing `internal/acceptance/installed.go` input support |
 | `internal/platform/platform.go` | Retire with Go native callers; retain fixed installed paths at actual Rust configuration/unit admission owners |
 | `tests/build/{project_os_observation,project_keys,terminal}_test.go` | Retire guards that pin obsolete Go/Python file existence; retain actual Rust behavior tests |
-| `tools/soda-candidate-check/main.go` | Rust `lib/soda-release-tools/src/bin/soda-candidate-check.rs` plus `candidate_check.rs`; preserve the existing verification CLI |
+| Historical `tools/soda-candidate-check/main.go` | Already absent; current Rust `soda-release-tools` binary and `check_cli` owner move/split under `lib/`; preserve the existing verification CLI, no new port |
 | `rust/soda-identity/src/main.rs` | `cmd/soda-identity/src/main.rs`, `cmd/soda-identity/src/service.rs` |
 | `frontend/spaces/sodaspaces-widths.ts` | Retire the unused predecessor utility; no target leaf. [S03](reviews/S03.md#s03-q2-independent-retirement-disposition) and its independent challenge found definitions only, no production imports or build entry. Active workspace layout and geometry remain with their current owner. |
 | `rust/soda-release-build/src/{progress,clock}.rs` and exclusive progress oracle/support duties | Retire the unused mirrored closure; no target leaves for progress, build_execution, clock, progress/tests, oracle/progress or support/buffer. [D03](reviews/D03.md) and A's independent source/caller challenge support this exact disposition. Current release-tools progress and release-image Runner remain. |
