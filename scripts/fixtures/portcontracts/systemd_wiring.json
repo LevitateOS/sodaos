@@ -1,7 +1,5 @@
 {
   "installed_paths": [
-    "project-os/rootfs/usr/libexec/soda/project-account",
-    "project-os/rootfs/usr/libexec/soda/project-factory-roles",
     "project-os/rootfs/usr/libexec/soda/project-init"
   ],
   "units": [

@@ -29,6 +29,18 @@ func TestFoundationRecipeDeclaresNativeDevelopmentFoundation(t *testing.T) {
 	Check(t, !strings.Contains(recipe, "dnf upgrade"), "dnf upgrade present")
 }
 
+func TestFoundationRecipeStagesCompiledProjectHelpers(t *testing.T) {
+	recipe := ReadFile(t, "project-os/Containerfile")
+	for _, helper := range []string{"project-terminal", "project-account", "project-factory-roles"} {
+		Check(t, strings.Contains(recipe,
+			"COPY ${ARTIFACT_DIR}/project-tools/bin/"+helper+" /usr/libexec/soda/"+helper),
+			"COPY stage missing for %s", helper)
+	}
+	Check(t, strings.Contains(recipe,
+		"chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account /usr/libexec/soda/project-factory-roles"),
+		"helper mode line missing")
+}
+
 func TestFoundationInstalledProbeRequiresScopeBeforeWrites(t *testing.T) {
 	script := filepath.Join(RepoRoot, "tests/installed/project-foundation.sh")
 	result := Run(t, RunOpt{}, "/bin/sh", "-n", script)
