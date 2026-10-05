@@ -66,7 +66,6 @@ pub const IDENTITY_LAUNCH_PATH: &str = "/identity/launch";
 /// Provider/kind discriminators from `internal/identity/types.go`.
 pub const PROVIDER_CODEX: &str = "codex";
 pub const PROVIDER_MUSE: &str = "muse";
-pub const PROVIDER_MUSE_CODE: &str = "muse-code";
 pub const KIND_FACTORY: &str = "factory";
 pub const KIND_TERMINAL: &str = "terminal";
 /// Muse project-execution scope carried in broker bindings.

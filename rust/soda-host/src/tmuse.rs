@@ -1,6 +1,6 @@
 //! Muse Code CLI factory runner (`muse exec`).
 //!
-//! Parallel runner to tcodex for the `muse-code` harness family: the same
+//! Parallel runner to tcodex for the `muse` harness family: the same
 //! supervised lifecycle (reserve/start/wait/stop/output/capture), a
 //! different guest (the staged static `muse` binary — never the
 //! auto-updating shell launcher), credential (a `META_API_KEY` key file
@@ -64,7 +64,7 @@ pub fn factory_muse_run_paths(
 /// fixed paths. The guest pins the run's harness version.
 pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> {
     run.validate()?;
-    if run.harness != tcodex::FACTORY_HARNESS_MUSE_CODE {
+    if run.harness != tcodex::FACTORY_HARNESS_MUSE {
         return Err(texec::err_denied());
     }
     let (checkout, run_dir, home, muse_home) =
@@ -90,17 +90,17 @@ pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> 
 }
 
 /// `factoryCodexBinding` shape for Muse runs: supervised
-/// factory-muse-code binding check plus derived run paths. The recorded
+/// factory-muse binding check plus derived run paths. The recorded
 /// credential root must equal the derived run directory.
 pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
     let Some(b) = &lease.binding else {
         return Err(texec::err_denied());
     };
-    if lease.provider_id != texec::PROVIDER_MUSE_CODE || lease.kind != KIND_FACTORY {
+    if lease.provider_id != texec::PROVIDER_MUSE || lease.kind != KIND_FACTORY {
         return Err(texec::err_denied());
     }
     if b.kind != KIND_FACTORY
-        || b.scope != tcodex::FACTORY_SCOPE_MUSE_CODE
+        || b.scope != tcodex::FACTORY_SCOPE_MUSE
         || !texec::valid_terminal_id(&b.id)
     {
         return Err(texec::err_denied());
@@ -337,7 +337,7 @@ impl<E: Executor> Service<E> {
                     login: run.role.clone(),
                     uid,
                     gid,
-                    scope: tcodex::FACTORY_SCOPE_MUSE_CODE.to_string(),
+                    scope: tcodex::FACTORY_SCOPE_MUSE.to_string(),
                     invocation_id: invocation,
                     credential_root: p.run_dir.clone(),
                     generation: lease.generation,
@@ -658,7 +658,7 @@ impl<E: Executor> Service<E> {
     /// `Service.FactoryCodexLive` shape for Muse runs.
     pub fn factory_muse_live(&self, binding: &Binding, deadline: Instant) -> bool {
         if binding.kind != KIND_FACTORY
-            || binding.scope != tcodex::FACTORY_SCOPE_MUSE_CODE
+            || binding.scope != tcodex::FACTORY_SCOPE_MUSE
             || !texec::valid_terminal_id(&binding.id)
             || !texec::valid_terminal_id(&binding.invocation_id)
         {
@@ -680,7 +680,7 @@ impl<E: Executor> Service<E> {
         deadline: Instant,
     ) -> Result<FactoryMusePaths, String> {
         if binding.kind != KIND_FACTORY
-            || binding.scope != tcodex::FACTORY_SCOPE_MUSE_CODE
+            || binding.scope != tcodex::FACTORY_SCOPE_MUSE
             || !texec::valid_terminal_id(&binding.id)
         {
             return Err(texec::err_denied());
@@ -916,7 +916,7 @@ mod tests {
             project: PID.to_string(),
             role: ROLE.to_string(),
             preparation: PREP.to_string(),
-            harness: tcodex::FACTORY_HARNESS_MUSE_CODE.to_string(),
+            harness: tcodex::FACTORY_HARNESS_MUSE.to_string(),
             harness_vers: "1.4.2".to_string(),
             model: "muse-spark-1.3".to_string(),
             assignment: PIN.to_string(),
@@ -931,7 +931,7 @@ mod tests {
 
     fn muse_lease() -> Lease {
         Lease {
-            provider_id: texec::PROVIDER_MUSE_CODE.to_string(),
+            provider_id: texec::PROVIDER_MUSE.to_string(),
             id: "lease-f".to_string(),
             connection_id: "conn".to_string(),
             generation: 5,
@@ -946,7 +946,7 @@ mod tests {
                 login: ROLE.to_string(),
                 uid: 1001,
                 gid: 1001,
-                scope: tcodex::FACTORY_SCOPE_MUSE_CODE.to_string(),
+                scope: tcodex::FACTORY_SCOPE_MUSE.to_string(),
                 invocation_id: IID.to_string(),
                 credential_root: muse_run_dir(),
                 generation: 5,
@@ -1216,7 +1216,7 @@ mod tests {
         assert_eq!(binding.project, CID);
         assert_eq!(binding.login, ROLE);
         assert_eq!((binding.uid, binding.gid), (1001, 1002));
-        assert_eq!(binding.scope, tcodex::FACTORY_SCOPE_MUSE_CODE);
+        assert_eq!(binding.scope, tcodex::FACTORY_SCOPE_MUSE);
         assert_eq!(binding.invocation_id, IID);
         assert_eq!(binding.credential_root, p.run_dir);
         assert_eq!(binding.generation, 5);
@@ -1272,7 +1272,7 @@ mod tests {
         let (binding, _) = svc
             .factory_muse_reserve(&run, &lease, PIN, 600, deadline())
             .unwrap();
-        assert_eq!(binding.scope, tcodex::FACTORY_SCOPE_MUSE_CODE);
+        assert_eq!(binding.scope, tcodex::FACTORY_SCOPE_MUSE);
         let calls = svc.exec.calls();
         assert_eq!(calls.len(), 10);
         assert_eq!(calls[6].2[1], "cp");

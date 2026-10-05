@@ -28,14 +28,14 @@ pub const FACTORY_SCOPE_CODEX: &str = "factory-codex";
 /// First harness family.
 pub const FACTORY_HARNESS_CODEX: &str = "codex";
 /// Fixed factory execution discriminator for supervised Muse Code runs.
-pub const FACTORY_SCOPE_MUSE_CODE: &str = "factory-muse-code";
-/// Muse Code CLI harness family (`muse exec` runs). Distinct from the
-/// native "muse" provider, which is a different adapter.
-pub const FACTORY_HARNESS_MUSE_CODE: &str = "muse-code";
+pub const FACTORY_SCOPE_MUSE: &str = "factory-muse";
+/// Muse Code CLI harness family (`muse exec` runs backed by the native
+/// "muse" provider).
+pub const FACTORY_HARNESS_MUSE: &str = "muse";
 
 /// Supported supervised CLI families.
 pub fn valid_harness_family(family: &str) -> bool {
-    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE_CODE
+    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE
 }
 /// Fixed factory role logins.
 pub const ROLE_CODER: &str = "soda-coder";
@@ -1669,7 +1669,7 @@ impl<E: Executor> Service<E> {
             .lease
             .binding
             .as_ref()
-            .is_some_and(|b| b.scope == FACTORY_SCOPE_MUSE_CODE);
+            .is_some_and(|b| b.scope == FACTORY_SCOPE_MUSE);
         match action {
             "validate" if muse => self.factory_muse_validate(&delivery.lease, deadline)?,
             "validate" => self.factory_codex_validate(&delivery.lease, deadline)?,

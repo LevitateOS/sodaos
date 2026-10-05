@@ -1,4 +1,4 @@
-// The muse-code factory runner (rust/soda-host/src/tmuse.rs) drives headless
+// The muse factory runner (rust/soda-host/src/tmuse.rs) drives headless
 // `muse exec` with a fixed argv and a stream contract: stdout carries exactly
 // the final answer, diagnostics go to stderr, exit 0 marks success, and a
 // rejected META_API_KEY fails fast with exit 1. This test pins that contract

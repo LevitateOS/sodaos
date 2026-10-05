@@ -443,7 +443,7 @@ func (fx *st15Fixture) setupHostStack() error {
 	var auth []byte
 	if credentialPath == "" {
 		fx.synthetic = true
-		auth = []byte(`{"api_key":"ST15-SYNTHETIC-NONCREDENTIAL"}`)
+		auth = []byte(`{"schema_version":1,"providers":{},"st15_synthetic":true}`)
 	} else {
 		raw, err := os.ReadFile(credentialPath)
 		if err != nil {
@@ -455,7 +455,7 @@ func (fx *st15Fixture) setupHostStack() error {
 	if !identity.CredentialValid(auth) {
 		return errors.New("provider credential unusable")
 	}
-	conn := identity.Connection{ID: "st15-muse-code", ProviderID: identity.MuseCode, OwnerID: fx.cfg.CreatorID, Label: "st15-fixture", State: identity.Ready, Generation: 1}
+	conn := identity.Connection{ID: "st15-muse", ProviderID: identity.Muse, OwnerID: fx.cfg.CreatorID, Label: "st15-fixture", State: identity.Ready, Generation: 1}
 	if err = brokerDB.IdentitySaveConnection(fx.ctx, conn, auth); err != nil {
 		return err
 	}
@@ -577,7 +577,7 @@ func (fx *st15Fixture) setupHostStack() error {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	t.Logf("ST15 host stack: container %.12s image %.16s harness muse-code-%s project-os %s",
+	t.Logf("ST15 host stack: container %.12s image %.16s harness muse-%s project-os %s",
 		strings.TrimSpace(string(id)), fx.image, fx.versions, strings.TrimSpace(string(osRelease)))
 	if pin.Version != fx.versions {
 		return fmt.Errorf("harness pin %q differs from staged %q", pin.Version, fx.versions)
