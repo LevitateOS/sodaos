@@ -197,6 +197,15 @@ pub struct HooksSeam {
     broker: crate::iclient::BrokerClient,
 }
 
+impl HooksSeam {
+    /// The binary builds launch-time hooks from the same broker socket.
+    pub fn new(broker_socket: &str) -> Self {
+        HooksSeam {
+            broker: crate::iclient::BrokerClient::new(broker_socket),
+        }
+    }
+}
+
 type Factory = pfactory::Factory<project::Native, TerminalSeam, BrokerSeam>;
 
 /// The real daemon backend. All runtimes share one native executor; the
@@ -264,6 +273,20 @@ impl DaemonBackend {
     /// Go `factoryRun`: lazily open supervised run orchestration over the
     /// protected receipt root. Failures (including a missing root) report
     /// `Unavailable`, matching Go's 503.
+    /// Companion phase helpers for the `--tailnet-action` CLI surface
+    /// (Go `runTailnetAction` over `NewCompanionDaemon`).
+    pub fn companion_start(&self, project: &str, deadline: Instant) -> Result<String, String> {
+        self.companion.start_tailnet(project, deadline)
+    }
+
+    pub fn companion_wait(&self, cid: &str, deadline: Instant) -> Result<(), String> {
+        self.companion.wait_tailnet(cid, deadline)
+    }
+
+    pub fn companion_stop(&self, project: &str, deadline: Instant) -> Result<(), String> {
+        self.companion.stop_tailnet(project, deadline)
+    }
+
     fn factory(&self) -> Result<&Factory, BackendError> {
         self.factory
             .get_or_init(|| {
