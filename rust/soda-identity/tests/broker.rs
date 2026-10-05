@@ -303,6 +303,59 @@ fn enrollment_to_lease_lifecycle() {
 }
 
 #[test]
+fn muse_lease_returns_by_forget() {
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    // The factory seeds the muse connection from file; enrollment plays
+    // no part in the lease cycle under test.
+    let store = fixture.store(&fixture_key());
+    let conn = connection("muse", 1, "conn-muse");
+    store.save_connection(&conn, &subscription()).unwrap();
+    let mut providers: HashMap<String, Box<dyn control::Provider>> = HashMap::new();
+    providers.insert("muse".to_string(), Box::new(stub_provider()));
+    let broker = Controller::new(
+        store,
+        providers,
+        Box::new(StubRuntime {
+            credential: subscription(),
+            calls: Mutex::new(Vec::new()),
+        }),
+    )
+    .unwrap();
+    let deadline = UnixTime {
+        sec: UnixTime::now().sec + 3600,
+        nanos: 0,
+    };
+    let lease = broker
+        .acquire(&AcquireRequest {
+            repository_id: 0,
+            provider_id: "muse".to_string(),
+            execution_id: "execution-muse".to_string(),
+            actor_id: 1,
+            connection_id: conn.id.clone(),
+            project_id: "project".to_string(),
+            kind: "factory".to_string(),
+            deadline,
+            role: String::new(),
+        })
+        .unwrap();
+    let (registered, credential) = broker.register(&lease.id, &binding("factory", 1)).unwrap();
+    assert_eq!(credential, subscription());
+    assert!(registered.binding.is_some());
+    broker
+        .return_lease(&lease.id, &binding("factory", 1), &subscription())
+        .unwrap();
+    // Borrow, not rotation: the connection generation is untouched, the
+    // lease is forgotten, the execution is terminal.
+    assert_eq!(broker.connections(1).unwrap()[0].generation, 1);
+    assert!(broker.leases(1, &conn.id).unwrap().is_empty());
+    let execution = broker.get_execution("factory", "execution-muse").unwrap();
+    assert_eq!(execution.state, "terminal");
+}
+
+#[test]
 fn close_execution_fences_late_registration() {
     let Some(fixture) = Ephemeral::create() else {
         eprintln!("SODA_PG_* fixture unavailable");

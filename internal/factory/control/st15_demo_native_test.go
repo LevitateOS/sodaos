@@ -306,6 +306,19 @@ func st15FakeCodex(t *testing.T, dir string) (binary, sum string) {
 	return binary, st15SHA256([]byte(script))
 }
 
+// st15FakeMuse registers the broker's muse provider the same way: the
+// fake answers the pinned version line the adapter requires at
+// construction. The journey never enrolls through it (the credential is
+// seeded from file); registration only satisfies the acquire-time
+// provider gate for the st15-muse connection.
+func st15FakeMuse(t *testing.T, dir string) (binary, sum string) {
+	t.Helper()
+	binary = filepath.Join(dir, "muse-fixture")
+	script := "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'Muse Code 1.4.0 (1.4.0-R4161.1)'; exit 0; fi\necho unexpected >&2\nexit 1\n"
+	nativeMust(t, os.WriteFile(binary, []byte(script), 0o700))
+	return binary, st15SHA256([]byte(script))
+}
+
 func st15WaitSocket(t *testing.T, path string) {
 	t.Helper()
 	deadline := time.Now().Add(15 * time.Second)
@@ -528,6 +541,11 @@ func (fx *st15Fixture) setupHostStack() error {
 	if err := os.MkdirAll(codexRoot, 0o700); err != nil {
 		return err
 	}
+	museBinary, museSum := st15FakeMuse(t, scratch)
+	museRoot := filepath.Join(st15TmpfsRoot(t), "muse")
+	if err := os.MkdirAll(museRoot, 0o700); err != nil {
+		return err
+	}
 	settings, err := json.Marshal(map[string]any{
 		"database_dsn_file": dsnFile,
 		"key_file":          keyFile,
@@ -537,7 +555,9 @@ func (fx *st15Fixture) setupHostStack() error {
 		"codex": map[string]any{
 			"binary": codexBinary, "version": "0.153.4", "sha256": codexSum, "root": codexRoot,
 		},
-		"muse": map[string]any{},
+		"muse": map[string]any{
+			"binary": museBinary, "version": "1.4.0-R4161.1", "sha256": museSum, "root": museRoot,
+		},
 	})
 	if err != nil {
 		return err
