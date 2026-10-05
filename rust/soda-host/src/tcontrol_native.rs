@@ -33,6 +33,11 @@ const UP_TIMEOUT: Duration = Duration::from_secs(8);
 pub type Transport =
     dyn Fn(&str, &str, Option<&[u8]>, Instant) -> Result<(u16, Vec<u8>), String> + Send + Sync;
 
+/// Borrowed LocalAPI round trip for function parameters: any closure or
+/// stub, with no auto-trait bounds and no `'static` requirement.
+pub type RoundTrip<'a> =
+    &'a (dyn Fn(&str, &str, Option<&[u8]>, Instant) -> Result<(u16, Vec<u8>), String> + 'a);
+
 /// Apply Go's `request` rules: status must be 200/204 and the body capped.
 pub fn finish_local(status: u16, body: &[u8]) -> Result<Vec<u8>, String> {
     if body.len() > RESPONSE_LIMIT || (status != 200 && status != 204) {
@@ -69,7 +74,9 @@ pub fn local_request(
     stream
         .write_all(head.as_bytes())
         .map_err(|_| wire::err_unavailable())?;
-    stream.write_all(payload).map_err(|_| wire::err_unavailable())?;
+    stream
+        .write_all(payload)
+        .map_err(|_| wire::err_unavailable())?;
     // Close-delimited read with a total cap (headers plus the 64 KiB body).
     let mut raw = Vec::new();
     let mut chunk = [0u8; 8192];
@@ -388,7 +395,7 @@ pub fn decode_native_prefs(data: &[u8]) -> Result<NativePrefs, String> {
 // ---------- Observation ----------
 
 fn round_trip(
-    transport: &Transport,
+    transport: RoundTrip<'_>,
     method: &str,
     path: &str,
     body: Option<&[u8]>,
@@ -399,7 +406,7 @@ fn round_trip(
 }
 
 pub fn fetch_native_status(
-    transport: &Transport,
+    transport: RoundTrip<'_>,
     deadline: Instant,
 ) -> Result<NativeStatus, String> {
     let data = round_trip(transport, "GET", "status", None, deadline)?;
@@ -419,11 +426,13 @@ pub fn fetch_native_status(
     Ok(s)
 }
 
-pub fn fetch_native_prefs(transport: &Transport, deadline: Instant) -> Result<NativePrefs, String> {
+pub fn fetch_native_prefs(
+    transport: RoundTrip<'_>,
+    deadline: Instant,
+) -> Result<NativePrefs, String> {
     let data = round_trip(transport, "GET", "prefs", None, deadline)?;
     let p = decode_native_prefs(&data)?;
-    if p.advertise_routes.as_ref().map(Vec::len).unwrap_or(0) > 128 || p.exit_node_id.len() > 128
-    {
+    if p.advertise_routes.as_ref().map(Vec::len).unwrap_or(0) > 128 || p.exit_node_id.len() > 128 {
         return Err(wire::err_unavailable());
     }
     if !p.exit_node_ip.is_empty() && !wire::parseable_addr(&p.exit_node_ip) {
@@ -456,11 +465,7 @@ fn populate_host_preferences(p: &NativePrefs) -> Result<wire::HostPreferences, S
 /// Host revision: sha256 over Go's exact revision-document encoding.
 /// Revision covers identity/state/preferences, not volatile peer or health
 /// polling.
-pub fn compute_host_revision(
-    s: &NativeStatus,
-    view: &wire::HostView,
-    p: &NativePrefs,
-) -> String {
+pub fn compute_host_revision(s: &NativeStatus, view: &wire::HostView, p: &NativePrefs) -> String {
     let q = crate::json::quote;
     let mut addrs = String::from("[");
     for (i, a) in view.addresses.iter().enumerate() {
@@ -502,7 +507,7 @@ pub fn compute_host_revision(
 
 /// Observe the host view plus the raw native auth URL, mirroring `observe`.
 pub fn observe(
-    transport: &Transport,
+    transport: RoundTrip<'_>,
     deadline: Instant,
 ) -> Result<(wire::HostView, String), String> {
     let s = fetch_native_status(transport, deadline)?;
@@ -696,7 +701,7 @@ fn socket_arg(socket: &Path) -> String {
 }
 
 pub fn execute_signin(
-    transport: &Transport,
+    transport: RoundTrip<'_>,
     exec: &dyn crate::project::Executor,
     cli: &str,
     socket: &Path,
@@ -723,17 +728,12 @@ pub fn execute_signin(
     } else {
         let wait = deadline.min(Instant::now() + UP_TIMEOUT);
         let arg = socket_arg(socket);
-        let data = run_command(
-            exec,
-            cli,
-            &[&arg, "up", "--json", "--timeout=5s"],
-            wait,
-        )?;
+        let data = run_command(exec, cli, &[&arg, "up", "--json", "--timeout=5s"], wait)?;
         decode_up_notifications(&data)
     }
 }
 
-pub fn execute_logout(transport: &Transport, deadline: Instant) -> Result<(), String> {
+pub fn execute_logout(transport: RoundTrip<'_>, deadline: Instant) -> Result<(), String> {
     round_trip(transport, "POST", "logout", None, deadline)?;
     Ok(())
 }
@@ -752,7 +752,6 @@ pub fn find_available_exit_node(peers: &[wire::Peer], target_ip: &str) -> Option
 }
 
 pub fn execute_exit_node(
-    transport: &Transport,
     exec: &dyn crate::project::Executor,
     cli: &str,
     socket: &Path,
@@ -795,7 +794,12 @@ pub fn execute_refresh_forgejo(
     libexec: &str,
     deadline: Instant,
 ) -> Result<(), String> {
-    run_command(exec, &format!("{libexec}/soda-forgejo-tailnet"), &[], deadline)?;
+    run_command(
+        exec,
+        &format!("{libexec}/soda-forgejo-tailnet"),
+        &[],
+        deadline,
+    )?;
     Ok(())
 }
 
@@ -821,7 +825,9 @@ pub fn verify_host_action_outcome(
         "signin" => after.preferences.want_running,
         "logout" => after.state == "NeedsLogin",
         "exit-node" => verify_exit_node(r, after, selected),
-        "advertise-exit-node" => after.preferences.advertise_exit_node == r.advertise.unwrap_or(false),
+        "advertise-exit-node" => {
+            after.preferences.advertise_exit_node == r.advertise.unwrap_or(false)
+        }
         _ => true,
     }
 }
@@ -829,7 +835,7 @@ pub fn verify_host_action_outcome(
 /// Re-observe after a host action and classify the outcome, mirroring
 /// `readbackHostAction`. `action_err` carries the execution failure, if any.
 pub fn readback_host_action(
-    transport: &Transport,
+    transport: RoundTrip<'_>,
     r: &wire::HostRequest,
     selected: &str,
     action_err: Option<String>,
@@ -841,9 +847,7 @@ pub fn readback_host_action(
     };
     match observe(transport, deadline) {
         Ok((after, auth)) => {
-            if action_err.is_some() {
-                result.outcome = "unconfirmed".to_string();
-            } else if !verify_host_action_outcome(r, &after, selected) {
+            if action_err.is_some() || !verify_host_action_outcome(r, &after, selected) {
                 result.outcome = "unconfirmed".to_string();
             }
             if r.action == "signin" {
@@ -889,7 +893,11 @@ pub struct CliEndpoint {
 }
 
 fn last_field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
-    fields.iter().rev().find(|(k, _)| fold_eq(k, name)).map(|(_, v)| v)
+    fields
+        .iter()
+        .rev()
+        .find(|(k, _)| fold_eq(k, name))
+        .map(|(_, v)| v)
 }
 
 fn tolerant_string(fields: &[(String, Value)], name: &str) -> Result<String, String> {
@@ -908,7 +916,7 @@ fn tolerant_bool(fields: &[(String, Value)], name: &str) -> Result<bool, String>
     }
 }
 
-fn tolerant_object<'a>(fields: &'a [(String, Value)], name: &str) -> Result<Vec<(String, Value)>, String> {
+fn tolerant_object(fields: &[(String, Value)], name: &str) -> Result<Vec<(String, Value)>, String> {
     match last_field(fields, name) {
         None | Some(Value::Null) => Ok(Vec::new()),
         Some(Value::Object(inner)) => Ok(inner.clone()),
@@ -977,7 +985,12 @@ pub fn cli_status(
 ) -> Result<CliStatus, String> {
     let output = match exec.run(&[], cli, &["status", "--json"], deadline) {
         Ok(out) => out,
-        Err(e) => return Err(format!("{}: {cli} status --json: {e}", wire::err_unavailable())),
+        Err(e) => {
+            return Err(format!(
+                "{}: {cli} status --json: {e}",
+                wire::err_unavailable()
+            ))
+        }
     };
     parse_cli_status(&output)
 }
@@ -1004,4 +1017,41 @@ pub fn cli_endpoint(
         identity,
         ipv4: status.ipv4,
     })
+}
+
+// ---------- Run status ----------
+//
+// Mirror of `project_runtime.go`'s `RunStatus` (currently without in-repo
+// callers, like in Go).
+
+/// Native-only run state projection: public binding metadata plus the
+/// run's own connectivity. Never carries credentials or bearer tokens.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RunStatus {
+    pub enabled: bool,
+    pub admission: bool,
+    pub tailnet: String,
+    pub tags: Vec<String>,
+    pub addresses: Vec<String>,
+    pub dns_name: String,
+}
+
+impl RunStatus {
+    /// Mirror of `RunStatus.Valid`.
+    pub fn validate(&self) -> Result<(), String> {
+        if !self.enabled && self.admission {
+            return Err(wire::err_unavailable());
+        }
+        if !wire::valid_network(&self.tailnet) {
+            return Err(wire::err_unavailable());
+        }
+        if wire::validate_enrollment_tags(&self.tags).is_err() {
+            return Err(wire::err_unavailable());
+        }
+        wire::check_addresses(&self.addresses)?;
+        if !self.dns_name.is_empty() {
+            wire::canonical_magic_dns_name(&self.dns_name)?;
+        }
+        Ok(())
+    }
 }

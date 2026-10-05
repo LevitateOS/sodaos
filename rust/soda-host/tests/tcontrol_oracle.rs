@@ -7,9 +7,6 @@
 //!
 //! Test state lives under `target/tcontrol-test/` (never `/tmp`).
 
-mod domain {
-    pub use soda_host::domain::*;
-}
 mod json {
     pub use soda_host::json::*;
 }
@@ -26,12 +23,18 @@ mod tailnet_domain {
     pub use soda_host::tailnet_domain::*;
 }
 
-#[path = "../src/tcontrol_wire.rs"]
-mod tcontrol_wire;
-#[path = "../src/tcontrol_policy.rs"]
-mod tcontrol_policy;
+#[path = "../src/tcontrol.rs"]
+mod tcontrol;
+#[path = "../src/tcontrol_enroll.rs"]
+mod tcontrol_enroll;
 #[path = "../src/tcontrol_native.rs"]
 mod tcontrol_native;
+#[path = "../src/tcontrol_policy.rs"]
+mod tcontrol_policy;
+#[path = "../src/tcontrol_provider.rs"]
+mod tcontrol_provider;
+#[path = "../src/tcontrol_wire.rs"]
+mod tcontrol_wire;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -42,14 +45,17 @@ static SCRATCH_COUNTER: AtomicU64 = AtomicU64::new(0);
 /// Unique scratch directory under the package `target/` dir.
 fn scratch(name: &str) -> PathBuf {
     let id = SCRATCH_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let dir = PathBuf::from("target/tcontrol-test")
-        .join(format!("{}-{}-{id}", name, std::process::id()));
+    let dir =
+        PathBuf::from("target/tcontrol-test").join(format!("{}-{}-{id}", name, std::process::id()));
     std::fs::create_dir_all(&dir).expect("scratch dir");
     dir
 }
 
+use tcontrol as control;
+use tcontrol_enroll as enroll;
 use tcontrol_native as native;
 use tcontrol_policy as policy;
+use tcontrol_provider as provider;
 use tcontrol_wire as wire;
 
 fn soon(ms: u64) -> Instant {
@@ -94,7 +100,9 @@ fn wire_tag_client_and_network_patterns() {
     assert!(!wire::valid_tag("tag:a_b"));
     assert!(!wire::valid_tag("--flag"));
     assert!(!wire::valid_tag(&format!("tag:a{}", "b".repeat(63))));
-    assert!(wire::valid_client_secret("tskey-client-soda-synthetic-secret"));
+    assert!(wire::valid_client_secret(
+        "tskey-client-soda-synthetic-secret"
+    ));
     assert!(!wire::valid_client_secret("tskey-client-short"));
     assert!(!wire::valid_client_secret(
         "tskey-client-soda-synthetic-secret?baseURL=https://attacker.invalid"
@@ -102,7 +110,9 @@ fn wire_tag_client_and_network_patterns() {
     assert!(!wire::valid_client_secret(
         "tskey-client-soda-synthetic-secret?ephemeral=false"
     ));
-    assert!(!wire::valid_client_secret("tskey-auth-soda-synthetic-secret"));
+    assert!(!wire::valid_client_secret(
+        "tskey-auth-soda-synthetic-secret"
+    ));
     assert!(wire::valid_auth_key("tskey-auth-synthetic-only"));
     assert!(!wire::valid_auth_key("tskey-client-synthetic-only"));
     assert!(wire::valid_client_id("synthetic-client"));
@@ -283,7 +293,10 @@ fn wire_host_request_decode() {
         let e = wire::decode_host_request(bad.as_bytes()).expect_err("accepted");
         assert!(e.contains("invalid request"), "wrong cause: {e}");
     }
-    let big = format!(r#"{{"action":"signin","revision":"{rev}","confirm":"{}"}}"#, "x".repeat(65536));
+    let big = format!(
+        r#"{{"action":"signin","revision":"{rev}","confirm":"{}"}}"#,
+        "x".repeat(65536)
+    );
     assert!(wire::decode_host_request(big.as_bytes()).is_err());
 }
 
@@ -303,10 +316,8 @@ fn wire_enrollment_request_decode() {
     .unwrap();
     assert_eq!(r.tags, None);
     assert_eq!(r.default, None);
-    let r = wire::decode_enrollment_request(
-        br#"{"action":"disable","revision":"0","tags":[]}"#,
-    )
-    .unwrap();
+    let r = wire::decode_enrollment_request(br#"{"action":"disable","revision":"0","tags":[]}"#)
+        .unwrap();
     assert_eq!(r.tags, Some(vec![]));
     for bad in [
         r#"{"action":"save","revision":"0","tags":["tag:a",5]}"#,
@@ -331,7 +342,9 @@ fn wire_project_selection_decode() {
     // not here; only the create-time selection shape is decoded locally.
     let s = wire::decode_project_selection(br#"{"enabled":true,"revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","binding":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}"#).unwrap();
     assert!(s.enabled);
-    assert!(wire::decode_project_selection(br#"{"enabled":true,"revision":"x","nope":1}"#).is_err());
+    assert!(
+        wire::decode_project_selection(br#"{"enabled":true,"revision":"x","nope":1}"#).is_err()
+    );
 }
 
 // ---------- Request validators ----------
@@ -749,7 +762,10 @@ fn wire_encoder_goldens() {
         enrollment: enrollment_view_fixture(),
     }
     .encode();
-    assert!(encoded.contains(r#""tailnet":"a\u003cb\u003e\u0026\"c\"""#), "{encoded}");
+    assert!(
+        encoded.contains(r#""tailnet":"a\u003cb\u003e\u0026\"c\"""#),
+        "{encoded}"
+    );
 }
 
 // ---------- Policy: revisions, reads, checks ----------
@@ -801,7 +817,9 @@ fn policy_rotation_cas_and_secret_projection() {
     let input = enrollment_fixture();
     let first = p.update(soon(5000), &input, &accept_check).unwrap();
     assert!(first.saved && first.validate().is_ok());
-    let e = p.update(soon(5000), &input, &accept_check).expect_err("stale save");
+    let e = p
+        .update(soon(5000), &input, &accept_check)
+        .expect_err("stale save");
     assert!(e.contains("conflict"), "{e}");
     let mut rotate = input.clone();
     rotate.action = "rotate".to_string();
@@ -809,7 +827,9 @@ fn policy_rotation_cas_and_secret_projection() {
     rotate.client_secret = "tskey-client-another-synthetic-secret".to_string();
     let mut bad = rotate.clone();
     bad.tailnet = "other.example.test".to_string();
-    let e = p.update(soon(5000), &bad, &accept_check).expect_err("cross-network");
+    let e = p
+        .update(soon(5000), &bad, &accept_check)
+        .expect_err("cross-network");
     assert!(e.contains("conflict"), "{e}");
     let second = p.update(soon(5000), &rotate, &accept_check).unwrap();
     assert_eq!(second.enrollment.binding, first.enrollment.binding);
@@ -819,8 +839,14 @@ fn policy_rotation_cas_and_secret_projection() {
     assert_eq!(entries.len(), 1);
     for entry in &entries {
         let entry = entry.as_ref().unwrap();
-        assert_eq!(entry.metadata().unwrap().permissions().mode() & 0o777, 0o600);
-        assert!(!entry.file_name().to_string_lossy().starts_with("credential-"));
+        assert_eq!(
+            entry.metadata().unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert!(!entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with("credential-"));
     }
     let active = std::fs::read(dir.join("policy.json")).unwrap();
     let text = String::from_utf8(active).unwrap();
@@ -847,10 +873,13 @@ fn policy_rotation_cas_and_secret_projection() {
 #[test]
 fn policy_does_not_convert_or_delete_retained_credentials() {
     let (p, parent) = policy_store("policy-retained", false);
-    let first = p.update(soon(5000), &enrollment_fixture(), &accept_check).unwrap();
+    let first = p
+        .update(soon(5000), &enrollment_fixture(), &accept_check)
+        .unwrap();
     let dir = parent.join("soda-tailnet");
     let retained = dir.join(format!("credential-{}.json", "a".repeat(32)));
-    let secret = br#"{"client_id":"synthetic-client","secret":"tskey-client-retained-synthetic-secret"}"#;
+    let secret =
+        br#"{"client_id":"synthetic-client","secret":"tskey-client-retained-synthetic-secret"}"#;
     std::fs::write(&retained, secret).unwrap();
     let mut rotate = enrollment_fixture();
     rotate.action = "rotate".to_string();
@@ -865,7 +894,10 @@ fn policy_does_not_convert_or_delete_retained_credentials() {
     text = text.replacen("\"version\":2", "\"version\":1", 1);
     let cred_start = text.find("\"credential\":").unwrap();
     let cred_end = text.rfind('}').unwrap();
-    text.replace_range(cred_start..cred_end, &format!("\"credential\":\"{}\"", "a".repeat(32)));
+    text.replace_range(
+        cred_start..cred_end,
+        &format!("\"credential\":\"{}\"", "a".repeat(32)),
+    );
     std::fs::write(&path, &text).unwrap();
     assert!(p.enrollment(soon(5000)).is_err());
     assert!(p.update(soon(5000), &rotate, &accept_check).is_err());
@@ -878,25 +910,23 @@ fn policy_concurrency_and_cancelled_waiter() {
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Arc;
     let (p, _) = policy_store("policy-conc", false);
-    let seed = p.update(soon(5000), &enrollment_fixture(), &accept_check).unwrap();
+    let seed = p
+        .update(soon(5000), &enrollment_fixture(), &accept_check)
+        .unwrap();
     let mut input = enrollment_fixture();
     input.action = "rotate".to_string();
     input.revision = seed.enrollment.revision;
     let calls = Arc::new(AtomicU32::new(0));
     let run = |p: &policy::PolicyStore, input: &wire::EnrollmentRequest, calls: &Arc<AtomicU32>| {
         let calls = calls.clone();
-        p.update(
-            soon(10000),
-            input,
-            &|_, _| {
-                calls.fetch_add(1, Ordering::SeqCst);
-                Ok(())
-            },
-        )
+        p.update(soon(10000), input, &|_, _| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        })
     };
     let (a, b) = std::thread::scope(|s| {
-        let ha = s.spawn(|| run(&p, &input, &calls).map(|_| ()).map_err(|e| e));
-        let hb = s.spawn(|| run(&p, &input, &calls).map(|_| ()).map_err(|e| e));
+        let ha = s.spawn(|| run(&p, &input, &calls).map(|_| ()));
+        let hb = s.spawn(|| run(&p, &input, &calls).map(|_| ()));
         (ha.join().unwrap(), hb.join().unwrap())
     });
     let (ok, conflict) = [&a, &b].iter().fold((0, 0), |(ok, cf), r| match r {
@@ -927,7 +957,8 @@ fn policy_refuses_unsafe_and_ambiguous_state() {
             std::os::unix::fs::symlink(scratch("policy-link-target"), parent.join("soda-tailnet"))
                 .unwrap();
         } else {
-            p.update(soon(5000), &enrollment_fixture(), &accept_check).unwrap();
+            p.update(soon(5000), &enrollment_fixture(), &accept_check)
+                .unwrap();
             let dir = parent.join("soda-tailnet");
             let path = dir.join("policy.json");
             match kind {
@@ -939,7 +970,8 @@ fn policy_refuses_unsafe_and_ambiguous_state() {
                     std::fs::hard_link(&path, dir.join("policy.json.link")).unwrap();
                 }
                 "permissions" => {
-                    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+                    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644))
+                        .unwrap();
                 }
                 "corrupt" => {
                     std::fs::write(&path, b"{}").unwrap();
@@ -965,19 +997,28 @@ fn policy_refuses_unsafe_and_ambiguous_state() {
 #[test]
 fn policy_publication_failure_neither_rolls_back_nor_replays() {
     let (mut p, _) = policy_store("policy-pubfail", false);
-    let first = p.update(soon(5000), &enrollment_fixture(), &accept_check).unwrap();
+    let first = p
+        .update(soon(5000), &enrollment_fixture(), &accept_check)
+        .unwrap();
     p.sync_hook = Some(Box::new(|| Err("synthetic fsync failure".to_string())));
     let input = wire::EnrollmentRequest {
         action: "disable".to_string(),
         revision: first.enrollment.revision.clone(),
         ..Default::default()
     };
-    let e = p.update(soon(5000), &input, &accept_check).expect_err("accepted");
-    assert!(!e.contains("conflict") && !e.contains("invalid request"), "{e}");
+    let e = p
+        .update(soon(5000), &input, &accept_check)
+        .expect_err("accepted");
+    assert!(
+        !e.contains("conflict") && !e.contains("invalid request"),
+        "{e}"
+    );
     p.sync_hook = None;
     let after = p.enrollment(soon(5000)).unwrap();
     assert!(!after.admission && after.revision != first.enrollment.revision);
-    let e = p.update(soon(5000), &input, &accept_check).expect_err("replayed");
+    let e = p
+        .update(soon(5000), &input, &accept_check)
+        .expect_err("replayed");
     assert!(e.contains("conflict"), "{e}");
 }
 
@@ -1023,7 +1064,9 @@ fn policy_project_disabled_until_runtime_exists() {
         .project(soon(5000), &inspect_req(), &"c".repeat(64))
         .expect_err("adopted");
     assert!(e.contains("conflict"), "{e}");
-    let e = p.project(soon(5000), &disable, &cid).expect_err("dup disable");
+    let e = p
+        .project(soon(5000), &disable, &cid)
+        .expect_err("dup disable");
     assert!(e.contains("conflict"), "{e}");
     // Malformed requests never touch state.
     for bad in [
@@ -1196,7 +1239,9 @@ fn policy_project_closed_admission_has_no_reservation() {
         )
         .expect_err("enabled on closed");
     assert!(e.contains("conflict"), "{e}");
-    let entries: Vec<_> = std::fs::read_dir(parent.join("soda-tailnet")).unwrap().collect();
+    let entries: Vec<_> = std::fs::read_dir(parent.join("soda-tailnet"))
+        .unwrap()
+        .collect();
     assert_eq!(entries.len(), 1);
 }
 
@@ -1219,7 +1264,9 @@ fn policy_project_enable_cas_and_no_implicit_retarget() {
     let mut retarget = enable.clone();
     retarget.revision.clone_from(&first.revision);
     retarget.binding = "f".repeat(32);
-    let e = p.project(soon(5000), &retarget, &cid).expect_err("retarget");
+    let e = p
+        .project(soon(5000), &retarget, &cid)
+        .expect_err("retarget");
     assert!(e.contains("conflict"), "{e}");
     let mut retry = retarget.clone();
     retry.action = "retry".to_string();
@@ -1288,7 +1335,9 @@ fn policy_project_missing_is_off_while_malformed_fails_safely() {
         )
         .expect_err("adopted");
     assert!(e.contains("conflict"), "{e}");
-    let path = parent.join("soda-tailnet").join(format!("project-{project}.json"));
+    let path = parent
+        .join("soda-tailnet")
+        .join(format!("project-{project}.json"));
     std::fs::write(&path, b"{}").unwrap();
     let e = p
         .project(
@@ -1330,10 +1379,7 @@ const GO_REVISION: &str = "c2325fcf010801018acfa617389a67457360b7763a3b7343869ff
 const GO_FRESH_REVISION: &str = "2a70710052e2a0eccf94ce7d4d5051fb35d5ff241253fcd702d7afe92cb3d443";
 const GO_HOSTVIEW: &str = r#"{"tailnet":"soda.example.test","magic_dns_enabled":true,"revision":"c2325fcf010801018acfa617389a67457360b7763a3b7343869ff73f5c4ad304","state":"Running","have_node_key":true,"expired":false,"dns_name":"host.example.ts.net","addresses":["100.64.0.1"],"peers":[{"id":"peer","dns_name":"exit.example.ts.net","addresses":["100.64.0.2"],"online":true,"exit_node":true,"expired":false}],"health_issues":1,"preferences":{"want_running":true,"exit_node_id":"","exit_node_ip":"","allow_lan":false,"advertise_exit_node":false}}"#;
 
-fn fixture_transport(
-    status: String,
-    prefs: String,
-) -> Box<native::Transport> {
+fn fixture_transport(status: String, prefs: String) -> Box<native::Transport> {
     Box::new(
         move |method: &str, path: &str, _body: Option<&[u8]>, _d: Instant| {
             if method == "GET" && path == "status" {
@@ -1347,8 +1393,10 @@ fn fixture_transport(
     )
 }
 
+type FakeRun = dyn Fn(&[u8], &str, &[&str], Instant) -> Result<Vec<u8>, String> + Send + Sync;
+
 struct FakeExec {
-    f: Box<dyn Fn(&[u8], &str, &[&str], Instant) -> Result<Vec<u8>, String> + Send + Sync>,
+    f: Box<FakeRun>,
 }
 
 impl Executor for FakeExec {
@@ -1431,7 +1479,14 @@ fn native_node_key_optional_but_strict() {
 
 #[test]
 fn native_unavailable_kinds() {
-    for kind in ["state", "prefs", "oversize", "null", "duplicate", "status-code"] {
+    for kind in [
+        "state",
+        "prefs",
+        "oversize",
+        "null",
+        "duplicate",
+        "status-code",
+    ] {
         let mut status = NATIVE_STATUS.to_string();
         let mut prefs = NATIVE_PREFS.to_string();
         match kind {
@@ -1489,24 +1544,22 @@ fn native_signin_reauth_preserves_prefs() {
     let status = NATIVE_STATUS.replacen(r#""Running""#, r#""NeedsLogin""#, 1);
     let t: Box<native::Transport> = Box::new({
         let (patches, logins) = (patches.clone(), logins.clone());
-        move |method: &str, path: &str, body: Option<&[u8]>, _d: Instant| {
-            match (method, path) {
-                ("GET", "status") => Ok((200, status.as_bytes().to_vec())),
-                ("GET", "prefs") => Ok((200, NATIVE_PREFS.as_bytes().to_vec())),
-                ("PATCH", "prefs") => {
-                    patches.fetch_add(1, Ordering::SeqCst);
-                    assert_eq!(
-                        body.unwrap_or_default(),
-                        br#"{"WantRunning":true,"WantRunningSet":true}"#
-                    );
-                    Ok((200, b"{}".to_vec()))
-                }
-                ("POST", "login-interactive") => {
-                    logins.fetch_add(1, Ordering::SeqCst);
-                    Ok((204, Vec::new()))
-                }
-                _ => panic!("unexpected {method} {path}"),
+        move |method: &str, path: &str, body: Option<&[u8]>, _d: Instant| match (method, path) {
+            ("GET", "status") => Ok((200, status.as_bytes().to_vec())),
+            ("GET", "prefs") => Ok((200, NATIVE_PREFS.as_bytes().to_vec())),
+            ("PATCH", "prefs") => {
+                patches.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(
+                    body.unwrap_or_default(),
+                    br#"{"WantRunning":true,"WantRunningSet":true}"#
+                );
+                Ok((200, b"{}".to_vec()))
             }
+            ("POST", "login-interactive") => {
+                logins.fetch_add(1, Ordering::SeqCst);
+                Ok((204, Vec::new()))
+            }
+            _ => panic!("unexpected {method} {path}"),
         }
     });
     let (before, _) = native::observe(&t, soon(5000)).unwrap();
@@ -1543,38 +1596,37 @@ fn native_exit_node_and_logout_confirm() {
         let changed = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let t: Box<native::Transport> = Box::new({
             let (mutations, changed) = (mutations.clone(), changed.clone());
-            move |method: &str, path: &str, _body: Option<&[u8]>, _d: Instant| {
-                match (method, path) {
-                    ("GET", "status") => {
-                        let mut status = NATIVE_STATUS.to_string();
-                        if changed.load(Ordering::SeqCst) && action == "logout" {
-                            status = status
-                                .replacen(r#""Running""#, r#""NeedsLogin""#, 1)
-                                .replacen(r#""HaveNodeKey":true"#, r#""HaveNodeKey":false"#, 1);
-                        }
-                        Ok((200, status.into_bytes()))
+            move |method: &str, path: &str, _body: Option<&[u8]>, _d: Instant| match (method, path)
+            {
+                ("GET", "status") => {
+                    let mut status = NATIVE_STATUS.to_string();
+                    if changed.load(Ordering::SeqCst) && action == "logout" {
+                        status = status
+                            .replacen(r#""Running""#, r#""NeedsLogin""#, 1)
+                            .replacen(r#""HaveNodeKey":true"#, r#""HaveNodeKey":false"#, 1);
                     }
-                    ("GET", "prefs") => {
-                        let mut prefs = NATIVE_PREFS.to_string();
-                        if changed.load(Ordering::SeqCst) && action == "exit-node" {
-                            prefs = prefs
-                                .replacen(r#""ExitNodeID":"""#, r#""ExitNodeID":"peer""#, 1)
-                                .replacen(
-                                    r#""ExitNodeAllowLANAccess":false"#,
-                                    r#""ExitNodeAllowLANAccess":true"#,
-                                    1,
-                                );
-                        }
-                        Ok((200, prefs.into_bytes()))
-                    }
-                    ("POST", "logout") => {
-                        assert_eq!(action, "logout");
-                        mutations.fetch_add(1, Ordering::SeqCst);
-                        changed.store(true, Ordering::SeqCst);
-                        Ok((204, Vec::new()))
-                    }
-                    _ => panic!("unexpected {method} {path}"),
+                    Ok((200, status.into_bytes()))
                 }
+                ("GET", "prefs") => {
+                    let mut prefs = NATIVE_PREFS.to_string();
+                    if changed.load(Ordering::SeqCst) && action == "exit-node" {
+                        prefs = prefs
+                            .replacen(r#""ExitNodeID":"""#, r#""ExitNodeID":"peer""#, 1)
+                            .replacen(
+                                r#""ExitNodeAllowLANAccess":false"#,
+                                r#""ExitNodeAllowLANAccess":true"#,
+                                1,
+                            );
+                    }
+                    Ok((200, prefs.into_bytes()))
+                }
+                ("POST", "logout") => {
+                    assert_eq!(action, "logout");
+                    mutations.fetch_add(1, Ordering::SeqCst);
+                    changed.store(true, Ordering::SeqCst);
+                    Ok((204, Vec::new()))
+                }
+                _ => panic!("unexpected {method} {path}"),
             }
         });
         let exec = FakeExec {
@@ -1585,7 +1637,12 @@ fn native_exit_node_and_logout_confirm() {
                     let sock = format!("--socket={}", native::HOST_SOCKET);
                     assert_eq!(
                         args,
-                        &[sock.as_str(), "set", "--exit-node=100.64.0.2", "--exit-node-allow-lan-access=true"][..]
+                        &[
+                            sock.as_str(),
+                            "set",
+                            "--exit-node=100.64.0.2",
+                            "--exit-node-allow-lan-access=true"
+                        ][..]
                     );
                     mutations.fetch_add(1, Ordering::SeqCst);
                     changed.store(true, Ordering::SeqCst);
@@ -1606,7 +1663,14 @@ fn native_exit_node_and_logout_confirm() {
             req.exit_node = Some("100.64.0.2".to_string());
             req.allow_lan = Some(true);
             let socket = std::path::Path::new(native::HOST_SOCKET);
-            match native::execute_exit_node(&t, &exec, native::DEFAULT_CLI, socket, &req, &before, soon(5000)) {
+            match native::execute_exit_node(
+                &exec,
+                native::DEFAULT_CLI,
+                socket,
+                &req,
+                &before,
+                soon(5000),
+            ) {
                 Ok(id) => {
                     selected = id;
                     action_err = None;
@@ -1644,8 +1708,15 @@ fn native_offline_exit_conflicts_and_retained_id_stays_unconfirmed() {
     };
     let exec = boom_exec();
     let socket = std::path::Path::new(native::HOST_SOCKET);
-    let e = native::execute_exit_node(&t, &exec, native::DEFAULT_CLI, socket, &req, &before, soon(5000))
-        .expect_err("offline selected");
+    let e = native::execute_exit_node(
+        &exec,
+        native::DEFAULT_CLI,
+        socket,
+        &req,
+        &before,
+        soon(5000),
+    )
+    .expect_err("offline selected");
     assert!(e.contains("conflict"), "{e}");
     // Clear with a retained native ID: command runs, readback unconfirmed.
     let prefs = NATIVE_PREFS.replacen(r#""ExitNodeID":"""#, r#""ExitNodeID":"peer""#, 1);
@@ -1666,9 +1737,15 @@ fn native_offline_exit_conflicts_and_retained_id_stays_unconfirmed() {
             Ok(Vec::new())
         }),
     };
-    let selected =
-        native::execute_exit_node(&t, &exec, native::DEFAULT_CLI, socket, &req, &before, soon(5000))
-            .unwrap();
+    let selected = native::execute_exit_node(
+        &exec,
+        native::DEFAULT_CLI,
+        socket,
+        &req,
+        &before,
+        soon(5000),
+    )
+    .unwrap();
     let result = native::readback_host_action(&t, &req, &selected, None, soon(5000));
     assert_eq!(result.outcome, "unconfirmed");
 }
@@ -1733,8 +1810,14 @@ fn native_local_request_over_real_socket() {
             } else {
                 ("200 OK", "not json")
             };
-            conn.write_all(format!("HTTP/1.1 {code}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).as_bytes())
-                .unwrap();
+            conn.write_all(
+                format!(
+                    "HTTP/1.1 {code}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .as_bytes(),
+            )
+            .unwrap();
         }
     });
     let t: Box<native::Transport> = Box::new({
@@ -1750,8 +1833,44 @@ fn native_local_request_over_real_socket() {
     let (status, _) = native::local_request(&path, "GET", "boom", None, soon(5000)).unwrap();
     assert_eq!(status, 500);
     server.join().unwrap();
-    assert!(native::local_request(&dir.join("missing"), "GET", "status", None, soon(5000)).is_err());
+    assert!(
+        native::local_request(&dir.join("missing"), "GET", "status", None, soon(5000)).is_err()
+    );
     assert!(native::local_request(&path, "GET", "status", None, Instant::now()).is_err());
+}
+
+#[test]
+fn native_run_status_validate() {
+    let live = native::RunStatus {
+        enabled: true,
+        admission: true,
+        tailnet: "soda.example.test".to_string(),
+        tags: vec!["tag:soda-project".to_string()],
+        addresses: vec!["100.64.0.2".to_string()],
+        dns_name: "project.soda.ts.net".to_string(),
+    };
+    assert!(live.validate().is_ok());
+    let off = native::RunStatus {
+        tailnet: "soda.example.test".to_string(),
+        tags: vec!["tag:soda-project".to_string()],
+        ..Default::default()
+    };
+    assert!(off.validate().is_ok());
+    let mut bad = live.clone();
+    bad.enabled = false;
+    assert!(bad.validate().is_err(), "admission without enablement");
+    let mut bad = live.clone();
+    bad.tailnet = "../other".to_string();
+    assert!(bad.validate().is_err());
+    let mut bad = live.clone();
+    bad.tags = vec!["tag:z".to_string(), "tag:a".to_string()];
+    assert!(bad.validate().is_err());
+    let mut bad = live.clone();
+    bad.addresses = vec!["127.0.0.1".to_string()];
+    assert!(bad.validate().is_err());
+    let mut bad = live.clone();
+    bad.dns_name = "bad.local".to_string();
+    assert!(bad.validate().is_err());
 }
 
 #[test]
@@ -1821,19 +1940,975 @@ fn native_cli_client_vectors() {
     )
     .unwrap();
     assert!(status.auth_pending);
-    assert!(
-        native::cli_status(
-            &status_exec(r#"{"BackendState":"Running","Self":{"DNSName":"atlas.local"}}"#),
-            "/bin/tailscale",
-            soon(5000)
-        )
-        .is_err()
-    );
+    assert!(native::cli_status(
+        &status_exec(r#"{"BackendState":"Running","Self":{"DNSName":"atlas.local"}}"#),
+        "/bin/tailscale",
+        soon(5000)
+    )
+    .is_err());
     // CLI failures carry the native diagnostic, like Go.
     let exec = FakeExec {
         f: Box::new(|_, _, _, _| Err("exit 7: daemon unavailable".to_string())),
     };
     let e = native::cli_status(&exec, "/bin/tailscale", soon(5000)).expect_err("accepted");
-    assert!(e.contains("unavailable") && e.contains("daemon unavailable"), "{e}");
+    assert!(
+        e.contains("unavailable") && e.contains("daemon unavailable"),
+        "{e}"
+    );
 }
 
+// ---------- Provider ----------
+
+#[test]
+fn provider_request_bodies_match_go_recipes() {
+    assert_eq!(
+        provider::token_form_body(&["tag:soda-project".to_string()]),
+        "grant_type=client_credentials&scope=auth_keys&tags=tag%3Asoda-project"
+    );
+    assert_eq!(
+        provider::token_form_body(&["tag:a".to_string(), "tag:b".to_string()]),
+        "grant_type=client_credentials&scope=auth_keys&tags=tag%3Aa+tag%3Ab"
+    );
+    assert_eq!(
+        provider::key_create_body(&["tag:soda-project".to_string()], false),
+        r#"{"capabilities":{"devices":{"create":{"reusable":false,"ephemeral":true,"tags":["tag:soda-project"],"preauthorized":false}}},"expirySeconds":300,"description":"Soda ephemeral project run"}"#
+    );
+}
+
+#[test]
+fn provider_curl_recipe_keeps_secrets_out_of_argv() {
+    use std::sync::{Arc, Mutex};
+    let seen: Arc<Mutex<(Vec<String>, Vec<u8>)>> = Arc::new(Mutex::new((Vec::new(), Vec::new())));
+    let exec = FakeExec {
+        f: Box::new({
+            let seen = seen.clone();
+            move |stdin: &[u8], cmd: &str, args: &[&str], _| {
+                let mut seen = seen.lock().unwrap();
+                seen.0 = args.iter().map(|s| s.to_string()).collect();
+                seen.1 = stdin.to_vec();
+                assert_eq!(cmd, "/usr/bin/curl");
+                Ok(b"{\"access_token\":\"synthetic-bearer\",\"token_type\":\"Bearer\",\"expires_in\":3600}\n200".to_vec())
+            }
+        }),
+    };
+    let (status, body) = provider::fetch_token(
+        &exec,
+        "/usr/bin/curl",
+        "synthetic-client",
+        "tskey-client-soda-synthetic-secret",
+        &["tag:soda-project".to_string()],
+        soon(5000),
+    )
+    .unwrap();
+    assert_eq!(status, 200);
+    assert!(body.starts_with(b"{\"access_token\""));
+    let seen = seen.lock().unwrap();
+    assert_eq!(
+        seen.0,
+        [
+            "--silent",
+            "--config",
+            "-",
+            "--write-out",
+            "\\n%{http_code}"
+        ]
+    );
+    let config = String::from_utf8(seen.1.clone()).unwrap();
+    assert!(config.contains("user = \"synthetic-client:tskey-client-soda-synthetic-secret\""));
+    assert!(config.contains("tags=tag%3Asoda-project"));
+    // Status suffix split survives suffix-like bodies.
+    let exec = FakeExec {
+        f: Box::new(|_, _, _, _| Ok(b"x\n200\n201".to_vec())),
+    };
+    let (status, body) =
+        provider::run_curl(&exec, "/usr/bin/curl", "url = \"x\"\n", soon(5000)).unwrap();
+    assert_eq!((status, body), (201, b"x\n200".to_vec()));
+    // Failures are neutral: no keyword, no secret, no diagnostics.
+    for out in [
+        Err("curl: (7) synthetic".to_string()),
+        Ok(b"no-suffix".to_vec()),
+        Ok(b"body\n20X".to_vec()),
+        Ok(vec![0u8; 65541]),
+    ] {
+        let exec = FakeExec {
+            f: Box::new(move |_, _, _, _| out.clone()),
+        };
+        let e = provider::run_curl(&exec, "/usr/bin/curl", "", soon(5000)).expect_err("accepted");
+        assert!(
+            !e.contains("synthetic") && !e.contains("invalid request"),
+            "{e}"
+        );
+    }
+}
+
+#[test]
+fn provider_token_vectors() {
+    let unavailable = || wire::err_unavailable();
+    let token = provider::validate_token(
+        200,
+        br#"{"access_token":"synthetic-bearer","token_type":"Bearer","expires_in":3600}"#,
+        false,
+        &unavailable,
+    )
+    .unwrap();
+    assert_eq!(token, "synthetic-bearer");
+    // Case-insensitive type, string expiry, unknown fields, last-wins dupes.
+    assert!(provider::validate_token(
+        200,
+        br#"{"access_token":"a","token_type":"bearer","expires_in":"3600","extra":1}"#,
+        true,
+        &unavailable,
+    )
+    .is_ok());
+    assert!(provider::validate_token(
+        200,
+        br#"{"access_token":"","access_token":"a","token_type":"Bearer","expires_in":3600}"#,
+        false,
+        &unavailable,
+    )
+    .is_ok());
+    for (status, body, strict) in [
+        (403, &br#"{"error":"synthetic secret"}"#[..], false),
+        (200, &br#"{}"#[..], false),
+        (
+            200,
+            &br#"{"access_token":"","token_type":"Bearer","expires_in":3600}"#[..],
+            false,
+        ),
+        (
+            200,
+            &br#"{"access_token":5,"token_type":"Bearer","expires_in":3600}"#[..],
+            false,
+        ),
+        (
+            200,
+            &br#"{"access_token":"a","token_type":"other","expires_in":3600}"#[..],
+            false,
+        ),
+        (
+            200,
+            &br#"{"access_token":"a","token_type":"Bearer"}"#[..],
+            false,
+        ),
+        (
+            200,
+            &br#"{"access_token":"a","token_type":"Bearer","expires_in":0}"#[..],
+            false,
+        ),
+        (
+            200,
+            &br#"{"access_token":"a","token_type":"Bearer","expires_in":-5}"#[..],
+            false,
+        ),
+        (
+            200,
+            &br#"{"access_token":"a","token_type":"Bearer","expires_in":36.5}"#[..],
+            false,
+        ),
+        (
+            200,
+            &br#"{"access_token":"a","token_type":"Bearer","expires_in":true}"#[..],
+            false,
+        ),
+        (
+            200,
+            &br#"{"access_token":"a\rb","token_type":"Bearer","expires_in":3600}"#[..],
+            true,
+        ),
+        (200, &b"null"[..], false),
+        (200, &b"{}"[..], false),
+    ] {
+        let e = provider::validate_token(status, body, strict, &unavailable).expect_err("accepted");
+        assert!(e.contains("unavailable"), "{e}");
+        assert!(!e.contains("synthetic"), "{e}");
+    }
+    // The check path skips the control-character rule, like Go.
+    assert!(provider::validate_token(
+        200,
+        br#"{"access_token":"a\rb","token_type":"Bearer","expires_in":3600}"#,
+        false,
+        &unavailable,
+    )
+    .is_ok());
+}
+
+#[test]
+fn provider_rfc3339_matches_go_vectors() {
+    // (input, expected nanos); values verified against time.Parse above.
+    for (s, want) in [
+        ("2024-01-02T15:04:05Z", Some(1704207845000000000i128)),
+        ("2024-01-02T15:04:05.123456789Z", Some(1704207845123456789)),
+        (
+            "2024-01-02T15:04:05.123456789123Z",
+            Some(1704207845123456789),
+        ),
+        ("2024-01-02T5:04:05Z", Some(1704171845000000000)),
+        ("2024-01-02T15:04:05+02:00", Some(1704200645000000000)),
+        ("2024-01-02T15:04:05-05:30", Some(1704227645000000000)),
+        ("2024-01-02T15:04:05+24:00", Some(1704121445000000000)),
+        ("2024-01-02T15:04:05+02:60", Some(1704197045000000000)),
+        ("2024-02-29T00:00:00Z", Some(1709164800000000000)),
+        ("1969-12-31T23:59:59Z", Some(-1000000000)),
+        ("2024-01-02T15:04:05+25:00", None),
+        ("2024-01-02T15:04:05+02:61", None),
+        ("2024-13-02T15:04:05Z", None),
+        ("2024-01-02T24:04:05Z", None),
+        ("2023-02-29T00:00:00Z", None),
+        ("2024-01-02T15:04:05", None),
+        ("2024-01-02T15:04:05.", None),
+        ("2024-01-02T15:04:05.Z", None),
+        ("2024-01-02T15:04:05z", None),
+        ("2024-01-02t15:04:05Z", None),
+        ("+2024-01-02T15:04:05Z", None),
+        ("", None),
+    ] {
+        assert_eq!(provider::parse_rfc3339_nanos(s), want, "{s}");
+    }
+    // The Go zero time (Go's own UnixNano overflows int64 here; the true
+    // value is arithmetic: -719162 days).
+    assert_eq!(
+        provider::parse_rfc3339_nanos("0001-01-01T00:00:00Z"),
+        Some(-(719162i128 * 86_400 * 1_000_000_000))
+    );
+}
+
+fn rfc3339(t: std::time::SystemTime) -> String {
+    let secs = t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+    let days = secs.div_euclid(86400);
+    let rem = secs.rem_euclid(86400);
+    let z = days + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z.rem_euclid(146097);
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let mut y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    if m <= 2 {
+        y += 1;
+    }
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        rem / 3600,
+        rem % 3600 / 60,
+        rem % 60
+    )
+}
+
+fn key_response(created: &str, expires: &str) -> String {
+    format!(
+        r#"{{"id":"synthetic-id","key":"tskey-auth-synthetic-only","created":"{created}","expires":"{expires}","capabilities":{{"devices":{{"create":{{"reusable":false,"ephemeral":true,"preauthorized":false,"tags":["tag:soda-project"]}}}}}}}}"#
+    )
+}
+
+#[test]
+fn provider_key_vectors() {
+    use std::time::{Duration, SystemTime};
+    assert_eq!(
+        rfc3339(SystemTime::UNIX_EPOCH + Duration::from_secs(1704207845)),
+        "2024-01-02T15:04:05Z"
+    );
+    let now = SystemTime::now();
+    let tags = ["tag:soda-project".to_string()];
+    let now_s = rfc3339(now);
+    let exp_s = rfc3339(now + Duration::from_secs(300));
+    let good = key_response(&now_s, &exp_s);
+    let key = provider::validate_key(200, good.as_bytes(), &tags, false, now, now).unwrap();
+    assert_eq!(key, "tskey-auth-synthetic-only");
+    let mutate = |mode: &str| -> (u16, Vec<u8>) {
+        let mut body = good.clone();
+        let mut status = 200;
+        match mode {
+            "redirect" => status = 307,
+            "error" => {
+                status = 403;
+                body = r#"{"message":"private provider text"}"#.to_string();
+            }
+            "oversize" => body.push_str(&" ".repeat(65536)),
+            "null" => body = "null".to_string(),
+            "missing reusable" => body = body.replacen(r#""reusable":false,"#, "", 1),
+            "duplicate" => {
+                body = body.replacen(
+                    r#""reusable":false"#,
+                    r#""reusable":false,"reusable":false"#,
+                    1,
+                )
+            }
+            "reusable" => body = body.replacen(r#""reusable":false"#, r#""reusable":true"#, 1),
+            "persistent" => body = body.replacen(r#""ephemeral":true"#, r#""ephemeral":false"#, 1),
+            "wrong tags" => body = body.replacen("tag:soda-project", "tag:other", 1),
+            "wrong preauthorization" => {
+                body = body.replacen(r#""preauthorized":false"#, r#""preauthorized":true"#, 1)
+            }
+            "wrong key" => body = body.replacen("tskey-auth-", "tskey-client-", 1),
+            "expired" => {
+                body = key_response(&rfc3339(now), &rfc3339(now - Duration::from_secs(60)))
+            }
+            "long expiry" => {
+                body = key_response(&rfc3339(now), &rfc3339(now + Duration::from_secs(3600)))
+            }
+            "invalid flag" => body = body.replacen(r#""id""#, r#""invalid":true,"id""#, 1),
+            "revoked" => {
+                body = body.replacen(
+                    r#""id""#,
+                    &format!(r#""revoked":"{}","id"#, rfc3339(now)),
+                    1,
+                )
+            }
+            "bad created" => body = body.replacen(&now_s, "not-a-time", 1),
+            _ => unreachable!(),
+        }
+        (status, body.into_bytes())
+    };
+    for mode in [
+        "redirect",
+        "error",
+        "oversize",
+        "null",
+        "missing reusable",
+        "duplicate",
+        "reusable",
+        "persistent",
+        "wrong tags",
+        "wrong preauthorization",
+        "wrong key",
+        "expired",
+        "long expiry",
+        "invalid flag",
+        "revoked",
+        "bad created",
+    ] {
+        let (status, body) = mutate(mode);
+        let e = provider::validate_key(status, &body, &tags, false, now, now).expect_err(mode);
+        assert!(!e.contains("private"), "{mode}: {e}");
+    }
+    // Preauthorized policies admit preauthorized keys only.
+    let pre = good.replacen(r#""preauthorized":false"#, r#""preauthorized":true"#, 1);
+    assert!(provider::validate_key(200, pre.as_bytes(), &tags, true, now, now).is_ok());
+}
+
+// ---------- Control contract ----------
+
+use soda_host::tailnet_companion::TailnetControl;
+
+fn control_options(name: &str, runtime: bool) -> (control::Options, PathBuf) {
+    let parent = scratch(name);
+    (
+        control::Options {
+            state_dir: parent.join("soda-tailnet"),
+            uid: policy::current_uid(),
+            runtime,
+            socket: parent.join("sock"),
+            cli: "/usr/bin/tailscale".to_string(),
+            libexec: "/usr/libexec/soda".to_string(),
+            curl: "/usr/bin/curl".to_string(),
+        },
+        parent,
+    )
+}
+
+fn token_ok() -> (u16, Vec<u8>) {
+    (
+        200,
+        br#"{"access_token":"synthetic-bearer","token_type":"Bearer","expires_in":3600}"#.to_vec(),
+    )
+}
+
+fn key_ok() -> (u16, Vec<u8>) {
+    use std::time::{Duration, SystemTime};
+    let now = SystemTime::now();
+    (
+        200,
+        key_response(&rfc3339(now), &rfc3339(now + Duration::from_secs(300))).into_bytes(),
+    )
+}
+
+fn provider_fixture(
+    calls: std::sync::Arc<std::sync::atomic::AtomicU32>,
+) -> Box<provider::ProviderTransport> {
+    use std::sync::atomic::Ordering;
+    Box::new(
+        move |req: provider::ProviderRequest, _d: Instant| match req {
+            provider::ProviderRequest::Token {
+                client_id,
+                client_secret,
+                tags,
+            } => {
+                assert_eq!(client_id, "synthetic-client");
+                assert_eq!(client_secret, "tskey-client-soda-synthetic-secret");
+                assert_eq!(tags, ["tag:soda-project".to_string()]);
+                Ok(token_ok())
+            }
+            provider::ProviderRequest::KeyCreate {
+                tailnet,
+                tags,
+                preauthorized,
+                token,
+            } => {
+                calls.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(tailnet, "soda.example.test");
+                assert_eq!(tags, ["tag:soda-project".to_string()]);
+                assert!(!preauthorized);
+                assert_eq!(token, "synthetic-bearer");
+                Ok(key_ok())
+            }
+        },
+    )
+}
+
+const GO_SETTINGS: &str = r#"{"host":{"tailnet":"soda.example.test","magic_dns_enabled":true,"revision":"c2325fcf010801018acfa617389a67457360b7763a3b7343869ff73f5c4ad304","state":"Running","have_node_key":true,"expired":false,"dns_name":"host.example.ts.net","addresses":["100.64.0.1"],"peers":[{"id":"peer","dns_name":"exit.example.ts.net","addresses":["100.64.0.2"],"online":true,"exit_node":true,"expired":false}],"health_issues":1,"preferences":{"want_running":true,"exit_node_id":"","exit_node_ip":"","allow_lan":false,"advertise_exit_node":false}},"host_unavailable":false,"enrollment":{"revision":"0","binding":"","tailnet":"","tags":[],"configured":false,"admission":false,"default":false,"preauthorized":false,"credential_checked":false,"enrollment_verified":false,"runtime_supported":false}}"#;
+const GO_OPTIONS: &str =
+    r#"{"revision":"0","binding":"","tailnet":"","available":false,"default":false}"#;
+
+#[test]
+fn control_settings_and_options_match_go_bytes() {
+    let (opts, _) = control_options("control-settings", false);
+    let mut c = control::Control::new(boom_exec(), opts);
+    c.local_stub = Some(fixture_transport(
+        NATIVE_STATUS.to_string(),
+        NATIVE_PREFS.to_string(),
+    ));
+    assert_eq!(c.settings(soon(5000)).unwrap(), GO_SETTINGS.as_bytes());
+    assert_eq!(c.options(soon(5000)).unwrap(), GO_OPTIONS.as_bytes());
+    // Unavailable LocalAPI is projected, not an error.
+    c.local_stub = Some(Box::new(|_, _, _, _| Ok((500, Vec::new()))));
+    let body = c.settings(soon(5000)).unwrap();
+    let text = String::from_utf8(body).unwrap();
+    assert!(
+        text.contains(r#""host":null,"host_unavailable":true"#),
+        "{text}"
+    );
+}
+
+#[test]
+fn control_host_action_cycle() {
+    let (opts, _) = control_options("control-host", false);
+    let mut c = control::Control::new(boom_exec(), opts);
+    c.local_stub = Some(fixture_transport(
+        NATIVE_STATUS.to_string(),
+        NATIVE_PREFS.to_string(),
+    ));
+    // Malformed bodies and stale revisions fail before any native work.
+    let e = c.host_action(b"{}", soon(5000)).expect_err("accepted");
+    assert!(e.contains("invalid request"), "{e}");
+    let e = c
+        .host_action(
+            format!(r#"{{"action":"signin","revision":"{}"}}"#, "f".repeat(64)).as_bytes(),
+            soon(5000),
+        )
+        .expect_err("stale");
+    assert!(e.contains("conflict"), "{e}");
+    let auth = c
+        .host_action(
+            format!(r#"{{"action":"authentication","revision":"{GO_REVISION}"}}"#).as_bytes(),
+            soon(5000),
+        )
+        .unwrap();
+    let text = String::from_utf8(auth).unwrap();
+    assert!(text.contains(r#""outcome":"observed""#), "{text}");
+    assert!(
+        text.contains("https://login.tailscale.com/a/synthetic"),
+        "{text}"
+    );
+    // Confirmed mutation with a failing readback: confirmed + unavailable.
+    let (opts, _) = control_options("control-host2", false);
+    let c = control::Control::new(
+        FakeExec {
+            f: Box::new(|_, cmd, args, _| {
+                assert_eq!(cmd, "/usr/bin/tailscale");
+                assert_eq!(args[1], "set");
+                Ok(Vec::new())
+            }),
+        },
+        opts,
+    );
+    // First observe succeeds, then the daemon goes away.
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    let reads = Arc::new(AtomicU32::new(0));
+    let mut c = c;
+    c.local_stub = Some(Box::new({
+        let reads = reads.clone();
+        move |method: &str, path: &str, _body: Option<&[u8]>, _d: Instant| {
+            if reads.fetch_add(1, Ordering::SeqCst) < 2 {
+                if path == "status" {
+                    return Ok((200, NATIVE_STATUS.as_bytes().to_vec()));
+                }
+                return Ok((200, NATIVE_PREFS.as_bytes().to_vec()));
+            }
+            assert_eq!(method, "GET");
+            Err("synthetic secret error".to_string())
+        }
+    }));
+    let out = c
+        .host_action(
+            format!(
+                r#"{{"action":"advertise-exit-node","revision":"{GO_REVISION}","confirm":"advertise-exit-node","advertise":true}}"#
+            )
+            .as_bytes(),
+            soon(5000),
+        )
+        .unwrap();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains(r#""outcome":"confirmed""#), "{text}");
+    assert!(text.contains(r#""readback_unavailable":true"#), "{text}");
+    assert!(!text.contains("synthetic"), "{text}");
+}
+
+#[test]
+fn control_enrollment_save_check_rotate_disable() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    let (opts, _) = control_options("control-enroll", false);
+    let mut c = control::Control::new(boom_exec(), opts);
+    let calls = Arc::new(AtomicU32::new(0));
+    c.provider_stub = Some(provider_fixture(calls.clone()));
+    let save = br#"{"action":"save","revision":"0","tailnet":"soda.example.test","tags":["tag:soda-project"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-soda-synthetic-secret"}"#;
+    let out = c.enrollment(save, soon(5000)).unwrap();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains(r#""saved":true"#), "{text}");
+    assert!(!text.contains("synthetic"), "{text}");
+    // Save again with the same body: stale revision conflicts.
+    let e = c.enrollment(save, soon(5000)).expect_err("stale");
+    assert!(e.contains("conflict"), "{e}");
+    // Rotate + check + disable against the live revision.
+    let rev = extract_revision(&text);
+    let rotate = format!(
+        r#"{{"action":"rotate","revision":"{rev}","tailnet":"soda.example.test","tags":["tag:soda-project"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-soda-synthetic-secret"}}"#
+    );
+    let out = c.enrollment(rotate.as_bytes(), soon(5000)).unwrap();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains(r#""saved":true"#), "{text}");
+    let rev2 = extract_revision(&text);
+    assert_ne!(rev2, rev);
+    let check = format!(
+        r#"{{"action":"check","revision":"{rev2}","tailnet":"soda.example.test","tags":["tag:soda-project"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-soda-synthetic-secret"}}"#
+    );
+    let out = c.enrollment(check.as_bytes(), soon(5000)).unwrap();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains(r#""saved":false"#), "{text}");
+    assert!(text.contains(r#""credential_checked":true"#), "{text}");
+    let out = c
+        .enrollment(
+            format!(r#"{{"action":"disable","revision":"{rev2}"}}"#).as_bytes(),
+            soon(5000),
+        )
+        .unwrap();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains(r#""admission":false"#), "{text}");
+    // Default-on without the runtime is unsupported before any provider call.
+    let e = c
+        .enrollment(
+            br#"{"action":"default","revision":"0","default":true}"#,
+            soon(5000),
+        )
+        .expect_err("unsupported default");
+    assert!(e.contains("unsupported"), "{e}");
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    // Unknown fields and bad credentials are invalid, without provider calls.
+    for bad in [
+        br#"{"action":"save","revision":"0","bogus":1}"#.as_slice(),
+        br#"{"action":"save","revision":"0","tailnet":"soda.example.test","tags":["tag:soda-project"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"short"}"#.as_slice(),
+    ] {
+        let e = c.enrollment(bad, soon(5000)).expect_err("accepted");
+        assert!(e.contains("invalid request"), "{e}");
+    }
+}
+
+// Minimal `revision` extractor for test plumbing (not a product decoder).
+fn extract_revision(text: &str) -> String {
+    let key = r#""revision":""#;
+    let start = text.find(key).unwrap() + key.len();
+    text[start..start + 32].to_string()
+}
+
+fn seed_enrollment(c: &control::Control<FakeExec>) -> String {
+    let out = c
+        .enrollment(
+            br#"{"action":"save","revision":"0","tailnet":"soda.example.test","tags":["tag:soda-project"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-soda-synthetic-secret"}"#,
+            soon(10000),
+        )
+        .unwrap();
+    let text = String::from_utf8(out).unwrap();
+    let key = r#""binding":""#;
+    let start = text.find(key).unwrap() + key.len();
+    text[start..start + 32].to_string()
+}
+
+#[test]
+fn enroll_credential_and_key_guards() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    // Transport failures and bad bodies map to unavailable on the check path.
+    for (reply, want) in [
+        (Err("down".to_string()), "unavailable"),
+        (Ok((403, br#"{"error":"x"}"#.to_vec())), "unavailable"),
+        (Ok((200, br#"{}"#.to_vec())), "unavailable"),
+    ] {
+        let stub: Box<provider::ProviderTransport> = Box::new(move |_, _| reply.clone());
+        let p = enroll::Provider::Stub(&stub);
+        let e =
+            enroll::check_credential(&p, &enrollment_fixture(), soon(5000)).expect_err("accepted");
+        assert!(e.contains(want), "{e}");
+    }
+    // An expired deadline makes no provider call.
+    let hit = Arc::new(AtomicU32::new(0));
+    let stub: Box<provider::ProviderTransport> = Box::new({
+        let hit = hit.clone();
+        move |_, _| {
+            hit.fetch_add(1, Ordering::SeqCst);
+            Ok(token_ok())
+        }
+    });
+    let p = enroll::Provider::Stub(&stub);
+    let e =
+        enroll::check_credential(&p, &enrollment_fixture(), Instant::now()).expect_err("accepted");
+    assert!(e.contains("unavailable"), "{e}");
+    assert_eq!(hit.load(Ordering::SeqCst), 0);
+    // The key-minting probe rejects malformed stored policy as unavailable,
+    // and an expired deadline as unconfirmed without provider calls.
+    let stored = policy::EnrollmentPolicy {
+        revision: "bogus".to_string(),
+        ..Default::default()
+    };
+    let e = enroll::project_key(&p, &stored, &policy::Credential::default(), soon(5000))
+        .expect_err("accepted");
+    assert!(e.contains("unavailable"), "{e}");
+    let stored = policy::EnrollmentPolicy {
+        revision: "a".repeat(32),
+        binding: "b".repeat(32),
+        tailnet: "soda.example.test".to_string(),
+        tags: vec!["tag:soda-project".to_string()],
+        admission: true,
+        credential: policy::Credential {
+            client_id: "synthetic-client".to_string(),
+            secret: "tskey-client-soda-synthetic-secret".to_string(),
+        },
+        ..Default::default()
+    };
+    let e =
+        enroll::project_key(&p, &stored, &stored.credential, Instant::now()).expect_err("accepted");
+    assert!(!e.contains("unavailable") && !e.contains("conflict"), "{e}");
+    assert_eq!(hit.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn control_project_and_binding_through_trait() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    let (opts, _) = control_options("control-trait", true);
+    let mut c = control::Control::new_project_control(boom_exec(), opts);
+    let calls = Arc::new(AtomicU32::new(0));
+    c.provider_stub = Some(provider_fixture(calls.clone()));
+    let binding = seed_enrollment(&c);
+    let project = format!("p{}", "a".repeat(24));
+    let cid = "b".repeat(64);
+    // Drive the companion surface through the trait object, as the adapter
+    // and companion do.
+    let t: &dyn TailnetControl = &c;
+    let view = t
+        .project(
+            &ProjectRequest {
+                project: project.clone(),
+                action: "enable".to_string(),
+                revision: "0".to_string(),
+                binding: binding.clone(),
+                confirm_id: project.clone(),
+            },
+            &cid,
+            soon(5000),
+        )
+        .unwrap();
+    assert!(view.enabled && wire::validate_project_view(&view).is_ok());
+    let target = RunTarget {
+        project: project.clone(),
+        container: cid.clone(),
+        run: "e".repeat(64),
+    };
+    let rb = t.run_binding(&target, soon(5000)).unwrap();
+    assert!(rb.enabled && rb.admission);
+    let consumed = Arc::new(AtomicU32::new(0));
+    t.enroll_run(
+        &target,
+        &|_| Ok(()),
+        &|_, key| {
+            assert_eq!(key, "tskey-auth-synthetic-only");
+            consumed.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        },
+        soon(10000),
+    )
+    .unwrap();
+    assert_eq!(consumed.load(Ordering::SeqCst), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn control_enroll_run_fences_identity_and_uncertainty() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    for mode in [
+        "replaced cid",
+        "invalid incarnation",
+        "binding replaced",
+        "admission closed",
+        "provider failure",
+        "changed during key",
+        "consume failure",
+    ] {
+        let (opts, _) = control_options(&format!("control-fence-{mode}"), true);
+        let mut c = control::Control::new_project_control(boom_exec(), opts);
+        let calls = Arc::new(AtomicU32::new(0));
+        c.provider_stub = Some(provider_fixture(calls.clone()));
+        let binding = seed_enrollment(&c);
+        let project = format!("p{}", "a".repeat(24));
+        let cid = "b".repeat(64);
+        c.project(
+            &ProjectRequest {
+                project: project.clone(),
+                action: "enable".to_string(),
+                revision: "0".to_string(),
+                binding: binding.clone(),
+                confirm_id: project.clone(),
+            },
+            &cid,
+            soon(5000),
+        )
+        .unwrap();
+        let mut target = RunTarget {
+            project: project.clone(),
+            container: cid.clone(),
+            run: "e".repeat(64),
+        };
+        if mode == "replaced cid" {
+            target.container = "f".repeat(64);
+        }
+        if mode == "invalid incarnation" {
+            target.run = "../other".to_string();
+        }
+        if mode == "binding replaced" {
+            let opts_text = c.options(soon(5000)).unwrap();
+            let rev = extract_revision(&String::from_utf8(opts_text).unwrap());
+            let save = format!(
+                r#"{{"action":"save","revision":"{rev}","tailnet":"soda.example.test","tags":["tag:soda-project"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-soda-synthetic-secret"}}"#
+            );
+            c.enrollment(save.as_bytes(), soon(5000)).unwrap();
+        }
+        if mode == "admission closed" {
+            let opts_text = c.options(soon(5000)).unwrap();
+            let rev = extract_revision(&String::from_utf8(opts_text).unwrap());
+            c.enrollment(
+                format!(r#"{{"action":"disable","revision":"{rev}"}}"#).as_bytes(),
+                soon(5000),
+            )
+            .unwrap();
+        }
+        if mode == "provider failure" {
+            c.provider_stub = Some(Box::new({
+                let calls = calls.clone();
+                move |req, _| match req {
+                    provider::ProviderRequest::Token { .. } => Ok(token_ok()),
+                    provider::ProviderRequest::KeyCreate { .. } => {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Err("private provider text".to_string())
+                    }
+                }
+            }));
+        }
+        let consumed = Arc::new(AtomicU32::new(0));
+        let checks = Arc::new(AtomicU32::new(0));
+        let recheck = {
+            let checks = checks.clone();
+            move |_: Instant| {
+                let n = checks.fetch_add(1, Ordering::SeqCst) + 1;
+                if mode == "changed during key" && n > 1 {
+                    return Err("changed".to_string());
+                }
+                Ok(())
+            }
+        };
+        let consume = {
+            let consumed = consumed.clone();
+            move |_: Instant, _: &str| {
+                consumed.fetch_add(1, Ordering::SeqCst);
+                if mode == "consume failure" {
+                    return Err("synthetic".to_string());
+                }
+                Ok(())
+            }
+        };
+        let e = c
+            .enroll_run(&target, &recheck, &consume, soon(10000))
+            .expect_err(mode);
+        assert!(
+            !e.contains("private") && !e.contains("synthetic"),
+            "{mode}: {e}"
+        );
+        if mode != "consume failure" {
+            assert_eq!(consumed.load(Ordering::SeqCst), 0, "{mode}");
+        }
+        if ["provider failure", "changed during key", "consume failure"].contains(&mode) {
+            assert_eq!(calls.load(Ordering::SeqCst), 1, "{mode}");
+        } else {
+            assert_eq!(calls.load(Ordering::SeqCst), 0, "{mode}");
+        }
+    }
+}
+
+#[test]
+fn control_enroll_run_serial_explicit_requests_without_journal() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    let (opts, parent) = control_options("control-serial", true);
+    let mut c = control::Control::new_project_control(boom_exec(), opts);
+    let calls = Arc::new(AtomicU32::new(0));
+    c.provider_stub = Some(provider_fixture(calls.clone()));
+    let binding = seed_enrollment(&c);
+    let project = format!("p{}", "a".repeat(24));
+    let cid = "b".repeat(64);
+    c.project(
+        &ProjectRequest {
+            project: project.clone(),
+            action: "enable".to_string(),
+            revision: "0".to_string(),
+            binding: binding.clone(),
+            confirm_id: project.clone(),
+        },
+        &cid,
+        soon(5000),
+    )
+    .unwrap();
+    let target = RunTarget {
+        project: project.clone(),
+        container: cid.clone(),
+        run: "e".repeat(64),
+    };
+    let consumed = Arc::new(AtomicU32::new(0));
+    std::thread::scope(|s| {
+        for _ in 0..8 {
+            s.spawn(|| {
+                c.enroll_run(
+                    &target,
+                    &|_| Ok(()),
+                    &|_, key| {
+                        assert_eq!(key, "tskey-auth-synthetic-only");
+                        consumed.fetch_add(1, Ordering::SeqCst);
+                        Ok(())
+                    },
+                    soon(15000),
+                )
+                .unwrap();
+            });
+        }
+    });
+    assert_eq!(calls.load(Ordering::SeqCst), 8);
+    assert_eq!(consumed.load(Ordering::SeqCst), 8);
+    let dir = parent.join("soda-tailnet");
+    for entry in std::fs::read_dir(&dir).unwrap() {
+        let name = entry.unwrap().file_name().to_string_lossy().into_owned();
+        assert!(!name.starts_with("attempt-"), "{name}");
+    }
+    let body = std::fs::read(dir.join(format!("project-{project}.json"))).unwrap();
+    let text = String::from_utf8(body).unwrap();
+    assert!(!text.contains("active_run") && !text.contains("tskey") && !text.contains("bearer"));
+}
+
+#[test]
+fn control_failed_enrollment_can_be_explicitly_retried() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    for failure in ["token", "key", "consume"] {
+        let (opts, parent) = control_options(&format!("control-retry-{failure}"), true);
+        let mut c = control::Control::new_project_control(boom_exec(), opts);
+        let calls = Arc::new(AtomicU32::new(0));
+        c.provider_stub = Some(provider_fixture(calls.clone()));
+        let binding = seed_enrollment(&c);
+        let project = format!("p{}", "a".repeat(24));
+        let cid = "b".repeat(64);
+        c.project(
+            &ProjectRequest {
+                project: project.clone(),
+                action: "enable".to_string(),
+                revision: "0".to_string(),
+                binding: binding.clone(),
+                confirm_id: project.clone(),
+            },
+            &cid,
+            soon(5000),
+        )
+        .unwrap();
+        let target = RunTarget {
+            project: project.clone(),
+            container: cid.clone(),
+            run: "e".repeat(64),
+        };
+        let dir = parent.join("soda-tailnet");
+        let before = std::fs::read(dir.join(format!("project-{project}.json"))).unwrap();
+        if failure == "token" {
+            c.provider_stub = Some(Box::new(|req, _| match req {
+                provider::ProviderRequest::Token { .. } => Err("down".to_string()),
+                other => panic!("unexpected {other:?}"),
+            }));
+        }
+        if failure == "key" {
+            c.provider_stub = Some(Box::new({
+                let calls = calls.clone();
+                move |req, _| match req {
+                    provider::ProviderRequest::Token { .. } => Ok(token_ok()),
+                    provider::ProviderRequest::KeyCreate { .. } => {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Err("down".to_string())
+                    }
+                }
+            }));
+        }
+        let fail_consume = |_: Instant, _: &str| Err("down".to_string());
+        let ok_consume = |_: Instant, key: &str| {
+            assert!(key.starts_with("tskey-auth-"));
+            Ok(())
+        };
+        assert!(c
+            .enroll_run(
+                &target,
+                &|_| Ok(()),
+                &(if failure == "consume" {
+                    fail_consume
+                } else {
+                    ok_consume
+                }),
+                soon(10000)
+            )
+            .is_err());
+        // Passive reads neither replay nor change saved policy.
+        let count = calls.load(Ordering::SeqCst);
+        c.run_binding(&target, soon(5000)).unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), count);
+        c.provider_stub = Some(provider_fixture(calls.clone()));
+        c.enroll_run(&target, &|_| Ok(()), &ok_consume, soon(10000))
+            .unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), count + 1);
+        assert_eq!(
+            std::fs::read(dir.join(format!("project-{project}.json"))).unwrap(),
+            before
+        );
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2);
+    }
+}
+
+#[test]
+fn control_cli_passthrough() {
+    let (opts, _) = control_options("control-cli", false);
+    let c = control::Control::new(
+        FakeExec {
+            f: Box::new(|_, _, _, _| {
+                Ok(br#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["100.88.77.66"]},"CurrentTailnet":{"MagicDNSEnabled":true}}"#.to_vec())
+            }),
+        },
+        opts,
+    );
+    let status = c.cli_status(soon(5000)).unwrap();
+    assert_eq!(status.identity, "atlas.example.ts.net");
+    let endpoint = c.cli_endpoint(soon(5000)).unwrap();
+    assert_eq!(endpoint.ipv4, "100.88.77.66");
+}

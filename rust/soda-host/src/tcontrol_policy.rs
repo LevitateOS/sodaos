@@ -172,7 +172,11 @@ const PROJECT_POLICY_SPECS: &[Spec] = &[
     },
 ];
 
-fn decode_policy_file(body: &[u8], specs: &[Spec], name: &'static str) -> Result<crate::json::BoundMap, String> {
+fn decode_policy_file(
+    body: &[u8],
+    specs: &[Spec],
+    name: &'static str,
+) -> Result<crate::json::BoundMap, String> {
     // Store files are small trusted-local JSON, but decode them with the
     // same strict grammar as the wire (Go uses strictjson here too).
     let v = crate::json::decode_strict(body).map_err(|_| wire::err_unavailable())?;

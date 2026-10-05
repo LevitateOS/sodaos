@@ -142,9 +142,9 @@ pub fn valid_network(s: &str) -> bool {
     if b.is_empty() || b.len() > 253 || !b[0].is_ascii_alphanumeric() {
         return false;
     }
-    b[1..].iter().all(|c| {
-        c.is_ascii_alphanumeric() || matches!(c, b'.' | b'@' | b'_' | b'-')
-    })
+    b[1..]
+        .iter()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'@' | b'_' | b'-'))
 }
 
 // ---------- MagicDNS names ----------
@@ -423,12 +423,7 @@ fn is_global_unicast(a: &ParsedAddr) -> bool {
         Addr::V4(v) => v4_global_unicast(v),
         Addr::V6(g) => {
             if is_4in6(g) {
-                let v = [
-                    (g[6] >> 8) as u8,
-                    g[6] as u8,
-                    (g[7] >> 8) as u8,
-                    g[7] as u8,
-                ];
+                let v = [(g[6] >> 8) as u8, g[6] as u8, (g[7] >> 8) as u8, g[7] as u8];
                 return v4_global_unicast(&v);
             }
             if g.iter().all(|&x| x == 0) {
@@ -706,8 +701,8 @@ const HOST_REQUEST_SPECS: &[Spec] = &[
 /// `HostRequest` struct binding (unknown fields rejected).
 pub fn decode_host_request(body: &[u8]) -> Result<HostRequest, String> {
     let v = strict_body(body)?;
-    let bound = crate::json::bind_root(&v, "host", HOST_REQUEST_SPECS, false)
-        .map_err(|_| err_invalid())?;
+    let bound =
+        crate::json::bind_root(&v, "host", HOST_REQUEST_SPECS, false).map_err(|_| err_invalid())?;
     Ok(HostRequest {
         action: bound.take_string("action"),
         revision: bound.take_string("revision"),
@@ -715,8 +710,12 @@ pub fn decode_host_request(body: &[u8]) -> Result<HostRequest, String> {
         exit_node: bound
             .contains("exit_node")
             .then(|| bound.take_string("exit_node")),
-        allow_lan: bound.contains("allow_lan").then(|| bound.take_bool("allow_lan")),
-        advertise: bound.contains("advertise").then(|| bound.take_bool("advertise")),
+        allow_lan: bound
+            .contains("allow_lan")
+            .then(|| bound.take_bool("allow_lan")),
+        advertise: bound
+            .contains("advertise")
+            .then(|| bound.take_bool("advertise")),
     })
 }
 
@@ -764,15 +763,15 @@ pub fn decode_enrollment_request(body: &[u8]) -> Result<EnrollmentRequest, Strin
         action: bound.take_string("action"),
         revision: bound.take_string("revision"),
         tailnet: bound.take_string("tailnet"),
-        tags: bound
-            .contains("tags")
-            .then(|| bound.take_str_list("tags")),
+        tags: bound.contains("tags").then(|| bound.take_str_list("tags")),
         preauthorized: bound
             .contains("preauthorized")
             .then(|| bound.take_bool("preauthorized")),
         client_id: bound.take_string("client_id"),
         client_secret: bound.take_string("client_secret"),
-        default: bound.contains("default").then(|| bound.take_bool("default")),
+        default: bound
+            .contains("default")
+            .then(|| bound.take_bool("default")),
     })
 }
 
@@ -872,7 +871,7 @@ impl HostRequest {
     }
 }
 
-fn validate_enrollment_tags(tags: &[String]) -> Result<(), String> {
+pub(crate) fn validate_enrollment_tags(tags: &[String]) -> Result<(), String> {
     if tags.is_empty() || tags.len() > 8 {
         return Err(err_invalid());
     }
@@ -1124,10 +1123,7 @@ impl HostView {
 
     fn valid_exit_node(&self) -> Result<(), String> {
         if self.preferences.exit_node_id.len() > 128
-            || self
-                .preferences
-                .exit_node_id
-                .contains(['\r', '\n', '\0'])
+            || self.preferences.exit_node_id.contains(['\r', '\n', '\0'])
         {
             return Err(err_unavailable());
         }
@@ -1243,8 +1239,13 @@ fn valid_project_persistence(v: &tailnet_domain::ProjectView) -> bool {
 
 fn valid_project_runtime(v: &tailnet_domain::ProjectView) -> Result<(), String> {
     match v.state.as_str() {
-        "runtime-unsupported" | "off" | "stopped" | "pending" | "needs-login"
-        | "approval-required" | "unconfirmed" => {
+        "runtime-unsupported"
+        | "off"
+        | "stopped"
+        | "pending"
+        | "needs-login"
+        | "approval-required"
+        | "unconfirmed" => {
             if !v.addresses.is_empty() || !v.dns_name.is_empty() {
                 return Err(err_unavailable());
             }
@@ -1403,12 +1404,7 @@ impl EnrollmentView {
             "enrollment_verified",
             self.enrollment_verified,
         );
-        push_bool(
-            out,
-            &mut first,
-            "runtime_supported",
-            self.runtime_supported,
-        );
+        push_bool(out, &mut first, "runtime_supported", self.runtime_supported);
         out.push('}');
     }
 }
