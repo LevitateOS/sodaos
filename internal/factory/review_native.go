@@ -123,24 +123,32 @@ func ParseReviewReport(output string) (ReviewReport, bool) {
 		return ReviewReport{}, false
 	}
 	rest := output[start+len("```"+ReviewReportFence):]
-	end := strings.Index(rest, "```")
-	if end < 0 {
-		return ReviewReport{}, false
+	// The JSON payload may itself contain nested fences (quoted diffs,
+	// code samples), so the first fence after the opener is unreliable:
+	// try every closing fence in order until one decodes. The first
+	// valid payload wins; trailing chatter never mis-terminates it.
+	for offset := 0; offset < len(rest); {
+		rel := strings.Index(rest[offset:], "```")
+		if rel < 0 {
+			return ReviewReport{}, false
+		}
+		body := strings.TrimSpace(rest[:offset+rel])
+		offset += rel + len("```")
+		if body == "" || len(body) > 65536+8192 {
+			continue
+		}
+		var report ReviewReport
+		decoder := json.NewDecoder(strings.NewReader(body))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&report); err != nil {
+			continue
+		}
+		if report.Validate() != nil {
+			continue
+		}
+		return report, true
 	}
-	body := strings.TrimSpace(rest[:end])
-	if body == "" || len(body) > 65536+8192 {
-		return ReviewReport{}, false
-	}
-	var report ReviewReport
-	decoder := json.NewDecoder(strings.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&report); err != nil {
-		return ReviewReport{}, false
-	}
-	if report.Validate() != nil {
-		return ReviewReport{}, false
-	}
-	return report, true
+	return ReviewReport{}, false
 }
 
 // ReviewOutcome is the attributable native review identity adopted from its

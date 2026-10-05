@@ -163,6 +163,13 @@ func TestParseHarnessResult(t *testing.T) {
 	if !ok || got.Summary != "second" {
 		t.Fatalf("last fence wins: %+v %v", got, ok)
 	}
+	nested := "```result-json\n" +
+		"{\"status\":\"completed\",\"summary\":\"see:\\n```diff\\n-a\\n+b\\n```\",\"candidate\":\"" + candidate + "\",\"review_passed\":false,\"findings\":[]}" +
+		"\n```"
+	got, ok = ParseHarnessResult(nested)
+	if !ok || got.Status != "completed" || !strings.Contains(got.Summary, "```diff") {
+		t.Fatalf("nested-fence result rejected: %+v %v", got, ok)
+	}
 }
 
 func TestBuildDispatchPrompt(t *testing.T) {

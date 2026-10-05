@@ -251,24 +251,32 @@ func ParseHarnessResult(output string) (Result, bool) {
 		return Result{}, false
 	}
 	rest := output[start+len("```"+ResultFence):]
-	end := strings.Index(rest, "```")
-	if end < 0 {
-		return Result{}, false
+	// The JSON payload may itself contain nested fences (quoted diffs,
+	// code samples), so the first fence after the opener is unreliable:
+	// try every closing fence in order until one decodes. The first
+	// valid payload wins; trailing chatter never mis-terminates it.
+	for offset := 0; offset < len(rest); {
+		rel := strings.Index(rest[offset:], "```")
+		if rel < 0 {
+			return Result{}, false
+		}
+		body := strings.TrimSpace(rest[:offset+rel])
+		offset += rel + len("```")
+		if body == "" || len(body) > project.MaxFactoryOutput {
+			continue
+		}
+		var result Result
+		decoder := json.NewDecoder(strings.NewReader(body))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&result); err != nil {
+			continue
+		}
+		if result.Validate() != nil {
+			continue
+		}
+		return result, true
 	}
-	body := strings.TrimSpace(rest[:end])
-	if body == "" || len(body) > project.MaxFactoryOutput {
-		return Result{}, false
-	}
-	var result Result
-	decoder := json.NewDecoder(strings.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&result); err != nil {
-		return Result{}, false
-	}
-	if result.Validate() != nil {
-		return Result{}, false
-	}
-	return result, true
+	return Result{}, false
 }
 
 // Reservation states. Held capacity counts against every applicable
