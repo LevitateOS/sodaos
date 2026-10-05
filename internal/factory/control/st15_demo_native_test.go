@@ -139,6 +139,11 @@ type st15Fixture struct {
 	verdict1, verdict2             string
 	ciFailRev, ciPassRev           int64
 
+	// controlBrowser carries the background dependant-stop verdict:
+	// the browser boots during review-2 and polls for B's run, so
+	// the stop lands within seconds of record.
+	controlBrowser chan error
+
 	checks []st15Check
 }
 
