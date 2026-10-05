@@ -1,26 +1,24 @@
 //! Muse Code CLI factory runner (`muse exec`).
 //!
-//! Parallel runner to tcodex for the `muse` harness family: the same
-//! supervised lifecycle (reserve/start/wait/stop/output/capture), a
-//! different guest (the staged static `muse` binary — never the
-//! auto-updating shell launcher), credential (the broker's opaque
-//! `auth.json` bytes staged verbatim at the CLI's file-backend lookup
-//! path, exactly like the interactive muse runtime and the enrollment
-//! fixture; never parsed, never exported), and supervisor argv.
+//! Family adapter to `tfactory` for the `muse` harness family: own
+//! admission policy (provider/scope checks, path struct), guest (the
+//! staged static `muse` binary — never the auto-updating shell
+//! launcher), credential (the broker's opaque `auth.json` bytes staged
+//! verbatim at the CLI's file-backend lookup path, exactly like the
+//! interactive muse runtime and the enrollment fixture; never parsed,
+//! never exported), and supervisor argv. The supervised lifecycle
+//! (wait/validate/stop/output/capture/live) is the shared `tfactory`
+//! core, parameterized by scope and paths.
 //! Muse borrows: the broker forgets the lease on return and never calls
 //! finish, so the daemon denies `finish` for muse leases (capture only
 //! echoes the staged copy for the in-process pfactory return path, whose
-//! bytes the broker ignores). tcodex.rs stays behavior-identical;
-//! shared podman/unit/pid helpers and script builders are reused
-//! crate-internally.
+//! bytes the broker ignores).
 
-use crate::domain;
 use crate::project::Executor;
 use crate::sha256;
 use crate::tcodex::{
     self, valid_factory_role, valid_factory_run_id, valid_harness_version, valid_preparation_id,
-    FactoryRun, MAX_FACTORY_OUTPUT_OFFSET, MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW,
-    MAX_FACTORY_PROMPT,
+    FactoryRun, MAX_FACTORY_PROMPT,
 };
 use crate::texec::{self, Binding, Lease, Service, KIND_FACTORY};
 use std::os::unix::fs::PermissionsExt;
@@ -95,34 +93,24 @@ pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> 
 
 /// `factoryCodexBinding` shape for Muse runs: supervised
 /// factory-muse binding check plus derived run paths. The recorded
-/// credential root must equal the derived run directory.
+/// credential root must equal the derived run directory. Family policy
+/// (factory role, generation) wraps the shared `tfactory` checks.
 pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
     let Some(b) = &lease.binding else {
         return Err(texec::err_denied());
     };
-    if lease.provider_id != texec::PROVIDER_MUSE || lease.kind != KIND_FACTORY {
+    if !valid_factory_role(&b.login) {
         return Err(texec::err_denied());
     }
-    if b.kind != KIND_FACTORY
-        || b.scope != tcodex::FACTORY_SCOPE_MUSE
-        || !texec::valid_terminal_id(&b.id)
-    {
+    if b.uid <= 0 || b.gid <= 0 || b.generation != lease.generation || b.generation <= 0 {
         return Err(texec::err_denied());
     }
-    if !domain::valid_container_id(&b.project)
-        || !valid_factory_role(&b.login)
-        || !texec::valid_terminal_id(&b.invocation_id)
-    {
-        return Err(texec::err_denied());
-    }
-    if !valid_preparation_id(&b.child_id) {
-        return Err(texec::err_denied());
-    }
-    let (checkout, run_dir, home, muse_config) =
-        factory_muse_run_paths(&b.login, &b.child_id, &b.id).ok_or_else(texec::err_denied)?;
-    if checkout.is_empty() || texec::clean_path(&b.credential_root) != run_dir {
-        return Err(texec::err_denied());
-    }
+    let (checkout, run_dir, home, muse_config) = crate::tfactory::checked_binding_paths(
+        lease,
+        texec::PROVIDER_MUSE,
+        tcodex::FACTORY_SCOPE_MUSE,
+        factory_muse_run_paths,
+    )?;
     Ok(FactoryMusePaths {
         checkout,
         run_dir: run_dir.clone(),
@@ -490,96 +478,38 @@ impl<E: Executor> Service<E> {
         deadline: Instant,
     ) -> Result<(i32, String), String> {
         let p = factory_muse_binding(lease)?;
-        let unit = tcodex::factory_unit_name_or_denied(&lease.execution_id)?;
-        loop {
-            let show = self.factory_unit_state(&unit, deadline)?;
-            if !show.active {
-                break;
-            }
-            if tcodex::sleep_until(Instant::now() + Duration::from_millis(500), deadline).is_err() {
-                return Err("context deadline exceeded".to_string());
-            }
-        }
         let project = lease
             .binding
             .as_ref()
             .map(|b| b.project.clone())
             .unwrap_or_default();
-        let mut exit = -1;
-        let cat = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            project.clone(),
-            "/usr/bin/cat".to_string(),
-            format!("{}/exit", p.run_dir),
-        ];
-        if let Ok(out) = self.run_podman(&[], &cat, deadline) {
-            if let Some(code) = texec::parse_go_int(String::from_utf8_lossy(&out).trim()) {
-                if (0..=255).contains(&code) {
-                    exit = code as i32;
-                }
-            }
-        }
-        let mut output = String::new();
-        let head = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            project,
-            "/usr/bin/head".to_string(),
-            "-c".to_string(),
-            "65537".to_string(),
-            p.output.clone(),
-        ];
-        if let Ok(out) = self.run_podman(&[], &head, deadline) {
-            output = String::from_utf8_lossy(&out).into_owned();
-        }
-        Ok((exit, output))
+        self.factory_wait_result(
+            &lease.execution_id,
+            &project,
+            &p.run_dir,
+            &p.output,
+            deadline,
+        )
     }
 
     /// `Service.FactoryCodexValidate` shape for Muse runs.
     pub fn factory_muse_validate(&self, lease: &Lease, deadline: Instant) -> Result<(), String> {
         factory_muse_binding(lease)?;
         let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
-        let container = self.factory_project_container(&lease.project_id, true, deadline)?;
-        if container != binding.project {
-            return Err(texec::err_denied());
-        }
-        let (uid, gid) = self.factory_role_ids(&container, &binding.login, deadline)?;
-        if uid != binding.uid || gid != binding.gid {
-            return Err(texec::err_denied());
-        }
-        let unit = tcodex::factory_unit_name_or_denied(&lease.execution_id)?;
-        let show = self
-            .factory_unit_state(&unit, deadline)
-            .map_err(|_| texec::err_denied())?;
-        if !show.active || show.invocation != binding.invocation_id {
-            return Err(texec::err_denied());
-        }
-        Ok(())
+        self.factory_attest_live(&lease.project_id, binding, &lease.execution_id, deadline)
     }
 
     /// `Service.FactoryCodexStop` shape for Muse runs. Idempotent.
     pub fn factory_muse_stop(&self, lease: &Lease, deadline: Instant) -> Result<(), String> {
         let p = factory_muse_binding(lease)?;
         let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
-        let unit = tcodex::factory_unit_name_or_denied(&lease.execution_id)?;
-        let before = self.factory_read_pid(&binding.project, &p.pid_file, deadline);
-        let _ = self.factory_systemctl(&["stop", &unit], deadline);
-        self.factory_await_inactive(&unit, deadline)?;
-        match self.factory_container_exists(&binding.project, deadline) {
-            Ok(true) => {}
-            Ok(false) => return Ok(()),
-            Err(err) => return Err(err),
-        }
-        self.factory_retire(&binding.project, &p.run_dir, deadline)?;
-        let after = self.factory_read_pid(&binding.project, &p.pid_file, deadline);
-        if !after.is_empty() && after != before {
-            self.factory_retire(&binding.project, &p.run_dir, deadline)?;
-            if self.factory_read_pid(&binding.project, &p.pid_file, deadline) != after {
-                return Err(texec::err_uncertain());
-            }
-        }
-        Ok(())
+        self.factory_stop_confirmed(
+            &binding.project,
+            &lease.execution_id,
+            &p.pid_file,
+            &p.run_dir,
+            deadline,
+        )
     }
 
     /// `Service.FactoryCodexStopUnbound` shape for Muse runs.
@@ -589,29 +519,13 @@ impl<E: Executor> Service<E> {
         deadline: Instant,
     ) -> Result<(), String> {
         let p = factory_muse_paths(run)?;
-        let unit = tcodex::factory_unit_name_or_denied(&run.id)?;
-        let _ = self.factory_systemctl(&["stop", &unit], deadline);
-        self.factory_await_inactive(&unit, deadline)?;
-        let container = match self.factory_project_container(&run.project, false, deadline) {
-            Ok(container) => container,
-            Err(_) => {
-                match self.factory_container_exists(&format!("soda-{}", run.project), deadline) {
-                    Ok(false) => return Ok(()),
-                    Ok(true) => return Err(texec::err_uncertain()),
-                    Err(err) => return Err(err),
-                }
-            }
-        };
-        let before = self.factory_read_pid(&container, &p.pid_file, deadline);
-        self.factory_retire(&container, &p.run_dir, deadline)?;
-        let after = self.factory_read_pid(&container, &p.pid_file, deadline);
-        if !after.is_empty() && after != before {
-            self.factory_retire(&container, &p.run_dir, deadline)?;
-            if self.factory_read_pid(&container, &p.pid_file, deadline) != after {
-                return Err(texec::err_uncertain());
-            }
-        }
-        Ok(())
+        self.factory_stop_unbound_confirmed(
+            &run.project,
+            &run.id,
+            &p.pid_file,
+            &p.run_dir,
+            deadline,
+        )
     }
 
     /// `Service.FactoryCodexCapture` shape for Muse runs: echo the
@@ -630,78 +544,12 @@ impl<E: Executor> Service<E> {
             .as_ref()
             .map(|b| b.project.clone())
             .unwrap_or_default();
-        let argv = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            project,
-            "/usr/bin/head".to_string(),
-            "-c".to_string(),
-            "262145".to_string(),
-            p.credential.clone(),
-        ];
-        match self.run_podman(&[], &argv, deadline) {
-            Ok(out) if texec::credential_valid(&out) => Ok(out),
-            _ => Err(texec::err_uncertain()),
-        }
+        self.factory_capture_valid(&project, &p.credential, deadline)
     }
 
     /// `Service.FactoryCodexLive` shape for Muse runs.
     pub fn factory_muse_live(&self, binding: &Binding, deadline: Instant) -> bool {
-        if binding.kind != KIND_FACTORY
-            || binding.scope != tcodex::FACTORY_SCOPE_MUSE
-            || !texec::valid_terminal_id(&binding.id)
-            || !texec::valid_terminal_id(&binding.invocation_id)
-        {
-            return false;
-        }
-        let Some(unit) = tcodex::factory_unit_name(&binding.id) else {
-            return false;
-        };
-        match self.factory_unit_state(&unit, deadline) {
-            Ok(show) => show.active && show.invocation == binding.invocation_id,
-            Err(_) => false,
-        }
-    }
-
-    fn factory_muse_output_binding(
-        &self,
-        project_id: &str,
-        binding: &Binding,
-        deadline: Instant,
-    ) -> Result<FactoryMusePaths, String> {
-        if binding.kind != KIND_FACTORY
-            || binding.scope != tcodex::FACTORY_SCOPE_MUSE
-            || !texec::valid_terminal_id(&binding.id)
-        {
-            return Err(texec::err_denied());
-        }
-        if !domain::valid_container_id(&binding.project)
-            || !valid_factory_role(&binding.login)
-            || !texec::valid_terminal_id(&binding.invocation_id)
-        {
-            return Err(texec::err_denied());
-        }
-        if !valid_preparation_id(&binding.child_id) {
-            return Err(texec::err_denied());
-        }
-        let (checkout, run_dir, home, muse_config) =
-            factory_muse_run_paths(&binding.login, &binding.child_id, &binding.id)
-                .ok_or_else(texec::err_denied)?;
-        if checkout.is_empty() || texec::clean_path(&binding.credential_root) != run_dir {
-            return Err(texec::err_denied());
-        }
-        let container = self.factory_project_container(project_id, true, deadline)?;
-        if container != binding.project {
-            return Err(texec::err_stale());
-        }
-        Ok(FactoryMusePaths {
-            checkout,
-            run_dir: run_dir.clone(),
-            home,
-            muse_config,
-            stdout: format!("{run_dir}/stdout.log"),
-            ..Default::default()
-        })
+        self.factory_live_scoped(binding, tcodex::FACTORY_SCOPE_MUSE, deadline)
     }
 
     /// `Service.FactoryCodexOutput` shape for Muse runs.
@@ -712,78 +560,16 @@ impl<E: Executor> Service<E> {
         offset: i64,
         limit: i64,
         deadline: Instant,
-    ) -> Result<tcodex::FactoryCodexOutputSlice, String> {
-        if !(0..=MAX_FACTORY_OUTPUT_OFFSET).contains(&offset)
-            || !(1..=MAX_FACTORY_OUTPUT_READ).contains(&limit)
-        {
-            return Err(texec::err_denied());
-        }
-        let p = self.factory_muse_output_binding(project_id, binding, deadline)?;
-        let mut total = 0i64;
-        let stat = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            binding.project.clone(),
-            "/usr/bin/stat".to_string(),
-            "-c".to_string(),
-            "%s".to_string(),
-            p.stdout.clone(),
-        ];
-        if let Ok(out) = self.run_podman(&[], &stat, deadline) {
-            if let Some(size) = tcodex::factory_output_size(&out) {
-                total = size;
-            }
-        }
-        if offset > total {
-            return Ok(tcodex::FactoryCodexOutputSlice {
-                total,
-                offset: total,
-                gap: true,
-                ..Default::default()
-            });
-        }
-        let (mut start, mut truncated) = (offset, false);
-        if start == 0 && total > MAX_FACTORY_OUTPUT_WINDOW {
-            start = total - MAX_FACTORY_OUTPUT_WINDOW;
-            truncated = true;
-        }
-        if start >= total {
-            return Ok(tcodex::FactoryCodexOutputSlice {
-                total,
-                offset: start,
-                truncated,
-                ..Default::default()
-            });
-        }
-        let read = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            binding.project.clone(),
-            "/usr/bin/sh".to_string(),
-            "-c".to_string(),
-            tcodex::output_read_command(&p.stdout, start, limit),
-        ];
-        let mut out = match self.run_podman(&[], &read, deadline) {
-            Ok(out) => out,
-            Err(_) => {
-                return Ok(tcodex::FactoryCodexOutputSlice {
-                    total,
-                    offset: start,
-                    truncated,
-                    ..Default::default()
-                });
-            }
-        };
-        if out.len() as i64 > limit {
-            out.truncate(limit as usize);
-        }
-        Ok(tcodex::FactoryCodexOutputSlice {
-            data: out,
-            total,
-            offset: start,
-            truncated,
-            ..Default::default()
-        })
+    ) -> Result<crate::tfactory::FactoryOutputSlice, String> {
+        crate::tfactory::check_output_range(offset, limit)?;
+        let stdout = self.factory_output_stdout(
+            project_id,
+            binding,
+            tcodex::FACTORY_SCOPE_MUSE,
+            factory_muse_run_paths,
+            deadline,
+        )?;
+        self.factory_output_window(&binding.project, &stdout, offset, limit, deadline)
     }
 }
 
@@ -990,6 +776,9 @@ mod tests {
             Box::new(|b: &mut Binding| b.id = "short".to_string()),
             Box::new(|b: &mut Binding| b.project = "x".to_string()),
             Box::new(|b: &mut Binding| b.login = "dev".to_string()),
+            Box::new(|b: &mut Binding| b.uid = 0),
+            Box::new(|b: &mut Binding| b.gid = 0),
+            Box::new(|b: &mut Binding| b.generation = 99),
             Box::new(|b: &mut Binding| b.invocation_id = "x".to_string()),
             Box::new(|b: &mut Binding| b.child_id = "x".to_string()),
             Box::new(|b: &mut Binding| b.credential_root = "/elsewhere".to_string()),
