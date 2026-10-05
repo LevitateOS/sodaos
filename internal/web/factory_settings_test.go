@@ -215,10 +215,10 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	s := factoryEncryptedServer(t)
 	ctx := context.Background()
 	connection := identity.Connection{ID: "conn-1", ProviderID: identity.Codex, OwnerID: 1, Label: "test", Generation: 1, State: identity.Ready}
-	if err := s.Store.IdentitySaveConnection(ctx, connection, []byte(`{}`)); err != nil {
+	if err := s.Store.SeedIdentityConnection(ctx, connection, []byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Store.IdentitySaveGrant(ctx, identity.Grant{ID: "grant-1", ConnectionID: "conn-1", UserID: 1, ProjectID: factorySettingsProject}); err != nil {
+	if err := s.Store.SeedIdentityGrant(ctx, identity.Grant{ID: "grant-1", ConnectionID: "conn-1", UserID: 1, ProjectID: factorySettingsProject}); err != nil {
 		t.Fatal(err)
 	}
 	sponsor := func(command string, generation int64) string {
