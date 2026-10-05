@@ -262,7 +262,9 @@ pub fn private_file(path: &str) -> Result<(), Error> {
 pub fn require_native(arch: &str) -> Result<(), Error> {
     let oci =
         soda_build_tools::reader::oci_architecture(arch).map_err(|e| Error::msg(e.to_string()))?;
-    if std::env::consts::OS != "linux" || std::env::consts::ARCH != oci {
+    // D01-F1: Rust target arch and OCI arch are separate namespaces; each
+    // is validated against its own supported value.
+    if std::env::consts::OS != "linux" || std::env::consts::ARCH != "x86_64" || oci != "amd64" {
         return Err(Error::msg("matching-native Linux required"));
     }
     Ok(())
@@ -375,6 +377,16 @@ mod tests {
             "regular non-symlink file required"
         );
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn require_native_accepts_matching_x86_64_linux() {
+        // D01-F1: Rust target arch and OCI arch are separate namespaces;
+        // matching-native x86_64 Linux must pass, anything else must fail.
+        assert!(require_native("x86_64").is_ok());
+        assert!(require_native("amd64").is_err());
+        assert!(require_native("arm64").is_err());
+        assert!(require_native("").is_err());
     }
 
     #[test]
