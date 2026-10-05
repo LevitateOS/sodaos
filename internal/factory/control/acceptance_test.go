@@ -114,6 +114,40 @@ func TestAdmitAcceptanceVerifiesAndRecords(t *testing.T) {
 	}
 }
 
+func TestAdmitAcceptanceReplaysAfterNativeRevisionAdvance(t *testing.T) {
+	c, source := acceptanceHarness(t, acceptanceEvidence(), nil)
+	decision := acceptanceDecision()
+	command := factory.NewID()
+	first, err := c.AdmitAcceptance(context.Background(), command, "native:7", decision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Native revision advances; the admitted decision is unchanged.
+	advanced := acceptanceEvidence()
+	advanced.Revision = 42
+	source.evidence = advanced
+	again, err := c.AdmitAcceptance(context.Background(), command, "native:7", decision)
+	if err != nil || !reflect.DeepEqual(again, first) {
+		t.Fatalf("replay: %+v %v", again, err)
+	}
+}
+
+func TestAdmitAcceptanceReplayEnforcesCurrentVisibility(t *testing.T) {
+	c, source := acceptanceHarness(t, acceptanceEvidence(), nil)
+	decision := acceptanceDecision()
+	command := factory.NewID()
+	if _, err := c.AdmitAcceptance(context.Background(), command, "native:7", decision); err != nil {
+		t.Fatal(err)
+	}
+	hidden := acceptanceEvidence()
+	hidden.Issue.Visible = false
+	source.evidence = hidden
+	_, err := c.AdmitAcceptance(context.Background(), command, "native:7", decision)
+	if reason := acceptanceRefusal(t, err); reason != RefusalIssueHidden {
+		t.Fatalf("reason %q", reason)
+	}
+}
+
 func TestAdmitAcceptanceRefusesWithoutRecording(t *testing.T) {
 	cases := map[string]struct {
 		mutate  func(*AcceptanceEvidence)

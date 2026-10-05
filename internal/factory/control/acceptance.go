@@ -131,15 +131,6 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	if decision.Initial {
 		return AcceptanceReceipt{}, refuseAcceptance(RefusalCreationUnverified)
 	}
-	// Verify before recording: refusals are common and must not poison
-	// the command ledger with unfinished entries.
-	evidence, err := c.readAcceptanceEvidence(bounded, decision)
-	if err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	if err := c.verifyAcceptance(bounded, decision, evidence); err != nil {
-		return AcceptanceReceipt{}, err
-	}
 	payload, err := json.Marshal(decision)
 	if err != nil {
 		return AcceptanceReceipt{}, err
@@ -152,12 +143,33 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	if err = cmd.Validate(); err != nil {
 		return AcceptanceReceipt{}, err
 	}
+	// F05-F1: a stored matching admitted command replays its retained
+	// decision under current visibility without requiring unchanged
+	// native evidence. Only unrecorded commands take the fresh
+	// stale-screen admission path below.
+	if stored, err := c.Store.FactoryCommand(bounded, cmd.ID); err == nil {
+		if stored.Digest != cmd.Digest {
+			return AcceptanceReceipt{}, store.ErrCommandConflict
+		}
+		return c.replayAdmittedAcceptance(bounded, decision, stored)
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return AcceptanceReceipt{}, err
+	}
+	// Verify before recording: refusals are common and must not poison
+	// the command ledger with unfinished entries.
+	evidence, err := c.readAcceptanceEvidence(bounded, decision)
+	if err != nil {
+		return AcceptanceReceipt{}, err
+	}
+	if err := c.verifyAcceptance(bounded, decision, evidence); err != nil {
+		return AcceptanceReceipt{}, err
+	}
 	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
 	if err != nil {
 		return AcceptanceReceipt{}, err
 	}
 	if !created {
-		return replayAcceptance(stored)
+		return c.replayAdmittedAcceptance(bounded, decision, stored)
 	}
 	if err = c.Store.AdmitAcceptanceDecision(bounded, decision); err != nil {
 		if errors.Is(err, store.ErrStaleRevision) {
@@ -206,6 +218,58 @@ func replayAcceptance(stored factory.Command) (AcceptanceReceipt, error) {
 		return AcceptanceReceipt{}, err
 	}
 	return receipt, nil
+}
+
+// replayAdmittedAcceptance returns the retained receipt for an
+// already-recorded acceptance command after enforcing current
+// visibility. Revision and content equality are not re-required: the
+// decision was admitted under exact evidence, and replay neither
+// re-authorizes native material nor admits anything new.
+func (c *Coordinator) replayAdmittedAcceptance(ctx context.Context, decision factory.Acceptance, stored factory.Command) (AcceptanceReceipt, error) {
+	evidence, err := c.readAcceptanceEvidence(ctx, decision)
+	if err != nil {
+		return AcceptanceReceipt{}, err
+	}
+	if err := verifyAcceptanceVisibility(decision, evidence); err != nil {
+		return AcceptanceReceipt{}, err
+	}
+	return replayAcceptance(stored)
+}
+
+// verifyAcceptanceVisibility enforces the visibility subset of
+// verifyAcceptance: the bracketed issue, every selected source and
+// every current edge must still be visible. Established refusal
+// codes; no revision, digest, version, edge-set or prerequisite
+// equality.
+func verifyAcceptanceVisibility(decision factory.Acceptance, evidence AcceptanceEvidence) error {
+	issue := evidence.Issue
+	if issue.Index != decision.IssueIndex {
+		return refuseAcceptance(RefusalIncompleteEvidence)
+	}
+	if !issue.Visible {
+		return refuseAcceptance(RefusalIssueHidden)
+	}
+	comments := make(map[string]AcceptanceComment, len(evidence.Comments))
+	for _, comment := range evidence.Comments {
+		comments[comment.ID] = comment
+	}
+	for _, section := range [][]factory.SelectedSource{decision.Sources, decision.Resolutions} {
+		for _, source := range section {
+			comment, ok := comments[source.ID]
+			if !ok {
+				return refuseAcceptance(RefusalSourceMissing)
+			}
+			if !comment.Visible {
+				return refuseAcceptance(RefusalSourceHidden)
+			}
+		}
+	}
+	for _, edge := range evidence.Dependencies {
+		if !edge.Visible {
+			return refuseAcceptance(RefusalEdgeHidden)
+		}
+	}
+	return nil
 }
 
 func mustIssueIndex(index string) int64 {
