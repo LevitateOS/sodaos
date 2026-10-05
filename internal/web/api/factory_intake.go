@@ -15,7 +15,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -92,7 +92,7 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	assessed, changed, err := h.Coordinator.ObserveIssueEvent(r.Context(), hint)
 	if err != nil {
 		attrs := []any{"delivery", delivery, "event", event, "error", err}
-		var status *hostpublish.StatusError
+		var status *forgejopublish.StatusError
 		if errors.As(err, &status) {
 			attrs = append(attrs, "native_status", status.Status, "native_body", status.Body)
 		}
