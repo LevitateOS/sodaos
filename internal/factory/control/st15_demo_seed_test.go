@@ -223,7 +223,7 @@ func (fx *st15Fixture) prepareRoles() error {
 		if _, admitted, err := db.AdmitPreparation(ctx, project.StoredPreparation{Preparation: prep}); err != nil || !admitted {
 			return fmt.Errorf("admit %s: admitted=%v err=%v", id, admitted, err)
 		}
-		state, err := fx.rt.Prepare(ctx, project.Prepare{Preparation: prep, Setup: project.ApprovedSetup{Files: files, Bundle: bundle}})
+		state, err := hostexec.NewClient(fx.cfg.HostSocket).Prepare(ctx, project.Prepare{Preparation: prep, Setup: project.ApprovedSetup{Files: files, Bundle: bundle}})
 		if err != nil {
 			return err
 		}
@@ -232,7 +232,7 @@ func (fx *st15Fixture) prepareRoles() error {
 		}
 		deadline := time.Now().Add(15 * time.Minute)
 		for {
-			state, err = fx.rt.InspectPreparation(ctx, project.PrepareInspect{Project: fx.projectID, ID: id})
+			state, err = hostexec.NewClient(fx.cfg.HostSocket).InspectPreparation(ctx, project.PrepareInspect{Project: fx.projectID, ID: id})
 			if err != nil {
 				return err
 			}

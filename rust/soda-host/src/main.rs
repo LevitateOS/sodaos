@@ -66,15 +66,18 @@ impl MainError {
 
 struct Flags {
     config: String,
+    release: String,
     tailnet_action: String,
     project: String,
     positionals: Vec<String>,
 }
 
 fn usage() -> String {
-    "Usage: soda-host [--config PATH] [--tailnet-action run|stop --project ID]\n\n\
+    "Usage: soda-host [--config PATH] [--release PATH] [--tailnet-action run|stop --project ID]\n\n\
      Installed privileged host daemon: serves the root:soda Unix operation\n\
-     socket under systemd socket activation.\n"
+     socket under systemd socket activation. --release selects the appliance\n\
+     release file (default /usr/share/soda/release.json); an empty value\n\
+     disables the release overlay for test fixtures.\n"
         .to_string()
 }
 
@@ -83,6 +86,7 @@ fn usage() -> String {
 fn parse_flags(args: &[String]) -> Result<Flags, String> {
     let mut flags = Flags {
         config: DEFAULT_CONFIG.to_string(),
+        release: RELEASE_CONFIG.to_string(),
         tailnet_action: String::new(),
         project: String::new(),
         positionals: Vec::new(),
@@ -120,6 +124,7 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
         };
         match name {
             "config" => flags.config = value,
+            "release" => flags.release = value,
             "tailnet-action" => flags.tailnet_action = value,
             "project" => flags.project = value,
             _ => return Err(format!("flag provided but not defined: -{name}")),
@@ -138,6 +143,7 @@ fn is_root() -> bool {
 
 fn run_tailnet_action(
     config_path: &str,
+    release_path: &str,
     action: &str,
     project_id: &str,
     positionals: usize,
@@ -150,7 +156,7 @@ fn run_tailnet_action(
         // Go `tailnet.ErrInvalid`.
         return Err(MainError::Other("invalid Tailnet request".to_string()));
     }
-    let config = iconfig::load_config(config_path, RELEASE_CONFIG)
+    let config = iconfig::load_config(config_path, release_path)
         .map_err(|_| MainError::Other("tailnet unavailable".to_string()))?;
     if !config.tailnet_management || config.tailnet_image.is_empty() {
         return Ok(());
@@ -334,6 +340,7 @@ fn run() -> Result<(), MainError> {
     if !flags.tailnet_action.is_empty() {
         return run_tailnet_action(
             &flags.config,
+            &flags.release,
             &flags.tailnet_action,
             &flags.project,
             flags.positionals.len(),
@@ -342,7 +349,7 @@ fn run() -> Result<(), MainError> {
     if !flags.project.is_empty() || !flags.positionals.is_empty() {
         return Err(MainError::Other("invalid Tailnet request".to_string()));
     }
-    let config = iconfig::load_config(&flags.config, RELEASE_CONFIG)
+    let config = iconfig::load_config(&flags.config, &flags.release)
         .map_err(|e| MainError::Other(format!("invalid host configuration: {e}")))?;
     serve_host_socket(config)
 }
@@ -367,10 +374,16 @@ mod tests {
         let flags = parse_flags(&args(&["--config", "/x", "--project=p1"])).unwrap();
         assert_eq!(flags.config, "/x");
         assert_eq!(flags.project, "p1");
+        assert_eq!(flags.release, RELEASE_CONFIG);
         let flags = parse_flags(&args(&["-config=/y"])).unwrap();
         assert_eq!(flags.config, "/y");
+        let flags = parse_flags(&args(&["--release", ""])).unwrap();
+        assert_eq!(flags.release, "");
+        let flags = parse_flags(&args(&["--release=/r.json"])).unwrap();
+        assert_eq!(flags.release, "/r.json");
         assert!(parse_flags(&args(&["--bogus"])).is_err());
         assert!(parse_flags(&args(&["--config"])).is_err());
+        assert!(parse_flags(&args(&["--release"])).is_err());
         assert!(parse_flags(&args(&["-h"])).is_err());
     }
 
@@ -378,9 +391,9 @@ mod tests {
     fn tailnet_action_args_rejected_without_root_or_shape() {
         // Shape failures reject even as root; non-root rejects everything.
         // Either way the result is an error, never a launch.
-        let result = run_tailnet_action("/nonexistent.json", "bogus", "bad", 0);
+        let result = run_tailnet_action("/nonexistent.json", "", "bogus", "bad", 0);
         assert!(result.is_err());
-        let result = run_tailnet_action("/nonexistent.json", "run", "bad id", 0);
+        let result = run_tailnet_action("/nonexistent.json", "", "run", "bad id", 0);
         assert!(result.is_err());
     }
 

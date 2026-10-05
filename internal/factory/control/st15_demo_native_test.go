@@ -18,13 +18,10 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -33,13 +30,10 @@ import (
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	hostexec "github.com/levitateos/sodaos/internal/host"
-	projectexec "github.com/levitateos/sodaos/internal/host/project"
-	terminalexec "github.com/levitateos/sodaos/internal/host/terminal"
 	"github.com/levitateos/sodaos/internal/identity"
 	identityclient "github.com/levitateos/sodaos/internal/identity/client"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
-	"github.com/levitateos/sodaos/internal/strictjson"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
 
@@ -114,8 +108,6 @@ type st15Fixture struct {
 	scratch  string
 	db       *store.Store
 	client   *identityclient.Client
-	term     *terminalexec.Service
-	rt       *projectexec.Runtime
 	coord    *control.Coordinator
 	rest     *forgejo.Client
 	observer *forgejo.ServiceObserver
@@ -223,196 +215,6 @@ func st15RandHex(n int) string {
 	return hex.EncodeToString(b)
 }
 
-// st15HostEndpoint is the ST15 fixture's in-test host daemon double. The
-// production daemon mux is the Rust `soda-host` binary (which needs root +
-// systemd activation), so the fixture serves the exact factory dispatch
-// contract the retired Go mux served: POST-only clean paths, per-route
-// body caps, strict decode, the admitted-mutation gate for
-// /prepare-candidate, and the same error-to-status mapping. Anything
-// outside the exercised factory surface 404s.
-type st15HostEndpoint struct {
-	mu      sync.Mutex
-	calls   map[string]int64
-	gate    chan struct{}
-	factory atomic.Pointer[projectexec.Factory]
-	project *projectexec.Runtime
-	image   string
-}
-
-var (
-	errSt15NotFound    = errors.New("not found")
-	errSt15Unavailable = errors.New("factory runtime unavailable")
-	errSt15OutputStale = errors.New("factory output incarnation changed")
-	errSt15ExportStale = errors.New("factory run incarnation changed")
-)
-
-func (h *st15HostEndpoint) handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.mu.Lock()
-		h.calls[r.URL.Path]++
-		h.mu.Unlock()
-		if r.Method != http.MethodPost {
-			http.Error(w, "POST required", http.StatusMethodNotAllowed)
-			return
-		}
-		if r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "" {
-			http.Error(w, "invalid native operation path", http.StatusBadRequest)
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
-		defer cancel()
-		bodyLimit := 65536
-		if r.URL.Path == "/prepare-candidate" || r.URL.Path == "/factory-launch" {
-			bodyLimit = 1 << 20
-		}
-		r.Body = http.MaxBytesReader(w, r.Body, int64(bodyLimit))
-		decode := func(v any) error {
-			if err := strictjson.Decode(r.Body, v); err != nil {
-				return err
-			}
-			return ctx.Err()
-		}
-		if ctx.Err() != nil {
-			http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
-			return
-		}
-		// Factory routes stay off the shared mutation gate: a launch runs
-		// for tens of minutes, and per-run locks plus broker serialization
-		// are the control.
-		if r.URL.Path == "/prepare-candidate" {
-			select {
-			case h.gate <- struct{}{}:
-				if err := ctx.Err(); err != nil {
-					<-h.gate
-					http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
-					return
-				}
-				defer func() { <-h.gate }()
-			case <-ctx.Done():
-				http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
-				return
-			}
-		}
-		out, err := h.dispatch(ctx, r.URL.Path, decode)
-		if err != nil {
-			st15WriteHostError(w, r, err)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(out)
-	})
-}
-
-func st15WriteHostError(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, errSt15NotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if errors.Is(err, errSt15Unavailable) {
-		http.Error(w, "factory runtime unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	if errors.Is(err, errSt15OutputStale) {
-		http.Error(w, "factory output incarnation changed", http.StatusConflict)
-		return
-	}
-	if errors.Is(err, errSt15ExportStale) {
-		http.Error(w, "factory run incarnation changed", http.StatusConflict)
-		return
-	}
-	if errors.Is(err, project.ErrFactoryExportCandidate) {
-		http.Error(w, project.ErrFactoryExportCandidate.Error(), http.StatusUnprocessableEntity)
-		return
-	}
-	if errors.Is(err, project.ErrFactoryExportBounds) {
-		http.Error(w, project.ErrFactoryExportBounds.Error(), http.StatusRequestEntityTooLarge)
-		return
-	}
-	http.Error(w, "native operation failed; inspect operator journal", 500)
-}
-
-func (h *st15HostEndpoint) dispatch(ctx context.Context, path string, decode func(any) error) (any, error) {
-	switch path {
-	case "/prepare-candidate":
-		var in project.FactoryCandidate
-		if err := decode(&in); err != nil {
-			return nil, err
-		}
-		return h.project.PrepareCandidate(ctx, in)
-	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-harness", "/factory-export":
-		factory := h.factory.Load()
-		if factory == nil {
-			return nil, errSt15Unavailable
-		}
-		return h.dispatchFactory(ctx, factory, path, decode)
-	default:
-		return nil, errSt15NotFound
-	}
-}
-
-func (h *st15HostEndpoint) dispatchFactory(ctx context.Context, factory *projectexec.Factory, path string, decode func(any) error) (any, error) {
-	switch path {
-	case "/factory-launch":
-		var in project.FactoryLaunch
-		if err := decode(&in); err != nil {
-			return nil, err
-		}
-		return factory.Launch(ctx, in)
-	case "/factory-harness":
-		var in struct{}
-		if err := decode(&in); err != nil {
-			return nil, err
-		}
-		pin := factory.HarnessPin()
-		pin.Image = h.image
-		if err := pin.Validate(); err != nil {
-			return nil, errSt15Unavailable
-		}
-		return pin, nil
-	case "/factory-inspect":
-		var in project.FactoryInspect
-		if err := decode(&in); err != nil {
-			return nil, err
-		}
-		out, err := factory.Inspect(ctx, in)
-		if errors.Is(err, identity.ErrNotFound) {
-			return nil, errSt15NotFound
-		}
-		return out, err
-	case "/factory-stop":
-		var in project.FactoryStop
-		if err := decode(&in); err != nil {
-			return nil, err
-		}
-		return factory.Stop(ctx, in)
-	case "/factory-takeover":
-		var in project.FactoryTakeover
-		if err := decode(&in); err != nil {
-			return nil, err
-		}
-		out, err := factory.Takeover(ctx, in)
-		if errors.Is(err, identity.ErrNotFound) {
-			return nil, errSt15NotFound
-		}
-		return out, err
-	case "/factory-export":
-		var in project.FactoryExport
-		if err := decode(&in); err != nil {
-			return nil, err
-		}
-		out, err := factory.Export(ctx, in)
-		if errors.Is(err, identity.ErrNotFound) {
-			return nil, errSt15NotFound
-		}
-		if errors.Is(err, identity.ErrStale) {
-			return nil, errSt15ExportStale
-		}
-		return out, err
-	default:
-		return nil, errSt15NotFound
-	}
-}
-
 // st15RepoRoot locates the checkout so the fixture builds the broker from
 // the tree under test, including worktrees.
 func st15RepoRoot(t *testing.T) string {
@@ -448,6 +250,22 @@ func st15BuildBroker(t *testing.T) string {
 		t.Fatalf("build soda-identity: %v\n%s", err, out)
 	}
 	return filepath.Join(root, "target", "debug", "soda-identity")
+}
+
+// st15BuildHost compiles the production `soda-host` daemon the fixture
+// spawns over the pre-bound host socket.
+func st15BuildHost(t *testing.T) string {
+	t.Helper()
+	if _, err := exec.LookPath("cargo"); err != nil {
+		t.Skip("cargo unavailable")
+	}
+	root := st15RepoRoot(t)
+	build := exec.Command("cargo", "build", "-p", "soda-host", "--bin", "soda-host")
+	build.Dir = root
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build soda-host: %v\n%s", err, out)
+	}
+	return filepath.Join(root, "target", "debug", "soda-host")
 }
 
 // st15BuildFactoryRoles compiles the Rust factory-roles helper the
@@ -508,10 +326,6 @@ func (fx *st15Fixture) setupHostStack() error {
 	}
 	fx.scratch = scratch
 	t.Cleanup(func() { _ = os.RemoveAll(scratch) })
-	stateDir := filepath.Join(scratch, "runs")
-	if err := os.Mkdir(stateDir, 0o700); err != nil {
-		return err
-	}
 	helperPath := st15BuildFactoryRoles(t)
 	helper, err := os.ReadFile(helperPath)
 	if err != nil {
@@ -613,7 +427,6 @@ func (fx *st15Fixture) setupHostStack() error {
 	}
 	fx.versions = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(versionOut)), "codex-cli "))
 	fx.harnessSHA = st15SHA256(codex)
-	fx.term = &terminalexec.Service{Exec: hostexec.Native{}, CodexHarness: filepath.Join(scratch, "harness"), CodexHarnessSHA256: fx.harnessSHA, CodexHarnessVersion: fx.versions}
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return err
@@ -643,19 +456,63 @@ func (fx *st15Fixture) setupHostStack() error {
 	for _, sock := range []string{fx.cfg.BrokerSocket, runtimeSocket, fx.cfg.HostSocket} {
 		_ = os.Remove(sock)
 	}
-	endpoint := &st15HostEndpoint{
-		gate:    make(chan struct{}, 1),
-		project: &projectexec.Runtime{Exec: hostexec.Native{}},
-		image:   fx.image,
-		calls:   map[string]int64{},
+	// The production `soda-host` daemon serves the fixture host socket:
+	// the harness pre-binds the unix listener and hands the fd to the
+	// compiled binary the way systemd socket activation does, so ST15
+	// drives the shipped executor instead of an in-test double. The
+	// empty release path disables the appliance image overlay: the
+	// fixture writes the full pinned config itself.
+	if err := os.MkdirAll("/var/lib/soda/host/factory", 0o700); err != nil {
+		return err
 	}
 	hostListener, err := net.Listen("unix", fx.cfg.HostSocket)
 	if err != nil {
 		return err
 	}
-	hostSrv := &http.Server{Handler: endpoint.handler(), ReadHeaderTimeout: 5 * time.Second}
-	go func() { _ = hostSrv.Serve(hostListener) }()
-	t.Cleanup(func() { _ = hostSrv.Close() })
+	hostFile, err := hostListener.(*net.UnixListener).File()
+	if err != nil {
+		_ = hostListener.Close()
+		return err
+	}
+	daemonCfg, err := json.Marshal(map[string]any{
+		"muse_sha256": "", "muse_version": "", "muse_socket": "",
+		"identity_socket":       runtimeSocket,
+		"codex_harness":         filepath.Join(scratch, "harness"),
+		"codex_harness_sha256":  fx.harnessSHA,
+		"codex_harness_version": fx.versions,
+		"tailnet_management":    false, "tailnet_image": "",
+		"image": fx.image, "network": "soda-projects",
+		"subnet": "10.89.0.0/24", "bridge": "soda0",
+	})
+	if err != nil {
+		return err
+	}
+	daemonCfgPath := filepath.Join(scratch, "soda-host.json")
+	if err := os.WriteFile(daemonCfgPath, daemonCfg, 0o600); err != nil {
+		return err
+	}
+	daemonLogPath := filepath.Join(scratch, "soda-host.log")
+	daemonLog, err := os.Create(daemonLogPath)
+	if err != nil {
+		return err
+	}
+	// The sh wrapper sets LISTEN_PID to the daemon's own pid, then
+	// execs; fd 3 (the pre-bound listener) survives the exec.
+	daemonCmd := exec.Command("sh", "-c", `LISTEN_PID=$$ LISTEN_FDS=1 exec "$0" "$@"`,
+		st15BuildHost(t), "--config", daemonCfgPath, "--release", "")
+	daemonCmd.ExtraFiles = []*os.File{hostFile}
+	daemonCmd.Stdout = daemonLog
+	daemonCmd.Stderr = daemonLog
+	if err := daemonCmd.Start(); err != nil {
+		return err
+	}
+	_ = hostFile.Close()
+	_ = hostListener.Close()
+	t.Cleanup(func() {
+		_ = daemonCmd.Process.Kill()
+		_ = daemonCmd.Wait()
+		_ = daemonLog.Close()
+	})
 	// The Rust broker serves the fixture sockets: the dashboard keeps
 	// dialing the configured admin socket while the factory client uses
 	// the runtime socket, matching the production topology.
@@ -709,15 +566,19 @@ func (fx *st15Fixture) setupHostStack() error {
 	if _, err = fx.client.GetExecution(fx.ctx, identity.Factory, strings.Repeat("f", 32)); !errors.Is(err, identity.ErrNotFound) {
 		return fmt.Errorf("broker transport check failed: %v", err)
 	}
-	fx.rt = &projectexec.Runtime{Exec: hostexec.Native{}}
-	f, err := projectexec.OpenFactory(stateDir, fx.term, fx.client)
-	if err != nil {
-		return err
-	}
-	endpoint.factory.Store(f)
-	pin, err := hostexec.NewClient(fx.cfg.HostSocket).FactoryHarness(fx.ctx)
-	if err != nil {
-		return fmt.Errorf("harness pin route failed: %w", err)
+	hostClient := hostexec.NewClient(fx.cfg.HostSocket)
+	var pin project.FactoryHarnessPin
+	readyDeadline := time.Now().Add(30 * time.Second)
+	for {
+		pin, err = hostClient.FactoryHarness(fx.ctx)
+		if err == nil {
+			break
+		}
+		if time.Now().After(readyDeadline) {
+			raw, _ := os.ReadFile(daemonLogPath)
+			return fmt.Errorf("daemon harness pin route failed: %w (log %s: %s)", err, daemonLogPath, strings.TrimSpace(string(raw)))
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 	t.Logf("ST15 host stack: container %.12s image %.16s harness codex-%s project-os %s",
 		strings.TrimSpace(string(id)), fx.image, fx.versions, strings.TrimSpace(string(osRelease)))

@@ -274,7 +274,7 @@ func (fx *st15Fixture) prepareReviewer(head, coderRunID string) string {
 	}
 	deadline := time.Now().Add(15 * time.Minute)
 	for {
-		state, err = fx.rt.InspectPreparation(ctx, project.PrepareInspect{Project: fx.projectID, ID: prep.ID})
+		state, err = client.InspectPreparation(ctx, project.PrepareInspect{Project: fx.projectID, ID: prep.ID})
 		if err != nil {
 			fx.t.Fatal(err)
 		}
