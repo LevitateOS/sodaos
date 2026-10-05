@@ -139,6 +139,12 @@ if [ -n "$pyfiles" ]; then
   fi
 fi
 
+# 14. No Python anywhere in the tracked tree (PR42 eliminated it).
+if ! bash scripts/check-no-python.sh; then
+  printf 'pre-commit: no-python gate failed.\n'
+  fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf 'pre-commit gate failed. Fix the findings or bypass with --no-verify.\n'
   exit 1
