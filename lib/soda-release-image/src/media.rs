@@ -649,7 +649,7 @@ pub fn stop_packaging_container(root: &str) {
     let mut child = match std::process::Command::new("/usr/bin/podman")
         .args(["--remote=false", "stop", "--time=10", &cid])
         .env_clear()
-        .envs(crate::build::build_environment_pairs())
+        .envs(crate::build_runner::build_environment_pairs())
         .spawn()
     {
         Ok(child) => child,

@@ -14,7 +14,10 @@
 #![allow(clippy::too_many_arguments)]
 
 pub mod build;
+pub mod build_compile;
 pub mod build_media;
+pub mod build_runner;
+pub mod build_source;
 pub mod complete;
 pub mod compression;
 pub mod error;
