@@ -1,53 +1,41 @@
-//! Muse launch/serve loop: daemon entry points over the native runtime.
+//! Muse launch entries: supervised start, broker dispatch, listener setup.
 //!
-//! Port of the `MuseRuntime.Start` supervision path and the `MuseLaunch.Serve`
-//! accept loop (`internal/host/terminal/muse_socket_linux.go`) plus the
-//! listener setup from `internal/host/muse.go` (`Daemon.OpenMuseListener`).
-//!
-//! The runtime core (resolve/register/reserve/deliver/validators), request
-//! decoding and exit encoding live in [`muse`](crate::muse) and peer
-//! attestation in [`gmux_admission`](crate::gmux_admission); this module only
-//! adds the daemon-called surface and reuses those helpers throughout.
+//! Daemon-called surface over the already-ported runtime in
+//! [`muse`](crate::muse): [`MuseRuntime::start`] fuses Go `Start` with shell
+//! supervision, [`MuseRuntime::muse`] is the Go-name broker-dispatch entry,
+//! and [`open_muse_listener`] completes `prepare_muse_listener_dir` with the
+//! unixpacket bind + chmod from Go `Daemon.OpenMuseListener`
+//! (`internal/host/muse.go`). The accept loop itself (`MuseLaunch::serve`),
+//! caller resolution, registration, reserve/deliver and all validators
+//! already exist in `muse` and are reused, never redefined here.
 //!
 //! Shaping notes (contract signatures pin these):
 //!
-//! * [`MuseRuntime::start`] fuses Go `Start` with shell supervision but runs
-//!   detached: the signature carries no stdio or control channel, so the
-//!   child gets null stdio and no resize/signal supervisor. The interactive
-//!   path stays [`muse::MuseLaunch::shell`](crate::muse::MuseLaunch::shell).
-//! * [`MuseLaunch::serve`] validates launch descriptors (3 fds, Go parity)
-//!   but the `Start` callable takes peer + request only, so decoded stdio is
-//!   closed before dispatch. Wiring SCM_RIGHTS stdio through needs a
-//!   signature change and stays a remainder.
-//! * [`MuseRuntime::muse`] is the Go-name entry over `muse_operation`
-//!   (validate/stop served, start/finish denied exactly like Go
-//!   `projectOperation`).
-//! * [`open_muse_listener`] reuses `prepare_muse_listener_dir` for the
-//!   mkdir/empty/occupied gates, then binds unixpacket and chmods 0666. Go
-//!   passes 0755 to `MkdirAll`; the reused helper follows umask (0755 under
-//!   the standard 022). The daemon-nil case (`d.Muse == nil`) has no free
-//!   form here; the daemon simply does not call this without a runtime.
+//! * `start` runs detached: the signature carries no stdio or control
+//!   channel, so the child gets null stdio and no resize/signal supervisor.
+//!   The interactive path stays
+//!   [`muse::MuseLaunch::shell`](crate::muse::MuseLaunch::shell).
+//! * `muse` delegates to `muse_operation` (validate/stop served,
+//!   start/finish denied exactly like Go `projectOperation`).
+//! * `open_muse_listener` reuses `prepare_muse_listener_dir` for the
+//!   mkdir/empty/occupied gates. Go passes 0755 to `MkdirAll`; the reused
+//!   helper follows umask (0755 under the standard 022). The daemon-nil
+//!   case (`d.Muse == nil`) has no free form here; the daemon simply does
+//!   not call this without a runtime.
 
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::io::FromRawFd;
+use std::os::unix::net::UnixListener;
 use std::time::{Duration, Instant};
 
-use crate::gmux_admission::{close_pidfd, muse_peer};
 use crate::muse::{
-    muse_command_argv, muse_command_exit, muse_host_environment, muse_request_from_fd,
-    prepare_muse_listener_dir, LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer,
-    MuseRuntime, NestedRegistration,
+    muse_command_argv, muse_command_exit, muse_host_environment, prepare_muse_listener_dir,
+    LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer, MuseRuntime,
 };
 use crate::project::Executor;
 use crate::texec::Delivery;
 
-/// Supervised session horizon: Go `shell` runs under a 12h context and the
-/// guest unit carries `RuntimeMaxSec=43200`.
-const SESSION_SECS: u64 = 12 * 3600;
 /// Post-spawn custody-return horizon: Go's 30s `Finish` context.
 const CLEANUP_SECS: u64 = 30;
-/// Accept-poll slice while watching for shutdown.
-const ACCEPT_POLL_MS: i32 = 100;
 /// Child wait-poll slice while watching the session deadline.
 const WAIT_POLL_MS: u64 = 50;
 /// Listen backlog for the launch socket.
@@ -130,9 +118,9 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
 
 /// Spawn the prepared podman boundary with detached stdio.
 ///
-/// Same argv/env construction as the interactive spawner (`muse_command_argv`
-/// + `muse_host_environment`); stdio is null because [`MuseRuntime::start`]
-/// carries no descriptors.
+/// Same argv/env construction as the interactive spawner
+/// (`muse_command_argv` with `muse_host_environment`); stdio is null because
+/// [`MuseRuntime::start`] carries no descriptors.
 fn spawn_detached(execution: &MuseExecution) -> Result<std::process::Child, String> {
     let argv = muse_command_argv(
         &execution.caller,
@@ -167,146 +155,6 @@ fn wait_bounded(
                 }
                 std::thread::sleep(Duration::from_millis(WAIT_POLL_MS));
             }
-        }
-    }
-}
-
-/// Dedicated unixpacket launch service: `S` starts executions, `R` registers
-/// nested containers. Mirrors Go's `MuseLaunch{Start, Register}` func fields;
-/// unlike Go the callables are mandatory, which collapses the nil checks into
-/// the type system (same rationale as `MuseHooks`).
-pub struct MuseLaunch<S, R> {
-    start: S,
-    register: R,
-}
-
-impl<S, R> MuseLaunch<S, R> {
-    pub fn new(start: S, register: R) -> Self {
-        MuseLaunch { start, register }
-    }
-}
-
-/// Owned pidfd pin; Go defers `unix.Close(peer.PIDFD)`.
-struct PidfdGuard(crate::gmux_admission::MusePeer);
-
-impl Drop for PidfdGuard {
-    fn drop(&mut self) {
-        close_pidfd(&self.0);
-    }
-}
-
-impl<S, R> MuseLaunch<S, R> {
-    /// Accept loop until `is_shutdown` flips, then join every live
-    /// connection (Go's `Serve` + `wg.Wait` via scoped threads).
-    ///
-    /// Per connection: attest the peer with `gmux_admission::muse_peer`,
-    /// decode one request, dispatch register vs start, encode the outcome.
-    /// Attest/decode/dispatch failures encode as denied; only accept-loop
-    /// failures surface as `Err`, and those carry errno text only, never
-    /// request or credential bytes. An accept error with shutdown set exits
-    /// `Ok`, like Go's cancelled `AcceptUnix`.
-    pub fn serve(
-        &self,
-        listener: UnixListener,
-        is_shutdown: &dyn Fn() -> bool,
-    ) -> Result<(), String>
-    where
-        S: Fn(&MusePeer, &LaunchRequest, Instant) -> Result<LaunchExit, String> + Sync,
-        R: Fn(&MusePeer, &NestedRegistration, Instant) -> Result<(), String> + Sync,
-    {
-        listener
-            .set_nonblocking(true)
-            .map_err(|e| format!("muse accept failed: {e}"))?;
-        let fd = listener.as_raw_fd();
-        std::thread::scope(|scope| loop {
-            if is_shutdown() {
-                return Ok(());
-            }
-            let mut pfd = libc::pollfd {
-                fd,
-                events: libc::POLLIN,
-                revents: 0,
-            };
-            // SAFETY: valid one-element pollfd array.
-            let ready = unsafe { libc::poll(&mut pfd, 1, ACCEPT_POLL_MS) };
-            if ready < 0 {
-                let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-                if errno == libc::EINTR {
-                    continue;
-                }
-                if is_shutdown() {
-                    return Ok(());
-                }
-                return Err(format!("muse accept failed: errno {errno}"));
-            }
-            if ready == 0 {
-                continue;
-            }
-            match listener.accept() {
-                Ok((stream, _)) => {
-                    scope.spawn(|| self.serve_one(stream));
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(e) => {
-                    if is_shutdown() {
-                        return Ok(());
-                    }
-                    return Err(format!("muse accept failed: {e}"));
-                }
-            }
-        })
-    }
-
-    /// One connection: encode the outcome, then close (Go's deferred
-    /// `Encode` + `Close`).
-    fn serve_one(&self, mut stream: UnixStream)
-    where
-        S: Fn(&MusePeer, &LaunchRequest, Instant) -> Result<LaunchExit, String> + Sync,
-        R: Fn(&MusePeer, &NestedRegistration, Instant) -> Result<(), String> + Sync,
-    {
-        let result = self.serve_connection(stream.as_raw_fd());
-        let _ = std::io::Write::write_all(&mut stream, result.encode_line().as_bytes());
-    }
-
-    /// Attest, decode, dispatch. Any failure is denied, never detailed.
-    fn serve_connection(&self, conn: RawFd) -> LaunchExit
-    where
-        S: Fn(&MusePeer, &LaunchRequest, Instant) -> Result<LaunchExit, String> + Sync,
-        R: Fn(&MusePeer, &NestedRegistration, Instant) -> Result<(), String> + Sync,
-    {
-        let attested = match muse_peer(conn) {
-            Ok(peer) => peer,
-            Err(_) => return LaunchExit::denied(),
-        };
-        let peer = MusePeer {
-            pid: attested.pid,
-            uid: attested.uid,
-            gid: attested.gid,
-            pidfd: attested.pidfd,
-        };
-        let _pin = PidfdGuard(attested);
-        let received = match muse_request_from_fd(conn) {
-            Ok(received) => received,
-            Err(_) => return LaunchExit::denied(),
-        };
-        // Go serves register under the parent context and launches under a
-        // 12h shell context; one session horizon covers both dispatches.
-        let session = Instant::now() + Duration::from_secs(SESSION_SECS);
-        if let Some(register) = &received.request.register {
-            return match (self.register)(&peer, register, session) {
-                Ok(()) => LaunchExit {
-                    code: 0,
-                    error: String::new(),
-                },
-                Err(_) => LaunchExit::denied(),
-            };
-        }
-        // Decoded stdio validated the launch shape, then drops here: the
-        // `Start` callable takes peer + request only (see module notes).
-        match (self.start)(&peer, &received.request, session) {
-            Ok(exit) => exit,
-            Err(_) => LaunchExit::denied(),
         }
     }
 }
@@ -358,13 +206,7 @@ pub fn open_muse_listener(socket_path: &str) -> Result<UnixListener, String> {
     }
     let addr_len = (std::mem::size_of::<libc::sa_family_t>() + bytes.len() + 1) as libc::socklen_t;
     // SAFETY: bind + listen on the owned socket fd.
-    let bound = unsafe {
-        libc::bind(
-            fd,
-            &addr as *const _ as *const libc::sockaddr,
-            addr_len,
-        )
-    };
+    let bound = unsafe { libc::bind(fd, &addr as *const _ as *const libc::sockaddr, addr_len) };
     if bound != 0 {
         let err = std::io::Error::last_os_error();
         unsafe {
@@ -380,9 +222,12 @@ pub fn open_muse_listener(socket_path: &str) -> Result<UnixListener, String> {
         }
         return Err(format!("muse launch socket listen failed: {err}"));
     }
-    // Go's os.Chmod(path, 0666) via the pinned fd; close on failure like Go.
-    // SAFETY: fchmod on the owned fd.
-    if unsafe { libc::fchmod(fd, 0o666) } != 0 {
+    // Go's os.Chmod(path, 0666), closing the listener on failure. Path-based
+    // on purpose: fchmod on a unix socket fd is a silent no-op on Linux.
+    let c_path = std::ffi::CString::new(socket_path)
+        .map_err(|_| "muse launch socket path invalid".to_string())?;
+    // SAFETY: chmod on a valid NUL-terminated path.
+    if unsafe { libc::chmod(c_path.as_ptr(), 0o666) } != 0 {
         let err = std::io::Error::last_os_error();
         unsafe {
             libc::close(fd);

@@ -9,40 +9,47 @@
 // Scratch sockets live under the package target dir inside the worktree,
 // never under /tmp.
 
-#[path = "../src/json.rs"]
-mod json;
-#[path = "../src/nist.rs"]
-mod nist;
-#[path = "../src/sha256.rs"]
-mod sha256;
-#[path = "../src/ssh.rs"]
-mod ssh;
-#[path = "../src/net.rs"]
-mod net;
-#[path = "../src/domain.rs"]
-mod domain;
-#[path = "../src/project.rs"]
-mod project;
 #[path = "../src/account.rs"]
+#[allow(dead_code)]
 mod account;
-#[path = "../src/texec.rs"]
-mod texec;
+#[path = "../src/domain.rs"]
+#[allow(dead_code)]
+mod domain;
+#[path = "../src/json.rs"]
+#[allow(dead_code)]
+mod json;
 #[path = "../src/muse.rs"]
+#[allow(dead_code)]
 mod muse;
-#[path = "../src/gmux_admission.rs"]
-mod gmux_admission;
 #[path = "../src/muse_serve.rs"]
 mod muse_serve;
+#[path = "../src/net.rs"]
+#[allow(dead_code)]
+mod net;
+#[path = "../src/nist.rs"]
+#[allow(dead_code)]
+mod nist;
+#[path = "../src/project.rs"]
+#[allow(dead_code)]
+mod project;
+#[path = "../src/sha256.rs"]
+#[allow(dead_code)]
+mod sha256;
+#[path = "../src/ssh.rs"]
+#[allow(dead_code)]
+mod ssh;
+#[path = "../src/texec.rs"]
+#[allow(dead_code)]
+mod texec;
 
 use muse::{
-    muse_arguments, muse_command_argv, LaunchExit, LaunchRequest, MuseCaller, MuseHooks, MusePeer,
-    MuseRuntime, NestedRegistration,
+    muse_arguments, muse_command_argv, LaunchExit, LaunchRequest, MuseCaller, MuseHooks,
+    MuseLaunch, MusePeer, MuseRuntime,
 };
-use muse_serve::{open_muse_listener, MuseLaunch};
+use muse_serve::open_muse_listener;
 use project::Executor;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -282,11 +289,7 @@ fn seqpacket_connect(path: &str) -> RawFd {
             addr.sun_path[i] = *b as libc::c_char;
         }
         let len = (std::mem::size_of::<libc::sa_family_t>() + bytes.len() + 1) as libc::socklen_t;
-        let rc = libc::connect(
-            fd,
-            &addr as *const _ as *const libc::sockaddr,
-            len,
-        );
+        let rc = libc::connect(fd, &addr as *const _ as *const libc::sockaddr, len);
         assert_eq!(rc, 0, "connect failed");
         fd
     }
@@ -316,10 +319,7 @@ fn send_with_fds(fd: RawFd, body: &[u8], fds: &[RawFd]) {
         hdr.msg_iovlen = 1;
         let mut control;
         if !fds.is_empty() {
-            control = vec![
-                0u8;
-                libc::CMSG_SPACE((fds.len() * 4) as libc::c_uint) as usize
-            ];
+            control = vec![0u8; libc::CMSG_SPACE((fds.len() * 4) as libc::c_uint) as usize];
             hdr.msg_control = control.as_mut_ptr() as *mut libc::c_void;
             hdr.msg_controllen = control.len() as _;
             let cmsg = libc::CMSG_FIRSTHDR(&hdr);
@@ -356,14 +356,7 @@ fn recv_line(fd: RawFd) -> String {
         };
         let ready = unsafe { libc::poll(&mut pfd, 1, 5000) };
         assert!(ready > 0, "response timeout");
-        let n = unsafe {
-            libc::recv(
-                fd,
-                chunk.as_mut_ptr() as *mut libc::c_void,
-                chunk.len(),
-                0,
-            )
-        };
+        let n = unsafe { libc::recv(fd, chunk.as_mut_ptr() as *mut libc::c_void, chunk.len(), 0) };
         assert!(n > 0, "recv failed");
         out.extend_from_slice(&chunk[..n as usize]);
         if out.contains(&b'\n') {
@@ -423,7 +416,10 @@ fn start_denies_live_peer_outside_any_project() {
 fn muse_validate_ok_echoes_delivery() {
     let delivery = delivery_fixture();
     let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
-    assert_eq!(rt.muse("validate", &delivery, deadline()).unwrap(), delivery);
+    assert_eq!(
+        rt.muse("validate", &delivery, deadline()).unwrap(),
+        delivery
+    );
     assert!(rt.hooks.end_calls.lock().unwrap().is_empty());
 }
 
@@ -575,7 +571,7 @@ fn open_listener_reports_empty_before_occupied() {
 #[test]
 fn open_listener_rejects_overlong_path() {
     let dir = work_tmp();
-    let sock = sock_path(&dir, &"x".repeat(120));
+    let sock = dir.join("x".repeat(120)).to_str().unwrap().to_string();
     assert_eq!(
         open_muse_listener(&sock).unwrap_err(),
         "muse launch socket path too long"
@@ -583,39 +579,17 @@ fn open_listener_rejects_overlong_path() {
     cleanup(&dir);
 }
 
-// ---------- serve loopback (real unixpacket listener, scripted peer) ----------
+// ---------- serve loopback through the existing muse::MuseLaunch ----------
 
-struct Script {
-    starts: Mutex<Vec<(i32, LaunchRequest)>>,
-    registers: Mutex<Vec<(i32, NestedRegistration)>>,
-    start_out: Mutex<Result<LaunchExit, String>>,
-    register_out: Mutex<Result<(), String>>,
-}
-
-impl Script {
-    fn new() -> Arc<Self> {
-        Arc::new(Script {
-            starts: Mutex::new(Vec::new()),
-            registers: Mutex::new(Vec::new()),
-            start_out: Mutex::new(Err("denied".to_string())),
-            register_out: Mutex::new(Err("denied".to_string())),
-        })
-    }
-}
-
-fn spawn_serve<S, R>(
-    svc: MuseLaunch<S, R>,
-    listener: UnixListener,
+fn spawn_existing_serve(
+    svc: Arc<MuseLaunch<FakeExec, FakeHooks>>,
+    listen_fd: RawFd,
     shutdown: Arc<AtomicBool>,
-) -> std::thread::JoinHandle<Result<(), String>>
-where
-    S: Fn(&MusePeer, &LaunchRequest, Instant) -> Result<LaunchExit, String>
-        + Sync
-        + Send
-        + 'static,
-    R: Fn(&MusePeer, &NestedRegistration, Instant) -> Result<(), String> + Sync + Send + 'static,
-{
-    std::thread::spawn(move || svc.serve(listener, &|| shutdown.load(Ordering::SeqCst)))
+) -> std::thread::JoinHandle<Result<(), String>> {
+    std::thread::spawn(move || {
+        let flag = shutdown.clone();
+        svc.serve(listen_fd, &flag)
+    })
 }
 
 fn launch_wire() -> Vec<u8> {
@@ -623,85 +597,51 @@ fn launch_wire() -> Vec<u8> {
 }
 
 fn register_wire() -> Vec<u8> {
-    format!(
-        "{{\"home":"","register":{{\"child_id":"{CHID}","actor_id":"42","registration_id":"{RID}","muse":true}},"config_home":"","term":"","connection_id":"","cwd":"","args":[],"tty":false,"cols":0,"rows":0}}"
-    )
-    .into_bytes()
+    let mut s = String::from(r#"{"home":"","register":{"child_id":""#);
+    s.push_str(CHID);
+    s.push_str(r#"","actor_id":"42","registration_id":""#);
+    s.push_str(RID);
+    s.push_str(
+        r#"","muse":true},"config_home":"","term":"","connection_id":"","cwd":"","args":[],"tty":false,"cols":0,"rows":0}"#,
+    );
+    s.into_bytes()
 }
 
-fn serve_setup(
-    script: &Arc<Script>,
-) -> (
-    MuseLaunch<
-        impl Fn(&MusePeer, &LaunchRequest, Instant) -> Result<LaunchExit, String> + Sync + Send,
-        impl Fn(&MusePeer, &NestedRegistration, Instant) -> Result<(), String> + Sync + Send,
-    >,
-    Arc<AtomicBool>,
-) {
-    let started = script.clone();
-    let start =
-        move |peer: &MusePeer, req: &LaunchRequest, _deadline: Instant| -> Result<LaunchExit, String> {
-            started
-                .starts
-                .lock()
-                .unwrap()
-                .push((peer.pid, req.clone()));
-            started.start_out.lock().unwrap().clone()
-        };
-    let registered = script.clone();
-    let register =
-        move |peer: &MusePeer, reg: &NestedRegistration, _deadline: Instant| -> Result<(), String> {
-            registered
-                .registers
-                .lock()
-                .unwrap()
-                .push((peer.pid, reg.clone()));
-            registered.register_out.lock().unwrap().clone()
-        };
-    (MuseLaunch::new(start, register), Arc::new(AtomicBool::new(false)))
-}
+const DENIED_LINE: &str = "{\"code\":1,\"error\":\"Muse launch denied\"}\n";
 
+/// Full launch path through the real accept loop: attested peer, decoded
+/// request, dispatched register — denied here because the test process is
+/// not a project container, but the loop mechanics are fully exercised.
 #[test]
-fn serve_register_roundtrip_ok() {
+fn serve_loopback_register_denied() {
     let dir = work_tmp();
     let sock = sock_path(&dir, "l.sock");
     let listener = open_muse_listener(&sock).unwrap();
-    let script = Script::new();
-    *script.register_out.lock().unwrap() = Ok(());
-    let (svc, shutdown) = serve_setup(&script);
-    let worker = spawn_serve(svc, listener, shutdown.clone());
+    let svc = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker = spawn_existing_serve(svc, listener.as_raw_fd(), shutdown.clone());
 
     let client = seqpacket_connect(&sock);
     send_with_fds(client, &register_wire(), &[]);
-    assert_eq!(recv_line(client), "{\"code\":0}\n");
+    assert_eq!(recv_line(client), DENIED_LINE);
     close_fd(client);
-
-    let calls = script.registers.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].0, self_pid());
-    assert_eq!(calls[0].1.child_id, CHID);
-    assert_eq!(calls[0].1.actor_id, 42);
-    assert_eq!(calls[0].1.registration_id, RID);
-    assert!(calls[0].1.muse);
-    drop(calls);
 
     shutdown.store(true, Ordering::SeqCst);
     assert!(worker.join().unwrap().is_ok());
+    drop(listener);
     cleanup(&dir);
 }
 
+/// Launch dispatch with real SCM_RIGHTS stdio: prepare denies before any
+/// spawn, and the denied outcome is encoded on the wire.
 #[test]
-fn serve_start_roundtrip_ok() {
+fn serve_loopback_launch_denied() {
     let dir = work_tmp();
     let sock = sock_path(&dir, "l.sock");
     let listener = open_muse_listener(&sock).unwrap();
-    let script = Script::new();
-    *script.start_out.lock().unwrap() = Ok(LaunchExit {
-        code: 7,
-        error: String::new(),
-    });
-    let (svc, shutdown) = serve_setup(&script);
-    let worker = spawn_serve(svc, listener, shutdown.clone());
+    let svc = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker = spawn_existing_serve(svc, listener.as_raw_fd(), shutdown.clone());
 
     let client = seqpacket_connect(&sock);
     let stdio = [devnull(), devnull(), devnull()];
@@ -709,158 +649,69 @@ fn serve_start_roundtrip_ok() {
     for fd in stdio {
         close_fd(fd);
     }
-    assert_eq!(recv_line(client), "{\"code\":7}\n");
+    assert_eq!(recv_line(client), DENIED_LINE);
     close_fd(client);
-
-    let calls = script.starts.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].0, self_pid());
-    assert_eq!(calls[0].1.cwd, "/work");
-    drop(calls);
 
     shutdown.store(true, Ordering::SeqCst);
     assert!(worker.join().unwrap().is_ok());
+    drop(listener);
     cleanup(&dir);
 }
 
 #[test]
-fn serve_start_error_encodes_denied() {
+fn serve_loopback_garbage_denied() {
     let dir = work_tmp();
     let sock = sock_path(&dir, "l.sock");
     let listener = open_muse_listener(&sock).unwrap();
-    let script = Script::new();
-    let (svc, shutdown) = serve_setup(&script);
-    let worker = spawn_serve(svc, listener, shutdown.clone());
-
-    let client = seqpacket_connect(&sock);
-    let stdio = [devnull(), devnull(), devnull()];
-    send_with_fds(client, &launch_wire(), &stdio);
-    for fd in stdio {
-        close_fd(fd);
-    }
-    assert_eq!(
-        recv_line(client),
-        "{\"code\":1,\"error\":\"Muse launch denied\"}\n"
-    );
-    close_fd(client);
-    assert_eq!(script.starts.lock().unwrap().len(), 1);
-
-    shutdown.store(true, Ordering::SeqCst);
-    assert!(worker.join().unwrap().is_ok());
-    cleanup(&dir);
-}
-
-#[test]
-fn serve_denies_garbage_without_dispatch() {
-    let dir = work_tmp();
-    let sock = sock_path(&dir, "l.sock");
-    let listener = open_muse_listener(&sock).unwrap();
-    let script = Script::new();
-    let (svc, shutdown) = serve_setup(&script);
-    let worker = spawn_serve(svc, listener, shutdown.clone());
+    let svc = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker = spawn_existing_serve(svc, listener.as_raw_fd(), shutdown.clone());
 
     let client = seqpacket_connect(&sock);
     send_with_fds(client, b"not json{{{", &[]);
-    assert_eq!(
-        recv_line(client),
-        "{\"code\":1,\"error\":\"Muse launch denied\"}\n"
-    );
+    assert_eq!(recv_line(client), DENIED_LINE);
     close_fd(client);
-    assert!(script.starts.lock().unwrap().is_empty());
-    assert!(script.registers.lock().unwrap().is_empty());
 
     shutdown.store(true, Ordering::SeqCst);
     assert!(worker.join().unwrap().is_ok());
+    drop(listener);
     cleanup(&dir);
 }
 
 #[test]
-fn serve_denies_launch_without_fds() {
+fn serve_loopback_never_echoes_request_bytes() {
     let dir = work_tmp();
     let sock = sock_path(&dir, "l.sock");
     let listener = open_muse_listener(&sock).unwrap();
-    let script = Script::new();
-    *script.start_out.lock().unwrap() = Ok(LaunchExit {
-        code: 0,
-        error: String::new(),
-    });
-    let (svc, shutdown) = serve_setup(&script);
-    let worker = spawn_serve(svc, listener, shutdown.clone());
-
-    let client = seqpacket_connect(&sock);
-    send_with_fds(client, &launch_wire(), &[]);
-    assert_eq!(
-        recv_line(client),
-        "{\"code\":1,\"error\":\"Muse launch denied\"}\n"
-    );
-    close_fd(client);
-    assert!(script.starts.lock().unwrap().is_empty());
-
-    shutdown.store(true, Ordering::SeqCst);
-    assert!(worker.join().unwrap().is_ok());
-    cleanup(&dir);
-}
-
-#[test]
-fn serve_denies_register_with_fds() {
-    let dir = work_tmp();
-    let sock = sock_path(&dir, "l.sock");
-    let listener = open_muse_listener(&sock).unwrap();
-    let script = Script::new();
-    *script.register_out.lock().unwrap() = Ok(());
-    let (svc, shutdown) = serve_setup(&script);
-    let worker = spawn_serve(svc, listener, shutdown.clone());
-
-    let client = seqpacket_connect(&sock);
-    let stdio = [devnull(), devnull(), devnull()];
-    send_with_fds(client, &register_wire(), &stdio);
-    for fd in stdio {
-        close_fd(fd);
-    }
-    assert_eq!(
-        recv_line(client),
-        "{\"code\":1,\"error\":\"Muse launch denied\"}\n"
-    );
-    close_fd(client);
-    assert!(script.registers.lock().unwrap().is_empty());
-
-    shutdown.store(true, Ordering::SeqCst);
-    assert!(worker.join().unwrap().is_ok());
-    cleanup(&dir);
-}
-
-#[test]
-fn serve_never_echoes_request_bytes() {
-    let dir = work_tmp();
-    let sock = sock_path(&dir, "l.sock");
-    let listener = open_muse_listener(&sock).unwrap();
-    let script = Script::new();
-    let (svc, shutdown) = serve_setup(&script);
-    let worker = spawn_serve(svc, listener, shutdown.clone());
+    let svc = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker = spawn_existing_serve(svc, listener.as_raw_fd(), shutdown.clone());
 
     let client = seqpacket_connect(&sock);
     send_with_fds(client, b"{\"x\":\"SECRET-MARKER-9f3c7a\"", &[]);
     let response = recv_line(client);
-    assert_eq!(response, "{\"code\":1,\"error\":\"Muse launch denied\"}\n");
+    assert_eq!(response, DENIED_LINE);
     assert!(!response.contains("SECRET-MARKER"));
     close_fd(client);
 
     shutdown.store(true, Ordering::SeqCst);
     assert!(worker.join().unwrap().is_ok());
+    drop(listener);
     cleanup(&dir);
 }
 
 #[test]
-fn serve_shutdown_clean_without_connections() {
+fn serve_loopback_shutdown_clean_without_connections() {
     let dir = work_tmp();
     let sock = sock_path(&dir, "l.sock");
     let listener = open_muse_listener(&sock).unwrap();
-    let script = Script::new();
-    let (svc, shutdown) = serve_setup(&script);
-    let worker = spawn_serve(svc, listener, shutdown.clone());
+    let svc = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker = spawn_existing_serve(svc, listener.as_raw_fd(), shutdown.clone());
     std::thread::sleep(Duration::from_millis(150));
     shutdown.store(true, Ordering::SeqCst);
     assert!(worker.join().unwrap().is_ok());
+    drop(listener);
     cleanup(&dir);
 }
 
@@ -930,10 +781,7 @@ fn oracle_launch_request_go_shapes() {
 fn oracle_muse_arguments_vectors() {
     // Mirrors Go MuseArguments/museProviderArguments/musePositional.
     let v = |args: &[&str]| -> Vec<String> { args.iter().map(|s| s.to_string()).collect() };
-    assert_eq!(
-        muse_arguments(&v(&[])).unwrap(),
-        v(&["--provider", "meta"])
-    );
+    assert_eq!(muse_arguments(&v(&[])).unwrap(), v(&["--provider", "meta"]));
     assert_eq!(
         muse_arguments(&v(&["exec"])).unwrap(),
         v(&["exec", "--provider", "meta"])
