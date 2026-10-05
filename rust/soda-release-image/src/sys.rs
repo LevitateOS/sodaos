@@ -270,6 +270,15 @@ pub fn require_native(arch: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// CORR-C-001: a cmd directory owned by Rust carries its own manifest. A
+/// Go command directory never has a top-level Cargo.toml, so its presence
+/// selects the Rust recipe; anything else stays on the Go recipe.
+pub fn is_rust_command(cmd_dir: &str) -> bool {
+    fs::metadata(join(&[cmd_dir, "Cargo.toml"]))
+        .map(|meta| meta.is_file())
+        .unwrap_or(false)
+}
+
 /// `build.SodaCommands`: sorted `cmd/soda-*` directories, tools excluded.
 pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
     let mut names = Vec::new();
@@ -376,6 +385,24 @@ mod tests {
             hash_file(link.to_str().unwrap()).unwrap_err().0,
             "regular non-symlink file required"
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rust_command_follows_manifest_presence() {
+        // CORR-C-001: top-level Cargo.toml means Rust-owned; anything
+        // else (Go sources, empty, missing) stays on the Go recipe.
+        let dir = std::env::temp_dir().join(format!("sri-own-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let rust_cmd = dir.join("soda-rust");
+        let go_cmd = dir.join("soda-go");
+        fs::create_dir_all(&rust_cmd).unwrap();
+        fs::create_dir_all(&go_cmd).unwrap();
+        fs::write(rust_cmd.join("Cargo.toml"), b"[package]\n").unwrap();
+        fs::write(go_cmd.join("main.go"), b"package main\n").unwrap();
+        assert!(is_rust_command(rust_cmd.to_str().unwrap()));
+        assert!(!is_rust_command(go_cmd.to_str().unwrap()));
+        assert!(!is_rust_command(dir.join("soda-missing").to_str().unwrap()));
         let _ = fs::remove_dir_all(&dir);
     }
 
