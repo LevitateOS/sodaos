@@ -19,7 +19,7 @@ type FactoryHarnessPin struct {
 
 // Validate rejects malformed or unpinned harness identities.
 func (p FactoryHarnessPin) Validate() error {
-	if p.Harness != FactoryHarnessCodex || !ValidHarnessVersion(p.Version) {
+	if !ValidHarnessFamily(p.Harness) || !ValidHarnessVersion(p.Version) {
 		return errors.New("unsupported factory harness")
 	}
 	if !ValidDigest(p.SHA256) {

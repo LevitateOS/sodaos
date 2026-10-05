@@ -7,6 +7,7 @@ pub use identity_providers::types::{credential_valid, Connection, Enrollment};
 
 pub const CODEX: &str = "codex";
 pub const MUSE: &str = "muse";
+pub const MUSE_CODE: &str = "muse-code";
 pub const READY: &str = "ready";
 pub const REAUTH: &str = "reauth";
 pub const REVOKED: &str = "revoked";
@@ -18,7 +19,7 @@ pub const EXECUTION_LIVE: &str = "live";
 pub const EXECUTION_TERMINAL: &str = "terminal";
 
 pub fn provider_valid(id: &str) -> bool {
-    id == CODEX || id == MUSE
+    id == CODEX || id == MUSE || id == MUSE_CODE
 }
 
 /// Unix time with nanoseconds, serialized exactly like Go time.Time

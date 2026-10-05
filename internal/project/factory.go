@@ -20,6 +20,13 @@ const (
 	// FactoryScopeCodex is the fixed factory execution discriminator carried
 	// in the broker binding for supervised Codex runs.
 	FactoryScopeCodex = "factory-codex"
+	// FactoryHarnessMuseCode is the Muse Code CLI harness family
+	// (`muse exec` runs). It is distinct from the native "muse"
+	// provider, which is a different adapter.
+	FactoryHarnessMuseCode = "muse-code"
+	// FactoryScopeMuseCode is the fixed factory execution discriminator
+	// carried in the broker binding for supervised Muse Code runs.
+	FactoryScopeMuseCode = "factory-muse-code"
 )
 
 const (
@@ -60,6 +67,11 @@ var harnessVersion = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$`)
 // staged guest paths fixed.
 func ValidHarnessVersion(version string) bool { return harnessVersion.MatchString(version) }
 
+// ValidHarnessFamily identifies the supported supervised CLI families.
+func ValidHarnessFamily(family string) bool {
+	return family == FactoryHarnessCodex || family == FactoryHarnessMuseCode
+}
+
 const (
 	// MaxFactoryPrompt bounds one assignment's prompt bytes. Prompts travel
 	// the private daemon socket and are staged verbatim for the fixed CLI.
@@ -93,7 +105,7 @@ func (r FactoryRun) Validate() error {
 	if !ValidPreparationID(r.Preparation) {
 		return errors.New("invalid run preparation reference")
 	}
-	if r.Harness != FactoryHarnessCodex || !ValidHarnessVersion(r.HarnessVers) {
+	if !ValidHarnessFamily(r.Harness) || !ValidHarnessVersion(r.HarnessVers) {
 		return errors.New("unsupported factory harness")
 	}
 	// Empty keeps the CLI default for older launches; a set model pins

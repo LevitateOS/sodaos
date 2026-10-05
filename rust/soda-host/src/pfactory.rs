@@ -39,8 +39,15 @@ use crate::project::{Config, Executor, Runtime};
 /// Daemon receipt directory for supervised factory runs.
 pub const FACTORY_STATE_ROOT: &str = "/var/lib/soda/host/factory";
 
-/// First harness family: the only selectable supervised executor.
+/// First harness family.
 pub const FACTORY_HARNESS_CODEX: &str = "codex";
+/// Muse Code CLI harness family.
+pub const FACTORY_HARNESS_MUSE_CODE: &str = "muse-code";
+
+/// Supported supervised CLI families.
+pub fn valid_harness_family(family: &str) -> bool {
+    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE_CODE
+}
 
 pub const FACTORY_APPROVED: &str = "approved";
 pub const FACTORY_RUNNING: &str = "running";
@@ -389,7 +396,7 @@ impl FactoryRun {
         if !preparation::valid_preparation_id(&self.preparation) {
             return Err("invalid run preparation reference".to_string());
         }
-        if self.harness != FACTORY_HARNESS_CODEX || !valid_harness_version(&self.harness_vers) {
+        if !valid_harness_family(&self.harness) || !valid_harness_version(&self.harness_vers) {
             return Err("unsupported factory harness".to_string());
         }
         if !self.model.is_empty() {
@@ -989,7 +996,7 @@ pub struct FactoryHarnessPin {
 
 impl FactoryHarnessPin {
     pub fn validate(&self) -> Result<(), String> {
-        if self.harness != FACTORY_HARNESS_CODEX || !valid_harness_version(&self.version) {
+        if !valid_harness_family(&self.harness) || !valid_harness_version(&self.version) {
             return Err("unsupported factory harness".to_string());
         }
         if !preparation::valid_digest(&self.sha256) {

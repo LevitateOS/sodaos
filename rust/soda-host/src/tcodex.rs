@@ -27,6 +27,16 @@ use crate::texec::{self, Binding, Delivery, Lease, Service, KIND_FACTORY};
 pub const FACTORY_SCOPE_CODEX: &str = "factory-codex";
 /// First harness family.
 pub const FACTORY_HARNESS_CODEX: &str = "codex";
+/// Fixed factory execution discriminator for supervised Muse Code runs.
+pub const FACTORY_SCOPE_MUSE_CODE: &str = "factory-muse-code";
+/// Muse Code CLI harness family (`muse exec` runs). Distinct from the
+/// native "muse" provider, which is a different adapter.
+pub const FACTORY_HARNESS_MUSE_CODE: &str = "muse-code";
+
+/// Supported supervised CLI families.
+pub fn valid_harness_family(family: &str) -> bool {
+    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE_CODE
+}
 /// Fixed factory role logins.
 pub const ROLE_CODER: &str = "soda-coder";
 pub const ROLE_REVIEWER: &str = "soda-reviewer";
@@ -164,7 +174,7 @@ impl FactoryRun {
         if !valid_preparation_id(&self.preparation) {
             return Err("invalid run preparation reference".to_string());
         }
-        if self.harness != FACTORY_HARNESS_CODEX || !valid_harness_version(&self.harness_vers) {
+        if !valid_harness_family(&self.harness) || !valid_harness_version(&self.harness_vers) {
             return Err("unsupported factory harness".to_string());
         }
         if !self.model.is_empty() {

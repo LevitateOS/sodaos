@@ -22,6 +22,7 @@ var (
 const (
 	Codex    = "codex"
 	Muse     = "muse"
+	MuseCode = "muse-code"
 	Ready    = "ready"
 	Reauth   = "reauth"
 	Revoked  = "revoked"
@@ -213,4 +214,4 @@ func AcquisitionDigest(in AcquireRequest) string {
 
 // ProviderValid identifies the supported native account adapters. Execution
 // admission remains specific to the provider and its credential exposure model.
-func ProviderValid(id string) bool { return id == Codex || id == Muse }
+func ProviderValid(id string) bool { return id == Codex || id == Muse || id == MuseCode }
