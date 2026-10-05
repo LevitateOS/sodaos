@@ -233,46 +233,6 @@ func (g OperatorGrant) Validate() error {
 	return nil
 }
 
-// Sponsorship authorizes factory use of one provider connection for one
-// repository and its assigned roles within an explicit allowance. It
-// references the canonical broker grant, connection and credential
-// generation; it never copies credential custody.
-type Sponsorship struct {
-	Roles            []string `json:"roles"`
-	Repository       int64    `json:"repository,string"`
-	Revision         int64    `json:"revision"`
-	GrantedBy        int64    `json:"granted_by,string"`
-	Generation       int64    `json:"generation"`
-	Connection       string   `json:"connection"`
-	GrantID          string   `json:"grant_id"`
-	AllowanceMinutes int      `json:"allowance_minutes"`
-	MaxConcurrent    int      `json:"max_concurrent"`
-	Active           bool     `json:"active"`
-}
-
-func (s Sponsorship) Validate() error {
-	if s.Repository <= 0 || s.Revision < 0 || s.GrantedBy <= 0 || s.Generation <= 0 {
-		return errors.New("invalid sponsorship identity")
-	}
-	if s.Connection == "" || len(s.Connection) > 128 || s.GrantID == "" || len(s.GrantID) > 128 {
-		return errors.New("invalid sponsorship connection reference")
-	}
-	if len(s.Roles) == 0 || len(s.Roles) > 2 {
-		return errors.New("sponsorship must permit one or both factory roles")
-	}
-	seen := make(map[string]bool, len(s.Roles))
-	for _, role := range s.Roles {
-		if !project.ValidFactoryRole(role) || seen[role] {
-			return errors.New("invalid sponsorship role")
-		}
-		seen[role] = true
-	}
-	if s.AllowanceMinutes < 1 || s.AllowanceMinutes > 10080 || s.MaxConcurrent < 1 || s.MaxConcurrent > 8 {
-		return errors.New("invalid sponsorship allowance")
-	}
-	return nil
-}
-
 // AuthorityRef binds one dispatch decision to the exact grant, preparation
 // and acceptance revisions behind it. Fountain treats these revisions as
 // opaque; a changed grant closes dispatch rather than renewing old work.
@@ -325,68 +285,6 @@ type AuthorityInput struct {
 	ProjectExists    bool
 	PreparationReady bool
 	DispatchOpen     bool
-}
-
-// EvaluateAuthority derives the visible verdict from current records. Every
-// grant is checked separately; a browser session, issue content or one
-// grant cannot substitute for another.
-func EvaluateAuthority(in AuthorityInput) EffectiveAuthority {
-	var missing []string
-	var ref AuthorityRef
-	switch {
-	case in.Policy == nil:
-		missing = append(missing, MissingPolicy)
-	case !in.Policy.Enabled:
-		missing = append(missing, MissingPolicyDisabled)
-		ref.Policy = in.Policy.Revision
-	case in.Policy.Paused:
-		missing = append(missing, MissingPolicyPaused)
-		ref.Policy = in.Policy.Revision
-	default:
-		ref.Policy = in.Policy.Revision
-	}
-	switch {
-	case in.Operator == nil:
-		missing = append(missing, MissingOperatorGrant)
-	case !in.Operator.Active:
-		missing = append(missing, MissingOperatorWithdrawn)
-		ref.Operator = in.Operator.Revision
-	default:
-		ref.Operator = in.Operator.Revision
-	}
-	if in.Appliance == nil {
-		missing = append(missing, MissingCapacity)
-	} else {
-		ref.Capacity = in.Appliance.Revision
-	}
-	switch {
-	case in.Sponsorship == nil:
-		missing = append(missing, MissingSponsorship)
-	case !in.Sponsorship.Active:
-		missing = append(missing, MissingSponsorshipGone)
-		ref.Sponsorship = in.Sponsorship.Revision
-	default:
-		ref.Sponsorship = in.Sponsorship.Revision
-	}
-	switch {
-	case in.Environment == nil:
-		missing = append(missing, MissingEnvironment)
-	case !in.Environment.Active:
-		missing = append(missing, MissingEnvironmentGone)
-		ref.Environment = in.Environment.Revision
-	default:
-		ref.Environment = in.Environment.Revision
-	}
-	if in.ProjectExists && !in.PreparationReady {
-		missing = append(missing, MissingPreparation)
-	}
-	if !in.DispatchOpen {
-		missing = append(missing, MissingDispatch)
-	}
-	if missing == nil {
-		missing = []string{}
-	}
-	return EffectiveAuthority{Missing: missing, Authority: ref, Effective: len(missing) == 0, DispatchOpen: in.DispatchOpen}
 }
 
 // DispatchRegistration is one outstanding dispatch captured by withdrawal in
