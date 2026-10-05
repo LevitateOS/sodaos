@@ -25,10 +25,10 @@ Do not treat package paths as the product vocabulary.
 
 ## Ideal file tree planning
 
-The [ideal file tree plan](ideal-filetree-plan.md) is the living proposal for the
+The [ideal file tree plan](ideal-filetree-plan/ideal-filetree-plan.md) is the living proposal for the
 whole repository, including Go/Rust package ownership, oversized files and port
 choices. Implementation is deferred until time is available. After every merge,
-follow its [maintenance workflow](ideal-filetree-plan.md#keeping-the-plan-current-after-every-merge)
+follow its [maintenance workflow](ideal-filetree-plan/maintenance.md#keeping-the-plan-current-after-every-merge)
 to reconcile the target tree with the merged source, even when the delta requires
 no structural changes. Keep the same plan current rather than create successor
 plans or begin the refactor as part of routine upkeep.

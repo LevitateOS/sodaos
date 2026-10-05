@@ -1,0 +1,30 @@
+# Decomposition index
+
+## Detailed decomposition
+
+The following names describe existing concern seams. The Rust host, installer,
+importer and acceptance entries are the retained plan under the decided language
+policy. Retiring Go/Python sources have removal dispositions and successor
+references instead of target files for obsolete implementations. Historical
+mockups are design material, not production owners. Embedded Rust tests stay
+descendants of their implementation module so private access can survive. A
+stateful frontend extraction requires an actual private seam; moving methods
+across files alone cannot preserve one TypeScript class owner.
+
+
+These reviews retain the structural baseline recorded in the main index. Page
+groups organize existing source paths for navigation; they do not decide target
+package boundaries. Retired sources keep their removal dispositions. Current
+mixed-file resolution lives in the [responsibility maps](../coverage/maps/README.md).
+
+| Source component group | File reviews |
+| --- | ---: |
+| [Browser and design](browser-and-design.md) | 13 |
+| [Verification and support](verification-and-support.md) | 28 |
+| [Factory coordination](factory-coordination.md) | 23 |
+| [Server and state](server-and-state.md) | 13 |
+| [Host runtime](host-runtime.md) | 23 |
+| [Release production](release-production.md) | 48 |
+| [Project runtime](project-runtime.md) | 8 |
+| [Identity brokering](identity-brokering.md) | 10 |
+| [Installation and operations](installation-and-operations.md) | 24 |

@@ -1,0 +1,355 @@
+# Verification and support
+
+[Decomposition scope and baseline](README.md). This page groups historical
+source reviews; it does not retain obsolete implementations in the target.
+
+## internal/acceptance/developer_access_test.go
+
+Observed size: 447 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
+
+- `internal/acceptance/developer_access_test.go` — Existing access input, user, UID, subnet and SSH options cases.
+- `internal/acceptance/developer_access_request_test.go` — Private request/support file loading and refusal cases.
+- `internal/acceptance/developer_access_journey_test.go` — Bound transport fixture and native access journey.
+
+Evidence: TestValidateAccessUser at 58; TestAccessSSHOptions at 140; TestLoadAccessRequest at 276; TestRunDeveloperAccessValidation at 181; stubAccessTransport at 319; TestRunDeveloperAccessEndToEnd at 368.
+
+## internal/acceptance/evidence.go
+
+Observed size: 466 lines, including tests where embedded. Retire the obsolete
+Evidence/Execute/Remote/Command closure and its tests. Its remaining production
+use is PrivateFile, called by installed probes; preserve that real operation
+in probe input support before removing the rest. No permanent Go process
+package or replacement evidence facade is proposed.
+
+- `internal/acceptance/installed.go` — Existing restricted regular-file input operation folded into its actual private-input caller; preserve the present mode, path and size checks and existing probe tests.
+
+Evidence: CreateEvidence at 30; WriteJSON at 188; PublishObservation at 241; Hashes at 217; scanEvidenceBytes at 277; CheckSecrets at 327; PrivateFile at 454; RedactError at 361; redactingWriter at 370; redactPendingSecrets at 409.
+
+Disposition: Rust acceptance is the retained harness. Remove the obsolete
+Go release-build hashing import with Evidence; do not keep legacy machinery
+to retain its unit tests.
+
+## internal/acceptance/personal_git.go
+
+Observed size: 487 lines, including tests where embedded. Keep the Go probe's
+orchestration, exported contracts and execution order. The embedded remote
+Python program is an implementation predecessor: replace it with the Rust
+user-scoped payload in the existing acceptance package, keeping the actual
+SSH login, passphrase custody and key/agent lifetime. Merely moving its string
+to personal_git_keys.go would not complete the Python cutover.
+
+- `internal/acceptance/personal_git.go` — Explicit prepare/exercise admission and orchestration.
+- `internal/acceptance/personal_git_keys.go` — Passphrase custody and exported public-key checks.
+- `internal/acceptance/personal_git_transport.go` — Target decoding, SSH invocation and exact Git URL checks.
+- `internal/acceptance/personal_git_exercise.go` — Per-user clone/commit/push exercise and outcome records.
+- `tools/acceptance/src/personal_git.rs` — Native replacement for the existing remote key/agent operation, called through the existing ephemeral acceptance payload; no new installed service.
+
+Evidence: RunPersonalGit at 451; runPersonalGit at 458; preparePassfile at 176; gitKeyUser at 213; fetchExportedKey at 238; loadGitTarget at 82; gitSSHBase at 126; validateGitURL at 267; exerciseCommand at 316; exerciseUser at 381; writeGitOutcomes at 405.
+
+Open detail: Update the real Go SSH invocation, Rust remote dispatch and
+personal_git_test.go together. Keep secret inputs off argv and output; target
+payload binding and ephemeral staging must follow the existing acceptance
+delivery rather than requiring a target compiler or installing another agent.
+
+## rust/soda-acceptance/src/command.rs
+
+Observed size: 550 lines, including tests where embedded. Separate pinned SSH argument construction from redacted command execution and its distinct execution/evidence outcomes. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/command/mod.rs`
+- `tools/acceptance/src/command/ssh.rs`
+- `tools/acceptance/src/command/execute.rs`
+- `tools/acceptance/src/command/tests.rs`
+
+Evidence: rust/soda-acceptance/src/command.rs:72-230 Remote, decode_remote, Remote::args and Remote::command; rust/soda-acceptance/src/command.rs:297-399 execute; rust/soda-acceptance/src/command.rs:402-550 tests for quoting, SSH pins, cancellation and outcome separation.
+
+## rust/soda-acceptance/src/coreos.rs
+
+Observed size: 503 lines, including tests where embedded. Keep the connected CoreOS resolution closure together; its bounded curl transport, stable stream and registry confirmation are one VM-base resolution operation. Extract the six existing unit tests. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/coreos.rs`
+- `tools/acceptance/src/coreos/tests.rs`
+
+Evidence: rust/soda-acceptance/src/coreos.rs:117-203 fetch_capped; rust/soda-acceptance/src/coreos.rs:261-284 resolve_stream_build; rust/soda-acceptance/src/coreos.rs:304-400 resolve_registry_digest and resolve_qemu; rust/soda-acceptance/src/coreos.rs:404-503 bounded-source and document tests.
+
+## rust/soda-acceptance/src/driver.rs
+
+Observed size: 1047 lines, including tests where embedded. Separate option/duration parsing, private input collection, action dispatch and observation finalization; keep run as the entry orchestration. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/driver/mod.rs`
+- `tools/acceptance/src/driver/options.rs`
+- `tools/acceptance/src/driver/inputs.rs`
+- `tools/acceptance/src/driver/actions.rs`
+- `tools/acceptance/src/driver/finalization.rs`
+- `tools/acceptance/src/driver/tests.rs`
+
+Evidence: rust/soda-acceptance/src/driver.rs:62-392 parse_duration, parse_flags and parse_run_options; rust/soda-acceptance/src/driver.rs:393-434 secret and VM input collection; rust/soda-acceptance/src/driver.rs:489-715 execute_exec_or_native, execute_vm and execute_action; rust/soda-acceptance/src/driver.rs:717-830 observation finalization and run; rust/soda-acceptance/src/driver.rs:861-1047 duration, admission and cancelled-execution tests.
+
+## rust/soda-acceptance/src/evidence.rs
+
+Observed size: 909 lines, including tests where embedded. Separate confined evidence creation/publication from streaming secret and URL redaction; keep the streaming state machine intact. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/evidence/mod.rs`
+- `tools/acceptance/src/evidence/store.rs`
+- `tools/acceptance/src/evidence/redaction.rs`
+- `tools/acceptance/src/evidence/tests.rs`
+
+Evidence: rust/soda-acceptance/src/evidence.rs:34-271 create_evidence and Evidence methods; rust/soda-acceptance/src/evidence.rs:341-368 scan_evidence_bytes; rust/soda-acceptance/src/evidence.rs:369-646 URL sanitization and RedactingWriter; rust/soda-acceptance/src/evidence.rs:648-909 retention, split-secret and byte-fidelity tests.
+
+## rust/soda-acceptance/src/files.rs
+
+Observed size: 696 lines, including tests where embedded. Keep descriptor-confined directory traversal as one OwnedDir implementation; separate private file/hash reads and temporary/exclusive destinations. Preserve descriptor identity and symlink rules. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/files/mod.rs`
+- `tools/acceptance/src/files/owned_directory.rs`
+- `tools/acceptance/src/files/inputs.rs`
+- `tools/acceptance/src/files/temporary.rs`
+- `tools/acceptance/src/files/tests.rs`
+
+Evidence: rust/soda-acceptance/src/files.rs:111-370 OwnedDir and its fd-relative operations; rust/soda-acceptance/src/files.rs:372-437 private_file, hash_file and hash_at; rust/soda-acceptance/src/files.rs:438-522 fresh_directory, private_destination, TempDir and write_new; rust/soda-acceptance/src/files.rs:525-696 filesystem confinement and input tests.
+
+## rust/soda-acceptance/src/host_probes.rs
+
+Observed size: 939 lines, including tests where embedded. Put the already distinct installed probe commands in their own modules; retain common failure, command and JSON emission helpers locally. These remain installed host observations, not the outside driver. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/host_probes/mod.rs`
+- `tools/acceptance/src/host_probes/content.rs`
+- `tools/acceptance/src/host_probes/listeners.rs`
+- `tools/acceptance/src/host_probes/deployments.rs`
+- `tools/acceptance/src/host_probes/tailnet.rs`
+- `tools/acceptance/src/host_probes/forgejo.rs`
+- `tools/acceptance/src/host_probes/tests.rs`
+
+Evidence: rust/soda-acceptance/src/host_probes.rs:184-413 host_content and extension package checks; rust/soda-acceptance/src/host_probes.rs:415-678 listener parsing and host_listeners; rust/soda-acceptance/src/host_probes.rs:680-731 host_deployments and operator_tailscale; rust/soda-acceptance/src/host_probes.rs:733-819 Forgejo origins, tailnet and advertisement probes; rust/soda-acceptance/src/host_probes.rs:821-939 probe parser/summary tests.
+
+## rust/soda-acceptance/src/jsonio.rs
+
+Observed size: 511 lines, including tests where embedded. Separate RFC3339 clock parsing/formatting from bounded JSON reads and exact JSON emission. Both are current behavior; no new serialization layer is proposed. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/jsonio.rs`
+- `tools/acceptance/src/timestamps.rs`
+- `tools/acceptance/src/jsonio/tests.rs`
+- `tools/acceptance/src/timestamps/tests.rs`
+
+Evidence: rust/soda-acceptance/src/jsonio.rs:25-96 bounded regular JSON reads; rust/soda-acceptance/src/jsonio.rs:98-268 typed fields and compact/indented emission; rust/soda-acceptance/src/jsonio.rs:270-412 RFC3339 date conversion and validation; rust/soda-acceptance/src/jsonio.rs:422-509 byte-emission, date and strict-read tests.
+
+## rust/soda-acceptance/src/native_phase.rs
+
+Observed size: 654 lines, including tests where embedded. Retain the current native prepare/build/check admission and receipt sequence as one cohesive operation; extract its fake-runner fixtures and tests. The existing build phase admits candidate bytes and does not run a producer. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/native_phase.rs`
+- `tools/acceptance/src/native_phase/tests.rs`
+
+Evidence: rust/soda-acceptance/src/native_phase.rs:179-250 phase_request admission; rust/soda-acceptance/src/native_phase.rs:311-445 prepare_checkout, phase_command and run_phase; rust/soda-acceptance/src/native_phase.rs:557-588 explicit_phase_order_without_automatic_work; rust/soda-acceptance/src/native_phase.rs:448-654 native phase test module.
+
+## rust/soda-acceptance/src/process.rs
+
+Observed size: 739 lines, including tests where embedded. Separate cancellable Phase context from child launch/pumps and the owned process-group wait/reap/stop lifecycle. Keep the leader-unreaped/PGID ownership sequence together. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/process/mod.rs`
+- `tools/acceptance/src/process/phase.rs`
+- `tools/acceptance/src/process/launch.rs`
+- `tools/acceptance/src/process/owned_process.rs`
+- `tools/acceptance/src/process/tests.rs`
+
+Evidence: rust/soda-acceptance/src/process.rs:28-104 Phase and cancellation/deadline methods; rust/soda-acceptance/src/process.rs:144-282 process launch and stdout/stderr pumps; rust/soda-acceptance/src/process.rs:283-442 Linux non-reaping/group cleanup; rust/soda-acceptance/src/process.rs:452-605 Process methods and signal_group; rust/soda-acceptance/src/process.rs:608-739 cancellation and resistant-descendant tests.
+
+## rust/soda-acceptance/src/project_state.rs
+
+Observed size: 943 lines, including tests where embedded. Separate bounded command capture, filesystem-entry/traversal snapshots, account/Git state collection and the explicitly requested workload/database observations. Preserve one run_snapshot result shape and its existing gates. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/project_state/mod.rs`
+- `tools/acceptance/src/project_state/command.rs`
+- `tools/acceptance/src/project_state/files.rs`
+- `tools/acceptance/src/project_state/snapshot.rs`
+- `tools/acceptance/src/project_state/workloads.rs`
+- `tools/acceptance/src/project_state/tests.rs`
+
+Evidence: rust/soda-acceptance/src/project_state.rs:165-240 command capture and output_lines; rust/soda-acceptance/src/project_state.rs:242-472 Entry, sorted JSON and traversal; rust/soda-acceptance/src/project_state.rs:499-672 root/account/Git/shared-file observations; rust/soda-acceptance/src/project_state.rs:673-819 declared workload, volume and native database observations; rust/soda-acceptance/src/project_state.rs:822-943 entry, command, gate and network tests.
+
+## rust/soda-acceptance/src/report.rs
+
+Observed size: 665 lines, including tests where embedded. Separate observation data/JSON conversion from retained-file hash verification and handoff rendering; keep incomplete/failed scope reporting. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/report/mod.rs`
+- `tools/acceptance/src/report/observation.rs`
+- `tools/acceptance/src/report/handoff.rs`
+- `tools/acceptance/src/report/tests.rs`
+
+Evidence: rust/soda-acceptance/src/report.rs:77-294 Observation wire fields and JSON conversion; rust/soda-acceptance/src/report.rs:296-381 evidence hashes and read_observation; rust/soda-acceptance/src/report.rs:383-500 handoff admission/rendering; rust/soda-acceptance/src/report.rs:503-665 round-trip and unsafe-reference tests.
+
+## rust/soda-acceptance/src/trust.rs
+
+Observed size: 506 lines, including tests where embedded. Separate bounded Ignition inline-data decoding from the existing fixture SSH host-key trust comparison. Keep all current encoding and key pin semantics. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/trust/mod.rs`
+- `tools/acceptance/src/trust/inline_data.rs`
+- `tools/acceptance/src/trust/host_key.rs`
+- `tools/acceptance/src/trust/tests.rs`
+
+Evidence: rust/soda-acceptance/src/trust.rs:31-217 base64/data URI/gzip and IgnitionFile decoding; rust/soda-acceptance/src/trust.rs:223-332 Ignition parse and fixture pinned-host-key verification; rust/soda-acceptance/src/trust.rs:334-506 codec, bounded compression and trust-mismatch tests.
+
+## rust/soda-acceptance/src/vm.rs
+
+Observed size: 944 lines, including tests where embedded. Separate VM configuration/preflight, verified base receipt, owned work/launch preparation and the VM readiness/restart/shutdown lifecycle. Keep failure ownership and retained-work reporting. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/acceptance/src/vm/mod.rs`
+- `tools/acceptance/src/vm/config.rs`
+- `tools/acceptance/src/vm/base.rs`
+- `tools/acceptance/src/vm/launch.rs`
+- `tools/acceptance/src/vm/lifecycle.rs`
+- `tools/acceptance/src/vm/tests.rs`
+
+Evidence: rust/soda-acceptance/src/vm.rs:30-257 VmConfig/RemoteConfig decoding and preflight; rust/soda-acceptance/src/vm.rs:259-341 VerifiedBase and launch receipt verification; rust/soda-acceptance/src/vm.rs:343-480 QEMU checks, work preparation and owned arguments; rust/soda-acceptance/src/vm.rs:483-758 Vm, launch_vm, readiness and shutdown; rust/soda-acceptance/src/vm.rs:761-944 config, pin, disjointness and QMP argument tests.
+
+## rust/soda-factory/src/main.rs
+
+Observed size: 593 lines, including tests where embedded. The operator CLI has 351 lines of production code and no coordinator or database. Retain the existing argument parsing, command envelope, Unix HTTP send and bounded response reader together; extract the 240-line test module. This avoids creating a second factory runtime or unnecessary transport abstraction.
+
+- `cmd/soda-factory/src/main.rs`
+- `cmd/soda-factory/src/operator_tests.rs`
+
+Evidence: 1-4: stated thin operator role and no database; 45-151: parse_args/dispatch for status, stop and reconcile; 153-351: sorted Go envelope encoding, send, read_response and response-size/chunk handling; 352-593: operator_server/request_parts, envelope/status/response/misuse tests -> operator_tests.rs.
+
+## rust/soda-test-vm/src/main.rs
+
+Observed size: 768 lines, including tests where embedded. Separate shell-status/exec/diagnostic helpers, current pidfile/liveness state, locked QEMU start, and SSH/tunnel/console actions. Keep the exact native/KVM gates and fixed management forwarding. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+
+- `tools/test-vm/src/main.rs`
+- `tools/test-vm/src/process.rs`
+- `tools/test-vm/src/state.rs`
+- `tools/test-vm/src/start.rs`
+- `tools/test-vm/src/transport.rs`
+- `tools/test-vm/src/tests.rs`
+
+Evidence: rust/soda-test-vm/src/main.rs:132-363 process/access/exec diagnostics and signal handling; rust/soda-test-vm/src/main.rs:365-449 pidfile state, VM directory and SSH arguments; rust/soda-test-vm/src/main.rs:451-535 lock/native-input/QEMU start; rust/soda-test-vm/src/main.rs:537-624 status and transport action dispatch; rust/soda-test-vm/src/main.rs:652-768 pid/SSH/status diagnostics tests.
+
+## rust/soda-test-vm/tests/cli.rs
+
+Observed size: 777 lines, including tests where embedded. Group existing status/pidfile, native start/lock/QEMU argument, and exec/SSH/tunnel tests; retain CLI/default-action checks separately and share existing fake commands/VM fixtures.
+
+- `tools/test-vm/tests/cli.rs`
+- `tools/test-vm/tests/status.rs`
+- `tools/test-vm/tests/start.rs`
+- `tools/test-vm/tests/transport.rs`
+- `tools/test-vm/tests/support/mod.rs`
+
+Evidence: rust/soda-test-vm/tests/cli.rs:20-82 KVM gate, TempDir, command and fake VM helpers; rust/soda-test-vm/tests/cli.rs:84-169 usage/status/pidfile tests; rust/soda-test-vm/tests/cli.rs:170-566 start host/input/lock/QEMU/refusal tests; rust/soda-test-vm/tests/cli.rs:568-725 SSH failure and exact transport argument tests; rust/soda-test-vm/tests/cli.rs:727-777 working-directory and closed-stdout checks.
+
+## scripts/forgejo_components_test.go
+
+Observed size: 691 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
+
+- `scripts/forgejo_components_test.go` — Native intro/empty/explore composition checks.
+- `scripts/forgejo_theme_components_test.go` — Guest/theme-toggle singleton and route selection cases.
+- `scripts/forgejo_form_components_test.go` — Original creation permission/form composition and adapter boundaries.
+- `scripts/forgejo_template_fixture_test.go` — Shared native template dictionary/read/call fixtures.
+
+Evidence: TestForgejoPageIntroComposition at 48; TestForgejoExplorePagesComposeNativeControlsWithOriginalContext at 204; TestForgejoThemeToggleIsSingletonAtEachPlacement at 347; TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes at 421; TestForgejoRepositoryCreationKeepsNativePermissionBranches at 473; TestForgejoNativeFormAdapterSelectsMainFormsOnly at 627; forgejoTemplateDict at 33; readForgejoTemplate at 662; requireForgejoTemplateCalls at 682.
+
+## tests/build/test_project_keys.py
+
+Observed size: 416 lines, including tests where embedded.
+
+Disposition: retire this predecessor and tests belonging only to it at the
+decided cutover. Its surviving responsibilities belong to the native owner and live tests
+listed in [Python cutover closure](../port-assessment.md#python-cutover-closure).
+No decomposition leaves for this obsolete implementation appear in the
+target tree. Preserve its actual behavior through the retained owner and
+update real callers, payloads and verification together.
+
+Evidence: test_project_keys.py:20-55 real source loader/setup; 56-142 basic preservation/publication; 143-300 writer/admission races; 301-397 uncertain publication/cleanup; 398-416 CLI/refusal.
+
+## tests/build/test_terminal.py
+
+Observed size: 817 lines, including tests where embedded.
+
+Disposition: retire this predecessor and tests belonging only to it at the
+decided cutover. Its surviving responsibilities belong to the native owner and live tests
+listed in [Python cutover closure](../port-assessment.md#python-cutover-closure).
+No decomposition leaves for this obsolete implementation appear in the
+target tree. Preserve its actual behavior through the retained owner and
+update real callers, payloads and verification together.
+
+Evidence: test_terminal.py:1-5 limited proof contract; 22-25 real-source load; 28-151 TerminalProtocol; 154-203 managed fixture; 204-600 admission/supervision tests; 602-817 LocalTerminalProcess.
+
+## tests/forgejo/component-boundaries.test.ts
+
+Observed size: 510 lines, including tests where embedded. Split current nested component subtests by layout and control concerns; keep their existing native CSS fixture and authorization guard.
+
+- `tests/forgejo/component-boundaries.test.ts` — Existing native form focus/icon/help/heading and settings-panel/table boundary assertions.
+- `tests/forgejo/component-toolbar-boundaries.test.ts` — Existing repository toolbar/control size/button state and adjoining-input assertions.
+- `tests/forgejo/component-layout-boundaries.test.ts` — Existing compact/empty/fluid/repository status/package/profile narrow-layout assertions.
+- `tests/forgejo/fixtures/component-browser.ts` — Extract current guarded native origin, real palette/styles loading, sandboxed browser/page and render fixture.
+
+Evidence: component-boundaries.test.ts:9-29 guarded fixture; 30-154 form/heading/focus/empty; 155-277 toolbar/button sizes; 278-359 table/fluid/status/settings; 360-448 primary states; 449-510 packages/cleanup.
+
+Open detail: The shared stylesheet loader must include actual split canonical files and preserve existing style order. Do not broaden to installed-product proof or introduce new test contracts.
+
+## tests/frontend/drawer-controls.test.ts
+
+Observed size: 630 lines, including tests where embedded. Split regression cases along the production environment/access/control responsibilities using the existing drawer-fixture as the real browser entry.
+
+- `tests/frontend/drawer-controls.test.ts` — Existing inert mount/visibility/tab/actor retirement, draft preservation and no terminal ownership tests.
+- `tests/frontend/project-environment-controls.test.ts` — Existing explicit Create/network/OS/Start/Stop observations and confirmed administration controls.
+- `tests/frontend/project-access-controls.test.ts` — Existing deliberate Join, key selection/review/Apply/save/refusal/copy tests.
+- `tests/frontend/fixtures/project-controls-driver.ts` — Extract existing drawer browser/server fixture, refresh/click helpers and cleanup once.
+
+Evidence: drawer-controls.test.ts:7-65 browser/server/driver; 67-126 inert controls; 127-325 Create/network/OS/lifecycle; 326-451 keys/Join; 452-629 uncertainty/retirement/hidden controls/identity.
+
+Open detail: Fixture extraction must not repeat production logic or reset browser state between assertions that currently form one regression scenario.
+
+## tests/frontend/terminal.test.ts
+
+Observed size: 559 lines, including tests where embedded. Split existing protocol, retirement, explicit End and stream regressions; use the current terminal browser fixture rather than a new terminal model.
+
+- `tests/frontend/terminal.test.ts` — Existing inert exact-locator mount, reserve/create/attach readiness, generation/binding and native observation contracts.
+- `tests/frontend/terminal-retirement.test.ts` — Existing visibility/focus/actor/late import/reservation/renderer/socket retirement cases.
+- `tests/frontend/terminal-end.test.ts` — Existing separately confirmed End and unconfirmed/absent native outcome handling.
+- `tests/frontend/terminal-stream.test.ts` — Existing Unicode IO, bounded queues, overload and invalid-frame cases.
+- `tests/frontend/fixtures/terminal-driver.ts` — Extract current terminal-fixture browser/server setup, action/open/ready/End helpers and cleanup once.
+
+Evidence: terminal.test.ts:11-100 current fixture/helpers; 102-182 mount/readiness/subURL; 183-309 retirement/admission; 310-357 End; 358-520 identity/visibility/observation/retired callbacks; 521-559 bounds/frames.
+
+Open detail: A single scenario spanning readiness and retirement stays intact; splitting file placement cannot weaken original actor/native-generation assertions.
+
+## tests/frontend/workspace.test.ts
+
+Observed size: 1843 lines, including tests where embedded. Split the many current regression groups by established workspace concern. Keep shared driver and actual emitted component fixture; do not copy the product state machine into new tests.
+
+- `tests/frontend/workspace.test.ts` — Existing page/panel shared original-target Create/End and native drawer handoff/renderer continuity cases.
+- `tests/frontend/workspace-attention.test.ts` — Existing unread coalescing, authorized stable attention order and stale-generation observations.
+- `tests/frontend/workspace-navigation.test.ts` — Existing project/detail/search/This-page switching, actor invalidation, pending rename and Hide ownership cases.
+- `tests/frontend/workspace-persistence.test.ts` — Existing exact arrangement restoration, obsolete/corrupt caches and failed storage cases.
+- `tests/frontend/workspace-layout.test.ts` — Existing real xterm owner retention through splits/moves/dividers/overflow/maximize and measurement retirement.
+- `tests/frontend/workspace-first-use.test.ts` — Existing complete selected-repository welcome/Create/Join/terminal/re-entry scenario.
+- `tests/frontend/workspace-setup.test.ts` — Existing pending creation, repository keyboard search/back/change, superseded choice and second-project cancellation cases.
+- `tests/frontend/workspace-recovery.test.ts` — Existing stopped/incomplete/failed/native-generation/private-context recovery and partial collection cases.
+- `tests/frontend/workspace-responsive.test.ts` — Existing welcome/intro/coherence short viewport, theme/native CSS precedence and long-name menu/focus assertions.
+- `tests/frontend/fixtures/workspace-driver.ts` — Extract current browser/server/fixture lifetime and real UI action helpers once, importing the existing workspace-fixture.
+
+Evidence: workspace.test.ts:11-146 fixture/driver; 148-293 drawer/layout surfaces; 294-404 attention; 405-556 exact operations/navigation; 557-640 persistence; 641-766 layout; 767-893 installed controls/measurement; 894-955 first-use helpers; 956-1235 complete first use; 1236-1463 keyboard/setup/responsive; 1464-1596 state/Join/cancellation/inventory; 1597-1843 responsive/native recovery/generation/CSS/partial inventory.
+
+Open detail: Some existing parameterized scenarios cover several concerns and must remain whole. Browser/server hooks and shared mutable fixture lifetime need isolation review when distributing test modules; do not assume parallel execution is safe.
+
+## tests/installed/sodaspaces-workspace-journey.ts
+
+Observed size: 441 lines, including tests where embedded. Separate the two already exported installed scenarios and their shared evidence records; retain their guarded native callers and independent local-fixture proof limits.
+
+- `tests/installed/sodaspaces-workspace-journey.ts` — Existing workspace matrix scenario, exact native transport observation and bounded UI operations.
+- `tests/installed/sodaspaces-first-use-journey.ts` — Existing selected-actor/repository Create, keyless Join, terminal and re-entry first-use scenario.
+- `tests/installed/sodaspaces-journey-evidence.ts` — Move existing FirstUseEvidence/MatrixSession/MatrixFacts/MatrixEvidence/MatrixNative definitions and native mount identity check to one shared owner.
+
+Evidence: sodaspaces-workspace-journey.ts:1-2 proof scope; 9-24 native mount/session check; 26-171 FirstUseEvidence/exerciseFirstUse; 172-210 matrix records; 211-441 exerciseWorkspaceMatrix.
+
+Open detail: Update actual installed and fixture imports directly without alias modules. Splitting retained scenario source does not establish new installed qualification.
+
+## tests/build/project_factory_roles_test.go
+
+Observed size: 414 lines, including tests where embedded. Retire the Go wrapper when its actual assertions and fixtures exercise the Rust helper successor. This file is 414 lines chiefly because its 230-line rolesDriver embeds Python, SourceFileLoader and mocks; moving it to smaller Go files would preserve Python execution and violate the decided cutover. Keep one native concern suite until real Rust fixture code warrants another measured split.
+
+- `cmd/soda-project-terminal/src/factory_roles/tests.rs` — Native successor owns all 12 established role/account/custody/phase/start/stop/hold/process/log scenarios; reuse the already proposed factory_roles test owner rather than add duplicate test suites.
+
+Evidence: 15-244 rolesDriver imports the real project-os/rootfs/usr/libexec/soda/project-factory-roles, patches account/process/filesystem effects and implements named cases; 246-293 runRolesCase/Python3/JSON observations/MRO/base64 adapters; 295-351 ensure/approve/reject-before-effects/record assertions; 352-414 launcher refusal/start/interruption/stop/hold/proc-group/zombie/bounded-output assertions.
+
+Open detail: Reuse the pending Rust private owner cmd/soda-project-terminal/src/factory_roles/{mod,layout,accounts,inputs,records,execution,tests}.rs and compiled src/bin/project-factory-roles.rs. Preserve all existing scenario observations: locked nologin accounts/no extra groups/idempotence; immutable mode-0644 snapshot/bundle verification/repeat and invalid-input no effects; waiting/missing stability and launcher failure; supervisor running/interruption; stop retirement/identity bar; hold revision/quiescence; pgrp versus session/uid/gid/zombie checks; bounded log bytes/exit3/truncation. Remove rolesDriver/SourceFileLoader/Python3/exception-MRO dependency, with native refusal/effect assertions. Compiled entrypoint protocol and installed staging/hash qualification remain separate evidence. PR42 native helper port is pending: exact test fixture execution/injection seams must follow the real Rust implementation, with no placeholder dispatcher, new public test API or Python subprocess retained. Existing /proc fixture executable names such as python3 are inert test bytes, not permission to retain Python execution. Retire the Go source only after the real native owner preserves the assertions; no port completion is claimed.
+
