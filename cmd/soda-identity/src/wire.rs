@@ -3,7 +3,7 @@
 // Enrollment are reused from the providers crate so the shapes cannot drift.
 use serde::{Deserialize, Serialize};
 
-pub use identity_providers::types::{credential_valid, Connection, Enrollment};
+pub use crate::providers::types::{credential_valid, Connection, Enrollment};
 
 pub const CODEX: &str = "codex";
 pub const MUSE: &str = "muse";

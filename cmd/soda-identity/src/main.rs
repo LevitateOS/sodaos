@@ -246,14 +246,15 @@ fn open_broker(settings: &Settings) -> Result<Controller, String> {
     let mut providers: HashMap<String, Box<dyn control::Provider>> = HashMap::new();
     if !settings.codex.binary.is_empty() {
         mkdir_all_mode(&settings.codex.root, 0o700)?;
-        let provider =
-            identity_providers::codex::Provider::new(identity_providers::codex::Config {
+        let provider = soda_identity::providers::codex::Provider::new(
+            soda_identity::providers::codex::Config {
                 binary: settings.codex.binary.clone(),
                 version: settings.codex.version.clone(),
                 sha256: settings.codex.sha256.clone(),
                 root: settings.codex.root.clone(),
-            })
-            .map_err(|e| e.to_string())?;
+            },
+        )
+        .map_err(|e| e.to_string())?;
         providers.insert(
             "codex".to_string(),
             Box::new(control::CodexProvider(provider)),
@@ -261,13 +262,14 @@ fn open_broker(settings: &Settings) -> Result<Controller, String> {
     }
     if !settings.muse.binary.is_empty() {
         mkdir_all_mode(&settings.muse.root, 0o700)?;
-        let provider = identity_providers::muse::Provider::new(identity_providers::muse::Config {
-            binary: settings.muse.binary.clone(),
-            version: settings.muse.version.clone(),
-            sha256: settings.muse.sha256.clone(),
-            root: settings.muse.root.clone(),
-        })
-        .map_err(|e| e.to_string())?;
+        let provider =
+            soda_identity::providers::muse::Provider::new(soda_identity::providers::muse::Config {
+                binary: settings.muse.binary.clone(),
+                version: settings.muse.version.clone(),
+                sha256: settings.muse.sha256.clone(),
+                root: settings.muse.root.clone(),
+            })
+            .map_err(|e| e.to_string())?;
         providers.insert(
             "muse".to_string(),
             Box::new(control::MuseProvider(provider)),

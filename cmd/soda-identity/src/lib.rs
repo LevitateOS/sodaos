@@ -11,6 +11,7 @@ pub mod http;
 pub mod http_routes;
 pub mod http_wire;
 pub mod pg;
+pub mod providers;
 pub mod registration;
 pub mod retirement;
 pub mod runtime;
