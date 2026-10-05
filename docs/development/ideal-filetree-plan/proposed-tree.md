@@ -290,8 +290,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   └── main.rs
 │   │   └── Cargo.toml
 │   ├── soda-forgejo-tailnet/
-│   │   ├── main.go
-│   │   └── main_test.go
+│   │   └── main.rs
 │   ├── soda-host/
 │   │   └── main.rs
 │   ├── soda-identity/
@@ -560,12 +559,21 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   │   └── project-factory-roles.rs
 │   │   │   ├── factory_roles/
 │   │   │   │   ├── accounts.rs
+│   │   │   │   ├── accounts_tests.rs
+│   │   │   │   ├── error.rs
 │   │   │   │   ├── execution.rs
+│   │   │   │   ├── execution_tests.rs
 │   │   │   │   ├── inputs.rs
+│   │   │   │   ├── inputs_tests.rs
 │   │   │   │   ├── layout.rs
 │   │   │   │   ├── mod.rs
 │   │   │   │   ├── records.rs
-│   │   │   │   └── tests.rs
+│   │   │   │   ├── records_tests.rs
+│   │   │   │   ├── sha.rs
+│   │   │   │   ├── sha_tests.rs
+│   │   │   │   ├── tests.rs
+│   │   │   │   ├── validate.rs
+│   │   │   │   └── validate_tests.rs
 │   │   │   ├── account.rs
 │   │   │   ├── b64.rs
 │   │   │   ├── broker.rs
@@ -580,6 +588,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   ├── lib.rs
 │   │   │   ├── main.rs
 │   │   │   ├── project_account.rs
+│   │   │   ├── project_account_tests.rs
 │   │   │   ├── proto.rs
 │   │   │   ├── pty.rs
 │   │   │   ├── pty_io.rs
@@ -614,7 +623,9 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   ├── timex_tests.rs
 │   │   │   └── tmux.rs
 │   │   ├── tests/
-│   │   │   └── cli.rs
+│   │   │   ├── cli.rs
+│   │   │   ├── factory_roles_oracle.rs
+│   │   │   └── project_account.rs
 │   │   └── Cargo.toml
 │   ├── soda-setup/
 │   │   ├── src/
@@ -788,6 +799,91 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   ├── placement.md
 │   │   │   ├── port-assessment.md
 │   │   │   ├── proposed-tree.md
+│   │   │   ├── review-assignments.md
+│   │   │   ├── review-baseline.md
+│   │   │   ├── review-format.md
+│   │   │   ├── reviews/
+│   │   │   │   ├── README.md
+│   │   │   │   ├── D01.md
+│   │   │   │   ├── D02.md
+│   │   │   │   ├── D03.md
+│   │   │   │   ├── D04.md
+│   │   │   │   ├── D05.md
+│   │   │   │   ├── D06.md
+│   │   │   │   ├── D07.md
+│   │   │   │   ├── D08.md
+│   │   │   │   ├── D09.md
+│   │   │   │   ├── D10.md
+│   │   │   │   ├── D11.md
+│   │   │   │   ├── F01.md
+│   │   │   │   ├── F02.md
+│   │   │   │   ├── F03.md
+│   │   │   │   ├── F04.md
+│   │   │   │   ├── F05.md
+│   │   │   │   ├── F06.md
+│   │   │   │   ├── F07.md
+│   │   │   │   ├── F08.md
+│   │   │   │   ├── F09.md
+│   │   │   │   ├── F10.md
+│   │   │   │   ├── F11.md
+│   │   │   │   ├── F12.md
+│   │   │   │   ├── G01.md
+│   │   │   │   ├── G02.md
+│   │   │   │   ├── G03.md
+│   │   │   │   ├── G04.md
+│   │   │   │   ├── G05.md
+│   │   │   │   ├── G06.md
+│   │   │   │   ├── G07.md
+│   │   │   │   ├── G08.md
+│   │   │   │   ├── G09.md
+│   │   │   │   ├── H01.md
+│   │   │   │   ├── H02.md
+│   │   │   │   ├── H03.md
+│   │   │   │   ├── H04.md
+│   │   │   │   ├── H05.md
+│   │   │   │   ├── H06.md
+│   │   │   │   ├── I01.md
+│   │   │   │   ├── I02.md
+│   │   │   │   ├── I03.md
+│   │   │   │   ├── I04.md
+│   │   │   │   ├── I05.md
+│   │   │   │   ├── I06.md
+│   │   │   │   ├── I07.md
+│   │   │   │   ├── I08.md
+│   │   │   │   ├── I09.md
+│   │   │   │   ├── I10.md
+│   │   │   │   ├── N01.md
+│   │   │   │   ├── N02.md
+│   │   │   │   ├── N03.md
+│   │   │   │   ├── N04.md
+│   │   │   │   ├── N05.md
+│   │   │   │   ├── N06.md
+│   │   │   │   ├── N07.md
+│   │   │   │   ├── O01.md
+│   │   │   │   ├── O02.md
+│   │   │   │   ├── O03.md
+│   │   │   │   ├── O04.md
+│   │   │   │   ├── O05.md
+│   │   │   │   ├── O06.md
+│   │   │   │   ├── O07.md
+│   │   │   │   ├── P01.md
+│   │   │   │   ├── P02.md
+│   │   │   │   ├── P03.md
+│   │   │   │   ├── P04.md
+│   │   │   │   ├── P05.md
+│   │   │   │   ├── P06.md
+│   │   │   │   ├── P07.md
+│   │   │   │   ├── P08.md
+│   │   │   │   ├── P09.md
+│   │   │   │   ├── P10.md
+│   │   │   │   ├── P11.md
+│   │   │   │   ├── P12.md
+│   │   │   │   ├── S01.md
+│   │   │   │   ├── S02.md
+│   │   │   │   ├── S03.md
+│   │   │   │   ├── S04.md
+│   │   │   │   ├── S05.md
+│   │   │   │   └── S06.md
 │   │   │   └── slices/
 │   │   │       ├── README.md
 │   │   │       ├── factory-coordination.md
@@ -801,6 +897,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │       └── spaces-and-terminals.md
 │   │   ├── lit.md
 │   │   ├── native-support.md
+│   │   ├── python.md
 │   │   ├── release.md
 │   │   ├── testing.md
 │   │   └── typescript.md
@@ -1239,7 +1336,6 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   ├── sodaspaces-terminal-view.ts
 │   │   ├── sodaspaces-terminal.css
 │   │   ├── sodaspaces-terminal.ts
-│   │   ├── sodaspaces-widths.ts
 │   │   ├── sodaspaces-workspace-drawer.ts
 │   │   ├── sodaspaces-workspace-factory.ts
 │   │   ├── sodaspaces-workspace-focus.ts
@@ -1350,7 +1446,9 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   ├── inventory_test.go
 │   │   │   ├── lifecycle.go
 │   │   │   ├── lifecycle_retry.go
+│   │   │   ├── lifecycle_retry_test.go
 │   │   │   ├── lifecycle_takeover.go
+│   │   │   ├── lifecycle_takeover_test.go
 │   │   │   ├── lifecycle_test.go
 │   │   │   ├── merge.go
 │   │   │   ├── merge_effect_test.go
@@ -1491,7 +1589,6 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   ├── publish.go
 │   │   ├── publish_test.go
 │   │   ├── repositories.go
-│   │   ├── repositories_test.go
 │   │   ├── review.go
 │   │   ├── review_test.go
 │   │   ├── snapshot.go
@@ -1500,9 +1597,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   ├── snapshot_request.go
 │   │   ├── snapshot_test.go
 │   │   ├── snapshot_transport.go
-│   │   ├── snapshot_transport_test.go
-│   │   ├── tailnet.go
-│   │   └── tailnet_test.go
+│   │   └── snapshot_transport_test.go
 │   ├── host/
 │   │   ├── access_keys.go
 │   │   ├── client.go
@@ -1589,8 +1684,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   ├── factory_views_test.go
 │   │   ├── grants.go
 │   │   ├── grants_test.go
-│   │   ├── identity.go
-│   │   ├── identity_events.go
+│   │   ├── identity_fixture.go
 │   │   ├── identity_test.go
 │   │   ├── issue_acceptances.go
 │   │   ├── issue_acceptances_test.go
@@ -1756,8 +1850,11 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   │   │   ├── candidate.rs
 │   │   │   │   │   ├── common.rs
 │   │   │   │   │   ├── confirmation.rs
+│   │   │   │   │   ├── finish.rs
 │   │   │   │   │   ├── launch.rs
+│   │   │   │   │   ├── mocks.rs
 │   │   │   │   │   ├── mod.rs
+│   │   │   │   │   ├── receipt.rs
 │   │   │   │   │   ├── stop.rs
 │   │   │   │   │   └── wire.rs
 │   │   │   │   ├── artifacts.rs
@@ -1832,6 +1929,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   │   ├── lifecycle.rs
 │   │   │   │   ├── lifecycle_tests.rs
 │   │   │   │   ├── mod.rs
+│   │   │   │   ├── operations.rs
 │   │   │   │   ├── os.rs
 │   │   │   │   ├── profile.rs
 │   │   │   │   └── tests.rs
@@ -1864,6 +1962,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   │   │   ├── provider.rs
 │   │   │   │   │   ├── tests.rs
 │   │   │   │   │   └── wire.rs
+│   │   │   │   ├── forgejo.rs
 │   │   │   │   ├── domain/
 │   │   │   │   │   ├── address_tests.rs
 │   │   │   │   │   ├── addresses.rs
@@ -1901,9 +2000,35 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   │   │   ├── mod.rs
 │   │   │   │   │   ├── paths.rs
 │   │   │   │   │   ├── reserve.rs
-│   │   │   │   │   ├── run.rs
 │   │   │   │   │   ├── start.rs
 │   │   │   │   │   └── stop.rs
+│   │   │   │   ├── factory/
+│   │   │   │   │   ├── muse/
+│   │   │   │   │   │   ├── tests/
+│   │   │   │   │   │   │   ├── commands.rs
+│   │   │   │   │   │   │   ├── common.rs
+│   │   │   │   │   │   │   ├── lifecycle.rs
+│   │   │   │   │   │   │   ├── mod.rs
+│   │   │   │   │   │   │   ├── paths.rs
+│   │   │   │   │   │   │   ├── reserve.rs
+│   │   │   │   │   │   │   └── start.rs
+│   │   │   │   │   │   ├── commands.rs
+│   │   │   │   │   │   ├── lifecycle.rs
+│   │   │   │   │   │   ├── mod.rs
+│   │   │   │   │   │   ├── paths.rs
+│   │   │   │   │   │   ├── reserve.rs
+│   │   │   │   │   │   └── start.rs
+│   │   │   │   │   ├── tests/
+│   │   │   │   │   │   ├── artifacts.rs
+│   │   │   │   │   │   ├── mod.rs
+│   │   │   │   │   │   └── run.rs
+│   │   │   │   │   ├── artifacts.rs
+│   │   │   │   │   ├── binding.rs
+│   │   │   │   │   ├── lifecycle.rs
+│   │   │   │   │   ├── mod.rs
+│   │   │   │   │   ├── native.rs
+│   │   │   │   │   ├── output.rs
+│   │   │   │   │   └── run.rs
 │   │   │   │   ├── tests/
 │   │   │   │   │   ├── common.rs
 │   │   │   │   │   ├── identity.rs
@@ -1931,6 +2056,58 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   ├── common/
 │   │   │   │   ├── backend.rs
 │   │   │   │   └── mod.rs
+│   │   │   ├── data/
+│   │   │   │   └── iconfig/
+│   │   │   │       ├── bad-bridge.json
+│   │   │   │       ├── bad-network.json
+│   │   │   │       ├── bad-release.json
+│   │   │   │       ├── bad-subnet.json
+│   │   │   │       ├── bad-type-bool.json
+│   │   │   │       ├── bad-type-string.json
+│   │   │   │       ├── conflict-image.json
+│   │   │   │       ├── conflict-tailnet.json
+│   │   │   │       ├── dash-image.json
+│   │   │   │       ├── duplicates.json
+│   │   │   │       ├── empty-image.json
+│   │   │   │       ├── empty.json
+│   │   │   │       ├── identity-bad-sha.json
+│   │   │   │       ├── identity-bad-version.json
+│   │   │   │       ├── identity-relative-harness.json
+│   │   │   │       ├── identity-skipped.json
+│   │   │   │       ├── muse-bad-base.json
+│   │   │   │       ├── muse-bad-digest.json
+│   │   │   │       ├── muse-no-version.json
+│   │   │   │       ├── muse-relative-identity.json
+│   │   │   │       ├── muse-relative-socket.json
+│   │   │   │       ├── muse-skipped.json
+│   │   │   │       ├── null.json
+│   │   │   │       ├── order-identity-before-tailnet.json
+│   │   │   │       ├── order-muse-before-subnet.json
+│   │   │   │       ├── order-subnet-before-network.json
+│   │   │   │       ├── order-tailnet-before-network.json
+│   │   │   │       ├── overlay-base.json
+│   │   │   │       ├── overlay-nomgmt.json
+│   │   │   │       ├── release.json
+│   │   │   │       ├── tailnet-bad-ref.json
+│   │   │   │       ├── tailnet-no-mgmt.json
+│   │   │   │       ├── trailing.json
+│   │   │   │       ├── unknown-field.json
+│   │   │   │       ├── valid-full.json
+│   │   │   │       └── valid-minimal.json
+│   │   │   ├── identity_transport/
+│   │   │   │   ├── common.rs
+│   │   │   │   ├── main.rs
+│   │   │   │   ├── requests.rs
+│   │   │   │   └── responses.rs
+│   │   │   ├── project_operations/
+│   │   │   │   ├── access_keys.rs
+│   │   │   │   ├── accounts.rs
+│   │   │   │   ├── candidate.rs
+│   │   │   │   ├── common.rs
+│   │   │   │   ├── hold.rs
+│   │   │   │   ├── main.rs
+│   │   │   │   ├── preparation.rs
+│   │   │   │   └── requests.rs
 │   │   │   ├── daemon.rs
 │   │   │   └── terminal_transport.rs
 │   │   └── Cargo.toml
@@ -1966,10 +2143,6 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   │   └── tests.rs
 │   │   │   ├── production/
 │   │   │   │   └── tests.rs
-│   │   │   ├── progress/
-│   │   │   │   └── tests.rs
-│   │   │   ├── build_execution.rs
-│   │   │   ├── clock.rs
 │   │   │   ├── confined_files.rs
 │   │   │   ├── coreos.rs
 │   │   │   ├── coreos_iso.rs
@@ -1991,7 +2164,6 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   ├── production_compile.rs
 │   │   │   ├── production_images.rs
 │   │   │   ├── production_inputs.rs
-│   │   │   ├── progress.rs
 │   │   │   ├── tailnet_inputs.rs
 │   │   │   └── test_support.rs
 │   │   ├── tests/
@@ -2008,10 +2180,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   ├── oracle/
 │   │   │   │   ├── inputs.rs
 │   │   │   │   ├── oci.rs
-│   │   │   │   ├── production.rs
-│   │   │   │   └── progress.rs
-│   │   │   ├── support/
-│   │   │   │   └── buffer.rs
+│   │   │   │   └── production.rs
 │   │   │   ├── oracle.rs
 │   │   │   └── oracle_vectors.rs
 │   │   └── Cargo.toml
@@ -2161,6 +2330,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │       │   │   └── tests.rs
 │       │   ├── worker/
 │       │   │   ├── config.rs
+│       │   │   ├── execution.rs
 │       │   │   ├── mod.rs
 │       │   │   ├── runtime.rs
 │       │   │   └── tests.rs
@@ -2210,6 +2380,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   ├── check-lit.ts
 │   ├── check-native.sh
 │   ├── check-no-npm.sh
+│   ├── check-no-python.sh
 │   ├── check-oxfmt.sh
 │   ├── check-oxlint.sh
 │   ├── check-source.sh
@@ -2371,9 +2542,17 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   ├── forgejo_domain_test.go
 │   │   ├── forgejo_payload_test.go
 │   │   ├── helpers.go
+│   │   ├── muse_exec_test.go
 │   │   ├── native_support_test.go
 │   │   ├── operator_probe_test.go
 │   │   ├── project_account_test.go
+│   │   ├── project_factory_roles_accounts_test.go
+│   │   ├── project_factory_roles_fixture_test.go
+│   │   ├── project_factory_roles_inputs_test.go
+│   │   ├── project_factory_roles_lifecycle_test.go
+│   │   ├── project_factory_roles_output_test.go
+│   │   ├── project_factory_roles_readiness_test.go
+│   │   ├── project_factory_roles_test.go
 │   │   ├── project_foundation_test.go
 │   │   ├── project_runtime_test.go
 │   │   ├── proxy_image_test.go

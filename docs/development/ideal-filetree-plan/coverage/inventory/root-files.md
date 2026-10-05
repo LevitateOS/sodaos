@@ -2,6 +2,12 @@
 
 [Inventory index](README.md) · [Coverage snapshot and limits](../README.md).
 
+The current uncommitted AGENTS.md refresh is H06 documentation upkeep. It aligns
+authorization and language guidance with the current user instructions and links
+the [guidance conflict register](../../review-assignments.md#guidance-conflicts-and-controlling-decisions).
+The row below continues to account for the committed file at `0d8d3b8e`; this
+upkeep does not advance the inventory baseline or claim a slice validity review.
+
 ## Coverage inventory: (root files)
 
 | Current tracked path | Kind / lifecycle | Slice mapping |
@@ -28,4 +34,3 @@
 | [tsconfig.browser.json](../../../../../tsconfig.browser.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
 | [tsconfig.json](../../../../../tsconfig.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
 | [tsconfig.tests.json](../../../../../tsconfig.tests.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-

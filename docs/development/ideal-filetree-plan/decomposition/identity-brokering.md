@@ -35,7 +35,7 @@ Observed size: 910 lines, including tests where embedded. Keep main as the expli
 - `cmd/soda-identity-compose/src/launch_json.rs`
 - `cmd/soda-identity-compose/src/compose_tests.rs`
 
-Evidence: 20-47: load options, attest account, create runtime root, launch one service and register -> main.rs; 13-18,49-165: Options and flag/validation/usage helpers -> options.rs; 245-287,316-345,697-750: launch_compose/write_override/select_compose_child and immutable ID/service attribution -> compose.rs; 166-244,288-315,626-696: private tmpfs root/random/mkdir, account marker and SOCK_SEQPACKET registration -> registration.rs; 346-470: exact string/request encoding and LaunchExit decode -> launch_wire.rs; 471-625: parse_json_string/parse_json_integer/skip_json_value -> launch_json.rs; 751-910: flags, exact override/wire response, runtime-root and Compose-child vectors -> compose_tests.rs.
+Evidence at f7: 20–47 explicit sequence/load-options→main.rs; Options derive12 and struct13–18 plus complete flag/validation/usage49–165→options.rs; launch_compose245–287, write_override316–345 and child-attribution comments697/function698–750→compose.rs; root/random/mkdir166–244, account288–315 and complete registration626–694 (including its internal FD Guard/Drop)→registration.rs; string codec346–371, single NestedRegistration373–378, request/comment380–396 and exit-decode/comment397–469→launch_wire.rs; scalar/skip helpers471–624→launch_json.rs; cfg(test)751/module752 and all real cases753–909→compose_tests.rs, with original910 closing that test root. Keep one MUSE_LAUNCH_SOCKET9 in the common main owner, imported by compose and registration; TMPFS_MAGIC10 belongs registration. NestedRegistration and its fields use bounded parent-only imports for main/registration, with no duplicate DTO or public API. Tests import the actual moved subjects privately. [I09](../reviews/I09.md) records the independent defining-fit challenge and preserves canonical H03 parser corrections; Go-parity comments do not override the required wire semantics. No Compose, socket or test operation was run.
 
 ## rust/soda-identity/src/control.rs
 
@@ -122,4 +122,3 @@ Observed size at 0d8d3b8e: 634 lines, including tests where embedded. This whole
 - `cmd/soda-identity/tests/common/mod.rs`
 
 Evidence at 0d8d3b8e: 1–203: existing PostgreSQL/StubProvider/StubRuntime fixture support -> tests/common/mod.rs; 204–237,305–458: persistent custody/delegation, Muse retirement, execution fencing, post-reconcile repeated closure and revoke checks -> tests/broker.rs; 238–304: enrollment lifecycle -> tests/enrollment.rs; 459–634: HTTP admission and dead-listener lifetime checks -> tests/http.rs. These remain source-inspected integration scenarios, not executed native proof.
-

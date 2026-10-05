@@ -283,26 +283,38 @@ Open detail: The planned release-assets package must update -p names and locale/
 
 ## rust/soda-release-build/src/progress.rs
 
-Observed size: 857 lines, including tests where embedded. Separate monotonic timing/log transitions from subprocess execution, cancellation, output and structured exit observation. Preserve one timing origin and child log admission. Move only the SharedBuffer test writer to test support; unit and integration cases must continue exercising the real progress/execution owner. This is a module seam within the current crate, not another process service.
-
-- `lib/soda-release-build/src/progress.rs` — BuildProgress, inherited monotonic origin, section/phase/reason/log transitions, summary/finish/error joining and build_exit_code.
-- `lib/soda-release-build/src/build_execution.rs` — BuildExecution, Go tool selection, subprocess stream/capture, cancellation and native exit/signal observation.
-- `lib/soda-release-build/src/progress/tests.rs` — Existing clock/origin/phase/reason/occupied-log/child and cancellation/compiler cases, with their current synthetic clock and progress fixture.
-- `lib/soda-release-build/tests/support/buffer.rs` — Existing test-only SharedBuffer writer, shared by unit test inclusion and integration oracle modules without publishing test helpers.
+Observed size: 857 lines, including embedded tests. The current [D03 audit](../reviews/D03.md)
+and A's independent source/caller challenge identify this mirrored progress,
+BuildExecution and SharedBuffer closure as obsolete: it has only its own tests
+and the two exclusive progress/exit oracle cases as consumers. Retire it and its
+exclusive `clock.rs` dependency at the implementation cutover. It has no desired
+target leaf; do not split it into a second live executor or preserve it solely
+to satisfy predecessor parity tests.
 
 Evidence: 14-353: BuildProgress and transitions/origin/summary/finish, error joins, new_build_progress/build_exit_code; 354-383: SharedBuffer;384-654: BuildExecution/environment/tool selection/execute/capture; 657-857: progress_fixture/fake_clock and six existing cases; tests/oracle.rs:426 onward uses progress bytes and shared output; image/build.rs:36-170,1122-1244 has a distinct runner/environment/execution implementation; tools/src/progress.rs and exitcode.rs duplicate timing/exit concerns
 
-Open detail: No in-tree production caller currently constructs build crate BuildProgress/BuildExecution. tools progress is live in its CLI but pipeline dispatch is unfinished. Select one real Rust caller/owner at cutover; error metadata, environment pinning, streaming and cancellation differences prevent a blind helper swap.
+Current production already reaches the release-tools progress owner and the
+release-image Runner through `pipeline.rs:475-538`. Preserve those actual owners,
+their cancellation/log/reap contracts, the active build crate/Error base and
+other oracle duties. The previous unfinished-dispatch description is superseded.
+Remove exclusive obsolete module declarations, oracle imports/cases and stale
+module documentation with the cutover. Shared Error fields require their own
+exact type/consumer assessment; this disposition is not whole-crate retirement.
 
 ## rust/soda-release-build/tests/oracle.rs
 
-Observed size: 534 lines, including tests where embedded. Retain the frozen Go vectors and OCI fixture/layout bytes as test data while dividing the heterogeneous battery into four concern modules under one integration-test entrypoint. Reuse data_path/scratch and byte comparison helpers once. Each module still invokes the actual Rust owner; no Go implementation or temporary generator remains required for execution.
+Observed historical size: 534 lines. Retain frozen vectors and OCI fixture/layout
+bytes for active assertions, dividing the surviving battery into three concern
+modules under one integration-test entrypoint. Reuse data_path/scratch and byte
+comparison helpers once. Each retained module invokes the actual Rust owner.
+Retire only the two cases/imports belonging exclusively to the obsolete progress
+closure (`oracle_progress_bytes` and `oracle_exit_codes`, current lines 433-491).
+No Go implementation or temporary generator is required for retained execution.
 
 - `lib/soda-release-build/tests/oracle.rs` — Existing integration entrypoint, oracle_vectors import and shared data_path/scratch; declares the concern modules.
 - `lib/soda-release-build/tests/oracle/oci.rs` — Existing frozen archive/layout identity/content/rejection cases and artifact validator vectors.
 - `lib/soda-release-build/tests/oracle/inputs.rs` — Existing live-input/verified-base/resolved-input byte cases and strict bounded-JSON read assertions.
 - `lib/soda-release-build/tests/oracle/production.rs` — Existing Forgejo argv/script/toolchain and scripted real Production sequence oracle.
-- `lib/soda-release-build/tests/oracle/progress.rs` — Existing timing byte and structured exit-code oracle cases using the actual progress implementation.
 
 Evidence: 1-53: frozen-vector imports/data_path/scratch;55-155: OCI archive/content/layout cases; 156-248: live-input/base/resolved-input serialization;249-284: Forgejo args/script/toolchain and ELF fixture; 285-425: scripted Production sequence;426-484: progress bytes and exit classes; 485-509: miscellaneous artifact/URL validators;510-534: read_json strictness; oracle_vectors.rs and tests/data remain existing frozen fixture leaves
 
@@ -436,7 +448,7 @@ Observed size: 1446 lines, including tests where embedded. Separate source admis
 
 Evidence: 36-170: Cancel/SharedFile/Runner/LogCloser;171-204: ProductionInputs/build;205-378: source/input/output/snapshot/workspace admission; 379-490: freeze_base_image_config/prepare_build_host_context;491-521: prepare_build_production; 522-710: compile_soda_commands/record_tool_files/RUST_TOOLS/compile_rust_tools/compile_shipping_tools; 711-771 and1059-1121: same host-candidate sealing/build sequence with next callback versus Progress;772-864,976-1058: orchestration/finalization; 865-975: narrow RunnerProduction bootstrap for forgejo::extract_forgejo_snapshot;1122-1244: environment/tool resolution/run_build_command;1246-1264: link_prepared_assets; 1265-1326: real child command test;1327-1446: no-command prepared-assets test and specific stub
 
-Open detail: Actual pipeline wiring is pending: image depends on neither release-build nor release-deliver; tools/src/build_cli.rs:305-318 and349-353 stop with explicit not-yet-implemented errors. compile_shipping_tools:687-691 still compiles deleted-at-cutover Go soda-artifacts and694-699 copies only acceptance driver. Target wiring must choose the Rust tools owner and record acceptance remote beside the driver. Do not infer installed proof from crate presence.
+Open detail at f7: `soda-release-tools/src/pipeline.rs` is the composition owner wiring release-build and release-deliver behind the image traits; `build_cli.rs:304–313,343–347` calls the actual worker and image pipeline. The image library does not need direct dependencies on those implementations. The current `compile_shipping_tools` still selects the deleted Go `./tools/soda-artifacts` producer and compiles only the acceptance driver, omitting its remote companion. D03 retains corrections in the existing Rust tools/compiler inventory and acceptance owner. Source wiring does not establish installed build or packaging proof.
 
 ## rust/soda-release-image/src/media.rs
 
@@ -451,7 +463,7 @@ Observed size: 1204 lines, including tests where embedded. Separate upstream ass
 
 Evidence: 20-174: callback aliases, MediaLock/MediaAuthority/Media and media_base_url;175-398: assembler preparation/identity; 399-439,533-639: sign_media_input/inventory/authenticate_packaging_inputs;440-532: MediaInputs and authority/candidate/compression admission; 640-740: owned-container cleanup/build/native assembly;741-819: MediaMeta/image/meta validation; 820-1035: setup_media_rootfs/verify_customized_iso/customize_installer_iso/verify_media_readback/prepare_and_verify_media; 1036-1153: seal_media/assemble_media;1154-1204: URL and assembler buildroot tests; build_media.rs consumes prepare_assembler/assemble_media
 
-Open detail: The existing Production trait delegates signing/verification to a caller that still needs release-deliver wiring. The physical decomposition preserves this seam; it is not evidence of native packaging/signing success.
+Current detail at f7: the existing tools pipeline adapter supplies release-deliver signing/verification behind the image Production trait. Preserve that actual caller and its custody boundary during decomposition. This source wiring does not establish native packaging/signing success.
 
 ## rust/soda-release-image/src/model.rs
 
@@ -507,14 +519,14 @@ Open detail: Keep crate::artifacts public paths and its current String errors. c
 
 ## rust/soda-release-tools/src/build_cli.rs
 
-Observed size: 514 lines, including tests where embedded. The 377-line production file is one controller entry workflow; its flags, source binding and branch/exit sequence should remain readable together. Extract tests instead of distributing these steps into independent tiny files.
+Observed size: 508 lines, including tests where embedded. The 371-line production file is one controller entry workflow; its flags, source binding and branch/exit sequence should remain readable together. Extract tests instead of distributing these steps into independent tiny files.
 
 - `lib/soda-release-tools/src/build_cli.rs` — Existing soda-build flags/admission, source/VCS binding, environment/signals/progress, parent/worker branch and exit handling.
 - `lib/soda-release-tools/src/build_cli/tests.rs` — Current exact flags/worker dispatch, progress/source/environment boundary tests.
 
-Evidence: 1-173 FLAG_SPECS/BuildFlags/parse and dispatch admission; 174-202 env/signals/progress; 203-292 Soda/Fountain revisions and canonical checkout binding; 293-320 artifact printing/run_parent_build; 321-377 run/main; 378-514 tests.
+Evidence at f7: 1–173 flags and dispatch admission; 174–202 environment/signals/progress; 203–292 source revision and checkout binding; 293–314 artifact output and actual parent dispatch; 315–371 run/main; cfg(test)372 and complete module373–508. Tests remain descendants of the real controller entry.
 
-Open detail: Preserve crate::build_cli paths and the existing build.rs VCS stamp. Cargo manifest depth is still two directories below repository root after rust/soda-release-tools -> lib/soda-release-tools, so build.rs ../.. root lookup remains valid. Current parent/worker execution explicit boundary errors are pending integration; file moves do not complete them.
+Open detail: Preserve crate::build_cli paths and the existing build.rs VCS stamp. Cargo manifest depth is still two directories below repository root after rust/soda-release-tools -> lib/soda-release-tools, so build.rs ../.. root lookup remains valid. Current parent dispatch calls the actual Rust worker and the worker-stage branch calls the real image pipeline; source wiring is present, while D01-F4 identifies missing ongoing controller-signal propagation and native qualification remains separate.
 
 ## rust/soda-release-tools/src/candidate.rs
 
@@ -538,7 +550,7 @@ Observed size: 686 lines, including tests where embedded. Event parsing/path tra
 
 Evidence: 11-103 Event/parse_event and all parser helpers/host_artifact_path; 104-271 renderer fields and first impl; 272-352 phase mutation/line rendering; 353-435 ticker/finish/why panel impl; 436-477 exit/time/truncate/terminal helpers; 478-686 tests.
 
-Open detail: Keep crate::candidate_display exports consumed by candidate_controller and candidate. tests stays a cfg(test) descendant of the root and retains direct private RendererInner/Phase access; Renderer is not made public beyond its current API. Event wire padding quirks, lock order, first failed cause and existing ticker stop/join behavior stay unchanged.
+Open detail: Keep crate::candidate_display exports consumed by candidate_controller and candidate. tests stays a cfg(test) descendant of the root and retains direct private RendererInner/Phase access; Renderer is not made public beyond its current API. Preserve the event wire, lock order, first failed cause and existing ticker stop/join behavior. D01-F5 requires label normalization at the existing parser/phase boundary: padded START and DONE currently retain different leading spaces and fail to close one phase; historical parity assertions do not mandate retaining that defect.
 
 ## rust/soda-release-tools/src/candidate_fixture.rs
 
@@ -576,16 +588,17 @@ Open detail: Keep crate::progress names and the START/DONE/FAILED/CANCELLED wire
 
 ## rust/soda-release-tools/src/worker.rs
 
-Observed size: 978 lines, including tests where embedded. Group restricted configuration custody and per-attempt runtime ownership separately from the pure worker description/result boundary. Keep all bind/environment/argv choices and receipt/host-path checks visible in the original worker owner, not spread through a generic sandbox API.
+Observed size: 1516 lines, including tests. Keep configuration custody, fresh runtime ownership and actual transient-unit execution cohesive within the existing Rust controller package.
 
-- `lib/soda-release-tools/src/worker/mod.rs` — Worker description/constants, current uid/user lookup/identity, sandbox bind/environment/argument construction and exact result decode/validation/host-path rebinding.
-- `lib/soda-release-tools/src/worker/config.rs` — WorkerConfig, path/trusted-executable/private-file custody, task/config/storage admission, bounded decode/read/load.
-- `lib/soda-release-tools/src/worker/runtime.rs` — Fresh per-attempt runtime claim/nonce/private mode/chown and constrained direct-child release.
-- `lib/soda-release-tools/src/worker/tests.rs` — All current request/config/runtime/name/result unit scenarios and existing temp-dir/config fixtures.
+- `lib/soda-release-tools/src/worker/mod.rs` — Worker/constants, uid/user/identity helpers, pure worker description, exact result decode/validation/rebinding, live-input naming/resolution and controller attempt dispatch.
+- `lib/soda-release-tools/src/worker/config.rs` — WorkerConfig, path/trusted-executable/private-file custody, task/config/storage admission and bounded config read/load.
+- `lib/soda-release-tools/src/worker/runtime.rs` — Fresh attempt runtime claim/nonce/private mode/chown and exact direct-child release.
+- `lib/soda-release-tools/src/worker/execution.rs` — Whole existing execution boundary comments and identity/bind/env argv admission, paired concurrent pipe drains, systemd-run wait and exact-unit cancellation/kill/reap/cleanup errors.
+- `lib/soda-release-tools/src/worker/tests.rs` — Actual current config/runtime/request/name/result/argv/live-input/early-progress refusal tests and one existing fixture closure.
 
-Evidence: 19-31 WorkerConfig; 32-81 Worker/identity helpers; 82-324 config/path/trust/private input admission and load; 325-404 runtime claim/release; 405-515 join/rel/name/build_worker; 516-594 result binding/decode/read; 595-978 twelve existing tests.
+Evidence at f7: constants15–20; WorkerConfig22–34; Worker35–46 and identity47–100; config101–328; runtime329–408; pure description/result409–599; execution comments600–606 and complete functions607–836; live-input/controller dispatch837–947; cfg(test)948 and complete tests949–1516. Extraction includes attributes and comments, not function-body fragments.
 
-Open detail: Preserve crate::worker public paths and pub(crate) go_clean, used by build_cli::validate_forgejo_checkout_root. config keeps all its filesystem helper closure; runtime reuses existing uid/gid inputs without new authority. Test descendants can reach private helpers through appropriate parent-only imports, not widened production APIs. Current build_worker constructs a description; this is not evidence that the isolated execution port is wired.
+Keep crate::worker public caller paths through defining reexports, with execution internal to the same package and no new process/API. `trusted_executable` has one config owner, used by execution; Worker has one mod owner. Private child helpers use parent-only imports/visibility, and tests remain descendants of the real subject rather than copied production code. Existing run_worker concurrently drains both pipes before polling exit; preserve that lifecycle. D01-F4 corrects the actual controller attempt's constant-false cancellation predicate, retaining existing exact-unit stop/reap behavior. Actual execution is wired; neither file movement nor source assertions establish installed isolation.
 
 ## rust/soda-release-tools/tests/cli.rs
 
@@ -599,4 +612,3 @@ Observed size: 472 lines, including tests where embedded. Organize tests by the 
 Evidence: 1-60 TempDir/bin/run fixtures; 61-176 build CLI cases; 177-327 candidate cases; 328-434 artifact cases; 435-472 build deep refusal.
 
 Open detail: Use Cargo's tests/cli/main.rs automatic integration-test discovery with mod soda_build; mod soda_candidate; mod soda_artifacts; nested files call existing private root run/TempDir through super. Keep CARGO_BIN_EXE_soda-build/candidate/artifacts identities. Existing explicit pipeline-boundary refusal tests remain pending behavior evidence, not completed success-path proof.
-

@@ -3,10 +3,72 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
-## project-os/rootfs/usr/libexec/soda/project-factory-roles
+## Current Project account helper allocation
 
-Observed size: 800 lines, including tests where embedded. Replace this Python
-helper in the existing project-terminal Cargo package. Separate its current
+The current Rust helper is retained in the existing Project terminal package;
+the separate guest account package folds into that owner. [P03](../reviews/P03.md)
+records A's mapped source review and B's independent source challenge of this
+package/test seam. This is a package consolidation, with the same guest helper
+process and installed `/usr/libexec/soda/project-account` binary.
+
+- `cmd/soda-project-terminal/src/bin/project-account.rs` receives the current
+  `rust/soda-project-account/src/main.rs` bounded entrypoint.
+- `cmd/soda-project-terminal/src/project_account.rs` owns current
+  `account.rs:1–511` production request, configuration and provisioning.
+- `cmd/soda-project-terminal/src/project_account_tests.rs` receives the current
+  `account.rs:512–1068` test module. Declare it as a test child of the real
+  account module and retain its private subject access; do not copy production
+  provisioning or put these tests under the unrelated terminal account module.
+- `cmd/soda-project-terminal/tests/project_account.rs` receives the actual
+  `rust/soda-project-account/tests/binary.rs:1–410` integration tests.
+
+Rebind the one library module and entrypoint imports, Cargo binary/test discovery,
+compiled executable resolver and Go `tests/build/project_account_test.go`
+`CargoBinary` selection together. The release-build compile selection and
+`production.rs:900–915` fake Cargo recipe must select the requested binary,
+because one package will contain multiple actual executables. Rebind package
+specific oracle vectors to the retained compiled subject. Preserve Containerfile
+installation and native account/refusal semantics. Scratch passwd/tool doubles
+and scripted host adapters do not qualify installed account provisioning. Source
+inspection and this target allocation authorize no source or manifest changes.
+
+## Project factory roles helper consolidation
+
+Current f7 Rust allocation (historical Python ranges below are not move selectors):
+`factory_roles/mod.rs` owns main.rs1–204; the fixed binary owns thin main205–207.
+`layout.rs` owns fsx.rs and ops_inspect.rs15–61; `accounts.rs` owns account.rs1–301.
+`accounts_tests.rs` owns the actual account cfg/test302–414 as a private real-subject descendant.
+Thin do_ensure ops_approve74–84 stays inputs.rs, calling ONE account::ensure_role; its attribute415/body416–429 stays inputs_tests.rs.
+The Cargo binary is project-factory-roles (old package soda-project-factory-roles); consolidate into soda-project-terminal with explicit --bin project-factory-roles and preserve existing install destination.
+`inputs.rs` owns ops_approve.rs1–367; `records.rs` owns ops_record.rs1–166 and ops_inspect.rs62–236;
+`execution.rs` owns proc.rs1–379, ops_record.rs167–199 and ops_inspect.rs237–480.
+Retain single private validation/digest owners for validate.rs1–131 and sha.rs1–153,
+with shared imports for phase/group/barrier/Prestate rather than duplicated state.
+Descendant tests retain actual private subjects: inputs_tests.rs368–725;
+records_tests.rs200–368 from ops_record; execution_tests.rs proc380–420 plus inspect481–771;
+validate_tests.rs132–220; sha_tests.rs154–191; tests.rs main211–398 owns one Scratch/recording-Git fixture.
+The outer cfg(test) shells/attributes travel once with their corresponding modules.
+Keep the actual compiled-helper oracle and active Go fixture assertions. B independently
+challenged production and exact module seams; the final P06/P07/P12 source reviews
+record the complete assigned assertion assessment and its native evidence limits.
+Current `rust/soda-project-factory-roles/tests/oracle.rs`1–468 has the explicit
+retained target `cmd/soda-project-terminal/tests/factory_roles_oracle.rs`.
+It remains a distinct Rust integration suite executing the actual
+project-factory-roles binary in the consolidated soda-project-terminal package,
+with one compiled-subject resolver and its existing scratch/recording-Git
+fixtures. Preserve its cohesive digest/reference/refusal/stop workflow assertions;
+its length is not grounds to replace it with private copied subjects. Rebind
+Cargo package/binary selection and vectors to that same executable. These are
+source-reviewed assertions, not executed or installed qualification.
+These allocations preserve the existing helper process, binary/install identity and Cargo owner.
+
+
+The historical Python source review below described 800 lines. At `f7e9cf9d`
+the helper is already Rust in `rust/soda-project-factory-roles`; the pending
+work is consolidation into the existing project-terminal Cargo package, with
+current per-duty allocation in [P06](../reviews/P06.md) and the connected
+identity/factory review records. The line intervals below refer to the historical
+predecessor and cannot be used as current Rust move selectors. Separate the
 role/layout, approved input custody, receipt observation and process lifecycle
 concerns without widening the privileged protocol or adding a daemon.
 
@@ -46,12 +108,20 @@ Evidence: 1-53,1011-1118: documented guest stdin/stdout protocol, subscription_d
 
 ## rust/soda-project-terminal/src/fs.rs
 
-Observed size: 534 lines, including tests where embedded. Keep the cohesive descriptor-relative protected record/filesystem boundary: root-chain/regular-file UID/mode/link checks, bounded record read, create/replace/unlink, chmod/chown and added full-fstat/read-up-to helpers. Production spans lines 1-269 with a small test-only predicate at 60-64; the embedded test module spans 270-534. Extract those tests and the test-only predicate instead of adding another filesystem wrapper layer or new permission rule.
+Observed size: 534 lines, including tests where embedded. Keep the used descriptor-relative protected record/filesystem boundary: regular-file UID/mode/link checks, bounded record read, create/replace/unlink, chmod/chown and full-fstat/read-up-to helpers. Production spans lines 1-269 with a small test-only predicate at 60-64; the embedded test module spans 270-534. Extract the retained tests and test-only predicate within the same crate.
 
 - `cmd/soda-project-terminal/src/fs.rs`
 - `cmd/soda-project-terminal/src/fs_tests.rs`
 
-Evidence: 14-59,65-269: component checks, root_chain/root_file/read_record/new_file and descriptor-relative operations; fstat_all at 238 and read_up_to at 247 remain reusable actual source helpers; 60-64,270-534: test-only s_isdir plus root-chain/safety/file/record/create/wrapper/chown/chmod cases -> fs_tests.rs.
+Evidence: 14-35,56-59,65-269: component checks, root_file/read_record/new_file and descriptor-relative operations; fstat_all at 238 and read_up_to at 247 remain actual used helpers. Retained test support and safety/file/record/create/wrapper/chown/chmod cases at 60-64,270-292,308-534 → fs_tests.rs.
+
+Retire the unused `root_chain` function and its future-only commentary at
+36-55, its exclusive `root_chain_matrix` at 293-307, and the obsolete reference
+in `sys.rs:9`. Source review at `f7e9cf9d` found no production caller; `main.rs`
+declares a private binary module, and actual terminal/key paths use their own
+per-level directory checks. A independently challenged this scoped retirement.
+These units have no desired-tree allocation. Keep the active `fs`/`sys` modules
+and their actual consumers; source deletion remains a later implementation.
 
 ## rust/soda-project-terminal/src/keys.rs
 
@@ -114,4 +184,3 @@ Observed size: 403 lines, including tests where embedded. The 234-line productio
 - `cmd/soda-project-terminal/src/timex_tests.rs`
 
 Evidence: 1-31: exact CPython grammar and three documented deviations; 33-234: now_secs/civil date, parse_date/time/offset and parse_iso_deadline; 235-403: CPython accepted/rejected vectors, deviations, civil math and current-clock case -> timex_tests.rs.
-

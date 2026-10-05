@@ -5,6 +5,8 @@ source owners; they do not create packages, services or an approved intended mod
 
 ## G01 Browser authority and contributions
 
+- **Validity review:** [G01 record](../reviews/G01.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Connect Soda pages, panels and product calls to verified native actor/session authority.
 
 - **Entrypoints:** soda-extension contributionAuthorizer; Private extension listener and extensionProtected product routes; Native session/resource callbacks.
@@ -17,6 +19,8 @@ Connect Soda pages, panels and product calls to verified native actor/session au
 - **Evidence status:** Current entrypoint/checks; browser/session-loss journeys not run.
 
 ## G02 Background service admission
+
+- **Validity review:** [G02 record](../reviews/G02.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Provide one shared browser-independent native admission for reads and conditional operation clients.
 
@@ -31,6 +35,8 @@ Provide one shared browser-independent native admission for reads and conditiona
 
 ## G03 Authoritative native reads
 
+- **Validity review:** [G03 record](../reviews/G03.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Return bounded permission-checked collaboration evidence tied to a complete stable revision bracket.
 
 - **Entrypoints:** BackgroundSnapshotReader; BracketedRead; ServiceObserver and acceptance/readiness/dispatch adapters.
@@ -43,6 +49,8 @@ Return bounded permission-checked collaboration evidence tied to a complete stab
 - **Evidence status:** Current snapshot/adapters; live native completeness/access not verified.
 
 ## G04 Candidate publication and PR creation
+
+- **Validity review:** [G04 record](../reviews/G04.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Validate exported bytes and perform attributable conditional branch publication and native PR creation.
 
@@ -57,6 +65,8 @@ Validate exported bytes and perform attributable conditional branch publication 
 
 ## G05 Native review submission
 
+- **Validity review:** [G05 record](../reviews/G05.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Submit one body-only review bound to the exact PR/candidate and adopt its attributable outcome.
 
 - **Entrypoints:** Reviewer.ObserveReview/SubmitReview; LookupOp/CancelOp/AdoptReview.
@@ -69,6 +79,8 @@ Submit one body-only review bound to the exact PR/candidate and adopt its attrib
 - **Evidence status:** Concrete Reviewer conditionally wired with configured credential; tests not run.
 
 ## G06 Native CI observation
+
+- **Validity review:** [G06 record](../reviews/G06.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Map native check evidence for the identified PR and exact candidate into bounded observations.
 
@@ -83,6 +95,8 @@ Map native check evidence for the identified PR and exact candidate into bounded
 
 ## G07 Conditional native merge
 
+- **Validity review:** [G07 record](../reviews/G07.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Execute one exact conditional merge and confirm its attributable primary effect and native completion.
 
 - **Entrypoints:** Merger.ObserveMerge/SubmitMerge; LookupOp/CancelOp/AdoptMerge/ObserveCompletion.
@@ -95,6 +109,8 @@ Execute one exact conditional merge and confirm its attributable primary effect 
 - **Evidence status:** Current Merger conditionally wired; native merge/completion not exercised.
 
 ## G08 Native Forgejo presentation
+
+- **Validity review:** [G08 record](../reviews/G08.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Maintain customized native pages and browser enhancements while preserving Forgejo handlers, forms, sessions and stored collaboration state.
 
@@ -120,4 +136,4 @@ Read and change the current actor’s Soda display-name preference without treat
 - **Unclear boundaries:** UpsertUser maintains native login identity while preserving the existing name; RenameProfile owns preference writes on the same row. Current product authority for this local preference versus native Forgejo profile settings must be established in the intended-model review.
 - **Evidence status:** Current implemented state mapped; adding a candidate review slice does not approve retaining or expanding the preference feature.
 
-
+- **Validity review:** [G09 audit record](../reviews/G09.md).

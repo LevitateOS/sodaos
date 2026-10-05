@@ -2,6 +2,14 @@
 
 ## Complete source-to-slice coverage
 
+The later [80-slice source-validity audit](../reviews/README.md#completed-source-audit-coverage)
+is complete at pinned `f7e9cf9d`, separately from the catalog snapshot below.
+Its four completion dimensions, assigned mapped duties, independently challenged
+findings and exact target owners are recorded per slice. The source delta from
+the catalog is documentation only; no runtime verification follows from either
+coverage ledger or source-audit completion.
+
+
 Coverage snapshot: **2026-10-05**, committed source `0d8d3b8ebb5a7df36759685529f27f417d96fac8`. Every one of the **1,719 tracked paths** is listed exactly once across the [tracked-file inventories](inventory/README.md), including source, tests, SQL inside source, configuration, manifests, documents, binary assets and generated exports. The pass inspected entrypoints/declarations, fields, routes, stored-state groups, install/build consumers and ambiguous bodies; it is a responsibility inventory, not a claim that every statement is correct.
 
 The full responsibility inventory was established at `26d420f2`, using the
@@ -187,9 +195,14 @@ paths; the removed monolith has no current inventory row. Upkeep changes these
 existing documents without adding tracked files. Their own planning prose does
 not establish domain requirements or behavioral verification.
 
+The new [review baseline](../review-baseline.md), [review format](../review-format.md) and
+[assignments](../review-assignments.md) are uncommitted H06 planning additions
+recorded separately in the [documentation inventory](inventory/docs.md).
+They enter the desired tree immediately; the committed coverage counts stay at
+`0d8d3b8e` until their source baseline includes the new path.
+
 ### What this coverage gate establishes
 
 The source inventory and mixed-responsibility accounting are complete for the recorded committed snapshot. Code validity, provider neutrality, intended authority/state/lifecycle models and final package consolidation remain unapproved and unverified. Review all 80 slices by first establishing their intended model from owner decisions and current contracts, then compare actual entrypoints, data, authority and lifecycle assumptions, follow their cross-slice seams, and assess the real tests. A Codex-specific adapter can be legitimate; Codex assumptions embedded in provider-neutral brokering, dispatch or UI need review against the multi-provider contract.
 
 After every merge, update this ledger and the affected interval maps together with the slice cards and proposed tree. Additions must have a slice or an explicit unresolved disposition; changes to shared state/functions must recheck all mapped slices. A zero missing-file count alone is insufficient if a new responsibility is hidden under a generic supporting slice.
-

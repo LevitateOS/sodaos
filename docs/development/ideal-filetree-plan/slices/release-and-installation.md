@@ -16,7 +16,11 @@ Admit exact clean source, a restricted controller/worker configuration and a fre
 - **Unclear boundaries:** Builder provisioning changes host policy; ordinary controllers consume that policy. Wrapper interaction is not independent admission/signing authority.
 - **Evidence status:** Current development controller path; no production-run availability implied.
 
+- **Validity review:** [D01 audit record](../reviews/D01.md).
+
 ## D02 Pinned input acquisition
+
+Validity review: [D02 record](../reviews/D02.md). Its recorded scope and completion dimensions govern audit status.
 
 Resolve current upstream inputs, acquire verified bytes and record the exact identities consumed by a candidate.
 
@@ -31,6 +35,8 @@ Resolve current upstream inputs, acquire verified bytes and record the exact ide
 
 ## D03 Candidate production
 
+Validity review: [D03 record](../reviews/D03.md). Its recorded scope and completion dimensions govern audit status.
+
 Compile shipping programs and package the immutable application/host candidate from admitted source and resolved inputs.
 
 - **Entrypoints:** soda-build --development --target candidate; Worker stage -> release-tools pipeline -> release-build/release-image.
@@ -43,6 +49,8 @@ Compile shipping programs and package the immutable application/host candidate f
 - **Evidence status:** Current development candidate producer; source fixtures inspected without execution.
 
 ## D04 Authenticated installation media
+
+Validity review: [D04 record](../reviews/D04.md). Its recorded scope and completion dimensions govern audit status.
 
 Turn the candidate into authenticated native CoreOS installation media bound to exact ISO/rootfs and provisioning inputs.
 
@@ -57,6 +65,8 @@ Turn the candidate into authenticated native CoreOS installation media bound to 
 
 ## D05 Artifact verification
 
+Validity review: [D05 record](../reviews/D05.md). Its recorded scope and completion dimensions govern audit status.
+
 Inspect an emitted candidate and verify architecture/revision, archive and payload identity bindings without rebuilding it.
 
 - **Entrypoints:** soda-candidate-check; soda-artifacts inspect-oci; scripts/check-native.sh ARCH CANDIDATE_DIR.
@@ -69,6 +79,8 @@ Inspect an emitted candidate and verify architecture/revision, archive and paylo
 - **Evidence status:** Current inspection entrypoints; no checks executed.
 
 ## D06 Installed qualification
+
+Validity review: [D06 record](../reviews/D06.md). Its recorded scope and completion dimensions govern audit status.
 
 Collect retained matching-native observations for exact candidate installation and guest state, invoking existing product-owned journeys without inventing scenarios.
 
@@ -83,6 +95,8 @@ Collect retained matching-native observations for exact candidate installation a
 
 ## D07 Release admission and preparation
 
+Validity review: [D07 record](../reviews/D07.md). Its recorded scope and completion dimensions govern audit status.
+
 Validate trust and candidate/media/qualification bindings before creating local release or channel OCI documents.
 
 - **Entrypoints:** release-deliver prepare/admission/document APIs; no current operator delivery CLI.
@@ -95,6 +109,8 @@ Validate trust and candidate/media/qualification bindings before creating local 
 - **Evidence status:** Current Rust library behavior; no operator delivery entrypoint or completed production release path.
 
 ## D08 Signing custody
+
+Validity review: [D08 record](../reviews/D08.md). Its recorded scope and completion dimensions govern audit status.
 
 Admit an exact digest under protected release authority, sign a private local snapshot and verify the resulting signed directory.
 
@@ -109,6 +125,8 @@ Admit an exact digest under protected release authority, sign a private local sn
 
 ## D09 Publication and effect observation
 
+Validity review: [D09 record](../reviews/D09.md). Its recorded scope and completion dimensions govern audit status.
+
 Publish admitted signed payloads/promotions while preserving a durable record of uncertain and completed registry effects.
 
 - **Entrypoints:** release-deliver publish and observe APIs; no current operator delivery CLI.
@@ -121,6 +139,8 @@ Publish admitted signed payloads/promotions while preserving a durable record of
 - **Evidence status:** Existing Rust library/state model; production publication entrypoint unavailable and registry execution not verified.
 
 ## D10 Verified distribution consumption
+
+Validity review: [D10 record](../reviews/D10.md). Its recorded scope and completion dimensions govern audit status.
 
 Discover an authorized channel, verify and download complete release contents, and retain observed release-authority state.
 
@@ -135,6 +155,8 @@ Discover an authorized channel, verify and download complete release contents, a
 
 ## D11 Host installation and payload application
 
+Validity review: [D11 record](../reviews/D11.md). Its recorded scope and completion dimensions govern audit status.
+
 Perform explicit native disk installation and import validated local candidate images into ordinary Podman storage on the installed appliance.
 
 - **Entrypoints:** soda-install disk|configure; enrollment verbs hand off separate enrollment responsibilities; soda-image-import.service -> /usr/libexec/soda/soda-image-import.
@@ -145,5 +167,3 @@ Perform explicit native disk installation and import validated local candidate i
 - **Tests:** [rust/soda-install/src/execute.rs:442](../../../../rust/soda-install/src/execute.rs#L442) — Fake runner: hotplug/cancellation/marker gates and one CoreOS install attempt; [rust/soda-image-import/src/main.rs:2004](../../../../rust/soda-image-import/src/main.rs#L2004) — Local fixture: invalid layout causes zero Podman imports.
 - **Unclear boundaries:** Console installation and boot-time image import are distinct lifecycle seams inside this slice. HTTPS activation is N01; ordinary host updating is O04, not implied by payload import.
 - **Evidence status:** Existing installed command/service paths; tests do not establish native installation/update qualification.
-
-

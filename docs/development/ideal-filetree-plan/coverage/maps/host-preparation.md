@@ -1,5 +1,7 @@
 # Host preparation
 
+Current P06/P12 target note: host LauncherEvidence/base64 helper321–332→prepare/state.rs, role_exec538–557→prepare/source.rs, launcher638–732→prepare/tools.rs. Pure HoldState/PrepareHold621–698→preparation/state.rs; Runtime hold859–881→prepare/mod.rs; mixed native hold/inspect/stop assertions stay ONE execution_tests.rs function. These are concern destinations, not authority transfers or source edits.
+
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
@@ -245,4 +247,3 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [P12](../../slices/projects.md#p12-maintenance-holds) / active | 1665–1789 | Source assertion of Maintenance holds; declarations/fields: `inspect_stop_hold_paths` |
 | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1790–1886 | Source assertion of Candidate verification assessment; declarations/fields: `candidate_reuses_ready_source` |
 | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1887–1955 | Source assertion of Candidate verification assessment; declaration/member candidate_rejects_bad_snapshots; declarations/fields: `candidate_rejects_bad_snapshots` |
-

@@ -15,6 +15,7 @@ Configure which repository work the factory may perform and under which roles, c
 - **Tests:** [internal/factory/grants_test.go:29](../../../../internal/factory/grants_test.go#L29) — Source/unit: missing checks, invalid roles, actor-binding kinds and unsupported merge method refuse; [internal/factory/control/grants_test.go:77](../../../../internal/factory/control/grants_test.go#L77) — PostgreSQL integration: pausing captures dispatch, stale revision refuses; fixture grants, not native authorization proof.
 - **Unclear boundaries:** Own policy decisions/revisions. F08 settles withdrawal; independent execution, capacity, sponsorship and Project grants remain necessary. Settings reference enrolled actor bindings without enrolling credentials.
 - **Evidence status:** Current handler, validation and persistence; complete configured factory behavior not assessed.
+- **Validity review:** [F01 record](../reviews/F01.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F02 Operator execution grants
 
@@ -28,6 +29,7 @@ Record the configured appliance operator's separate permission for factory execu
 - **Tests:** [internal/factory/control/grants_test.go:77](../../../../internal/factory/control/grants_test.go#L77) — PostgreSQL integration: operator-grant command replays its revision; changed payload conflicts; [internal/factory/grants_test.go:57](../../../../internal/factory/grants_test.go#L57) — Source/unit: active unbounded operator grant refuses.
 - **Unclear boundaries:** Execution permission remains distinct from repository policy, appliance capacity, connection sponsorship and P01 creation authority. Withdrawal closes dispatch; confirmed native termination comes from F08.
 - **Evidence status:** Current API and persistence; inspected assertions were not executed.
+- **Validity review:** [F02 record](../reviews/F02.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F03 Capacity, reservations and accounting
 
@@ -41,6 +43,7 @@ Bound admitted execution and account for sponsored usage without restoring allow
 - **Tests:** [internal/factory/control/dispatch_test.go:347](../../../../internal/factory/control/dispatch_test.go#L347) — PostgreSQL integration with fake host/broker: exhausted usage persists after acceptance edits; [internal/factory/control/dispatch_test.go:1179](../../../../internal/factory/control/dispatch_test.go#L1179) — Concurrent PostgreSQL integration with fake execution: two passes preserve capacity and budget.
 - **Unclear boundaries:** Own connection usage/reservation arithmetic; F07 owns assignments and F08 settlement. Calculations and atomic admission span dispatch/store code and need joint review, not another reservation service.
 - **Evidence status:** Current accounting paths; no workload or concurrency check ran.
+- **Validity review:** [F03 record](../reviews/F03.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F04 Connection sponsorship
 
@@ -54,6 +57,7 @@ Permit a connection owner to sponsor repository factory roles within a separatel
 - **Tests:** [internal/factory/control/grants_test.go:120](../../../../internal/factory/control/grants_test.go#L120) — PostgreSQL integration: active sibling preserves dispatch; withdrawal of last sponsorship closes it; [internal/factory/grants_test.go:57](../../../../internal/factory/grants_test.go#L57) — Source/unit: foreign administrative sponsorship role refuses.
 - **Unclear boundaries:** Own sponsorship authority; I03 owns the referenced grant, provider credentials stay in broker custody and F03 accounts allowance. Repository administration cannot substitute for connection ownership.
 - **Evidence status:** Current ownership checks/persistence; provider behavior not exercised.
+- **Validity review:** [F04 record](../reviews/F04.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F05 Accepted requirements and invalidation
 
@@ -67,6 +71,7 @@ Bind execution authority to accepted native objectives, selected answers and dep
 - **Tests:** [internal/factory/control/acceptance_test.go:71](../../../../internal/factory/control/acceptance_test.go#L71) — PostgreSQL integration with fake native evidence: exact inputs persist, identical command replays, stale predecessor refuses; [internal/factory/control/acceptance_test.go:329](../../../../internal/factory/control/acceptance_test.go#L329) — PostgreSQL integration: source/version/edge changes invalidate; revision change alone does not.
 - **Unclear boundaries:** Own accepted meaning/history. G03 returns evidence and F06 evaluates readiness. Restored text at a new version cannot reactivate an old acceptance.
 - **Evidence status:** Current acceptance source; complete native adoption/withdrawal journey not run.
+- **Validity review:** [F05 record](../reviews/F05.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F06 Issue intake and readiness
 
@@ -80,6 +85,7 @@ Reassess issues and dependants from authoritative evidence, distinguishing block
 - **Tests:** [internal/factory/control/readiness_test.go:178](../../../../internal/factory/control/readiness_test.go#L178) — PostgreSQL integration with fake snapshots: duplicate delivery skips reads; another unchanged observation still reads fresh evidence; [internal/web/api/factory_intake_test.go:110](../../../../internal/web/api/factory_intake_test.go#L110) — Source/unit HTTP handler with fake coordinator: forged deliveries refuse; [internal/web/api/factory_intake_test.go:130](../../../../internal/web/api/factory_intake_test.go#L130) — Unit HTTP handler with fake coordinator: assessment failure returns 503; new native status/body diagnostic logging is not asserted.
 - **Unclear boundaries:** Owns blockers/reassessment. F05 owns acceptance; G03 owns evidence integrity; F07 owns dispatch. Assessment failure diagnostics are service-log observations, not readiness evidence; the existing 503 response remains.
 - **Evidence status:** Current committed intake/readiness source inspected; automatic end-to-end operation and diagnostic output not qualified here.
+- **Validity review:** [F06 record](../reviews/F06.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F07 Assignment and dispatch
 
@@ -93,6 +99,7 @@ Turn eligible queued work into one bounded assignment and recorded supervised la
 - **Tests:** [internal/factory/control/dispatch_test.go:247](../../../../internal/factory/control/dispatch_test.go#L247) — PostgreSQL integration with fake host/broker: oldest eligible issue launches within capacity; assignment/prompt/preparation/reservation bindings match; [internal/factory/assignment_test.go:134](../../../../internal/factory/assignment_test.go#L134) — Result fence parser vectors include nested code fences in JSON summary; source-only assertion coverage, not provider output qualification.
 - **Unclear boundaries:** Owns assignment admission/recovery and supplies the selected pinned harness and connection. I09 owns provider-matched lease acquisition and native effects; dispatch reads broker metadata rather than receiving credentials. Missing approved preparation waits; this slice does not own Project creation.
 - **Evidence status:** Current dispatch/wiring; fake launch assertions do not establish real provider execution.
+- **Validity review:** [F07 record](../reviews/F07.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F08 Run lifecycle and intervention
 
@@ -106,6 +113,7 @@ Settle execution truthfully and admit scoped stop, pause, retry and member takeo
 - **Tests:** [internal/factory/control/operator_test.go:93](../../../../internal/factory/control/operator_test.go#L93) — PostgreSQL integration with stubs: replay avoids duplicate stop, changed command conflicts, unfinished replay returns 202; [internal/factory/control/lifecycle_test.go:212](../../../../internal/factory/control/lifecycle_test.go#L212) — PostgreSQL integration with stub execution: takeover requires reconciled run and confirmed copy; repeated takeover copies once; [internal/factory/control/settle_test.go:16](../../../../internal/factory/control/settle_test.go#L16) — Source-only optional-PostgreSQL scenario with stub host/broker: second close succeeds, Cancelled outcome and stored reconciliation; [internal/factory/control/settle_test.go:55](../../../../internal/factory/control/settle_test.go#L55) — Three failed closes keep an uncertain receipt; [rust/soda-host/src/pfactory.rs:4883](../../../../rust/soda-host/src/pfactory.rs#L4883) — Scripted stop-owned uncertainty regression; [rust/soda-host/src/pfactory.rs:4941](../../../../rust/soda-host/src/pfactory.rs#L4941) — Scripted pre-delivery stop despite absent unit; [rust/soda-host/src/pfactory.rs:4959](../../../../rust/soda-host/src/pfactory.rs#L4959) — Scripted broker close succeeds on second attempt.
 - **Unclear boundaries:** Own coordination, not native retirement/credential return. Retry delegates admission to F07. Spaces observes run output without acquiring execution control.
 - **Evidence status:** Delta source mapped at 0d8d3b8e. Go settlement attempts broker closure up to three times, with a one-second wait that context cancellation can end. Rust stop uses three attempts with 200 ms waits and preserves stop-owned outcomes. Source assertions only; no tests, concurrent native races or installed settlement exercised.
+- **Validity review:** [F08 record](../reviews/F08.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F09 Publication progression
 
@@ -119,6 +127,7 @@ Advance reconciled coding output into an attributable candidate branch and PR wh
 - **Tests:** [internal/factory/control/publication_test.go:314](../../../../internal/factory/control/publication_test.go#L314) — PostgreSQL integration with fake executor: distinct branch/PR intents link one exact PR without replayed mutations; [internal/factory/control/publication_native_test.go:365](../../../../internal/factory/control/publication_native_test.go#L365) — Optional native driver: exact native tip/PR checked against receipts; seeded runs/export do not prove CLI execution.
 - **Unclear boundaries:** Own local stages and candidate-head/receipt updates. G04 validates and executes native effects; F10 decides review/correction progression without a second publication ledger.
 - **Evidence status:** Current progression/native-driver source; no publication executed.
+- **Validity review:** [F09 record](../reviews/F09.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F10 Independent review and correction
 
@@ -132,6 +141,7 @@ Run independent exact-candidate review, return findings to coding and require fr
 - **Tests:** [internal/factory/control/review_cycle_test.go:194](../../../../internal/factory/control/review_cycle_test.go#L194) — PostgreSQL integration with fake reviewer: exact head/base, reviewer and authorization revision bound; stale review refuses; [internal/factory/allowance_test.go:57](../../../../internal/factory/allowance_test.go#L57) — Source/unit: failed corrections consume cycles; replay cannot double-charge or restore exhausted allowance; [internal/factory/review_role_test.go:21](../../../../internal/factory/review_role_test.go#L21) — Review fence parser vectors include nested diff fences inside JSON report body; source-only assertion coverage, not native review success.
 - **Unclear boundaries:** Own review/correction decisions, not G05 review effects or F09 publication heads. Shared current functions/nested fields require joint review before extraction.
 - **Evidence status:** Current seams; full same-Project correction/fresh-review loop not assessed.
+- **Validity review:** [F10 record](../reviews/F10.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F11 Candidate verification assessment
 
@@ -145,6 +155,7 @@ Apply accepted required-check policy to current candidate evidence and persist a
 - **Tests:** [internal/factory/control/checks_pass_test.go:55](../../../../internal/factory/control/checks_pass_test.go#L55) — PostgreSQL integration with fake observer: exact candidate/base verdict persists; absent/busy observation waits; [internal/factory/control/checks_native_test.go:283](../../../../internal/factory/control/checks_native_test.go#L283) — Optional native driver: native statuses assessed against required checks; fixture-dependent cases can skip.
 - **Unclear boundaries:** Own verdict/persistence; G06 maps evidence. A changed head needs reassessment and F12 rechecks live evidence before merge. Local runner provisioning remains deferred.
 - **Evidence status:** Current assessment/wiring; no Actions run or native snapshot verified.
+- **Validity review:** [F11 record](../reviews/F11.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## F12 Merge eligibility and completion
 
@@ -158,5 +169,4 @@ Request a permitted verified merge and release dependent work only after attribu
 - **Tests:** [internal/factory/control/merge_test.go:413](../../../../internal/factory/control/merge_test.go#L413) — PostgreSQL integration with fake merger: committed effect waits for bookkeeping; unconfirmed/indeterminate outcomes stay fenced; [internal/factory/control/merge_native_test.go:347](../../../../internal/factory/control/merge_native_test.go#L347) — Optional native driver: receipt inspected, actual base tip equals bound head; prepared fixture is not whole-factory proof; [internal/factory/control/merge_test.go:261](../../../../internal/factory/control/merge_test.go#L261) — PostgreSQL/fake merger regression source: failed current check creates no merge row, then passing assessment permits progression; not executed.
 - **Unclear boundaries:** Own eligibility/local progression; G07 owns native effects and receipt consistency. Native matcher also checks evidence conditions; jointly distinguish protocol validity from Soda policy before extraction. Reconciliation of an existing row and policy for opening a new row are separately asserted; native negative fixtures seed existing rows directly.
 - **Evidence status:** Current coordinator/native drivers; automatic merge not exercised.
-
-
+- **Validity review:** [F12 record](../reviews/F12.md) — actual scope, model, findings, challenge and target-allocation status.

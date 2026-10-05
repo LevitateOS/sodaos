@@ -15,6 +15,7 @@ Start, observe, cancel and complete an explicit selected-provider enrollment wit
 - **Tests:** [internal/web/identity_native_test.go:46](../../../../internal/web/identity_native_test.go#L46) — Source-only API fixture assertions: owner/session binding and consent required before broker call; changed actor/generation/origin refused.
 - **Unclear boundaries:** Owns enrollment lifecycle, while I02 owns retained encrypted credential bytes and generations. Existing providers are Codex and Muse; current registry is not authority to invent additional providers or universal enrollment semantics.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
+- **Validity review:** [I01 record](../reviews/I01.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I02 Encrypted credential custody
 
@@ -28,6 +29,7 @@ Retain native credential bytes encrypted with connection/generation binding unde
 - **Tests:** [rust/soda-identity/src/crypto.rs:84](../../../../rust/soda-identity/src/crypto.rs#L84) — Source-only unit assertions: authenticated round-trip; wrong binding, short ciphertext and tampering refused; [rust/soda-identity/tests/broker.rs:205](../../../../rust/soda-identity/tests/broker.rs#L205) — Source-only PostgreSQL broker fixture: retained credential round-trip; fixture may return early when unavailable.
 - **Unclear boundaries:** Owns ciphertext and generation, not grants or native launch authorization. Current implementation uses PostgreSQL; credentials guide still names SQLite in runtime details, so documentary storage wording needs reconciliation. No encryption or database test executed.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
+- **Validity review:** [I02 record](../reviews/I02.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I03 Delegation and connection availability
 
@@ -41,6 +43,7 @@ Authorize explicit subscription sharing to a named member/Project and expose onl
 - **Tests:** [internal/web/identity_native_test.go:92](../../../../internal/web/identity_native_test.go#L92) — Source-only API fixture: named members, write authority and both confirmations required; [rust/soda-identity/tests/broker.rs:205](../../../../rust/soda-identity/tests/broker.rs#L205) — Source-only broker fixture: foreign actor sees nothing without grant; shared metadata omits email; revoke removes availability.
 - **Unclear boundaries:** Owns delegation state, not custody or execution reservations. Availability is derived, not evidence that execution is currently admissible. I06 performs grant revocation and resulting retirement against these owned grants.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
+- **Validity review:** [I03 record](../reviews/I03.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I04 Execution admission and lease fencing
 
@@ -54,6 +57,7 @@ Admit one logical execution against current connection/grant authority and fence
 - **Tests:** [rust/soda-identity/tests/broker.rs:239](../../../../rust/soda-identity/tests/broker.rs#L239) — Source-only PostgreSQL broker fixture: identical acquisition replays same lease; [rust/soda-identity/tests/broker.rs:359](../../../../rust/soda-identity/tests/broker.rs#L359) — Source-only broker fixture: closed execution denies late register and reacquire; fixture may skip without database; [rust/soda-identity/tests/broker.rs:390](../../../../rust/soda-identity/tests/broker.rs#L390) — Source-only PostgreSQL fixture: unbound reconciliation, repeated closure and terminal execution state; the registration error does not distinguish a missing lease from a fence.
 - **Unclear boundaries:** Owns execution/reservation records. I05 supplies the attested binding; I06 closes the same records. Codex serialization and Muse concurrency are existing policies, not a universal-provider rule or new generic scheduler.
 - **Evidence status:** Existing source coverage reused; post-reconcile closure regression mapped at 0d8d3b8e. Assertions inspected only, no tests or native execution performed.
+- **Validity review:** [I04 record](../reviews/I04.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I05 Native binding and private delivery
 
@@ -67,6 +71,7 @@ Validate the exact native account/container/process/unit binding before credenti
 - **Tests:** [rust/soda-host/tests/tcodex_ops_oracle.rs:206](../../../../rust/soda-host/tests/tcodex_ops_oracle.rs#L206) — Oracle source assertions with fake executor: exact container, role UID/GID and systemd invocation checks precede delivery; [rust/soda-host/tests/muse_serve_oracle.rs:426](../../../../rust/soda-host/tests/muse_serve_oracle.rs#L426) — Oracle source assertions: mismatched invocation returns stale and stops further native calls; [rust/soda-identity/tests/broker.rs:422](../../../../rust/soda-identity/tests/broker.rs#L422) — Source-only late registration returns an error after unbound reconciliation and repeated closure; no native attestation exercised.
 - **Unclear boundaries:** Owns binding attestation/delivery transition, not lease reservation or credential storage. Shared lease table is one state machine, not duplicate ownership. Native oracle tests prove authored call contracts only; installed attestation was not exercised.
 - **Evidence status:** Existing source coverage reused; added registration assertion mapped at 0d8d3b8e. Assertions inspected only, no tests or native execution performed.
+- **Validity review:** [I05 record](../reviews/I05.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I06 Completion, revocation and reconciliation
 
@@ -80,6 +85,7 @@ Retire leases and logical executions through verified stop/finish/return, explic
 - **Tests:** [rust/soda-identity/tests/broker.rs:428](../../../../rust/soda-identity/tests/broker.rs#L428) — Source-only PostgreSQL broker fixture: revoke changes connection state and retires live leases; [rust/soda-identity/tests/broker.rs:306](../../../../rust/soda-identity/tests/broker.rs#L306) — Source-only broker fixture: Muse return forgets lease without rotating connection generation; [rust/soda-identity/tests/broker.rs:390](../../../../rust/soda-identity/tests/broker.rs#L390) — Source-only real Controller/Store with stub provider/runtime and optional PostgreSQL: reconcile unbound lease, close twice, terminal state and registration error; [rust/soda-host/src/pfactory.rs:4959](../../../../rust/soda-host/src/pfactory.rs#L4959) — Scripted transient-close retry in native stop adapter.
 - **Unclear boundaries:** Owns closure transitions over I04's lease/execution records, not a second ledger. Mutable Codex return and immutable Muse retirement already diverge inside core code; review those concrete policies before extracting abstractions.
 - **Evidence status:** Closure/retry delta mapped at 0d8d3b8e. Broker fixture assertions and host scripted tests inspected only; no tests, real native retirement or installed behavior exercised.
+- **Validity review:** [I06 record](../reviews/I06.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I07 Codex adapter
 
@@ -93,6 +99,7 @@ Adapt the pinned native Codex enrollment protocol and mutable subscription crede
 - **Tests:** [rust/identity-providers/src/codex.rs:656](../../../../rust/identity-providers/src/codex.rs#L656) — Source-only native-protocol fixture assertions: credential retention after process stop; close removes private enrollment root; [rust/identity-providers/src/codex.rs:682](../../../../rust/identity-providers/src/codex.rs#L682) — Source-only fixture assertions: unfinished enrollment canceled and root removed.
 - **Unclear boundaries:** Adapter owns Codex protocol/auth representation; core owns grants, custody and lease records. Execution-side integration is I09. Browser launch's current Codex scope does not redefine the entire broker as Codex-only.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
+- **Validity review:** [I07 record](../reviews/I07.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I08 Muse adapter
 
@@ -106,6 +113,7 @@ Adapt pinned Muse subscription device enrollment and native auth validation with
 - **Tests:** [rust/identity-providers/src/muse.rs:514](../../../../rust/identity-providers/src/muse.rs#L514) — Source-only native fixture assertions: file credential backend, environment filtering, completed enrollment and no credentials/diagnostics in public presentation; [rust/identity-providers/src/muse.rs:494](../../../../rust/identity-providers/src/muse.rs#L494) — Source-only pinned-version fixture assertions: exact native version required.
 - **Unclear boundaries:** Adapter owns Muse enrollment/auth semantics, while concurrency and immutable lease closure belong to I04/I06. This is an existing adapter child, not evidence that Codex assumptions can be copied to every provider.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
+- **Validity review:** [I08 record](../reviews/I08.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I09 Provider execution integration
 
@@ -119,6 +127,7 @@ Connect human terminal, factory and explicitly registered nested native executio
 - **Tests:** [rust/soda-host/tests/muse_serve_oracle.rs:416](../../../../rust/soda-host/tests/muse_serve_oracle.rs#L416) — Oracle source assertions with fake executor/hooks: delivery echo after valid native invocation; stale invocation refused; [rust/soda-host/tests/tcodex_ops_oracle.rs:206](../../../../rust/soda-host/tests/tcodex_ops_oracle.rs#L206) — Oracle source assertions: factory-native binding checks use exact role/container/unit; [rust/soda-host/src/pfactory.rs:4457](../../../../rust/soda-host/src/pfactory.rs#L4457) — Unit regression with fake broker/terminal: Muse harness sends one acquire request with provider_id=muse and the original execution ID. The scripted fixture still returns a Codex lease; completed phase does not establish real Muse authorization, reservation, delivery or retirement.
 - **Unclear boundaries:** Dispatch supplies the selected harness and connection; host execution owns provider-matched lease acquisition and native reservation/delivery. Broker core remains the sole lease/custody owner. Current harness names also identify broker providers; that name coupling needs intended-model review for the broader provider catalog. Reservation refusal now logs its cause before the existing abandonment path; native Muse execution remains unqualified here.
 - **Evidence status:** Request-provider regression evidence reused from 26d420f2; its host source anchors reconciled at 0d8d3b8e. No tests or native execution performed.
+- **Validity review:** [I09 record](../reviews/I09.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## I10 Identity audit history
 
@@ -132,5 +141,4 @@ Append credential-free identity events atomically with broker state changes and 
 - **Tests:** [internal/store/identity_test.go:79](../../../../internal/store/identity_test.go#L79) — Go PostgreSQL shared-schema assertions: ordered audit actions, immutable trigger and credential absence; not direct Rust runtime proof; [internal/store/identity_test.go:101](../../../../internal/store/identity_test.go#L101) — Go PostgreSQL fixture: failed audit INSERT rolls back grant mutation; tests not run.
 - **Unclear boundaries:** Audit history has its own state and append integrity; it does not acquire credential custody, grant authorization or retention policy from neighboring slices. The unused Rust history reader is an unresolved applicability seam; no public audit feature is inferred. Shared-schema/predecessor Go tests require separate port/caller classification.
 - **Evidence status:** Existing append state mapped; read exposure, intended audit requirements and direct Rust proof remain unresolved.
-
-
+- **Validity review:** [I10 record](../reviews/I10.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.

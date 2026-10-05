@@ -59,6 +59,29 @@ Do not blindly regenerate from old split reports after source changes: re-read
 the affected definitions and preserve later owner decisions in the affected
 plan sections.
 
+When validity review records exist, apply the
+[review freshness rules](review-format.md#keeping-a-review-current) during this
+same post-merge upkeep. Reconcile affected source and contract conclusions and
+their dependent workflows; preserve the distinct review and evidence scopes.
+Refresh the [guidance conflict register](review-assignments.md#guidance-conflicts-and-controlling-decisions)
+for changed instructions, owner decisions, guide claims and inspected cutover
+status. A documentation refresh does not qualify runtime behavior or reopen a
+settled language decision; unresolved affected allocations remain pending.
+Use the [assignment map](review-assignments.md) to route affected work to its
+primary and challenger. Reconcile record handoffs and shared-boundary questions
+before changing ownership; the coordinator maintains the shared plan documents.
+New planning/review documents enter the target tree immediately. Record their
+H06 documentation-upkeep attribution separately from the pinned committed
+inventory until the source baseline includes those files.
+
+Keep the [review input baseline](review-baseline.md) separate from catalog and
+structural coverage. Before using it, verify HEAD and the retained original
+guidance packet's listed hashes; track current guidance changes separately.
+A later source or guidance change requires an explicit baseline refresh
+or recorded reconciliation for affected review scopes; never silently advance
+the pin. Capture hashes after final guidance edits, excluding the manifest
+itself as documented there. Pinning inputs does not start the audit.
+
 ## Executing when time is available
 
 Keep implementation deferred until the owner selects work that fits available

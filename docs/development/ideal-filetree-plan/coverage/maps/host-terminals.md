@@ -1,7 +1,17 @@
 # Host terminals
 
+Current target seam note (source/map responsibility selectors remain unchanged): request252–351/384–420/554–658, frame352–383/421–553/659–772, protocol40–251. Credential JSON helpers773–785 stay ONE existing identity_protocol.rs owner, not frame; RFC3339 separator786–787 travels identity_wire. Service1495–1507 and shared argv1531–1559 are one terminal/mod.rs owner; target excludes those shared definitions. See S04/S05 for actual source and independent defining-fit limits.
+
+Current private-test extraction at f7: shared fixtures2660–2754 exclude the next protocol #[test]2755; live_lease3939–3962 excludes identity_call_flows attribute3963; output pins4627–4651 exclude rand_id_shape attribute4652. Each attribute travels with its complete next case. Retain one FakeExec/ENV_LOCK/common fixture owner and the actual Service subject through bounded test-only imports. These current target cuts supersede coarse historical endpoints below without treating a defining-fit challenge as native execution evidence.
+
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
+
+The current audit refines the catalog: texec private-terminal request admission
+and StreamTable are obsolete predecessor duties; current gmux admission and
+TerminalGate retain live ownership. [S05](../../reviews/S05.md) records the
+actual caller census and independent challenge. Catalog declaration spans
+remain historical; exact retirement uses the current source selectors there.
 
 <a id="coverage-7d03172d524c"></a>
 
@@ -246,19 +256,19 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2294–2333 | Native attach argv, framed IO and lifetime; declaration/member output_frame; declarations/fields: `output_frame` |
 | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2334–2359 | Native attach argv, framed IO and lifetime; declaration/member close; declarations/fields: `close` |
 | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2360–2367 | Native attach argv, framed IO and lifetime; declaration/member drop; declarations/fields: `drop` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2368–2383 | Private attachment admission and live stream registration; declarations/fields: `valid_private_terminal_request` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2384 | Private attachment admission and live stream registration; declaration/member StreamTable; declarations/fields: `StreamTable` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2385 | Private attachment admission and live stream registration; declaration/member StreamTable.streams; declarations/fields: `StreamTable.streams` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2386 | Private attachment admission and live stream registration; declaration/member StreamTable.closed; declarations/fields: `StreamTable.closed` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2387–2390 | Private attachment admission and live stream registration; declaration/member StreamTable.next; declarations/fields: `StreamTable.next` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2391–2399 | Private attachment admission and live stream registration; declaration/member new; declarations/fields: `new` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2400–2410 | Private attachment admission and live stream registration; declaration/member register; declarations/fields: `register` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2411–2415 | Private attachment admission and live stream registration; declaration/member unregister; declarations/fields: `unregister` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2416–2422 | Private attachment admission and live stream registration; declaration/member close; declarations/fields: `close` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2423–2426 | Private attachment admission and live stream registration; declaration/member len; declarations/fields: `len` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2427–2430 | Private attachment admission and live stream registration; declaration/member is_empty; declarations/fields: `is_empty` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2431–2436 | Private attachment admission and live stream registration; declaration/member is_closed; declarations/fields: `is_closed` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2437–2445 | Private attachment admission and live stream registration; declaration/member default; declarations/fields: `default` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2368–2383 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declarations/fields: `valid_private_terminal_request` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2384 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member StreamTable; declarations/fields: `StreamTable` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2385 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member StreamTable.streams; declarations/fields: `StreamTable.streams` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2386 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member StreamTable.closed; declarations/fields: `StreamTable.closed` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2387–2390 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member StreamTable.next; declarations/fields: `StreamTable.next` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2391–2399 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member new; declarations/fields: `new` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2400–2410 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member register; declarations/fields: `register` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2411–2415 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member unregister; declarations/fields: `unregister` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2416–2422 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member close; declarations/fields: `close` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2423–2426 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member len; declarations/fields: `len` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2427–2430 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member is_empty; declarations/fields: `is_empty` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2431–2436 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member is_closed; declarations/fields: `is_closed` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2437–2445 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member default; declarations/fields: `default` |
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2446 | Browser-admitted execution request and provider launch integration; declarations/fields: `TerminalStart` |
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2447 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.connection_id; declarations/fields: `TerminalStart.connection_id` |
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2448 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.project_id; declarations/fields: `TerminalStart.project_id` |
@@ -302,8 +312,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2800–2815 | Terminal and identity source test fixtures/assertions; declaration/member base_request; declarations/fields: `base_request` |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2816–2940 | Terminal and identity source test fixtures/assertions; declaration/member request_valid_matrix; declarations/fields: `request_valid_matrix` |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2941–2960 | Terminal and identity source test fixtures/assertions; declaration/member strict_b64_vectors; declarations/fields: `strict_b64_vectors` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2961–3023, 3177–3259, 4561–4584 | Source assertion of Interactive attachment; declarations/fields: `frame_input_matrix`, `frame_encode_goldens`, `stream_table_flows` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 3024–3093, 3106–3176, 4628–4652 | Source assertion of Factory activity presentation; declarations/fields: `frame_output_matrix`, `metadata_output_matrix`, `output_line_and_attach_pins` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2961–3023, 3177–3259 | Source assertion of Interactive attachment; declarations/fields: `frame_input_matrix`, `frame_encode_goldens` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 4561–4584 | Exclusive predecessor registry test; `stream_table_flows` retires with definitions-only StreamTable |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 3024–3093, 3106–3176, 4628–4652 | Current-source audit correction: human `TerminalFrame` output/metadata and native attachment pins (`frame_output_matrix`, `metadata_output_matrix`, `output_line_and_attach_pins`), with S04 metadata/lifecycle dependencies. These assertions do not exercise Factory output. A inspected the actual bodies and retained their ownership in S05; frozen catalog assignment remains historical. |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3283–3298 | Terminal and identity source test fixtures/assertions; declaration/member golden_binding; declarations/fields: `golden_binding` |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3299–3319 | Terminal and identity source test fixtures/assertions; declaration/member golden_lease; declarations/fields: `golden_lease` |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3320–3373 | Terminal and identity source test fixtures/assertions; declaration/member identity_encode_goldens; declarations/fields: `identity_encode_goldens` |
@@ -329,7 +340,8 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4364–4374 | Terminal and identity source test fixtures/assertions; declaration/member write_harness; declarations/fields: `write_harness` |
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4402–4429 | Source assertion of Provider execution integration; declaration/member stream_identity_harness_flows; declarations/fields: `stream_identity_harness_flows` |
 | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 4448–4502 | Source assertion of Checkout allocation and preparation; declarations/fields: `prepare_identity_flows` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 4585–4600 | Source assertion of Interactive attachment; declaration/member private_request_matrix; declarations/fields: `private_request_matrix` |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 4586–4591 | Only predecessor private-terminal predicate assertions in `private_request_matrix` retire |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4592–4600 | Retained live identity-request/action assertions in mixed `private_request_matrix`; do not retire whole test |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4613–4627 | Terminal and identity source test fixtures/assertions; declaration/member zero_deadline_encode_pin; declarations/fields: `zero_deadline_encode_pin` |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4663 | Terminal and identity source test fixtures/assertions; declaration/member FakeBroker; declarations/fields: `FakeBroker` |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4664 | Terminal and identity source test fixtures/assertions; declaration/member FakeBroker.acquire_result; declarations/fields: `FakeBroker.acquire_result` |
@@ -341,4 +353,3 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4683–4688 | Terminal and identity source test fixtures/assertions; declaration/member reconcile_lease; declarations/fields: `reconcile_lease` |
 | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4689–4701 | Terminal and identity source test fixtures/assertions; declaration/member launch_input; declarations/fields: `launch_input` |
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4798–4832 | Source assertion of Provider execution integration; declaration/member identity_route_matrix; declarations/fields: `identity_route_matrix` |
-

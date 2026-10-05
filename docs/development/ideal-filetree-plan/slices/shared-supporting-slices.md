@@ -15,6 +15,7 @@ Provide admitted private request/stream transport and explicit service startup/s
 - **Tests:** [rust/soda-host/tests/gmux_smoke.rs:1048](../../../../rust/soda-host/tests/gmux_smoke.rs#L1048) — Scripted-backend route/parser/stream-slot tests and local Unix-server harness; [rust/soda-host/src/main.rs:389](../../../../rust/soda-host/src/main.rs#L389) — Inline flag/root/listener and exit-code contract tests; [internal/identity/client/client_test.go](../../../../internal/identity/client/client_test.go) — Broker client request/response tests.
 - **Unclear boundaries:** Transport admission is not domain authorization. Mux smoke uses scripted backends and has stale introductory wiring prose; it does not alone prove the production backend, shutdown or installed daemon.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
+- **Validity review:** [H01 record](../reviews/H01.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## H02 Storage mechanics
 
@@ -28,6 +29,7 @@ Support current PostgreSQL connections, transactions, schema admission and mecha
 - **Tests:** [internal/store/schema_test.go:11](../../../../internal/store/schema_test.go#L11) — Fixture-dependent current-schema creation, integrity and old/unversioned-store refusal; [internal/store/grants_test.go:11](../../../../internal/store/grants_test.go#L11) — Encryption-key continuity across store reopen; [rust/soda-identity/src/pg.rs:481](../../../../rust/soda-identity/src/pg.rs#L481) — Inline DSN/command-tag vectors.
 - **Unclear boundaries:** The Go store and broker share schema/code concepts but must not gain duplicate domain authority. Confirm deployed database separation and which store is canonical for each identity record during I02 review; schema tests may skip without fixture inputs.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
+- **Validity review:** [H02 record](../reviews/H02.md) — actual reviewed scope, findings, challenges, target allocations and remaining work.
 
 ## H03 Encoding and parsing
 
@@ -41,8 +43,11 @@ Implement bounded, explicit wire decoding/encoding used by the established calle
 - **Tests:** [internal/strictjson/decode_test.go:15](../../../../internal/strictjson/decode_test.go#L15) — Duplicate/unknown fields, object shape, UTF-8 and size-limit tests; [scripts/wire_contracts_test.go:50](../../../../scripts/wire_contracts_test.go#L50) — Recorded wire vectors and limits; [rust/soda-json/src/lib.rs:315](../../../../rust/soda-json/src/lib.rs#L315) — Inline parse/escape vectors.
 - **Unclear boundaries:** Similar parser/DTO code is not proof of equivalent semantics or a justified shared abstraction. Caller-specific fields/limits stay with their slices; fixture agreement can preserve an obsolete assumption and needs contract review.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
+- **Validity review:** [H03 record](../reviews/H03.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## H04 Configuration and filesystem primitives
+
+- **Validity review:** [H04 record](../reviews/H04.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Read protected configuration/inputs and perform caller-owned mechanical file/lock operations.
 
@@ -57,6 +62,8 @@ Read protected configuration/inputs and perform caller-owned mechanical file/loc
 
 ## H05 Branding, avatars and attribution
 
+- **Validity review:** [H05 record](../reviews/H05.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Maintain established shared visual assets, deterministic avatar rendering and attribution.
 
 - **Entrypoints:** avatar.Render(); public /-/soda/avatars/v1/ route; Branding render/build consumers; soda-avatars utility.
@@ -70,6 +77,8 @@ Maintain established shared visual assets, deterministic avatar rendering and at
 
 ## H06 Developer tooling and verification infrastructure
 
+- **Validity review:** [H06 record](../reviews/H06.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Support source/architecture checks, disposable fixtures, previews and reusable verification drivers.
 
 - **Entrypoints:** bun check:source/typecheck/test; scripts/check-source.sh; Architecture checker, Lit analyzer adapter, preview/screenshot and image comparison utilities.
@@ -80,4 +89,3 @@ Support source/architecture checks, disposable fixtures, previews and reusable v
 - **Tests:** [tests/build/source_checks_test.go:142](../../../../tests/build/source_checks_test.go#L142) — Scripted command ordering, environment and stop-on-failure behavior; [tools/png-equal/main_test.go:14](../../../../tools/png-equal/main_test.go#L14) — Decoded-pixel equality and bounded image dimensions; [tools/lit-check/check.ts:67](../../../../tools/lit-check/check.ts#L67) — --fixtures mode asserts positive/negative analyzer diagnostics and missing-input failures; not run.
 - **Unclear boundaries:** Tool tests prove their own asserted scope. Domain tests/drivers stay linked to domain slices; fixture source, source checks, browser execution and installed qualification are distinct. Analyzer docs are a coverage pointer, not a test result.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
-

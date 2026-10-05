@@ -1,5 +1,7 @@
 # Soda project factory roles
 
+Current target seam note: P07 records verified production/test boundaries approve368, validate132, sha154, record200, proc380, inspect481 and main fixture211. Current responsibility rows below remain source selectors; concern-specific successor modules preserve each assertion and one real private subject. Historical Python decomposition ranges are not executable Rust move instructions. Full assertion adequacy remains independently scoped.
+
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
@@ -107,7 +109,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 138–152 | Bounded approved file-set base64 decode; declaration/member git_clone_argv; declarations/fields: `git_clone_argv` |
 | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 153–161 | Bounded approved file-set base64 decode; declaration/member git_catfile_argv; declarations/fields: `git_catfile_argv` |
 | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 162–196 | Exact Git bundle/head preparation admission; declarations/fields: `verify_bundle` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 197–224 | Refuse protected execution credential paths in setup files; declarations/fields: `check_credential_file` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 197–224 | Admit a role-private credential file using the role account, protected parent ownership, no-follow regular file, matching role UID and mode 0600; declarations/fields: `check_credential_file` |
 | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 225 | Materialize supplied approved setup snapshot; does not decide administrator approval; declarations/fields: `ApprovedInputs` |
 | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 226 | Materialize supplied approved setup snapshot; does not decide administrator approval; declaration/member ApprovedInputs.fields; declarations/fields: `ApprovedInputs.fields` |
 | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 227 | Materialize supplied approved setup snapshot; does not decide administrator approval; declaration/member ApprovedInputs.files; declarations/fields: `ApprovedInputs.files` |
@@ -251,4 +253,3 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 375–376 | Project-local fixed factory roles and checkout preparation protocol; declaration/member Guard; declarations/fields: `Guard` |
 | [P12](../../slices/projects.md#p12-maintenance-holds) / active | 401–420 | Source assertion of Maintenance holds; declarations/fields: `oracle_stop_hold_release_bytes` |
 | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 443–468 | Project-local fixed factory roles and checkout preparation protocol; declaration/member oracle_refusal_contract; declarations/fields: `oracle_refusal_contract` |
-

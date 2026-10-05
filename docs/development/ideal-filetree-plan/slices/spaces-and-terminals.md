@@ -5,6 +5,8 @@ source owners; they do not create packages, services or an approved intended mod
 
 ## S01 Authorized inventory
 
+- **Validity review:** [S01 record](../reviews/S01.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Build the current actor's bounded Spaces read model from Project membership, native observations and recorded factory facts.
 
 - **Entrypoints:** GET /api/spaces; apiSpaces; loadSpacesInventory; inspectSpaceAuthority/native/terminals/factory.
@@ -29,7 +31,11 @@ Retain one Soda workspace and flat execution-view owners inside Fountain's persi
 - **Unclear boundaries:** Owns browser mount/navigation lifetime, not native session survival or lease termination. S03 owns saved arrangement; S05 owns attachments. Mounting/navigation must not silently Create, Join, Start or retarget an existing execution.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
 
+- **Validity review:** [S02 audit record](../reviews/S02.md).
+
 ## S03 Views, layout and restoration
+
+Validity review: [S03 record](../reviews/S03.md). Its recorded scope and completion dimensions govern audit status.
 
 Manage panes/tabs/splits and disposable actor-scoped session locators while preserving exact view owners and original execution targets.
 
@@ -44,6 +50,8 @@ Manage panes/tabs/splits and disposable actor-scoped session locators while pres
 
 ## S04 Human terminal lifecycle
 
+Validity review: [S04 record](../reviews/S04.md). Its recorded scope and completion dimensions govern audit status.
+
 Reserve an exact managed terminal ID, explicitly create/inspect/rename/end its native session, and preserve it independently of a browser attachment.
 
 - **Entrypoints:** Terminal reservation; terminal-sessions mutation; Host.TerminalCreate/Inspect/End; project-terminal helper.
@@ -56,6 +64,8 @@ Reserve an exact managed terminal ID, explicitly create/inspect/rename/end its n
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
 
 ## S05 Interactive attachment
+
+Validity review: [S05 record](../reviews/S05.md). Its recorded scope and completion dimensions govern audit status.
 
 Attach an authorized browser to the exact existing native terminal and transport bounded input/output, controls and liveness checks.
 
@@ -70,6 +80,8 @@ Attach an authorized browser to the exact existing native terminal and transport
 
 ## S06 Factory activity presentation
 
+Validity review: [S06 record](../reviews/S06.md). Its recorded scope and completion dimensions govern audit status.
+
 Present authorized factory run/status/output and route explicit factory controls while retaining factory ownership of runs and attempts.
 
 - **Entrypoints:** Spaces factory rows; factory status/output routes; SodaFactoryWatch mount/dispose; existing pause/cancel/takeover controls.
@@ -80,5 +92,3 @@ Present authorized factory run/status/output and route explicit factory controls
 - **Tests:** [tests/frontend/factory-view.test.ts:26](../../../../tests/frontend/factory-view.test.ts#L26) — Source-only parser assertions: status bound to exact run/process; mismatched identity/shape refused; [tests/frontend/factory-view.test.ts:54](../../../../tests/frontend/factory-view.test.ts#L54) — Source-only output assertions: exact bytes and server cursors; malformed cursor/frame rejected.
 - **Unclear boundaries:** Owns presentation state only; factory owns durable execution/control state. A status display is not native liveness proof. Hide or lost view does not End, revoke lease or cancel attempt; factory controls remain distinct from S04.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
-
-

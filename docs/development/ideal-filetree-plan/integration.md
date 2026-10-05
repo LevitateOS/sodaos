@@ -46,11 +46,12 @@ Locks, complete data fixtures, attribution and canonical documentation owners ar
   assertions together. Remove imports/tests owned only by the retired host
   executors, acceptance execution, release pipeline and OCI test helper; do not
   create a Go process package or facade to keep those imports compiling.
-- Installed command discovery currently in `internal/release/build/production.go`
-  and compilation/delivery inventory currently in `internal/release/image`,
-  replaced by their Rust owners at cutover. The current loop
-  Go-compiles every `cmd/` directory; mixed command directories require adapting
-  this existing recipe selection while preserving installed binary destinations.
+- Current command discovery is in Rust release-image `sys.rs`; compilation is
+  in `build.rs:522-553`, using Go for discovered `cmd/` commands and explicit
+  Rust selectors for the landed ports. Moving Rust entrypoints into `cmd/`
+  requires updating this existing discovery/recipe selection together; preserve
+  installed binary destinations and avoid a duplicate compile or Go invocation
+  on a Rust-only command directory.
 - Stage renderer checkout detection, payload inventories, Containerfile COPY
   sources, rootfs assembly, service paths, provisioning and release input locks.
 - Acceptance remote payload delivery/recording and the real compiled Project
@@ -62,6 +63,10 @@ Locks, complete data fixtures, attribution and canonical documentation owners ar
 - Forgejo and extension build imports, templates, locale additions, CSS imports,
   Bun scripts, TypeScript includes and browser fixtures. The native Forgejo
   presentation and independently installed extension retain separate payloads.
+  Preserve the full intentional Soda design overrides across all Forgejo pages,
+  as the owner confirmed in [GUIDANCE-08](review-assignments.md#guidance-conflicts-and-controlling-decisions).
+  Correctness and native integration findings cannot infer permission to remove
+  the overrides, restore stock pages or redesign the presentation.
 - Direct source-path assertions in retained Rust, Go and browser tests, including
   paths below `rust/`, `appliance/`, `project-os/` and `scripts/ops/`. Remove
   Python import subjects and test drivers as part of their real native cutover.
@@ -73,6 +78,16 @@ Locks, complete data fixtures, attribution and canonical documentation owners ar
   sync contract keeps `docs/public/` stable.
 
 ## Review and implementation boundary
+
+The [80-slice source audit](reviews/README.md#completed-source-audit-coverage)
+closes responsibility, established workflow, independent challenge and exact
+selected target dimensions at `f7e9cf9d`. Its corrections remain proposed and
+its named product/producer/equivalence gates remain pending. In particular,
+shared Factory run/native/binding/lifecycle/output/artifacts now have explicit
+provider-neutral owners inside the existing Rust host, with direct caller and
+single test-fixture imports. The desired tree excludes the inherited Codex run
+leaf; provider-specific custody and launch policy retain their real owners.
+
 
 This plan folder is the maintained project artifact from this pass; the inventory
 and analysis reports remain in ignored .artifacts/filetree-planning/. Source
@@ -97,11 +112,16 @@ inventory. The latest coverage ledger accounts for all 1,719 tracked paths at
 five-file source delta and documentation split are reconciled; unchanged code
 reuses its earlier inspection. No tests or native operations were run for upkeep.
 
-The primary tree now contains 2,359 unique leaves after excluding 11 obsolete
+The primary tree now contains 2,531 unique leaves after excluding 11 obsolete
 proposals found by the coverage pass and replacing the single plan document
-with its 122 maintained Markdown sections and adding the new settlement test
-at its existing Go package destination. It retains 27 Cargo package manifests
-plus the root workspace manifest. These counts include proposed native
+with its 122 Markdown sections and adding the new settlement test
+at its existing Go package destination, shared review inputs, actual slice records
+the active Python-elimination policy document formerly omitted as old tooling,
+and explicit active Muse/shared factory lifecycle modules in the Rust host.
+The plan folder now has 206 maintained Markdown documents. The new review
+documents are planning additions outside the pinned committed inventory. The
+tree retains
+27 Cargo package manifests plus the root workspace manifest. These counts include proposed native
 entrypoints and concern splits, not measured final implementation sizes. Full
 structural reconciliation after d7e565aa remains pending. Shared destination
 leaves consolidate existing providers, assets, HTTP/test support and native

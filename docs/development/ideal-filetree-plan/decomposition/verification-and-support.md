@@ -244,7 +244,16 @@ Observed size: 691 lines, including tests where embedded. Keep the same Go packa
 - `scripts/forgejo_form_components_test.go` — Original creation permission/form composition and adapter boundaries.
 - `scripts/forgejo_template_fixture_test.go` — Shared native template dictionary/read/call fixtures.
 
-Evidence: TestForgejoPageIntroComposition at 48; TestForgejoExplorePagesComposeNativeControlsWithOriginalContext at 204; TestForgejoThemeToggleIsSingletonAtEachPlacement at 347; TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes at 421; TestForgejoRepositoryCreationKeepsNativePermissionBranches at 473; TestForgejoNativeFormAdapterSelectsMainFormsOnly at 627; forgejoTemplateDict at 33; readForgejoTemplate at 662; requireForgejoTemplateCalls at 682.
+Current `f7e9cf9d` allocation, checked against actual defining bodies by the primary reviewer and coordinator:
+
+| Current lines | Exact target |
+| --- | --- |
+| 48–345, 548–625 | `forgejo_components_test.go`: intro/empty/Explore and the whole general-page composition case |
+| 347–471 | `forgejo_theme_components_test.go`: singleton and header route cases |
+| 473–546, 627–660 | `forgejo_form_components_test.go`: whole repository creation case and native form adapter case |
+| 14–46, 662–691 | `forgejo_template_fixture_test.go`: one shared locale/context/dictionary and source/read/call fixture owner |
+
+Redistribute imports by actual use within the same private Go test package. Keep the general-page function's opening and intro list at 548–574 with its remainder; grouping them with repository creation would split a function. Read the actual template/style owners at their new paths, preserving native gates, contexts and full Soda design coverage. Primary full assertion inspection and the coordinator's extraction/helper fit are distinct; no test or installed browser execution is claimed.
 
 ## tests/build/test_project_keys.py
 
@@ -345,11 +354,41 @@ Open detail: Update actual installed and fixture imports directly without alias 
 
 ## tests/build/project_factory_roles_test.go
 
-Observed size: 414 lines, including tests where embedded. Retire the Go wrapper when its actual assertions and fixtures exercise the Rust helper successor. This file is 414 lines chiefly because its 230-line rolesDriver embeds Python, SourceFileLoader and mocks; moving it to smaller Go files would preserve Python execution and violate the decided cutover. Keep one native concern suite until real Rust fixture code warrants another measured split.
+Current source at `f7e9cf9d`: 481 lines and 13 `TestRoles` functions. The
+Python driver is already gone. These active Go integration assertions invoke
+the compiled Rust helper using a test-owned factory and a recording Git
+executable. Retain the real test subject, subprocess observations and fixed
+request/refusal bytes in the existing `tests/build` package:
 
-- `cmd/soda-project-terminal/src/factory_roles/tests.rs` — Native successor owns all 12 established role/account/custody/phase/start/stop/hold/process/log scenarios; reuse the already proposed factory_roles test owner rather than add duplicate test suites.
+- `tests/build/project_factory_roles_fixture_test.go`: harness at 1–229.
+- `tests/build/project_factory_roles_accounts_test.go`: accounts at 230–256.
+- `tests/build/project_factory_roles_inputs_test.go`: approved inputs at 257–324.
+- `tests/build/project_factory_roles_readiness_test.go`: readiness at 325–346.
+- `tests/build/project_factory_roles_lifecycle_test.go`: start, stop,
+  interruption, maintenance holds and process groups at 347–435.
+- `tests/build/project_factory_roles_output_test.go`: bounded output and exit
+  observations at 436–463.
+- `tests/build/project_factory_roles_test.go`: malformed requests at 464–481.
 
-Evidence: 15-244 rolesDriver imports the real project-os/rootfs/usr/libexec/soda/project-factory-roles, patches account/process/filesystem effects and implements named cases; 246-293 runRolesCase/Python3/JSON observations/MRO/base64 adapters; 295-351 ensure/approve/reject-before-effects/record assertions; 352-414 launcher refusal/start/interruption/stop/hold/proc-group/zombie/bounded-output assertions.
+The native implementation and its current private unit tests remain Rust in
+`cmd/soda-project-terminal/src/factory_roles/`; its compiled
+`src/bin/project-factory-roles.rs` entrypoint retains its installed identity.
+Update the actual Cargo build selector in the Go fixture when folding the
+helper crate; preserve the existing scratch-directory and Git fixtures.
+Source assertions about scratch accounts, bundle argv or process groups do
+not qualify installed native accounts, real Git verification or factory
+execution. Root and A independently inspected the whole current file and all
+13 case allocations, supporting this partition. The interactive-account case
+writes a shell fixture only; its title alone does not establish extra-group
+rejection. These source checks did not execute the suite. The old Python-driver
+disposition is superseded.
 
-Open detail: Reuse the pending Rust private owner cmd/soda-project-terminal/src/factory_roles/{mod,layout,accounts,inputs,records,execution,tests}.rs and compiled src/bin/project-factory-roles.rs. Preserve all existing scenario observations: locked nologin accounts/no extra groups/idempotence; immutable mode-0644 snapshot/bundle verification/repeat and invalid-input no effects; waiting/missing stability and launcher failure; supervisor running/interruption; stop retirement/identity bar; hold revision/quiescence; pgrp versus session/uid/gid/zombie checks; bounded log bytes/exit3/truncation. Remove rolesDriver/SourceFileLoader/Python3/exception-MRO dependency, with native refusal/effect assertions. Compiled entrypoint protocol and installed staging/hash qualification remain separate evidence. PR42 native helper port is pending: exact test fixture execution/injection seams must follow the real Rust implementation, with no placeholder dispatcher, new public test API or Python subprocess retained. Existing /proc fixture executable names such as python3 are inert test bytes, not permission to retain Python execution. Retire the Go source only after the real native owner preserves the assertions; no port completion is claimed.
+## tests/build/helpers.go
 
+At `f7e9cf9d`, retain the active Go support at `tests/build/helpers.go`, including
+`CargoBinary` at 149–174 and `tail` at 191–196. Retire only the unused
+exception-MRO `raisedAs` function at 180–189 and its obsolete comment at
+176–179. Root and A independently inspected the source and actual caller
+census: the function has no caller, and the former role-test consumer now
+invokes the Rust binary. The whole helper file remains active. This is an
+exact desired-allocation retirement, not an implementation deletion.

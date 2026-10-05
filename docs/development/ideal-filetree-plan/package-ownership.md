@@ -6,6 +6,16 @@ Structural reconciliation baseline: `d7e565aa1019753997a99fd430ba103d7a472b48`, 
 
 Initial full structural review: `899e9bf3b9b57883df42cbb520329679b3b8186d`. Latest reconciliation scope: six landed port PRs (tests to Go #29/#31, release tools #30, release image #32, release deliver #33, release build #34) plus the decided language policy. Keep this initial review separate from later merge checkpoints.
 
+At audit source `f7e9cf9d`, the workspace has 32 Cargo members, including
+`soda-project-account` and `soda-project-factory-roles`. The proposed 27-package
+tree folds both into the existing Project-terminal package in addition to the
+provider/assets consolidations. Rust `soda-host` already declares its binary;
+release-image `build.rs:522-553` compiles it, and the superseded Go daemon and
+executor directories are absent. These are current source facts, not installed
+qualification. The root-count table and deleted-source citations below are
+historical; they cannot authorize recreating predecessors or count as current
+cutover tasks. Actual per-slice records reconcile remaining responsibilities.
+
 | Current root | Tracked paths | Proposed disposition |
 | --- | ---: | --- |
 | `(root files)` | 24 | Retain live tool inputs and ownership files; omit two tracked ELF outputs and the two Python-only tooling inputs at their cutover. |
@@ -26,6 +36,12 @@ Initial full structural review: `899e9bf3b9b57883df42cbb520329679b3b8186d`. Late
 
 Standalone Python inventory at this baseline: **25 tracked programs** — 23 `.py` files (21 in `tests/build`, 2 in `tests/installed`), plus 2 extensionless libexec helpers (`project-account`, `project-factory-roles`). Go test/probe files have landed, but several still execute Python source or import these predecessors. The Python cutover must replace that embedded execution and its test drivers as well as the 25 files; it is not complete merely because assertions moved to Go. Installed helper paths remain stable as compiled outputs, not tracked Python sources. See [Python cutover closure](port-assessment.md#python-cutover-closure).
 
+That program count is historical. At the audit pin, `docs/development/python.md`
+owns the active elimination/gate contract and remains a target document. The
+compiled helper crates/build inputs are present; their proposed package fold is
+separate from the landed ports. H06/D06 review remaining probe assumptions and
+actual test subjects rather than repeating earlier Python retirement tasks.
+
 There are **207 text files over 400 lines**, of which **190 are executable source, style, template, or test files**. Counts include embedded tests and are not production-only line counts. The 17 remaining files are data, locks, licenses or documents, including this plan. A size flag prompts a responsibility review; it does not justify arbitrary chunks or new product machinery.
 
 Detailed concern reviews cover **190 oversized code files**; **0 remain unreviewed in this snapshot**. This includes all 31 newly oversized Rust release files and `tests/build/project_factory_roles_test.go`, in addition to the original 158 entries. Retiring sources have explicit removal dispositions; their old decomposition suggestions are not target leaves. Proposed filenames are responsibility seams, not measured final file sizes.
@@ -35,8 +51,9 @@ Detailed concern reviews cover **190 oversized code files**; **0 remain unreview
 Directory renaming is only the first part of this proposal. Package ownership
 must reduce duplicated implementation while keeping domain policy, credential
 custody, browser authorization, persistence and privileged execution distinct.
-The review traced all current Go package imports and all 30 Cargo workspace
-members, then checked the actual binary compilation and installation recipes.
+The structural review traced its Go imports and 30 Cargo workspace members;
+the current [placement census](placement.md#every-current-go-package) and slice
+records distinguish later source changes from that historical evidence.
 The following recommendations are design proposals for the owner to assess.
 
 ### Recommended package changes
@@ -51,7 +68,8 @@ The following recommendations are design proposals for the owner to assess.
 | `internal/testoci` | Retire with the Go release tests at the release cutover | All actual consumers are Go release tests, which retire with the Go pipeline. Fixture duty moves to the Rust oracle suites. |
 | `rust/identity-providers` + `rust/soda-identity` | One `cmd/soda-identity` Cargo package, with private `providers/codex`, `providers/muse` and existing provider types/helpers | The provider crate has exactly one direct production dependent. Consolidate package ownership while retaining provider protocol, broker policy, storage and wire modules. Fold its manifest/dependencies into the broker; remove the old package boundary and aliases. |
 | `rust/soda-asset-fetchers` + `rust/soda-stage-render` + `rust/soda-forgejo-locales` | One `tools/release-assets` Cargo package with `fetch/`, `render/`, `locales/` modules and the existing seven binaries | These are build-input operations under the existing release producer. Keep separate CLI entrypoints and test support namespaces. Existing transport/hash helpers can be reused after matching their caller behavior. This merges three manifests and library roots rather than adding another facade crate. |
-| `rust/soda-host` | Retain at `lib/host`; one package also owns `cmd/soda-host/main.rs` (decided-pending) | The host cutover wires terminal/project executors and mux into the existing privileged service and removes the Go server/execution half. Current local `pr/26` contains executor/mux library changes, not a daemon binary or Go deletion. The post-cutover tree carries the Rust owner and Go client/wire support only. |
+| `rust/soda-host` | Retain at `lib/host`; one package also owns the moved `cmd/soda-host/main.rs` | Current source already owns the Rust daemon and native adapters; its manifest and release compile path select that binary. The proposed move preserves this one package/service and the surviving Go client/wire surface. No Go daemon or retired executor is a target. |
+| `rust/soda-project-account` + `rust/soda-project-factory-roles` | Existing `cmd/soda-project-terminal` package; `src/bin/project-account.rs`, `src/bin/project-factory-roles.rs`, `src/account.rs` and `src/factory_roles/` | Both native ports already compile into Project tools via release-build `production.rs:222-236` and install through Project Containerfile lines 40-44. Consolidate their package roots/dependencies and update these actual compile selectors; preserve binary names, installed paths and real compiled-helper tests. P03/P06 and shared owners challenge the exact split. |
 
 Publication evidence: `internal/forgejo/publish.go:37-58` and
 `internal/host/publish/operation.go:19-35`. Process/worker evidence:
@@ -142,7 +160,7 @@ daemons, containers, sockets or sidecars**.
 | Existing owner | Execution boundary | Refactor consequence |
 | --- | --- | --- |
 | Dashboard + web/API/auth + factory/control + store | Existing unprivileged dashboard process; private host/identity calls and PostgreSQL | Factory coordination remains an object inside this process. No new factory service. |
-| soda-host + project/terminal/Tailnet executors (Rust after pending PR26; Go until its cutover) | Existing root service; root:soda Unix operation socket; real host namespaces | Keep the fixed privileged surface and existing launch handling in this process. The cutover replaces the daemon implementation inside the same service; it adds no second host daemon. |
+| soda-host + project/terminal/Tailnet executors (Rust in current source) | Existing root service; root:soda Unix operation socket; real host namespaces | Keep the fixed privileged surface and existing launch handling in this process. Moving the package and binary entrypoint adds no host daemon. Installed behavior remains separately unverified. |
 | Identity broker + providers | Existing soda-identity service; administration socket 0660, runtime socket 0600 | Consolidating providers changes a package boundary, not credential custody or the root host execution boundary. |
 | Project terminal prepare/broker/keys/control | One existing installed helper executed inside a Project | Split modules inside the same crate and executable. The guest broker concern is distinct from the host credential broker. |
 | Muse CLI, Compose registration and maintenance | Existing entrypoints under their established caller identities | Share proven primitives, retain their different invocation/authority duties. No general identity runtime service. |

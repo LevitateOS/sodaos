@@ -285,7 +285,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | Slice / lifecycle | Current lines | Responsibility and declarations |
 | --- | --- | --- |
 | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 1–53 | Native builder admission, controllers and restricted worker protocol; declarations/fields: `Hint`, `HINT_CATALOG`, `failure_hint`, `tests` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 54–91 | Source assertion of Signing custody; declarations/fields: `known_signatures_map_to_fixes` |
+| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 54–91 | Current-source audit correction: `known_signatures_map_to_fixes` asserts sandbox/cache/worker provisioning diagnostic hints. It does not exercise signing custody. Root inspected the complete current body for D08's delegated review; retain the test with its D01 producer. Frozen catalog assignment remains historical. |
 
 <a id="coverage-02ef2862da4f"></a>
 
@@ -599,4 +599,3 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 1478–1481 | Worker admission source assertions; declaration/member EnvRestore.prior; declarations/fields: `EnvRestore.prior` |
 | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 1482–1490 | Worker admission source assertions; declaration/member drop; declarations/fields: `drop` |
 | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 1491–1516 | Worker admission source assertions; declaration/member run_build_worker_fails_before_dispatch_without_progress; declarations/fields: `run_build_worker_fails_before_dispatch_without_progress` |
-

@@ -12,7 +12,7 @@ their original scope. This checkpoint adds no slice and no runtime proof.
 
 Purpose and authority describe the inspected contract and implementation; they do not approve an intended model or judge code validity. Owned data names the responsibility to review, including shared records where the boundary remains unclear. Source links are current paths at the catalog snapshot, not proposed destinations. Dependencies include other slices and existing native services.
 
-Tests list representative assertions or verification drivers and state their scope. No tests, builds, native operations or installed journeys were executed for this pass. References to predecessor helpers or retired source do not retain those implementations in the ideal target. Every tracked file and the distinct responsibilities in mixed files are accounted for in [complete source-to-slice coverage](../coverage/README.md#complete-source-to-slice-coverage). Establishing each slice’s intended model and reviewing implementation validity remain the next stages.
+Tests list representative assertions or verification drivers and state their scope. No tests, builds, native operations or installed journeys were executed for this pass. References to predecessor helpers or retired source do not retain those implementations in the ideal target. Every tracked file and the distinct responsibilities in mixed files are accounted for in [complete source-to-slice coverage](../coverage/README.md#complete-source-to-slice-coverage). The later [completed source-audit matrix](../reviews/README.md#completed-source-audit-coverage) records intended models, validity findings and independently challenged exact targets for all 80 slices at f7e9cf9d. This catalog snapshot retains its original structural scope; no runtime verification follows.
 
 | Capability group | Slices |
 | --- | ---: |
@@ -27,3 +27,23 @@ Tests list representative assertions or verification drivers and state their sco
 | [Shared supporting slices](shared-supporting-slices.md#shared-supporting-slices) | 6 |
 
 Refresh affected slice records during the existing post-merge upkeep: purpose, entrypoints, data and authority boundaries, dependencies, source files and test scope. Preserve unresolved questions until the owner establishes the intended model. Advance the catalog and coverage snapshot only to source actually inspected; they do not advance complete structural reconciliation or imply fresh behavioral verification.
+
+## Validity review records
+
+Use the [shared review format](../review-format.md) for each slice. Establish its
+intended model as part of the audit and record source coverage, findings,
+behavioral evidence and correction readiness separately. A completed inventory
+does not imply a completed review.
+
+When a slice review begins, create its single record at `reviews/<slice-id>.md`
+relative to the plan folder and link it from that slice card. Add the actual
+record path to the proposed tree and appropriate documentation coverage. The format itself does not start a review. All 80 actual source-review records
+now exist and their completion/evidence limits are linked in the
+[review index](../reviews/README.md).
+
+The [assignment map](../review-assignments.md#one-primary-per-slice) gives every
+slice one primary and a different worker to challenge consequential conclusions.
+Its [collaboration rules](../review-assignments.md#shared-boundary-exchanges)
+require affected owners to exchange evidence and preserve unresolved boundaries.
+The coordinator owns shared coverage and tree updates; assignment is not audit
+execution or product decision authority.

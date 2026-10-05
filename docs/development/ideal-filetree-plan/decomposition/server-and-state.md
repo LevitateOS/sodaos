@@ -3,6 +3,24 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
+## Current repository search predecessor
+
+At `f7e9cf9d`, P01's actual source/caller census and B's independent challenge
+establish that `Client.SearchOwnedRepositories` (`repositories.go:40–63`), its
+three exclusive validators (`19–38`), and `RepositoryPageLimit` (`14`) have
+only defining or exclusive test uses. Native SDK discovery owns current search.
+Retire precisely those members and the whole exclusive
+`internal/forgejo/repositories_test.go`; the desired tree excludes that test
+file. Remove imports made unused by that scoped retirement.
+
+Keep Go `internal/forgejo/repositories.go` as the single defining owner of
+`RepositoryPageSize` (`12`) and `repositoryPart` (`65–67`): current API search
+pagination (`internal/web/api/repositories.go:125,130`) and native observation
+(`internal/forgejo/observe.go:172,188`) consume them. Retain those callers and
+their real tests. See [P01's source and allocation record](../reviews/P01.md).
+This is a supported target disposition, with no source removal or native
+search execution performed.
+
 ## internal/forgejo/background.go
 
 Observed size: 450 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
@@ -33,6 +51,39 @@ Observed size: 716 lines, including tests where embedded. Keep the same Go packa
 - `internal/forgejo/snapshot_pull.go` — Pull, review, check and ref DTOs with existing validators.
 
 Evidence: NativeSnapshot at 383; BracketedRead at 412; ValidateRequest at 124; ContentDigest at 204; validIssue at 516; validCommentPage at 538; validDependencyPage at 559; validPull at 577; validReviewPage at 596; validCheckSet at 614; validRefs at 635.
+
+## Current dashboard identity predecessor and fixture allocation
+
+At `f7e9cf9d`, `internal/store/identity.go` is not the broker runtime.
+Its two save methods have only test callers; its two metadata readers have
+one production consumer, `internal/web/api/factory_settings.go:468–485`.
+That consumer must use the existing broker administration client under the
+separate broker database contract; see [F04-F2](../reviews/F04.md#concrete-findings).
+Installed database identities have not been inspected.
+
+The desired tree excludes `internal/store/identity.go` and
+`internal/store/identity_events.go` after that final production reader cutover.
+Retain their necessary compatibility fixtures at the exact Go target
+`internal/store/identity_fixture.go`: purpose-scoped `SeedIdentityConnection`
+and `SeedIdentityGrant`, with one private defining owner for the existing
+seal binding, transaction and credential-free event append. Existing
+`ephemeral.go` and `corruption.go` provide the actual cross-package fixture
+precedent. This ordinary Go source placement does not mean test-only
+compilation or prove that fixture code is absent from a shipped binary.
+
+Rebind `internal/store/identity_test.go`, `internal/store/grants_test.go`,
+`internal/identity/client/broker_compat_test.go:212`,
+`internal/factory/control/st15_demo_native_test.go:476` and
+`internal/web/factory_settings_test.go:218–221` to that real fixture subject.
+The corrected sponsorship test must exercise the actual broker metadata
+caller. Retain canonical Go PostgreSQL DDL, its generated Rust mirror,
+the current Go domain/client and grant-key custody, and the existing Rust
+broker store. Do not remove identity tables or introduce another store,
+process, schema authority or test framework. [I03](../reviews/I03.md) and
+[I10](../reviews/I10.md#exact-fixture-successor-allocation-independently-challenged)
+record the full caller census and B's independent source challenge.
+This is a deferred correction plan; no source deletion or database change
+has been performed or authorized.
 
 ## internal/store/factory_assignments.go
 
@@ -138,4 +189,3 @@ Observed size: 439 lines, including tests where embedded. Keep the same Go packa
 - `internal/web/factory_output_stream_test.go` — Bound output/status/EOF and stale/unauthorized/input refusal cases.
 
 Evidence: TestFactoryRunStatusPendingLiveAndExcerpt at 63; TestSpacesShowsFactoryRuns at 168; factoryOutputProxyFixture at 206; dialFactoryOutput at 252; factoryOutputHandshakeFor at 290; TestFactoryOutputStreamDeliversStatusOutputAndEOF at 294; TestFactoryOutputStreamRefusesStaleHandshake at 377; TestFactoryOutputStreamRequiresWrite at 419.
-

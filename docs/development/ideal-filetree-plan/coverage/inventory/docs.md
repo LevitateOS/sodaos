@@ -4,6 +4,14 @@
 
 ## Coverage inventory: docs
 
+Pending planning additions outside this committed snapshot:
+[review-baseline.md](../../review-baseline.md),
+[review-format.md](../../review-format.md) and
+[review-assignments.md](../../review-assignments.md) belong to
+[H06 documentation upkeep](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure).
+The proposed tree includes them; add their inventory rows when the source baseline
+includes these files. The table below retains the paths committed at `0d8d3b8e`. Actual [review records](../../reviews/README.md) are also pending documentation additions: their upkeep is H06, while their validity subjects and findings retain the named slice owners. Only records that exist enter the proposed tree.
+
 | Current tracked path | Kind / lifecycle | Slice mapping |
 | --- | --- | --- |
 | [docs/README.md](../../../../README.md) | documentation / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |

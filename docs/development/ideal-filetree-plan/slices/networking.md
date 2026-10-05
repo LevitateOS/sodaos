@@ -16,6 +16,8 @@ Configure the appliance's explicit private browser origin, TLS material and acti
 - **Unclear boundaries:** Activation coordinates several services; ownership of origin/TLS effects belongs here, while operator identity belongs to O02. Fake-system tests do not prove client trust or installed reachability.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
 
+- **Validity review:** [N01 audit record](../reviews/N01.md).
+
 ## N02 Project LAN access
 
 Expose honest native Project connection information and verify ordinary private-network access.
@@ -28,6 +30,8 @@ Expose honest native Project connection information and verify ordinary private-
 - **Tests:** [rust/soda-host/src/net.rs:84](../../../../rust/soda-host/src/net.rs#L84) — Inline IP/subnet admission vectors; no real route exercised; [internal/acceptance/developer_access_test.go:20](../../../../internal/acceptance/developer_access_test.go#L20) — Access-probe input/subnet validation unit tests; [tests/installed/project-os.sh](../../../../tests/installed/project-os.sh) — Installed Project access driver source; not executed.
 - **Unclear boundaries:** Native address observation and input validation do not establish a working client route. Native workload ports/data remain P11's responsibility.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
+
+- **Validity review:** [N02 audit record](../reviews/N02.md).
 
 ## N03 Host Tailnet control
 
@@ -42,7 +46,11 @@ Observe and explicitly change the appliance's native Tailscale identity and pref
 - **Unclear boundaries:** Host device identity is separate from Project enrollment policy and companion identities. Native command/readback uncertainty must not be described as confirmed reachability.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
 
+- **Validity review:** [N03 audit record](../reviews/N03.md).
+
 ## N04 Project enrollment policy
+
+Validity review: [N04 record](../reviews/N04.md). Its recorded scope and completion dimensions govern audit status.
 
 Maintain operator-authorized standing enrollment policy and its restricted provider credentials.
 
@@ -57,6 +65,8 @@ Maintain operator-authorized standing enrollment policy and its restricted provi
 
 ## N05 Project Tailnet selection
 
+Validity review: [N05 record](../reviews/N05.md). Its recorded scope and completion dimensions govern audit status.
+
 Record and admit explicit networking intent for one original Project/container.
 
 - **Entrypoints:** GET /api/repositories/{repositoryID}/tailnet-options; GET/POST /api/environments/{id}/tailnet; Host /tailnet/project and /tailnet/policy.
@@ -69,6 +79,8 @@ Record and admit explicit networking intent for one original Project/container.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
 
 ## N06 Project companion lifecycle
+
+Validity review: [N06 record](../reviews/N06.md). Its recorded scope and completion dimensions govern audit status.
 
 Bind optional Tailnet execution and ephemeral enrollment to the exact native Project run.
 
@@ -83,6 +95,8 @@ Bind optional Tailnet execution and ephemeral enrollment to the exact native Pro
 
 ## N07 Git endpoint advertisement
 
+Validity review: [N07 record](../reviews/N07.md). Its recorded scope and completion dimensions govern audit status.
+
 Refresh native Forgejo SSH advertisement only for an explicitly admitted private listener.
 
 - **Entrypoints:** Tailnet host action refresh-forgejo; soda-forgejo-tailnet CLI.
@@ -93,5 +107,3 @@ Refresh native Forgejo SSH advertisement only for an explicitly admitted private
 - **Tests:** [cmd/soda-forgejo-tailnet/main_test.go:8](../../../../cmd/soda-forgejo-tailnet/main_test.go#L8) — Listener matching and secrecy unit test; no live restart; [tests/installed/forgejo-advertisement.sh](../../../../tests/installed/forgejo-advertisement.sh) — Installed advertisement verification driver source; not executed.
 - **Unclear boundaries:** Keep native Git advertisement separate from browser origin/TLS and actual route proof. soda-forgejo-domain is a different operator recovery helper. This remaining Go helper is a live caller dependency; language-policy disposition still needs explicit reconciliation.
 - **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
-
-

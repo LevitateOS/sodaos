@@ -35,49 +35,45 @@ Existing source-reading tests, shell imports and discovery roots
 must follow the actual owning files rather than manufacture passing substitutes.
 ### Every current Go package
 
-All 40 current Go packages with non-test source were checked for production imports and callers. This table records current direct in-repository imports, rather than the desired future graph. Commands are entrypoints; a missing Go importer does not mean an installed command is dead. `internal/testoci` has test callers, and `internal/archcheck` is test-only.
+At `f7e9cf9d`, 29 tracked directories contain Go files without the `_test.go`
+filename suffix: 28 under `cmd/`, `internal/` and `tools/`, plus test support
+under `tests/build`. The table records their literal direct repository import
+statements across platform variants; no build or reachability qualification was
+run. `internal/archcheck` is test-only and omitted from that count. A package
+with no importer can still be an entrypoint, or have only test callers; its
+lifecycle is assessed in the slice record. Deleted Go host/release/tool
+directories are excluded from this current census.
 
 | Current package | Proposed owner | Current direct repository imports |
 | --- | --- | --- |
 | `cmd/soda-dashboard` | cmd/soda-dashboard | `internal/avatar`, `internal/config`, `internal/factory/control`, `internal/store`, `internal/web` |
 | `cmd/soda-extension` | cmd/soda-extension | `internal/web` |
-| `cmd/soda-forgejo-tailnet` | cmd/soda-forgejo-tailnet | `internal/forgejo`, `internal/tailnet` |
-| `cmd/soda-host` | cmd/soda-host (Rust binary after pending PR26; Go until cutover) | `internal/host`, `internal/tailnet` |
+| `cmd/soda-forgejo-tailnet` | Rust `cmd/soda-forgejo-tailnet/main.rs`, additional binary in existing `soda-host` package; native duties/private tests at `lib/host/src/tailnet/forgejo.rs` | Current Go imports `internal/forgejo`, `internal/tailnet`; retire only helper-exclusive execution/rewrite duties after the specified Rust cutover |
 | `cmd/soda-rootfs-server` | tools/soda-rootfs-server | None |
 | `cmd/soda-tailnet` | cmd/soda-tailnet | `internal/tailnet` |
-| `internal/acceptance` | Live installed probes/private input support; obsolete harness/process/worker closure retires | `internal/release/build` (obsolete Evidence import, removed with its owner) |
+| `internal/acceptance` | Live installed probes/private inputs; obsolete Go harness/process/worker closure has a separate retirement disposition | None |
 | `internal/avatar` | internal/avatar | None |
 | `internal/config` | internal/config | None |
 | `internal/factory` | internal/factory | `internal/identity`, `internal/project` |
 | `internal/factory/control` | internal/factory/control | `internal/factory`, `internal/filelock`, `internal/identity`, `internal/project`, `internal/store`, `internal/strictjson` |
 | `internal/filelock` | internal/filelock | None |
 | `internal/forgejo` | internal/forgejo | `internal/config`, `internal/factory`, `internal/host/publish` |
-| `internal/host` | internal/host (server half retires at pending PR26; Go client surface stays) | `internal/host/project`, `internal/host/tailnet`, `internal/host/terminal`, `internal/identity`, `internal/identity/client`, `internal/platform`, `internal/project`, `internal/release/build`, `internal/release/deliver`, `internal/strictjson`, `internal/tailnet` |
-| `internal/host/project` | Retire privileged executor; Rust `lib/host` owns it after cutover | `internal/filelock`, `internal/host/terminal`, `internal/identity`, `internal/identity/client`, `internal/platform`, `internal/project`, `internal/strictjson` |
+| `internal/host` | internal/host (surviving Go client/wire surface; Rust owns daemon/executors) | `internal/identity`, `internal/project`, `internal/strictjson`, `internal/tailnet` |
 | `internal/host/publish` | internal/forgejo/publish | `internal/factory`, `internal/project` |
-| `internal/host/tailnet` | Retire privileged companion executor; canonical Go `internal/tailnet` policy stays | `internal/filelock`, `internal/strictjson`, `internal/tailnet` |
-| `internal/host/terminal` | Pure client frame/types only; privileged terminal executor retires | `internal/identity`, `internal/project`, `internal/strictjson` |
 | `internal/identity` | internal/identity | None |
 | `internal/identity/client` | internal/identity/client | `internal/identity` |
 | `internal/platform` | Retire Go constants with their native host/Control callers; Rust configuration/unit owners retain the installed paths | None |
 | `internal/project` | internal/project | `internal/strictjson` |
-| `internal/release` | Retire whole subtree at the release cutover (Rust crates landed #32/#33/#34) | None |
-| `internal/release/build` | Retire; owner is `lib/soda-release-build` | None |
-| `internal/release/deliver` | Retire; owner is `lib/soda-release-deliver` | `internal/release/build`, `internal/strictjson` |
-| `internal/release/image` | Retire; owner is `lib/soda-release-image` | `internal/acceptance`, `internal/release/build`, `internal/release/deliver`, `internal/store` |
 | `internal/store` | internal/store | `internal/factory`, `internal/identity`, `internal/project` |
 | `internal/strictjson` | internal/strictjson | None |
-| `internal/tailnet` | Go wire/validation/selection and live status client; protected Control/policy/provider execution moves to `lib/host/src/tailnet/control` | `internal/filelock`, `internal/platform`, `internal/strictjson` (native-owner imports retire with that code) |
+| `internal/tailnet` | Go wire/validation/selection and live status client; protected Control/policy/provider execution moves to `lib/host/src/tailnet/control` | `internal/filelock`, `internal/platform`, `internal/strictjson` |
 | `internal/testoci` | Retire with Go release tests at cutover | None |
 | `internal/web` | internal/web | `internal/avatar`, `internal/config`, `internal/factory/control`, `internal/forgejo`, `internal/host`, `internal/identity/client`, `internal/project`, `internal/store`, `internal/web/api`, `internal/web/auth` |
-| `internal/web/api` | internal/web/api | `internal/config`, `internal/factory`, `internal/factory/control`, `internal/forgejo`, `internal/host`, `internal/identity`, `internal/project`, `internal/store`, `internal/strictjson`, `internal/tailnet`, `internal/web/auth` |
+| `internal/web/api` | internal/web/api | `internal/config`, `internal/factory`, `internal/factory/control`, `internal/forgejo`, `internal/host`, `internal/host/publish`, `internal/identity`, `internal/project`, `internal/store`, `internal/strictjson`, `internal/tailnet`, `internal/web/auth` |
 | `internal/web/auth` | internal/web/auth | `internal/config`, `internal/forgejo`, `internal/store`, `internal/strictjson` |
+| `tests/build` | tests/build (Go support for existing test drivers) | None |
 | `tools/png-equal` | tools/png-equal | None |
-| `tools/soda-artifacts` | Retire at release cutover; owner is `lib/soda-release-tools` (#30) | `internal/release/build` |
 | `tools/soda-avatars` | tools/soda-avatars | `internal/avatar` |
-| `tools/soda-build` | Retire at release cutover; owner is `lib/soda-release-tools` (#30) | `internal/acceptance`, `internal/release/build`, `internal/release/deliver`, `internal/release/image` |
-| `tools/soda-candidate` | Retire at release cutover; owner is `lib/soda-release-tools` (#30) | None |
-| `tools/soda-candidate-check` | Retire Go entrypoint; existing `lib/soda-release-tools` package owns the `soda-candidate-check` binary and delegates to Rust deliver | `internal/release/deliver` |
 | `tools/soda-installed-probes` | tools/soda-installed-probes | `internal/acceptance` |
 
 Retain architecture tests for surviving owners and update their actual path and
@@ -110,11 +106,11 @@ and package boundaries follow callers and authority; none requires a new daemon.
 | `rust/soda-forgejo-domain/` | `cmd/soda-forgejo-domain/` |
 | `rust/soda-forgejo-locales/` | `tools/release-assets/` |
 | `rust/soda-forgejo-migrate/` | `cmd/soda-forgejo-migrate/` |
-| `rust/soda-host/` | `lib/host/` (retained; pending PR26 cutover) |
-| `rust/soda-release-build/` | `lib/soda-release-build/` (landed #34; 1:1, consolidation open) |
-| `rust/soda-release-deliver/` | `lib/soda-release-deliver/` (landed #33; 1:1, consolidation open) |
-| `rust/soda-release-image/` | `lib/soda-release-image/` (landed #32; 1:1, consolidation open) |
-| `rust/soda-release-tools/` | `lib/soda-release-tools/` (landed #30; 1:1, consolidation open) |
+| `rust/soda-host/` | `lib/host/` (retained Rust daemon; entrypoint moves within same package) |
+| `rust/soda-release-build/` | `lib/soda-release-build/`; retain the package, with the selected pure OCI helper allocation in [port assessment](port-assessment.md) |
+| `rust/soda-release-deliver/` | `lib/soda-release-deliver/`; retain the package and selected delivered-content/payload owners |
+| `rust/soda-release-image/` | `lib/soda-release-image/`; retain the package and actual image traits, importing selected existing helper owners at cutover |
+| `rust/soda-release-tools/` | `lib/soda-release-tools/`; retain the controller/composition package and current binary identities |
 | `rust/soda-identity/` | `cmd/soda-identity/` |
 | `rust/soda-identity-compose/` | `cmd/soda-identity-compose/` |
 | `rust/soda-image-import/` | `cmd/soda-image-import/` |
@@ -125,6 +121,8 @@ and package boundaries follow callers and authority; none requires a new daemon.
 | `rust/soda-pg-fixture/` | `tools/postgres-fixture/` |
 | `rust/soda-pg-maintenance/` | `cmd/soda-pg-maintenance/` |
 | `rust/soda-project-terminal/` | `cmd/soda-project-terminal/` |
+| `rust/soda-project-account/` | Fold into existing `cmd/soda-project-terminal/`; keep `project-account` binary |
+| `rust/soda-project-factory-roles/` | Fold into existing `cmd/soda-project-terminal/`; keep `project-factory-roles` binary |
 | `rust/soda-rotate-lab-creds/` | `tools/lab-credentials/` |
 | `rust/soda-setup/` | `cmd/soda-setup/` |
 | `rust/soda-stage-render/` | `tools/release-assets/` |
@@ -136,7 +134,7 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | --- | --- |
 | `internal/host/publish/` | `internal/forgejo/publish/` |
 | `internal/testoci/` | Retire with Go release tests at cutover |
-| `appliance/forgejo/templates/` | `frontend/forgejo/templates/` |
+| `appliance/forgejo/templates/` | `frontend/forgejo/templates/`; retain the intentional Soda design overrides across all pages, per [GUIDANCE-08](review-assignments.md#guidance-conflicts-and-controlling-decisions) and [G08](reviews/G08.md). Relocation does not reduce override scope. |
 | `appliance/forgejo/i18n/` | `frontend/forgejo/locales/` |
 | `appliance/forgejo/` | `frontend/forgejo/` |
 | `appliance/config/` | `system/host/config/` |
@@ -164,7 +162,7 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | `internal/acceptance/worker_linux.go` | Retire at release cutover (no production caller left) |
 | `internal/acceptance/worker_linux_test.go` | Retire at release cutover |
 | `internal/release/**` (Go implementation/tests) | Retire at release cutover; owners are `lib/soda-release-*` |
-| `internal/release/build/forgejo-payload.json` | `frontend/forgejo/payload.json`; live data and all loaders/fixtures move together |
+| `assets/branding/forgejo/forgejo-payload.json` | `frontend/forgejo/payload.json`; this is the current live manifest at f7. Move all actual loaders, build/stage inputs and fixtures with it; preserve installed destinations and the full intentional page overrides. The former Go release manifest path is a historical predecessor, with no separate future leaf. |
 | `tools/soda-build/**`, `tools/soda-candidate/**`, `tools/soda-artifacts/**` | Retire at release cutover; owner is `lib/soda-release-tools` |
 | `tests/build/*.py`, `tests/installed/*.py` | Retire at PR42; Go successors already landed |
 | `project-os/.../project-account`, `project-factory-roles` (extensionless Python) | Rust entrypoints/modules in the existing project-terminal package; compiled installed paths unchanged; source cutover pending |
@@ -174,6 +172,8 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | `tests/build/{project_os_observation,project_keys,terminal}_test.go` | Retire guards that pin obsolete Go/Python file existence; retain actual Rust behavior tests |
 | `tools/soda-candidate-check/main.go` | Rust `lib/soda-release-tools/src/bin/soda-candidate-check.rs` plus `candidate_check.rs`; preserve the existing verification CLI |
 | `rust/soda-identity/src/main.rs` | `cmd/soda-identity/src/main.rs`, `cmd/soda-identity/src/service.rs` |
+| `frontend/spaces/sodaspaces-widths.ts` | Retire the unused predecessor utility; no target leaf. [S03](reviews/S03.md#s03-q2-independent-retirement-disposition) and its independent challenge found definitions only, no production imports or build entry. Active workspace layout and geometry remain with their current owner. |
+| `rust/soda-release-build/src/{progress,clock}.rs` and exclusive progress oracle/support duties | Retire the unused mirrored closure; no target leaves for progress, build_execution, clock, progress/tests, oracle/progress or support/buffer. [D03](reviews/D03.md) and A's independent source/caller challenge support this exact disposition. Current release-tools progress and release-image Runner remain. |
+| `rust/soda-release-tools/src/record.rs:256-259` (`files_map`) | Retire this definition-only helper at cutover; retain active candidate/build record duties in the existing Rust release-tools owner. |
 
-The tracked root files `installer` and `soda-candidate` are ELF build outputs. Their proposed disposition is removal from the tracked source tree; current tools build into ignored `.artifacts/`. The `rust/soda-host/` files are retained at `lib/host/` for pending PR26. Detailed decomposition entries for cutover-deleted files stay as review history; the [proposed tree](proposed-tree.md) omits them. This document deletes or executes none of these files.
-
+The tracked root files `installer` and `soda-candidate` are ELF build outputs. Their proposed disposition is removal from the tracked source tree; current tools build into ignored `.artifacts/`. The `rust/soda-host/` files and its actual daemon are retained at `lib/host/`, with the same-package entrypoint moved to `cmd/soda-host/main.rs`. Detailed decomposition entries for cutover-deleted files stay as review history; the [proposed tree](proposed-tree.md) omits them. This document deletes or executes none of these files.

@@ -57,6 +57,20 @@ Evidence: TestNativeCheckPass at 283; TestNativeCheckUnknownState at 375; TestNa
 
 ## internal/factory/control/dispatch.go
 
+Current f7 declaration and comment boundaries were checked by B and the
+coordinator against the actual 742-line source. Retain the same Go control
+package and Coordinator/Store/host/broker subjects; rebind imports per leaf.
+
+| Desired leaf in `internal/factory/control/` | Current complete concern allocation |
+| --- | --- |
+| `dispatch.go` | 1–252 and 702–742: interfaces, input records, reasons/reports, pass dependencies/entrypoints and coordinator hooks; definitions remain single-owned. |
+| `dispatch_occupancy.go` | 253–299: passOccupancy, snapshot and all held-capacity methods. |
+| `dispatch_recovery.go` | 300–600: recoverAssigned through recoverOutput, including history, host miss sentinel, custody fence, retry/finish and held-reservation recovery. |
+| `dispatch_result.go` | 601–701: finishFromRun, confirmed usage, result derivation/summary and AccountSettledRun. |
+
+These are source-fit allocations. Workflow defects and correction requirements
+remain in F07/F08; moving definitions does not resolve them or prove execution.
+
 Observed size: 742 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
 
 - `internal/factory/control/dispatch.go` — Dispatch dependency records, pass entry and coordinator hooks.
@@ -68,6 +82,14 @@ Evidence: DispatchDeps at 176; DispatchPass at 212; dispatchDeps at 703; passOcc
 
 ## internal/factory/control/dispatch_attempt.go
 
+Current f7 source is 620 lines. Its selected same-package leaves retain complete
+declarations and attached comments: `dispatch_attempt.go`1–195 (attemptPlan,
+dispatchOne, planWait/admissionWait, refreshOccupancy and planAttempt),
+`dispatch_selection.go`196–327 (sponsorship/limits/preparation/harness),
+`dispatch_inputs.go`328–417 (accepted reads and promptSections) and
+`dispatch_launch.go`418–620 (fresh/retry launch, launchTail, ensureHeldLaunch and
+unused settlement). Imports rebind to actual use; no new authority or process.
+
 Observed size: 620 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
 
 - `internal/factory/control/dispatch_attempt.go` — Attempt planning and existing readiness refusals.
@@ -78,6 +100,23 @@ Observed size: 620 lines, including tests where embedded. Keep the same Go packa
 Evidence: attemptPlan at 19; planAttempt at 121; selectSponsorship at 200; checkLimits at 228; selectPreparation at 277; checkHarness at 313; readAttemptInputs at 332; promptSections at 403; executeFreshAttempt at 424; retryAttempt at 500; launchTail at 565; settleUnusedLaunch at 603.
 
 ## internal/factory/control/dispatch_test.go
+
+Current f7 source is 1,236 lines. B's full primary assertion reads and the
+coordinator's independent declaration/seam, actual shared fixture and selected
+production/case reads support the exact allocation below. Independent seam
+review does not duplicate every assertion's adequacy or prove native execution.
+Retain the real same-package Coordinator/Store tests, one fake/seed definition,
+the existing PostgreSQL fixture and the existing deterministic admission barrier.
+Distribute source imports1–19 by actual use; attached comments move with cases.
+
+| Desired leaf in `internal/factory/control/` | Current source units |
+| --- | --- |
+| `dispatch_test.go` | 247–337 and 1060–1066: queue ordering/short visit limit and missing dependencies. |
+| `dispatch_fixture_test.go` | 21–246, 338–346 and 965–978: shared digest/host/broker/read/seed fixtures, waitReason and fakeAcceptanceSource; one defining owner. |
+| `dispatch_accounting_test.go` | 347–573 and 838–928: accounting, interrupt/approved/fenced effects and settled results. |
+| `dispatch_wait_test.go` | 574–837 and 1107–1127: wait reasons, explicit connection refusal and closed dispatch gate. |
+| `dispatch_recovery_test.go` | 929–964, 979–1059 and 1067–1106: settled recovery, dependant reassessment, host miss sentinel and intake-triggered dispatch. |
+| `dispatch_concurrency_test.go` | 1128–1236: rendezvousReads, mutexDispatchHost and the actual concurrent capacity/budget case. These concern-local fakes stay together. |
 
 Observed size: 1236 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
 
@@ -109,18 +148,26 @@ Observed size: 487 lines, including tests where embedded. Keep the same Go packa
 - `internal/factory/control/lifecycle_retry.go` — Explicit retry and replay.
 - `internal/factory/control/lifecycle_takeover.go` — Human takeover and project start checks.
 
+Current F08 test allocation retains the existing Go package and actual
+Coordinator/Store calls: `lifecycle_test.go:1–179` keeps shared fixtures plus
+pause/resume assertions; retry assertions at `180–211` move to
+`internal/factory/control/lifecycle_retry_test.go`; takeover assertions at
+`212–251` move to `internal/factory/control/lifecycle_takeover_test.go`.
+Keep fixture definitions once in `lifecycle_test.go`, with current cross-file
+consumers; no copied state machine or alternate native test subject.
+
 Evidence: PauseRepository at 33; ResumeRepository at 168; StopProject at 155; RetryRun at 251; replayRetry at 342; TakeoverRun at 357; VerifyProjectStart at 437.
 
 ## internal/factory/control/merge.go
 
-Observed size: 642 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
+Current size at f7: 650 production lines. Keep the same Go package, exported contracts and execution order; move complete concern definitions with their comments and actual imports.
 
 - `internal/factory/control/merge.go` — Pass orchestration, report and persistence helpers.
 - `internal/factory/control/merge_reconcile.go` — Existing conditional-operation reconciliation and evidence adoption.
 - `internal/factory/control/merge_evidence.go` — Exact snapshot, authority and completion observation.
 - `internal/factory/control/merge_withdraw.go` — Repository/acceptance cancellation and withdrawal ordering.
 
-Evidence: MergePass at 76; mergeOne at 108; finishMerge at 629; reconcileMerge at 146; adoptMergeReceipt at 435; adoptMergeObserved at 592; observeMergeEvidence at 308; mergeAuthority at 380; completeMerge at 459; cancelMerges at 519; withdrawMerge at 555.
+Current defining fit: merge.go retains interface/report/pass/open-row1–150, common error classification506–518 and CAS/finish628–650. merge_reconcile.go owns reconciliation comments151–153 plus complete function154–307, receipt adoption443–462 and observation/outcome conversion600–627. merge_evidence.go owns evidence comments309–315/function316–384, authority386–431, work433–441 and completion comments463–466/function467–504. merge_withdraw.go owns complete cancellation wrappers, bounded cancellation and withdrawal519–599. Blank separators travel with their adjoining units. The coordinator independently inspected the whole current file and actual callers; [F12](../reviews/F12.md) records the primary and native-boundary challenges. Preserve check-before-open, lookup/adoption before fresh write authority, immutable intent persistence before submit, the gate recheck, same-identity cancellation and separate native completion. F12-F1 requires genuine result-reachability proof at the existing native boundary; deleting the current equality alone cannot establish it. No native protocol or merge engine is invented by this split.
 
 ## internal/factory/control/merge_native_test.go
 
@@ -250,4 +297,3 @@ Observed size: 736 lines, including tests where embedded. Keep the same Go packa
 - `internal/factory/publication_refusal.go` — Typed refusal and transport error classification.
 
 Evidence: Publication at 290; ValidPublicationStage at 31; ValidOpEffect at 84; ValidOpCancellation at 105; PublicationOperationID at 270; PublicationWork at 480; PRTitleFor at 623; PRBodyFor at 629; Error at 682.
-

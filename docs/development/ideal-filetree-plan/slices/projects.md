@@ -5,6 +5,8 @@ source owners; they do not create packages, services or an approved intended mod
 
 ## P01 Repository association and creation
 
+- **Validity review:** [P01 record](../reviews/P01.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Bind one native repository to a reserved Project and coordinate explicit creation without treating reservation as provisioning.
 
 - **Entrypoints:** POST /api/environments; apiCreateEnvironment; verifyRepositoryOwner; provisionAndSaveProject.
@@ -17,6 +19,8 @@ Bind one native repository to a reserved Project and coordinate explicit creatio
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
 
 ## P02 Profile and runtime readiness
+
+- **Validity review:** [P02 record](../reviews/P02.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Resolve installed creation identity, inspect the exact retained container, and distinguish saved readiness from current native observations.
 
@@ -31,6 +35,8 @@ Resolve installed creation identity, inspect the exact retained container, and d
 
 ## P03 Human membership and accounts
 
+- **Validity review:** [P03 record](../reviews/P03.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Admit a human Join using current repository rights, preserve stable identity-to-login mapping, and persist membership after native account success.
 
 - **Entrypoints:** POST /api/environments/{id}/join; persistEnvironmentJoin; project-account stdin helper.
@@ -43,6 +49,8 @@ Admit a human Join using current repository rights, preserve stable identity-to-
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
 
 ## P04 Development SSH access
+
+- **Validity review:** [P04 record](../reviews/P04.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Manage explicit member key application and provide verified native SSH connection identity independently of browser terminal attachments.
 
@@ -57,6 +65,8 @@ Manage explicit member key application and provide verified native SSH connectio
 
 ## P05 Project Start/Stop
 
+- **Validity review:** [P05 record](../reviews/P05.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Coordinate explicit lifecycle of the same retained Project container with factory quiescence and native outcome verification.
 
 - **Entrypoints:** POST /api/environments/{id}/lifecycle; apiLifecycleStop/Start; Host.Lifecycle.
@@ -69,6 +79,8 @@ Coordinate explicit lifecycle of the same retained Project container with factor
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
 
 ## P06 Factory role accounts
+
+- **Validity review:** [P06 record](../reviews/P06.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Provision and validate fixed nonhuman native role identities and their protected home, checkout-root and credential-root layout.
 
@@ -94,7 +106,11 @@ Execute approved exact-source setup in an assigned role checkout and retain prep
 - **Unclear boundaries:** One owner for checkout/preparation execution state; factory consumes its evidence. Approved snapshot materialization here does not confer administrator decision authority. Native candidate preparation and general preparation share machinery.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
 
+- **Validity review:** [P07 audit record](../reviews/P07.md).
+
 ## P08 Preparation requirements acceptance
+
+- **Validity review:** [P08 record](../reviews/P08.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Record the code-write maintainer's acceptance of exact repository/setup inputs and the ordered requirement decision chain.
 
@@ -109,6 +125,8 @@ Record the code-write maintainer's acceptance of exact repository/setup inputs a
 
 ## P09 Privileged preparation approval
 
+- **Validity review:** [P09 record](../reviews/P09.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Record the native Project administrator's reviewed-effect approval against the current accepted requirement and required readiness.
 
 - **Entrypoints:** POST preparation-actions action approve; apiPreparationActionApprove; Coordinator.AdmitApproval.
@@ -121,6 +139,8 @@ Record the native Project administrator's reviewed-effect approval against the c
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
 
 ## P10 Shared tools and packages
+
+- **Validity review:** [P10 record](../reviews/P10.md) — actual reviewed scope, findings and pending completion dimensions.
 
 Supply the native development foundation and persistent shared tool installations while repository-specific runtimes remain explicit mise inputs.
 
@@ -135,6 +155,8 @@ Supply the native development foundation and persistent shared tool installation
 
 ## P11 Nested services and volumes
 
+- **Validity review:** [P11 record](../reviews/P11.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Expose the Project's native local Podman engine and preserve nested workload storage, volumes and secrets across Project Stop/Start.
 
 - **Entrypoints:** soda-podman.socket/service; native podman/Compose commands inside Project; project-init network preparation.
@@ -148,6 +170,8 @@ Expose the Project's native local Podman engine and preserve nested workload sto
 
 ## P12 Maintenance holds
 
+- **Validity review:** [P12 record](../reviews/P12.md) — actual reviewed scope, findings and pending completion dimensions.
+
 Close preparation admission through an explicit administrator hold and synchronize its native marker with durable revisioned state.
 
 - **Entrypoints:** POST preparation hold/release; apiPreparationHold; Host.HoldPreparation; lifecycleStopHold.
@@ -158,5 +182,3 @@ Close preparation admission through an explicit administrator hold and synchroni
 - **Tests:** [internal/store/preparation_test.go:64](../../../../internal/store/preparation_test.go#L64) — Source-only PostgreSQL assertions: hold persisted with CAS; stale writer refused; [tests/build/project_factory_roles_test.go:396](../../../../tests/build/project_factory_roles_test.go#L396) — Source-only helper fixture assertions: hold blocks approval; release requires matching revision and quiescence.
 - **Unclear boundaries:** Owns hold state, not container running state or individual run cancellation. Native marker/store reconciliation is a cross-boundary operation; P05 consumes it. Start/release wording should be reconciled before prescribing behavior.
 - **Evidence status:** Representative source catalog at committed 26d420f2; assertions inspected only, no tests or native execution performed.
-
-

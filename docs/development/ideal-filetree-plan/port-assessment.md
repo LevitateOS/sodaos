@@ -9,12 +9,12 @@ including comments and tests; they do not measure performance or safety.
 
 | Port | What the current source establishes | Recommendation for this refactor |
 | --- | --- | --- |
-| Host project/preparation/Tailnet library | Decided Rust owner; local `pr/26` adds terminal/project executors and daemon mux library code, while the Go daemon remains installed | Retain at `lib/host`. Complete the entrypoint/service adapter and Go server/executor deletion at cutover. The proposed tree excludes those Go predecessors already. |
+| Host project/preparation/Tailnet daemon | Current `f7e9cf9d` source has Rust daemon, native adapters, binary manifest and Rust release compile selection; Go daemon/executor directories are absent | Retain at `lib/host` with the same-package entrypoint under `cmd/soda-host`. Assess real behavior and remaining source debt in slice records; do not recreate predecessors or treat source wiring as installed proof. |
 | Project terminal | Replaces four embedded Python programs at one existing installed helper boundary; native file descriptors, PTY and process handling stay inside the Project | Retain one helper and split its real terminal/subscription/key concerns. This is the strongest current boundary for a selective native port; benefit still needs runtime evidence. |
 | Identity broker | Real replacement of the former Go broker; retains an established custody service | Consolidate provider packages. Reassess handwritten PostgreSQL transport/codecs and cross-language schema/wire maintenance before expanding them. The separate service predates the language change. |
-| Installer + image import | Decided Rust owners; the Go release code they duplicate retires at the release cutover, resolving the duplication from the Go side | Retain both. After the Go pipeline retires, select the single surviving payload/OCI implementation per guarantee; do not solve reuse with FFI, RPC or another service. |
+| Installer + image import | Rust release-build/deliver and native installer/import owners are current; predecessor Go release code is absent. D05/D11 compare their actual guarantees and caller contracts. | Retain both native commands. Select existing release-deliver payload/content as the delivered wire/admission owner and existing release-build OCI/layout as the pure OCI/content owner, as recorded in D11-T3/E8. Rebind only after exact null/duplicate/error/result/confinement/compression and dependency cutover checks. Preserve native installer authority and cancelled importer lifecycle; no FFI, RPC, extra crate or service. |
 | Acceptance | Rust owns outside driver/remote handling; Go installed probe orchestration remains live | Retain Rust acceptance and its remote binary. Retire obsolete Go driver/evidence/process execution and tests; preserve live probe input support. Replace embedded Python payloads and tests that still execute predecessors before claiming cutover complete. |
-| Factory CLI + Muse wrappers | Actual thin client/helper duties; Rust adds manual flag, transport and Go compatibility parsing | Reconsider language alongside shared primitive consolidation. The current source provides no reason to migrate the dashboard coordinator or add a client-side daemon. |
+| Factory CLI + Muse wrappers | Actual thin client/helper duties; Rust adds manual flag, transport and Go compatibility parsing | Retain the recorded Rust owners and assess maintenance/primitive consolidation against actual callers. A language-change recommendation requires an explicit owner decision; it cannot silently override the selected target. The coordinator remains Go. |
 | Asset fetch/render/locales | Actual build-time replacements under release orchestration (Rust after cutover); several recreate Python parsing/CLI behavior | Consolidate the seven binaries into one build-tools package. The language decision is made; no alternative-stack migration follows. |
 | Release pipeline + tools (new) | Four Rust crates landed (#30/#32/#33/#34) and cut over: tools → image → build/deliver is wired, candidate-check and payload data preserved, Go removed | Retain the four crates under `lib/` and split their actual concerns in the [release decomposition reviews](decomposition/release-production.md). |
 
@@ -29,12 +29,17 @@ fidelity at lines 1-27; its local-CA caller is
 `rust/soda-install/src/setup.rs:602-619`. Smaller files
 would leave that emulation cost intact.
 
-Installer/import duplication is explicit in
+Historical installer/import duplication was explicit in
 `rust/soda-image-import/src/main.rs:1-10,550-669,1078-1200` and
-`rust/soda-install/src/deliver.rs:106-284`, compared with live Go owners at
+`rust/soda-install/src/deliver.rs:106-284`, compared with predecessor Go owners at
 `internal/release/deliver/payload.go`, `content.go` and
-`internal/release/build/oci_layout.go`. The live host still uses payload loading
-and native admission at `internal/host/daemon.go:61-80`. Port history was checked
+`internal/release/build/oci_layout.go`. Those Go release/host daemon paths are
+absent at `f7e9cf9d`; current Rust release-build, release-deliver, installer and
+image-import owners must be compared by their actual guarantees and callers.
+D05/D11 record that comparison and exact retained targets; no absent Go owner
+is retained or awaited as a future prerequisite. The earlier host predecessor
+used payload loading/native admission at `internal/host/daemon.go:61-80`.
+Port history was checked
 at `977ebe55` (installer), `0123e689` (import), `c753342a` (acceptance),
 `a096a06c` (identity), `c439c209` (host library), `899e9bf3` (terminal),
 `999f42ff` (factory CLI), `1c3a7cdc` (Muse), `5abc5733` (stage/render) and
@@ -42,13 +47,37 @@ at `977ebe55` (installer), `0123e689` (import), `c753342a` (acceptance),
 build/deliver, preserved candidate-check and payload data, and removed the
 Go pipeline: Rust orchestrates the release producer.
 
+The selected reuse defining owners are `lib/soda-release-deliver/src/payload.rs`
+and `content.rs` for delivered payload wire/load/admission and six-image binding,
+and existing `lib/soda-release-build/src/oci/{mod,schema,archive,layers}.rs`
+plus `oci_layout.rs` for pure OCI identity/layout and content scanning. C's actual
+guarantee comparison and A's independent source-fit challenge establish that
+direction; they do not prove the private copies equivalent. D11-A3 retains the
+exact decoder, error, null, duplicate, result, no-follow/confinement and decoded
+gzip EOF gates before copy retirement. The present importer is std plus
+soda-json while build has HTTP acquisition dependencies: specify that dependency
+and footprint cutover without importing acquisition behavior into an installed
+operation. Root/native platform, signal/deadline and Podman execution stay with
+`cmd/soda-image-import/src/{context,platform,import}.rs`; the generic delivered
+NativeEngine adapter does not replace that lifecycle. Disk/authentication and
+single-attempt installation remain with `cmd/soda-install`.
+
 ### Ownership decisions before further splitting
+
+The live Go Forgejo Tailnet helper has a decided Rust successor, independently
+challenged by A: `cmd/soda-forgejo-tailnet/main.rs` is an additional binary in
+the existing `soda-host` package; `lib/host/src/tailnet/forgejo.rs` defines its
+native behavior and private tests. [Exact cutover](decomposition/host-runtime.md#current-forgejo-tailnet-helper-allocation)
+preserves the installed helper identity and listener guard, with explicit
+package/binary compile selection. The target excludes its exclusive Go
+entrypoint and environment rewrite implementation after that cutover.
 
 | Current code | Observed consumers | Required disposition decision |
 | --- | --- | --- |
 | Go acceptance Evidence/Execute/Remote/Command/process closure | Legacy tests and retiring Go release/worker callers; PrivateFile remains needed by installed probes | Retire the obsolete closure and its tests. Retain PrivateFile in probe input support. The Rust harness choice is closed; no permanent Go process package remains. |
-| Go deliver/import.go | Whole Go deliver package retires at the release cutover (Rust decided) | Retire with the package; the thin-Go-command alternative is void. |
+| Historical Go deliver/import.go | Predecessor path is absent at f7e9cf9d; current native import is Rust | Already retired; do not recreate or await it. Preserve the selected current Rust pure-owner/native-lifecycle cutover above. |
 | Rust release-inputs readers | Forgejo reader is used by release-build `forgejo.rs:10`; signature admission by `coreos.rs:398`. Settings helpers have no external production caller; production.rs duplicates them locally | Retain Forgejo/signature and the other live readers. Consolidate matching recipe/unit/command inventory helpers into the existing settings owner and replace the duplicate release-build helpers, preserving their actual semantics. Do not retire the live reader closure or create a helper service. |
+| Rust release-build mirrored progress/clock/BuildExecution closure | Current production uses release-tools progress and release-image Runner; the build mirror is consumed only by its own tests and two exclusive oracle cases. D03 coordinator source inspection and A's independent source/caller census agree. | Retire the mirror, its exclusive clock/tests/oracle/support and module imports at cutover; omit all six predecessor target leaves. Preserve actual live progress/execution and the active build crate/Error/OCI/input/production duties. The definition-only release-tools `record.files_map` also retires; other record duties remain. |
 | Go broker credential-write helpers | Seed/fixture callers; metadata reads still live | Move test-only seeding through the real fixture/broker boundary when authorized. Preserve live reads, schema and persisted encryption contract. |
 
 The main tree represents the selected final owners. Retiring sources are
@@ -60,19 +89,31 @@ decided language choices.
 
 `rust/soda-acceptance/src/driver.rs:476-485` reads
 `soda-acceptance-remote` beside the current driver executable, and native action
-uses those bytes at lines 528-536. Candidate assembly at
-`internal/release/image/build.go:490-508` copies the acceptance driver but has no
-entry for that sibling. Compiling the Cargo package does not copy every binary
-into the candidate payload. The Rust image owner must deliver and record the
-paired payload with its correct target binding at cutover. This is a source-level
-integration finding, not a reproduced candidate-run failure.
+uses those bytes at lines 528–536. Current Rust candidate assembly in
+`rust/soda-release-image/src/build.rs:671–707` compiles only the driver at693–697;
+it has no companion selector there. The previous Go image path is absent at the
+review baseline. [D03-F3](reviews/D03.md#concrete-findings) records the conditional
+missing-sibling integration finding, independently challenged by A. Compile the
+existing soda-acceptance package's soda-acceptance-remote binary into the same
+artifacts/tools set before its recorded inventory, preserving its current target
+binding. No new binary/service or reproduced candidate failure is claimed.
 
 ### Host cutover integration
 
-The current Rust host is a library. The locally inspected `pr/26` revision is
-`b306756d00c6801278bb205ea0c8bc9de1d0456a`: its executor/mux modules are pending
-source, not the reconciled main baseline. It has no real daemon entrypoint or
-concrete native backend, and does not delete Go. The target carries one
+The PR26 observations and pending-port rows below describe the historical branch
+inspection. They are superseded as current cutover status by the pinned audit
+source: `rust/soda-host/Cargo.toml` declares `src/main.rs`; `main.rs`, `dbackend.rs`,
+`iconfig.rs`, `tcontrol*.rs` and daemon/broker/terminal modules implement the
+retained service; release-image `build.rs:522-553` compiles it. The Go daemon and
+its Project/terminal/Tailnet executor directories are absent. These historical
+rows are not executable remaining-port instructions. H01, networking, Project,
+identity and H06 records assess current duties and exact target moves before
+closing their allocation dimensions. No installed cutover proof is claimed.
+
+The current Rust host has a library and real daemon binary. The earlier inspected
+`pr/26` revision, `b306756d00c6801278bb205ea0c8bc9de1d0456a`, lacked that
+entrypoint and concrete backend; those limitations describe that historical
+revision, not the current pinned source. The target carries one
 `lib/host/Cargo.toml`, with a `soda-host` binary declared at
 `../../cmd/soda-host/main.rs`. That entry imports the same library, not copied
 modules; `cmd/soda-host` has no second manifest.
@@ -95,25 +136,29 @@ provider/enrollment and RunBinding execution move to Rust. The ProjectStatus
 parser has no surviving Go production caller after companion retirement and
 already has a Rust counterpart; it retires too.
 
-These integration leaves are required by existing callers and are
-**decided-pending**, not supplied by the inspected branch:
+These integration leaves retain existing callers. The daemon rows describe the
+historical PR26 gaps; the Tailnet rows below now record the current Rust source
+after the N03 primary review and A's independent presence/caller challenge.
+Target moves and concern splits are **decided-pending**. Existing implementation
+presence does not close behavioral findings, runtime admission questions or
+installed proof:
 
 | Target | Existing responsibility and evidence |
 | --- | --- |
 | `cmd/soda-host/main.rs` | same -config/-tailnet-action/-project CLI/root arguments/exit0,78,1; binary calls soda_host rather than compiling duplicate library modules. Evidence: cmd/soda-host/main.go:20-38,41-70,111-149 |
-| `lib/host/src/daemon/mod.rs` | one host construction and root fd3 HTTP plus current Muse unixpacket listener, signals/draining/terminal closure and same-binary tailnet action; not implemented on inspected PR26. Evidence: cmd/soda-host/main.go:72-110;launch.go:12-57;internal/host/daemon.go:212-254 |
-| `lib/host/src/daemon/config.rs` | full current host.json/defaults/runtime/Muse config; pending port. Evidence: internal/host/daemon.go:31-210,636-644;pr/26 project.rs:78-84 subset |
-| `lib/host/src/daemon/backend.rs` | one concrete native project/prepare/factory/terminal/Tailnet/identity adapter; pending port, never production 501 stub. Evidence: pr/26 gmux_backend.rs:64-128 trait and130-222 stub;GMUX_PATCHES sections2,4 |
-| `lib/host/src/daemon/websocket.rs` | current first-frame/expiry/write/bidirectional native terminal pump and stream lifetime; pending port under same transport owner. Evidence: Go terminal/service.go:120-311;pr/26 texec.rs:8-10 excludes Write/pumps/Handler;gmux_backend.rs:119-127 requires pump_terminal |
-| `lib/host/src/daemon/broker.rs` | private adapters to existing soda-identity Unix client contract; pending port, same broker and sockets. Evidence: Go daemon.go:212-236;pr/26 pfactory.rs:1326 FactoryBroker,texec.rs:2523 IdentityBroker,muse.rs:499 MuseHooks |
-| `lib/host/src/tailnet/control/mod.rs` | decided-pending port; neither current main nor inspected PR26 implements this native control/policy adapter. Evidence: Go control.go:32-59,412-490,624-651; current Rust tailnet_companion.rs:90-103 is only TailnetControl trait. One real same-package native Control owner must be ported. |
-| `lib/host/src/tailnet/control/native.rs` | decided-pending port; neither current main nor inspected PR26 implements this native control/policy adapter. Evidence: Go control.go:27-30,102-411,490-628: bounded Tailscale Unix HTTP/process observations and confirmed host actions. |
-| `lib/host/src/tailnet/control/provider.rs` | decided-pending port; neither current main nor inspected PR26 implements this native control/policy adapter. Evidence: Go control.go:61-101,629-639;enrollment.go:36-181: scoped bounded OAuth credential check/project auth-key issuance. |
-| `lib/host/src/tailnet/control/policy.rs` | decided-pending port; neither current main nor inspected PR26 implements this native control/policy adapter. Evidence: Go policy.go:23-235: protected directories/lock and atomic policy publication. |
-| `lib/host/src/tailnet/control/enrollment.rs` | decided-pending port; neither current main nor inspected PR26 implements this native control/policy adapter. Evidence: Go policy_enrollment.go:10-211;enrollment.go:183-252: enrollment CAS/default/admission/rotate/disable and fenced consumption. |
-| `lib/host/src/tailnet/control/project.rs` | decided-pending port; neither current main nor inspected PR26 implements this native control/policy adapter. Evidence: Go policy_project.go:9-167;project_runtime.go:29-71: per-project saved policy/binding/CAS and native RunBinding callback. |
-| `lib/host/src/tailnet/control/wire.rs` | decided-pending port; neither current main nor inspected PR26 implements this native control/policy adapter. Evidence: Go control_types.go:30-288;control_validation.go:5-207: Rust mirror of actual Go request/response contracts, not alternate records. |
-| `lib/host/src/tailnet/control/tests.rs` | decided-pending port; neither current main nor inspected PR26 implements this native control/policy adapter. Evidence: Go control/policy/enrollment/recovery/project runtime server cases: preserve existing semantics in same Rust owner before predecessor retirement. |
+| `lib/host/src/daemon/mod.rs` | Retain/extract current Rust main.rs:185–440 host construction, root/fd3 activation, Muse listener, signal shutdown and bounded Muse→mux drain ordering. The former Go daemon is absent; this is current same-host ownership, not a pending port. H01 records shutdown/caller limits. |
+| `lib/host/src/daemon/config.rs` | Retain/extract current iconfig.rs host JSON/defaults/runtime/Muse configuration and main's admitted configuration wiring. Rebind actual dbackend construction; do not recreate the historical Go parser or treat configured runtime admission as automatically correct. |
+| `lib/host/src/daemon/backend.rs` | Retain/extract current dbackend.rs:125–251 concrete construction and actual Project/preparation/Factory/terminal/Tailnet adapters. Preserve current native validators, callers and installed boundaries. Historical PR26 stubs are not the current implementation. |
+| `lib/host/src/daemon/websocket.rs` | Retain/extract the live dbackend pump_terminal entry at 1052 and native pump at 1460–1620, with current mux admission/first-frame/expiry/writes. Correct H01-F3's conditional pipe-read/mutex obstruction in this existing owner; source wiring alone is not installed transport proof. |
+| `lib/host/src/daemon/broker.rs` | Retain/extract current dbackend FactoryBroker adapters at 614 onward and IdentityBroker adapters at 717 onward, using the one existing iclient::BrokerClient constructed at 137/181/197/251. Rebind the actual client/private seams and tests; keep existing soda-identity service and sockets, with no pending Go port or extra broker process. |
+| `lib/host/src/tailnet/control/mod.rs` | Retain/move current `tcontrol.rs:45-341` in the existing host crate/process. `dbackend.rs:158-192,1017-1040` constructs and dispatches the concrete Control; `main.rs:193-224` supplies backend configuration. No missing-port instruction. Configured Project-runtime admission is a separate N04/N06 question. |
+| `lib/host/src/tailnet/control/native.rs` | Retain/move current `tcontrol_native.rs`: real bounded LocalAPI request, status observation, host actions/readback and CLI passthrough. [N03](reviews/N03.md) owns the actual HTTP-framing finding and target review; presence is not protocol correctness or native proof. |
+| `lib/host/src/tailnet/control/provider.rs` | Retain/move current `tcontrol_provider.rs` and its actual caller from `tcontrol_enroll.rs`: bounded OAuth token/key operations already exist. N04/N06 allocate current duties and assertions; do not create a second provider executor. |
+| `lib/host/src/tailnet/control/policy.rs` | Retain/move current `tcontrol_policy.rs`: protected state/locking, exact policy records and publication already exist. N04/N05 reconcile precise policy/Project extraction seams and callers. |
+| `lib/host/src/tailnet/control/enrollment.rs` | Extract the actual enrollment duties from current `tcontrol.rs`, `tcontrol_policy.rs` and `tcontrol_enroll.rs`; this is a same-package responsibility split, not an absent implementation. N04/N06 own exact admission, revision and consumption targets. |
+| `lib/host/src/tailnet/control/project.rs` | Extract the actual saved Project policy/RunBinding duties from current `tcontrol_policy.rs:742-921`, `tcontrol.rs` and `tcontrol_enroll.rs:152-214`. N05/N06 own precise allocations; preserve the real companion boundary. |
+| `lib/host/src/tailnet/control/wire.rs` | Retain/move current `tcontrol_wire.rs` rather than manufacture another set of records. Go `control_types.go`, `control_validation.go` and the surviving read-only status client/selection contract remain Go responsibilities. |
+| `lib/host/src/tailnet/control/tests.rs` | Reallocate current `tcontrol_oracle.rs` assertions by their actual host/policy/Project responsibility. Retire only superseded privileged Go Control execution assertions with the corresponding cutover; retain live Go DTO/client/validation tests. N03/N04/N05/N06 record exact units and evidence limits. |
 
 The existing service, fd3 operation listener, Muse unixpacket listener and
 same-binary Tailnet action remain the execution boundaries. The Rust backend
@@ -121,10 +166,12 @@ must replace the full real operations rather than install a production stub.
 Native terminal admission/expiry/first-frame/write/pump lifetime and the current
 identity socket contract are part of cutover, not another daemon proposal.
 
-The pending branch also contains oversized implementations. Their inspected
-concern allocations are below; individual test cases and fixtures stay intact.
-They do not increase the current-main coverage count of 190. Reconcile their
-final merged bytes before claiming a fresh review of them:
+The retained host concern allocations below originated in earlier branch
+inspection. Current slice records reconcile the merged implementation, exact
+live/obsolete duties and tests at `f7e9cf9d`; historical comments and offsets
+do not establish a missing port or current validity. Whole test cases and
+fixtures remain coherent. These allocations do not create additional source
+coverage beyond the catalog and its explicit review receipts:
 
 **rust/soda-host/src/gmux_admission.rs** (403 lines on the inspected branch).
 
@@ -164,34 +211,47 @@ final merged bytes before claiming a fresh review of them:
 
 Existing test allocation: common; wire; launch; stop; artifacts; candidate; confirmation. The embedded test module is 3195–6081 (2887 lines); production/pre-test material is 1–3194. New scripted regressions at 4882–4976 cover preservation of stop-owned uncertainty, pre-delivery stop and transient broker closure, and belong with the existing stop tests. Keep cohesive vectors/fixtures intact; the exact current responsibility map, rather than older branch ranges, determines case placement. This upkeep adds no module, process or API and establishes no native race proof.
 
-**rust/soda-host/src/texec.rs** (4826 lines on the inspected branch).
+**rust/soda-host/src/texec.rs** (4,832 lines at f7e9cf9d). Current reviewed cuts below supersede the older branch intervals for those duties; unrefined adjacent selectors remain explicitly historical.
 
-- `lib/host/src/terminal/mod.rs` — 1495-1505,2365-2442: Service/EndIdentityHook, private request admission and StreamTable; one Service owner.
-- `lib/host/src/terminal/protocol.rs` — 40-255: limits/errors, terminal IDs/names/dimensions and existing strict base64.
-- `lib/host/src/terminal/request.rs` — 256-360,384-420,554-658: TerminalRequest/TerminalState whole declarations, specs, codecs and request admission.
-- `lib/host/src/terminal/frame.rs` — 361-383,421-553,659-787: TerminalFrame declaration/specs/decode/encode and frame/credential validity.
+- `lib/host/src/terminal/mod.rs` — 1495–1507: Service/EndIdentityHook plus shared fixed agent/Podman helpers1531–1559; one Service owner. Retire the definitions-only private request predicate and StreamTable at 2367–2440, their exclusive stream_table_flows test at 4561–4584, and only the predecessor predicate assertions at 4586–4591. Keep identity assertions at 4592 onward and actual gmux_admission/TerminalGate authority. [S05's actual caller census and independent challenge](reviews/S05.md) supersede the historical service.go port comments.
+- `lib/host/src/terminal/protocol.rs` — 40–251: limits/errors, terminal IDs/names/dimensions and existing strict base64.
+- `lib/host/src/terminal/request.rs` — 252–351,384–420,554–658: TerminalRequest/TerminalState whole declarations, specs, codecs and request admission.
+- `lib/host/src/terminal/frame.rs` — 352–383,421–553,659–772: TerminalFrame declaration/specs/decode/encode and input/output admission. find_field421–435 has only decode_terminals438 caller and remains one frame helper.
 - `lib/host/src/terminal/identity_wire.rs` — 788-983,1065-1080,1119-1178: RFC3339/string-i64 and whole Binding record/spec/codec.
 - `lib/host/src/terminal/lease.rs` — 984-1064,1081-1118,1179-1320: Lease/Delivery/AcquireRequest whole record/spec/codecs.
-- `lib/host/src/terminal/target.rs` — 1321-1494,1506-1619: TerminalInspection/isolation/id-map/exit code and exact project/factory-container methods.
-- `lib/host/src/terminal/identity_protocol.rs` — 1620-1743,1995-2027: IdentityRequest, reservation/binding checks and identity_result.
+- `lib/host/src/terminal/target.rs` — 1321–1494,1509–1529,1560–1619: TerminalInspection/isolation/id-map/exit code and exact project/factory-container methods.
+- `lib/host/src/terminal/identity_protocol.rs` — 773–785,1620–1743,1995–2027: single json_valid/credential_valid predicates plus IdentityRequest, reservation/binding checks and identity_result.
 - `lib/host/src/terminal/identity.rs` — 1744-1994,2028-2110: identity_call/prepare/identity/managed_end, target/harness verification and credential-bound transfer.
-- `lib/host/src/terminal/native.rs` — 2111-2364: agent path/hash/argv, output line decode and NativeAttach/Drop.
+- `lib/host/src/terminal/native.rs` — 2111–2366: agent path/hash/argv, output line decode and NativeAttach/Drop.
 - `lib/host/src/terminal/launch.rs` — 2443-2655: TerminalStart/IdentityBroker, random execution ID and identity_launch/route/action.
 
 Existing test allocation: common; protocol; identity_wire; target; identity; launch. Source grouping: 2656-2752 fixture closure; name/id/request/base64/frame goldens2753-3316; identity wire3317-3553; target/argv3554-3957; native identity3958-4554; stream/start/launch4555-4826.
 
-**rust/soda-host/src/tcodex.rs** (3263 lines on the inspected branch).
+**rust/soda-host/src/tcodex.rs** (3,089 lines at f7e9cf9d).
 
-- `lib/host/src/terminal/codex/mod.rs` — 685-838: unit-show/role-ID/bounded wait and Service native systemctl/systemd_run methods; extends the existing terminal Service.
-- `lib/host/src/terminal/codex/run.rs` — 24-219: constants and whole FactoryRun fields/spec/decode/validator.
-- `lib/host/src/terminal/codex/paths.rs` — 220-316,429-477: exact role/checkout/run/user paths and lease binding.
-- `lib/host/src/terminal/codex/commands.rs` — 317-428,478-684: supervisor/retire/setup/install/start-gate scripts and reserve/output/takeover/export argv.
-- `lib/host/src/terminal/codex/reserve.rs` — 839-1048: reserve/setup/stage/stage_host and native unit reservation.
-- `lib/host/src/terminal/codex/start.rs` — 1049-1185: start/stage_file/wait/validate; same unit-incarnation gates.
-- `lib/host/src/terminal/codex/stop.rs` — 1186-1364: stop/inactive/retire/PID/container/capture/finish/unbound/live.
-- `lib/host/src/terminal/codex/artifacts.rs` — 1365-1665: output binding/window, export bundle, takeover copy, factory identity operation and output size.
+The [current shared Factory terminal allocation](decomposition/host-runtime.md#current-shared-factory-terminal-ownership)
+is authoritative for both-family run/native/binding/lifecycle/output/artifact
+units and their private tests. Remove the inherited `terminal/codex/run.rs`
+target. Shared models and mechanics have direct shared owners; providers do not
+import them through a Codex facade. The current whole defining units below
+replace the former 3,263-line branch selectors.
 
-Existing test allocation: common; wire; reserve; lifecycle; artifacts. Source grouping: 1666-1825 fixture closure; domain/path/script/binding/unit1826-2172; reservation2173-2470; lifecycle2471-2910; artifacts/callbacks2911-3263.
+- `lib/host/src/terminal/codex/mod.rs` — Codex module/private test declarations and imports only; the existing Service definition remains terminal/mod.rs, and shared native methods move to terminal/factory/native.rs.
+- `lib/host/src/terminal/codex/paths.rs` — complete provider run-path/guest functions228–252, Codex path declaration/builder284–323 and binding436–471. Preserve the fourth .codex tuple element; generic unit/takeover paths move to their shared owners.
+- `lib/host/src/terminal/codex/commands.rs` — supervisor345–372, Codex reserve-exec506–541, setup556–569 and start gate591–600. Shared quoting/unit argv/install/stage-file/retirement/output/export/takeover builders move to their selected shared owners, not duplicate commands.
+- `lib/host/src/terminal/codex/reserve.rs` — complete native reserve/setup/stage/stage-host835–1043, retaining Codex harness policy and direct shared native imports.
+- `lib/host/src/terminal/codex/start.rs` — start1045–1081, wait1105–1125 and validate1127–1133. Shared stage-file1083–1103 moves to factory/native.rs, preserving opaque bytes and marker order.
+- `lib/host/src/terminal/codex/stop.rs` — provider stop1135–1147 and capture/finish/unbound/live1229–1276. Shared retirement/observation/container helpers have one factory/lifecycle.rs owner.
+- `lib/host/src/terminal/codex/artifacts.rs` — provider output adapter1278–1296 only. Generic export/takeover/DTO/size and broker family dispatch move to the selected shared owners.
+
+Existing Codex test allocation remains common/wire/reserve/lifecycle/artifacts,
+with actual whole defining cases and single private fixtures preserved. Move
+ONLY the inspected generic run case1670–1796 and export/takeover cases2839–2916/
+2919–3025 to terminal/factory/tests/{run,artifacts}.rs. Preserve whole mixed
+quote/path/unit-show/script/output/callback cases at their Codex test destinations
+with direct shared subject imports. The current cfg(test)1487/module1488 shell
+and final closing shell3089 occur once at Codex tests/mod.rs; shared factory
+private tests get their own declaration shell, never a second mock/Service.
 
 **rust/soda-host/src/muse.rs** (5038 lines on the inspected branch).
 
@@ -277,11 +337,12 @@ contains Python execution. These are pending conversions, not completed ports:
 | `internal/acceptance/lifecycle_state.go:27-34,150,199` | Keep the Go snapshot/comparison orchestration. Execute the existing Rust `project_state` payload through `soda-acceptance-remote project-state`. The embedded SQLite host query is obsolete against the canonical PostgreSQL store; reconcile the host observation's actual records and read-only caller before implementing its replacement. Do not port that stale query or introduce a second database. |
 | `tools/soda-installed-probes/{cockpit_account,project_state}_test.go`, `tests/build/u08_state_test.go` | Exercise the existing Rust cockpit/project-state implementation and remote binary under the actual fixtures. Remove Python import drivers and assertions against deleted `.py` source. Keep the PAM denial/error distinction, root/native admission, private-file content refusal and snapshot bounds. |
 | `project-os/rootfs/usr/libexec/soda/{project-account,project-factory-roles}` | Retain these two installed executable identities as compiled outputs of the existing project-terminal Cargo package. Concrete entrypoints are `cmd/soda-project-terminal/src/bin/project-account.rs` and `project-factory-roles.rs`; a private library root shares the real project-local modules. Account provisioning and factory-role duties stay separate from terminal dispatch. Do not track generated binaries or Python wrappers in rootfs. |
-| `tests/build/{project_account,project_factory_roles}_test.go` | Replace embedded Python `SourceFileLoader`/mock drivers with tests exercising the real Rust helper functions and compiled entrypoints. Preserve established file, lock, account, digest, receipt and process effects; retire redundant Go wrappers only after their actual assertions have moved to the native owner. |
+| `tests/build/{project_account,project_factory_roles}_test.go` | Current Rust compiled-helper drivers remain active. Preserve their actual assertions and explicit requested binary selection during Project-terminal package consolidation; historical Python SourceFileLoader disposition is obsolete. Exact current production/test seams are recorded in project-runtime.md and P03/P07. |
 | `tests/build/{source_checks,workload_probe}_test.go`, `tests/build/helpers.go:142-160` | Replace Python PATH-tool doubles with the existing Go subprocess-test pattern or inert shell fixtures where sufficient. Keep command order, environment, status and no-replayed-mutation observations. Remove `Python3` after its callers move. |
 | `tests/build/project_foundation_test.go:36` | Replace the Python `os.defpath` observation with the real admitted helper environment/argv contract; do not retain an interpreter merely for this assertion. |
 | `scripts/{check-source,check-native}.sh`, `tests/build/source_checks_test.go` | Remove obsolete unittest invocations and update the actual source/native check sequence. `check-native.sh` invokes the Rust `soda-candidate-check` binary with the same candidate, architecture and exact revisions; it must keep verification enabled. |
-| `scripts/{check-ruff-format,check-ruff,check-py-complexity,ruff-env}.sh`, `pyproject.toml`, `requirements-ruff.txt`, `docs/development/python.md` | Retire Soda's Python-only tooling and guide with their final authored callers. Remove the matching package scripts and documentation links in that cutover. Shared source gates, root manifests and guides remain and are updated at their existing owners. |
+| Former `scripts/{check-ruff-format,check-ruff,check-py-complexity,ruff-env}.sh`, `pyproject.toml`, `requirements-ruff.txt` | These Python-only tool inputs are already absent at the audit pin; they have no successor or remaining deletion task. Retain current source gates and do not recreate Ruff tooling. |
+| `docs/development/python.md` | Retain its current active Python-elimination and gate contract at the same path. Its earlier tooling-guide content is gone; the remaining canonical policy document is not dead code. Correct stale Python setup/tooling labels in the owning development indexes during separately scoped guidance upkeep. |
 
 The extensionless helper destinations are installation outputs, not additional
 source packages. The two replacement entrypoints share one existing Cargo
