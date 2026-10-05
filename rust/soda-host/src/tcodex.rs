@@ -1675,9 +1675,10 @@ impl<E: Executor> Service<E> {
             "validate" => self.factory_codex_validate(&delivery.lease, deadline)?,
             "stop" if muse => self.factory_muse_stop(&delivery.lease, deadline)?,
             "stop" => self.factory_codex_stop(&delivery.lease, deadline)?,
-            "finish" if muse => {
-                out.credential = Some(self.factory_muse_finish(&delivery.lease, deadline)?);
-            }
+            // Muse borrows: the broker forgets the lease on return and
+            // never calls finish (same denial as the interactive muse
+            // runtime, which allows only validate and stop).
+            "finish" if muse => return Err(texec::err_denied()),
             "finish" => {
                 out.credential = Some(self.factory_codex_finish(&delivery.lease, deadline)?);
             }
@@ -1913,8 +1914,10 @@ mod tests {
                 "invalid run preparation reference",
             ),
             (
+                // The retired parallel family name stays denied: the
+                // Muse CLI family is `muse`, never `muse-code`.
                 FactoryRun {
-                    harness: "muse".to_string(),
+                    harness: "muse-code".to_string(),
                     ..factory_run()
                 },
                 "unsupported factory harness",

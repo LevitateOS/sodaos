@@ -3,14 +3,18 @@
 //! Parallel runner to tcodex for the `muse` harness family: the same
 //! supervised lifecycle (reserve/start/wait/stop/output/capture), a
 //! different guest (the staged static `muse` binary — never the
-//! auto-updating shell launcher), credential (a `META_API_KEY` key file
-//! the supervisor exports at exec time; the broker credential JSON is
-//! staged verbatim alongside for capture), and supervisor argv.
-//! tcodex.rs stays behavior-identical; shared podman/unit/pid helpers and
-//! script builders are reused crate-internally.
+//! auto-updating shell launcher), credential (the broker's opaque
+//! `auth.json` bytes staged verbatim at the CLI's file-backend lookup
+//! path, exactly like the interactive muse runtime and the enrollment
+//! fixture; never parsed, never exported), and supervisor argv.
+//! Muse borrows: the broker forgets the lease on return and never calls
+//! finish, so the daemon denies `finish` for muse leases (capture only
+//! echoes the staged copy for the in-process pfactory return path, whose
+//! bytes the broker ignores). tcodex.rs stays behavior-identical;
+//! shared podman/unit/pid helpers and script builders are reused
+//! crate-internally.
 
 use crate::domain;
-use crate::json;
 use crate::project::Executor;
 use crate::sha256;
 use crate::tcodex::{
@@ -30,7 +34,7 @@ pub struct FactoryMusePaths {
     pub checkout: String,
     pub run_dir: String,
     pub home: String,
-    pub muse_home: String,
+    pub muse_config: String,
     pub prompt: String,
     pub marker: String,
     pub started: String,
@@ -38,12 +42,12 @@ pub struct FactoryMusePaths {
     pub pid_file: String,
     pub output: String,
     pub stdout: String,
-    pub key: String,
+    pub auth: String,
     pub credential: String,
     pub guest: String,
 }
 
-/// Validated run identities to fixed checkout/run/home/muse-home paths.
+/// Validated run identities to fixed checkout/run/home/config paths.
 pub fn factory_muse_run_paths(
     role: &str,
     preparation: &str,
@@ -56,8 +60,8 @@ pub fn factory_muse_run_paths(
     let checkout = format!("/home/{role}/checkouts/{preparation}");
     let run_dir = format!("{checkout}/.soda-home/runs/{run}");
     let home = format!("{run_dir}/home");
-    let muse_home = format!("{home}/.muse");
-    Some((checkout, run_dir, home, muse_home))
+    let muse_config = format!("{home}/.config/muse");
+    Some((checkout, run_dir, home, muse_config))
 }
 
 /// `factoryCodexPaths` shape for Muse runs: validated run identities to
@@ -67,15 +71,15 @@ pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> 
     if run.harness != tcodex::FACTORY_HARNESS_MUSE {
         return Err(texec::err_denied());
     }
-    let (checkout, run_dir, home, muse_home) =
+    let (checkout, run_dir, home, muse_config) =
         factory_muse_run_paths(&run.role, &run.preparation, &run.id)
             .ok_or_else(texec::err_denied)?;
     let guest = factory_muse_guest(&run.harness_vers).ok_or_else(texec::err_denied)?;
     Ok(FactoryMusePaths {
         checkout,
         run_dir: run_dir.clone(),
-        home,
-        muse_home,
+        home: home.clone(),
+        muse_config,
         prompt: format!("{run_dir}/prompt"),
         marker: format!("{run_dir}/marker"),
         started: format!("{run_dir}/started"),
@@ -83,8 +87,8 @@ pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> 
         pid_file: format!("{run_dir}/supervisor.pid"),
         output: format!("{run_dir}/last-message.txt"),
         stdout: format!("{run_dir}/stdout.log"),
-        key: format!("{run_dir}/muse-key"),
-        credential: format!("{run_dir}/muse-credential.json"),
+        auth: format!("{home}/.config/muse/auth.json"),
+        credential: format!("{run_dir}/muse-auth.json"),
         guest,
     })
 }
@@ -114,7 +118,7 @@ pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
     if !valid_preparation_id(&b.child_id) {
         return Err(texec::err_denied());
     }
-    let (checkout, run_dir, home, muse_home) =
+    let (checkout, run_dir, home, muse_config) =
         factory_muse_run_paths(&b.login, &b.child_id, &b.id).ok_or_else(texec::err_denied)?;
     if checkout.is_empty() || texec::clean_path(&b.credential_root) != run_dir {
         return Err(texec::err_denied());
@@ -122,8 +126,8 @@ pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
     Ok(FactoryMusePaths {
         checkout,
         run_dir: run_dir.clone(),
-        home,
-        muse_home,
+        home: home.clone(),
+        muse_config,
         prompt: format!("{run_dir}/prompt"),
         marker: format!("{run_dir}/marker"),
         started: format!("{run_dir}/started"),
@@ -131,8 +135,8 @@ pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
         pid_file: format!("{run_dir}/supervisor.pid"),
         output: format!("{run_dir}/last-message.txt"),
         stdout: format!("{run_dir}/stdout.log"),
-        key: format!("{run_dir}/muse-key"),
-        credential: format!("{run_dir}/muse-credential.json"),
+        auth: format!("{home}/.config/muse/auth.json"),
+        credential: format!("{run_dir}/muse-auth.json"),
         guest: String::new(),
     })
 }
@@ -149,8 +153,11 @@ pub fn factory_muse_guest(version: &str) -> Option<String> {
 /// `factorySupervisor` shape for Muse runs: marker-gated fixed
 /// `muse exec` entrypoint. Stdout carries exactly the final answer
 /// (headless contract: diagnostics go to stderr), so the answer lands
-/// in last-message.txt and diagnostics in stdout.log. Exit 45 is the
-/// missing-credential refusal (42/43/44 keep the codex gate meanings).
+/// in last-message.txt and diagnostics in stdout.log. The CLI reads the
+/// staged `auth.json` through the file backend (same env as enrollment);
+/// any inherited `META_API_KEY` is unset so no container env can smuggle
+/// a key past the staged file. Exit 45 is the missing-credential refusal
+/// (42/43/44 keep the codex gate meanings).
 pub fn factory_muse_supervisor(p: &FactoryMusePaths, guest: &str, model: &str) -> String {
     let mut command = format!(
         "{} exec --provider meta --reasoning-effort low --workspace {} --trust-workspace --no-session-log --disable-approval --disable-sandbox",
@@ -174,8 +181,8 @@ pub fn factory_muse_supervisor(p: &FactoryMusePaths, guest: &str, model: &str) -
         "fail() { echo \"$1\" >\"$RUNDIR/exit\"; exit \"$1\"; }".to_string(),
         "i=0; while [ ! -f \"$RUNDIR/marker\" ]; do [ -f \"$RUNDIR/stop\" ] && fail 44; i=$((i+1)); [ \"$i\" -gt 600 ] && fail 42; sleep 1; done".to_string(),
         "mv \"$RUNDIR/marker\" \"$RUNDIR/started\" || fail 43".to_string(),
-        "export META_API_KEY=\"$(cat \"$RUNDIR/muse-key\")\"".to_string(),
-        "[ -n \"$META_API_KEY\" ] || fail 45".to_string(),
+        "unset META_API_KEY".to_string(),
+        format!("[ -s {} ] || fail 45", tcodex::shell_quote(&p.auth)),
         command,
         "CODE=$?; echo \"$CODE\" >\"$RUNDIR/exit\"; exit \"$CODE\"".to_string(),
     ];
@@ -187,22 +194,22 @@ pub fn muse_setup_script(p: &FactoryMusePaths, uid: i64, gid: i64) -> String {
     format!(
         "set -u\nmkdir -p -m 700 {} {}\nchown {uid}:{gid} {} {} {}\nchmod 700 {} {} {}\n",
         tcodex::shell_quote(&p.home),
-        tcodex::shell_quote(&p.muse_home),
+        tcodex::shell_quote(&p.muse_config),
         tcodex::shell_quote(&p.run_dir),
         tcodex::shell_quote(&p.home),
-        tcodex::shell_quote(&p.muse_home),
+        tcodex::shell_quote(&p.muse_config),
         tcodex::shell_quote(&p.run_dir),
         tcodex::shell_quote(&p.home),
-        tcodex::shell_quote(&p.muse_home),
+        tcodex::shell_quote(&p.muse_config),
     )
 }
 
-/// `FactoryCodexStart` staging-gate shape for Muse runs: a non-empty key
-/// and prompt plus the started-or-pending marker.
+/// `FactoryCodexStart` staging-gate shape for Muse runs: a non-empty
+/// staged `auth.json` and prompt plus the started-or-pending marker.
 pub fn muse_start_gate_script(p: &FactoryMusePaths) -> String {
     format!(
         "test -s {} && test -s {} && {{ test -f {} || test -f {}; }}\n",
-        tcodex::shell_quote(&p.key),
+        tcodex::shell_quote(&p.auth),
         tcodex::shell_quote(&p.prompt),
         tcodex::shell_quote(&p.marker),
         tcodex::shell_quote(&p.started),
@@ -210,8 +217,9 @@ pub fn muse_start_gate_script(p: &FactoryMusePaths) -> String {
 }
 
 /// `FactoryCodexReserve` podman-supervisor argv shape for Muse runs (the
-/// unit's exec payload). No `CODEX_HOME`: the key file carries the
-/// credential, and the launcher is bypassed so no update check can run.
+/// unit's exec payload). No `CODEX_HOME`: the staged `auth.json` carries
+/// the credential through the CLI file backend (`XDG_CONFIG_HOME` pins
+/// the lookup; the launcher is bypassed so no update check can run).
 pub fn muse_exec_argv(
     container: &str,
     run: &FactoryRun,
@@ -227,6 +235,10 @@ pub fn muse_exec_argv(
         p.checkout.clone(),
         "--env".to_string(),
         format!("HOME={}", p.home),
+        "--env".to_string(),
+        format!("XDG_CONFIG_HOME={}/.config", p.home),
+        "--env".to_string(),
+        "TBH_CREDENTIAL_BACKEND=file".to_string(),
         "--env".to_string(),
         "MUSE_NO_AUTO_UPDATE=1".to_string(),
         "--env".to_string(),
@@ -246,29 +258,6 @@ pub fn muse_exec_argv(
         "-c".to_string(),
         tcodex::systemd_escape(&factory_muse_supervisor(p, guest, &run.model)),
     ]
-}
-
-const MUSE_CREDENTIAL_SPECS: &[json::Spec] = &[json::Spec {
-    name: "api_key",
-    kind: json::Kind::Str,
-}];
-
-/// Extract the `META_API_KEY` value from staged broker credential bytes.
-/// The credential is exactly `{"api_key": "<token>"}`; anything else —
-/// missing, empty, over-sized, non-token bytes — refuses closed so a bad
-/// credential fails at staging, never as a confusing CLI auth error.
-pub fn muse_api_key(credential: &[u8]) -> Option<Vec<u8>> {
-    if !texec::credential_valid(credential) {
-        return None;
-    }
-    let v = json::decode_tolerant(credential).ok()?;
-    let m = json::bind_root(&v, "MuseCredential", MUSE_CREDENTIAL_SPECS, false).ok()?;
-    let key = m.take_string("api_key");
-    let b = key.as_bytes();
-    if b.is_empty() || b.len() > 4096 || !b.iter().all(|c| c.is_ascii_graphic()) {
-        return None;
-    }
-    Some(b.to_vec())
 }
 
 // ---------- service operations ----------
@@ -452,9 +441,11 @@ impl<E: Executor> Service<E> {
         Ok(guest)
     }
 
-    /// `Service.FactoryCodexStart` shape for Muse runs: stage credential,
-    /// key, prompt, then the start marker the supervisor gates on. Marker
-    /// order is load-bearing.
+    /// `Service.FactoryCodexStart` shape for Muse runs: stage the opaque
+    /// broker `auth.json` bytes verbatim (both the run-dir copy capture
+    /// echoes and the CLI lookup copy), then prompt, then the start
+    /// marker the supervisor gates on. Marker order is load-bearing.
+    /// The credential is never parsed: opaque-valid JSON, like codex.
     pub fn factory_muse_start(
         &self,
         lease: &Lease,
@@ -463,7 +454,9 @@ impl<E: Executor> Service<E> {
         deadline: Instant,
     ) -> Result<(), String> {
         let p = factory_muse_binding(lease)?;
-        let key = muse_api_key(credential).ok_or_else(texec::err_denied)?;
+        if !texec::credential_valid(credential) {
+            return Err(texec::err_denied());
+        }
         if prompt.is_empty() || prompt.len() > MAX_FACTORY_PROMPT {
             return Err(texec::err_denied());
         }
@@ -473,7 +466,7 @@ impl<E: Executor> Service<E> {
             return Err(texec::err_stale());
         }
         self.factory_stage_file(&container, binding, &p.credential, credential, deadline)?;
-        self.factory_stage_file(&container, binding, &p.key, &key, deadline)?;
+        self.factory_stage_file(&container, binding, &p.auth, credential, deadline)?;
         self.factory_stage_file(&container, binding, &p.prompt, prompt, deadline)?;
         self.factory_stage_file(&container, binding, &p.marker, &[], deadline)?;
         let gate = vec![
@@ -621,8 +614,11 @@ impl<E: Executor> Service<E> {
         Ok(())
     }
 
-    /// `Service.FactoryCodexCapture` shape for Muse runs: read back the
-    /// staged credential JSON after confirmed retirement.
+    /// `Service.FactoryCodexCapture` shape for Muse runs: echo the
+    /// daemon-staged `auth.json` copy (never the CLI's live lookup file)
+    /// for the in-process pfactory return path. The broker ignores these
+    /// bytes for muse (borrow: forget on return), so capture failure here
+    /// only reports host-side staging trouble, never rotation state.
     pub fn factory_muse_capture(
         &self,
         lease: &Lease,
@@ -647,12 +643,6 @@ impl<E: Executor> Service<E> {
             Ok(out) if texec::credential_valid(&out) => Ok(out),
             _ => Err(texec::err_uncertain()),
         }
-    }
-
-    /// `Service.FactoryCodexFinish` shape for Muse runs: stop, then capture.
-    pub fn factory_muse_finish(&self, lease: &Lease, deadline: Instant) -> Result<Vec<u8>, String> {
-        self.factory_muse_stop(lease, deadline)?;
-        self.factory_muse_capture(lease, deadline)
     }
 
     /// `Service.FactoryCodexLive` shape for Muse runs.
@@ -694,7 +684,7 @@ impl<E: Executor> Service<E> {
         if !valid_preparation_id(&binding.child_id) {
             return Err(texec::err_denied());
         }
-        let (checkout, run_dir, home, muse_home) =
+        let (checkout, run_dir, home, muse_config) =
             factory_muse_run_paths(&binding.login, &binding.child_id, &binding.id)
                 .ok_or_else(texec::err_denied)?;
         if checkout.is_empty() || texec::clean_path(&binding.credential_root) != run_dir {
@@ -708,7 +698,7 @@ impl<E: Executor> Service<E> {
             checkout,
             run_dir: run_dir.clone(),
             home,
-            muse_home,
+            muse_config,
             stdout: format!("{run_dir}/stdout.log"),
             ..Default::default()
         })
@@ -967,12 +957,12 @@ mod tests {
         assert_eq!(p.checkout, format!("/home/{ROLE}/checkouts/{PREP}"));
         assert!(p.run_dir.ends_with(&format!("/runs/{RID}")));
         assert_eq!(p.home, format!("{}/home", p.run_dir));
-        assert_eq!(p.muse_home, format!("{}/home/.muse", p.run_dir));
+        assert_eq!(p.muse_config, format!("{}/home/.config/muse", p.run_dir));
         assert_eq!(p.prompt, format!("{}/prompt", p.run_dir));
         assert_eq!(p.output, format!("{}/last-message.txt", p.run_dir));
         assert_eq!(p.stdout, format!("{}/stdout.log", p.run_dir));
-        assert_eq!(p.key, format!("{}/muse-key", p.run_dir));
-        assert_eq!(p.credential, format!("{}/muse-credential.json", p.run_dir));
+        assert_eq!(p.auth, format!("{}/home/.config/muse/auth.json", p.run_dir));
+        assert_eq!(p.credential, format!("{}/muse-auth.json", p.run_dir));
         assert_eq!(p.guest, "/usr/local/bin/muse-factory-1.4.2");
         assert_eq!(
             factory_muse_guest("1.4.2").unwrap(),
@@ -1035,8 +1025,9 @@ mod tests {
             &format!("--prompt-file '{}'", p.prompt),
             // Stream contract: answer to last-message, diagnostics log.
             &format!(">'{}' 2>>'{}'", p.output, p.stdout),
-            "export META_API_KEY=\"$(cat \"$RUNDIR/muse-key\")\"",
-            "[ -n \"$META_API_KEY\" ] || fail 45",
+            // File backend: no inherited key may smuggle past the file.
+            "unset META_API_KEY",
+            &format!("[ -s '{}' ] || fail 45", p.auth),
             // Marker gate keeps the codex meanings.
             "fail 44",
             "fail 42",
@@ -1046,6 +1037,7 @@ mod tests {
             assert!(script.contains(marker), "supervisor lost {marker:?}");
         }
         assert!(!script.contains("CODEX_HOME"));
+        assert!(!script.contains("META_API_KEY=\""));
         assert!(!script.contains("--output-last-message"));
         // Empty model keeps the CLI default.
         let bare = factory_muse_supervisor(&p, guest, "");
@@ -1058,37 +1050,13 @@ mod tests {
         let setup = muse_setup_script(&p, 1001, 1001);
         assert!(setup.contains("mkdir -p -m 700 "));
         assert!(setup.contains(&p.home));
-        assert!(setup.contains(&p.muse_home));
+        assert!(setup.contains(&p.muse_config));
         assert!(setup.contains("chown 1001:1001 "));
         let gate = muse_start_gate_script(&p);
-        assert!(gate.contains(&p.key));
+        assert!(gate.contains(&p.auth));
         assert!(gate.contains(&p.prompt));
         assert!(gate.contains(&p.marker));
         assert!(gate.contains(&p.started));
-    }
-
-    #[test]
-    fn api_key_matrix() {
-        assert_eq!(
-            muse_api_key(b"{\"api_key\":\"META-abc123\"}").unwrap(),
-            b"META-abc123"
-        );
-        for bad in [
-            "",
-            "nope",
-            "{}",
-            "{\"api_key\":\"\"}",
-            "{\"api_key\":null}",
-            "{\"api_key\":7}",
-            "{\"api_key\":\"has space\"}",
-            "{\"api_key\":\"has\\nnewline\"}",
-            "{\"api_key\":\"ok\",\"unknown\":1}",
-            "{\"api_key\":\"ok\"} trailing",
-        ] {
-            assert!(muse_api_key(bad.as_bytes()).is_none(), "accepted {bad:?}");
-        }
-        let big = format!("{{\"api_key\":\"{}\"}}", "k".repeat(4097));
-        assert!(muse_api_key(big.as_bytes()).is_none());
     }
 
     #[test]
@@ -1237,11 +1205,16 @@ mod tests {
             .chain(calls[6].2.clone())
             .collect();
         assert_eq!(got_run, want_run);
-        // Muse env: no CODEX_HOME, update check off.
+        // Muse env: no CODEX_HOME, update check off, file backend pinned.
         let payload = &calls[6].2;
         assert!(!payload.iter().any(|a| a.contains("CODEX_HOME")));
         assert!(payload.iter().any(|a| a == "MUSE_NO_AUTO_UPDATE=1"));
         assert!(payload.iter().any(|a| a == &format!("HOME={}", p.home)));
+        assert!(payload
+            .iter()
+            .any(|a| a == &format!("XDG_CONFIG_HOME={}/.config", p.home)));
+        assert!(payload.iter().any(|a| a == "TBH_CREDENTIAL_BACKEND=file"));
+        assert!(!payload.iter().any(|a| a.starts_with("META_API_KEY")));
     }
 
     #[test]
@@ -1301,8 +1274,9 @@ mod tests {
     fn start_flows() {
         let lease = muse_lease();
         let p = factory_muse_binding(&lease).unwrap();
-        let cred = b"{\"api_key\":\"META-test\"}";
-        // Denials before exec.
+        let cred = b"{\"schema_version\":1,\"providers\":{}}";
+        // Denials before exec. The credential is opaque: any valid JSON
+        // stages (even `{}`), only non-credential bytes refuse.
         let svc = make_service(FakeExec::new(vec![]));
         assert_eq!(
             svc.factory_muse_start(&Lease::default(), cred, b"prompt", deadline())
@@ -1315,7 +1289,7 @@ mod tests {
             ERR_DENIED
         );
         assert_eq!(
-            svc.factory_muse_start(&lease, b"{}", b"prompt", deadline())
+            svc.factory_muse_start(&lease, b"", b"prompt", deadline())
                 .unwrap_err(),
             ERR_DENIED
         );
@@ -1334,7 +1308,8 @@ mod tests {
                 .unwrap_err(),
             crate::texec::ERR_STALE
         );
-        // Success stages credential, key, prompt, marker, then the gate.
+        // Success stages the verbatim bytes twice (echo copy + CLI
+        // lookup), then prompt, marker, then the gate.
         let svc = make_service(FakeExec::new(vec![
             ok(&inspect_json()),
             ok(""),
@@ -1348,7 +1323,7 @@ mod tests {
         let calls = svc.exec.calls();
         assert_eq!(calls.len(), 6);
         assert_eq!(calls[1].0, cred);
-        assert_eq!(calls[2].0, b"META-test");
+        assert_eq!(calls[2].0, cred);
         assert_eq!(calls[3].0, b"do work");
         assert!(calls[4].0.is_empty());
         assert!(
@@ -1357,7 +1332,7 @@ mod tests {
             calls[1].2[6]
         );
         assert!(
-            calls[2].2[6].contains(&tcodex::shell_quote(&p.key)),
+            calls[2].2[6].contains(&tcodex::shell_quote(&p.auth)),
             "{}",
             calls[2].2[6]
         );
@@ -1424,12 +1399,31 @@ mod tests {
         let calls = svc.exec.calls();
         assert_eq!(calls[0].2[3], "/usr/bin/cat");
         assert!(calls[0].2[4].ends_with("supervisor.pid"));
-        // Capture reads back the staged credential JSON.
-        let cred = "{\"api_key\":\"META-test\"}";
+        // Capture echoes the daemon-staged auth.json copy (not the
+        // CLI's live lookup file).
+        let cred = "{\"schema_version\":1,\"providers\":{}}";
         let svc = make_service(FakeExec::new(vec![ok(cred)]));
         let back = svc.factory_muse_capture(&lease, deadline()).unwrap();
         assert_eq!(back, cred.as_bytes());
         let calls = svc.exec.calls();
-        assert!(calls[0].2[6].ends_with("muse-credential.json"));
+        assert!(calls[0].2[6].ends_with("muse-auth.json"));
+    }
+
+    #[test]
+    fn finish_denied_for_muse() {
+        // Muse borrows: the broker forgets on return and never calls
+        // finish (same denial as the interactive muse runtime).
+        let lease = muse_lease();
+        let delivery = texec::Delivery {
+            lease,
+            credential: Some(b"{}".to_vec()),
+        };
+        let svc = make_service(FakeExec::new(vec![]));
+        assert_eq!(
+            svc.factory_identity_operation("finish", &delivery, deadline())
+                .unwrap_err(),
+            ERR_DENIED
+        );
+        assert!(svc.exec.calls().is_empty());
     }
 }
