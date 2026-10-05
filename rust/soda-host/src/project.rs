@@ -90,6 +90,33 @@ pub struct Lifecycle {
     pub action: String,
 }
 
+const LIFECYCLE_SPECS: &[json::Spec] = &[
+    json::Spec {
+        name: "project",
+        kind: json::Kind::Str,
+    },
+    json::Spec {
+        name: "action",
+        kind: json::Kind::Str,
+    },
+];
+
+impl Lifecycle {
+    /// Strict decode of one lifecycle request (`strictjson.Decode` parity:
+    /// unknown fields rejected).
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let m = json::bind_root(v, "Lifecycle", LIFECYCLE_SPECS, false).map_err(|e| e.0)?;
+        Ok(Self::from_map(&m))
+    }
+
+    pub fn from_map(m: &json::BoundMap) -> Self {
+        Lifecycle {
+            project: m.take_string("project"),
+            action: m.take_string("action"),
+        }
+    }
+}
+
 /// `project.LifecycleState`: the observed lifecycle outcome.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LifecycleState {

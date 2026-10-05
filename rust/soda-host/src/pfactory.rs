@@ -30,7 +30,7 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::domain;
-use crate::json::{self, BoundMap, Kind, Spec};
+use crate::json::{self, BoundMap, Kind, Spec, Value};
 use crate::preparation::{
     self, HoldState, Preparation, PrepareHold, PrepareInspect, PrepareState, PrepareStop,
 };
@@ -527,6 +527,42 @@ pub struct FactoryLaunch {
     pub harness_sha256: String,
 }
 
+const FACTORY_LAUNCH_SPECS: &[Spec] = &[
+    Spec {
+        name: "run",
+        kind: Kind::Object {
+            go_type: "project.FactoryRun",
+            struct_name: "FactoryRun",
+            specs: FACTORY_RUN_SPECS,
+        },
+    },
+    Spec {
+        name: "prompt",
+        kind: Kind::Bytes,
+    },
+    Spec {
+        name: "harness_sha256",
+        kind: Kind::Str,
+    },
+];
+
+impl FactoryLaunch {
+    /// Strict decode of one launch request (`strictjson.Decode` parity).
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let m =
+            json::bind_root(v, "FactoryLaunch", FACTORY_LAUNCH_SPECS, false).map_err(|e| e.0)?;
+        Ok(Self::from_map(&m))
+    }
+
+    pub fn from_map(m: &BoundMap) -> Self {
+        FactoryLaunch {
+            run: FactoryRun::from_map(&m.take_map("run")),
+            prompt: m.take_bytes("prompt"),
+            harness_sha256: m.take_string("harness_sha256"),
+        }
+    }
+}
+
 impl FactoryLaunch {
     pub fn validate(&self) -> Result<(), String> {
         self.run.validate()?;
@@ -986,6 +1022,29 @@ pub struct FactoryInspect {
     pub id: String,
 }
 
+const FACTORY_ADDRESS_SPECS: &[Spec] = &[
+    Spec {
+        name: "project",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "id",
+        kind: Kind::Str,
+    },
+];
+
+impl FactoryInspect {
+    /// Strict decode of one inspect request (`strictjson.Decode` parity).
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let m =
+            json::bind_root(v, "FactoryInspect", FACTORY_ADDRESS_SPECS, false).map_err(|e| e.0)?;
+        Ok(FactoryInspect {
+            project: m.take_string("project"),
+            id: m.take_string("id"),
+        })
+    }
+}
+
 impl FactoryInspect {
     pub fn validate(&self) -> Result<(), String> {
         if !domain::valid_id(&self.project) || !valid_factory_run_id(&self.id) {
@@ -1000,6 +1059,17 @@ impl FactoryInspect {
 pub struct FactoryStop {
     pub project: String,
     pub id: String,
+}
+
+impl FactoryStop {
+    /// Strict decode of one stop request (`strictjson.Decode` parity).
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let m = json::bind_root(v, "FactoryStop", FACTORY_ADDRESS_SPECS, false).map_err(|e| e.0)?;
+        Ok(FactoryStop {
+            project: m.take_string("project"),
+            id: m.take_string("id"),
+        })
+    }
 }
 
 impl FactoryStop {
@@ -1018,6 +1088,34 @@ pub struct FactoryTakeover {
     pub project: String,
     pub id: String,
     pub member: String,
+}
+
+const FACTORY_TAKEOVER_SPECS: &[Spec] = &[
+    Spec {
+        name: "project",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "id",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "member",
+        kind: Kind::Str,
+    },
+];
+
+impl FactoryTakeover {
+    /// Strict decode of one takeover request (`strictjson.Decode` parity).
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let m = json::bind_root(v, "FactoryTakeover", FACTORY_TAKEOVER_SPECS, false)
+            .map_err(|e| e.0)?;
+        Ok(FactoryTakeover {
+            project: m.take_string("project"),
+            id: m.take_string("id"),
+            member: m.take_string("member"),
+        })
+    }
 }
 
 impl FactoryTakeover {
@@ -1076,6 +1174,40 @@ pub struct FactoryOutput {
     pub id: String,
     pub offset: i64,
     pub limit: i64,
+}
+
+const FACTORY_OUTPUT_SPECS: &[Spec] = &[
+    Spec {
+        name: "project",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "id",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "offset",
+        kind: Kind::I64,
+    },
+    Spec {
+        name: "limit",
+        kind: Kind::I64,
+    },
+];
+
+impl FactoryOutput {
+    /// Strict decode of one output request (`strictjson.Decode` parity).
+    /// Go's `limit` is `int` (64-bit); the range check lives in `validate`.
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let m =
+            json::bind_root(v, "FactoryOutput", FACTORY_OUTPUT_SPECS, false).map_err(|e| e.0)?;
+        Ok(FactoryOutput {
+            project: m.take_string("project"),
+            id: m.take_string("id"),
+            offset: m.take_i64("offset"),
+            limit: m.take_i64("limit"),
+        })
+    }
 }
 
 impl FactoryOutput {
@@ -1170,6 +1302,44 @@ pub struct FactoryExport {
     pub candidate: String,
 }
 
+const FACTORY_EXPORT_SPECS: &[Spec] = &[
+    Spec {
+        name: "project",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "id",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "role",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "preparation",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "candidate",
+        kind: Kind::Str,
+    },
+];
+
+impl FactoryExport {
+    /// Strict decode of one export request (`strictjson.Decode` parity).
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let m =
+            json::bind_root(v, "FactoryExport", FACTORY_EXPORT_SPECS, false).map_err(|e| e.0)?;
+        Ok(FactoryExport {
+            project: m.take_string("project"),
+            id: m.take_string("id"),
+            role: m.take_string("role"),
+            preparation: m.take_string("preparation"),
+            candidate: m.take_string("candidate"),
+        })
+    }
+}
+
 impl FactoryExport {
     pub fn validate(&self) -> Result<(), String> {
         if !domain::valid_id(&self.project) || !valid_factory_run_id(&self.id) {
@@ -1224,6 +1394,18 @@ impl FactoryExportState {
 pub struct FactoryCandidateInspect {
     pub project: String,
     pub id: String,
+}
+
+impl FactoryCandidateInspect {
+    /// Strict decode of one candidate-inspect request (`strictjson.Decode` parity).
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let m = json::bind_root(v, "FactoryCandidateInspect", FACTORY_ADDRESS_SPECS, false)
+            .map_err(|e| e.0)?;
+        Ok(FactoryCandidateInspect {
+            project: m.take_string("project"),
+            id: m.take_string("id"),
+        })
+    }
 }
 
 impl FactoryCandidateInspect {

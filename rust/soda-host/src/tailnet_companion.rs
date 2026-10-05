@@ -109,7 +109,8 @@ pub struct Companion<E, T> {
     pub exec: E,
     pub tailnet: T,
     pub image: String,
-    pub enabled_check: Option<Box<dyn Fn(&str, &str, Instant) -> Result<bool, String>>>,
+    pub enabled_check:
+        Option<Box<dyn Fn(&str, &str, Instant) -> Result<bool, String> + Send + Sync>>,
 }
 
 /// Tags the actual failure stage with a fixed label. Native/provider output
