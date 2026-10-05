@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -158,8 +157,11 @@ func (fx *st15Fixture) check(name string, err error) {
 	fx.t.Logf("ST15 pass: %s", name)
 }
 
+// st15Podman drives the project container through root podman: the
+// production daemon runs as root and only sees root container storage,
+// so the fixture manages the container in that same storage.
 func st15Podman(ctx context.Context, stdin []byte, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "/usr/bin/podman", args...)
+	cmd := exec.CommandContext(ctx, "sudo", append([]string{"-n", "/usr/bin/podman"}, args...)...)
 	env := []string{}
 	for _, entry := range os.Environ() {
 		if !strings.HasPrefix(entry, "TMPDIR=") {
@@ -457,22 +459,13 @@ func (fx *st15Fixture) setupHostStack() error {
 		_ = os.Remove(sock)
 	}
 	// The production `soda-host` daemon serves the fixture host socket:
-	// the harness pre-binds the unix listener and hands the fd to the
-	// compiled binary the way systemd socket activation does, so ST15
-	// drives the shipped executor instead of an in-test double. The
-	// empty release path disables the appliance image overlay: the
-	// fixture writes the full pinned config itself.
-	if err := os.MkdirAll("/var/lib/soda/host/factory", 0o700); err != nil {
-		return err
-	}
-	hostListener, err := net.Listen("unix", fx.cfg.HostSocket)
-	if err != nil {
-		return err
-	}
-	hostFile, err := hostListener.(*net.UnixListener).File()
-	if err != nil {
-		_ = hostListener.Close()
-		return err
+	// the harness spawns the compiled binary as root (its production
+	// identity) with --listen-path, so ST15 drives the shipped executor
+	// instead of an in-test double. The empty release path disables the
+	// appliance image overlay: the fixture writes the full pinned config
+	// itself.
+	if out, err := exec.CommandContext(fx.ctx, "sudo", "-n", "install", "-d", "-m", "700", "/var/lib/soda/host/factory").CombinedOutput(); err != nil {
+		return fmt.Errorf("factory state dir: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	daemonCfg, err := json.Marshal(map[string]any{
 		"muse_sha256": "", "muse_version": "", "muse_socket": "",
@@ -496,21 +489,19 @@ func (fx *st15Fixture) setupHostStack() error {
 	if err != nil {
 		return err
 	}
-	// The sh wrapper sets LISTEN_PID to the daemon's own pid, then
-	// execs; fd 3 (the pre-bound listener) survives the exec.
-	daemonCmd := exec.Command("sh", "-c", `LISTEN_PID=$$ LISTEN_FDS=1 exec "$0" "$@"`,
-		st15BuildHost(t), "--config", daemonCfgPath, "--release", "")
-	daemonCmd.ExtraFiles = []*os.File{hostFile}
+	daemonCmd := exec.Command("sudo", "-n", st15BuildHost(t), "--config", daemonCfgPath,
+		"--release", "", "--listen-path", fx.cfg.HostSocket)
 	daemonCmd.Stdout = daemonLog
 	daemonCmd.Stderr = daemonLog
 	if err := daemonCmd.Start(); err != nil {
 		return err
 	}
-	_ = hostFile.Close()
-	_ = hostListener.Close()
 	t.Cleanup(func() {
 		_ = daemonCmd.Process.Kill()
 		_ = daemonCmd.Wait()
+		// Killing sudo orphans the daemon: reap it by its unique
+		// fixture config path (the test binary never matches).
+		_ = exec.Command("sudo", "-n", "pkill", "-f", "soda-host --config "+daemonCfgPath).Run()
 		_ = daemonLog.Close()
 	})
 	// The Rust broker serves the fixture sockets: the dashboard keeps

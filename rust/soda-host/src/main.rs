@@ -67,17 +67,20 @@ impl MainError {
 struct Flags {
     config: String,
     release: String,
+    listen_path: String,
     tailnet_action: String,
     project: String,
     positionals: Vec<String>,
 }
 
 fn usage() -> String {
-    "Usage: soda-host [--config PATH] [--release PATH] [--tailnet-action run|stop --project ID]\n\n\
+    "Usage: soda-host [--config PATH] [--release PATH] [--listen-path PATH] [--tailnet-action run|stop --project ID]\n\n\
      Installed privileged host daemon: serves the root:soda Unix operation\n\
      socket under systemd socket activation. --release selects the appliance\n\
      release file (default /usr/share/soda/release.json); an empty value\n\
-     disables the release overlay for test fixtures.\n"
+     disables the release overlay for test fixtures. --listen-path binds\n\
+     the Unix socket directly instead of taking activation (fixtures);\n\
+     it still requires root.\n"
         .to_string()
 }
 
@@ -87,6 +90,7 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
     let mut flags = Flags {
         config: DEFAULT_CONFIG.to_string(),
         release: RELEASE_CONFIG.to_string(),
+        listen_path: String::new(),
         tailnet_action: String::new(),
         project: String::new(),
         positionals: Vec::new(),
@@ -125,6 +129,7 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
         match name {
             "config" => flags.config = value,
             "release" => flags.release = value,
+            "listen-path" => flags.listen_path = value,
             "tailnet-action" => flags.tailnet_action = value,
             "project" => flags.project = value,
             _ => return Err(format!("flag provided but not defined: -{name}")),
@@ -213,16 +218,24 @@ fn open_backend(config: &iconfig::Config) -> DaemonBackend {
     )
 }
 
-fn serve_host_socket(config: iconfig::Config) -> Result<(), MainError> {
-    if !is_root()
-        || std::env::var("LISTEN_PID").unwrap_or_default() != std::process::id().to_string()
-        || std::env::var("LISTEN_FDS").unwrap_or_default() != "1"
-    {
+fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), MainError> {
+    if !is_root() {
         return Err(MainError::Other(
             "requires root and the soda-host systemd Unix socket".to_string(),
         ));
     }
-    let listener = gmux_server::systemd_listener().map_err(|e| MainError::Other(e.to_string()))?;
+    let listener = if listen_path.is_empty() {
+        if std::env::var("LISTEN_PID").unwrap_or_default() != std::process::id().to_string()
+            || std::env::var("LISTEN_FDS").unwrap_or_default() != "1"
+        {
+            return Err(MainError::Other(
+                "requires root and the soda-host systemd Unix socket".to_string(),
+            ));
+        }
+        gmux_server::systemd_listener().map_err(|e| MainError::Other(e.to_string()))?
+    } else {
+        gmux_server::bind_listener(listen_path).map_err(|e| MainError::Other(e.to_string()))?
+    };
 
     let backend = Arc::new(open_backend(&config));
     let server = Arc::new(Server::new(
@@ -351,7 +364,7 @@ fn run() -> Result<(), MainError> {
     }
     let config = iconfig::load_config(&flags.config, &flags.release)
         .map_err(|e| MainError::Other(format!("invalid host configuration: {e}")))?;
-    serve_host_socket(config)
+    serve_host_socket(config, &flags.listen_path)
 }
 
 fn main() {
@@ -381,10 +394,25 @@ mod tests {
         assert_eq!(flags.release, "");
         let flags = parse_flags(&args(&["--release=/r.json"])).unwrap();
         assert_eq!(flags.release, "/r.json");
+        let flags = parse_flags(&args(&["--listen-path", "/s/st15.sock"])).unwrap();
+        assert_eq!(flags.listen_path, "/s/st15.sock");
+        let flags = parse_flags(&args(&[])).unwrap();
+        assert!(flags.listen_path.is_empty());
         assert!(parse_flags(&args(&["--bogus"])).is_err());
         assert!(parse_flags(&args(&["--config"])).is_err());
         assert!(parse_flags(&args(&["--release"])).is_err());
+        assert!(parse_flags(&args(&["--listen-path"])).is_err());
         assert!(parse_flags(&args(&["-h"])).is_err());
+    }
+
+    #[test]
+    fn bind_listener_keeps_root_gate() {
+        // SAFETY: `geteuid` is async-signal-safe and infallible.
+        if unsafe { libc::geteuid() } == 0 {
+            return;
+        }
+        let err = gmux_server::bind_listener("/nonexistent-dir-xyz/st15.sock").unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
     }
 
     #[test]
