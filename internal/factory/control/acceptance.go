@@ -105,15 +105,6 @@ type AcceptanceReceipt struct {
 	Depth        int64                         `json:"depth"`
 }
 
-// WithdrawalReceipt is the durable outcome of one acceptance withdrawal.
-type WithdrawalReceipt struct {
-	Publications factory.PublicationWithdrawal `json:"publications"`
-	Merges       factory.MergeWithdrawal       `json:"merges"`
-	CommandID    string                        `json:"command_id"`
-	Decision     string                        `json:"decision"`
-	Withdrawn    bool                          `json:"withdrawn"`
-}
-
 // AdmitAcceptance records a maintainer's exact-inputs acceptance after
 // verifying every selected revision against a fresh bracketed snapshot:
 // the observed revision must equal the bracket, the objective digests and
@@ -131,15 +122,6 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	if decision.Initial {
 		return AcceptanceReceipt{}, refuseAcceptance(RefusalCreationUnverified)
 	}
-	// Verify before recording: refusals are common and must not poison
-	// the command ledger with unfinished entries.
-	evidence, err := c.readAcceptanceEvidence(bounded, decision)
-	if err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	if err := c.verifyAcceptance(bounded, decision, evidence); err != nil {
-		return AcceptanceReceipt{}, err
-	}
 	payload, err := json.Marshal(decision)
 	if err != nil {
 		return AcceptanceReceipt{}, err
@@ -152,12 +134,33 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	if err = cmd.Validate(); err != nil {
 		return AcceptanceReceipt{}, err
 	}
+	// F05-F1: a stored matching admitted command replays its retained
+	// decision under current visibility without requiring unchanged
+	// native evidence. Only unrecorded commands take the fresh
+	// stale-screen admission path below.
+	if stored, err := c.Store.FactoryCommand(bounded, cmd.ID); err == nil {
+		if stored.Digest != cmd.Digest {
+			return AcceptanceReceipt{}, store.ErrCommandConflict
+		}
+		return c.replayAdmittedAcceptance(bounded, decision, stored)
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return AcceptanceReceipt{}, err
+	}
+	// Verify before recording: refusals are common and must not poison
+	// the command ledger with unfinished entries.
+	evidence, err := c.readAcceptanceEvidence(bounded, decision)
+	if err != nil {
+		return AcceptanceReceipt{}, err
+	}
+	if err := c.verifyAcceptance(bounded, decision, evidence); err != nil {
+		return AcceptanceReceipt{}, err
+	}
 	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
 	if err != nil {
 		return AcceptanceReceipt{}, err
 	}
 	if !created {
-		return replayAcceptance(stored)
+		return c.replayAdmittedAcceptance(bounded, decision, stored)
 	}
 	if err = c.Store.AdmitAcceptanceDecision(bounded, decision); err != nil {
 		if errors.Is(err, store.ErrStaleRevision) {
@@ -208,54 +211,34 @@ func replayAcceptance(stored factory.Command) (AcceptanceReceipt, error) {
 	return receipt, nil
 }
 
-func mustIssueIndex(index string) int64 {
-	value, _ := strconv.ParseInt(index, 10, 64)
-	return value
-}
-
-// readAcceptanceEvidence brackets the objective, every selected source and
-// resolution, and the complete edge set at one native revision.
-func (c *Coordinator) readAcceptanceEvidence(ctx context.Context, decision factory.Acceptance) (AcceptanceEvidence, error) {
-	if c.AcceptanceReads == nil {
-		return AcceptanceEvidence{}, refuseAcceptance(RefusalSnapshotUnavailable)
-	}
-	seen := make(map[string]bool)
-	var commentIDs []string
-	for _, section := range [][]factory.SelectedSource{decision.Sources, decision.Resolutions} {
-		for _, source := range section {
-			if !seen[source.ID] {
-				seen[source.ID] = true
-				commentIDs = append(commentIDs, source.ID)
-			}
-		}
-	}
-	evidence, err := c.AcceptanceReads.ReadAcceptanceEvidence(ctx, strconv.FormatInt(decision.Repository, 10), decision.IssueIndex, commentIDs)
+// replayAdmittedAcceptance returns the retained receipt for an
+// already-recorded acceptance command after enforcing current
+// visibility. Revision and content equality are not re-required: the
+// decision was admitted under exact evidence, and replay neither
+// re-authorizes native material nor admits anything new.
+func (c *Coordinator) replayAdmittedAcceptance(ctx context.Context, decision factory.Acceptance, stored factory.Command) (AcceptanceReceipt, error) {
+	evidence, err := c.readAcceptanceEvidence(ctx, decision)
 	if err != nil {
-		var refusal *AcceptanceRefusal
-		if errors.As(err, &refusal) {
-			return AcceptanceEvidence{}, refusal
-		}
-		return AcceptanceEvidence{}, err
+		return AcceptanceReceipt{}, err
 	}
-	return evidence, nil
+	if err := verifyAcceptanceVisibility(decision, evidence); err != nil {
+		return AcceptanceReceipt{}, err
+	}
+	return replayAcceptance(stored)
 }
 
-// verifyAcceptance compares one decision against its bracketed evidence.
-// A stale screen, hidden source or changed revision refuses instead of
-// silently accepting newer material.
-func (c *Coordinator) verifyAcceptance(ctx context.Context, decision factory.Acceptance, evidence AcceptanceEvidence) error {
-	if evidence.Revision < 1 || decision.NativeRev != evidence.Revision {
-		return refuseAcceptance(RefusalStaleEvidence)
-	}
+// verifyAcceptanceVisibility enforces the visibility subset of
+// verifyAcceptance: the bracketed issue, every selected source and
+// every current edge must still be visible. Established refusal
+// codes; no revision, digest, version, edge-set or prerequisite
+// equality.
+func verifyAcceptanceVisibility(decision factory.Acceptance, evidence AcceptanceEvidence) error {
 	issue := evidence.Issue
 	if issue.Index != decision.IssueIndex {
 		return refuseAcceptance(RefusalIncompleteEvidence)
 	}
 	if !issue.Visible {
 		return refuseAcceptance(RefusalIssueHidden)
-	}
-	if issue.TitleDigest != decision.TitleDigest || issue.ContentDigest != decision.ContentDigest || issue.ContentVer != decision.ContentVersion {
-		return refuseAcceptance(RefusalObjectiveChanged)
 	}
 	comments := make(map[string]AcceptanceComment, len(evidence.Comments))
 	for _, comment := range evidence.Comments {
@@ -270,315 +253,17 @@ func (c *Coordinator) verifyAcceptance(ctx context.Context, decision factory.Acc
 			if !comment.Visible {
 				return refuseAcceptance(RefusalSourceHidden)
 			}
-			if comment.Digest != source.Digest || comment.ContentVer != source.ContentVersion {
-				return refuseAcceptance(RefusalSourceChanged)
-			}
 		}
 	}
-	edges := make(map[string]AcceptanceEdge, len(evidence.Dependencies))
 	for _, edge := range evidence.Dependencies {
 		if !edge.Visible {
 			return refuseAcceptance(RefusalEdgeHidden)
-		}
-		edges[edge.Occurrence] = edge
-	}
-	if len(edges) != len(decision.Prerequisites) {
-		return refuseAcceptance(RefusalEdgeChanged)
-	}
-	for _, prereq := range decision.Prerequisites {
-		edge, ok := edges[prereq.Occurrence]
-		if !ok || edge.DependsOn != prereq.DependsOn {
-			return refuseAcceptance(RefusalEdgeChanged)
-		}
-		if prereq.Outcome == factory.PrereqCode {
-			if _, err := c.Store.AcceptanceDecision(ctx, prereq.PrereqAcceptance); err != nil {
-				if errors.Is(err, store.ErrNotFound) {
-					return refuseAcceptance(RefusalPrereqUnknown)
-				}
-				return err
-			}
-			head, err := c.Store.AcceptanceHead(ctx, prereq.EndpointRepo, prereq.EndpointIssue)
-			if err != nil || head != prereq.PrereqAcceptance {
-				if err != nil && !errors.Is(err, store.ErrNotFound) {
-					return err
-				}
-				return refuseAcceptance(RefusalPrereqStale)
-			}
 		}
 	}
 	return nil
 }
 
-// AdmitInitialAcceptance records the narrowly verified original-creation
-// path: a visible issue whose creation provenance is verified and
-// first-created, posted by the named creator, with creation content
-// version, no lifecycle events and no prerequisites. Factory-posted,
-// imported, edited or prerequisite-bearing issues require explicit human
-// adoption, as do creations without standing policy or a currently
-// code-write-authorized creator. The decision ID is deterministic, so a
-// duplicate creation observation replays one decision; it can neither
-// admit another nor overwrite a later decision. Coordinator-internal:
-// intake calls this on authenticated creation observations.
-func (c *Coordinator) AdmitInitialAcceptance(ctx context.Context, repository int64, issue, creatorID string, creatorWriteAuthorized bool) (factory.Acceptance, error) {
-	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
-	defer stop()
-	if repository <= 0 || issue == "" || creatorID == "" {
-		return factory.Acceptance{}, errors.New("invalid initial acceptance scope")
-	}
-	if c.AcceptanceReads == nil {
-		return factory.Acceptance{}, refuseAcceptance(RefusalSnapshotUnavailable)
-	}
-	evidence, err := c.AcceptanceReads.ReadAcceptanceEvidence(bounded, strconv.FormatInt(repository, 10), issue, nil)
-	if err != nil {
-		var refusal *AcceptanceRefusal
-		if errors.As(err, &refusal) {
-			return factory.Acceptance{}, refusal
-		}
-		return factory.Acceptance{}, err
-	}
-	view := evidence.Issue
-	if view.Index != issue {
-		return factory.Acceptance{}, refuseAcceptance(RefusalIncompleteEvidence)
-	}
-	if !view.Visible {
-		return factory.Acceptance{}, refuseAcceptance(RefusalIssueHidden)
-	}
-	if !view.Verified || !view.FirstCreated || view.PosterID != creatorID {
-		return factory.Acceptance{}, refuseAcceptance(RefusalCreationUnverified)
-	}
-	if view.ContentVer != 0 || view.Lifecycle != 0 {
-		return factory.Acceptance{}, refuseAcceptance(RefusalCreationEdited)
-	}
-	if len(evidence.Dependencies) != 0 {
-		return factory.Acceptance{}, refuseAcceptance(RefusalCreationBlocked)
-	}
-	policy, err := c.Store.RepositoryPolicy(bounded, repository)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return factory.Acceptance{}, refuseAcceptance(RefusalCreationUnauthorized)
-		}
-		return factory.Acceptance{}, err
-	}
-	creator, err := strconv.ParseInt(creatorID, 10, 64)
-	if err != nil || creator <= 0 {
-		return factory.Acceptance{}, refuseAcceptance(RefusalCreationUnverified)
-	}
-	for _, ref := range []factory.ActorBindingRef{policy.Publish, policy.Create, policy.Review, policy.Merge} {
-		if ref.ActorID == creator {
-			return factory.Acceptance{}, refuseAcceptance(RefusalCreationFactory)
-		}
-	}
-	if !creatorWriteAuthorized {
-		return factory.Acceptance{}, refuseAcceptance(RefusalCreationUnauthorized)
-	}
-	decision := factory.Acceptance{
-		ID: factory.InitialAcceptanceID(repository, issue), Repository: repository, IssueIndex: issue,
-		Approver: creator, NativeRev: evidence.Revision, Initial: true,
-		TitleDigest: view.TitleDigest, ContentDigest: view.ContentDigest, ContentVersion: view.ContentVer,
-	}
-	if err := decision.Validate(); err != nil {
-		return factory.Acceptance{}, err
-	}
-	if err := c.Store.AdmitAcceptanceDecision(bounded, decision); err != nil {
-		return factory.Acceptance{}, err
-	}
-	return decision, nil
-}
-
-// AcceptanceValidity is the assessed state of one issue's current
-// acceptance: the head decision, whether it is still valid, and every
-// reason it is not. Reasons name changed dimensions, never evidence bytes.
-type AcceptanceValidity struct {
-	Acceptance *factory.Acceptance `json:"acceptance,omitempty"`
-	Reasons    []string            `json:"reasons,omitempty"`
-	Revision   int64               `json:"revision"`
-	Withdrawn  bool                `json:"withdrawn,omitempty"`
-	Valid      bool                `json:"valid"`
-}
-
-// AcceptanceStatus assesses whether the current acceptance for one native
-// issue is still valid: withdrawn heads fail, and a fresh bracket must
-// still match every recorded objective revision, selected source and edge
-// occurrence, with code prerequisite routes still at their recorded
-// revision. Restored text does not reactivate: versions and occurrences
-// retain the distinction. Read-only: it records no decision.
-func (c *Coordinator) AcceptanceStatus(ctx context.Context, repository int64, issue string) (AcceptanceValidity, error) {
-	status, _, err := c.acceptanceStatus(ctx, repository, issue)
-	return status, err
-}
-
-func (c *Coordinator) acceptanceStatus(ctx context.Context, repository int64, issue string) (AcceptanceValidity, AcceptanceEvidence, error) {
-	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
-	defer stop()
-	index := mustIssueIndex(issue)
-	if repository <= 0 || index <= 0 {
-		return AcceptanceValidity{}, AcceptanceEvidence{}, errors.New("invalid acceptance scope")
-	}
-	head, err := c.Store.AcceptanceHead(bounded, repository, index)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return AcceptanceValidity{Reasons: []string{"no_acceptance"}}, AcceptanceEvidence{}, nil
-		}
-		return AcceptanceValidity{}, AcceptanceEvidence{}, err
-	}
-	decision, err := c.Store.AcceptanceDecision(bounded, head)
-	if err != nil {
-		return AcceptanceValidity{}, AcceptanceEvidence{}, err
-	}
-	status := AcceptanceValidity{Acceptance: &decision}
-	if withdrawn, _, err := c.Store.AcceptanceWithdrawn(bounded, repository, index, head); err != nil {
-		return AcceptanceValidity{}, AcceptanceEvidence{}, err
-	} else if withdrawn {
-		status.Withdrawn = true
-		status.Reasons = []string{"withdrawn"}
-		return status, AcceptanceEvidence{}, nil
-	}
-	if c.AcceptanceReads == nil {
-		return AcceptanceValidity{}, AcceptanceEvidence{}, refuseAcceptance(RefusalSnapshotUnavailable)
-	}
-	evidence, err := c.readAcceptanceEvidence(bounded, decision)
-	if err != nil {
-		return AcceptanceValidity{}, AcceptanceEvidence{}, err
-	}
-	status.Revision = evidence.Revision
-	status.Reasons = assessAcceptance(decision, evidence)
-	// Code prerequisite routes revalidate against the endpoint's current
-	// head; a changed approved revision invalidates the dependent
-	// relation even when the issue body is unchanged.
-	for _, prereq := range decision.Prerequisites {
-		if prereq.Outcome != factory.PrereqCode {
-			continue
-		}
-		head, err := c.Store.AcceptanceHead(bounded, prereq.EndpointRepo, prereq.EndpointIssue)
-		if err != nil || head != prereq.PrereqAcceptance {
-			if err != nil && !errors.Is(err, store.ErrNotFound) {
-				return AcceptanceValidity{}, AcceptanceEvidence{}, err
-			}
-			status.Reasons = append(status.Reasons, RefusalPrereqStale)
-		}
-	}
-	status.Valid = len(status.Reasons) == 0
-	if status.Valid {
-		status.Reasons = nil
-	}
-	return status, evidence, nil
-}
-
-// assessAcceptance compares one recorded decision against fresh evidence.
-// Unlike admission, the global revision is an ordering guard only: a
-// changed revision alone requires fresh reads, not human readoption.
-func assessAcceptance(decision factory.Acceptance, evidence AcceptanceEvidence) []string {
-	var reasons []string
-	issue := evidence.Issue
-	if issue.Index != decision.IssueIndex || evidence.Revision < 1 {
-		return []string{RefusalIncompleteEvidence}
-	}
-	if !issue.Visible {
-		return []string{RefusalIssueHidden}
-	}
-	if issue.TitleDigest != decision.TitleDigest || issue.ContentDigest != decision.ContentDigest || issue.ContentVer != decision.ContentVersion {
-		reasons = append(reasons, RefusalObjectiveChanged)
-	}
-	comments := make(map[string]AcceptanceComment, len(evidence.Comments))
-	for _, comment := range evidence.Comments {
-		comments[comment.ID] = comment
-	}
-	for _, section := range [][]factory.SelectedSource{decision.Sources, decision.Resolutions} {
-		for _, source := range section {
-			comment, ok := comments[source.ID]
-			switch {
-			case !ok:
-				reasons = append(reasons, RefusalSourceMissing)
-			case !comment.Visible:
-				reasons = append(reasons, RefusalSourceHidden)
-			case comment.Digest != source.Digest || comment.ContentVer != source.ContentVersion:
-				reasons = append(reasons, RefusalSourceChanged)
-			}
-		}
-	}
-	edges := make(map[string]AcceptanceEdge, len(evidence.Dependencies))
-	for _, edge := range evidence.Dependencies {
-		if !edge.Visible {
-			reasons = append(reasons, RefusalEdgeHidden)
-			continue
-		}
-		edges[edge.Occurrence] = edge
-	}
-	if len(edges) != len(decision.Prerequisites) {
-		reasons = append(reasons, RefusalEdgeChanged)
-	} else {
-		for _, prereq := range decision.Prerequisites {
-			edge, ok := edges[prereq.Occurrence]
-			if !ok || edge.DependsOn != prereq.DependsOn {
-				reasons = append(reasons, RefusalEdgeChanged)
-				break
-			}
-		}
-	}
-	return reasons
-}
-
-// WithdrawAcceptance records a current maintainer's explicit withdrawal of
-// the head acceptance for one native issue. The withdrawer is the
-// host-admitted caller, recorded for attribution. Withdrawing a superseded
-// decision is stale; a later acceptance advances past the latch.
-func (c *Coordinator) WithdrawAcceptance(ctx context.Context, commandID, principal string, repository, issue int64, decision string, withdrawer int64) (WithdrawalReceipt, error) {
-	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
-	defer stop()
-	if repository <= 0 || issue <= 0 || decision == "" || withdrawer <= 0 {
-		return WithdrawalReceipt{}, errors.New("invalid acceptance withdrawal")
-	}
-	target := "repository/" + strconv.FormatInt(repository, 10) + "/issue/" + strconv.FormatInt(issue, 10) + "/withdrawal"
-	payload := `{"decision":` + strconv.Quote(decision) + `}`
-	cmd := factory.Command{
-		ID: commandID, Type: factory.CommandWithdrawal, Target: target, Principal: principal,
-		Payload: payload, Digest: factory.SettingsDigest(factory.CommandWithdrawal, target, payload),
-	}
-	if err := cmd.Validate(); err != nil {
-		return WithdrawalReceipt{}, err
-	}
-	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
-	if err != nil {
-		return WithdrawalReceipt{}, err
-	}
-	if !created {
-		return replayWithdrawal(stored)
-	}
-	if err = c.Store.WithdrawAcceptanceDecision(bounded, repository, issue, decision, withdrawer); err != nil {
-		if errors.Is(err, store.ErrStaleRevision) {
-			_ = c.Store.FinishFactoryCommand(bounded, cmd.ID, `{"error":"stale_revision"}`, time.Now())
-		}
-		return WithdrawalReceipt{}, err
-	}
-	receipt := WithdrawalReceipt{CommandID: cmd.ID, Decision: decision, Withdrawn: true,
-		Publications: c.cancelAcceptancePublications(bounded, repository, issue, decision),
-		Merges:       c.cancelAcceptanceMerges(bounded, repository, issue, decision)}
-	outcome, err := json.Marshal(receipt)
-	if err != nil {
-		return WithdrawalReceipt{}, err
-	}
-	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
-		return WithdrawalReceipt{}, err
-	}
-	return receipt, nil
-}
-
-func replayWithdrawal(stored factory.Command) (WithdrawalReceipt, error) {
-	if stored.Finished == "" {
-		return WithdrawalReceipt{}, ErrCommandRunning
-	}
-	var failure struct {
-		Error string `json:"error"`
-	}
-	if err := json.Unmarshal([]byte(stored.Outcome), &failure); err != nil {
-		return WithdrawalReceipt{}, err
-	}
-	if failure.Error == "stale_revision" {
-		return WithdrawalReceipt{}, store.ErrStaleRevision
-	}
-	var receipt WithdrawalReceipt
-	if err := json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
-		return WithdrawalReceipt{}, err
-	}
-	return receipt, nil
+func mustIssueIndex(index string) int64 {
+	value, _ := strconv.ParseInt(index, 10, 64)
+	return value
 }

@@ -14,6 +14,7 @@ import (
 	extensions "forgejo.org/extension-sdk"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 // BackgroundOperations is the publisher's narrow native-operation
@@ -756,14 +757,7 @@ func OperationNotAfter(now time.Time) int64 {
 	return now.Add(operationLifetime).Unix()
 }
 
-// StatusError reports a bounded native dispatch status with its bounded
-// body. Callers map terminal statuses without retrying and reconcile
-// after the rest.
-type StatusError struct {
-	Body   string
-	Status int
-}
-
-func (e *StatusError) Error() string {
-	return "background request returned status " + strconv.Itoa(e.Status)
-}
+// StatusError is owned by the Forgejo publication successor package;
+// this alias preserves the predecessor's API until the package move
+// completes.
+type StatusError = forgejopublish.StatusError
