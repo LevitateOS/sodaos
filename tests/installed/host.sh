@@ -12,7 +12,7 @@ podman() { command podman --remote=false "$@"; }
 phase=pre-activation
 if [[ -e /etc/soda/activated ]]; then phase=activated; fi
 /usr/libexec/soda/soda-host-probes host-content "$phase"
-rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale git python3 tar gzip
+rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale git tar gzip
 # Fedora may satisfy these capabilities with versioned/replacement packages.
 rpm -q --whatprovides nodejs
 rpm-ostree status --json | /usr/libexec/soda/soda-host-probes host-deployments

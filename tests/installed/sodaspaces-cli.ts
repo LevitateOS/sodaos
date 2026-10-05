@@ -48,7 +48,7 @@ export async function exerciseSelectedCLIs(
         request,
         project,
         actor,
-        `python3 -I -c 'import subprocess,json; print(json.dumps({"tmux":subprocess.check_output(["tmux","-V"],text=True).strip(),"terminfo":[subprocess.run(["infocmp",t],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0 for t in ["screen-256color","xterm-256color"]]}))'`
+        `t=$(tmux -V) || exit 1; case "$t" in *'"'*|*\\\\*) exit 1;; esac; command -v infocmp >/dev/null || exit 1; infocmp screen-256color >/dev/null 2>&1 && a=true || a=false; infocmp xterm-256color >/dev/null 2>&1 && b=true || b=false; printf '{"tmux": "%s", "terminfo": [%s, %s]}\\n' "$t" "$a" "$b"`
       ),
       session.facts.term
     );

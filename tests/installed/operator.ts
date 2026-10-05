@@ -88,7 +88,7 @@ if (import.meta.main) {
 
     stage = 'native target and core origin snapshot before stock observations';
     const originProbe =
-      'import json; x=json.load(open("/etc/soda/dashboard.json")); print(json.dumps({k:x[k] for k in ("forgejo_url","forgejo_internal_url")},sort_keys=True))';
+      'json=$(cat /etc/soda/dashboard.json) || exit 1; case "$json" in \'{\'*\'}\') ;; *) exit 1;; esac; url=$(printf \'%s\' "$json" | sed -n \'s/.*"forgejo_url":"\\([^"]*\\)".*/\\1X/p\'); [ -n "$url" ] || exit 1; url=${url%X}; internal=$(printf \'%s\' "$json" | sed -n \'s/.*"forgejo_internal_url":"\\([^"]*\\)".*/\\1X/p\'); [ -n "$internal" ] || exit 1; internal=${internal%X}; printf \'{"forgejo_internal_url": "%s", "forgejo_url": "%s"}\\n\' "$internal" "$url"';
     await page.waitForFunction(() =>
       [window, ...[...document.querySelectorAll('iframe')].map((frame) => frame.contentWindow)].some(
         (candidate) => candidate?.cockpit
@@ -102,7 +102,7 @@ if (import.meta.main) {
       const c = candidate.cockpit;
       return {
         host: (await c.spawn(['hostname'], {err: 'message'})).trim(),
-        origins: await c.spawn(['python3', '-c', script], {err: 'message'}),
+        origins: await c.spawn(['sh', '-c', script], {err: 'message'}),
       };
     }, originProbe);
     assert.equal(before.host, hostname);
@@ -172,7 +172,7 @@ if (import.meta.main) {
     );
     assert.equal(
       await stock.evaluate(
-        async (script) => await window.cockpit.spawn(['python3', '-c', script], {err: 'message'}),
+        async (script) => await window.cockpit.spawn(['sh', '-c', script], {err: 'message'}),
         originProbe
       ),
       before.origins,

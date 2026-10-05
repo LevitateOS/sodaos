@@ -79,30 +79,51 @@ export async function inspectNativeTerminal(
 ) {
   assert(Number.isSafeInteger(facts.pid) && facts.pid > 0 && /^\d+$/.test(facts.start));
   assert(terminalID(session.id));
-  const code = `import os,pwd,json,subprocess,stat
-from pathlib import Path
-identifier=${JSON.stringify(session.id)}
-unit='soda-terminal-'+identifier+'.service'
-def read(path):
- try: return Path(path).read_text()
- except FileNotFoundError: return None
-def inspect(path):
- try: return os.stat(path,follow_symlinks=False)
- except FileNotFoundError: return None
-p=read('/proc/${facts.pid}/stat')
-record=inspect('/run/soda-terminals/'+identifier)
-sock=inspect('/run/soda-terminals/'+identifier+'/screen/socket')
-events=read('/sys/fs/cgroup/system.slice/'+unit+'/cgroup.events')
-properties='LoadState,ActiveState,Description,FragmentPath'
-result=subprocess.run(['systemctl','show',unit,'--property='+properties],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=3)
-assert len(result.stdout)<4096
-fields=dict(line.split('=',1) for line in result.stdout.decode('ascii').splitlines())
-assert set(fields)==set(properties.split(',')) and (result.returncode==0 or fields['LoadState']=='not-found')
-assert fields['LoadState']=='not-found' or (fields['Description']=='Soda terminal '+identifier and fields['FragmentPath']=='/run/systemd/transient/'+unit)
-print(json.dumps(dict(login=pwd.getpwuid(os.getuid()).pw_name,start=p.rsplit(') ',1)[1].split()[19] if p else None,record=record is not None,socket=sock is not None,owned_socket=bool(sock and stat.S_ISSOCK(sock.st_mode) and sock.st_uid==os.getuid()),populated=dict(row.split() for row in events.splitlines()).get('populated') if events is not None else '0',state=fields['ActiveState'])))`;
+  const code = `identifier=${JSON.stringify(session.id)}
+unit="soda-terminal-$identifier.service"
+if { [ ! -e /proc/${facts.pid}/stat ] && [ ! -L /proc/${facts.pid}/stat ]; } || { [ -L /proc/${facts.pid}/stat ] && [ ! -e /proc/${facts.pid}/stat ]; }; then
+  start=null
+elif [ -f /proc/${facts.pid}/stat ] && [ -r /proc/${facts.pid}/stat ]; then
+  p=$(cat /proc/${facts.pid}/stat)
+  rest=\`echo "$p" | sed 's/.*) //'\`
+  [ "$rest" != "$p" ] || exit 1
+  set -f; set -- $rest; set +f
+  [ $# -ge 20 ] || exit 1
+  start="\\"\${20}\\""
+else
+  exit 1
+fi
+if [ -e /run/soda-terminals/$identifier ] || [ -L /run/soda-terminals/$identifier ]; then record=true; else record=false; fi
+sock_path="/run/soda-terminals/$identifier/screen/socket"
+if [ -e "$sock_path" ] || [ -L "$sock_path" ]; then socket=true; else socket=false; fi
+if [ ! -L "$sock_path" ] && [ -S "$sock_path" ] && [ "$(stat -c %u "$sock_path")" = "$(id -u)" ]; then owned=true; else owned=false; fi
+ev_path="/sys/fs/cgroup/system.slice/$unit/cgroup.events"
+if { [ ! -e "$ev_path" ] && [ ! -L "$ev_path" ]; } || { [ -L "$ev_path" ] && [ ! -e "$ev_path" ]; }; then
+  populated="\\"0\\""
+elif [ -f "$ev_path" ] && [ -r "$ev_path" ]; then
+  populated=$(awk '$1=="populated"{v=$2} END{print v}' "$ev_path")
+  if [ -n "$populated" ]; then populated="\\"$populated\\""; else populated=null; fi
+else
+  exit 1
+fi
+out=$(timeout 3 systemctl show "$unit" --property=LoadState,ActiveState,Description,FragmentPath 2>/dev/null); rc=$?
+[ "$(printf '%s\\n' "$out" | wc -c)" -lt 4096 ] || exit 1
+printf '%s' "$out" | tr -d '\\t\\n' | LC_ALL=C grep -q '[^ -~]' && exit 1
+[ "$(printf '%s\\n' "$out" | wc -l)" = 4 ] || exit 1
+load=$(printf '%s\\n' "$out" | sed -n 's/^LoadState=//p')
+active=$(printf '%s\\n' "$out" | sed -n 's/^ActiveState=//p')
+desc=$(printf '%s\\n' "$out" | sed -n 's/^Description=//p')
+frag=$(printf '%s\\n' "$out" | sed -n 's/^FragmentPath=//p')
+[ "$(printf '%s\\n' "$out" | grep -c '^LoadState=')" = 1 ] || exit 1
+[ "$(printf '%s\\n' "$out" | grep -c '^ActiveState=')" = 1 ] || exit 1
+[ "$(printf '%s\\n' "$out" | grep -c '^Description=')" = 1 ] || exit 1
+[ "$(printf '%s\\n' "$out" | grep -c '^FragmentPath=')" = 1 ] || exit 1
+{ [ "$rc" = 0 ] || [ "$load" = not-found ]; } || exit 1
+{ [ "$load" = not-found ] || { [ "$desc" = "Soda terminal $identifier" ] && [ "$frag" = "/run/systemd/transient/$unit" ]; }; } || exit 1
+printf '{"login": "%s", "start": %s, "record": %s, "socket": %s, "owned_socket": %s, "populated": %s, "state": "%s"}' "$(id -un)" "$start" "$record" "$socket" "$owned" "$populated" "$active"`;
   const deadline = Date.now() + (ended ? 15000 : 1);
   do {
-    const found = object(JSON.parse(read('python3 -I -c ' + quote(code))));
+    const found = object(JSON.parse(read('sh -c ' + quote(code))));
     assert.equal(found.login, facts.login, 'Native observer and browser must observe the same original account');
     if (
       ended
@@ -178,9 +199,9 @@ export function observeMatrixShell(page: Page) {
     async shell(session: MatrixSession, initialize: boolean): Promise<MatrixFacts> {
       const marker = 'SODA_FACT_' + crypto.randomUUID().replaceAll('-', '');
       buffers.delete(session.id);
-      const code = `import os,pwd,json; p=os.getppid(); print(${JSON.stringify(marker + ':')}+json.dumps(dict(pid=p,start=open('/proc/%d/stat'%p).read().split()[21],login=pwd.getpwuid(os.getuid()).pw_name,marker=os.environ.get('SODA_MATRIX_MARKER',''),tty=os.isatty(0),term=os.environ.get('TERM',''))))`;
+      const code = `(p=$$; s=$(cat /proc/$p/stat) || exit 1; set -f; set -- $s; set +f; [ $# -ge 22 ] || exit 1; [ -t 0 ] && tty=true || tty=false; printf '%s{"pid": %s, "start": "%s", "login": "%s", "marker": "%s", "tty": %s, "term": "%s"}\\n' ${JSON.stringify(marker + ':')} "$p" "\${22}" "$(id -un)" "$SODA_MATRIX_MARKER" "$tty" "$TERM")`;
       const command =
-        (initialize ? 'export SODA_MATRIX_MARKER=' + quote(session.name) + '; ' : '') + 'python3 -I -c ' + quote(code);
+        (initialize ? 'export SODA_MATRIX_MARKER=' + quote(session.name) + '; ' : '') + 'sh -c ' + quote(code);
       const screen = page.locator('.soda-workspace-terminal:visible .xterm-helper-textarea');
       await screen.focus();
       await page.keyboard.insertText(command);

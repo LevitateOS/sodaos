@@ -6,7 +6,14 @@ set -euo pipefail
 : "${SODA_NATIVE_VALIDATE:?Explicit native validation authorization required}"
 : "${PROJECT_IP:?}" "${ISOLATION_IP:?Live second-project address required}" "${ALICE:?}" "${BOB:?}" "${SSH_CONFIG:?Pinned private client configuration required}"
 [[ "$SODA_NATIVE_VALIDATE" == soda-test ]]
-python3 -c 'import ipaddress,sys; assert all(ipaddress.ip_address(ip) in ipaddress.ip_network("10.89.0.0/24") for ip in sys.argv[1:])' "$PROJECT_IP" "$ISOLATION_IP"
+in_subnet() {
+  local t=$1 rest
+  case "$t" in 10.89.0.*) rest=${t#10.89.0.};; *) return 1;; esac
+  case "$rest" in ''|*[!0-9]*) return 1;; esac
+  case "$rest" in 0[0-9]*) return 1;; esac
+  [ "$rest" -ge 0 ] && [ "$rest" -le 255 ]
+}
+in_subnet "$PROJECT_IP" && in_subnet "$ISOLATION_IP"
 [[ "$ALICE" == u08-alice-8417 && "$BOB" == u08-bob-8417 ]]
 remote() { local user=$1; shift; ssh -F "$SSH_CONFIG" -o BatchMode=yes -o ForwardAgent=no "$user@$PROJECT_IP" "$@"; }
 a=$(remote "$ALICE" 'mise where node')
@@ -17,22 +24,20 @@ probe='node -p '\''JSON.stringify({path:process.execPath,inode:require("fs").sta
 a=$(remote "$ALICE" "$probe")
 b=$(remote "$BOB" "$probe")
 [[ "$a" == "$b" ]]
-python3 -c 'import json,sys; p=json.loads(sys.argv[1]); assert p["path"]=="/opt/mise/installs/node/24.20.0/bin/node" and p["uid"]==0 and p["version"]=="v24.20.0"' "$a"
-remote "$BOB" 'python3 -' <<'PY'
-import errno, os
-from pathlib import Path
-binary=Path('/opt/mise/installs/node/24.20.0/bin/node')
-for p in [binary,*binary.parents,Path('/opt/mise/shims'),Path('/etc/mise'),Path('/etc/mise/config.toml')]:
-    assert not os.access(p,os.W_OK), 'Ordinary member can replace shared tool/configuration'
-try:
-    fd=os.open(binary,os.O_WRONLY)  # No truncation/write, even on unexpected access.
-except OSError as error:
-    assert error.errno==errno.EACCES
-else:
-    os.close(fd)
-    raise AssertionError('Ordinary member obtained write access to administrator tool')
-PY
-run="u08-shared-$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
+case "$a" in *'"path":"/opt/mise/installs/node/24.20.0/bin/node"'*) ;; *) echo 'shared node identity mismatch' >&2; exit 1;; esac
+case "$a" in *'"uid":0'[},]*) ;; *) echo 'shared node identity mismatch' >&2; exit 1;; esac
+case "$a" in *'"version":"v24.20.0"'*) ;; *) echo 'shared node identity mismatch' >&2; exit 1;; esac
+remote "$BOB" 'sh -s' <<'SH'
+for p in /opt/mise/installs/node/24.20.0/bin/node /opt/mise/installs/node/24.20.0/bin /opt/mise/installs/node/24.20.0 /opt/mise/installs/node /opt/mise/installs /opt/mise /opt / /opt/mise/shims /etc/mise /etc/mise/config.toml; do
+  if [ -w "$p" ]; then echo "ordinary member can replace $p"; exit 1; fi
+done
+# O_WRONLY open attempt without truncation or write, even on unexpected access.
+if err=$(LC_ALL=C sh -c 'exec 3>>/opt/mise/installs/node/24.20.0/bin/node' 2>&1); then
+  echo 'ordinary member obtained write access to administrator tool'; exit 1
+fi
+printf '%s' "$err" | grep -q 'Permission denied' || exit 1
+SH
+run="u08-shared-$(od -A n -t x1 -N 8 /dev/urandom | tr -d ' \n')"
 remote "$ALICE" "umask 0002; mkdir -m2770 /srv/project/shared/$run; printf '%s\n' alice > /srv/project/shared/$run/members"
 remote "$BOB" "test \"\$(readlink -f ~/shared/$run/members)\" = /srv/project/shared/$run/members; grep -qx alice ~/shared/$run/members; printf '%s\n' bob >> ~/shared/$run/members"
 expected=$'alice\nbob'
