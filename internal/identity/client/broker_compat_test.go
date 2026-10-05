@@ -209,7 +209,7 @@ func TestRustBrokerCompatibility(t *testing.T) {
 		Label: "compat", Email: "soda-tester@example.invalid", Plan: "plus",
 		Generation: 1, State: identity.Ready,
 	}
-	if err := db.IdentitySaveConnection(ctx, conn, []byte(compatCredential)); err != nil {
+	if err := db.SeedIdentityConnection(ctx, conn, []byte(compatCredential)); err != nil {
 		t.Fatal(err)
 	}
 

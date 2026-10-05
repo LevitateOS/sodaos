@@ -13,7 +13,7 @@ func TestIdentityConnectionRoundTripAndValidation(t *testing.T) {
 	ctx := t.Context()
 	c := identity.Connection{ProviderID: identity.Codex, ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
 	credential := []byte(`{"tokens":{"refresh_token":"synthetic-secret"}}`)
-	if err := s.IdentitySaveConnection(ctx, c, credential); err != nil {
+	if err := s.SeedIdentityConnection(ctx, c, credential); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.IdentityConnection(ctx, c.ID)
@@ -34,16 +34,16 @@ func TestIdentityConnectionRoundTripAndValidation(t *testing.T) {
 	}
 	bad := c
 	bad.ProviderID = "unknown"
-	if err = s.IdentitySaveConnection(ctx, bad, credential); !errors.Is(err, identity.ErrDenied) {
+	if err = s.SeedIdentityConnection(ctx, bad, credential); !errors.Is(err, identity.ErrDenied) {
 		t.Fatal("unknown provider admitted", err)
 	}
 	empty := c
 	empty.ID = "empty-credential"
-	if err = s.IdentitySaveConnection(ctx, empty, []byte(`not json`)); !errors.Is(err, identity.ErrDenied) {
+	if err = s.SeedIdentityConnection(ctx, empty, []byte(`not json`)); !errors.Is(err, identity.ErrDenied) {
 		t.Fatal("malformed credential admitted", err)
 	}
 	unkeyed, _ := postgresFixture(t, nil)
-	if err = unkeyed.IdentitySaveConnection(ctx, c, credential); !errors.Is(err, ErrGrantKey) {
+	if err = unkeyed.SeedIdentityConnection(ctx, c, credential); !errors.Is(err, ErrGrantKey) {
 		t.Fatal("unkeyed save admitted", err)
 	}
 }
@@ -52,11 +52,11 @@ func TestIdentityGrantRoundTrip(t *testing.T) {
 	s, _ := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
 	ctx := t.Context()
 	c := identity.Connection{ProviderID: identity.Codex, ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
-	if err := s.IdentitySaveConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic"}}`)); err != nil {
+	if err := s.SeedIdentityConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic"}}`)); err != nil {
 		t.Fatal(err)
 	}
 	g := identity.Grant{ID: "grant-1", ConnectionID: c.ID, UserID: 2, ProjectID: "project"}
-	if err := s.IdentitySaveGrant(ctx, g); err != nil {
+	if err := s.SeedIdentityGrant(ctx, g); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.IdentityGrant(ctx, g.ID)
@@ -69,10 +69,10 @@ func TestIdentityAuditTrailIsImmutableAndCredentialFree(t *testing.T) {
 	s, _ := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
 	ctx := t.Context()
 	c := identity.Connection{ProviderID: identity.Codex, ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
-	if err := s.IdentitySaveConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic-secret"}}`)); err != nil {
+	if err := s.SeedIdentityConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic-secret"}}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.IdentitySaveGrant(ctx, identity.Grant{ID: "grant-1", ConnectionID: c.ID, UserID: 2, ProjectID: "project"}); err != nil {
+	if err := s.SeedIdentityGrant(ctx, identity.Grant{ID: "grant-1", ConnectionID: c.ID, UserID: 2, ProjectID: "project"}); err != nil {
 		t.Fatal(err)
 	}
 	var actions string
@@ -95,7 +95,7 @@ func TestIdentityAuditFailureRollsBackSave(t *testing.T) {
 	s, _ := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
 	ctx := t.Context()
 	c := identity.Connection{ProviderID: identity.Codex, ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
-	if err := s.IdentitySaveConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic"}}`)); err != nil {
+	if err := s.SeedIdentityConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic"}}`)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.db.Exec(`CREATE OR REPLACE FUNCTION fail_identity_audit() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'audit unavailable'; END $$ LANGUAGE plpgsql`); err != nil {
@@ -104,7 +104,7 @@ func TestIdentityAuditFailureRollsBackSave(t *testing.T) {
 	if _, err := s.db.Exec(`CREATE TRIGGER failed_identity_audit BEFORE INSERT ON identity_events FOR EACH ROW EXECUTE FUNCTION fail_identity_audit()`); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.IdentitySaveGrant(ctx, identity.Grant{ID: "grant-1", ConnectionID: c.ID, UserID: 2, ProjectID: "project"}); err == nil {
+	if err := s.SeedIdentityGrant(ctx, identity.Grant{ID: "grant-1", ConnectionID: c.ID, UserID: 2, ProjectID: "project"}); err == nil {
 		t.Fatal("unaudited grant committed")
 	}
 	if _, err := s.IdentityGrant(ctx, "grant-1"); err != ErrNotFound {

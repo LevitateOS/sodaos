@@ -473,7 +473,7 @@ func (fx *st15Fixture) setupHostStack() error {
 		return errors.New("provider credential unusable")
 	}
 	conn := identity.Connection{ID: "st15-muse", ProviderID: identity.Muse, OwnerID: fx.cfg.CreatorID, Label: "st15-fixture", State: identity.Ready, Generation: 1}
-	if err = brokerDB.IdentitySaveConnection(fx.ctx, conn, auth); err != nil {
+	if err = brokerDB.SeedIdentityConnection(fx.ctx, conn, auth); err != nil {
 		return err
 	}
 	runtimeSocket := fx.cfg.BrokerSocket + ".runtime"
