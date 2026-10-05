@@ -2063,7 +2063,10 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             run_deadline,
         ) {
             Ok(binding) => binding,
-            Err(_) => return self.abandon_run(&receipt, "reserve-refused", deadline),
+            Err(cause) => {
+                eprintln!("factory run {} reserve refused: {cause:?}", req.run.id);
+                return self.abandon_run(&receipt, "reserve-refused", deadline);
+            }
         };
         receipt.binding = Some(binding.clone());
         if let Some(stopped) = self.refresh_stopped(&mut receipt, deadline)? {
