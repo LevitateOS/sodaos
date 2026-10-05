@@ -20,15 +20,10 @@ use soda_release_build::forgejo::{forgejo_build_args, ForgejoToolchain, FORGEJO_
 use soda_release_build::oci::{inspect_oci, inspect_oci_content};
 use soda_release_build::oci_layout::inspect_oci_layout;
 use soda_release_build::production::{Production, ResolvedInput};
-use soda_release_build::progress::{
-    build_exit_code, new_build_progress, BuildExecution, SharedBuffer,
-};
-use soda_release_build::{json_go, Error};
+use soda_release_build::json_go;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 
 const FIXTURE_REVISION: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -426,65 +421,6 @@ fn oracle_production_sequence() {
     assert_eq!(
         app_inputs.replace(&root_str, "$ROOT"),
         oracle::APP_INPUTS_JSON
-    );
-}
-
-#[test]
-fn oracle_progress_bytes() {
-    for key in [
-        "SODA_BUILD_START_NS",
-        "SODA_BUILD_TIMING_LOG",
-        "SODA_BUILD_CHILD",
-    ] {
-        std::env::set_var(key, "");
-    }
-    let mut progress = new_build_progress("/repo", "Release fixture").unwrap();
-    let now_ms = Arc::new(AtomicU64::new(0));
-    let now_clone = now_ms.clone();
-    progress.now = Box::new(move || Duration::from_millis(now_clone.load(Ordering::SeqCst)));
-    let output = SharedBuffer::new();
-    progress.stderr = Box::new(output.clone());
-    let dir = scratch("progress");
-    let timing_log = dir.join("timing.log").to_string_lossy().into_owned();
-    progress.create_log(&timing_log).unwrap();
-    progress.phase("P3").unwrap();
-    now_ms.store(2000, Ordering::SeqCst);
-    progress.next("Compile once").unwrap();
-    now_ms.store(5000, Ordering::SeqCst);
-    progress.phase("P4").unwrap();
-    now_ms.store(9000, Ordering::SeqCst);
-    let failure = Error::msg("failure");
-    progress.finish(Some(&failure)).unwrap();
-    let tmp = dir.to_string_lossy().into_owned();
-    assert_eq!(output.text().replace(&tmp, "$TMP"), oracle::PROGRESS_BYTES);
-}
-
-#[test]
-fn oracle_exit_codes() {
-    assert_eq!(build_exit_code(None), oracle::EXIT_NIL);
-    let dir = std::env::temp_dir().to_string_lossy().into_owned();
-    let mut execution = BuildExecution::default();
-    let run_err = execution
-        .execute(&dir, "sh", &[String::from("-c"), String::from("exit 7")])
-        .unwrap_err();
-    assert_eq!(build_exit_code(Some(&run_err)), oracle::EXIT_7);
-    let sig_err = execution
-        .execute(
-            &dir,
-            "sh",
-            &[String::from("-c"), String::from("kill -TERM $$")],
-        )
-        .unwrap_err();
-    assert_eq!(build_exit_code(Some(&sig_err)), oracle::EXIT_SIGTERM);
-    let mut cancelled = BuildExecution::default();
-    cancelled.cancelled.store(true, Ordering::SeqCst);
-    let cancel_err = cancelled
-        .execute(&dir, "sh", &[String::from("-c"), String::from("exit 0")])
-        .unwrap_err();
-    assert_eq!(build_exit_code(Some(&cancel_err)), oracle::EXIT_CANCELED);
-    assert_eq!(
-        build_exit_code(Some(&Error::msg("boom"))),
-        oracle::EXIT_GENERIC
     );
 }
 

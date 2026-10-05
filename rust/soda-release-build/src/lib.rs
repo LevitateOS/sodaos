@@ -8,16 +8,12 @@
 //! toolchain/exec internals. Pure validators are reused from
 //! `soda-build-tools`; this crate owns the IO, network, and pipeline logic.
 //!
-//! Two deliberate deviations from the Go owner:
+//! One deliberate deviation from the Go owner:
 //!
 //! - File modes passed to creators are applied with an explicit chmod, so
 //!   outputs are exact under any umask (identical to Go under a standard
 //!   umask, where the tests pin them).
-//! - `BuildExecution` and the download/fetch paths take no `context.Context`;
-//!   cancellation is a shared atomic flag instead. Timeouts keep the Go
-//!   owner's fixed durations.
 
-pub mod clock;
 pub mod coreos;
 pub mod coreos_iso;
 pub mod coreos_stream;
@@ -29,13 +25,12 @@ pub mod json_go;
 pub mod oci;
 pub mod oci_layout;
 pub mod production;
-pub mod progress;
 
 use std::io;
 use std::path::Path;
 
 /// Pipeline failure. `message` matches the Go owner's error text; the
-/// structured fields carry what `BuildExitCode` needs.
+/// structured fields carry exit/signal/cancellation detail.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error {
     message: String,

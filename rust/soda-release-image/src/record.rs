@@ -1,6 +1,5 @@
 //! `build_record.go`: candidate content inventory + build receipts.
 
-use std::collections::HashMap;
 use std::fs;
 
 use crate::error::Error;
@@ -251,11 +250,6 @@ pub fn verify_embedded_content_inventory(
             "candidate content inventory differs from host image input",
         )),
     }
-}
-
-#[allow(dead_code)]
-pub fn files_map(files: &[(String, String)]) -> HashMap<String, String> {
-    files.iter().cloned().collect()
 }
 
 #[cfg(test)]
