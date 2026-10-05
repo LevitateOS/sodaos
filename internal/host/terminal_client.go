@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/levitateos/sodaos/internal/host/terminal"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
@@ -28,7 +27,7 @@ func (c *Client) OpenTerminal(ctx context.Context, in TerminalRequest) (*Termina
 	if err != nil {
 		return nil, errors.New("native terminal unavailable")
 	}
-	conn.SetReadLimit(terminal.FrameLimit)
+	conn.SetReadLimit(FrameLimit)
 	body, _ := json.Marshal(in)
 	if err = conn.Write(dialCtx, websocket.MessageText, body); err != nil {
 		conn.CloseNow()
@@ -41,7 +40,7 @@ func (t *Terminal) Send(ctx context.Context, f TerminalFrame) error {
 	if !f.InputValid() {
 		return errors.New("invalid terminal control")
 	}
-	if err := terminal.Write(ctx, t.conn, f); err != nil {
+	if err := Write(ctx, t.conn, f); err != nil {
 		return errors.New("native terminal transport ended")
 	}
 	return nil
