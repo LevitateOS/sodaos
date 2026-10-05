@@ -39,10 +39,11 @@ Hard size rule: prefer production files under 400 LOC; do not grow a production
 `.go` file past 500 LOC—split by noun or phase instead.
 
 `cmd/soda-dashboard` enters through `web` (plus `config`/`store`/`avatar`
-for process startup only). `cmd/soda-host` enters through `host`
-(plus `tailnet`). `web.Server` constructs `auth`/`api` and the
-`factory/control` coordinator; `host.Daemon` wires the persistent
-development executors. `rust/soda-factory` is a thin Unix client of the
+for process startup only). The `soda-host` daemon is the Rust
+`rust/soda-host` binary; `host` keeps the Go Unix client surface plus
+the persistent development executors (until their own cutovers).
+`web.Server` constructs `auth`/`api` and the
+`factory/control` coordinator. `rust/soda-factory` is a thin Unix client of the
 coordinator's private operator endpoint and keeps no database. Do not add
 forwarding packages or compatibility shims for moved code. The host
 Client may re-export `host/terminal` wire types so `web` never imports

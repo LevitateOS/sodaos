@@ -6,38 +6,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
-
-func TestPrepareRoutesRejectUncleanRequests(t *testing.T) {
-	d := testDaemonPtr(&noExec{}, Config{})
-	for _, path := range []string{"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold"} {
-		w := httptest.NewRecorder()
-		d.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("%s accepted GET: %d", path, w.Code)
-		}
-		w = httptest.NewRecorder()
-		d.ServeHTTP(w, httptest.NewRequest(http.MethodPost, path+"?x=1", strings.NewReader("{}")))
-		if w.Code != http.StatusBadRequest {
-			t.Fatalf("%s accepted query: %d", path, w.Code)
-		}
-	}
-}
-
-func TestPrepareRoutesRejectInvalidBodiesBeforeExec(t *testing.T) {
-	n := &noExec{}
-	d := testDaemonPtr(n, Config{})
-	w := httptest.NewRecorder()
-	d.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/prepare", strings.NewReader(`{"preparation":{}}`)))
-	if w.Code != 500 || n.called {
-		t.Fatalf("invalid prepare: status=%d executed=%v", w.Code, n.called)
-	}
-}
 
 func TestPrepareClientConfirmsIdentity(t *testing.T) {
 	c := NewClient("unused")

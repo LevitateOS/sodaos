@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -41,14 +40,5 @@ func TestFactoryExportClientPreservesConfirmedRefusals(t *testing.T) {
 				t.Fatal("unconfirmed server failure became a candidate verdict")
 			}
 		})
-	}
-}
-
-func TestFactoryExportRouteUsesFactoryRuntime(t *testing.T) {
-	d := &Daemon{}
-	w := httptest.NewRecorder()
-	d.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/factory-export", strings.NewReader(`{}`)))
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("export route without runtime returned %d", w.Code)
 	}
 }

@@ -1271,6 +1271,8 @@ name = "soda-host"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "soda-release-build",
+ "soda-release-deliver",
 ]
 
 [[package]]

@@ -541,6 +541,7 @@ pub fn compile_soda_commands(
         "soda-muse",
         "soda-muse-maintain",
         "soda-identity",
+        "soda-host",
     ] {
         production.compile_rust(
             name,

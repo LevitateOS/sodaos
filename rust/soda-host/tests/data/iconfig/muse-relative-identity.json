@@ -1,0 +1,1 @@
+{"bridge":"soda-br0","identity_socket":"relative.sock","image":"img","muse_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","muse_socket":"/run/soda-muse/launch.sock","muse_version":"1.2.3","network":"soda-net","subnet":"10.89.0.0/24"}

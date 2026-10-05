@@ -28,11 +28,11 @@ func (c *captureCreate) Run(_ context.Context, _ []byte, executable string, args
 
 func TestCreateUsesFixedNamespacedRuntimeCapabilities(t *testing.T) {
 	commands := &captureCreate{}
-	d := testDaemon(commands, Config{Network: "soda-projects", Image: "localhost/soda-project-os:dev"})
+	d := testProject(commands, Config{Network: "soda-projects", Image: "localhost/soda-project-os:dev"})
 	id := "p123456789012345678901234"
 	profile := testProfile()
 	encoded, _ := json.Marshal(profile)
-	if _, err := d.Project.Create(context.Background(), project.Create{ID: id, Owner: 2, Profile: &profile}); err == nil {
+	if _, err := d.Create(context.Background(), project.Create{ID: id, Owner: 2, Profile: &profile}); err == nil {
 		t.Fatal("failed native creation reported success")
 	}
 	want := []string{
@@ -55,16 +55,16 @@ func (n *noExec) Run(context.Context, []byte, string, ...string) ([]byte, error)
 
 func TestInvalidProjectNeverExecutes(t *testing.T) {
 	n := &noExec{}
-	d := testDaemon(n, Config{})
-	if _, _, err := d.Project.Inspect(context.Background(), "../../other"); err == nil || n.called {
+	d := testProject(n, Config{})
+	if _, _, err := d.Inspect(context.Background(), "../../other"); err == nil || n.called {
 		t.Fatal("untrusted project reached executor")
 	}
 }
 
 func TestInvalidAccountNeverExecutes(t *testing.T) {
 	n := &noExec{}
-	d := testDaemon(n, Config{})
-	if err := d.Project.Account(context.Background(), project.Account{Login: "root;id", Identity: 1, Keys: []string{"x"}}); err == nil || n.called {
+	d := testProject(n, Config{})
+	if err := d.Account(context.Background(), project.Account{Login: "root;id", Identity: 1, Keys: []string{"x"}}); err == nil || n.called {
 		t.Fatal("untrusted account reached executor")
 	}
 }
