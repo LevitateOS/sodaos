@@ -10,16 +10,22 @@ import (
 	"time"
 )
 
-// fakeTool is the PATH-tool double from test_source_checks.py, transcribed
-// verbatim (the Python source escapes \n as \\n inside its literal).
-const fakeTool = `import json, os, pathlib, re, sys
-command = [pathlib.Path(sys.argv[0]).name, *sys.argv[1:]]
-with open(os.environ['COMMAND_LOG'], 'a') as log:
-    log.write(json.dumps({'command': command, 'cwd': os.getcwd(), 'env': {key: os.environ.get(key) for key in ('GOWORK', 'GOFLAGS', 'CGO_ENABLED', 'GOTOOLCHAIN')}}) + '\n')
-if command[:2] == ['go', 'version']:
-    pin = re.search(r'^go (\S+)', pathlib.Path('go.mod').read_text(), re.M).group(1)
-    print(f'go version go{pin} fixture/fixture')
-if ' '.join(command) == os.environ.get('FAIL_COMMAND'): sys.exit(7)
+// fakeTool is the PATH-tool double: POSIX shell that logs its invocation
+// as one JSON object per line, fakes `go version` from go.mod, and fails
+// the FAIL_COMMAND with 7. Argument JSON-escaping covers backslash,
+// double-quote and newline; nothing else in the fixture needs escapes.
+const fakeTool = `name=$(basename "$0")
+json="\"$name\""
+for a in "$@"; do
+	e=$(printf '%s' "$a" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e ':a;N;$!ba;s/\n/\\n/g')
+	json="$json,\"$e\""
+done
+printf '{"command": [%s], "cwd": "%s", "env": {"GOWORK": "%s", "GOFLAGS": "%s", "CGO_ENABLED": "%s", "GOTOOLCHAIN": "%s"}}\n' "$json" "$(pwd -P)" "$GOWORK" "$GOFLAGS" "$CGO_ENABLED" "$GOTOOLCHAIN" >> "$COMMAND_LOG"
+if [ "$name $*" = "go version" ]; then
+	pin=$(sed -n 's/^go //p' go.mod | head -1)
+	echo "go version go$pin fixture/fixture"
+fi
+if [ "$name $*" = "$FAIL_COMMAND" ]; then exit 7; fi
 `
 
 func gateStub(gate string) string {
@@ -36,9 +42,9 @@ var expectedSourceCommands = [][]string{
 	{"go", "test", "-mod=readonly", "./..."},
 	{"bash", "scripts/check-sql-locality.sh"},
 	{"bash", "scripts/check-no-npm.sh"},
+	{"bash", "scripts/check-no-python.sh"},
 	{"bun", "run", "typecheck"},
 	{"bun", "run", "test"},
-	{"python3", "-m", "unittest", "discover", "-s", "tests/build"},
 }
 
 type sourceFixture struct {
@@ -58,13 +64,13 @@ func newSourceFixture(t *testing.T) sourceFixture {
 	Require(t, err == nil, "read check-source.sh: %v", err)
 	WriteFile(t, filepath.Join(scripts, "check-source.sh"), data, 0o644)
 	WriteFile(t, filepath.Join(root, "go.mod"), []byte("module fixture\n\ngo 1.26.7\n"), 0o644)
-	for _, gate := range []string{"check-sql-locality.sh", "check-no-npm.sh"} {
+	for _, gate := range []string{"check-sql-locality.sh", "check-no-npm.sh", "check-no-python.sh"} {
 		WriteFile(t, filepath.Join(scripts, gate), []byte(gateStub(gate)), 0o644)
 	}
 	tools := filepath.Join(root, "tools")
 	Require(t, os.Mkdir(tools, 0o755) == nil, "mkdir tools")
-	for _, name := range []string{"go", "bun", "python3"} {
-		WriteFile(t, filepath.Join(tools, name), []byte("#!"+Python3(t)+"\n"+fakeTool), 0o700)
+	for _, name := range []string{"go", "bun"} {
+		WriteFile(t, filepath.Join(tools, name), []byte("#!/bin/bash\n"+fakeTool), 0o700)
 	}
 	return sourceFixture{root: root, tools: tools, log: filepath.Join(root, "commands.jsonl")}
 }
@@ -184,7 +190,6 @@ func TestSourceNativeGateStillSurroundsSharedSourceChecks(t *testing.T) {
 		Check(t, strings.Contains(before, want), "missing before marker %q", want)
 	}
 	for _, want := range []string{
-		"python3 -m unittest discover -s tests/packaging",
 		`$(git rev-parse HEAD) == "$revision"`,
 		"git status --porcelain --untracked-files=normal",
 	} {

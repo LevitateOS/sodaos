@@ -28,9 +28,5 @@ forgejo_revision=$(git -C ../forgejo-ext rev-parse HEAD 2>/dev/null) || { echo '
 [[ $forgejo_revision =~ ^[0-9a-f]{40}$ ]] || { echo 'Exact Fountain source revision required' >&2; exit 1; }
 go run ./tools/soda-candidate-check --candidate "$artifacts" --arch "$arch" --soda-revision "$revision" --forgejo-revision "$forgejo_revision"
 bun run check:source
-if [[ -n ${SODA_STAGE:-} ]]; then
-  # Optional retained writable rootfs reader; never produced by soda-build.
-  python3 -m unittest discover -s tests/packaging
-fi
 [[ $(git rev-parse HEAD) == "$revision" && -z $(git status --porcelain --untracked-files=normal) ]]
 printf 'Source/candidate checks executed against %s; this is not installed appliance validation.\n' "$artifacts"

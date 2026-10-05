@@ -10,24 +10,57 @@ import (
 	"time"
 )
 
-// fakeCommand is the native-command double from test_workload_probe.py,
-// transcribed verbatim (the Python source escapes \n as \\n).
-const fakeCommand = `import json,os,pathlib,sys
-p=pathlib.Path(os.environ['CALL_LOG']);calls=[json.loads(x) for x in p.read_text().splitlines()] if p.exists() else []
-call=[pathlib.Path(sys.argv[0]).name,*sys.argv[1:]]
-with p.open('a') as f:f.write(json.dumps(call)+'\n')
-if call[0]=='curl':
- sys.exit(7 if os.environ['FAIL_HTTP']=='1' or not any(x[0]=='curl' for x in calls) else 0)
-if 'pg_isready' in call:sys.exit(0 if any('pg_isready' in x for x in calls) else 1)
-if call[0]=='sleep' or call[:3] in [['podman','compose','ps'],['podman','compose','up'],['podman','secret','inspect']] or 'psql' in call:sys.exit(0)
-sys.exit(99)
+// fakeCommand is the native-command double: POSIX shell that appends its
+// argv as a JSON array to CALL_LOG, then replays the probe's exit policy
+// against previous calls (curl needs a prior curl unless FAIL_HTTP forces
+// 7; pg_isready passes only after a prior pg_isready; sleep, the podman
+// compose/secret reads and psql pass; anything else exits 99).
+const fakeCommand = `name=${0##*/}
+prev=
+if [ -f "$CALL_LOG" ]; then prev=$(<"$CALL_LOG"); fi
+json="\"$name\""
+for a in "$@"; do
+	e=${a//\\/\\\\}
+	e=${e//\"/\\\"}
+	e=${e//$'\n'/\\n}
+	json="$json,\"$e\""
+done
+printf '[%s]\n' "$json" >> "$CALL_LOG"
+prior_curl=0; prior_pg=0
+while IFS= read -r line || [ -n "$line" ]; do
+	case "$line" in
+		'["curl"'*) prior_curl=1;;
+	esac
+	case "$line" in
+		*'"pg_isready"'*) prior_pg=1;;
+	esac
+done <<< "$prev"
+in_call() {
+	w=$1; shift
+	[ "$name" = "$w" ] && return 0
+	for a in "$@"; do [ "$a" = "$w" ] && return 0; done
+	return 1
+}
+if [ "$name" = "curl" ]; then
+	if [ "$FAIL_HTTP" = "1" ] || [ "$prior_curl" = 0 ]; then exit 7; fi
+	exit 0
+fi
+if in_call pg_isready "$@"; then
+	if [ "$prior_pg" = 1 ]; then exit 0; fi
+	exit 1
+fi
+if [ "$name" = "sleep" ]; then exit 0; fi
+if [ "$name" = "podman" ] && [ "${1:-}" = "compose" ] && { [ "${2:-}" = "ps" ] || [ "${2:-}" = "up" ]; }; then exit 0; fi
+if [ "$name" = "podman" ] && [ "${1:-}" = "secret" ] && [ "${2:-}" = "inspect" ]; then exit 0; fi
+if in_call psql "$@"; then exit 0; fi
+exit 99
 `
 
 func invokeWorkloads(t *testing.T, mode string, failHTTP bool) (ProcResult, [][]string) {
 	t.Helper()
 	dir := TempDir(t)
 	fake := filepath.Join(dir, "command")
-	WriteFile(t, fake, []byte("#!"+Python3(t)+"\n"+fakeCommand), 0o755)
+	WriteFile(t, fake, []byte("#!/bin/bash\n"+fakeCommand), 0o755)
 	for _, command := range []string{"podman", "curl", "sleep"} {
 		if err := os.Symlink(fake, filepath.Join(dir, command)); err != nil {
 			t.Fatalf("symlink %s: %v", command, err)
