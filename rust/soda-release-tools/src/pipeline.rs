@@ -1006,6 +1006,7 @@ mod tests {
 
     #[test]
     fn cancel_seeds_from_interrupt_and_restores() {
+        let _guard = crate::exitcode::interrupt_test_lock();
         let _ = exitcode::take_interrupt();
         exitcode::note_interrupt(130);
         let cancel = seeded_cancel();

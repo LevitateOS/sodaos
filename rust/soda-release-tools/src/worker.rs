@@ -915,6 +915,13 @@ pub fn run_build_worker(
     outcome
 }
 
+/// D01-F4: the worker attempt observes the controller interruption source
+/// instead of a constant-false predicate, so a recorded INT/TERM cancels
+/// the owned worker through run_worker's existing branch.
+fn worker_cancelled() -> bool {
+    crate::exitcode::has_interrupt()
+}
+
 fn run_build_worker_attempt(
     c: &WorkerConfig,
     r: &Request,
@@ -923,7 +930,7 @@ fn run_build_worker_attempt(
     let w = build_worker(c, r)?;
     let mut out = std::io::stderr();
     let mut err = std::io::stderr();
-    run_worker(&w, &mut out, &mut err, &|| false)?;
+    run_worker(&w, &mut out, &mut err, &worker_cancelled)?;
     // Producer output is not qualification authority. P9 independently admits it.
     let mut result = read_image_result(&format!(
         "{}/evidence/build.json",
@@ -1512,5 +1519,19 @@ mod tests {
                 "invalid progress transition"
             );
         }
+    }
+
+    #[test]
+    fn worker_cancel_predicate_observes_interrupt() {
+        // D01-F4: the predicate wired into run_worker must reflect the
+        // recorded interrupt state without consuming it.
+        let _guard = crate::exitcode::interrupt_test_lock();
+        let _ = crate::exitcode::take_interrupt();
+        assert!(!worker_cancelled());
+        crate::exitcode::note_interrupt(130);
+        assert!(worker_cancelled());
+        assert!(crate::exitcode::has_interrupt());
+        let _ = crate::exitcode::take_interrupt();
+        assert!(!worker_cancelled());
     }
 }

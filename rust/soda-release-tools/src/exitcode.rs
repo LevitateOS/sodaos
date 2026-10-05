@@ -31,6 +31,21 @@ pub fn take_interrupt() -> Option<Interrupted> {
     }
 }
 
+/// Non-consuming interrupt observation for live cancellation predicates.
+/// Unlike take_interrupt, the outer CLI still owns reporting afterwards.
+pub fn has_interrupt() -> bool {
+    INTERRUPT_CODE.load(Ordering::SeqCst) != 0
+}
+
+#[cfg(test)]
+static INTERRUPT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Serializes tests that mutate the global interrupt flag.
+#[cfg(test)]
+pub(crate) fn interrupt_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    INTERRUPT_TEST_LOCK.lock().unwrap()
+}
+
 /// Port of `BuildExitCode`: typed exit codes win, cancellation maps to
 /// 130, everything else is 1.
 pub fn build_exit_code(err: Option<&ToolError>) -> i32 {
