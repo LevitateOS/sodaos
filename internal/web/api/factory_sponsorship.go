@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
@@ -95,4 +96,53 @@ func (s *API) checkSponsorshipBroker(w http.ResponseWriter, r *http.Request, v s
 		return false
 	}
 	return true
+}
+
+type factoryEnvironmentGrantRequest struct {
+	Profile          *project.Profile `json:"profile"`
+	CommandID        string           `json:"command_id"`
+	Project          string           `json:"project,omitempty"`
+	ExpectedRevision int64            `json:"expected_revision"`
+	Active           bool             `json:"active"`
+}
+
+func (s *API) apiFactoryEnvironmentGrant(w http.ResponseWriter, r *http.Request, v store.Session) {
+	repository, ok := s.factoryRepository(w, r, v)
+	if !ok {
+		return
+	}
+	access, err := s.visibleRepository(r, v, repository)
+	if err != nil {
+		auth.ProviderError(w, err)
+		return
+	}
+	owner, err := s.environmentAdministrator(r, access)
+	if err != nil {
+		auth.ProviderError(w, err)
+		return
+	}
+	if !owner || !s.checkLifecycleSession(w, r, v) {
+		if !owner {
+			auth.JSONError(w, 403, "repository_owner_required", "Only the current repository owner can permit factory environment setup.")
+		}
+		return
+	}
+	var in factoryEnvironmentGrantRequest
+	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+		return
+	}
+	grant := project.EnvironmentGrant{
+		Repository: repository, Revision: in.ExpectedRevision,
+		Owner: v.User.ID, Profile: in.Profile, Project: in.Project, Active: in.Active,
+	}
+	if grant.Revision < 0 || grant.Validate() != nil {
+		auth.JSONError(w, 400, "invalid_environment_grant", "Environment grant is incomplete or invalid.")
+		return
+	}
+	receipt, err := s.Coordinator.ApplyEnvironmentGrant(r.Context(), in.CommandID, factoryPrincipal(v), in.ExpectedRevision, grant)
+	if err != nil {
+		factoryCommandError(w, err)
+		return
+	}
+	auth.JSONResponse(w, 200, receipt)
 }
