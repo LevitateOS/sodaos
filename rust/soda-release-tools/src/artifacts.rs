@@ -1,7 +1,6 @@
 //! `soda-artifacts` (Go `tools/soda-artifacts` `main.go`): artifact
-//! subcommand dispatch. Butane conversion is fully ported; OCI inspection
-//! and CoreOS fetches admit inputs locally, then stop at explicit
-//! release-pipeline boundary errors.
+//! subcommand dispatch. OCI inspection and CoreOS fetches admit inputs
+//! locally, then delegate to the `soda-release-build` pipeline.
 
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::process::{Command, Stdio};
@@ -280,21 +279,29 @@ fn open_oci_archive(file: &str, arch: &str, revision: &str) -> Result<(), String
 
 pub fn inspect_artifact_oci(source: &str, arch: &str, revision: &str) -> Result<String, String> {
     open_oci_archive(source, arch, revision)?;
-    Err(
-        "OCI archive inspection requires the release pipeline port (not yet implemented)"
-            .to_owned(),
-    )
+    let image = soda_release_build::oci::inspect_oci(std::path::Path::new(source), arch, revision)
+        .map_err(|e| e.to_string())?;
+    Ok(image.marshal_compact())
 }
 
 fn run_coreos_artifact(action: &str, f: &ArtifactFlags) -> Result<(), String> {
     match action {
         "fetch-coreos" => {
             admit_coreos_fetch(&f.arch, &f.signer, &f.keyring)?;
-            Err("CoreOS fetch requires the release pipeline port (stream resolution and verified download are not yet implemented)".to_owned())
+            soda_release_build::coreos::fetch_coreos(&f.arch, &f.keyring, &f.signer, &f.out)
+                .map(|_| ())
+                .map_err(|e| e.to_string())
         }
         "fetch-coreos-iso" => {
             admit_coreos_iso_fetch(&f.arch, &f.signer, &f.keyring)?;
-            Err("CoreOS ISO fetch requires the release pipeline port (stream resolution and verified download are not yet implemented)".to_owned())
+            soda_release_build::coreos_iso::fetch_coreos_iso(
+                &f.arch,
+                &f.keyring,
+                &f.signer,
+                &f.out,
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string())
         }
         _ => Err("unknown artifact action; use fetch-coreos-iso for upstream ISO inputs; QCOW2 media delivery is not selected".to_owned()),
     }
@@ -502,5 +509,151 @@ mod tests {
         .unwrap();
         assert!(out.is_file());
         let _ = std::fs::remove_dir_all(&scratch);
+    }
+
+    #[test]
+    fn inspect_error_paths() {
+        assert_eq!(
+            inspect_artifact_oci("/nonexistent", "aarch64", "").unwrap_err(),
+            "expected x86_64"
+        );
+        assert_eq!(
+            inspect_artifact_oci("/nonexistent", "x86_64", "abc").unwrap_err(),
+            "full source revision required"
+        );
+        assert!(inspect_artifact_oci("/nonexistent-oci-archive-xyz", "x86_64", "").is_err());
+        // A non-archive regular file passes admission, then fails identity.
+        let scratch = temp_dir("inspect-bad");
+        let file = scratch.join("junk.oci");
+        std::fs::write(&file, b"not a tar archive").unwrap();
+        assert!(inspect_artifact_oci(file.to_str().unwrap(), "x86_64", "").is_err());
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
+
+    fn sha256_hex_test(data: &[u8]) -> String {
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(data);
+        let mut out = String::with_capacity(64);
+        for byte in hasher.finalize() {
+            out.push_str(&format!("{byte:02x}"));
+        }
+        out
+    }
+
+    /// Single ustar file entry, 512-padded, without the end-of-archive
+    /// trailer (the caller appends the zero blocks once).
+    fn raw_tar_entry_test(name: &str, body: &[u8]) -> Vec<u8> {
+        let mut header = [0u8; 512];
+        header[..name.len()].copy_from_slice(name.as_bytes());
+        header[100..108].copy_from_slice(b"0000644\0");
+        header[108..116].copy_from_slice(b"0000000\0");
+        header[116..124].copy_from_slice(b"0000000\0");
+        let size = format!("{:011o}\0", body.len());
+        header[124..136].copy_from_slice(size.as_bytes());
+        header[136..148].copy_from_slice(b"00000000000\0");
+        header[148..156].copy_from_slice(b"        ");
+        header[156] = b'0';
+        header[257..262].copy_from_slice(b"ustar");
+        let sum: u32 = header.iter().map(|b| *b as u32).sum();
+        let chksum = format!("{:06o}\0 ", sum);
+        header[148..156].copy_from_slice(chksum.as_bytes());
+        let mut out = Vec::new();
+        out.extend_from_slice(&header);
+        out.extend_from_slice(body);
+        out.resize(out.len() + (512 - body.len() % 512) % 512, 0);
+        out
+    }
+
+    #[test]
+    fn inspect_positive_returns_go_encoder_document() {
+        // oci.rs fixture builders are #[cfg(test)]-gated inside
+        // soda-release-build, so unavailable to this crate; replicate the
+        // minimal single-layer archive with raw ustar headers (no tar
+        // dependency here).
+        let revision = "a".repeat(40);
+        let base = "b".repeat(64);
+        let body = b"synthetic layer fixture; never executed";
+        let mut layer = raw_tar_entry_test("fixture.txt", body);
+        layer.extend_from_slice(&[0u8; 1024]);
+        let layer_sum = sha256_hex_test(&layer);
+        let config = format!(
+            "{{\"architecture\":\"amd64\",\"os\":\"linux\",\"rootfs\":{{\"type\":\"layers\",\"diff_ids\":[\"sha256:{layer_sum}\"]}},\"config\":{{\"Labels\":{{\"org.opencontainers.image.revision\":\"{revision}\",\"org.opencontainers.image.source\":\"https://github.com/LevitateOS/sodaos\",\"org.opencontainers.image.base.name\":\"synthetic-base\",\"org.opencontainers.image.base.digest\":\"sha256:{base}\"}}}}}}"
+        );
+        let config_sum = sha256_hex_test(config.as_bytes());
+        let manifest = format!(
+            "{{\"schemaVersion\":2,\"config\":{{\"digest\":\"sha256:{config_sum}\",\"size\":{},\"mediaType\":\"application/vnd.oci.image.config.v1+json\"}},\"layers\":[{{\"digest\":\"sha256:{layer_sum}\",\"size\":{},\"mediaType\":\"application/vnd.oci.image.layer.v1.tar\"}}]}}",
+            config.len(),
+            layer.len()
+        );
+        let manifest_sum = sha256_hex_test(manifest.as_bytes());
+        let index = format!(
+            "{{\"schemaVersion\":2,\"manifests\":[{{\"digest\":\"sha256:{manifest_sum}\",\"size\":{},\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\"}}]}}",
+            manifest.len()
+        );
+        let mut archive = Vec::new();
+        for (name, data) in [
+            (format!("blobs/sha256/{layer_sum}"), layer),
+            (format!("blobs/sha256/{config_sum}"), config.into_bytes()),
+            (
+                format!("blobs/sha256/{manifest_sum}"),
+                manifest.into_bytes(),
+            ),
+            ("index.json".to_string(), index.into_bytes()),
+            (
+                "oci-layout".to_string(),
+                br#"{"imageLayoutVersion":"1.0.0"}"#.to_vec(),
+            ),
+        ] {
+            archive.extend_from_slice(&raw_tar_entry_test(&name, &data));
+        }
+        archive.extend_from_slice(&[0u8; 1024]);
+        let scratch = temp_dir("inspect-ok");
+        let file = scratch.join("image.oci");
+        std::fs::write(&file, &archive).unwrap();
+        let doc = inspect_artifact_oci(file.to_str().unwrap(), "x86_64", &revision).unwrap();
+        assert_eq!(
+            doc,
+            format!(
+                "{{\"Manifest\":\"sha256:{manifest_sum}\",\"Config\":\"sha256:{config_sum}\",\"Architecture\":\"amd64\",\"Revision\":\"{revision}\",\"Source\":\"https://github.com/LevitateOS/sodaos\",\"BaseName\":\"synthetic-base\",\"BaseDigest\":\"sha256:{base}\"}}"
+            )
+        );
+        assert!(!doc.ends_with('\n'));
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
+
+    #[test]
+    fn fetch_admission_errors_without_network() {
+        let f = ArtifactFlags::default();
+        assert_eq!(
+            run_artifact_action("fetch-coreos", &f).unwrap_err(),
+            "expected x86_64"
+        );
+        assert_eq!(
+            run_artifact_action("fetch-coreos-iso", &f).unwrap_err(),
+            "expected x86_64"
+        );
+        let f = ArtifactFlags {
+            arch: "x86_64".to_owned(),
+            signer: "short".to_owned(),
+            ..ArtifactFlags::default()
+        };
+        assert_eq!(
+            run_artifact_action("fetch-coreos", &f).unwrap_err(),
+            "full trusted signer fingerprint required"
+        );
+        assert_eq!(
+            run_artifact_action("fetch-coreos-iso", &f).unwrap_err(),
+            "full trusted signer fingerprint required"
+        );
+        // Missing keyring fails hashing before any tool lookup or network.
+        let f = ArtifactFlags {
+            arch: "x86_64".to_owned(),
+            signer: "f".repeat(40),
+            keyring: "/nonexistent-keyring-xyz".to_owned(),
+            ..ArtifactFlags::default()
+        };
+        assert!(run_artifact_action("fetch-coreos", &f).is_err());
+        assert!(run_artifact_action("fetch-coreos-iso", &f).is_err());
     }
 }

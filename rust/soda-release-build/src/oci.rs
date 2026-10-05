@@ -33,6 +33,37 @@ pub struct Image {
     pub base_digest: String,
 }
 
+impl Image {
+    /// Go-`Encoder`-compatible compact JSON document: struct field order
+    /// (`Manifest` first, `BaseDigest` last), Go string escaping, no
+    /// trailing newline (the calling binary's `println!` adds it, matching
+    /// `json.Encoder.Encode`).
+    pub fn marshal_compact(&self) -> String {
+        let mut out = String::new();
+        out.push('{');
+        let fields = [
+            ("Manifest", &self.manifest),
+            ("Config", &self.config),
+            ("Architecture", &self.architecture),
+            ("Revision", &self.revision),
+            ("Source", &self.source),
+            ("BaseName", &self.base_name),
+            ("BaseDigest", &self.base_digest),
+        ];
+        for (i, (name, value)) in fields.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            out.push('"');
+            out.push_str(name);
+            out.push_str("\":");
+            soda_json::escape_into(&mut out, value);
+        }
+        out.push('}');
+        out
+    }
+}
+
 /// On-demand blob loader for layouts; archives pass a no-op.
 pub(crate) type LoadBlobs<'a> =
     &'a mut dyn FnMut(&mut HashMap<String, Blob>, &str) -> Result<(), Error>;
@@ -1104,6 +1135,25 @@ pub(crate) mod tests {
         let path = dir.join(name);
         std::fs::write(&path, bytes).unwrap();
         path
+    }
+
+    #[test]
+    fn marshal_compact_matches_go_encoder_bytes() {
+        let image = Image {
+            manifest: "m\"anifest".to_string(),
+            config: "a<b".to_string(),
+            architecture: "x&y".to_string(),
+            revision: "l1\nl2".to_string(),
+            source: "héllo".to_string(),
+            base_name: "plain".to_string(),
+            base_digest: "d".to_string(),
+        };
+        let doc = image.marshal_compact();
+        assert_eq!(
+            doc,
+            "{\"Manifest\":\"m\\\"anifest\",\"Config\":\"a\\u003cb\",\"Architecture\":\"x\\u0026y\",\"Revision\":\"l1\\nl2\",\"Source\":\"héllo\",\"BaseName\":\"plain\",\"BaseDigest\":\"d\"}"
+        );
+        assert!(!doc.ends_with('\n'));
     }
 
     #[test]
