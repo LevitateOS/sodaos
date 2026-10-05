@@ -1,377 +1,336 @@
-// Port of test_project_account.py: account script/file effects.
+// Account binary/file effects, driven against the compiled Rust
+// project-account with redirected roots and PATH doubles.
 //
-// project-account is still Python, so a driver per case reproduces the setUp
-// doubles plus the test body and reports observations as JSON; every
-// assertion below lives in Go.
-//
-// NOT ported: test_real_key_writer_lock_blocks_new_account_before_effects.
-// It drives the real project_keys.py key writer, which no longer exists
-// (retired with internal/host/project/project_keys.py; the successor is
-// Runtime.AccessKeys in internal/host/project/access_keys.go, covered by
-// internal/host/lifecycle_access_keys_test.go). The remaining lock-admission
-// coverage (test_lock_contention) is ported below.
+// The retired interpreter-driven twin asserted per-case exception types
+// through an in-process driver; the binary collapses every failure to one
+// stderr line and exit 1, so these tests assert that exact contract plus
+// the filesystem and argv effects. Durability ordering under the lock is
+// covered by the crate's fsync_order_holds_lock_and_orders_durably unit
+// test, which observes each sync from inside the provision.
 package build
 
 import (
-	"encoding/base64"
+	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
-// accountDriver is the setUp doubles plus one case body from
-// test_project_account.py, printing a JSON observation object.
-const accountDriver = `
-import base64, fcntl, importlib.machinery, importlib.util, json, os, sys, types
-from pathlib import Path
-from unittest.mock import patch
+// accountFailure is the only failure the binary ever reports.
+const accountFailure = "account provisioning unconfirmed; inspect native account and managed files\n"
 
-repo, root, case = sys.argv[1], Path(sys.argv[2]), sys.argv[3]
-source = Path(repo) / 'project-os/rootfs/usr/libexec/soda/project-account'
-loader = importlib.machinery.SourceFileLoader('project_account', str(source))
-spec = importlib.util.spec_from_loader(loader.name, loader)
-account = importlib.util.module_from_spec(spec)
-loader.exec_module(account)
+func accountBinary(t *testing.T) string {
+	t.Helper()
+	return CargoBinary(t, "soda-project-account", "project-account")
+}
 
-markers, keysdir = root / 'accounts', root / 'keys'
-markers.mkdir(mode=0o700)
-keysdir.mkdir(mode=0o755)
-commands, users = [], {}
-patch.object(account, 'ACCOUNTS', markers).start()
-patch.object(account, 'KEYS', keysdir).start()
-patch.object(account.os, 'geteuid', return_value=0).start()
-native_fstat, native_lstat = os.fstat, Path.lstat
+// accountEnv is one hermetic binary run: temp root, managed dirs, and
+// useradd/usermod doubles that log argv and simulate user creation.
+type accountEnv struct {
+	root string
+	env  []string
+}
 
-def root_owner(info):
-    fields = {name: getattr(info, name) for name in dir(info) if name.startswith('st_')}
-    fields.update(st_uid=0, st_gid=0)
-    return types.SimpleNamespace(**fields)
-
-patch.object(account.os, 'fstat', side_effect=lambda fd: root_owner(native_fstat(fd))).start()
-patch.object(Path, 'lstat', lambda path: root_owner(native_lstat(path))).start()
-
-def lookup(name):
-    if name not in users:
-        raise KeyError(name)
-    return users[name]
-
-def run_command(args, **options):
-    assert options == {'check': True}, options
-    commands.append(args)
-    if args[0] == 'useradd':
-        home = root / args[-1]
-        home.mkdir(mode=0o700)
-        users[args[-1]] = types.SimpleNamespace(pw_dir=str(home))
-    elif args[0] != 'usermod':
-        raise AssertionError('unexpected native command: %r' % (args,))
-
-patch.object(account.pwd, 'getpwnam', side_effect=lookup).start()
-patch.object(account.subprocess, 'run', side_effect=run_command).start()
-
-def request(keys=None, admin=False):
-    return {'login': 'alice', 'identity': 1, 'admin': admin, 'keys': [] if keys is None else keys}
-
-def attempt(fn, *args, **kwargs):
-    try:
-        return {'mro': None, 'value': fn(*args, **kwargs)}
-    except Exception as failure:
-        return {'mro': [c.__name__ for c in type(failure).__mro__]}
-
-def b64(path):
-    return base64.b64encode(path.read_bytes()).decode()
-
-def mode(path):
-    return path.stat().st_mode & 0o777
-
-obs = {}
-if case == 'only_provisions':
-    obs['result'] = account.provision(request())
-    obs['keys'] = b64(keysdir / 'alice')
-    obs['marker'] = b64(markers / 'alice')
-    obs['marker_mode'] = mode(markers / 'alice')
-    obs['keys_mode'] = mode(keysdir / 'alice')
-    obs['shared'] = os.readlink(root / 'alice/shared')
-    obs['cmd0'] = commands[0]
-    obs['count'] = len(commands)
-elif case == 'selected_keys':
-    values = request(['ssh-ed25519 YWJj\n'], True)
-    account.provision(values)
-    obs['keys'] = b64(keysdir / 'alice')
-    obs['last'] = commands[-1]
-    (root / 'alice/work').write_text('later work')
-    before = (keysdir / 'alice').stat().st_ino
-    account.provision(values)
-    obs['inode_before'] = before
-    obs['inode_after'] = (keysdir / 'alice').stat().st_ino
-    obs['work'] = (root / 'alice/work').read_text()
-    obs['useradds'] = sum(command[0] == 'useradd' for command in commands)
-elif case == 'retry_never_erases':
-    account.provision(request(['ssh-ed25519 YWJj']))
-    obs['retry'] = attempt(account.provision, request())
-    obs['keys'] = b64(keysdir / 'alice')
-    obs['count'] = len(commands)
-elif case == 'join_not_apply':
-    account.provision(request())
-    obs['keyed'] = attempt(account.provision, request(['ssh-ed25519 YWJj']))
-    obs['keys'] = b64(keysdir / 'alice')
-    (markers / 'alice').write_text('2')
-    obs['drifted'] = attempt(account.provision, request())
-    obs['marker'] = b64(markers / 'alice')
-elif case == 'occupied_inputs':
-    (keysdir / 'alice').symlink_to(root / 'absent')
-    obs['occupied'] = attempt(account.provision, request())
-    obs['count_before'] = len(commands)
-    (keysdir / 'alice').unlink()
-    users['alice'] = types.SimpleNamespace(pw_dir=str(root / 'alice'))
-    obs['unassociated'] = attempt(account.provision, request())
-    obs['count_after'] = len(commands)
-elif case == 'key_symlink':
-    account.provision(request())
-    other = root / 'other'
-    other.write_bytes(b'preserve')
-    (keysdir / 'alice').unlink()
-    (keysdir / 'alice').symlink_to(other)
-    obs['attempt'] = attempt(account.provision, request())
-    obs['other'] = b64(other)
-elif case == 'validation':
-    mros = []
-    for values in [None, 'key', ['ssh-ed25519 YWJj'] * 33, ['PRIVATE KEY'], ['ssh-ed25519 YWJj\nssh-ed25519 ZGVm']]:
-        keyed = request()
-        keyed['keys'] = values
-        mros.append(attempt(account.provision, keyed))
-    rooted = request()
-    rooted['login'] = 'root'
-    mros.append(attempt(account.provision, rooted))
-    obs['attempts'] = mros
-    obs['commands'] = commands
-elif case == 'lock_contention':
-    fd = os.open(keysdir, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        with patch.object(account.pwd, 'getpwnam', side_effect=AssertionError('account observed before admission')):
-            obs['attempt'] = attempt(account.provision, request())
-        obs['commands'] = list(commands)
-        obs['keys_entries'] = sorted(p.name for p in keysdir.iterdir())
-        obs['markers_entries'] = sorted(p.name for p in markers.iterdir())
-    finally:
-        os.close(fd)
-    obs['result'] = account.provision(request())
-elif case == 'lock_covers':
-    native_sync = os.fsync
-    events, failures, contents = [], [], []
-    def assert_locked():
-        fd = os.open(keysdir, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                return
-            failures.append('unlocked')
-        finally:
-            os.close(fd)
-    def run(args, **options):
-        assert_locked()
-        return run_command(args, **options)
-    def sync(fd):
-        assert_locked()
-        info = os.fstat(fd)
-        if account.stat.S_ISREG(info.st_mode):
-            expected = ((markers / 'alice', b'1'), (keysdir / 'alice', b'ssh-ed25519 YWJj\n'))
-            path, content = next(
-                (p, value) for p, value in expected if p.exists() and p.stat().st_ino == info.st_ino)
-            contents.append(content == path.read_bytes())
-            events.append('marker' if path.parent == markers else 'keyfile')
-        else:
-            events.append('markers' if info.st_ino == markers.stat().st_ino else 'keys')
-        native_sync(fd)
-    with patch.object(account.os, 'fsync', side_effect=sync), patch.object(account.subprocess, 'run', side_effect=run):
-        account.provision(request(['ssh-ed25519 YWJj'], True))
-    obs['events'] = events
-    obs['failures'] = failures
-    obs['contents'] = contents
-    obs['last'] = commands[-1][0]
-elif case == 'failed_provisioning':
-    with patch.object(account.os, 'fsync', side_effect=OSError('synthetic sync failure')):
-        obs['attempt'] = attempt(account.provision, request())
-    obs['marker'] = b64(markers / 'alice')
-    obs['home_is_dir'] = (root / 'alice').is_dir()
-    fd = os.open(keysdir, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            obs['relocked'] = True
-        except BlockingIOError:
-            obs['relocked'] = False
-    finally:
-        os.close(fd)
-else:
-    raise SystemExit('unknown case: ' + case)
-print(json.dumps(obs))
+const accountUseraddDouble = `#!/bin/sh
+printf '%s\n' "useradd $*" >>"$SODA_PROJECT_ACCOUNT_TEST_ROOT/commands.log"
+login=
+for last in "$@"; do login=$last; done
+home=$SODA_PROJECT_ACCOUNT_TEST_ROOT/home/$login
+mkdir -p "$home"
+printf '%s:%s\n' "$login" "$home" >>"$SODA_PROJECT_ACCOUNT_TEST_ROOT/passwd"
 `
 
-// runAccountCase runs one driver case in a fresh temp root and returns its
-// decoded JSON observations.
-func runAccountCase(t *testing.T, caseName string) map[string]any {
+const accountUsermodDouble = `#!/bin/sh
+printf '%s\n' "usermod $*" >>"$SODA_PROJECT_ACCOUNT_TEST_ROOT/commands.log"
+`
+
+func newAccountEnv(t *testing.T) *accountEnv {
 	t.Helper()
-	result := Run(t, RunOpt{}, Python3(t), "-c", accountDriver, RepoRoot, TempDir(t), caseName)
-	Require(t, result.Code == 0, "account driver %s failed: %s", caseName, result.Stderr)
-	var obs map[string]any
-	Require(t, json.Unmarshal([]byte(result.Stdout), &obs) == nil, "parse %s output %q", caseName, result.Stdout)
-	return obs
+	root := TempDir(t)
+	for _, dir := range []string{"accounts", "keys", "bin", "home"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.Chmod(filepath.Join(root, "accounts"), 0o700); err != nil {
+		t.Fatalf("chmod accounts: %v", err)
+	}
+	WriteFile(t, filepath.Join(root, "bin", "useradd"), []byte(accountUseraddDouble), 0o755)
+	WriteFile(t, filepath.Join(root, "bin", "usermod"), []byte(accountUsermodDouble), 0o755)
+	env := SetEnv(os.Environ(), "SODA_PROJECT_ACCOUNT_TEST_ROOT", root)
+	env = SetEnv(env, "PATH", filepath.Join(root, "bin")+":"+os.Getenv("PATH"))
+	return &accountEnv{root: root, env: env}
 }
 
-// accountAttemptMRO extracts the exception MRO from an attempt observation
-// (nil when the driver call succeeded).
-func accountAttemptMRO(t *testing.T, value any) []string {
+// run feeds stdin to the binary and captures the exact byte contract.
+func (e *accountEnv) run(t *testing.T, stdin []byte, extra ...string) ProcResult {
 	t.Helper()
-	attempt, ok := value.(map[string]any)
-	Require(t, ok, "attempt is %T", value)
-	raw, ok := attempt["mro"].([]any)
-	if !ok {
+	cmd := exec.Command(accountBinary(t))
+	cmd.Env = e.env
+	for i := 0; i+1 < len(extra); i += 2 {
+		cmd.Env = SetEnv(cmd.Env, extra[i], extra[i+1])
+	}
+	cmd.Stdin = bytes.NewReader(stdin)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	code := 0
+	if err := cmd.Run(); err != nil {
+		exit, ok := err.(*exec.ExitError)
+		Require(t, ok, "run project-account: %v", err)
+		code = exit.ExitCode()
+	}
+	return ProcResult{Code: code, Stdout: stdout.String(), Stderr: stderr.String()}
+}
+
+func (e *accountEnv) commands(t *testing.T) []string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(e.root, "commands.log"))
+	if os.IsNotExist(err) {
 		return nil
 	}
-	mro := make([]string, 0, len(raw))
-	for _, entry := range raw {
-		text, ok := entry.(string)
-		Require(t, ok, "mro entry is %T", entry)
-		mro = append(mro, text)
+	Require(t, err == nil, "read commands log: %v", err)
+	text := strings.TrimSuffix(string(data), "\n")
+	if text == "" {
+		return nil
 	}
-	return mro
+	return strings.Split(text, "\n")
 }
 
-func accountText(t *testing.T, value any) string {
+func (e *accountEnv) read(t *testing.T, rel string) string {
 	t.Helper()
-	text, ok := value.(string)
-	Require(t, ok, "bytes are %T", value)
-	raw, err := base64.StdEncoding.DecodeString(text)
-	Require(t, err == nil, "decode bytes: %v", err)
-	return string(raw)
+	data, err := os.ReadFile(filepath.Join(e.root, rel))
+	Require(t, err == nil, "read %s: %v", rel, err)
+	return string(data)
 }
 
-func accountStrings(t *testing.T, value any) []string {
+func (e *accountEnv) mode(t *testing.T, rel string) os.FileMode {
 	t.Helper()
-	raw, ok := value.([]any)
-	Require(t, ok, "list is %T", value)
-	out := make([]string, 0, len(raw))
-	for _, entry := range raw {
-		text, ok := entry.(string)
-		Require(t, ok, "list entry is %T", entry)
-		out = append(out, text)
+	info, err := os.Stat(filepath.Join(e.root, rel))
+	Require(t, err == nil, "stat %s: %v", rel, err)
+	return info.Mode().Perm()
+}
+
+func accountDoc(login string, identity int64, admin bool, keys []string) []byte {
+	body, err := json.Marshal(map[string]any{
+		"login": login, "identity": identity, "admin": admin, "keys": keys,
+	})
+	if err != nil {
+		panic(err)
 	}
-	return out
+	return body
+}
+
+func requireAccountFailure(t *testing.T, result ProcResult, what string) {
+	t.Helper()
+	Check(t, result.Code == 1, "%s: exit = %d", what, result.Code)
+	Check(t, result.Stdout == "", "%s: stdout = %q", what, result.Stdout)
+	Check(t, result.Stderr == accountFailure, "%s: stderr = %q", what, result.Stderr)
 }
 
 func TestAccountOnlyProvisionsLockedHomeMarkerSharedAndEmptyKeyfile(t *testing.T) {
-	obs := runAccountCase(t, "only_provisions")
-	result, ok := obs["result"].(map[string]any)
-	Require(t, ok, "result is %T", obs["result"])
-	Check(t, result["login"] == "alice" && result["identity"] == float64(1), "result = %v", result)
-	Check(t, accountText(t, obs["keys"]) == "", "keys = %q", accountText(t, obs["keys"]))
-	Check(t, accountText(t, obs["marker"]) == "1", "marker = %q", accountText(t, obs["marker"]))
-	Check(t, obs["marker_mode"] == float64(0o600), "marker mode = %v", obs["marker_mode"])
-	Check(t, obs["keys_mode"] == float64(0o644), "keys mode = %v", obs["keys_mode"])
-	Check(t, obs["shared"] == "/srv/project/shared", "shared = %v", obs["shared"])
-	cmd := accountStrings(t, obs["cmd0"])
-	found := false
-	for i, word := range cmd {
-		if word == "--password" && i+1 < len(cmd) {
-			Check(t, cmd[i+1] == "!", "password = %q", cmd[i+1])
-		}
-		found = found || word == "--create-home"
-	}
-	Check(t, found, "--create-home missing in %v", cmd)
-	Require(t, len(cmd) >= 2, "cmd0 = %v", cmd)
-	Check(t, cmd[len(cmd)-2] == "soda-project" && cmd[len(cmd)-1] == "alice", "cmd0 tail = %v", cmd)
-	Check(t, obs["count"] == float64(1), "commands = %v", obs["count"])
+	env := newAccountEnv(t)
+	result := env.run(t, accountDoc("alice", 1, false, []string{}))
+	Require(t, result.Code == 0, "exit = %d: %q", result.Code, result.Stderr)
+	Check(t, result.Stdout == "{\"login\": \"alice\", \"identity\": 1}\n", "stdout = %q", result.Stdout)
+	Check(t, result.Stderr == "", "stderr = %q", result.Stderr)
+	Check(t, env.read(t, "keys/alice") == "", "keys = %q", env.read(t, "keys/alice"))
+	Check(t, env.read(t, "accounts/alice") == "1", "marker = %q", env.read(t, "accounts/alice"))
+	Check(t, env.mode(t, "accounts/alice") == 0o600, "marker mode = %o", env.mode(t, "accounts/alice"))
+	Check(t, env.mode(t, "keys/alice") == 0o644, "keys mode = %o", env.mode(t, "keys/alice"))
+	link, err := os.Readlink(filepath.Join(env.root, "home/alice/shared"))
+	Require(t, err == nil, "readlink shared: %v", err)
+	Check(t, link == "/srv/project/shared", "shared = %q", link)
+	commands := env.commands(t)
+	Require(t, len(commands) == 1, "commands = %v", commands)
+	Check(t, commands[0] == "useradd --create-home --shell /bin/bash --password ! --groups soda-project alice",
+		"useradd = %q", commands[0])
 }
 
 func TestAccountSelectedKeysAndCreationOwnerPrivilegeRemainReal(t *testing.T) {
-	obs := runAccountCase(t, "selected_keys")
-	Check(t, accountText(t, obs["keys"]) == "ssh-ed25519 YWJj\n", "keys wrong")
-	last := accountStrings(t, obs["last"])
-	Require(t, len(last) == 5, "last = %v", last)
-	Check(t, last[0] == "usermod" && last[1] == "--append" && last[2] == "--groups" &&
-		last[3] == "wheel" && last[4] == "alice", "last = %v", last)
-	Check(t, obs["inode_before"] == obs["inode_after"], "keyfile replaced")
-	Check(t, obs["work"] == "later work", "work = %v", obs["work"])
-	Check(t, obs["useradds"] == float64(1), "useradds = %v", obs["useradds"])
+	env := newAccountEnv(t)
+	body := accountDoc("alice", 1, true, []string{"ssh-ed25519 YWJj\n"})
+	result := env.run(t, body)
+	Require(t, result.Code == 0, "exit = %d: %q", result.Code, result.Stderr)
+	Check(t, env.read(t, "keys/alice") == "ssh-ed25519 YWJj\n", "keys wrong")
+	commands := env.commands(t)
+	Require(t, len(commands) == 2, "commands = %v", commands)
+	Check(t, commands[1] == "usermod --append --groups wheel alice", "last = %q", commands[1])
+	WriteFile(t, filepath.Join(env.root, "home/alice/work"), []byte("later work"), 0o644)
+	before, err := os.Stat(filepath.Join(env.root, "keys/alice"))
+	Require(t, err == nil, "stat keys: %v", err)
+	result = env.run(t, body)
+	Require(t, result.Code == 0, "rerun exit = %d: %q", result.Code, result.Stderr)
+	after, err := os.Stat(filepath.Join(env.root, "keys/alice"))
+	Require(t, err == nil, "stat keys: %v", err)
+	Check(t, os.SameFile(before, after), "keyfile replaced on rerun")
+	Check(t, env.read(t, "home/alice/work") == "later work", "work lost")
+	useradds := 0
+	for _, command := range env.commands(t) {
+		if strings.HasPrefix(command, "useradd ") {
+			useradds++
+		}
+	}
+	Check(t, useradds == 1, "useradds = %d", useradds)
 }
 
 func TestAccountOnlyRetryNeverErasesExistingKeys(t *testing.T) {
-	obs := runAccountCase(t, "retry_never_erases")
-	Check(t, raisedAs(accountAttemptMRO(t, obs["retry"]), "ValueError"), "retry accepted")
-	Check(t, accountText(t, obs["keys"]) == "ssh-ed25519 YWJj\n", "keys wrong")
-	Check(t, obs["count"] == float64(1), "commands = %v", obs["count"])
+	env := newAccountEnv(t)
+	result := env.run(t, accountDoc("alice", 1, false, []string{"ssh-ed25519 YWJj"}))
+	Require(t, result.Code == 0, "exit = %d: %q", result.Code, result.Stderr)
+	requireAccountFailure(t, env.run(t, accountDoc("alice", 1, false, []string{})), "retry")
+	Check(t, env.read(t, "keys/alice") == "ssh-ed25519 YWJj\n", "keys wrong")
+	Check(t, len(env.commands(t)) == 1, "commands = %v", env.commands(t))
 }
 
 func TestAccountJoinIsNotKeyApplyAndPreservesDrift(t *testing.T) {
-	obs := runAccountCase(t, "join_not_apply")
-	Check(t, raisedAs(accountAttemptMRO(t, obs["keyed"]), "ValueError"), "keyed join accepted")
-	Check(t, accountText(t, obs["keys"]) == "", "keys = %q", accountText(t, obs["keys"]))
-	Check(t, raisedAs(accountAttemptMRO(t, obs["drifted"]), "ValueError"), "drifted join accepted")
-	Check(t, accountText(t, obs["marker"]) == "2", "marker = %q", accountText(t, obs["marker"]))
+	env := newAccountEnv(t)
+	result := env.run(t, accountDoc("alice", 1, false, []string{}))
+	Require(t, result.Code == 0, "exit = %d: %q", result.Code, result.Stderr)
+	requireAccountFailure(t, env.run(t, accountDoc("alice", 1, false, []string{"ssh-ed25519 YWJj"})), "keyed join")
+	Check(t, env.read(t, "keys/alice") == "", "keys = %q", env.read(t, "keys/alice"))
+	WriteFile(t, filepath.Join(env.root, "accounts/alice"), []byte("2"), 0o600)
+	requireAccountFailure(t, env.run(t, accountDoc("alice", 1, false, []string{})), "drifted join")
+	Check(t, env.read(t, "accounts/alice") == "2", "marker = %q", env.read(t, "accounts/alice"))
 }
 
 func TestAccountOccupiedInputsAndUnassociatedUsersRefuseBeforeCommands(t *testing.T) {
-	obs := runAccountCase(t, "occupied_inputs")
-	Check(t, raisedAs(accountAttemptMRO(t, obs["occupied"]), "ValueError"), "occupied input accepted")
-	Check(t, obs["count_before"] == float64(0), "commands = %v", obs["count_before"])
-	Check(t, raisedAs(accountAttemptMRO(t, obs["unassociated"]), "FileNotFoundError"), "unassociated accepted")
-	Check(t, obs["count_after"] == float64(0), "commands = %v", obs["count_after"])
+	env := newAccountEnv(t)
+	Require(t, os.Symlink(filepath.Join(env.root, "absent"), filepath.Join(env.root, "keys/alice")) == nil, "dangle")
+	requireAccountFailure(t, env.run(t, accountDoc("alice", 1, false, []string{})), "occupied input")
+	Check(t, len(env.commands(t)) == 0, "commands = %v", env.commands(t))
+	Require(t, os.Remove(filepath.Join(env.root, "keys/alice")) == nil, "unlink")
+	WriteFile(t, filepath.Join(env.root, "passwd"),
+		[]byte("alice:"+filepath.Join(env.root, "home/alice")+"\n"), 0o644)
+	Require(t, os.MkdirAll(filepath.Join(env.root, "home/alice"), 0o755) == nil, "home")
+	requireAccountFailure(t, env.run(t, accountDoc("alice", 1, false, []string{})), "unassociated user")
+	Check(t, len(env.commands(t)) == 0, "commands = %v", env.commands(t))
 }
 
 func TestAccountKeySymlinkIsNotFollowed(t *testing.T) {
-	obs := runAccountCase(t, "key_symlink")
-	Check(t, raisedAs(accountAttemptMRO(t, obs["attempt"]), "OSError"), "symlink followed")
-	Check(t, accountText(t, obs["other"]) == "preserve", "other overwritten")
+	env := newAccountEnv(t)
+	result := env.run(t, accountDoc("alice", 1, false, []string{}))
+	Require(t, result.Code == 0, "exit = %d: %q", result.Code, result.Stderr)
+	WriteFile(t, filepath.Join(env.root, "other"), []byte("preserve"), 0o644)
+	Require(t, os.Remove(filepath.Join(env.root, "keys/alice")) == nil, "unlink")
+	Require(t, os.Symlink(filepath.Join(env.root, "other"), filepath.Join(env.root, "keys/alice")) == nil, "link")
+	requireAccountFailure(t, env.run(t, accountDoc("alice", 1, false, []string{})), "symlinked keyfile")
+	Check(t, env.read(t, "other") == "preserve", "other overwritten")
 }
 
 func TestAccountValidationBeforeNativeEffects(t *testing.T) {
-	obs := runAccountCase(t, "validation")
-	attempts, ok := obs["attempts"].([]any)
-	Require(t, ok && len(attempts) == 6, "attempts = %v", obs["attempts"])
-	for i, attempt := range attempts {
-		Check(t, raisedAs(accountAttemptMRO(t, attempt), "ValueError"), "input %d accepted", i)
+	env := newAccountEnv(t)
+	many := make([]string, 33)
+	for i := range many {
+		many[i] = "ssh-ed25519 YWJj"
 	}
-	commands, ok := obs["commands"].([]any)
-	Require(t, ok, "commands is %T", obs["commands"])
-	Check(t, len(commands) == 0, "effects before validation: %v", commands)
+	bodies := [][]byte{
+		accountDoc("alice", 1, false, nil),
+		[]byte(`{"login":"alice","identity":1,"admin":false,"keys":"key"}`),
+		accountDoc("alice", 1, false, many),
+		accountDoc("alice", 1, false, []string{"PRIVATE KEY"}),
+		accountDoc("alice", 1, false, []string{"ssh-ed25519 YWJj\nssh-ed25519 ZGVm"}),
+		accountDoc("root", 1, false, []string{}),
+	}
+	for i, body := range bodies {
+		requireAccountFailure(t, env.run(t, body), string(rune('a'+i)))
+	}
+	Check(t, len(env.commands(t)) == 0, "effects before validation: %v", env.commands(t))
 }
 
 func TestAccountLockContentionRefusesBeforeObservationOrCommands(t *testing.T) {
-	obs := runAccountCase(t, "lock_contention")
-	Check(t, raisedAs(accountAttemptMRO(t, obs["attempt"]), "BlockingIOError"), "contention not refused")
-	commands, ok := obs["commands"].([]any)
-	Require(t, ok, "commands is %T", obs["commands"])
-	Check(t, len(commands) == 0, "commands = %v", commands)
-	Check(t, len(accountStrings(t, obs["keys_entries"])) == 0, "keys entries = %v", obs["keys_entries"])
-	Check(t, len(accountStrings(t, obs["markers_entries"])) == 0, "markers entries = %v", obs["markers_entries"])
-	result, ok := obs["result"].(map[string]any)
-	Require(t, ok, "result is %T", obs["result"])
-	Check(t, result["login"] == "alice", "relock provision = %v", result)
+	env := newAccountEnv(t)
+	held, err := os.Open(filepath.Join(env.root, "keys"))
+	Require(t, err == nil, "open keys: %v", err)
+	defer held.Close()
+	Require(t, unix.Flock(int(held.Fd()), unix.LOCK_EX|unix.LOCK_NB) == nil, "hold lock")
+	requireAccountFailure(t, env.run(t, accountDoc("alice", 1, false, []string{})), "contention")
+	Check(t, len(env.commands(t)) == 0, "commands = %v", env.commands(t))
+	for _, dir := range []string{"keys", "accounts"} {
+		entries, err := os.ReadDir(filepath.Join(env.root, dir))
+		Require(t, err == nil, "readdir %s: %v", dir, err)
+		Check(t, len(entries) == 0, "%s entries = %v", dir, entries)
+	}
+	Require(t, unix.Flock(int(held.Fd()), unix.LOCK_UN) == nil, "release lock")
+	result := env.run(t, accountDoc("alice", 1, false, []string{}))
+	Require(t, result.Code == 0, "relock exit = %d: %q", result.Code, result.Stderr)
+	Check(t, result.Stdout == "{\"login\": \"alice\", \"identity\": 1}\n", "relock stdout = %q", result.Stdout)
 }
 
 func TestAccountLockCoversFileDurabilityAndAccountCommands(t *testing.T) {
-	obs := runAccountCase(t, "lock_covers")
-	Check(t, len(accountStrings(t, obs["failures"])) == 0, "unlocked effects")
-	events := accountStrings(t, obs["events"])
-	Require(t, len(events) == 4, "events = %v", events)
-	Check(t, events[0] == "marker" && events[1] == "markers" && events[2] == "keyfile" && events[3] == "keys",
-		"events = %v", events)
-	contents, ok := obs["contents"].([]any)
-	Require(t, ok && len(contents) == 2, "contents = %v", obs["contents"])
-	Check(t, contents[0] == true && contents[1] == true, "contents = %v", contents)
-	Check(t, obs["last"] == "usermod", "last = %v", obs["last"])
+	// Binary-observable remainder of the durability case: one provision
+	// writes the marker then the keyfile with exact bytes and modes and
+	// runs useradd before the usermod grant. The per-sync lock-holding
+	// and fsync order are asserted inside the crate, where each sync is
+	// observable.
+	env := newAccountEnv(t)
+	result := env.run(t, accountDoc("alice", 1, true, []string{"ssh-ed25519 YWJj"}))
+	Require(t, result.Code == 0, "exit = %d: %q", result.Code, result.Stderr)
+	Check(t, env.read(t, "accounts/alice") == "1", "marker wrong")
+	Check(t, env.mode(t, "accounts/alice") == 0o600, "marker mode wrong")
+	Check(t, env.read(t, "keys/alice") == "ssh-ed25519 YWJj\n", "keys wrong")
+	Check(t, env.mode(t, "keys/alice") == 0o644, "keys mode wrong")
+	commands := env.commands(t)
+	Require(t, len(commands) == 2, "commands = %v", commands)
+	Check(t, strings.HasPrefix(commands[0], "useradd "), "first = %q", commands[0])
+	Check(t, strings.HasPrefix(commands[1], "usermod "), "last = %q", commands[1])
 }
 
 func TestAccountFailedProvisioningReleasesLockWithoutRemovingPartialFiles(t *testing.T) {
-	obs := runAccountCase(t, "failed_provisioning")
-	Check(t, raisedAs(accountAttemptMRO(t, obs["attempt"]), "OSError"), "sync failure swallowed")
-	Check(t, accountText(t, obs["marker"]) == "1", "marker = %q", accountText(t, obs["marker"]))
-	Check(t, obs["home_is_dir"] == true, "home missing")
-	Check(t, obs["relocked"] == true, "lock stranded")
+	env := newAccountEnv(t)
+	result := env.run(t, accountDoc("alice", 1, false, []string{}), "SODA_PROJECT_ACCOUNT_FAIL_SYNC", "1")
+	requireAccountFailure(t, result, "sync failure")
+	Check(t, env.read(t, "accounts/alice") == "1", "marker = %q", env.read(t, "accounts/alice"))
+	info, err := os.Stat(filepath.Join(env.root, "home/alice"))
+	Require(t, err == nil, "home missing: %v", err)
+	Check(t, info.IsDir(), "home is not a dir")
+	relock, err := os.Open(filepath.Join(env.root, "keys"))
+	Require(t, err == nil, "open keys: %v", err)
+	defer relock.Close()
+	Check(t, unix.Flock(int(relock.Fd()), unix.LOCK_EX|unix.LOCK_NB) == nil, "lock stranded")
+}
+
+func TestAccountStdinContractBounds(t *testing.T) {
+	env := newAccountEnv(t)
+	for _, body := range [][]byte{
+		{},
+		[]byte("not json"),
+		[]byte("null"),
+		[]byte("[]"),
+		[]byte("{}"),
+		[]byte("\xff\xfe"),
+		[]byte(`{"login": "alice"}`),
+		bytes.Repeat([]byte("x"), 65537),
+	} {
+		requireAccountFailure(t, env.run(t, body), "malformed stdin")
+	}
+	// A 65536-byte valid document succeeds; the padding spreads over
+	// four keys so each stays under the key length limit.
+	prefix := `{"login": "alice", "identity": 1, "admin": false, "keys": [`
+	suffix := `]}`
+	per := (65536 - len(prefix) - len(suffix) - 3*2 - 4*8) / 4
+	lens := [4]int{per, per, per, per}
+	lens[3] += 65536 - (len(prefix) + len(suffix) + 6 + 4*8 + 4*per)
+	var edge bytes.Buffer
+	edge.WriteString(prefix)
+	for i, n := range lens {
+		Require(t, 6+n <= 16384, "key %d too long", i)
+		if i > 0 {
+			edge.WriteString(", ")
+		}
+		edge.WriteString(`"ssh-x ` + strings.Repeat("A", n) + `"`)
+	}
+	edge.WriteString(suffix)
+	Require(t, edge.Len() == 65536, "edge len = %d", edge.Len())
+	result := env.run(t, edge.Bytes())
+	Require(t, result.Code == 0, "edge exit = %d: %q", result.Code, result.Stderr)
+	Check(t, result.Stdout == "{\"login\": \"alice\", \"identity\": 1}\n", "edge stdout = %q", result.Stdout)
+	Check(t, len(env.commands(t)) == 1, "commands = %v", env.commands(t))
 }
 
 func TestAccountNativePasswordSSHPolicyIsNotRelaxed(t *testing.T) {

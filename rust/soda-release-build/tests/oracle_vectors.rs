@@ -157,6 +157,8 @@ STEP Compile soda-identity-compose
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-identity-compose
 STEP Compile project-terminal
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal
+STEP Compile project-account
+cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-account
 STEP Build frontend assets
 bun scripts/build-forgejo.ts --out $ROOT/.artifacts/native/x86_64/forgejo-js
 STEP Fetch terminal assets

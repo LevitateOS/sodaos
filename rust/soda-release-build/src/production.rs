@@ -221,6 +221,11 @@ impl Production {
             "project-terminal",
             &bindir.join("project-terminal").to_string_lossy(),
         )?;
+        self.compile_rust(
+            "soda-project-account",
+            "project-account",
+            &bindir.join("project-account").to_string_lossy(),
+        )?;
         let native = self.native.clone();
         let steps: Vec<(&str, Vec<String>)> = vec![
             (
@@ -949,6 +954,9 @@ mod tests {
                         if bin == "soda-project-terminal" {
                             bin = "project-terminal".to_string();
                         }
+                        if bin == "soda-project-account" {
+                            bin = "project-account".to_string();
+                        }
                         let dest = PathBuf::from(dir).join("target/release").join(bin);
                         std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
                         std::fs::write(&dest, crate::elf::tests::fixture_elf()).unwrap();
@@ -983,7 +991,12 @@ mod tests {
         prod.resolve_inputs().unwrap();
         prod.assets(&host.to_string_lossy(), &forgejo.to_string_lossy())
             .unwrap();
-        for tool in ["muse", "soda-identity-compose", "project-terminal"] {
+        for tool in [
+            "muse",
+            "soda-identity-compose",
+            "project-terminal",
+            "project-account",
+        ] {
             let path = PathBuf::from(&prod.native)
                 .join("project-tools/bin")
                 .join(tool);
