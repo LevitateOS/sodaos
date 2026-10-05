@@ -16,7 +16,7 @@ impl Controller {
     pub(crate) fn end(state: &State, lease: &Lease) -> Result<(), Error> {
         if lease.binding.is_none() {
             state.store.forget_lease(&lease.id)?;
-            return Self::release_execution_lease(state, lease);
+            return Self::observe_terminal(state, lease);
         }
         if lease.provider_id != MUSE {
             Self::uncertain(state, lease)?;
@@ -26,7 +26,7 @@ impl Controller {
             return Err(Error::uncertain());
         }
         state.store.forget_lease(&lease.id)?;
-        Self::release_execution_lease(state, lease)
+        Self::observe_terminal(state, lease)
     }
 
     pub fn end_lease(&self, owner: i64, id: &str) -> Result<(), Error> {
@@ -41,7 +41,7 @@ impl Controller {
     pub(crate) fn finish_lease(state: &State, lease: &Lease) -> Result<(), Error> {
         if lease.binding.is_none() {
             state.store.forget_lease(&lease.id)?;
-            return Self::release_execution_lease(state, lease);
+            return Self::observe_terminal(state, lease);
         }
         if lease.provider_id == MUSE {
             return Self::end(state, lease);
@@ -63,10 +63,13 @@ impl Controller {
             let _ = Self::uncertain(state, lease);
             return Err(err);
         }
-        Self::release_execution_lease(state, lease)
+        Self::observe_terminal(state, lease)
     }
 
     // ReconcileLease is scoped recovery, never cancellation of another execution.
+    // An admitted-but-unreserved lease retires back to pending so the same
+    // identity may retry; a bound lease completed native work and stays
+    // terminal once retired (I06-F1).
     pub fn reconcile_lease(&self, id: &str) -> Result<(), Error> {
         let state = self.lock();
         let lease = match state.store.lease(id) {
@@ -74,6 +77,10 @@ impl Controller {
             Err(err) if err.is_not_found() => return Ok(()),
             Err(err) => return Err(err),
         };
+        if lease.binding.is_none() {
+            state.store.forget_lease(&lease.id)?;
+            return Self::release_execution_lease(&state, &lease);
+        }
         Self::end(&state, &lease)
     }
 

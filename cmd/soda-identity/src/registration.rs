@@ -58,10 +58,10 @@ impl Controller {
     }
 
     // releaseExecutionLease detaches a reconciled lease from its execution
-    // without tombstoning it: recovery may retry the same identity, gated
-    // by current connection authority and native re-attestation. Only
-    // Return and CloseExecution make an execution terminal. A tombstone
-    // keeps its state.
+    // without tombstoning it: admitted-but-unreserved recovery may retry the
+    // same identity, gated by current connection authority and native
+    // re-attestation. Completed Return, End, expiry and CloseExecution make
+    // an execution terminal instead. A tombstone keeps its state.
     pub(crate) fn release_execution_lease(state: &State, lease: &Lease) -> Result<(), Error> {
         let mut execution = match state.store.execution(&lease.kind, &lease.execution_id) {
             Ok(execution) => execution,
