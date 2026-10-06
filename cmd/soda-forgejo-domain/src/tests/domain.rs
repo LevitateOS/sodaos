@@ -100,12 +100,7 @@ fn lift_removes_marker_and_unmasks() {
     assert!(stdout.contains("marker removed"), "{stdout}");
     assert!(stdout.contains("unmasked: forgejo.service"), "{stdout}");
     assert!(!marker.exists());
-    // Tolerant of unresolvable markers: still unmasks.
-    let fx = fixture(Some("APP_NAME = Soda\n"), None);
-    let mut sys = FakeSys::new();
-    let (result, stdout) = run_verb("lift", &fx, &mut sys);
-    assert!(result.is_ok(), "{result:?}");
-    assert!(stdout.contains("marker already absent"), "{stdout}");
+    // Unknown-marker refusal moved to lift_refuses_unknown_marker_before_unmask (O04-F1).
 }
 
 #[test]
@@ -136,4 +131,31 @@ fn start_refuses_inhibited_and_masked() {
     assert!(result
         .expect_err("start-fail")
         .contains("systemctl start failed"));
+}
+
+#[test]
+fn lift_refuses_unknown_marker_before_unmask() {
+    // O04-F1: an unresolvable marker mapping must refuse before any
+    // unmask mutation; it must not read as "already absent".
+    let fx = fixture(Some("APP_NAME = Soda\n"), None);
+    let mut sys = FakeSys::new();
+    let (result, stdout) = run_verb("lift", &fx, &mut sys);
+    let err = result.expect_err("lift refuses unknown marker");
+    assert!(err.contains("app.ini"), "{err}");
+    assert!(sys.calls.is_empty(), "no mutation: {:?}", sys.calls);
+    assert!(!stdout.contains("already absent"), "{stdout}");
+    assert!(!stdout.contains("unmasked"), "{stdout}");
+}
+
+#[test]
+fn start_refuses_unknown_marker_before_start() {
+    // O04-F1: an unresolvable marker mapping must refuse before any
+    // start mutation; it must not skip the inhibited precondition.
+    let fx = fixture(Some("APP_NAME = Soda\n"), None);
+    let mut sys = FakeSys::new();
+    let (result, stdout) = run_verb("start", &fx, &mut sys);
+    let err = result.expect_err("start refuses unknown marker");
+    assert!(err.contains("app.ini"), "{err}");
+    assert!(sys.calls.is_empty(), "no mutation: {:?}", sys.calls);
+    assert!(!stdout.contains("started:"), "{stdout}");
 }

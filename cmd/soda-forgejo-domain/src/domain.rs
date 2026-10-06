@@ -138,15 +138,14 @@ fn cmd_status(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Resul
 }
 
 fn cmd_lift(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<(), String> {
-    let marker = marker_path(paths).ok();
-    match marker {
-        Some(marker) if marker.exists() => {
-            fs::remove_file(&marker).map_err(|e| e.to_string())?;
-            let _ = writeln!(stdout, "marker removed: {}", marker.display());
-        }
-        _ => {
-            let _ = writeln!(stdout, "marker already absent");
-        }
+    // O04-F1: an unresolvable marker mapping refuses before any unmask
+    // mutation; only a known-absent marker reads as already absent.
+    let marker = marker_path(paths)?;
+    if marker.exists() {
+        fs::remove_file(&marker).map_err(|e| e.to_string())?;
+        let _ = writeln!(stdout, "marker removed: {}", marker.display());
+    } else {
+        let _ = writeln!(stdout, "marker already absent");
     }
     let (code, out) = sys.run(&["systemctl", "unmask", UNIT]);
     if code != 0 {
@@ -157,11 +156,13 @@ fn cmd_lift(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<
 }
 
 fn cmd_start(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<(), String> {
-    let marker = marker_path(paths).ok();
-    if matches!(marker.as_ref(), Some(marker) if marker.exists()) {
+    // O04-F1: an unresolvable marker mapping refuses before any start
+    // mutation; only a known marker gates the inhibited precondition.
+    let marker = marker_path(paths)?;
+    if marker.exists() {
         return Err(format!(
             "restart inhibited: marker {} present; reconcile, then run lift",
-            marker.unwrap().display()
+            marker.display()
         ));
     }
     if unit_masked(sys) {
