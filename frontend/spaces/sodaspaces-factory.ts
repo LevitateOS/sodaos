@@ -1,6 +1,7 @@
 import {LitElement} from 'lit';
 import {renderFactoryWatch} from './sodaspaces-factory-view.js';
-import {object, readSodaJSON, factoryOutputFrame, factoryOutputCursor, factoryClosedReason} from './sodaspaces-api.js';
+import {object, readSodaJSON} from './sodaspaces-api.js';
+import {factoryOutputFrame, factoryOutputCursor, factoryClosedReason} from './sodaspaces-factory-stream-response.js';
 import {factoryRunStatusResponse, factoryStatusFrame} from './sodaspaces-factory-response.js';
 import type {TerminalView, Renderer} from './sodaspaces-terminal.js';
 import type {FitAddon} from '@xterm/addon-fit';
