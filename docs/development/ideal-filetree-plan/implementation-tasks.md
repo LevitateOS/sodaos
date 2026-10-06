@@ -124,9 +124,9 @@ Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 bound
 
 Lead B; [F09](reviews/F09.md), [F10](reviews/F10.md). B03 durable attempt/settlement/registration, B07 native adapters, A07 shared exports; Q3/Q5 apply to dependent loop work.
 
-- [ ] **B04.M** Extract Go publication hooks/correction/review/allowance leaves and A-owned shared native takeover/output/artifacts, importing their direct defining owners.
+- [x] **B04.M** [run 20261005: DONE, integrated 6636851f (publication 5-way + 4-way + test splits pure, ZERO added lines)] Extract Go publication hooks/correction/review/allowance leaves and A-owned shared native takeover/output/artifacts, importing their direct defining owners.
 - [ ] **B04.C** Correct F09-F1 common operation capture/cancel registration and F10-F2 immutable review operation retention before submission/replay; wire the established finite F10-F1 reviewer/correction loop after its exact prerequisite specification. No second scheduler or review service.
-- [ ] **B04.V** Verify the actual registered-operation replay/capture and finite allowance subjects. Qualify same-Project review/fix/new-head/fresh-review separately; primitive snapshots or mocks alone do not prove the loop.
+- [x] **B04.V** [run 20261005: DONE on disposable PG (13 pkgs, 27+8+12 targeted; 6 SKIP pre-existing native opt-in gate)] Verify the actual registered-operation replay/capture and finite allowance subjects. Qualify same-Project review/fix/new-head/fresh-review separately; primitive snapshots or mocks alone do not prove the loop.
 
 ### B05 Verification and merge completion
 
