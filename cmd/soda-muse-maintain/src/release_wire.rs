@@ -84,7 +84,7 @@ pub(crate) fn decode_release_payload(body: &[u8]) -> Result<ReleasePayload, ()> 
     if !upgrade_seen {
         upgrade_from = Vec::new();
     }
-    super::validate_release_payload(
+    super::release_validation::validate_release_payload(
         format,
         &id,
         &revision,

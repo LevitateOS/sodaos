@@ -29,7 +29,7 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
     }
     if !c.muse_socket.starts_with('/')
         || !c.identity_socket.starts_with('/')
-        || !super::is_hex_string(&c.muse_sha256, 64)
+        || !super::release_validation::is_hex_string(&c.muse_sha256, 64)
         || c.muse_version.is_empty()
         || super::filesystem::go_base(&c.muse_socket) != "launch.sock"
     {
@@ -96,7 +96,7 @@ fn valid_network_name(s: &str) -> bool {
 fn valid_tailnet_image(s: &str) -> bool {
     // sha256: prefix plus ^[0-9a-f]{64}$ (ValidImageRef with prefix).
     match s.strip_prefix("sha256:") {
-        Some(hex) => super::is_hex_string(hex, 64),
+        Some(hex) => super::release_validation::is_hex_string(hex, 64),
         None => false,
     }
 }
