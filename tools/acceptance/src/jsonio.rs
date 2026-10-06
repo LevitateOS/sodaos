@@ -20,9 +20,7 @@ use crate::error::Error;
 use crate::files::{self, FileAttr, OwnedDir};
 use crate::sha256;
 
-mod timestamps;
-
-pub use timestamps::{now_rfc3339_nano, validate_rfc3339};
+pub use crate::timestamps::{now_rfc3339_nano, validate_rfc3339};
 
 /// Read one JSON value from a bounded regular file, returning the value and
 /// the SHA-256 hex of the exact bytes decoded. Mirrors `ReadJSON`.
