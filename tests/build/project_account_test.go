@@ -26,7 +26,7 @@ const accountFailure = "account provisioning unconfirmed; inspect native account
 
 func accountBinary(t *testing.T) string {
 	t.Helper()
-	return CargoBinary(t, "soda-project-account", "project-account")
+	return CargoBinary(t, "soda-project-terminal", "project-account")
 }
 
 // accountEnv is one hermetic binary run: temp root, managed dirs, and
