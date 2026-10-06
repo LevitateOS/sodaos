@@ -1,3 +1,6 @@
-@import "./code-layout.css?v=17-square-tabs";
-@import "./code-graph.css?v=17-square-tabs";
-@import "./code-browse.css?v=17-square-tabs";
+/* Stock Forgejo code workflows. Native editors, diffs, polling and actions retain
+   their own behavior; these adapters use the established Soda primitives. */
+
+@import "./repository-code-browser.css?v=17-square-tabs";
+@import "./repository-code-editing.css?v=17-square-tabs";
+@import "./repository-code-actions.css?v=17-square-tabs";

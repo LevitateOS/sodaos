@@ -1,0 +1,92 @@
+/* The editor remains full width; only the surrounding form adopts Soda controls. */
+.soda-code-editor > .ui.container > .soda-form {
+  width: 100%;
+  max-width: none;
+}
+.soda-code-editor .commit-form.soda-form-section { margin-top: 16px; }
+.soda-code-commit-title {
+  margin: 0 0 16px;
+  font: 800 25px/1.35 "Barlow Condensed","Arial Narrow",sans-serif;
+  color: var(--soda-page-text);
+}
+.soda-code-editor .quick-pull-choice {
+  padding: 0;
+  margin-block: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.soda-code-editor .repo-editor-header {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  margin-bottom: 16px;
+}
+.soda-code-editor .repo-editor-header .breadcrumb {
+  flex-wrap: wrap;
+  row-gap: 8px;
+  overflow-wrap: anywhere;
+}
+.soda-code-editor #editor-bar {
+  min-height: var(--soda-control-height);
+  padding: 4px;
+  gap: 8px;
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+  background: var(--soda-page-surface);
+}
+.soda-code-editor #editor-bar .switch {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.soda-code-editor #editor-bar .switch > .item {
+  padding: 8px 12px;
+  border-radius: var(--soda-control-radius);
+  color: var(--soda-page-muted);
+  font: 600 14px/1.4 Barlow,Arial,sans-serif;
+}
+.soda-code-editor #editor-bar .switch > .active.item {
+  color: var(--soda-page-link);
+  background: var(--soda-page-selected);
+}
+.soda-code-editor #editor-bar .switch > .item:hover {
+  background: var(--soda-page-hover);
+}
+.soda-code-editor .ui.tab.segment {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+/* Branch selectors stay outside clipping panels so their native menus can open. */
+.soda-code .soda-code-branch-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  overflow: visible;
+}
+.soda-code-branch-picker > .dropdown { max-width: 100%; }
+.soda-code-branch-picker > .dropdown > .button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: var(--soda-control-height);
+  white-space: normal;
+}
+.soda-code-branch-picker > .dropdown > .button > .text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.soda-code-compare :is(.diff-file-header,.diff-detail-box) {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+.soda-code-compare .diff-file-box {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+}
+.soda-code-compare > .ui.container > h2 .sub.header {
+  margin-top: 8px;
+  color: var(--soda-page-muted);
+  font: 400 16px/1.6 Barlow,Arial,sans-serif;
+}
