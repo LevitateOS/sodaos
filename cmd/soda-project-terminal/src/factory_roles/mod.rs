@@ -41,7 +41,6 @@ pub(crate) mod sha;
 #[cfg(test)]
 #[path = "tests.rs"]
 pub(crate) mod testutil;
-#[path = "../../../../rust/soda-project-factory-roles/src/validate.rs"]
 pub(crate) mod validate;
 
 use error::{fail, Error};
