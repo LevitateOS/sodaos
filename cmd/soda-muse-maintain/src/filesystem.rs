@@ -314,3 +314,7 @@ pub(crate) fn verify_native(tool: &Tool, digest: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "filesystem_tests.rs"]
+mod filesystem_tests;
