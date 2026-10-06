@@ -19,8 +19,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::tailnet_domain::{
-    valid_container_id, valid_project_id, ReadFile, StatFile, ERR_CONFLICT, ERR_INVALID,
-    ERR_UNAVAILABLE, ERR_UNCONFIRMED, ERR_UNSUPPORTED,
+    valid_container_id, valid_project_id, ERR_CONFLICT, ERR_INVALID, ERR_UNAVAILABLE,
+    ERR_UNCONFIRMED,
 };
 use crate::tailnet_runtime::{
     companion_create_args, decode_project_run, marshal_project_run, ProjectRun,
@@ -344,80 +344,15 @@ pub use keys::{
     read_companion_id, retire_pending_run_key, retire_run_key, write_companion_id, write_run_key,
 };
 
-fn fresh_tailscale_conflict(devices: &str) -> bool {
-    for line in devices.split('\n') {
-        if let Some((name, _)) = line.split_once(':') {
-            if name.trim() == "tailscale0" {
-                return true;
-            }
-        }
-    }
-    false
-}
+#[path = "tailnet/files/resolver.rs"]
+mod resolver;
 
-fn validate_resolver_text(data: &[u8], fresh: bool) -> Result<(), String> {
-    if data.len() > 16384 || data.is_empty() {
-        return Err(ERR_UNSUPPORTED.to_string());
-    }
-    let text = String::from_utf8_lossy(data).to_lowercase();
-    if text.contains("systemd-resolved")
-        || text.contains("resolvconf")
-        || (fresh && text.contains("tailscale"))
-    {
-        return Err(ERR_UNSUPPORTED.to_string());
-    }
-    Ok(())
-}
-
-fn resolver_path(container: &str) -> String {
-    format!("/var/lib/containers/storage/overlay-containers/{container}/userdata/resolv.conf")
-}
-
-fn validate_resolver_inode(run: &ProjectRun, stat: &StatFile) -> Result<(), String> {
-    let expected = resolver_path(&run.target.container);
-    if run.resolver != expected {
-        return Err(ERR_UNSUPPORTED.to_string());
-    }
-    let info = stat(&expected).map_err(|_| ERR_UNSUPPORTED.to_string())?;
-    if !info.is_file() || info.len() > 16384 {
-        return Err(ERR_UNSUPPORTED.to_string());
-    }
-    let actual = stat(&format!("/proc/{}/root/etc/resolv.conf", run.pid))
-        .map_err(|_| ERR_UNSUPPORTED.to_string())?;
-    if !same_file(&info, &actual) {
-        return Err(ERR_UNSUPPORTED.to_string());
-    }
-    Ok(())
-}
-
-/// Validate the real shared resolver inode, not an arbitrary path obtained
-/// from the project. Tailscale owns backup/restore in the retained companion
-/// root. `stat` must follow links (like Go `os.Stat`).
-pub fn validate_run_resolver(
-    run: &ProjectRun,
-    read: ReadFile,
-    stat: StatFile,
-    fresh: bool,
-) -> Result<(), String> {
-    validate_resolver_inode(run, &stat)?;
-    let expected = resolver_path(&run.target.container);
-    let data = read(&expected).map_err(|_| ERR_UNSUPPORTED.to_string())?;
-    validate_resolver_text(&data, fresh)?;
-    let devices =
-        read(&format!("/proc/{}/net/dev", run.pid)).map_err(|_| ERR_UNAVAILABLE.to_string())?;
-    if devices.len() > 65536 {
-        return Err(ERR_UNAVAILABLE.to_string());
-    }
-    if fresh && fresh_tailscale_conflict(&String::from_utf8_lossy(&devices)) {
-        return Err(ERR_CONFLICT.to_string());
-    }
-    Ok(())
-}
+pub use resolver::validate_run_resolver;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tailnet_domain::RunTarget;
+    use crate::tailnet_domain::{ReadFile, RunTarget, StatFile};
     use std::cell::RefCell;
     use std::io::ErrorKind;
     use std::os::unix::fs::{symlink, PermissionsExt};
