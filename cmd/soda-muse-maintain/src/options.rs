@@ -63,7 +63,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
                     bind_only = parse_bool_flag(v).ok_or_else(|| {
                         flag_error(format!(
                             "invalid boolean value {} for -bind-only: parse error",
-                            super::go_quoted(v)
+                            super::config_wire::go_quoted(v)
                         ))
                     })?;
                 }
