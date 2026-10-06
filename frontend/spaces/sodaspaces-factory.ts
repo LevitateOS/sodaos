@@ -1,10 +1,10 @@
 import {LitElement} from 'lit';
 import {renderFactoryWatch} from './sodaspaces-factory-view.js';
-import {statusText, watchCommands, watchPresentation, watchTitle} from './sodaspaces-factory-display.js';
+import {watchCommands, watchPresentation, watchTitle} from './sodaspaces-factory-display.js';
 import type {DisplayInput} from './sodaspaces-factory-display.js';
+import {watch as runWatch} from './sodaspaces-factory-request.js';
+import type {RequestInput} from './sodaspaces-factory-request.js';
 import {object, readSodaJSON} from './sodaspaces-api.js';
-import {factoryOutputFrame, factoryOutputCursor, factoryClosedReason} from './sodaspaces-factory-stream-response.js';
-import {factoryRunStatusResponse, factoryStatusFrame} from './sodaspaces-factory-response.js';
 import type {TerminalView, Renderer} from './sodaspaces-terminal.js';
 import type {FitAddon} from '@xterm/addon-fit';
 import type {ITerminalAddon} from '@xterm/xterm';
@@ -148,7 +148,7 @@ export class SodaFactoryWatch extends LitElement {
         );
       },
       watchNow: () => {
-        void this.watch();
+        void runWatch(this.requestInput());
       },
       detach: (message) => this.detach(message),
     };
@@ -264,144 +264,58 @@ export class SodaFactoryWatch extends LitElement {
     if (screen.clientWidth && screen.clientHeight) fit.fit();
     return terminal;
   }
-  private blockedWatch() {
-    return (
-      this.disposed || !this.binding || this.state === 'stale' || this.state === 'opening' || this.state === 'ready'
-    );
-  }
-  private endedRun(detail: {state?: {phase: string; exit_code?: number; output?: string; output_truncated: boolean}}) {
-    const state = detail.state;
-    this.statusLine = state ? statusText(state.phase, false, true, state.exit_code ?? null) : 'ended';
-    const excerpt = state?.output ? `\nLast output:\n${state.output}` : '';
-    const cut = state?.output_truncated ? '\n… output truncated …' : '';
-    this.detach(
-      `Run ended (${this.statusLine}). Reattachment is unavailable; this view keeps its status.${excerpt}${cut}`
-    );
-  }
-  private async inspectRun(n: number, request: AbortController) {
-    const detail = factoryRunStatusResponse(
-      await this.json(`factory/runs/${this.binding!.runId}`, request.signal),
-      this.binding!.runId,
-      this.binding!.repositoryId
-    );
-    if (!this.live(n)) return true;
-    if (detail.state?.terminal) {
-      this.endedRun(detail);
-      return true;
-    }
-    if (detail.state) this.statusLine = statusText(detail.state.phase, detail.state.live, false, null);
-    else this.statusLine = detail.outcome ? `recorded · ${detail.outcome}` : 'recorded';
-    return false;
-  }
-  private attachPayload(cursor: number) {
-    return {
-      run_id: this.binding!.runId,
-      repository_id: this.binding!.repositoryId,
-      session_generation: this.binding!.transport.generation,
-      cursor,
-    };
-  }
-  private onPeerOpen(n: number, peer: WebSocket, cursor: number) {
-    if (!this.live(n)) {
-      peer.close();
-      return;
-    }
-    try {
-      peer.send(JSON.stringify(this.attachPayload(cursor)));
-      this.message = 'Attaching the recorded run…';
-    } catch {
-      this.detach('Attachment dispatch was not confirmed. No input was sent.');
-    }
-  }
-  private acceptStatus(frame: ReturnType<typeof factoryStatusFrame>) {
-    this.statusLine = statusText(frame.phase, frame.live, frame.terminal, frame.exit_code);
-    if (this.state === 'opening') {
-      window.clearTimeout(this.timer);
-      this.state = 'ready';
-      this.retries = 0;
-      this.notice = false;
-      this.message = `Watching ${watchTitle(this.displayInput())}.`;
-      void this.screenReady();
-    }
-  }
-  private acceptOutput(frame: ReturnType<typeof factoryOutputFrame>, terminal: TerminalView, queued: {bytes: number}) {
-    if (this.state !== 'ready') throw Error('frame');
-    const next = factoryOutputCursor(this.cursor, frame);
-    if (frame.truncated) terminal.write('\r\n… earlier output truncated …\r\n');
-    if (frame.gap) terminal.write(`\r\n… output gap: skipped to byte ${frame.next} …\r\n`);
-    if (queued.bytes + frame.bytes.length > 262144) throw Error('output');
-    queued.bytes += frame.bytes.length;
-    this.cursor = next;
-    if (frame.bytes.length)
-      terminal.write(frame.bytes, () => {
-        queued.bytes -= frame.bytes.length;
-      });
-  }
-  private dispatchFrame(frame: Record<string, unknown>, terminal: TerminalView, queued: {bytes: number}) {
-    if (frame.type === 'status' && this.binding) this.acceptStatus(factoryStatusFrame(frame, this.binding.runId));
-    else if (frame.type === 'output') this.acceptOutput(factoryOutputFrame(frame), terminal, queued);
-    else if (frame.type === 'closed') this.detachClosed(factoryClosedReason(frame));
-    else throw Error('frame');
-  }
-  private detachClosed(reason: string) {
-    const ended = reason === 'eof' ? 'Run ended. This view keeps its rendered output.' : `View ended: ${reason}.`;
-    this.detach(ended);
-  }
-  private onPeerMessage(event: MessageEvent, n: number, terminal: TerminalView, queued: {bytes: number}) {
-    if (!this.live(n) || this.terminal !== terminal) return;
-    try {
-      if (typeof event.data !== 'string' || event.data.length > 65536) throw Error('frame');
-      this.dispatchFrame(object(JSON.parse(event.data)), terminal, queued);
-    } catch {
-      this.detach('Invalid or overloaded stream. No input was sent.');
-    }
-  }
-  private onPeerClosed(n: number) {
-    if (!this.live(n)) return;
-    this.detach('Connection lost. The run continues without this view.');
-    if (this.retries < 3) {
-      const wait = 1000 * 2 ** this.retries++;
-      this.timer = window.setTimeout(() => this.watch(true), wait);
-    }
-  }
-  private bindPeer(n: number, terminal: TerminalView, cursor: number) {
-    const peer = (this.socket = this.binding!.transport.websocket(`factory/runs/${this.binding!.runId}/output`)),
-      queued = {bytes: 0};
-    peer.onopen = () => this.onPeerOpen(n, peer, cursor);
-    peer.onmessage = (event) => this.onPeerMessage(event, n, terminal, queued);
-    peer.onerror = peer.onclose = () => this.onPeerClosed(n);
-  }
   async watch(resume = false) {
-    if (this.blockedWatch()) return;
-    if (!resume) {
-      this.clearScreen();
-      this.cursor = 0;
-    }
-    window.clearTimeout(this.timer);
-    this.state = 'opening';
-    const n = ++this.generation,
-      request = (this.request = new AbortController());
-    this.timer = window.setTimeout(
-      () => this.detach('Factory view timed out. Inspect the exact run; nothing was replayed.'),
-      45000
-    );
-    this.notice = true;
-    this.message = 'Reading the recorded run…';
-    try {
-      if (await this.inspectRun(n, request)) return;
-      await this.attachPeer(n);
-    } catch {
-      if (this.live(n))
-        this.detach('Could not authorize or attach. Sign in again or inspect the exact run; nothing was replayed.');
-    }
+    return runWatch(this.requestInput(), resume);
   }
-  private async attachPeer(n: number) {
-    const {Terminal, FitAddon} = await this.loadRenderer();
-    if (!this.live(n)) return;
-    const screen = await this.awaitScreen(n);
-    if (!screen || !this.live(n)) return;
-    const terminal = this.terminal || this.openScreen(screen, Terminal, FitAddon);
-    this.bindPeer(n, terminal, this.cursor);
+  private requestInput(): RequestInput {
+    return {
+      readBinding: () => this.binding,
+      readDisposed: () => this.disposed,
+      readState: () => this.state,
+      setState: (state) => {
+        this.state = state;
+      },
+      beginGeneration: () => ++this.generation,
+      isLive: (generation) => this.live(generation),
+      detach: (message, stale) => this.detach(message, stale),
+      setMessage: (message) => {
+        this.message = message;
+      },
+      setNotice: (notice) => {
+        this.notice = notice;
+      },
+      setStatusLine: (line) => {
+        this.statusLine = line;
+      },
+      readRetries: () => this.retries,
+      setRetries: (retries) => {
+        this.retries = retries;
+      },
+      readCursor: () => this.cursor,
+      setCursor: (cursor) => {
+        this.cursor = cursor;
+      },
+      clearTimer: () => {
+        window.clearTimeout(this.timer);
+      },
+      setTimer: (timer) => {
+        this.timer = timer;
+      },
+      takeRequest: () => (this.request = new AbortController()),
+      json: (path, signal) => this.json(path, signal),
+      readTitle: () => watchTitle(this.displayInput()),
+      loadRenderer: () => this.loadRenderer(),
+      awaitScreen: (n) => this.awaitScreen(n),
+      openScreen: (screen, Terminal, FitAddon) => this.openScreen(screen, Terminal, FitAddon),
+      readTerminal: () => this.terminal,
+      setSocket: (socket) => {
+        this.socket = socket;
+      },
+      screenReady: () => {
+        void this.screenReady();
+      },
+      clearScreen: () => this.clearScreen(),
+    };
   }
   private async screenReady() {
     const n = this.generation;
