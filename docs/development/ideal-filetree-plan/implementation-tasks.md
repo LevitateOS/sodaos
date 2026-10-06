@@ -228,9 +228,9 @@ Lead C; [D01](reviews/D01.md), [D03](reviews/D03.md). Start early on disjoint re
 
 Lead C; [D02](reviews/D02.md), [D04](reviews/D04.md), [H05](reviews/H05.md). C08 compile/stage join, B08 presentation; Q7 version/attribution gates.
 
-- [ ] **C09.M** Consolidate seven existing fetch/render/locales binaries into `tools/release-assets`; rebind all actual package selections, manifest/fixture/loader inputs and notices. Move system definitions to `system/host`, `system/containers`, `system/project` and licenses to their selected owners.
-- [ ] **C09.C** Correct the recorded byte-safe HTTPS predicate and reconcile actual installer-version media handoff only with retained producer evidence. Preserve full Forgejo design and installed payload destinations.
-- [ ] **C09.V** Check real input/media/asset/attribution subjects and every actual binary/importer; no new network acquisition or signing contract.
+- [x] **C09.M** [run 20261005: DONE, integrated c0a19d5a + R01 d296d340 (7 bins consolidated into tools/release-assets, ~70 system/license moves, package-selector rebinds; selinux move accepted per placement.md:151; cmd/soda-rootfs-server Go-app move queued to B per placement.md:150)] Consolidate seven existing fetch/render/locales binaries into `tools/release-assets`; rebind all actual package selections, manifest/fixture/loader inputs and notices. Move system definitions to `system/host`, `system/containers`, `system/project` and licenses to their selected owners.
+- [x] **C09.C** [run 20261005: D02-F1 DONE (byte-safe predicate + regression, proven-red pre-fix at url.rs:60); installer-version HOLD per Q7, no finalized finding] Correct the recorded byte-safe HTTPS predicate and reconcile actual installer-version media handoff only with retained producer evidence. Preserve full Forgejo design and installed payload destinations.
+- [x] **C09.V** [run 20261005: DONE (375/0 mirror + canonical post-merge, clippy 0, 7 bins live, Go FAIL sets identical base-vs-post, cargo-building Go + TS suites green post-join; cockpit playwright NOT run)] Check real input/media/asset/attribution subjects and every actual binary/importer; no new network acquisition or signing contract.
 
 ### C10 Verification, delivery and native payload application
 
