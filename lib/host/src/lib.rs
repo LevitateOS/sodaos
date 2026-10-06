@@ -36,6 +36,7 @@ pub mod tailnet_files;
 pub mod tailnet_runtime;
 pub mod tcontrol;
 pub mod tcontrol_enroll;
+#[path = "tailnet/control/native.rs"]
 pub mod tcontrol_native;
 pub mod tcontrol_policy;
 pub mod tcontrol_provider;
