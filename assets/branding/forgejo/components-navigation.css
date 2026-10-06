@@ -1,0 +1,193 @@
+.soda-context-switcher {
+  flex: none;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.soda-context-switcher .secondary-nav {
+  max-width: 100%;
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0;
+}
+
+.soda-context-switcher .secondary-nav > .ui.menu {
+  max-width: 100%;
+  margin: 0;
+  gap: 8px;
+  background: transparent;
+  justify-content: flex-end;
+}
+
+.soda-context-switcher .secondary-nav > .ui.menu > .item {
+  padding: 0;
+  margin: 0;
+}
+
+.soda-context-switcher .secondary-nav .jump > .text {
+  min-width: 0;
+  gap: 8px;
+}
+
+.soda-context-switcher .secondary-nav .avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 0;
+}
+
+.soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu {
+  left: auto;
+  right: 0;
+  min-width: 270px;
+  max-width: min(360px, calc(100vw - 32px));
+  margin-top: 8px !important;
+  padding: 8px;
+  box-shadow: none;
+}
+
+.soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu > .ui.header {
+  margin: 0;
+  padding: 12px 8px 16px;
+  color: var(--soda-page-muted);
+  font: 500 10px/1.5 "IBM Plex Mono", monospace;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em;
+}
+
+.soda-context-switcher .secondary-nav .jump .scrolling.menu {
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.soda-context-switcher .secondary-nav .ui.dropdown.jump .menu > .item {
+  border: 0;
+  border-radius: 0;
+  padding: 12px 8px !important;
+  font: 600 15px/1.4 Barlow, sans-serif;
+  font-weight: 600 !important;
+  gap: 8px;
+}
+
+.soda-context-switcher .secondary-nav .right.menu {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.soda-context-switcher .secondary-nav .right.menu > .item {
+  border-radius: 0;
+  color: var(--soda-page-muted);
+}
+
+.soda-context-switcher .secondary-nav .right.menu > .active.item {
+  background: var(--soda-page-surface);
+  color: var(--soda-page-link);
+}
+
+/* Tabs own both native switches and the unchanged Explore overflow-menu. */
+.soda-tabs {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  align-self: center;
+  box-sizing: border-box;
+  padding: 4px;
+  gap: 4px;
+  height: var(--soda-control-height);
+  max-width: 100%;
+  margin: 0;
+  border: 1px solid var(--soda-page-edge) !important;
+  border-radius: var(--soda-control-radius) !important;
+  background: var(--soda-page-canvas) !important;
+}
+
+/* Native overflow-menu observes its own width and reparents overflowing tabs.
+   Keep that width independent of the currently visible items, including room
+   for its reserved overflow button; content-sized flex boxes oscillate. */
+.soda-tabs:has(> overflow-menu) {
+  width: 448px;
+}
+
+.soda-tabs > .secondary-nav {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100%;
+  height: 100%;
+  min-height: 0 !important;
+  margin: 0;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.soda-tabs > .secondary-nav > .overflow-menu-items {
+  height: 100%;
+  gap: 4px;
+  /* Leave the native handler's trailing button reservation at the end. */
+  justify-content: flex-start !important;
+}
+
+.soda-tabs > .item,
+.soda-tabs > .secondary-nav > .overflow-menu-items > .item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin: 0;
+  padding: 0 8px;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--soda-page-muted) !important;
+  font: 600 14px/1 Barlow,sans-serif;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.soda-tabs > .active.item,
+.soda-tabs > .secondary-nav > .overflow-menu-items > .active.item {
+  background: var(--soda-page-selected) !important;
+  color: var(--soda-page-link) !important;
+}
+
+/* Match native overflow tabs to the inset, square state switches. Fomantic's
+   tabular-menu rules otherwise enlarge and round the selected Explore tab. */
+.soda-tabs > .secondary-nav.ui.menu > .overflow-menu-items > .item {
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 0 !important;
+}
+.soda-tabs > .secondary-nav.ui.menu > .overflow-menu-items > .active.item {
+  border-color: var(--soda-page-edge) !important;
+}
+@media (max-width: 700px) {
+  .soda-context-switcher {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .soda-context-switcher .secondary-nav > .ui.menu {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .soda-context-switcher .secondary-nav .ui.dropdown.jump {
+    max-width: 100%;
+  }
+
+  .soda-context-switcher .secondary-nav > .ui.menu > .item {
+    align-self: flex-start;
+    max-width: 100%;
+  }
+
+  .soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu {
+    min-width: min(270px, calc(100vw - 32px));
+    left: 0;
+    right: auto;
+  }
+}
