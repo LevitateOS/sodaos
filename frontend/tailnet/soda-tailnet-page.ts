@@ -1,15 +1,12 @@
 import {LitElement, html} from 'lit';
 import type {PreparedExtensionMount} from '../spaces/soda-extension.js';
-import {hostResult, enrollmentResult} from './soda-tailnet-response.js';
 import type {Enrollment, Host, Settings} from './soda-tailnet-response.js';
-import {TailnetRequestError, refresh, request, resetEnrollment, resetHost} from './soda-tailnet-observation.js';
-import type {ObservationInput, Scope} from './soda-tailnet-observation.js';
+import {refresh, request, resetEnrollment, resetHost} from './soda-tailnet-observation.js';
+import type {ObservationInput} from './soda-tailnet-observation.js';
+import {cancel, choose, confirm, hostAction, submitEnrollment, unknownOutcome} from './soda-tailnet-actions.js';
+import type {ActionsInput, Confirmation} from './soda-tailnet-actions.js';
 
-type Confirmation = {scope: Scope; body: Record<string, unknown>; label: string; warning: string};
-type HostResult = ReturnType<typeof hostResult>;
 type ExitChoice = {peer: Host['peers'][number]; address: string};
-const unknownOutcome =
-  'Operation unconfirmed. It may have completed. Observe native state before explicitly retrying; nothing was replayed or rolled back.';
 
 function advertisedExitPeer(peer: Host['peers'][number]) {
   return peer.exit_node && peer.addresses.length > 0;
@@ -28,30 +25,6 @@ function exitNodeMissing(host: Host) {
   const selected = host.preferences.exit_node_id;
   if (selected === '') return false;
   return !host.peers.some((peer) => peer.id === selected);
-}
-function hostOutcomeNotice(outcome: string) {
-  if (outcome === 'unconfirmed') return unknownOutcome;
-  if (outcome === 'pending')
-    return 'Authentication pending. Complete the provider step; closing this page does not cancel native authentication.';
-  if (outcome === 'observed') return 'Authentication observed; no login or connection change was requested.';
-  return 'Native operation acknowledged. This is not approval or routed-traffic proof.';
-}
-function mutationFailureNotice(error: unknown, sent: boolean) {
-  if (error instanceof TailnetRequestError && [400, 409, 422].includes(error.status)) {
-    return 'Request rejected before the requested management effect. Review inputs, revision and runtime support, then refresh. No automatic retry occurred.';
-  }
-  return sent ? unknownOutcome : 'Operation was not sent. Check Forgejo authorization and refresh before retrying.';
-}
-function hostWarning(action: string) {
-  if (action === 'advertise-exit-node')
-    return 'Change only exit-node advertisement, preserving unrelated routes. Tailscale owns approval and routing policy; advertisement alone does not prove usable routed traffic.';
-  if (action === 'refresh-forgejo')
-    return 'Refresh the appliance Git SSH advertisement through the native helper. This may restart Forgejo and interrupt its requests. It does not change browser/OAuth origins or confirm Tailnet reachability.';
-  return 'No alternative management path has been verified here. This may interrupt your current management connection and SSH sessions. Use your existing approved private route or console for recovery.';
-}
-function formText(data: FormData, key: string) {
-  const value = data.get(key);
-  return typeof value === 'string' ? value : '';
 }
 function renderPeerItem(peer: Host['peers'][number]) {
   return html`<li>
@@ -242,173 +215,73 @@ class SodaTailnet extends LitElement {
     this.authURL = '';
     this.querySelectorAll<HTMLAnchorElement>('a[data-authentication]').forEach((link) => link.removeAttribute('href'));
   }
-  private clearHostDraft(action: string) {
-    if (action === 'exit-node') this.exitDirty = false;
-    if (action === 'advertise-exit-node') this.advertiseDirty = false;
-  }
-  private applyHostMutation(action: string, result: HostResult) {
-    if (!this.settings) throw Error('Settings retired');
-    this.settings = {...this.settings, host: result.host, host_unavailable: result.readback_unavailable};
-    this.authURL = result.authURL;
-    this.notice = hostOutcomeNotice(result.outcome);
-    if (result.readback_unavailable)
-      this.notice +=
-        ' Host readback failed independently. Refresh observations; do not replay the operation to repair this observer.';
-    if (result.outcome === 'confirmed' && !result.readback_unavailable) this.clearHostDraft(action);
-    resetHost(this.observationInput());
-  }
-  private applyEnrollmentMutation(action: string, revision: string, raw: unknown) {
-    if (!this.settings) throw Error('Settings retired');
-    const result = enrollmentResult(raw, action, revision);
-    this.settings = {...this.settings, enrollment: result.enrollment};
-    this.notice = result.saved
-      ? 'Policy saved. Existing devices were not disconnected, revoked or retargeted. Project enrollment is not verified.'
-      : 'Credential check passed; nothing was saved and no auth key or device was created. Network, scope and enrollment remain unverified.';
-    // Admission/default writes do not submit the credential-binding draft.
-    // Keep its original CAS revision until explicit discard or save/rotation.
-    if (result.saved && (action === 'save' || action === 'rotate' || !this.enrollmentDirty))
-      resetEnrollment(this.observationInput());
-  }
-  private applyMutation(scope: Scope, action: string, revision: string, raw: unknown) {
-    if (!this.settings) throw Error('Settings retired');
-    if (scope === 'host') this.applyHostMutation(action, hostResult(raw, action));
-    else this.applyEnrollmentMutation(action, revision, raw);
-  }
-  private mutationFailed(lifetime: AbortController, error: unknown) {
-    if (!this.current(lifetime)) return;
-    this.clearSecrets();
-    this.stale = true;
-    this.notice = mutationFailureNotice(error, this.sent);
-  }
-  private async mutate(scope: Scope, action: string, body: string, revision: string) {
-    const lifetime = this.lifetime;
-    if (!lifetime || !this.current(lifetime) || this.busy || this.stale || this.blocked) return;
-    this.busy = true;
-    this.sent = false;
-    this.pending = null;
-    this.trigger = null;
-    this.clearSecrets();
-    this.notice = 'Checking authorization before dispatch…';
-    this.requestUpdate();
-    try {
-      const pending = request(this.observationInput(), lifetime, scope, body);
-      body = '';
-      const raw = await pending;
-      this.requireCurrent(lifetime);
-      this.applyMutation(scope, action, revision, raw);
-    } catch (error) {
-      this.mutationFailed(lifetime, error);
-    } finally {
-      body = '';
-      if (this.current(lifetime)) {
-        this.sent = false;
-        this.busy = false;
-        this.requestUpdate();
-      }
-    }
-  }
-  private async choose(event: Event, confirmation: Confirmation) {
-    if (this.busy || this.stale || this.blocked || this.pending) return;
-    this.clearSecrets();
-    this.pending = confirmation;
-    this.trigger = event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null;
-    this.requestUpdate();
-    await this.updateComplete;
-    if (this.pending === confirmation) this.querySelector<HTMLButtonElement>('[data-confirm]')?.focus();
-  }
-  private async cancel() {
-    const trigger = this.trigger;
-    this.pending = null;
-    this.trigger = null;
-    this.requestUpdate();
-    await this.updateComplete;
-    if (trigger?.isConnected) trigger.focus();
-  }
-  private confirm() {
-    const pending = this.pending;
-    if (pending)
-      void this.mutate(
-        pending.scope,
-        String(pending.body.action),
-        JSON.stringify(pending.body),
-        String(pending.body.revision)
-      );
-  }
-  private hostActionBody(action: string, host: Host): Record<string, unknown> {
-    const body: Record<string, unknown> = {action, revision: host.revision, confirm: action};
-    if (action === 'exit-node')
-      Object.assign(body, {
-        revision: this.exitRevision,
-        exit_node: this.exitNode,
-        allow_lan: !!this.exitNode && this.allowLAN,
-      });
-    if (action === 'advertise-exit-node')
-      Object.assign(body, {revision: this.advertiseRevision, advertise: this.advertise});
-    return body;
-  }
-  private hostAction(event: Event, action: string) {
-    const host = this.settings?.host;
-    if (!host) return;
-    if (action === 'exit-node' && this.exitNode.startsWith('missing:')) {
-      this.notice = 'Select an available exit node or explicitly choose None before applying.';
-      this.requestUpdate();
-      return;
-    }
-    if (action === 'signin' || action === 'authentication') {
-      void this.mutate('host', action, JSON.stringify({action, revision: host.revision}), host.revision);
-      return;
-    }
-    void this.choose(event, {
-      scope: 'host',
-      body: this.hostActionBody(action, host),
-      label: action,
-      warning: hostWarning(action),
-    });
-  }
-  private enrollmentSubmitBlocked(action: string, form: HTMLFormElement) {
-    if (this.busy || this.stale || this.blocked || !['check', 'save', 'rotate'].includes(action)) return true;
-    return !form.reportValidity();
-  }
-  private enrollmentNeedsReview(action: string, data: FormData) {
-    return action !== 'check' && data.get('reviewed') !== 'on';
-  }
-  private enrollmentPayload(action: string, data: FormData) {
-    const tags = this.tags
-      .split(',')
-      .map((tag) => tag.trim())
-      .sort();
-    return JSON.stringify({
-      action,
-      revision: this.policyRevision,
-      tailnet: this.network,
-      tags,
-      preauthorized: this.preauthorized,
-      client_id: formText(data, 'client_id'),
-      client_secret: formText(data, 'client_secret'),
-    });
-  }
-  private submitEnrollment(event: SubmitEvent) {
-    event.preventDefault();
-    if (!(event.currentTarget instanceof HTMLFormElement) || !(event.submitter instanceof HTMLButtonElement)) return;
-    const form = event.currentTarget,
-      action = event.submitter.value;
-    if (this.enrollmentSubmitBlocked(action, form)) {
-      this.clearSecrets();
-      return;
-    }
-    const data = new FormData(form);
-    if (this.enrollmentNeedsReview(action, data)) {
-      this.clearSecrets();
-      data.delete('client_secret');
-      this.notice = 'Review and confirm the exposure/binding change before saving.';
-      this.requestUpdate();
-      return;
-    }
-    let body = this.enrollmentPayload(action, data);
-    data.delete('client_secret');
-    this.clearSecrets();
-    void this.mutate('enrollment', action, body, this.policyRevision);
-    body = '';
+  private actionsInput(): ActionsInput {
+    return {
+      requireLive: (lifetime) => this.requireCurrent(lifetime),
+      isLive: (lifetime) => this.current(lifetime),
+      readLifetime: () => this.lifetime,
+      sendRequest: (lifetime, scope, body) => request(this.observationInput(), lifetime, scope, body),
+      readSettings: () => this.settings,
+      writeSettings: (settings) => {
+        this.settings = settings;
+      },
+      isBusy: () => this.busy,
+      setBusy: (busy) => {
+        this.busy = busy;
+      },
+      isStale: () => this.stale,
+      setStale: (stale) => {
+        this.stale = stale;
+      },
+      isBlocked: () => this.blocked,
+      setNotice: (notice) => {
+        this.notice = notice;
+      },
+      appendNotice: (suffix) => {
+        this.notice += suffix;
+      },
+      readSent: () => this.sent,
+      writeSent: (sent) => {
+        this.sent = sent;
+      },
+      readPending: () => this.pending,
+      writePending: (pending) => {
+        this.pending = pending;
+      },
+      readTrigger: () => this.trigger,
+      writeTrigger: (trigger) => {
+        this.trigger = trigger;
+      },
+      writeExitDirty: (dirty) => {
+        this.exitDirty = dirty;
+      },
+      writeAdvertiseDirty: (dirty) => {
+        this.advertiseDirty = dirty;
+      },
+      readEnrollmentDirty: () => this.enrollmentDirty,
+      readHostDrafts: () => ({
+        exitRevision: this.exitRevision,
+        exitNode: this.exitNode,
+        allowLAN: this.allowLAN,
+        advertiseRevision: this.advertiseRevision,
+        advertise: this.advertise,
+      }),
+      readEnrollmentDrafts: () => ({
+        policyRevision: this.policyRevision,
+        network: this.network,
+        tags: this.tags,
+        preauthorized: this.preauthorized,
+      }),
+      syncHostDraft: (discard) => resetHost(this.observationInput(), discard),
+      syncEnrollmentDraft: () => resetEnrollment(this.observationInput()),
+      clearSecrets: () => this.clearSecrets(),
+      setAuthURL: (url) => {
+        this.authURL = url;
+      },
+      updated: () => this.updateComplete,
+      focusConfirm: () => this.querySelector<HTMLButtonElement>('[data-confirm]')?.focus(),
+      requestUpdate: () => this.requestUpdate(),
+    };
   }
   private controlsDisabled() {
     return this.busy || this.stale || this.blocked || !!this.pending;
@@ -426,26 +299,26 @@ class SodaTailnet extends LitElement {
   private onConfirmKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.preventDefault();
-      void this.cancel();
+      void cancel(this.actionsInput());
     }
   }
   private onSignin(event: Event) {
-    this.hostAction(event, 'signin');
+    hostAction(this.actionsInput(), event, 'signin');
   }
   private onAuthentication(event: Event) {
-    this.hostAction(event, 'authentication');
+    hostAction(this.actionsInput(), event, 'authentication');
   }
   private onLogout(event: Event) {
-    this.hostAction(event, 'logout');
+    hostAction(this.actionsInput(), event, 'logout');
   }
   private onRefreshForgejo(event: Event) {
-    this.hostAction(event, 'refresh-forgejo');
+    hostAction(this.actionsInput(), event, 'refresh-forgejo');
   }
   private onApplyExitNode(event: Event) {
-    this.hostAction(event, 'exit-node');
+    hostAction(this.actionsInput(), event, 'exit-node');
   }
   private onApplyAdvertise(event: Event) {
-    this.hostAction(event, 'advertise-exit-node');
+    hostAction(this.actionsInput(), event, 'advertise-exit-node');
   }
   private onExitNodeChange(event: Event) {
     if (!(event.target instanceof HTMLSelectElement)) return;
@@ -486,7 +359,7 @@ class SodaTailnet extends LitElement {
     return this.settings?.enrollment.revision || '0';
   }
   private onCloseAdmission(event: Event) {
-    void this.choose(event, {
+    void choose(this.actionsInput(), event, {
       scope: 'enrollment',
       body: {action: 'disable', revision: this.enrollmentRevision()},
       label: 'close admission',
@@ -495,7 +368,7 @@ class SodaTailnet extends LitElement {
     });
   }
   private onOfferManagedDefault(event: Event) {
-    void this.choose(event, {
+    void choose(this.actionsInput(), event, {
       scope: 'enrollment',
       body: {action: 'default', revision: this.enrollmentRevision(), default: true},
       label: 'managed creation default',
@@ -504,7 +377,7 @@ class SodaTailnet extends LitElement {
     });
   }
   private onKeepDefaultOff(event: Event) {
-    void this.choose(event, {
+    void choose(this.actionsInput(), event, {
       scope: 'enrollment',
       body: {action: 'default', revision: this.enrollmentRevision(), default: false},
       label: 'default Off',
@@ -529,8 +402,8 @@ class SodaTailnet extends LitElement {
       <h2 id="tailnet-confirm-title">Confirm ${pending.label}</h2>
       <p>${pending.warning}</p>
       <div class="settings-actions">
-        <button type="button" data-confirm @click=${this.confirm}>Confirm ${pending.label}</button
-        ><button type="button" @click=${this.cancel}>Cancel</button>
+        <button type="button" data-confirm @click=${() => confirm(this.actionsInput())}>Confirm ${pending.label}</button
+        ><button type="button" @click=${() => cancel(this.actionsInput())}>Cancel</button>
       </div>
     </section>`;
   }
@@ -680,7 +553,10 @@ class SodaTailnet extends LitElement {
   }
   private renderEnrollmentForm() {
     return html`
-      <form @submit=${this.submitEnrollment} @input=${this.markEnrollmentDirty}>
+      <form
+        @submit=${(event: SubmitEvent) => submitEnrollment(this.actionsInput(), event)}
+        @input=${this.markEnrollmentDirty}
+      >
         <label
           >Managed Tailnet<input
             required
