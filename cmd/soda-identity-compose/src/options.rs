@@ -118,7 +118,7 @@ fn valid_options(o: &Options, remaining: usize) -> bool {
     remaining == 0
         && unsafe { libc::geteuid() } == 0
         && !o.login.is_empty()
-        && super::go_base(&o.login) == o.login
+        && super::registration::go_base(&o.login) == o.login
         && !o.service.is_empty()
         && o.muse
 }
