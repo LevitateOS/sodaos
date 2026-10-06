@@ -27,6 +27,14 @@ import {copyConnection} from './sodaspaces-project-connection.js';
 import type {ConnectionInput} from './sodaspaces-project-connection.js';
 import {mutate} from './sodaspaces-project-mutations.js';
 import type {MutationsInput} from './sodaspaces-project-mutations.js';
+import {
+  changeNetwork,
+  clearNetworkReview,
+  setCreateNetworkEnabled,
+  setJourneyNetworkEnabled,
+  setNetworkConfirmed,
+} from './sodaspaces-project-network.js';
+import type {NetworkInput} from './sodaspaces-project-network.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;
@@ -361,9 +369,9 @@ export class SodaProjectControls extends LitElement {
       requestStart: (event) => this.command(event, () => this.changeLifecycle(false)),
       requestCreate: (event) => this.command(event, () => this.createProject()),
       requestRepositoryChange: (event) => this.command(event, () => this.requestRepositoryChange()),
-      clearNetworkReview: (event) => this.command(event, () => this.onClearNetworkReview()),
+      clearNetworkReview: (event) => this.command(event, () => clearNetworkReview(this.networkInput())),
       selectProfile: (value) => this.onSelectProfile(value),
-      setJourneyNetworkEnabled: (enabled) => this.onJourneyNetworkEnabled(enabled),
+      setJourneyNetworkEnabled: (enabled) => setJourneyNetworkEnabled(this.networkInput(), enabled),
     };
   }
   private requestRepositoryChange() {
@@ -371,16 +379,6 @@ export class SodaProjectControls extends LitElement {
   }
   private onSelectProfile(value: string) {
     if (this.profiles.some((p) => p.id === value)) this.selectedProfile = value;
-  }
-  private onJourneyNetworkEnabled(enabled: boolean) {
-    this.networkEnabled = enabled;
-    this.networkReview = false;
-  }
-  private onCreateNetworkEnabled(enabled: boolean) {
-    this.networkEnabled = enabled;
-  }
-  private onClearNetworkReview() {
-    this.networkEnabled = this.networkReview = false;
   }
   private shouldRenderJourney() {
     return this.presentation === 'journey';
@@ -477,7 +475,7 @@ export class SodaProjectControls extends LitElement {
       readOsStatus: () => this.osStatus,
       selectView: (view) => this.select(view),
       tabKey: (event, view) => this.tabKey(event, view),
-      setCreateNetworkEnabled: (enabled) => this.onCreateNetworkEnabled(enabled),
+      setCreateNetworkEnabled: (enabled) => setCreateNetworkEnabled(this.networkInput(), enabled),
       selectProfile: (value) => this.onSelectProfile(value),
       setUseSavedKeys: (checked) => this.onUseSavedKeys(checked),
       requestRefresh: (event) => this.command(event, () => this.refresh()),
@@ -501,8 +499,8 @@ export class SodaProjectControls extends LitElement {
         void this.reviewProfileKeys(page);
       },
       selectForgejoKey: (key) => this.selectForgejoKey(key),
-      setNetworkConfirmed: (confirmed) => this.onNetworkConfirmed(confirmed),
-      changeProjectNetwork: (event, action) => this.command(event, () => this.changeNetwork(action)),
+      setNetworkConfirmed: (confirmed) => setNetworkConfirmed(this.networkInput(), confirmed),
+      changeProjectNetwork: (event, action) => this.command(event, () => changeNetwork(this.networkInput(), action)),
     };
   }
   private onUseSavedKeys(checked: boolean) {
@@ -524,9 +522,6 @@ export class SodaProjectControls extends LitElement {
   }
   private onConfirmEmpty(checked: boolean) {
     this.emptyConfirmed = checked;
-  }
-  private onNetworkConfirmed(confirmed: boolean) {
-    this.networkConfirmed = confirmed;
   }
   private joinEnvironment() {
     if (
@@ -562,6 +557,25 @@ export class SodaProjectControls extends LitElement {
     this.draft = key;
     this.outcome =
       'Review the selected public key above, then explicitly Save public key. Joining/applying to a project remains a separate action.';
+  }
+  private networkInput(): NetworkInput {
+    return {
+      readNetwork: () => this.network,
+      readEnvironment: () => this.environment,
+      readDetail: () => this.detail,
+      isBlocked: () => this.blocked,
+      readNetworkConfirmed: () => this.networkConfirmed,
+      setNetworkConfirmed: (confirmed) => {
+        this.networkConfirmed = confirmed;
+      },
+      setNetworkEnabled: (enabled) => {
+        this.networkEnabled = enabled;
+      },
+      setNetworkReview: (review) => {
+        this.networkReview = review;
+      },
+      mutations: this.mutationsInput(),
+    };
   }
   private connectionInput(): ConnectionInput {
     return {
@@ -794,35 +808,6 @@ export class SodaProjectControls extends LitElement {
         this.canCreate = canCreate;
       },
     };
-  }
-  private networkChangeBlocked() {
-    return (
-      !this.network ||
-      !this.environment ||
-      !this.detail?.environment_administrator ||
-      !this.networkConfirmed ||
-      this.blocked
-    );
-  }
-  private networkEnableBlocked(network: ProjectNetwork) {
-    return !network.available_binding || (!!network.binding && network.binding !== network.available_binding);
-  }
-  private changeNetwork(action: 'enable' | 'disable' | 'retry') {
-    const network = this.network;
-    if (this.networkChangeBlocked()) return;
-    if (action !== 'disable' && this.networkEnableBlocked(network!)) return;
-    this.networkConfirmed = false;
-    return mutate(
-      this.mutationsInput(),
-      '/api/environments/' + this.environment!.id + '/tailnet',
-      {
-        action,
-        revision: network!.revision,
-        confirm_id: network!.project,
-        ...(action === 'disable' ? {} : {binding: network!.available_binding}),
-      },
-      'Network policy saved; observe the native outcome.'
-    );
   }
   private applyOSError(epoch: number, error: unknown) {
     if (!this.active(epoch)) return;
