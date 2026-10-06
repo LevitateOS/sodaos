@@ -26,8 +26,19 @@ pub(crate) fn parse_json_string(text: &str, start: usize) -> Result<(String, usi
                         if i + 4 >= bytes.len() {
                             return Err(());
                         }
-                        let hex = &text[i + 1..i + 5];
-                        let cp = u32::from_str_radix(hex, 16).map_err(|_| ())?;
+                        // H03-F4: decode the 4 hex digits from bytes. A str
+                        // slice here panics when the window ends inside a
+                        // multibyte char; bytes reject that as malformed.
+                        let mut cp: u32 = 0;
+                        for k in 1..=4 {
+                            let value = match bytes[i + k] {
+                                b'0'..=b'9' => (bytes[i + k] - b'0') as u32,
+                                b'a'..=b'f' => (bytes[i + k] - b'a' + 10) as u32,
+                                b'A'..=b'F' => (bytes[i + k] - b'A' + 10) as u32,
+                                _ => return Err(()),
+                            };
+                            cp = cp * 16 + value;
+                        }
                         let c = char::from_u32(cp).ok_or(())?;
                         // Reject lone surrogates the way Go does.
                         if (0xd800..0xe000).contains(&cp) {

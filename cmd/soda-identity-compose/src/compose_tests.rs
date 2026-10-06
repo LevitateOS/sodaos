@@ -158,3 +158,20 @@ fn launch_exit_parsing_matches_go_unmarshal() {
         );
     }
 }
+
+/// H03-F4: a `\u` escape whose 4-byte window ends inside a multibyte char
+/// (backslash-u + euro + e-acute) must reject through the real decoder,
+/// never panic past the sanitized-rejection path. Pre-fix this panics.
+#[test]
+fn launch_exit_rejects_escape_split_inside_multibyte_char() {
+    assert!(
+        parse_launch_exit("{\"error\":\"\\u€é\"}".as_bytes()).is_err(),
+        "malformed escape boundary admitted"
+    );
+    // Guards: valid escapes still decode, lone surrogates still reject.
+    assert_eq!(
+        parse_launch_exit(b"{\"error\":\"A\\u0041\"}").unwrap(),
+        (0, String::from("AA"))
+    );
+    assert!(parse_launch_exit(b"{\"error\":\"\\ud800\"}").is_err());
+}
