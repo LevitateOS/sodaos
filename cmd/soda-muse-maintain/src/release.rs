@@ -131,5 +131,5 @@ pub(crate) fn load_release_payload(path: &str) -> Result<ReleasePayload, ()> {
     if body.len() > 4 << 20 {
         return Err(());
     }
-    super::decode_release_payload(&body)
+    super::release_wire::decode_release_payload(&body)
 }
