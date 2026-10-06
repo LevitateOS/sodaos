@@ -4,10 +4,11 @@ use std::io::{Read, Write};
 use std::os::unix::process::CommandExt;
 #[cfg(target_os = "linux")]
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use super::{reaper_main, Phase, Process, ProcessState, SharedWriter};
+use super::owned_process::{reaper_main, Process};
+use super::{Phase, SharedWriter};
 use crate::command::CommandSpec;
 use crate::error::Error;
 
@@ -95,18 +96,7 @@ fn start_process_linux(
             let _ = stdin.flush();
         });
     }
-    let process = Arc::new(Process {
-        pid,
-        state: Mutex::new(ProcessState {
-            finished: false,
-            outcome: None,
-        }),
-        done: Condvar::new(),
-        sealed: Mutex::new(false),
-        stop_result: Mutex::new(None),
-        pumps: Mutex::new(None),
-        pump_error: Arc::new(Mutex::new(None)),
-    });
+    let process = Arc::new(Process::new(pid));
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
     let pump_out = spawn_pump(stdout, out, process.pump_error.clone());
