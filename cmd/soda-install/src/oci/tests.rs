@@ -1,5 +1,11 @@
 use super::test_support::*;
 use super::*;
+use std::collections::BTreeMap;
+
+use soda_json::JsonValue;
+
+use crate::buildx;
+use crate::jsongo::parse;
 
 #[test]
 fn layout_preserves_identities_and_counts_once() {
