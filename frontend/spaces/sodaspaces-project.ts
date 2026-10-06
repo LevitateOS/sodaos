@@ -4,10 +4,10 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
 import {renderProjectStatus} from './sodaspaces-project-view.js';
-import {projectOptions, projectView} from '../tailnet/soda-tailnet-response.js';
+import {projectView} from '../tailnet/soda-tailnet-response.js';
 import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
-import {object, check, id, projectId, fingerprint, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
-import {creationProfile, osObservation, environmentResponse, detailResponse} from './sodaspaces-project-response.js';
+import {object, check, id, projectId, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
+import {creationProfile, osObservation} from './sodaspaces-project-response.js';
 import {savedKeysResponse, profileKeysResponse, keyPreviewResponse} from './sodaspaces-keys-response.js';
 import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
@@ -22,6 +22,8 @@ import {
 } from './sodaspaces-project-settings-view.js';
 import type {Lifecycle, SettingsViewInput, View} from './sodaspaces-project-settings-view.js';
 import {views} from './sodaspaces-project-settings-view.js';
+import {refresh as runRefresh} from './sodaspaces-project-refresh.js';
+import type {RefreshInput} from './sodaspaces-project-refresh.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;
@@ -32,12 +34,6 @@ export interface ProjectContext {
   forgejoPrefix?: string;
 }
 const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
-type RefreshPrior = {
-  profile: string;
-  network: ProjectOptions | undefined;
-  enabled: boolean;
-};
-
 function viewFromTabKey(key: string, current: View): View | undefined {
   const i = views.indexOf(current);
   if (key === 'Home') return views[0];
@@ -79,21 +75,6 @@ async function sodaErrorCode(response: Response): Promise<string | undefined> {
 
 function mutationObject(raw: unknown): Record<string, unknown> | null {
   return raw === null ? null : object(raw);
-}
-
-function admitRepositoryPart(part: unknown) {
-  check(
-    typeof part === 'string' &&
-      part !== '' &&
-      part !== '.' &&
-      part !== '..' &&
-      part.length <= 255 &&
-      !/[\/\\\x00\r\n]/.test(part)
-  );
-}
-
-function admitProjectLogin(login: string) {
-  check(/^[a-z][a-z0-9_-]{0,30}$/.test(login) && login !== 'root');
 }
 
 function publicKeyToken(value: string | undefined) {
@@ -662,365 +643,133 @@ export class SodaProjectControls extends LitElement {
     this.admitHttpFailure(response.status);
     throw new SodaRequestError(response.status, await sodaErrorCode(response));
   }
-  private refreshBlocked() {
-    return this.busy || this.stale || this.disposed || !this.binding;
+  async refresh() {
+    await runRefresh(this.refreshInput());
   }
-  private beginRefreshRead(): AbortController {
+  private beginEpoch() {
+    return ++this.epoch;
+  }
+  private beginRead() {
     this.readController?.abort();
     this.reset();
     const control = (this.readController = new AbortController());
-    this.busy = true;
-    this.status = 'Checking your account and environment…';
     return control;
   }
-  async refresh() {
-    if (this.refreshBlocked()) return;
-    const {expectedUserId, repositoryId} = this.binding!;
-    const n = ++this.epoch;
-    const prior: RefreshPrior = {
-      profile: this.selectedProfile,
-      network: this.networkOptions,
-      enabled: this.networkEnabled,
-    };
-    const control = this.beginRefreshRead();
-    const timeout = window.setTimeout(() => control.abort(), 15000);
-    let recoveredJoin = false;
-    try {
-      recoveredJoin = await this.refreshAccount(n, expectedUserId, repositoryId, prior, control);
-    } catch (error) {
-      this.refreshFailed(n, error);
-    } finally {
-      await this.finishRefresh(n, timeout, repositoryId, recoveredJoin);
-    }
-  }
-  private async refreshAccount(
-    n: number,
-    expectedUserId: string | undefined,
-    repositoryId: string,
-    prior: RefreshPrior,
-    control: AbortController
-  ): Promise<boolean> {
-    if (!this.active(n) || expectedUserId !== this.binding?.expectedUserId) return false;
-    const collection = await this.loadEnvironmentCollection(n, repositoryId, control);
-    if (!collection || !this.active(n)) return false;
-    if (collection.items.length) return this.refreshExisting(n, repositoryId, collection.items[0], control);
-    await this.refreshEmpty(n, repositoryId, prior, collection.can_create, control);
-    return false;
-  }
-  private admitCollection(
-    collection: Record<string, unknown>,
-    repository: Record<string, unknown>,
-    repositoryId: string
-  ) {
-    check(
-      repository.id === repositoryId &&
-        Array.isArray(collection.items) &&
-        collection.items.length <= 1 &&
-        typeof collection.can_create === 'boolean'
-    );
-    check(typeof repository.owner === 'string' && typeof repository.name === 'string');
-    for (const part of [repository.owner, repository.name]) admitRepositoryPart(part);
-  }
-  private applyRepositoryLabels(repository: Record<string, unknown>, repositoryId: string) {
-    const owner = repository.owner as string,
-      name = repository.name as string;
-    this.repositoryName = `${owner}/${name}`;
-    this.repository = `Repository ${owner}/${name} · ID ${repositoryId}`;
-    this.repositoryURL =
-      location.origin +
-      (this.binding?.forgejoPrefix || '') +
-      '/' +
-      encodeURIComponent(owner) +
-      '/' +
-      encodeURIComponent(name);
-  }
-  private async loadEnvironmentCollection(n: number, repositoryId: string, control: AbortController) {
-    const collection = object(
-      await this.api('/api/environments?repository_id=' + repositoryId, 'GET', undefined, control.signal)
-    );
-    const repository = object(collection.repository);
-    if (!this.active(n)) return;
-    this.admitCollection(collection, repository, repositoryId);
-    this.applyRepositoryLabels(repository, repositoryId);
-    return collection as typeof collection & {items: unknown[]; can_create: boolean};
-  }
-  private async refreshEmpty(
-    n: number,
-    repositoryId: string,
-    prior: RefreshPrior,
-    canCreate: boolean,
-    control: AbortController
-  ) {
-    if (canCreate && !(await this.refreshCreateOptions(n, repositoryId, prior, control))) return;
-    if (!this.active(n)) return;
-    this.status =
-      this.presentation === 'journey'
-        ? 'Creation is owner-only. You join separately after the project is ready.'
-        : 'No shared environment. Creation is owner-only and does not join you.';
-  }
-  private selectedCreateProfile(prior: RefreshPrior) {
-    if (this.profiles.some((p) => p.id === prior.profile)) return prior.profile;
-    return this.profiles[0]?.id || '';
-  }
-  private async refreshCreateOptions(
-    n: number,
-    repositoryId: string,
-    prior: RefreshPrior,
-    control: AbortController
-  ): Promise<boolean> {
-    const available = object(
-      await this.api('/api/repositories/' + repositoryId + '/profiles', 'GET', undefined, control.signal)
-    );
-    if (!this.active(n)) return false;
-    check(Array.isArray(available.items) && available.items.length === 1);
-    this.profiles = available.items.map(creationProfile);
-    this.selectedProfile = this.selectedCreateProfile(prior);
-    this.canCreate = !!this.selectedProfile;
-    return this.refreshTailnetOptions(n, repositoryId, prior, control);
-  }
-  private networkReviewNeeded(prior: RefreshPrior, options: ProjectOptions) {
-    if (!prior.enabled) return false;
-    if (!options.available) return true;
-    if (prior.network?.binding !== options.binding) return true;
-    return prior.network.revision !== options.revision;
-  }
-  private networkEnabledAfterRefresh(prior: RefreshPrior, options: ProjectOptions) {
-    if (prior.enabled) return true;
-    return this.presentation !== 'journey' && options.available && options.default;
-  }
-  private async refreshTailnetOptions(
-    n: number,
-    repositoryId: string,
-    prior: RefreshPrior,
-    control: AbortController
-  ): Promise<boolean> {
-    try {
-      const options = projectOptions(
-        await this.api('/api/repositories/' + repositoryId + '/tailnet-options', 'GET', undefined, control.signal)
-      );
-      if (!this.active(n)) return false;
-      this.networkOptions = options;
-      this.networkReview = this.networkReviewNeeded(prior, options);
-      this.networkEnabled = this.networkEnabledAfterRefresh(prior, options);
-      return true;
-    } catch (error) {
-      return this.tailnetOptionsFailed(n, prior, error);
-    }
-  }
-  private tailnetOptionsFailed(n: number, prior: RefreshPrior, error: unknown): boolean {
-    if (error instanceof SodaRequestError && error.status === 401) throw error;
-    if (!this.active(n)) return false;
-    this.networkOptions = undefined;
-    this.networkEnabled = prior.enabled;
-    this.networkReview = prior.enabled;
-    return true;
-  }
-  private applyJoinRecovery(detail: Detail) {
-    if (!this.joinFailed || detail.authority_unavailable || detail.native_unavailable) return false;
-    this.joinNeedsCheck = false;
-    if (!detail.login) return false;
-    this.joinFailed = false;
-    this.outcomeNeedsAttention = false;
-    this.outcome = '';
-    return true;
-  }
-  private environmentStatus(detail: Detail) {
-    if (!detail.environment.provisioned)
-      return 'Provisioning incomplete. Ask the operator to inspect; do not recreate it.';
-    if (detail.native_unavailable || !detail.observed)
-      return 'Native state unavailable; refresh or ask the operator to inspect.';
-    if (this.running) return 'Environment running.';
-    return 'Environment stopped.';
-  }
-  private environmentNeedsAdminStart(detail: Detail) {
-    return (
-      detail.environment.provisioned && !this.running && !detail.native_unavailable && !detail.environment_administrator
-    );
-  }
-  private applyEnvironmentStatus(detail: Detail) {
-    this.status = this.environmentStatus(detail);
-    if (this.environmentNeedsAdminStart(detail))
-      this.status += ' Ask the project administrator or Soda operator to Start it; nothing is started automatically.';
-  }
-  private async refreshExisting(
-    n: number,
-    repositoryId: string,
-    item: unknown,
-    control: AbortController
-  ): Promise<boolean> {
-    const environment = environmentResponse(item, repositoryId);
-    this.environment = environment;
-    const detail = detailResponse(
-      await this.api(`/api/environments/${environment.id}`, 'GET', undefined, control.signal),
-      environment
-    );
-    if (!this.active(n)) return false;
-    this.detail = detail;
-    const recoveredJoin = this.applyJoinRecovery(detail);
-    if (detail.login) admitProjectLogin(detail.login);
-    this.applyEnvironmentStatus(detail);
-    if (!(await this.refreshOptionalDetails(n, environment, detail, control))) return false;
-    return recoveredJoin;
-  }
-  private async refreshOptionalDetails(
-    n: number,
-    environment: Environment,
-    detail: Detail,
-    control: AbortController
-  ): Promise<boolean> {
-    if (!(await this.refreshSavedKeysIfStandard(n, control))) return false;
-    if (!(await this.refreshLifecycleIfAdmin(n, environment, detail, control))) return false;
-    if (!(await this.refreshConnectionIfJoined(n, environment, detail, control))) return false;
-    return this.refreshProjectNetworkIfEligible(n, environment, detail, control);
-  }
-  private async refreshSavedKeysIfStandard(n: number, control: AbortController): Promise<boolean> {
-    if (this.presentation === 'journey') return true;
-    return this.refreshSavedKeys(n, control);
-  }
-  private async refreshSavedKeys(n: number, control: AbortController): Promise<boolean> {
-    try {
-      const saved = savedKeysResponse(await this.api('/api/me/development-keys', 'GET', undefined, control.signal));
-      if (!this.active(n)) return false;
-      this.saved = saved;
-      return true;
-    } catch {
-      if (!this.active(n)) return false;
-      this.outcome = 'External SSH keys unavailable. Browser-only Join remains independent.';
-      return true;
-    }
-  }
-  private async refreshLifecycleIfAdmin(
-    n: number,
-    environment: Environment,
-    detail: Detail,
-    control: AbortController
-  ): Promise<boolean> {
-    if (!detail.environment.provisioned || !detail.environment_administrator) return true;
-    const state = object(
-        await this.api(`/api/environments/${environment.id}/lifecycle`, 'GET', undefined, control.signal)
-      ),
-      native = object(state.environment);
-    if (!this.active(n)) return false;
-    check(
-      native.id === environment.id && typeof native.running === 'boolean' && typeof state.boot_enabled === 'boolean'
-    );
-    this.lifecycle = {
-      running: native.running,
-      boot: state.boot_enabled,
-    };
-    return true;
-  }
-  private shouldLoadConnection(detail: Detail) {
-    return !!detail.login && this.running && this.presentation !== 'journey';
-  }
-  private admitConnectionPayload(
-    own: Record<string, unknown>,
-    connection: Record<string, unknown>,
-    native: Record<string, unknown>,
-    environment: Environment,
-    detail: Detail
-  ) {
-    check(
-      own.login === detail.login &&
-        native.id === environment.id &&
-        native.running &&
-        typeof native.ip === 'string' &&
-        /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(native.ip) &&
-        this.validIPv4(native.ip) &&
-        fingerprint(connection.fingerprint)
-    );
-  }
-  private validIPv4(ip: string) {
-    return ip.split('.').every((octet) => Number(octet) <= 255);
-  }
-  private async refreshConnectionIfJoined(
-    n: number,
-    environment: Environment,
-    detail: Detail,
-    control: AbortController
-  ): Promise<boolean> {
-    if (!this.shouldLoadConnection(detail)) return true;
-    admitProjectLogin(detail.login!);
-    const own = object(
-      await this.api(`/api/environments/${environment.id}/connection`, 'GET', undefined, control.signal)
-    );
-    if (!this.active(n)) return false;
-    const c = object(own.connection),
-      native = object(c.environment);
-    this.admitConnectionPayload(own, c, native, environment, detail);
-    await this.updateComplete;
-    if (!this.active(n)) return false;
-    this.connection = {
-      command: `ssh ${detail.login}@${native.ip}`,
-      fingerprint: c.fingerprint as string,
-    };
-    return true;
-  }
-  private shouldLoadProjectNetwork(detail: Detail) {
-    return detail.environment.provisioned && (!!detail.login || !!detail.environment_administrator);
-  }
-  private async refreshProjectNetworkIfEligible(
-    n: number,
-    environment: Environment,
-    detail: Detail,
-    control: AbortController
-  ): Promise<boolean> {
-    if (!this.shouldLoadProjectNetwork(detail)) return true;
-    return this.refreshProjectNetwork(n, environment, control);
-  }
-  private async refreshProjectNetwork(n: number, environment: Environment, control: AbortController): Promise<boolean> {
-    try {
-      const network = projectView(
-        await this.api(`/api/environments/${environment.id}/tailnet`, 'GET', undefined, control.signal),
-        environment.id
-      );
-      check(!network.saved);
-      if (!this.active(n)) return false;
-      this.network = network;
-      return true;
-    } catch (error) {
-      return this.projectNetworkFailed(n, error);
-    }
-  }
-  private projectNetworkFailed(n: number, error: unknown): boolean {
-    if (error instanceof SodaRequestError && error.status === 401) throw error;
-    if (!this.active(n)) return false;
-    this.network = undefined;
-    this.networkNotice =
-      'Private network state unavailable. No disconnected state was inferred; ordinary project controls remain independent.';
-    return true;
-  }
-  private refreshErrorStatus(e: SodaRequestError) {
-    if (e.code === 'profile_unavailable')
-      return 'Installed Project OS unavailable or incompatible. Nothing was reserved, pulled or started; ask the operator to inspect.';
-    return 'Could not confirm state. Refresh; do not infer absence or retry an uncertain action.';
-  }
-  private refreshFailed(n: number, error: unknown) {
-    if (!this.active(n)) return;
-    const e = error instanceof SodaRequestError ? error : new SodaRequestError(0);
-    this.reset();
-    this.repository = '';
-    this.status = this.refreshErrorStatus(e);
-  }
-  private async finishRefresh(n: number, timeout: number, repositoryId: string, recoveredJoin: boolean) {
-    window.clearTimeout(timeout);
-    if (!this.active(n)) return;
-    this.busy = false;
+  private announceObserved(summary: {
+    repositoryId: string;
+    environmentId: string;
+    provisioned: boolean;
+    login: string;
+    running: boolean;
+  }) {
     this.dispatchEvent(
       new CustomEvent('soda-project-observed', {
         bubbles: true,
         detail: {
-          repositoryId,
-          environmentId: this.environment?.id || '',
-          provisioned: this.detail?.environment.provisioned === true,
-          login: this.detail?.login || '',
-          running: this.running,
+          repositoryId: summary.repositoryId,
+          environmentId: summary.environmentId,
+          provisioned: summary.provisioned,
+          login: summary.login,
+          running: summary.running,
         },
       })
     );
-    if (recoveredJoin)
-      this.dispatchEvent(new CustomEvent('soda-project-changed', {bubbles: true, detail: {repositoryId}}));
-    await this.updateComplete;
+  }
+  private announceChanged(repositoryId: string) {
+    this.dispatchEvent(new CustomEvent('soda-project-changed', {bubbles: true, detail: {repositoryId}}));
+  }
+  private refreshInput(): RefreshInput {
+    return {
+      isBusy: () => this.busy,
+      isStale: () => this.stale,
+      isDisposed: () => this.disposed,
+      hasBinding: () => !!this.binding,
+      readBinding: () => this.binding,
+      isActive: (n) => this.active(n),
+      beginEpoch: () => this.beginEpoch(),
+      beginRead: () => this.beginRead(),
+      api: (path, method, body, signal) => this.api(path, method, body, signal),
+      readPresentation: () => this.presentation,
+      readEnvironment: () => this.environment,
+      readDetail: () => this.detail,
+      readStatus: () => this.status,
+      readSelectedProfile: () => this.selectedProfile,
+      readNetworkOptions: () => this.networkOptions,
+      isNetworkEnabled: () => this.networkEnabled,
+      readProfiles: () => this.profiles,
+      isRunning: () => this.running,
+      readJoinFailed: () => this.joinFailed,
+      updated: () => this.updateComplete,
+      announceObserved: (summary) => this.announceObserved(summary),
+      announceChanged: (repositoryId) => this.announceChanged(repositoryId),
+      setBusy: (busy) => {
+        this.busy = busy;
+      },
+      setStatus: (status) => {
+        this.status = status;
+      },
+      setRepositoryName: (name) => {
+        this.repositoryName = name;
+      },
+      setRepository: (repository) => {
+        this.repository = repository;
+      },
+      setRepositoryURL: (url) => {
+        this.repositoryURL = url;
+      },
+      setProfiles: (profiles) => {
+        this.profiles = profiles;
+      },
+      setSelectedProfile: (profile) => {
+        this.selectedProfile = profile;
+      },
+      setCanCreate: (canCreate) => {
+        this.canCreate = canCreate;
+      },
+      setNetworkOptions: (options) => {
+        this.networkOptions = options;
+      },
+      setNetworkReview: (review) => {
+        this.networkReview = review;
+      },
+      setNetworkEnabled: (enabled) => {
+        this.networkEnabled = enabled;
+      },
+      setEnvironment: (environment) => {
+        this.environment = environment;
+      },
+      setDetail: (detail) => {
+        this.detail = detail;
+      },
+      setJoinNeedsCheck: (needed) => {
+        this.joinNeedsCheck = needed;
+      },
+      setJoinFailed: (failed) => {
+        this.joinFailed = failed;
+      },
+      setOutcomeNeedsAttention: (attention) => {
+        this.outcomeNeedsAttention = attention;
+      },
+      setOutcome: (outcome) => {
+        this.outcome = outcome;
+      },
+      setSaved: (saved) => {
+        this.saved = saved;
+      },
+      setLifecycle: (lifecycle) => {
+        this.lifecycle = lifecycle;
+      },
+      setConnection: (connection) => {
+        this.connection = connection;
+      },
+      setNetwork: (network) => {
+        this.network = network;
+      },
+      setNetworkNotice: (notice) => {
+        this.networkNotice = notice;
+      },
+      resetState: () => this.reset(),
+    };
   }
   private async mutate(path: string, body: Record<string, unknown>, message: string, method = 'POST') {
     if (this.blocked || !this.binding) return;
