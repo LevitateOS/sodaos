@@ -6,6 +6,7 @@
 //! redirects disabled; tests substitute stubs, exactly like the Go owner's
 //! transport swap.
 
+use crate::coreos::https_url;
 use crate::Error;
 use std::io::Read;
 use std::time::Duration;
@@ -159,6 +160,48 @@ pub fn get_follow<T: HttpTransport>(
         current = next;
     }
     Err(Error::msg(redirect_err))
+}
+
+pub(crate) fn fetch_capped_json<T: HttpTransport>(
+    transport: &T,
+    url: &str,
+    max_bytes: i64,
+) -> Result<Vec<u8>, Error> {
+    if !https_url(url) || max_bytes <= 0 {
+        return Err(Error::msg("bounded HTTPS fetch required"));
+    }
+    let response = get_follow(
+        transport,
+        url,
+        None,
+        Duration::from_secs(60),
+        "unsafe metadata redirect",
+    )
+    .map_err(|e| Error::msg(format!("live input fetch failed: {}", e.message())))?;
+    if response.status != 200 {
+        return Err(Error::msg(format!(
+            "live input HTTP failure: {}",
+            response.status_line()
+        )));
+    }
+    let mut data = Vec::new();
+    response
+        .body
+        .take((max_bytes + 1) as u64)
+        .read_to_end(&mut data)
+        .map_err(|e| Error::msg(e.to_string()))?;
+    if data.len() as i64 > max_bytes {
+        return Err(Error::msg("live input exceeds size limit"));
+    }
+    Ok(data)
+}
+
+pub(crate) fn fetch_capped_text<T: HttpTransport>(
+    transport: &T,
+    url: &str,
+    max_bytes: i64,
+) -> Result<String, Error> {
+    Ok(String::from_utf8_lossy(&fetch_capped_json(transport, url, max_bytes)?).into_owned())
 }
 
 #[cfg(test)]

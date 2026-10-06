@@ -17,6 +17,7 @@
 pub mod confined_files;
 pub mod coreos;
 pub mod coreos_iso;
+pub mod coreos_registry;
 pub mod coreos_stream;
 pub mod elf;
 pub mod files;
@@ -25,6 +26,7 @@ pub mod http;
 pub mod json_emit;
 pub mod json_go;
 pub mod json_input;
+pub mod live_inputs;
 pub mod oci;
 pub mod oci_layout;
 pub mod production;
@@ -32,6 +34,7 @@ pub mod production_assets;
 pub mod production_compile;
 pub mod production_images;
 pub mod production_inputs;
+pub mod tailnet_inputs;
 
 #[cfg(test)]
 pub(crate) mod test_support;

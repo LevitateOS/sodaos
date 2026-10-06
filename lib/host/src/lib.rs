@@ -27,8 +27,11 @@ pub mod project;
 pub mod sha256;
 pub mod ssh;
 pub mod tailnet_companion;
+#[path = "tailnet/domain/mod.rs"]
 pub mod tailnet_domain;
+#[path = "tailnet/files/mod.rs"]
 pub mod tailnet_files;
+#[path = "tailnet/runtime/mod.rs"]
 pub mod tailnet_runtime;
 pub mod tcontrol;
 pub mod tcontrol_enroll;

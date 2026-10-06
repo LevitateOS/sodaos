@@ -1,10 +1,9 @@
 use super::*;
-use crate::coreos_stream::tests::fixture_live_inputs;
 use crate::coreos_stream::write_live_inputs;
 use crate::files::{is_digest, write_new};
 use crate::oci::inspect_oci;
 use crate::production_inputs::parse_image_repo;
-use crate::test_support::{fixture_oci_bytes, FIXTURE_REVISION};
+use crate::test_support::{fixture_live_inputs, fixture_oci_bytes, FIXTURE_REVISION};
 use std::os::unix::fs::PermissionsExt;
 use std::sync::{Arc, Mutex};
 
