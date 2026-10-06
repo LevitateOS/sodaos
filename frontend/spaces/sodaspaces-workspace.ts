@@ -4,7 +4,6 @@ import {terminalObservation} from './sodaspaces-attention.js';
 import {
   renderMenu,
   renderSessionTab,
-  renderFactoryRuns,
   renderRename,
   renderCreation,
   renderRepositoryPicker,
@@ -15,8 +14,6 @@ import {
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext, TerminalLocator} from './sodaspaces-terminal.js';
-import {mountFactoryWatch} from './sodaspaces-factory.js';
-import type {FactoryWatchContext} from './sodaspaces-factory.js';
 import {
   emptyLayout,
   focusedPane,
@@ -48,9 +45,8 @@ import {
   terminalID,
   repositoryChoices,
   projectId,
-  factoryRunText,
 } from './sodaspaces-api.js';
-import type {Space, TerminalMetadata, RepositoryChoices, FactoryRun} from './sodaspaces-api.js';
+import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
 import type {Creation, FactoryWatch, PaneSession, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 import {WorkspaceMeasurement} from './sodaspaces-workspace-measurement.js';
 import {
@@ -103,8 +99,8 @@ import {
   rowName,
   rows,
 } from './sodaspaces-workspace-navigation.js';
+import {displayFactoryWatches, factorySection} from './sodaspaces-workspace-factory.js';
 type TerminalFactory = typeof mountTerminal;
-const factoryWatchLimit = 8;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
 function drawerRepositoryPart(value: unknown): value is string {
@@ -722,7 +718,20 @@ export class SodaSpaces extends LitElement {
             state: this.projectState(space),
             status: this.projectStatus(space),
             projectName: this.projectName(space),
-            factory: this.factorySection(space, this.search.toLocaleLowerCase()),
+            factory: factorySection({
+              watches: this.watches,
+              isStale: () => this.stale,
+              pushWatch: (watch) => {
+                this.watches.push(watch);
+              },
+              replaceWatches: (watches) => {
+                this.watches = watches;
+              },
+              updated: () => this.requestUpdate(),
+              available: this.available,
+              space,
+              query: this.search.toLocaleLowerCase(),
+            }),
             selectRow: (target, row) => this.selectRow(target, row),
             showManagement: (repository) => this.showManagement(repository),
             selectProject: (target) => this.selectProject(target),
@@ -1212,108 +1221,6 @@ export class SodaSpaces extends LitElement {
   private selectRow(space: Space, row: Row) {
     if (row.entry) void this.openSaved(row.entry, this.choosingPane);
     else if (row.metadata) void this.openExisting(space, row.metadata, this.choosingPane);
-  }
-  private factoryWatching(runId: string) {
-    return this.watches.some((watch) => watch.run === runId);
-  }
-  private factoryRowDisabled(space: Space, run: FactoryRun) {
-    return (
-      this.stale ||
-      !this.available ||
-      !space.execution_allowed ||
-      space.authority_unavailable ||
-      (this.watches.length >= factoryWatchLimit && !this.factoryWatching(run.id))
-    );
-  }
-  private factorySection(space: Space, query: string) {
-    const rows = space.factory_runs.filter((run) => !query || factoryRunText(run).toLocaleLowerCase().includes(query));
-    const watches = this.watches.filter((watch) => watch.environmentId === space.environment.id);
-    if (!rows.length && !watches.length) return '';
-    return renderFactoryRuns(
-      rows.map((run) => ({
-        key: run.id,
-        text: factoryRunText(run),
-        watching: this.factoryWatching(run.id),
-        disabled: this.factoryRowDisabled(space, run),
-        toggle: () => this.toggleFactoryWatch(space, run),
-      })),
-      watches.map((watch) => ({
-        run: watch.run,
-        hidden: watch.hidden,
-        close: () => this.unwatchRun(watch.run),
-      })),
-      this.watches.length >= factoryWatchLimit
-    );
-  }
-  private toggleFactoryWatch(space: Space, run: FactoryRun) {
-    if (this.factoryWatching(run.id)) this.unwatchRun(run.id);
-    else this.watchRun(space, run);
-  }
-  private watchRun(space: Space, run: FactoryRun) {
-    if (
-      this.stale ||
-      this.factoryWatching(run.id) ||
-      this.watches.length >= factoryWatchLimit ||
-      !space.execution_allowed ||
-      space.authority_unavailable
-    )
-      return;
-    this.watches.push({
-      run: run.id,
-      environmentId: space.environment.id,
-      repositoryId: space.environment.repository_id,
-      role: run.role,
-      ...(run.issue === undefined ? {} : {issue: run.issue}),
-      ...(run.attempt === undefined ? {} : {attempt: run.attempt}),
-      hidden: false,
-    });
-    this.requestUpdate();
-  }
-  private unwatchRun(runId: string) {
-    const watch = this.watches.find((entry) => entry.run === runId);
-    this.watches = this.watches.filter((entry) => entry.run !== runId);
-    watch?.view?.dispose();
-    this.requestUpdate();
-  }
-  private factoryWatchContext(watch: FactoryWatch, space: Space): FactoryWatchContext | undefined {
-    if (!this.binding || !this.actor) return undefined;
-    return {
-      expectedUserId: this.actor.id,
-      transport: this.binding.transport,
-      repositoryId: watch.repositoryId,
-      environmentId: watch.environmentId,
-      projectName: this.projectName(space),
-      runId: watch.run,
-      role: watch.role,
-      ...(watch.issue === undefined ? {} : {issue: watch.issue}),
-      ...(watch.attempt === undefined ? {} : {attempt: watch.attempt}),
-    };
-  }
-  private displayFactoryWatch(watch: FactoryWatch) {
-    const space = this.spaces.find((entry) => entry.environment.id === watch.environmentId);
-    const owner = this.querySelector<HTMLElement>(`[data-factory-owner="${watch.run}"]`);
-    if (!space || !owner?.isConnected) return;
-    if (!watch.view) {
-      const context = this.factoryWatchContext(watch, space);
-      if (!context) return;
-      owner.addEventListener('soda-factory-command', (event) => this.onFactoryCommand(watch, event));
-      owner.addEventListener('soda-factory-authority-lost', () => {
-        if (!this.disposed) this.invalidate();
-      });
-      watch.view = mountFactoryWatch(owner, context);
-      watch.view.watch();
-    }
-    watch.view.setVisible(this.surfaceVisible && !watch.hidden && !this.closest('[hidden]'));
-  }
-  private displayFactoryWatches() {
-    for (const watch of this.watches) this.displayFactoryWatch(watch);
-  }
-  private onFactoryCommand(watch: FactoryWatch, event: Event) {
-    if (event instanceof CustomEvent && event.detail === 'hide' && !this.stale && !this.disposed) {
-      watch.hidden = !watch.hidden;
-      watch.view?.setVisible(this.surfaceVisible && !watch.hidden && !this.closest('[hidden]'));
-      this.requestUpdate();
-    }
   }
   private paneTabKeys(pane: Pane) {
     return this.binding?.kind === 'native' ? panes(this.layout.tree).flatMap((p) => p.tabs) : pane.tabs;
@@ -2350,7 +2257,20 @@ export class SodaSpaces extends LitElement {
         projection.panes.find((area) => area.pane.selected === slot.key)
       );
     for (const [id, project] of this.projects) project.host.hidden = this.view !== 'project' || id !== this.project;
-    this.displayFactoryWatches();
+    displayFactoryWatches({
+      binding: this.binding,
+      actor: this.actor,
+      spaces: this.spaces,
+      watches: this.watches,
+      isStale: () => this.stale,
+      isDisposed: () => this.disposed,
+      isSurfaceVisible: () => this.surfaceVisible,
+      projectName: (space) => this.projectName(space),
+      findOwner: (runId) => this.querySelector<HTMLElement>(`[data-factory-owner="${runId}"]`),
+      ownerConcealed: () => this.closest('[hidden]') !== null,
+      invalidate: () => this.invalidate(),
+      requestUpdate: () => this.requestUpdate(),
+    });
   }
   private rectangle(area: Area) {
     return `left:${area.x}px;top:${area.y}px;width:${area.width}px;height:${area.height}px`;
