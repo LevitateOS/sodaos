@@ -365,6 +365,284 @@ fn approve_bundle_failure_preserves_preexisting_checkout() {
     );
 }
 
+/// Resolve the checkout path an approve of `PID` as soda-coder would claim.
+/// Pure production path math; touches nothing.
+fn claimed_checkout(ctx: &crate::Ctx) -> std::path::PathBuf {
+    let account = crate::account::role_record(ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    account.dir.join("checkouts").join(PID)
+}
+
+/// CODEX-P07-003: a checkout appearing DURING bundle verification (after any
+/// pre-probe) is refused and must survive: the failure arm only removes
+/// state this invocation created. The git fixture plants it synchronously
+/// inside verification, so the race is deterministic. Pre-fix the planted
+/// directory is deleted.
+#[test]
+fn approve_refusal_preserves_checkout_planted_during_verification() {
+    let scratch = Scratch::fresh();
+    let (git_probe, _) = scratch.git_script("git-ok", 0);
+    let checkout = claimed_checkout(&scratch.ctx(&git_probe));
+    let record = scratch.root.join("git-plant.record");
+    let script = scratch.root.join("git-plant");
+    let body = format!(
+        "#!/bin/sh\n{{ echo '---'; printf '<%s>\\\\n' \"$@\"; }} >> '{}'\nmkdir -p '{}' && echo 'foreign data' > '{}/marker.txt'\nexit 0\n",
+        record.to_string_lossy(),
+        checkout.to_string_lossy(),
+        checkout.to_string_lossy(),
+    );
+    std::fs::write(&script, body).expect("git script");
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    let ctx = scratch.ctx(&script);
+    assert_fail(
+        do_approve(&ctx, &approve_default(PID)),
+        "checkout path already exists",
+    );
+    assert_eq!(
+        std::fs::read(checkout.join("marker.txt")).unwrap(),
+        b"foreign data\n",
+        "checkout planted during verification survives refusal"
+    );
+    assert!(
+        !ctx.preparations.join(PID).exists(),
+        "owned preparation state still cleaned"
+    );
+}
+
+/// CODEX-P07-003: a dangling symlink at the checkout path is refused and
+/// preserved (metadata identity, not existence, decides). Pre-fix the
+/// failure arm deletes the link itself.
+#[test]
+fn approve_refusal_preserves_dangling_checkout_symlink() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = claimed_checkout(&ctx);
+    std::fs::create_dir_all(checkout.parent().unwrap()).unwrap();
+    let account = crate::account::role_record(&ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    // A realistic preexisting home is secured; only the link is foreign.
+    std::fs::set_permissions(
+        &account.dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    std::os::unix::fs::symlink("/nonexistent-soda-target", &checkout).unwrap();
+    assert_fail(
+        do_approve(&ctx, &approve_default(PID)),
+        "checkout path already exists",
+    );
+    assert_eq!(
+        std::fs::read_link(&checkout).unwrap(),
+        Path::new("/nonexistent-soda-target"),
+        "dangling checkout link survives refusal"
+    );
+}
+
+/// CODEX-P07-003 guard: a regular file at the checkout path is refused and
+/// preserved. Green before and after; pins the identity branch.
+#[test]
+fn approve_refusal_preserves_checkout_path_file() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = claimed_checkout(&ctx);
+    std::fs::create_dir_all(checkout.parent().unwrap()).unwrap();
+    let account = crate::account::role_record(&ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    std::fs::set_permissions(
+        &account.dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    std::fs::write(&checkout, b"operator bytes").unwrap();
+    assert_fail(
+        do_approve(&ctx, &approve_default(PID)),
+        "checkout path already exists",
+    );
+    assert_eq!(
+        std::fs::read(&checkout).unwrap(),
+        b"operator bytes",
+        "file at checkout path survives refusal"
+    );
+}
+
+/// CODEX-P07-003 guard: a failure AFTER the checkout was created (valid
+/// name, missing credential file) still removes the invocation-owned
+/// checkout and preparation. Green before and after; proves the provenance
+/// restructure preserves owned cleanup.
+#[test]
+fn approve_credential_failure_removes_owned_checkout() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let request = approve_value(PID, "soda-coder", &fixture_files(), b"bundle", "nokey");
+    assert_fail(
+        do_approve(&ctx, &request),
+        "assigned service credential is missing",
+    );
+    let checkout = claimed_checkout(&ctx);
+    assert!(!checkout.exists(), "owned checkout removed on late failure");
+    assert!(
+        !ctx.preparations.join(PID).exists(),
+        "owned preparation removed on late failure"
+    );
+}
+
+/// CODEX-P07-003 guard: when the checkout cannot even be metadata-probed
+/// (unwritable parent), approve refuses without deleting anything. Green
+/// before and after; pins metadata-error refusal through the restructure.
+#[test]
+fn approve_refuses_when_checkout_parent_unwritable() {
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("SKIP unwritable-parent case: root writes through 555");
+        return;
+    }
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = claimed_checkout(&ctx);
+    std::fs::create_dir_all(checkout.parent().unwrap()).unwrap();
+    let account = crate::account::role_record(&ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    std::fs::set_permissions(
+        &account.dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        checkout.parent().unwrap(),
+        std::fs::Permissions::from_mode(0o555),
+    )
+    .unwrap();
+    let result = do_approve(&ctx, &approve_default(PID));
+    std::fs::set_permissions(
+        checkout.parent().unwrap(),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    assert!(
+        result.is_err(),
+        "unwritable parent must refuse, got {result:?}"
+    );
+    assert!(
+        !ctx.preparations.join(PID).exists(),
+        "owned preparation removed on metadata refusal"
+    );
+    assert!(
+        !checkout.exists(),
+        "no checkout created on metadata refusal"
+    );
+}
+
+/// CODEX-P07-003b: the checkouts parent is role-owned, so the claimed name
+/// can be swapped between creation and cleanup independently of the helper
+/// lock. A racing rename loop must never cost foreign bytes: every round
+/// still fails, and the foreign marker always survives. Pre-fix the
+/// path-based cleanup deletes the marker whenever the race hits
+/// (overwhelming at 100 forced-failure rounds); post-fix the fd-bound
+/// cleanup preserves it structurally. Red-pre is probabilistic by nature
+/// of races; green-post is deterministic.
+#[test]
+fn approve_failure_preserves_checkout_swapped_during_cleanup() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = claimed_checkout(&ctx);
+    let parent = checkout.parent().unwrap().to_path_buf();
+    std::fs::create_dir_all(&parent).unwrap();
+    let account = crate::account::role_record(&ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    std::fs::set_permissions(
+        &account.dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    // Foreign decoy holding the marker; the loop swaps it with the claim.
+    let decoy = parent.join("soda-decoy");
+    std::fs::create_dir_all(&decoy).unwrap();
+    std::fs::write(decoy.join("marker.txt"), b"foreign data").unwrap();
+    let stop = Arc::new(AtomicBool::new(false));
+    let swap = {
+        let stop = stop.clone();
+        let checkout = checkout.clone();
+        let decoy = decoy.clone();
+        std::thread::spawn(move || {
+            while !stop.load(Ordering::Relaxed) {
+                let _ = std::fs::rename(&decoy, &checkout);
+                let _ = std::fs::rename(&checkout, &decoy);
+            }
+        })
+    };
+    // Forced late failure (missing credential) runs creation+cleanup
+    // every round the create wins the race.
+    let request = approve_value(PID, "soda-coder", &fixture_files(), b"bundle", "nokey");
+    for _ in 0..100 {
+        let result = do_approve(&ctx, &request);
+        assert!(result.is_err(), "swap round must fail, got {result:?}");
+    }
+    stop.store(true, Ordering::Relaxed);
+    swap.join().unwrap();
+    // The marker survives at one side or the other; nothing deleted it.
+    let survived = [&decoy, &checkout].iter().any(|dir| {
+        std::fs::read(dir.join("marker.txt"))
+            .map(|body| body == b"foreign data")
+            .unwrap_or(false)
+    });
+    assert!(survived, "racing swap cost foreign bytes");
+}
+
+/// CODEX-P07-003b characterization: the fd-binding primitives refuse
+/// non-directories and symlinks (never following a link, even to a real
+/// directory), report emptiness honestly, and remove only a verifiably
+/// empty owned directory. Green-post (the primitives are new surface).
+#[test]
+fn checkout_identity_primitives_refuse_and_preserve() {
+    let root = std::env::temp_dir().join(format!("soda-p3b-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("parent")).unwrap();
+    let parent = root.join("parent");
+    assert!(open_dir_no_follow(&parent.join("absent")).is_err());
+    std::fs::write(parent.join("file"), b"x").unwrap();
+    assert!(open_dir_no_follow(&parent.join("file")).is_err());
+    std::os::unix::fs::symlink("file", parent.join("link")).unwrap();
+    assert!(open_dir_no_follow(&parent.join("link")).is_err());
+    std::os::unix::fs::symlink("/nonexistent-soda-target", parent.join("dangle")).unwrap();
+    assert!(open_dir_no_follow(&parent.join("dangle")).is_err());
+    // A symlink to a real directory must NOT bind through the link.
+    std::fs::create_dir(parent.join("realdir")).unwrap();
+    std::os::unix::fs::symlink("realdir", parent.join("dirlink")).unwrap();
+    assert!(open_dir_no_follow(&parent.join("dirlink")).is_err());
+    // Empty owned dir: bound, confirmed empty, removed fd-relatively.
+    std::fs::create_dir(parent.join("empty")).unwrap();
+    let parent_fd = open_dir_no_follow(&parent).unwrap();
+    let empty_fd = open_dir_no_follow(&parent.join("empty")).unwrap();
+    let uid = unsafe { libc::geteuid() };
+    let gid = unsafe { libc::getegid() };
+    fchmod(&empty_fd, 0o755).unwrap();
+    fchown(&empty_fd, uid, gid).unwrap();
+    assert_eq!(dir_is_empty(&empty_fd), Some(true));
+    remove_if_empty_owned(&parent_fd, &empty_fd, "empty");
+    assert!(!parent.join("empty").exists());
+    // Non-empty dir: reported changed and preserved with its bytes.
+    std::fs::create_dir(parent.join("full")).unwrap();
+    std::fs::write(parent.join("full").join("marker.txt"), b"data").unwrap();
+    let full_fd = open_dir_no_follow(&parent.join("full")).unwrap();
+    assert_eq!(dir_is_empty(&full_fd), Some(false));
+    remove_if_empty_owned(&parent_fd, &full_fd, "full");
+    assert_eq!(
+        std::fs::read(parent.join("full").join("marker.txt")).unwrap(),
+        b"data"
+    );
+    std::fs::remove_dir_all(&root).ok();
+}
+
 #[test]
 fn approve_binds_role_private_credentials() {
     let scratch = Scratch::fresh();

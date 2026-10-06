@@ -26,7 +26,7 @@ func TestCockpitAccountRefusesOutsideNativeRoot(t *testing.T) {
 }
 
 func TestCockpitAccountContracts(t *testing.T) {
-	source := readProbeSource(t, "rust/soda-acceptance/src/cockpit.rs")
+	source := readProbeSource(t, "tools/acceptance/src/cockpit.rs")
 	for _, want := range []string{
 		"explicit native root target required",
 		`account_uid("root")? != 0`,
@@ -40,6 +40,6 @@ func TestCockpitAccountContracts(t *testing.T) {
 	} {
 		checkProbe(t, strings.Contains(source, want), "missing contract %q", want)
 	}
-	driver := readProbeSource(t, "rust/soda-acceptance/src/bin/soda-acceptance-remote.rs")
+	driver := readProbeSource(t, "tools/acceptance/src/bin/soda-acceptance-remote.rs")
 	checkProbe(t, strings.Contains(driver, "SODA_NATIVE_VALIDATE"), "missing env contract")
 }

@@ -89,6 +89,119 @@ fn wait_child(pid: libc::pid_t) -> libc::c_int {
     }
 }
 
+/// Test-only log of signals this module sends to role children, so a
+/// regression can prove no signal follows ownership loss. Release builds
+/// emit the raw kill with no footprint.
+#[cfg(test)]
+static KILL_LOG: std::sync::Mutex<Vec<(libc::pid_t, libc::c_int)>> =
+    std::sync::Mutex::new(Vec::new());
+
+fn signal_child(pid: libc::pid_t, signal: libc::c_int) {
+    #[cfg(test)]
+    if let Ok(mut log) = KILL_LOG.lock() {
+        log.push((pid, signal));
+    }
+    unsafe {
+        libc::kill(pid, signal);
+    }
+}
+
+/// CODEX-P07-001b: every bounded wait ends in exactly one of these.
+/// `Alive` means the deadline expired while the pid was positively still
+/// an owned child (escalation authorized); `Gone` means wait established
+/// it is no longer an owned child (no signal may follow).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReapOutcome {
+    Reaped(libc::c_int),
+    Alive,
+    Gone,
+}
+
+const TERM_GRACE_MS: u64 = 1000;
+const KILL_GRACE_MS: u64 = 1000;
+const POLL_SLICE_MS: u64 = 20;
+
+fn reap_once(pid: libc::pid_t) -> ReapOutcome {
+    let mut status = 0;
+    loop {
+        let rc = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+        if rc == pid {
+            return ReapOutcome::Reaped(status);
+        }
+        if rc < 0 {
+            let errno = std::io::Error::last_os_error().raw_os_error();
+            if errno == Some(libc::EINTR) {
+                continue;
+            }
+            // Not a waitable child (already reaped elsewhere): ownership
+            // lost, so no signal may be sent.
+            return ReapOutcome::Gone;
+        }
+        return ReapOutcome::Alive;
+    }
+}
+
+fn reap_until(pid: libc::pid_t, deadline: std::time::Instant) -> ReapOutcome {
+    loop {
+        match reap_once(pid) {
+            ReapOutcome::Alive => {}
+            settled => return settled,
+        }
+        if std::time::Instant::now() >= deadline {
+            // The last poll saw a live owned child: still owned at expiry.
+            return ReapOutcome::Alive;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(POLL_SLICE_MS));
+    }
+}
+
+/// CODEX-P07-001: bounded checked termination of an owned role child after
+/// a log failure. SIGTERM with a grace interval, then SIGKILL with a final
+/// reap interval; every wait is `WNOHANG` so even an unkillable
+/// (uninterruptible-sleep) child cannot hang the supervisor. SIGKILL is
+/// sent only when the grace expired while the child was positively still
+/// owned; ownership loss at any point reports `None` with no further
+/// signal, so a recycled pid is never touched. Returns the wait status
+/// when the child was confirmed reaped, or `None` when termination could
+/// not be confirmed (the caller must report uncertainty, never Ok).
+fn terminate_child(pid: libc::pid_t) -> Option<libc::c_int> {
+    match reap_once(pid) {
+        ReapOutcome::Reaped(status) => return Some(status),
+        ReapOutcome::Gone => return None,
+        ReapOutcome::Alive => {}
+    }
+    signal_child(pid, libc::SIGTERM);
+    match reap_until(
+        pid,
+        std::time::Instant::now() + std::time::Duration::from_millis(TERM_GRACE_MS),
+    ) {
+        ReapOutcome::Reaped(status) => return Some(status),
+        ReapOutcome::Gone => return None,
+        ReapOutcome::Alive => {}
+    }
+    // The grace expired while the pid was positively still an owned
+    // child, so escalation is authorized. Production is a single-child
+    // waiter, which keeps this exact: no other reaper can interleave.
+    signal_child(pid, libc::SIGKILL);
+    match reap_until(
+        pid,
+        std::time::Instant::now() + std::time::Duration::from_millis(KILL_GRACE_MS),
+    ) {
+        ReapOutcome::Reaped(status) => Some(status),
+        ReapOutcome::Alive | ReapOutcome::Gone => None,
+    }
+}
+
+/// CODEX-P07-001: log-failure exit for `run_as_role`. The original log
+/// error is reported only when the owned child was confirmed reaped;
+/// otherwise cleanup is unconfirmed and uncertainty is retained.
+fn log_failure_cleanup(pid: libc::pid_t, original: Error) -> Error {
+    match terminate_child(pid) {
+        Some(_) => original,
+        None => Error::fail("log capture failed; role child termination unconfirmed"),
+    }
+}
+
 fn to_cstring(bytes: &[u8]) -> Option<CString> {
     CString::new(bytes).ok()
 }
@@ -174,16 +287,16 @@ pub fn run_as_role(
     unsafe {
         libc::close(writer);
     }
-    // P07-F1: log-I/O failures must still close owned descriptors and
-    // retire/reap the role child before reporting unconfirmed.
+    // P07-F1/001: log-I/O failures must still close owned descriptors
+    // and terminate/reap the role child within a bound before reporting;
+    // unconfirmed cleanup retains uncertainty instead of the log error.
     let mut log = match File::create(logpath) {
         Ok(log) => log,
         Err(err) => {
             unsafe {
                 libc::close(reader);
             }
-            wait_child(pid);
-            return Err(Error::classify(err));
+            return Err(log_failure_cleanup(pid, Error::classify(err)));
         }
     };
     let mut kept = 0usize;
@@ -198,8 +311,7 @@ pub fn run_as_role(
             unsafe {
                 libc::close(reader);
             }
-            wait_child(pid);
-            return Err(Error::io_msg("log pipe failed"));
+            return Err(log_failure_cleanup(pid, Error::io_msg("log pipe failed")));
         }
         if got == 0 {
             break;
@@ -211,8 +323,7 @@ pub fn run_as_role(
                 unsafe {
                     libc::close(reader);
                 }
-                wait_child(pid);
-                return Err(Error::io("write", &err));
+                return Err(log_failure_cleanup(pid, Error::io("write", &err)));
             }
             kept += take;
         }
@@ -223,8 +334,7 @@ pub fn run_as_role(
             unsafe {
                 libc::close(reader);
             }
-            wait_child(pid);
-            return Err(Error::io("write", &err));
+            return Err(log_failure_cleanup(pid, Error::io("write", &err)));
         }
     }
     drop(log);
@@ -481,6 +591,70 @@ pub fn group_alive(pgid: i32, proot: &Path) -> bool {
     false
 }
 
+/// CODEX-P07-002: tri-state group observation for the release gate.
+/// `Some(true)` only when native state positively shows no live member;
+/// `Some(false)` when a non-zombie member keeps the group; `None` when
+/// native state could not be read (uncertain — the caller must bar
+/// release). Observation only: never signals. A vanished entry
+/// (`NotFound`) is a benign exit race and is skipped; any other read
+/// failure hides a potential member and reports uncertainty.
+fn probe_group_quiet(pgid: i32, proot: &Path) -> Option<bool> {
+    let want = pgid.to_string();
+    let entries = match std::fs::read_dir(proot) {
+        Ok(entries) => entries,
+        Err(_) => return None,
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => return None,
+        };
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.is_empty() || !name.bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        let text = match std::fs::read_to_string(entry.path().join("stat")) {
+            Ok(text) => text,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return None,
+        };
+        let after = match text.rsplit_once(')') {
+            Some((_, after)) => after,
+            None => continue,
+        };
+        let fields: Vec<&str> = after.split_whitespace().collect();
+        if fields.len() < 3 {
+            continue;
+        }
+        if fields[0] != "Z" && fields[2] == want.as_str() {
+            return Some(false);
+        }
+    }
+    Some(true)
+}
+
+/// CODEX-P07-002: release-gate quiescence for one preparation. Only a
+/// started record whose group is positively quiet lifts the bar.
+/// Unreadable records, unparsable identity, an active group, or unreadable
+/// native state all bar release. Observation only: never signals.
+fn preparation_blocks_release(ctx: &crate::Ctx, dir: &Path, proot: &Path) -> bool {
+    let started = match fsx::read_json(ctx, &dir.join("started.json"), 1024) {
+        Ok(value) => value,
+        Err(Error::Missing) => return false,
+        Err(_) => return true,
+    };
+    let pgid = match started_pgid(&started) {
+        Ok(pgid) => pgid,
+        Err(_) => return true,
+    };
+    match probe_group_quiet(pgid, proot) {
+        Some(true) => false,
+        Some(false) => true,
+        None => true,
+    }
+}
+
 /// The recorded supervisor leader still leads its group and is owned by
 /// the helper or the role (zombies never qualify).
 pub fn leader_owned_by(
@@ -626,8 +800,11 @@ pub fn do_stop(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
     }
 }
 
-/// Any preparation with a supervisor on record that neither finished nor
-/// stopped bars hold release.
+/// Any preparation with a supervisor on record bars hold release until
+/// native state positively confirms its group is quiet. An unterminated
+/// supervisor bars outright; terminal markers lift the bar only through
+/// the release gate, so an uncertain stop still blocks while the group
+/// lives (CODEX-P07-002).
 pub fn any_running(ctx: &crate::Ctx) -> Result<bool, Error> {
     let entries = std::fs::read_dir(&ctx.preparations).map_err(Error::classify)?;
     for entry in entries.flatten() {
@@ -636,10 +813,15 @@ pub fn any_running(ctx: &crate::Ctx) -> Result<bool, Error> {
             continue;
         }
         let dir = ctx.preparations.join(&name);
-        if fsx::lexists(&dir.join("started.json"))
-            && !fsx::lexists(&dir.join("finished.json"))
-            && !fsx::lexists(&dir.join("stopped.json"))
-        {
+        if !fsx::lexists(&dir.join("started.json")) {
+            continue;
+        }
+        let terminated =
+            fsx::lexists(&dir.join("finished.json")) || fsx::lexists(&dir.join("stopped.json"));
+        if !terminated {
+            return Ok(true);
+        }
+        if preparation_blocks_release(ctx, &dir, Path::new("/proc")) {
             return Ok(true);
         }
     }

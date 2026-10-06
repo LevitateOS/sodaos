@@ -125,5 +125,5 @@ func TestEvidenceScansRetainOpenDirectoryAfterRename(t *testing.T) {
 }
 
 // Handoff moved to the Rust driver (soda-acceptance report); see
-// rust/soda-acceptance report tests. This file keeps finalize coverage for
+// tools/acceptance report tests. This file keeps finalize coverage for
 // the retained Evidence/Observation/Hashes surface.

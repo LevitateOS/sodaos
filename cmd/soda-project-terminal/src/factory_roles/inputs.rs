@@ -12,6 +12,8 @@ use crate::validate;
 use soda_json::JsonValue;
 use std::os::unix::fs::DirBuilderExt;
 use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 
 pub const MAX_APPROVED_FILES: usize = 8;
@@ -288,10 +290,70 @@ pub fn approve_inputs(data: &JsonValue) -> Result<ApprovedInputs, Error> {
     })
 }
 
+/// CODEX-P07-003b: open a directory by path without following a trailing
+/// symlink and refusing non-directories. The returned descriptor pins the
+/// opened directory's identity for fd-bound chmod/chown/removal.
+fn open_dir_no_follow(path: &Path) -> Result<std::fs::File, Error> {
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(Error::classify)
+}
+
+/// fchmod/fchown bound to the retained descriptor: never follows a
+/// swapped pathname.
+fn fchmod(file: &std::fs::File, mode: u32) -> Result<(), Error> {
+    if unsafe { libc::fchmod(file.as_raw_fd(), mode) } != 0 {
+        return Err(Error::classify(std::io::Error::last_os_error()));
+    }
+    Ok(())
+}
+
+fn fchown(file: &std::fs::File, uid: u32, gid: u32) -> Result<(), Error> {
+    if unsafe { libc::fchown(file.as_raw_fd(), uid, gid) } != 0 {
+        return Err(Error::classify(std::io::Error::last_os_error()));
+    }
+    Ok(())
+}
+
+/// True only when the retained descriptor's directory holds no entries.
+/// Any read failure reports uncertainty (`None`): the caller preserves.
+fn dir_is_empty(file: &std::fs::File) -> Option<bool> {
+    // Reopening through /proc pins the same directory even if the
+    // pathname was swapped; read_dir never yields `.`/`..`.
+    let entries = std::fs::read_dir(format!("/proc/self/fd/{}", file.as_raw_fd())).ok()?;
+    for entry in entries {
+        entry.ok()?;
+        return Some(false);
+    }
+    Some(true)
+}
+
+/// Remove `name` from the retained parent when — and only when — the
+/// retained child is verifiably empty. Anything else (content, unreadable
+/// state, a failed removal) preserves whatever the pathname holds now;
+/// only an empty directory can ever go.
+fn remove_if_empty_owned(parent: &std::fs::File, child: &std::fs::File, name: &str) {
+    if dir_is_empty(child) != Some(true) {
+        return;
+    }
+    let cname = match std::ffi::CString::new(name) {
+        Ok(cname) => cname,
+        Err(_) => return,
+    };
+    unsafe {
+        libc::unlinkat(parent.as_raw_fd(), cname.as_ptr(), libc::AT_REMOVEDIR);
+    }
+}
+
 /// Root-owned read-only snapshot, verified bundle, role-owned checkout,
 /// credential binding, then the request receipt. The clone always starts
-/// from an empty directory; any failure removes invocation-created state
-/// while a preexisting checkout path is refused and preserved.
+/// from an empty directory; any failure removes invocation-created state.
+/// Checkout creation is exclusive, so a preexisting path of any identity
+/// is refused untouched. Permission and cleanup steps bind the created
+/// directory's descriptor; replaced or uncertain state is preserved and
+/// reported as failure.
 pub fn write_snapshot(
     ctx: &crate::Ctx,
     directory: &Path,
@@ -309,22 +371,46 @@ pub fn write_snapshot(
     fsx::write_new(&snapshot.join("source.bundle"), &inputs.bundle, 0o644)?;
     verify_bundle(ctx, &snapshot, &inputs.fields.source_commit)?;
     let checkout = account.dir.join("checkouts").join(&inputs.fields.id);
-    if fsx::lexists(&checkout) {
-        return fail("checkout path already exists");
+    // CODEX-P07-003: exclusive creation is the provenance record. Any
+    // preexisting path — present before or planted during verification,
+    // of any identity — is refused untouched; only a directory this call
+    // created is ever removed, by the tail scope below.
+    match std::fs::create_dir(&checkout) {
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+            return fail("checkout path already exists");
+        }
+        Err(err) => return Err(Error::classify(err)),
     }
-    std::fs::DirBuilder::new()
-        .mode(0o755)
-        .create(&checkout)
-        .map_err(Error::classify)?;
-    fsx::chown(&checkout, account.uid, account.gid)?;
-    let mut credential_path = String::new();
-    if !inputs.fields.credential.is_empty() {
-        credential_path =
-            check_credential_file(ctx, &inputs.fields.role, &inputs.fields.credential)?;
+    // CODEX-P07-003b: bind the created directory's identity before any
+    // permission or removal step. The checkouts parent is role-owned, so
+    // the name can be swapped under us; pathname chmod/chown/removal
+    // would follow the swap. If stable ownership cannot be established,
+    // the checkout is preserved and failure is returned.
+    let parent_path = checkout
+        .parent()
+        .ok_or_else(|| Error::io_msg("checkout has no parent"))?;
+    let parent = open_dir_no_follow(parent_path)?;
+    let child = open_dir_no_follow(&checkout)?;
+    let tail: Result<String, Error> = (|| {
+        fchmod(&child, 0o755)?;
+        fchown(&child, account.uid, account.gid)?;
+        let mut credential_path = String::new();
+        if !inputs.fields.credential.is_empty() {
+            credential_path =
+                check_credential_file(ctx, &inputs.fields.role, &inputs.fields.credential)?;
+        }
+        let receipt = emit::dumps_default(&inputs.fields.to_json());
+        fsx::write_new(&directory.join("request.json"), receipt.as_bytes(), 0o644)?;
+        Ok(credential_path)
+    })();
+    match tail {
+        Ok(credential_path) => Ok((checkout, credential_path)),
+        Err(err) => {
+            remove_if_empty_owned(&parent, &child, &inputs.fields.id);
+            Err(err)
+        }
     }
-    let receipt = emit::dumps_default(&inputs.fields.to_json());
-    fsx::write_new(&directory.join("request.json"), receipt.as_bytes(), 0o644)?;
-    Ok((checkout, credential_path))
 }
 
 pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
@@ -351,10 +437,6 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
         .mode(0o755)
         .create(&directory)
         .map_err(Error::classify)?;
-    // Ownership probe for failure cleanup: only a checkout this invocation
-    // created may be removed; a preexisting path is refused and preserved.
-    let checkout_path = account.dir.join("checkouts").join(&inputs.fields.id);
-    let checkout_existed = fsx::lexists(&checkout_path);
     match write_snapshot(ctx, &directory, &inputs, &account) {
         Ok((checkout, credential_path)) => Ok(obj(vec![
             ("approved", str_value(&inputs.fields.id)),
@@ -363,10 +445,10 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
             ("credential_file", str_value(&credential_path)),
         ])),
         Err(err) => {
+            // CODEX-P07-003: only the invocation-owned preparation
+            // directory is removed here; checkout cleanup belongs to the
+            // scope that created it, inside `write_snapshot`.
             let _ = std::fs::remove_dir_all(&directory);
-            if !checkout_existed {
-                let _ = std::fs::remove_dir_all(&checkout_path);
-            }
             Err(err)
         }
     }
