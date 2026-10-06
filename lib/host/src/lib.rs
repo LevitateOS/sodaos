@@ -26,6 +26,7 @@ pub mod prepare;
 pub mod project;
 pub mod sha256;
 pub mod ssh;
+#[path = "tailnet/companion/mod.rs"]
 pub mod tailnet_companion;
 #[path = "tailnet/domain/mod.rs"]
 pub mod tailnet_domain;

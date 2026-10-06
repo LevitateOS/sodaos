@@ -13,7 +13,6 @@ use crate::tailnet_runtime::ProjectRun;
 pub const RUNTIME_ROOT: &str = "/run/soda-tailnet";
 pub const COMPANION_INSPECT: &str = "{\"id\":{{json .ID}},\"image\":{{json .Image}},\"command\":{{json .Config.CreateCommand}},\"running\":{{json .State.Running}},\"pid\":{{json .State.Pid}},\"started\":{{json .State.StartedAt}},\"execs\":{{json .ExecIDs}}}";
 
-#[path = "tailnet/companion/identity.rs"]
 mod identity;
 
 pub use identity::{
@@ -100,33 +99,24 @@ fn apply_companion_idle_state(view: &mut ProjectView, running: bool) -> bool {
     false // Off intent is not confirmed disconnection.
 }
 
-#[path = "tailnet/companion/execute.rs"]
 mod execute;
 
-#[path = "tailnet/companion/start.rs"]
 mod start;
 
-#[path = "tailnet/companion/enroll.rs"]
 mod enroll;
 
-#[path = "tailnet/companion/stop.rs"]
 mod stop;
 
-#[path = "tailnet/companion/view.rs"]
 mod view;
 
 #[cfg(test)]
-#[path = "tailnet/companion/tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "tailnet/companion/identity_tests.rs"]
 mod identity_tests;
 
 #[cfg(test)]
-#[path = "tailnet/companion/lifecycle_tests.rs"]
 mod lifecycle_tests;
 
 #[cfg(test)]
-#[path = "tailnet/companion/view_tests.rs"]
 mod view_tests;
