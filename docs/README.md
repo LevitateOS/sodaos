@@ -55,6 +55,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Development index](development/README.md) | How to work on this repository |
 | [Ideal file tree plan](development/ideal-filetree-plan/ideal-filetree-plan.md) | Living restructuring proposal and post-merge maintenance |
 | [Factory implementation plan](development/factory-implementation-plan.md) | Active factory planning and source baseline |
+| [Canlang and Soda OS implementation plan](development/canlang-soda-os-implementation-plan.md) | Proposed private Canlang application hosting, feasibility and ordered parallel tasks |
 | [Go ownership](development/go.md) | Package placement and house style |
 | [Go packages](development/go-packages.md) | Package file/role convention |
 | [TypeScript](development/typescript.md) | Bun workspace and frontend TS |

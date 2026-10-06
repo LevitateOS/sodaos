@@ -83,6 +83,14 @@ x86_64 candidate qualification before the implementation goal is complete. The
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.
 
+## Canlang application integration planning
+
+The [Canlang and Soda OS implementation plan](canlang-soda-os-implementation-plan.md)
+covers the proposed private application target, Rocky development and production
+environments, local service feasibility, recovery, proof gates and 32 ordered tasks
+across seven implementation lanes. Implementation is deferred; the proposal does
+not change current product scope or authorize deployment.
+
 ## Permissions
 
 Destructive host operations, provider mutations, publication and fixture cleanup
