@@ -213,3 +213,35 @@ fn walk_lstat_error_closes_stream() {
     }
     panic!("walk leaked directory streams");
 }
+
+fn walk_all(root: &OwnedDir) -> Vec<(String, bool)> {
+    let mut found = Vec::new();
+    root.walk_files(&mut |rel: &str, regular: bool| {
+        found.push((rel.to_string(), regular));
+        Ok(())
+    })
+    .unwrap();
+    found.sort();
+    found
+}
+
+#[test]
+fn walk_repeated_scans_agree() {
+    let dir = temp_dir("soda-files-walk-repeat");
+    let root = OwnedDir::open(dir.to_str().unwrap()).unwrap();
+    root.mkdir_at("sub", 0o700).unwrap();
+    std::fs::write(dir.join("top"), b"t").unwrap();
+    std::fs::write(dir.join("sub").join("nested"), b"n").unwrap();
+    // Finalization scans one evidence root repeatedly (secrets, then
+    // hashes, then rescan); every pass must see the retained files.
+    let first = walk_all(&root);
+    let second = walk_all(&root);
+    let third = walk_all(&root);
+    assert_eq!(first, second);
+    assert_eq!(second, third);
+    assert_eq!(
+        first,
+        vec![("sub/nested".to_string(), true), ("top".to_string(), true),]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
