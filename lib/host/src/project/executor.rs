@@ -410,6 +410,10 @@ fn poll_ready(fd: std::os::unix::io::RawFd, events: libc::c_short, deadline: Ins
             Poll::Ready => return true,
             Poll::Timeout => return false,
             Poll::Failed => return false,
+            // Interruption returns to this loop so the retry recomputes
+            // the remaining budget from the absolute deadline instead of
+            // restarting the original timeout.
+            Poll::Interrupted => continue,
         }
     }
 }
@@ -419,25 +423,26 @@ enum Poll {
     Ready,
     Timeout,
     Failed,
+    Interrupted,
 }
 
-/// One poll with a millisecond timeout. EINTR retries.
+/// One poll with a millisecond timeout. EINTR is reported, never
+/// retried here: retrying with the original relative timeout would let
+/// repeated caught signals extend the wait past the absolute bound.
 fn poll_once(fd: std::os::unix::io::RawFd, events: libc::c_short, timeout_ms: libc::c_int) -> Poll {
-    loop {
-        let mut pfd = libc::pollfd {
-            fd,
-            events,
-            revents: 0,
-        };
-        match unsafe { libc::poll(&mut pfd, 1, timeout_ms) } {
-            n if n > 0 => return Poll::Ready,
-            0 => return Poll::Timeout,
-            _ => {
-                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
-                    continue;
-                }
-                return Poll::Failed;
+    let mut pfd = libc::pollfd {
+        fd,
+        events,
+        revents: 0,
+    };
+    match unsafe { libc::poll(&mut pfd, 1, timeout_ms) } {
+        n if n > 0 => return Poll::Ready,
+        0 => return Poll::Timeout,
+        _ => {
+            if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                return Poll::Interrupted;
             }
+            return Poll::Failed;
         }
     }
 }
@@ -470,7 +475,9 @@ fn wait_ready(
         let chunk = remaining.as_millis().min(100) as libc::c_int;
         match poll_once(fd, events, chunk) {
             Poll::Ready => return true,
-            Poll::Timeout => continue,
+            // Timeout and interruption both re-read the shared cap and
+            // recompute from the absolute bound; retries never reset it.
+            Poll::Timeout | Poll::Interrupted => continue,
             Poll::Failed => return false,
         }
     }
@@ -563,5 +570,98 @@ fn exit_text(status: std::process::ExitStatus) -> String {
     match status.code() {
         Some(code) => format!("exit status {code}"),
         None => "signal: unknown".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::io::RawFd;
+
+    extern "C" fn sigusr1_noop(_: libc::c_int) {}
+
+    /// Install the process-lifetime SIGUSR1 noop (no SA_RESTART, so polls
+    /// surface EINTR). Idempotent; never restored: restoring to SIG_DFL
+    /// while a sibling test's joined spammer runs would terminate the
+    /// process, and no test sends SIGUSR1 except through joined spammers.
+    fn arm_sigusr1() {
+        unsafe {
+            let mut sa: libc::sigaction = std::mem::zeroed();
+            sa.sa_sigaction = sigusr1_noop as *const () as usize;
+            sa.sa_flags = 0;
+            libc::sigemptyset(&mut sa.sa_mask);
+            assert_eq!(libc::sigaction(libc::SIGUSR1, &sa, std::ptr::null_mut()), 0);
+        }
+    }
+
+    /// Finite self-signal spam: pthread_kill targets ONLY the calling
+    /// thread (process-directed kill would starve behind the harness
+    /// main thread), so sibling tests never observe a signal. Joined
+    /// before the test ends; the thread is gone before any assertion on
+    /// timing completes.
+    fn spam_self(tid: libc::pthread_t, rounds: u32) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            for _ in 0..rounds {
+                unsafe {
+                    libc::pthread_kill(tid, libc::SIGUSR1);
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        })
+    }
+
+    fn never_ready_pipe() -> (RawFd, RawFd) {
+        let mut fds = [0; 2];
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        (fds[0], fds[1])
+    }
+
+    fn close_fd(fd: RawFd) {
+        unsafe {
+            libc::close(fd);
+        }
+    }
+
+    #[test]
+    fn poll_once_reports_interruption() {
+        arm_sigusr1();
+        let (read, write) = never_ready_pipe();
+        let spam = spam_self(unsafe { libc::pthread_self() }, 1000);
+        // A 5s poll interrupted within milliseconds reports Interrupted;
+        // restarting the original timeout would sleep through the spam.
+        let start = Instant::now();
+        let out = poll_once(read, libc::POLLIN, 5000);
+        let dt = start.elapsed();
+        spam.join().unwrap();
+        close_fd(read);
+        close_fd(write);
+        assert!(
+            dt < Duration::from_millis(1000),
+            "EINTR restarted the full timeout: {dt:?}"
+        );
+        match out {
+            Poll::Timeout => panic!("EINTR was retried with the original timeout"),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn wait_ready_recomputes_budget_on_interruption() {
+        arm_sigusr1();
+        let (read, write) = never_ready_pipe();
+        let spam = spam_self(unsafe { libc::pthread_self() }, 1000);
+        // A 200ms bound fails at ~200ms despite constant interruption;
+        // restarting timeouts would push the failure out with the spam.
+        let deadline = Instant::now() + Duration::from_millis(200);
+        let start = Instant::now();
+        assert!(!wait_ready(read, libc::POLLIN, deadline, None));
+        let dt = start.elapsed();
+        spam.join().unwrap();
+        close_fd(read);
+        close_fd(write);
+        assert!(
+            dt < Duration::from_millis(500),
+            "retries reset the budget: {dt:?}"
+        );
     }
 }
