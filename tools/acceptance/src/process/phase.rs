@@ -42,8 +42,12 @@ impl Phase {
     /// Child phase with a tighter deadline. It observes its parent's
     /// cancellation and expiry, but cancelling it stays local.
     pub fn child(&self, duration: Duration) -> Phase {
-        let deadline = Some(Instant::now() + duration).min(self.inner.deadline);
-        Phase::new(deadline, Some(self.clone()))
+        let child_deadline = Instant::now() + duration;
+        let deadline = self
+            .inner
+            .deadline
+            .map_or(child_deadline, |parent| child_deadline.min(parent));
+        Phase::new(Some(deadline), Some(self.clone()))
     }
 
     /// Cancel this phase and its children.

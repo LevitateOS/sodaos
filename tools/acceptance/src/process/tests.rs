@@ -46,6 +46,31 @@ fn child_cancel_stays_local_but_parent_flows_down() {
 }
 
 #[test]
+fn child_of_unbounded_parent_has_an_effective_timeout() {
+    let parent = Phase::background();
+    let child = parent.child(Duration::from_millis(10));
+    assert!(child.deadline().is_some());
+    std::thread::sleep(Duration::from_millis(20));
+    assert_eq!(
+        child.check().unwrap_err().to_string(),
+        "context deadline exceeded"
+    );
+    assert!(parent.check().is_ok());
+    assert!(parent.deadline().is_none());
+}
+
+#[test]
+fn child_deadline_never_extends_a_bounded_parent() {
+    let parent = Phase::timeout(Duration::from_secs(1));
+    let later = parent.child(Duration::from_secs(60));
+    assert_eq!(later.deadline(), parent.deadline());
+    let earlier = parent.child(Duration::ZERO);
+    assert!(earlier.deadline().unwrap() < parent.deadline().unwrap());
+    assert!(earlier.expired());
+    assert!(parent.check().is_ok());
+}
+
+#[test]
 #[cfg(target_os = "linux")]
 fn owned_process_wait_and_cleanup() {
     let (out, err) = discard_pair();
