@@ -2,10 +2,10 @@ use std::env;
 use std::fs;
 
 use super::process::{capture, git_tree_clean, id_un, pipe2, run_stdout_null, Captured};
+use super::storage::{refuse_active_build, Storage};
 use super::{
-    command_v, current_pwd, env_or, flock, is_dir, is_file, refuse_active_build, stripped,
-    stripped_string, Storage, AUTHORITY, FAIL_PREFIX, LOCK_EX, LOCK_NB, PREFIX_DEFAULT,
-    STORAGE_ROOT_DEFAULT, WORKER_USER,
+    command_v, current_pwd, env_or, flock, is_dir, is_file, stripped, stripped_string, AUTHORITY,
+    FAIL_PREFIX, LOCK_EX, LOCK_NB, PREFIX_DEFAULT, STORAGE_ROOT_DEFAULT, WORKER_USER,
 };
 use super::{fail, Exit};
 
