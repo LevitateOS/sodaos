@@ -6,9 +6,10 @@ and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. L01 and L02 are complete at their recorded
-source scopes; the RNG01 portion of L03 is complete, with CF-01/CF-02 remaining
-for step 4. L00 preparation preceded L02; later unchecked packets retain their
-scoped implementation and admission requirements.
+source scopes; L07 is also complete at its recorded scope. The RNG01 portion of
+L03 is complete, with CF-01/CF-02 remaining for step 4; L04 remains unchecked
+and undispatched. L00 preparation preceded L02; later unchecked packets retain
+their scoped implementation and admission requirements.
 
 Prepared on **2026-10-06** against clean checkout
 `de65ff684c29cf9510134d01917ec4e5a7afdcc3`. Its committed delta from the audit
@@ -157,7 +158,7 @@ counts and remaining CF-01/CF-02 work are in the adoption chapter.
 | 1. Finish deadlines and evidence — complete | L01 / C | Luna medium for QMP/redaction/VM pump lifetime; Luna low for CoreOS close/error joins | Recorded absolute deadlines, final curl metadata, safe split/malformed URLs, bounded evidence and failure propagation |
 | 2. Finish admission and costly boundary preparation — complete | L00 / Coordinator; named disjoint proof writers | Luna low for dependency/license/cache inventory; Luna medium for PG/Hyper/WS proofs and independent review | Record exact compiler and feature closures, locked offline checks, PG deadline/cancel/discard/transaction custody, Unix client/server and upgrade read-ahead, nonblocking WS flush/close/reap; disposition every open cutover gate before L02 |
 | 3. Repair immediate trust and entropy defects — complete | L02 / C; RNG01 portion of L03 / A with C handoff | Luna low implementation; independent Luna medium trust/fail-closed review | `743dde17` completes strict trust/signature repair; `a84447ff` completes fail-closed entropy across ten packages. Preserve raw DER/TBS and role authority. Evidence and limits are recorded in the adoption chapter. |
-| 4. Replace common engines and native SQL parameters | Remaining L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles; Luna low for settled caller/SQL edits | Complete L03's CF-01 seven SHA definitions and CF-02 host NIST engines, real producer/refusal fixtures and bounded inputs; remove each old engine with its last callers; finish native $n parameters before L08 |
+| 4. Replace common engines and native SQL parameters — partial; L07 complete | Remaining L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles; Luna low for settled caller/SQL edits | Complete L03's CF-01 seven SHA definitions and CF-02 host NIST engines, real producer/refusal fixtures and bounded inputs; remove each old engine with its last callers. L07 native $n parameters completed in `d12bf6d3`; L03/L04 work remains before dependent adoption |
 | 5. Adopt PostgreSQL and Unix HTTP/WS | L08/L09 / A, named B/C handoffs | Luna medium | PG requires L07 and LA-G2; ordinary clients precede servers, coupled upgrade/pump follows LA-G3; complete cancellation/flush/close/reap and affected offline graph |
 | 6. Adopt SSH and local CA formats | L05 / A; L06 / C | Luna medium | SSH consumes required L03/L04 outputs; CA consumes L02/relevant PEM profile and Caddy/critical-extension evidence, with no SSH prerequisite |
 | 7. Replace independent external/network adapters | L10 / C; L11 / A with C acceptance handoff | Luna low for settled caller adapters; Luna medium for unresolved admission/deadline semantics | Setup/provider HTTP and URL/IP/time preserve each caller's credentials, raw literals, bounds and unavailable/uncertain outcomes |
@@ -169,9 +170,10 @@ counts and remaining CF-01/CF-02 work are in the adoption chapter.
 | 13. Qualify the integrated changed subjects | R03/R04 / Coordinator | Luna low for commands/receipts; Luna medium for unresolved consequential results | Applicable source/build checks first, native qualification only for a ready selected candidate and its authorized operations; evidence states its actual scope |
 
 L00 initial preparation preceded L02. L02 and the immediate RNG01 portion of
-L03 are now complete; their result details and exact dependent holds are
-recorded in the adoption chapter. The per-adoption gates still apply to each
-changed package/features/runtime graph.
+L03 are complete, and L07 has completed independently; their result details and
+exact dependent holds are recorded in the adoption chapter. L03's CF-01/CF-02
+and undispatched L04 remain for step 4. The per-adoption gates still apply to
+each changed package/features/runtime graph.
 Independent parts of later ready
 packets can fill available slots after dispatch; optional step 12 does not hold
 unrelated qualification. Do not treat the preparation probes as implemented
@@ -223,6 +225,16 @@ These assignments closed preparation only. At that checkpoint L02's C-owned
 trust/signature files remained undispatched; they are now complete. The
 existing investigation, coverage, adoption chapter and task list remain the
 authorities; this register creates no new queue.
+
+L00 boundary proofs were completed in `ff47e995` and remain valid unchanged.
+For L07, Luna medium reused their original receipts and hashes at baseline
+`921667ff`; neither proof harness was rerun. The PostgreSQL proof continues to
+hold a synchronous-only driver and select the Tokio deadline facade; L08 still
+owns actual Store/DSN/auth/typed-driver integration. L07 completed in
+`d12bf6d3` independently: fresh PG17.11 caller tests, focused Go/Rust checks,
+and development builds passed. This revalidation does not close LA-G2/3
+production integration or any native qualification. Exact results are linked
+from the adoption chapter's L07 note.
 
 Every coherent packet gets one independent review at the chosen level. Routine
 checks need no additional reasoning agent. Commit passing bounded changes early

@@ -171,7 +171,8 @@ in the lane schedule; this table describes remaining responsibilities.
 | Selected machinery | Remaining application owner and adapter duty |
 | --- | --- |
 | Host/identity Unix HTTP and WebSocket engines (N1/N2/N5/N6) | Existing A-owned listener/route/admission/backend and single bounded upgrade/pump adapters around Hyper/Tokio/tungstenite; C owns candidate fixture lifecycle |
-| Identity PG wire/DSN/query translators (PG01/SQL01) | A-owned Store/Tx policy around the L00-proved tokio-postgres deadline/whole-transaction adapter; B owns native Go SQL/schema and A maintains its Rust mirror |
+| Native PostgreSQL parameters (SQL01) | Completed as L07 in `d12bf6d3`; B leads the Go caller conversion with an explicit A-owned Rust handoff. Both translators and Go's rebind-only wrappers are retired; direct Go DB/Tx calls and retained Rust encoding/query helpers preserve domain authority |
+| Identity PG wire/DSN engine (PG01) | Pending L08: A-owned Store/Tx policy around the L00-proved tokio-postgres deadline/whole-transaction adapter; B retains canonical Go schema ownership and A maintains its Rust mirror |
 | Hash, curve, SSH and Base64 engines (CF-01–04) | Existing callers retain fingerprint recipes and algorithm/encoding admission; remaining library migrations replace private algorithm/format modules |
 | Entropy callers (RNG01) | Implemented getrandom acquisition; A owns host/identity IDs, nonces and policy revision failure propagation, C owns installer/setup/maintenance/release callers and their retained custody |
 | Release trust-key intake (CF-05) | C owns the shared typed P-256 adapter in `lib/release-inputs/src/trust_key.rs`; image/delivery retain role/timing/reference policy and original-DER fingerprints |

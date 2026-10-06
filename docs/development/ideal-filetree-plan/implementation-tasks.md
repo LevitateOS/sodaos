@@ -21,8 +21,9 @@ below; shared duties route through their physical writer in the lane schedule.
 Current dispatch priority is [library adoption](library-adoption.md), initially
 reconciled at source `72e4bb9015b6d6a622b45638104c74851a137473` and selectively
 refreshed after L01 at `4b02122b`. L00 initial preparation, L01, and L02 are
-complete at their documented scopes. The RNG01 portion of L03 is complete;
-CF-01 and CF-02 remain for step 4. Other unchecked work remains undispatched.
+complete at their documented scopes, as is L07 (`d12bf6d3`). The RNG01 portion
+of L03 is complete; CF-01 and CF-02 remain for step 4, while L04 remains
+unchecked and undispatched. Other unchecked work remains undispatched.
 L00–L18 below are bounded subpackets of
 these existing owners, not new slices. Their scope, finding allocation and
 acceptance are defined once in the chapter. Completed M/C/V entries remain
@@ -275,7 +276,7 @@ affected build/offline qualification.
 - [ ] **L04** C: explicit JSON/Base64 profiles and complete engine retirement. [Defined boundary](library-adoption.md#l04-json-and-base64-profiles).
 - [ ] **L05** A: complete SSH format ownership with separate product policy. [Defined boundary](library-adoption.md#l05-ssh-formats).
 - [ ] **L06** C: local CA parser with raw DER/TBS and pinned Caddy gate. [Defined boundary](library-adoption.md#l06-local-ca-parsing).
-- [ ] **L07** B: native PostgreSQL parameters and translator deletion. [Defined boundary](library-adoption.md#l07-native-sql-parameters).
+- [x] **L07** B, with explicit A Rust handoff: complete in `d12bf6d3`. Native `$n` parameters cover Go and Rust product queries; both translators and Go's rebind-only wrappers are removed, while Rust's encoding/query helpers remain. Fresh PG17.11 fixture: 68 Go store tests, eight Rust broker/enrollment tests and the bytea unit test pass; architecture checks and affected builds pass. No SQLite seed, dependency, manifest, lock or schema change. The latent Rust transaction-lock gate remains with L08. [Defined boundary and limits](library-adoption.md#l07-native-sql-parameters).
 - [ ] **L08** A: complete typed tokio-postgres deadline/transaction adapter after L07; retain DSN/auth/typed-value and production Store/Tx checks. [Defined boundary](library-adoption.md#l08-postgresql-driver).
 - [ ] **L09** A: complete Unix HTTP/WS engines and in-process fixture lifecycle. [Defined boundary](library-adoption.md#l09-unix-http-and-websocket-engines).
 - [ ] **L10** C: setup HTTPS and provider HTTP library adapters. [Defined boundary](library-adoption.md#l10-external-http-adapters).

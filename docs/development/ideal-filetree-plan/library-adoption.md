@@ -5,10 +5,10 @@ handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and
 [lane schedule](implementation-lanes.md) remain the execution plan. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
-L00 initial preparation, L01, and L02 are complete at their recorded source
-scopes. The RNG01 portion of L03 is complete; its CF-01 SHA and CF-02 host NIST
-owners remain for step 4. Later cutovers retain their scoped authorization and
-admission checks.
+L00 initial preparation, L01, L02, and L07 are complete at their recorded
+source scopes. The RNG01 portion of L03 is complete; its CF-01 SHA and CF-02
+host NIST owners remain for step 4, and L04 remains undispatched. Later cutovers
+retain their scoped authorization and admission checks.
 
 Planning reconciliation uses source `72e4bb9015b6d6a622b45638104c74851a137473`
 and SDK `86a70e1155f1036fdcd38f2af49d4ca6defa8280`. The completed
@@ -32,9 +32,9 @@ L identifiers are subpackets of the existing A/B/C tasks. Each has one lead;
 physical writers remain the exclusive owners in the lane schedule. A lead sends
 cross-owner changes through named handoffs rather than editing another owner's
 files. The coordinator owns manifests/locks and integration. Packet state is
-recorded in the task list: L00 initial preparation, L01, and L02 are complete;
-L03 is partial as described below. Later unchecked packets remain undispatched
-subject to their exact gates below.
+recorded in the task list: L00 initial preparation, L01, L02, and L07 are
+complete; L03 is partial as described below. Later unchecked packets remain
+undispatched subject to their exact gates below.
 
 | Packet | Lead | Existing task joins | Sequence and required output |
 | --- | --- | --- | --- |
@@ -45,7 +45,7 @@ subject to their exact gates below.
 | L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | Define the selected caller profile before replacing that owner |
 | L05 SSH formats | A | A01/A07, C07 | Requires its CF-01/02/04 profiles from L03/L04 |
 | L06 Local CA parsing | C | C05/C07 | L02 and required L04 PEM/Base64 profile; no L05 dependency |
-| L07 Native SQL parameters | B | C02, B01 | Can overlap driver preparation; precedes L08 cutover |
+| L07 Native SQL parameters | B | C02, B01 | Complete in `d12bf6d3`; can overlap driver preparation and precedes L08 cutover |
 | L08 PostgreSQL driver | A | A05, C02, B01 schema join | L07 plus demonstrated L00 driver deadline/transaction fit |
 | L09 Unix HTTP and WebSocket engines | A | C02/C03, A07, C08 fixture join | L00 transport/upgrade proofs; consume only required serialization profiles |
 | L10 External HTTP adapters | C | C05, C03 | Setup HTTPS can start independently; provider changes hand off to A |
@@ -116,7 +116,7 @@ Artifact distribution still follows [licensing](../../research/licensing.md).
 | Finding/boundary | Exact demonstrated subject and result | Adoption disposition and remaining owner |
 | --- | --- | --- |
 | CF-05/CF-06 → L02 | L00 P-256 SPKI roundtrip/off-curve refusal; canonical/redundant DER on P-224/P-256/P-384/P-521 typed signatures; **2/2** pass. Current release-image/deliver/install graphs plus soda-build/soda-candidate compile locked offline | **Complete** in `743dde17`: C's shared `soda-build-tools` trust adapter serves release-image/deliver; the installer uses strict typed signatures. Original DER/TBS, uncompressed-only policy, role separation and existing bounds are retained; actual regression and package evidence is recorded under L02 below. |
-| PG01 → L08 | Fresh PostgreSQL **17.11** private Unix socket, NoTls/trust fixture: one absolute 5s connect/query/cancel/ack/discard/join/reconnect budget; actual SQLSTATE 57014 and new backend PID; 100ms silent-socket expiry; full transaction guard excludes competitor; **3/3** pass | Select **tokio-postgres 0.7.18** futures behind the A-owned small deadline facade. Hold a synchronous postgres-only Client migration: private blocking calls expose no operation deadline hook. L07, admitted DSN/auth/TLS policy, typed values/errors and actual Store/Tx integration remain L08 gates |
+| PG01 → L08 | Fresh PostgreSQL **17.11** private Unix socket, NoTls/trust fixture: one absolute 5s connect/query/cancel/ack/discard/join/reconnect budget; actual SQLSTATE 57014 and new backend PID; 100ms silent-socket expiry; full transaction guard excludes competitor; **3/3** pass | Select **tokio-postgres 0.7.18** futures behind the A-owned small deadline facade. Hold a synchronous postgres-only Client migration: private blocking calls expose no operation deadline hook. L07 is complete in `d12bf6d3`; admitted DSN/auth/TLS policy, typed values/errors and actual Store/Tx integration remain L08 gates |
 | N1/N2/N5/N6 → L09 | Hyper **1.12.0** `http1,client,server`, hyper-util **0.1.21** `tokio`, Tokio **1.53.2**; real Unix client/server, one admitted blocking backend plus rejected excess request and bounded shutdown joins | API/runtime fit proved. A owns actual listener/client/backend policy; C owns candidate fixture. Production request/header/body/admission bounds, cancellation and affected offline graphs remain L09 acceptance |
 | N5 → L09 upgrade/session | Validated HTTP upgrade with first masked frame in the same write; assert all eight frame bytes in Hyper read-ahead, restore into tungstenite **0.30.0** `handshake`; one nonblocking owner, idle blocking/wakeup, short writes/WouldBlock without duplicate frame, automatic Pong, bounded close/child reap/slot release; included in **4/4** transport pass | Preserve one bounded production owner/queue and upgrade task custody. Slow-peer caps, real NativeAttach/error paths and integrated shutdown remain A's L09 acceptance |
 | CLI03 → L14 | Exact humantime **2.4.0** source checked: no features, MIT OR Apache-2.0, declared Rust 1.60; candidate graph compiles offline | Metadata uncertainty closed. C still retains positive-duration/precision/overflow and command-tail policy at actual caller transfer |
@@ -140,6 +140,17 @@ with L08/L09. LA-G4 caller profiles/Caddy corpus, LA-G5 native configuration and
 LA-G6 external SDK scope remain explicit dependent holds. R03/R04 still own
 integrated source and separately scoped native qualification. No readiness claim
 is added for those future implementations.
+
+For L07, the unchanged L00 PostgreSQL and HTTP proof receipts were reused at
+baseline `921667ff` and reviewed without rerunning their harnesses. The PG proof
+still selects the Tokio deadline facade and holds the synchronous-only driver;
+actual Store integration remains L08. L07 itself completed in `d12bf6d3` with
+native parameters across the Go and Rust product callers and no dependency or
+schema change. Fresh PostgreSQL 17.11 caller tests and focused builds passed;
+they establish this source slice only, not L08/L09 integration or native
+qualification. The exact evidence and limits are recorded in
+[the L00/L07 verification note](../../../.artifacts/l00-l07/verification.md)
+and [SQL review](../../../.artifacts/l00-l07/sql-review.md).
 
 ### L01 Deadline and evidence repair
 
@@ -315,6 +326,17 @@ Acceptance: the actual Go/Rust query subjects bind native $n with parameter orde
 NULL/value types, affected-row decisions and transaction behavior preserved.
 Remove both translators and recheck their caller/reference closure; fixture
 SQLite behavior is outside this conversion.
+
+**Complete in `d12bf6d3`.** Go uses direct `*sql.DB` and `*sql.Tx` calls;
+Rust retains its parameter-encoding and query/transaction helpers while passing
+native SQL through. The external SQLite seed remains unchanged. Luna low
+implemented the conversion and independent Luna medium review found no blocking
+SQL issue. The fresh PG17.11 fixture passed 68 Go store tests without skips,
+eight Rust broker/enrollment integration tests, and the Rust bytea unit test;
+Go architecture checks and affected development builds passed. No manifest,
+lockfile, dependency or schema changed. Rust's per-operation transaction lock
+hazard remains an L08 concern. See the linked verification note for exact
+commands and scope.
 
 ### L08 PostgreSQL driver
 

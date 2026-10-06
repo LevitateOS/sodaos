@@ -5,9 +5,9 @@ source reviews; it does not retain obsolete implementations in the target.
 
 [Library adoption](../library-adoption.md#finding-allocation) supersedes only
 pending generic-engine preservation. Retain the Go domain/Store/API/client
-owners and completed concern splits below. SQL01 removes PostgreSQL placeholder
-translation; JSON02 and the transport findings consolidate bounded mechanics
-around Go's existing standard libraries. Native authority, transaction/CAS,
+owners and completed concern splits below. SQL01 completed in `d12bf6d3`, removing
+PostgreSQL placeholder translation; JSON02 and the transport findings consolidate
+bounded mechanics around Go's existing standard libraries. Native authority, transaction/CAS,
 per-dial peer admission and operation binding remain Soda policy. Historical
 sizes and review evidence are unchanged.
 
@@ -100,8 +100,10 @@ record the full caller census and B's independent source challenge.
 This is a deferred correction plan; no source deletion or database change
 has been performed or authorized.
 
-SQL01 applies native PostgreSQL parameters to surviving Soda Store callers
-without moving their schema or transaction authority. Fixture/probe SQLite
+SQL01 completed as L07 in `d12bf6d3`: surviving Soda Store callers use native
+PostgreSQL parameters without moving their schema or transaction authority.
+B owns the Go calls and A owns the explicit Rust handoff; the Go rebind-only
+wrappers are retired while real domain transactions remain. Fixture/probe SQLite
 uses are a separate SQLITE01 consumer disposition: staged Forgejo fixture
 imports can register a driver in compiled binaries, and the lifecycle probe
 remains reachable. They are not evidence for SQLite product persistence or
