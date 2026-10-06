@@ -32,6 +32,7 @@ pub mod inspect;
 pub mod jsonio;
 pub mod layout;
 pub mod media;
+mod media_assembler;
 pub mod model;
 pub mod packages;
 pub mod payload_stage;
