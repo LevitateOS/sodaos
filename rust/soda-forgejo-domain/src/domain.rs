@@ -1,0 +1,179 @@
+use std::fs;
+use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
+
+use crate::config::marker_path;
+use crate::system::{Paths, Sys, CONTAINER, STOP_TIMEOUT, UNIT};
+
+pub(crate) fn dispatch(
+    verb: &str,
+    paths: &Paths,
+    sys: &mut dyn Sys,
+    stdout: &mut dyn Write,
+) -> Result<(), String> {
+    match verb {
+        "stop" => cmd_stop(paths, sys, stdout),
+        "inhibit" => cmd_inhibit(paths, sys, stdout),
+        "status" => cmd_status(paths, sys, stdout),
+        "lift" => cmd_lift(paths, sys, stdout),
+        "start" => cmd_start(paths, sys, stdout),
+        _ => Err(format!("unknown verb {verb}")),
+    }
+}
+
+fn unit_active(sys: &mut dyn Sys) -> bool {
+    sys.run(&["systemctl", "is-active", "--quiet", UNIT]).0 == 0
+}
+
+fn unit_masked(sys: &mut dyn Sys) -> bool {
+    sys.run(&["systemctl", "is-enabled", UNIT])
+        .1
+        .contains("masked")
+}
+
+fn container_present(sys: &mut dyn Sys) -> Result<bool, String> {
+    let (code, out) = sys.run(&[
+        "podman",
+        "ps",
+        "--filter",
+        &format!("name={CONTAINER}"),
+        "--format",
+        "{{.Names}}",
+    ]);
+    if code != 0 {
+        return Err(format!("podman ps failed:\n{out}"));
+    }
+    Ok(out.split_whitespace().any(|name| name == CONTAINER))
+}
+
+fn cmd_stop(_paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<(), String> {
+    let (code, out) = sys.run(&["systemctl", "stop", UNIT]);
+    if code != 0 {
+        return Err(format!("systemctl stop failed:\n{out}"));
+    }
+    let deadline = sys.now() + STOP_TIMEOUT;
+    while sys.now() < deadline {
+        if !unit_active(sys) && !container_present(sys)? {
+            let _ = writeln!(
+                stdout,
+                "stopped: {UNIT} inactive, container {CONTAINER} absent"
+            );
+            return Ok(());
+        }
+        sys.sleep(2);
+    }
+    let mut survivors: Vec<String> = Vec::new();
+    if unit_active(sys) {
+        survivors.push(format!("unit {UNIT} still active"));
+    }
+    if container_present(sys)? {
+        survivors.push(format!("container {CONTAINER} still present"));
+    }
+    Err(format!(
+        "whole-domain stop failed: {}",
+        survivors.join("; ")
+    ))
+}
+
+fn cmd_inhibit(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<(), String> {
+    if unit_active(sys) || container_present(sys)? {
+        return Err("native writers still running; run stop first and verify it".to_string());
+    }
+    let (code, out) = sys.run(&["systemctl", "mask", "--runtime", UNIT]);
+    if code != 0 {
+        return Err(format!("systemctl mask failed:\n{out}"));
+    }
+    let marker = marker_path(paths)?;
+    fs::write(&marker, "offline recovery\n").map_err(|e| e.to_string())?;
+    fs::set_permissions(&marker, fs::Permissions::from_mode(0o600)).map_err(|e| e.to_string())?;
+    let _ = writeln!(
+        stdout,
+        "inhibited: {UNIT} masked (runtime), marker {}",
+        marker.display()
+    );
+    Ok(())
+}
+
+fn cmd_status(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<(), String> {
+    // Bounded host-side readout only: unit state, container presence and
+    // marker presence. Reservation diagnostics stay behind Forgejo's own
+    // `admin native-operation status`, which reads the deployment database
+    // through the native binary; this tool never opens native SQL.
+    let _ = writeln!(
+        stdout,
+        "unit: {UNIT} {}",
+        if unit_active(sys) {
+            "active"
+        } else {
+            "inactive"
+        }
+    );
+    let _ = writeln!(
+        stdout,
+        "masked: {}",
+        if unit_masked(sys) { "yes" } else { "no" }
+    );
+    let _ = writeln!(
+        stdout,
+        "container: {CONTAINER} {}",
+        if container_present(sys)? {
+            "present"
+        } else {
+            "absent"
+        }
+    );
+    let marker = match marker_path(paths) {
+        Ok(marker) => marker,
+        Err(err) => {
+            let _ = writeln!(stdout, "marker: unknown (AppDataPath unresolved)");
+            return Err(err);
+        }
+    };
+    if marker.exists() {
+        let _ = writeln!(stdout, "marker: present at {}", marker.display());
+    } else {
+        let _ = writeln!(stdout, "marker: absent (expected at {})", marker.display());
+    }
+    Ok(())
+}
+
+fn cmd_lift(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<(), String> {
+    let marker = marker_path(paths).ok();
+    match marker {
+        Some(marker) if marker.exists() => {
+            fs::remove_file(&marker).map_err(|e| e.to_string())?;
+            let _ = writeln!(stdout, "marker removed: {}", marker.display());
+        }
+        _ => {
+            let _ = writeln!(stdout, "marker already absent");
+        }
+    }
+    let (code, out) = sys.run(&["systemctl", "unmask", UNIT]);
+    if code != 0 {
+        return Err(format!("systemctl unmask failed:\n{out}"));
+    }
+    let _ = writeln!(stdout, "unmasked: {UNIT}");
+    Ok(())
+}
+
+fn cmd_start(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<(), String> {
+    let marker = marker_path(paths).ok();
+    if matches!(marker.as_ref(), Some(marker) if marker.exists()) {
+        return Err(format!(
+            "restart inhibited: marker {} present; reconcile, then run lift",
+            marker.unwrap().display()
+        ));
+    }
+    if unit_masked(sys) {
+        return Err(format!("unit {UNIT} is masked; run lift first"));
+    }
+    let (code, out) = sys.run(&["systemctl", "start", UNIT]);
+    if code != 0 {
+        return Err(format!("systemctl start failed:\n{out}"));
+    }
+    if !unit_active(sys) {
+        return Err(format!("unit {UNIT} did not become active"));
+    }
+    let _ = writeln!(stdout, "started: {UNIT} active");
+    Ok(())
+}
