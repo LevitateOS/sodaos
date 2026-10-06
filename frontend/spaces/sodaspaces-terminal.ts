@@ -5,8 +5,9 @@ import {object, readSodaJSON, id as identifier} from './sodaspaces-api.js';
 import {terminalID, terminalResponse} from './sodaspaces-terminal-response.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
-import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
+import {cancelIfHidden, connect, send} from './sodaspaces-terminal-attachment.js';
+import type {AttachmentInput} from './sodaspaces-terminal-attachment.js';
 export type TerminalView = Pick<
   Terminal,
   | 'cols'
@@ -216,7 +217,7 @@ export class SodaTerminal extends LitElement {
   private connectFromControls() {
     this.closeMenu();
     this.retries = 0;
-    void this.connect();
+    void connect(this.attachmentInput());
   }
   private endConfirmedTerminal() {
     // Admission must see the exact confirmed ID before the dialog is cleared.
@@ -328,6 +329,69 @@ export class SodaTerminal extends LitElement {
   invalidate() {
     this.detach('Page context changed. No action was replayed; reconnect through a fresh authorized page.', true);
   }
+  private attachmentInput(): AttachmentInput {
+    return {
+      readBinding: () => this.binding,
+      readSessionID: () => this.sessionID,
+      setSessionID: (id) => {
+        this.sessionID = id;
+      },
+      readState: () => this.state,
+      setState: (state) => {
+        this.state = state;
+      },
+      setMessage: (message) => {
+        this.message = message;
+      },
+      setNotice: (notice) => {
+        this.notice = notice;
+      },
+      readRetries: () => this.retries,
+      setRetries: (retries) => {
+        this.retries = retries;
+      },
+      readCreateName: () => this.createName,
+      setName: (name) => this.setName(name),
+      remember: (value) => this.remember(value),
+      publish: (kind, state) => this.publish(kind, state),
+      isLive: (generation) => this.live(generation),
+      detach: (message, stale, reason) => this.detach(message, stale, reason),
+      dispatchMetadata: (metadata) => {
+        this.dispatchEvent(
+          new CustomEvent('soda-terminal-metadata', {
+            bubbles: true,
+            detail: metadata,
+          })
+        );
+      },
+      json: (path, body, signal) => this.json(path, body, signal),
+      readTerminal: () => this.terminal,
+      readSocket: () => this.socket,
+      setSocket: (socket) => {
+        this.socket = socket;
+      },
+      loadRenderer: () => this.loadRenderer(),
+      awaitScreen: (n) => this.awaitScreen(n),
+      openTerminal: (n, screen, Terminal, FitAddon) => this.openTerminal(n, screen, Terminal, FitAddon),
+      screenReady: (n, terminal, screen) => {
+        void this.screenReady(n, terminal, screen);
+      },
+      isViewVisible: () => this.viewVisible,
+      isConnected: () => this.isConnected,
+      isConcealed: () => !!this.closest('[hidden]'),
+      readDisposed: () => this.disposed,
+      readActionBusy: () => this.actionBusy,
+      readManagedEnded: () => this.managedEnded,
+      beginGeneration: () => ++this.generation,
+      takeRequest: () => (this.request = new AbortController()),
+      clearTimer: () => {
+        window.clearTimeout(this.timer);
+      },
+      setTimer: (timer) => {
+        this.timer = timer;
+      },
+    };
+  }
   private async json(path: string, body: Record<string, unknown> | null, signal: AbortSignal) {
     if (!this.binding) throw Error('Missing terminal binding');
     const headers: Record<string, string> = {};
@@ -403,30 +467,6 @@ export class SodaTerminal extends LitElement {
       this.finishAction(control, timeout);
     }
   }
-  private send(
-    frame:
-      | {
-          type: 'resize';
-          cols: number;
-          rows: number;
-        }
-      | {
-          type: 'input';
-          data: string;
-        }
-  ) {
-    if (this.state !== 'ready' || !this.socket || this.socket.readyState !== 1 || this.socket.bufferedAmount > 65536) {
-      this.detach('Connection lost or overloaded. Reconnect the existing terminal; input was not replayed.');
-      return false;
-    }
-    try {
-      this.socket.send(JSON.stringify(frame));
-      return true;
-    } catch {
-      this.detach('Connection lost. No input was replayed.');
-      return false;
-    }
-  }
   private canFit(screen: HTMLElement | null): screen is HTMLElement {
     return (
       !!this.terminal &&
@@ -447,7 +487,7 @@ export class SodaTerminal extends LitElement {
       fitted = cols + ':' + rows;
     if (cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300 && this.lastSize !== fitted) {
       this.lastSize = fitted;
-      this.send({
+      send(this.attachmentInput(), {
         type: 'resize',
         cols,
         rows,
@@ -507,86 +547,14 @@ export class SodaTerminal extends LitElement {
     const minimum = this.paneMinimum(screen);
     if (minimum) this.publishMinimum(minimum);
   }
-  private blockedConnect() {
-    return (
-      this.disposed ||
-      !this.binding ||
-      this.state === 'stale' ||
-      this.state === 'opening' ||
-      this.state === 'ready' ||
-      this.actionBusy
-    );
-  }
-  private hiddenConnect(automatic: boolean) {
-    return (
-      !this.viewVisible ||
-      !!this.closest('[hidden]') ||
-      (!automatic && (document.visibilityState === 'hidden' || !document.hasFocus()))
-    );
-  }
-  private canStartConnect(automatic: boolean) {
-    if (this.blockedConnect()) return false;
-    if (this.managedEnded) {
-      this.message = 'This exact session ended. Use New terminal for a different shell.';
-      return false;
-    }
-    if (automatic && !this.sessionID) return false;
-    return !this.hiddenConnect(automatic);
-  }
-  private detachUnready(state: TerminalMetadata['state']) {
-    this.detach(
-      'Native transition is still in progress. No replacement was made.',
-      false,
-      state === 'ending' ? 'ending' : 'unavailable'
-    );
-  }
-  private hiddenWhileAttaching() {
-    return !this.viewVisible || !this.isConnected || !!this.closest('[hidden]');
-  }
-  private cancelIfHidden() {
-    if (!this.hiddenWhileAttaching()) return false;
-    this.detach('Attachment cancelled while hidden. No creation was sent.');
-    return true;
-  }
-  private async inspectExisting(n: number, request: AbortController) {
-    if (!this.sessionID) return false;
-    const metadata = await this.json(
-      `/api/environments/${this.binding!.environmentId}/terminal-sessions/${this.sessionID}`,
-      null,
-      request.signal
-    );
-    if (!this.live(n)) return true;
-    const existing = terminalResponse(metadata, this.binding!);
-    if (existing && existing.id !== this.sessionID) throw Error('terminal metadata');
-    if (!existing || existing.state === 'ended') {
-      this.sessionID = undefined;
-      this.remember(null);
-      this.detach('Native terminal is absent or ended. Use New terminal for a different shell.', false, 'ended');
-      return true;
-    }
-    this.observe(existing);
-    if (!existing.ready) {
-      this.detachUnready(existing.state);
-      return true;
-    }
-    if (existing.attached) {
-      this.detach(
-        'An existing writer is attached. No takeover or replacement was requested.',
-        false,
-        'attached-elsewhere'
-      );
-      return true;
-    }
-    return false;
-  }
   private async awaitScreen(n: number) {
     this.screenVisible = true;
     await this.updateComplete;
-    if (!this.live(n) || this.cancelIfHidden()) return;
+    if (!this.live(n) || cancelIfHidden(this.attachmentInput())) return;
     const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
     if (!screen) throw Error('Missing terminal screen');
     await document.fonts.ready;
-    if (!this.live(n) || this.cancelIfHidden()) return;
+    if (!this.live(n) || cancelIfHidden(this.attachmentInput())) return;
     return screen;
   }
   private requiredToken(styles: CSSStyleDeclaration, name: string) {
@@ -620,7 +588,7 @@ export class SodaTerminal extends LitElement {
     const bytes = new TextEncoder().encode(data);
     for (let i = 0; i < bytes.length; i += 16384)
       if (
-        !this.send({
+        !send(this.attachmentInput(), {
           type: 'input',
           data: btoa(String.fromCharCode(...bytes.subarray(i, i + 16384))),
         })
@@ -659,192 +627,6 @@ export class SodaTerminal extends LitElement {
   private measureIfCurrent(n: number, terminal: TerminalView) {
     if (this.live(n) && this.terminal === terminal) this.measureMinimum();
   }
-  private async reserveCreate(n: number, request: AbortController, cols: number, rows: number) {
-    const reserved = await this.json(
-      `/api/environments/${this.binding!.environmentId}/terminal-sessions`,
-      {cols, rows, name: this.createName},
-      request.signal
-    );
-    if (!this.live(n)) return true;
-    if (!terminalID(reserved.id)) throw Error('terminal reservation');
-    this.sessionID = reserved.id;
-    this.setName(this.createName);
-    this.remember(reserved.id); // published BEFORE any native Create can be sent
-    return !this.live(n);
-  }
-  private attachPayload(action: 'attach' | 'create', cols: number, rows: number) {
-    const {repositoryId} = this.binding!;
-    return {
-      action,
-      id: this.sessionID,
-      ...(action === 'create' ? {name: this.createName} : {}),
-      repository_id: repositoryId,
-      session_generation: this.binding?.transport.generation,
-      cols,
-      rows,
-    };
-  }
-  private onPeerOpen(n: number, peer: WebSocket, action: 'attach' | 'create', cols: number, rows: number) {
-    if (!this.live(n)) {
-      peer.close();
-      return;
-    }
-    if (this.cancelIfHidden()) return;
-    this.publish('state', 'opening');
-    try {
-      peer.send(JSON.stringify(this.attachPayload(action, cols, rows)));
-      this.message = action === 'create' ? 'Opening terminal…' : 'Attaching the existing terminal…';
-    } catch {
-      this.detach('Attachment dispatch was not confirmed. No creation or input was retried.');
-    }
-  }
-  private refreshAttachedMetadata(n: number, request: AbortController) {
-    const target = this.sessionID,
-      environmentId = this.binding!.environmentId;
-    void this.json(
-      `/api/environments/${environmentId}/terminal-sessions/${target}`,
-      null,
-      AbortSignal.any([request.signal, AbortSignal.timeout(10000)])
-    )
-      .then((result) => {
-        if (!this.live(n) || this.sessionID !== target || !this.binding) return;
-        const metadata = terminalResponse(result, this.binding);
-        if (metadata && metadata.id === target) this.observe(metadata);
-      })
-      .catch(() => {});
-  }
-  private acceptReady(
-    n: number,
-    terminal: TerminalView,
-    screen: HTMLElement,
-    action: 'attach' | 'create',
-    request: AbortController
-  ) {
-    window.clearTimeout(this.timer);
-    this.state = 'ready';
-    this.retries = 0;
-    this.notice = false;
-    terminal.options.disableStdin = !this.viewVisible;
-    this.message =
-      action === 'create' ? `Connected as ${this.binding!.login}.` : `Reconnected as ${this.binding!.login}.`;
-    this.publish('state', 'ready');
-    void this.screenReady(n, terminal, screen);
-    this.refreshAttachedMetadata(n, request);
-  }
-  private acceptOutput(frame: Record<string, unknown>, terminal: TerminalView, queued: {bytes: number}) {
-    if (this.state !== 'ready' || typeof frame.data !== 'string') throw Error('frame');
-    const decoded = atob(frame.data);
-    if (!decoded.length || decoded.length > 4096 || queued.bytes + decoded.length > 262144) throw Error('output');
-    queued.bytes += decoded.length;
-    terminal.write(
-      Uint8Array.from(decoded, (c) => c.charCodeAt(0)),
-      () => {
-        queued.bytes -= decoded.length;
-      }
-    );
-    this.publish('output', 'ready');
-  }
-  private dispatchFrame(
-    frame: Record<string, unknown>,
-    n: number,
-    terminal: TerminalView,
-    screen: HTMLElement,
-    action: 'attach' | 'create',
-    request: AbortController,
-    queued: {bytes: number}
-  ) {
-    const keys = Object.keys(frame).sort().join(',');
-    if (frame.type === 'ready' && keys === 'type' && this.state === 'opening' && this.sessionID)
-      this.acceptReady(n, terminal, screen, action, request);
-    else if (frame.type === 'output' && keys === 'data,type') this.acceptOutput(frame, terminal, queued);
-    else if (frame.type === 'closed' && keys === 'reason,type')
-      this.detach(
-        'Attachment ended or unavailable. Reconnect only the existing terminal; no replacement was launched.',
-        false,
-        'unavailable'
-      );
-    else throw Error('frame');
-  }
-  private onPeerMessage(
-    event: MessageEvent,
-    n: number,
-    terminal: TerminalView,
-    screen: HTMLElement,
-    action: 'attach' | 'create',
-    request: AbortController,
-    queued: {bytes: number}
-  ) {
-    if (!this.live(n) || this.terminal !== terminal) return;
-    try {
-      if (typeof event.data !== 'string' || event.data.length > 32768) throw Error('frame');
-      this.dispatchFrame(object(JSON.parse(event.data)), n, terminal, screen, action, request, queued);
-    } catch {
-      this.detach('Invalid or overloaded stream. No input or creation was replayed.');
-    }
-  }
-  private onPeerClosed(n: number) {
-    if (!this.live(n)) return;
-    this.detach('Connection lost. No End or input replay was requested.');
-    if (this.sessionID && this.retries < 3) {
-      const wait = 1000 * 2 ** this.retries++;
-      this.timer = window.setTimeout(() => this.connect(true), wait);
-    }
-  }
-  private bindPeer(
-    n: number,
-    terminal: TerminalView,
-    screen: HTMLElement,
-    action: 'attach' | 'create',
-    cols: number,
-    rows: number,
-    request: AbortController
-  ) {
-    const peer = (this.socket = this.binding!.transport.websocket(
-        `environments/${this.binding!.environmentId}/terminal`
-      )),
-      queued = {bytes: 0};
-    peer.onopen = () => this.onPeerOpen(n, peer, action, cols, rows);
-    peer.onmessage = (event) => this.onPeerMessage(event, n, terminal, screen, action, request, queued);
-    peer.onerror = peer.onclose = () => this.onPeerClosed(n);
-  }
-  private async attachPeer(n: number, request: AbortController, automatic: boolean) {
-    if (automatic && !this.sessionID) {
-      this.detach('Terminal absent. Nothing was created.');
-      return;
-    }
-    const action = this.sessionID ? 'attach' : 'create';
-    const {Terminal, FitAddon} = await this.loadRenderer();
-    if (!this.live(n)) return;
-    const screen = await this.awaitScreen(n);
-    if (!screen || !this.live(n)) return;
-    const terminal = this.openTerminal(n, screen, Terminal, FitAddon);
-    const cols = Math.max(2, Math.min(500, terminal.cols)),
-      rows = Math.max(2, Math.min(300, terminal.rows));
-    if (action === 'create' && (await this.reserveCreate(n, request, cols, rows))) return;
-    this.bindPeer(n, terminal, screen, action, cols, rows, request);
-  }
-  private async connect(automatic = false) {
-    if (!this.canStartConnect(automatic)) return;
-    window.clearTimeout(this.timer);
-    this.state = 'opening';
-    const n = ++this.generation,
-      request = (this.request = new AbortController());
-    this.timer = window.setTimeout(
-      () => this.detach('Terminal connection timed out. Inspect the exact locator; creation was not retried.'),
-      45000
-    );
-    this.notice = true;
-    this.message = 'Inspecting the original terminal…';
-    try {
-      if (await this.inspectExisting(n, request)) return;
-      await this.attachPeer(n, request, automatic);
-    } catch {
-      if (this.live(n))
-        this.detach(
-          'Could not authorize or attach. Sign in again or inspect the existing terminal; nothing was replayed.'
-        );
-    }
-  }
   private shouldFocusScreen() {
     return (
       document.hasFocus() &&
@@ -879,29 +661,19 @@ export class SodaTerminal extends LitElement {
   focus() {
     if (this.viewVisible && !this.closest('[hidden], [inert]') && this.state === 'ready') this.terminal?.focus();
   }
-  private observe(metadata: TerminalMetadata) {
-    if (metadata.id !== this.sessionID) throw Error('Terminal observation changed');
-    this.setName(metadata.name);
-    this.dispatchEvent(
-      new CustomEvent('soda-terminal-metadata', {
-        bubbles: true,
-        detail: metadata,
-      })
-    );
-  }
   setName(name: string) {
     if ([...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name)) this.sessionName = name;
   }
   open(name = '') {
     if ([...name].length > 80 || /[\p{Cc}\p{Cf}]/u.test(name)) return;
     this.createName = name;
-    return this.connect();
+    return connect(this.attachmentInput());
   }
   get started() {
     return this.state !== 'idle';
   }
   restore() {
-    if (this.sessionID) return this.connect(true);
+    if (this.sessionID) return connect(this.attachmentInput(), true);
   }
   disconnect() {
     this.detach('Detached. Native work is not ended by disconnection.');
