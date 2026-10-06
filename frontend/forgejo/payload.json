@@ -77,6 +77,7 @@
   "public/assets/soda/forgejo/soda-LICENSE": "LICENSE",
   "public/assets/soda/forgejo/soda-NOTICE": "NOTICE",
   "public/assets/soda/forgejo/status.css": "assets/branding/forgejo/status.css",
+  "public/assets/soda/forgejo/toolbar-issue.css": "assets/branding/forgejo/toolbar-issue.css",
   "public/assets/soda/forgejo/toolbar-view.css": "assets/branding/forgejo/toolbar-view.css",
   "public/assets/soda/forgejo/webhooks.css": "assets/branding/forgejo/webhooks.css",
   "public/assets/soda/theme/palette.css": "assets/branding/theme/palette.css",
