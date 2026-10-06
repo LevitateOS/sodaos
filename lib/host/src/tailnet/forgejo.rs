@@ -5,7 +5,8 @@
 //! Included by the thin `soda-forgejo-tailnet` bin; not part of the
 //! `soda_host` library API, so only `soda_host::` paths are used here.
 
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::io::{IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
@@ -265,7 +266,7 @@ fn write_forgejo_env(path: &str, updated: &[u8]) -> Result<(), String> {
             }
         }
     }
-    let mut file = match file {
+    let file = match file {
         Some(f) => f,
         None if last_err.is_empty() => {
             return Err(format!(
@@ -275,18 +276,18 @@ fn write_forgejo_env(path: &str, updated: &[u8]) -> Result<(), String> {
         }
         None => return Err(last_err),
     };
-    // Rust File has no checked close; write_all surfaces the write errors
-    // Go reports from WriteString, and a missing rename target fails below.
-    let staged: Result<(), String> = (|| {
-        file.set_permissions(std::fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("chmod {}: {e}", temp_path.display()))?;
-        use std::io::Write;
-        file.write_all(updated)
-            .map_err(|e| format!("write {}: {e}", temp_path.display()))?;
-        Ok(())
-    })();
-    drop(file);
+    // Owned-descriptor staging with a checked close, mirroring Go's
+    // explicit close check that File's Drop cannot report. The fd closes
+    // exactly once on every path below; rename runs only after a
+    // successful chmod, write, and close.
+    let fd = file.into_raw_fd();
+    let staged = stage_forgejo_env(fd, &temp_path, updated);
+    let closed = close_owned(fd).map_err(|e| format!("close {}: {e}", temp_path.display()));
     if let Err(e) = staged {
+        let _ = std::fs::remove_file(&temp_path);
+        return Err(e);
+    }
+    if let Err(e) = closed {
         let _ = std::fs::remove_file(&temp_path);
         return Err(e);
     }
@@ -295,6 +296,46 @@ fn write_forgejo_env(path: &str, updated: &[u8]) -> Result<(), String> {
         return Err(format!("rename {} {path}: {e}", temp_path.display()));
     }
     Ok(())
+}
+
+/// chmod + full write on an owned staged descriptor; the caller owns the
+/// checked close. First error wins, like Go's staged checks.
+fn stage_forgejo_env(fd: RawFd, temp: &std::path::Path, updated: &[u8]) -> Result<(), String> {
+    if unsafe { libc::fchmod(fd, 0o600) } != 0 {
+        return Err(format!(
+            "chmod {}: {}",
+            temp.display(),
+            std::io::Error::last_os_error()
+        ));
+    }
+    let mut written = 0;
+    while written < updated.len() {
+        let n = unsafe {
+            libc::write(
+                fd,
+                updated[written..].as_ptr() as *const libc::c_void,
+                updated.len() - written,
+            )
+        };
+        if n < 0 {
+            let e = std::io::Error::last_os_error();
+            if e.kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(format!("write {}: {e}", temp.display()));
+        }
+        written += n as usize;
+    }
+    Ok(())
+}
+
+/// Checked close for an owned descriptor.
+fn close_owned(fd: RawFd) -> Result<(), std::io::Error> {
+    if unsafe { libc::close(fd) } == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
 }
 
 fn restart_forgejo_if_needed(
@@ -684,6 +725,16 @@ mod tests {
             .filter(|n| n.starts_with(".forgejo-env-"))
             .collect();
         assert!(leftovers.is_empty(), "temp leftovers: {leftovers:?}");
+    }
+
+    #[test]
+    fn checked_close_reports_errors() {
+        // A second close of the same owned descriptor deterministically
+        // fails, proving close errors surface instead of dropping.
+        let file = std::fs::File::open("/dev/null").unwrap();
+        let fd = file.into_raw_fd();
+        close_owned(fd).unwrap();
+        assert!(close_owned(fd).is_err());
     }
 
     #[test]
