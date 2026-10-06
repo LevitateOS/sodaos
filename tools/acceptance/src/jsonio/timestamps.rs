@@ -10,7 +10,7 @@ pub fn now_rfc3339_nano() -> String {
     format_unix_nano(elapsed.as_secs() as i64, elapsed.subsec_nanos())
 }
 
-pub(super) fn format_unix_nano(secs: i64, nanos: u32) -> String {
+fn format_unix_nano(secs: i64, nanos: u32) -> String {
     let days = secs.div_euclid(86_400);
     let time = secs.rem_euclid(86_400);
     let (year, month, day) = civil_from_days(days);
@@ -144,3 +144,6 @@ fn days_in_month(year: i64, month: u32) -> u32 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

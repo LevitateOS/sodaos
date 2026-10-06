@@ -24,9 +24,6 @@ mod timestamps;
 
 pub use timestamps::{now_rfc3339_nano, validate_rfc3339};
 
-#[cfg(test)]
-use timestamps::format_unix_nano;
-
 /// Read one JSON value from a bounded regular file, returning the value and
 /// the SHA-256 hex of the exact bytes decoded. Mirrors `ReadJSON`.
 pub fn read_json_file(path: &str) -> Result<(JsonValue, String), Error> {
