@@ -324,20 +324,3 @@ impl Drop for NativeAttach {
         self.close();
     }
 }
-
-// ---------- private request admission + stream table (service.go) ----------
-
-/// `validPrivateTerminalRequest` over pre-parsed request fields.
-pub fn valid_private_terminal_request(
-    method: &str,
-    raw_query: &str,
-    force_query: bool,
-    raw_path: &str,
-    origin_count: usize,
-) -> bool {
-    method == "GET"
-        && raw_query.is_empty()
-        && !force_query
-        && raw_path.is_empty()
-        && origin_count == 0
-}
