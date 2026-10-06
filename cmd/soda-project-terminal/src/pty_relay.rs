@@ -1,7 +1,8 @@
 use std::sync::atomic::Ordering;
 
 use crate::proto::{self, ControlFrame};
-use crate::pty::{is_eintr, output_line, pty_select, read_fd, ready_line, write_fd, STOPPED};
+use crate::pty::{output_line, ready_line, STOPPED};
+use crate::pty_io::{is_eintr, pty_select, read_fd, write_fd};
 use crate::pty_process::{child_exited, set_size};
 use crate::sys;
 

@@ -1,7 +1,7 @@
 use std::io;
 
 use crate::account::{become_user, user_environment, Account};
-use crate::pty::is_eintr;
+use crate::pty_io::is_eintr;
 use crate::sys;
 
 /// `tmux attach-session` argv for the login child.

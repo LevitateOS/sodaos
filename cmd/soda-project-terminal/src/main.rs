@@ -24,6 +24,7 @@ mod key_request;
 mod keys;
 mod proto;
 mod pty;
+mod pty_io;
 mod pty_process;
 mod pty_relay;
 mod pyemit;
