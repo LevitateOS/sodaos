@@ -3,13 +3,16 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `cd111721` (C09): Containerfile rebound with +8 bytes drift — STALE, bannered; project-init verified byte-identical, intervals kept.
+R02 @HEAD `cd111721` (C09): Containerfile rebound; re-audit CLEARED (2 same-line COPY rebinds, 12/12 rows current); project-init verified byte-identical, intervals kept.
 
 <a id="coverage-c74a47de5bc0"></a>
 
 ## [system/project/Containerfile](../../../../../system/project/Containerfile)
 
-> R02 STALE: intervals below reference the audited `project-os/Containerfile` blob; the moved file differs (import rebinds / drift) — pending re-audit.
+R02 re-audited: the C09 move changed exactly 2 same-line COPY source paths
+(`project-os/`→`system/project/`); zero line shifts, all 12 interval rows
+verified current. No image build, activation or live readiness proof
+performed.
 
 Native Project image/config responsibility; no image build, activation or live readiness proof performed.
 
