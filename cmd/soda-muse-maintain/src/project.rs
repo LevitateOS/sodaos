@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
+use super::command::podman;
 use super::json::JsonParser;
-use super::podman;
 use super::release_validation::is_hex_string;
 
 const INSPECT_FORMAT: &str = r#"{"id":{{json .ID}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"pid":{{json .State.Pid}},"running":{{json .State.Running}}}"#;
