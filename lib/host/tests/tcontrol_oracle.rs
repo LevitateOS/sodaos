@@ -27,7 +27,7 @@ mod tailnet_domain {
 
 #[path = "../src/tcontrol.rs"]
 mod tcontrol;
-#[path = "../src/tcontrol_enroll.rs"]
+#[path = "../src/tailnet/control/enrollment.rs"]
 mod tcontrol_enroll;
 #[path = "../src/tailnet/control/native.rs"]
 mod tcontrol_native;
