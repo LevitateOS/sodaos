@@ -19,19 +19,20 @@ use core::ffi::{c_char, c_int};
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-use std::os::unix::io::AsRawFd;
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 
 mod process;
+mod start;
 mod state;
 
-use self::process::{access, exec_replace, is_file, os_error, run};
 #[cfg(test)]
 use self::process::{exec_diag, signal_name, spawn_diag};
+use self::process::{exec_replace, os_error};
+use self::start::action_start;
 #[cfg(test)]
 use self::state::pid_alive;
-use self::state::{pid_display, ssh_args, uname_is, vm_dir, vm_running};
+use self::state::{pid_display, ssh_args, vm_dir, vm_running};
 
 const FAIL_PREFIX: &str = "test-vm";
 const QEMU_DEFAULT: &str = "/usr/libexec/qemu-kvm";
@@ -134,92 +135,6 @@ fn stripped(out: &[u8]) -> &[u8] {
 
 fn stripped_string(out: &[u8]) -> String {
     String::from_utf8_lossy(stripped(out)).into_owned()
-}
-
-fn action_start(vm: &str) -> Result<(), Exit> {
-    let qemu = env_or("QEMU", QEMU_DEFAULT);
-    if !(uname_is("-s", "Linux")
-        && uname_is("-m", "x86_64")
-        && access("/dev/kvm", R_OK)
-        && access("/dev/kvm", W_OK))
-    {
-        return refuse("Native x86_64 Linux with KVM access required");
-    }
-    // QEMU selects the executed hypervisor, so refuse anything that is not
-    // an absolute executable file instead of execing the override blindly.
-    if !(qemu.starts_with('/') && is_file(&qemu) && access(&qemu, X_OK)) {
-        return refuse("QEMU must be an absolute executable path (default /usr/libexec/qemu-kvm)");
-    }
-    for file in ["disk.qcow2", "soda.ign", "operator", "known_hosts"] {
-        if !is_file(&format!("{vm}/{file}")) {
-            return refuse(format!(
-                "Missing {vm}/{file}; see docs/guides/local-testing.md"
-            ));
-        }
-    }
-    unsafe {
-        umask(0o077);
-    }
-    // `exec 9>start.lock` truncates and creates at 0666&~umask; the lock is
-    // held across the spawn and released at exit.
-    let lock_path = format!("{vm}/start.lock");
-    let lock = match fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&lock_path)
-    {
-        Ok(file) => file,
-        Err(err) => {
-            eprintln!("{FAIL_PREFIX}: {lock_path}: {}", os_error(&err));
-            return Err(Exit::Propagate(1));
-        }
-    };
-    if unsafe { flock(lock.as_raw_fd(), LOCK_EX | LOCK_NB) } != 0 {
-        return refuse("Another VM start is in progress");
-    }
-    let pid_path = format!("{vm}/qemu.pid");
-    if vm_running(&pid_path)? {
-        println!("Test VM is already running");
-        return Ok(());
-    }
-    let drive = format!("if=virtio,format=qcow2,file={vm}/disk.qcow2");
-    let fw_cfg = format!("name=opt/com.coreos/config,file={vm}/soda.ign");
-    let serial = format!("file:{vm}/console.log");
-    // Rust marks its own fds close-on-exec, which is the `9>&-` that keeps
-    // the lock out of the QEMU child.
-    run(
-        &qemu,
-        &[
-            "-name",
-            "soda-test",
-            "-machine",
-            "q35,accel=kvm",
-            "-cpu",
-            "host",
-            "-smp",
-            "4",
-            "-m",
-            "8192",
-            "-drive",
-            &drive,
-            "-fw_cfg",
-            &fw_cfg,
-            "-nic",
-            "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:22220-:22",
-            "-display",
-            "none",
-            "-serial",
-            &serial,
-            "-monitor",
-            "none",
-            "-daemonize",
-            "-pidfile",
-            &pid_path,
-        ],
-    )?;
-    println!("Started soda-test (4 vCPU, 8 GiB RAM). SSH: cargo run -p soda-test-vm -- ssh");
-    Ok(())
 }
 
 fn action_status(vm: &str) -> Result<(), Exit> {
