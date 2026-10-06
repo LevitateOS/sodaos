@@ -24,6 +24,7 @@ mod proto;
 mod pty;
 mod pyemit;
 mod sha;
+mod subscription_cgroup;
 mod subscription_credentials;
 mod subscription_prepare;
 mod subscription_profile;
