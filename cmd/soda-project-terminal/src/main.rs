@@ -42,6 +42,7 @@ mod svc;
 mod sys;
 mod term;
 mod timex;
+mod tmux;
 
 /// `argv` routing (pure over the argument vector, `argv[0]` included).
 #[derive(Debug, Clone, PartialEq, Eq)]
