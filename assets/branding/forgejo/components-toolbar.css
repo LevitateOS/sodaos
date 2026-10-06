@@ -1,5 +1,6 @@
-@import "./toolbar-view.css?v=17-square-tabs";
+/* Native controls keep their names, IDs, classes and initialization. These adapters
+   apply only to explicit Soda toolbar, tab, context-switcher and search roots. */
 
-@import "./toolbar-issue.css?v=17-square-tabs";
-
-@import "./toolbar-repo.css?v=17-square-tabs";
+@import "./components-toolbar-layout.css?v=17-square-tabs";
+@import "./components-navigation.css?v=17-square-tabs";
+@import "./components-repository-toolbar.css?v=17-square-tabs";

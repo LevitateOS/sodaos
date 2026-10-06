@@ -1,0 +1,174 @@
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > input[type="search"] {
+  box-sizing: border-box;
+  height: var(--soda-control-height);
+  min-height: var(--soda-control-height);
+  padding: 0 12px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius) 0 0 var(--soda-control-radius) !important;
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  font: 400 14px/1.4 Barlow,sans-serif;
+  box-shadow: none;
+}
+
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > input::placeholder {
+  color: var(--soda-page-muted) !important;
+  opacity: 1;
+}
+
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > .button {
+  display: grid;
+  place-items: center;
+  width: var(--soda-control-height);
+  min-width: var(--soda-control-height);
+  height: var(--soda-control-height);
+  padding: 0;
+  border: 1px solid var(--soda-page-edge);
+  border-left: 0;
+  border-radius: 0;
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-link);
+  box-shadow: none;
+}
+
+.soda-toolbar .list-header-search > .show-modal {
+  display: grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--soda-control-height);
+  height: var(--soda-control-height);
+  padding: 0 !important;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-muted);
+}
+
+.soda-toolbar > .ui.menu > .dropdown, .soda-context-switcher .secondary-nav .ui.dropdown.jump, .soda-toolbar #repo-search-form > .dropdown, .soda-toolbar .list-header summary.options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: var(--soda-control-height);
+  min-height: var(--soda-control-height);
+  padding: 0 12px;
+  margin: 0;
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  font: 600 14px/1.4 Barlow,sans-serif;
+  box-shadow: none;
+}
+
+.soda-toolbar .dropdown > .dropdown.icon, .soda-context-switcher .jump > .text > .dropdown.icon {
+  margin: 0 0 0 4px;
+  color: var(--soda-page-muted);
+}
+
+.soda-toolbar > .ui.menu > .dropdown > .menu,
+.soda-toolbar #repo-search-form > .dropdown > .menu,
+.soda-toolbar .list-header > .dropdown > .content,
+.soda-context-switcher .ui.dropdown.jump > .menu {
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+}
+
+.soda-toolbar > .ui.menu > .dropdown > .menu > :is(a,.item),
+.soda-toolbar #repo-search-form > .dropdown > .menu > :is(a,.item),
+.soda-toolbar .list-header > .dropdown > .content > :is(a,.item),
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .item {
+  color: var(--soda-page-text);
+}
+
+.soda-toolbar > .ui.menu > .dropdown > .menu > .active.item,
+.soda-toolbar #repo-search-form > .dropdown > .menu > .active.item,
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .active.item {
+  color: var(--soda-page-link) !important;
+  background: var(--soda-page-selected) !important;
+}
+
+.soda-toolbar > .ui.menu > .dropdown > .menu > .item:hover,
+.soda-toolbar #repo-search-form > .dropdown > .menu > .item:hover,
+.soda-toolbar .list-header > .dropdown > .content > .item:hover,
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .item:hover {
+  background: var(--soda-page-hover);
+}
+
+/* Toolbar action appearance and dimensions live in components-buttons.css. */
+
+.soda-tabs > .item:hover,
+.soda-tabs > .secondary-nav > .overflow-menu-items > .item:hover,
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > .button:hover,
+.soda-toolbar .list-header-search > .show-modal:hover,
+.soda-toolbar .soda-toolbar-action:not(.soda-toolbar-action--primary):hover,
+.soda-toolbar .list-header summary.options:hover {
+  color: var(--soda-page-link) !important;
+  background: var(--soda-page-hover) !important;
+}
+
+.soda-toolbar > .ui.menu > .dropdown:hover,
+.soda-context-switcher .secondary-nav .ui.dropdown.jump:hover,
+.soda-toolbar #repo-search-form > .dropdown:hover,
+.soda-toolbar .list-header summary.options:hover {
+  border-color: var(--soda-page-link);
+}
+/* Repository file toolbar: native compact/small/tiny variants represent the
+   same action row here. Normalize only its top-level controls, never dropdown
+   menu items or the branch picker's search field. Native compact padding and
+   joined-input radii are enforced, hence the bounded !important declarations. */
+.repo-button-row.soda-toolbar :is(
+  .button-sequence > .ui.button,
+  .branch-dropdown-button,
+  .clone-panel > .ui.button,
+  .clone-panel > input
+) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--soda-control-height);
+  min-height: var(--soda-control-height);
+  margin-block: 0;
+  padding: 0 12px !important;
+  border-radius: var(--soda-button-radius) !important;
+  font: var(--soda-font-button);
+}
+.repo-button-row.soda-toolbar .button-sequence {
+  align-items: center;
+  gap: 8px;
+}
+.repo-button-row.soda-toolbar :is(#new-pull-request, .clone-panel > .icon.button) {
+  width: var(--soda-control-height);
+  min-width: var(--soda-control-height);
+  padding: 0 !important;
+}
+.repo-button-row.soda-toolbar .clone-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+.repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input) {
+  flex-shrink: 0;
+  border-radius: 0;
+}
+.repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input):first-child {
+  border-radius: var(--soda-button-radius) 0 0 var(--soda-button-radius) !important;
+}
+/* The inline native clone script follows the last visual control. */
+.repo-button-row.soda-toolbar .clone-panel > .ui.button:last-of-type {
+  border-radius: 0;
+}
+.repo-button-row.soda-toolbar .clone-panel > input {
+  /* Native action inputs prohibit shrinking; clone text may truncate. */
+  border: 1px solid var(--soda-page-edge);
+  flex: 1 1 0 !important;
+  min-width: 0;
+  font: 400 13px/1.5 "IBM Plex Mono", monospace !important;
+}
