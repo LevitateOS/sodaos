@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright';
 import type {MatrixInput} from './sodaspaces-matrix-input';
-import type {MatrixSession, MatrixFacts} from './sodaspaces-workspace-journey';
+import type {MatrixSession, MatrixFacts} from './sodaspaces-journey-evidence';
 import {matrixSSH, restrictedText, sshArgs} from './sodaspaces-matrix-native';
 import {object} from './sodaspaces-input';
 function objectContext(text: string, term: string) {
