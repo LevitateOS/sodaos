@@ -807,3 +807,38 @@ fn approve_binds_role_private_credentials() {
         "assigned service credential is not role-private",
     );
 }
+
+/// CODEX-P07-RECEIPT-001: a failed publication must leave no final receipt.
+/// Drives write_snapshot directly: do_approve's outer cleanup removes the
+/// preparation directory on any error, so only a pre-cleanup read
+/// distinguishes a receipt written before publication (pre-fix) from none.
+#[test]
+fn failed_publication_leaves_no_final_receipt() {
+    use std::os::unix::fs::DirBuilderExt;
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = preexisting_checkout(&ctx, b"operator data");
+    fsx::ensure_layout(&ctx).unwrap();
+    let inputs = approve_inputs(&approve_default(PID)).unwrap();
+    let directory = fsx::prep_dir(&ctx, &inputs.fields.id).unwrap();
+    ops_inspect::refuse_barred(&ctx, &directory).unwrap();
+    let account = account::ensure_role(&ctx, &inputs.fields.role).unwrap();
+    std::fs::DirBuilder::new()
+        .mode(0o755)
+        .create(&directory)
+        .unwrap();
+    match write_snapshot(&ctx, &directory, &inputs, &account) {
+        Err(Error::Fail(text)) => assert_eq!(text, "checkout path already exists"),
+        other => panic!("expected publication refusal, got {other:?}"),
+    }
+    assert!(
+        !directory.join("request.json").exists(),
+        "final receipt persisted despite failed publication"
+    );
+    assert_eq!(
+        std::fs::read(checkout.join("marker.txt")).unwrap(),
+        b"operator data",
+        "preexisting checkout bytes preserved"
+    );
+}

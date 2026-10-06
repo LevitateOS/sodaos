@@ -440,8 +440,6 @@ pub fn write_snapshot(
             credential_path =
                 check_credential_file(ctx, &inputs.fields.role, &inputs.fields.credential)?;
         }
-        let receipt = emit::dumps_default(&inputs.fields.to_json());
-        fsx::write_new(&directory.join("request.json"), receipt.as_bytes(), 0o644)?;
         Ok(credential_path)
     })()?;
     // Exclusive publication into the public namespace, then privileged
@@ -462,6 +460,14 @@ pub fn write_snapshot(
     )?;
     fchmod(&staging, 0o755)?;
     fchown(&staging, account.uid, account.gid)?;
+    // CODEX-P07-RECEIPT-001: the receipt is the success record, so it
+    // persists only after publication and the carried-descriptor mutation.
+    // An abrupt exit anywhere before leaves no receipt, and a repeated
+    // approve can never report success over an unpublished checkout. A
+    // receipt failure here preserves the published name by construction:
+    // cleanup only ever removes invocation preparation state.
+    let receipt = emit::dumps_default(&inputs.fields.to_json());
+    fsx::write_new(&directory.join("request.json"), receipt.as_bytes(), 0o644)?;
     Ok((checkout, credential_path))
 }
 
