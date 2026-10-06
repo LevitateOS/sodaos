@@ -16,12 +16,12 @@ func TestTailnetNoStoredPins(t *testing.T) {
 }
 
 func TestTailnetRecipeFloatsOnBuildArgs(t *testing.T) {
-	recipe := ReadFile(t, "appliance/tailnet.Containerfile")
+	recipe := ReadFile(t, "system/containers/tailnet/Containerfile")
 	Check(t, strings.Contains(recipe, "ADD --checksum=sha256:${ARCHIVE_SHA256}"), "missing checksum ADD")
 	Check(t, strings.Contains(recipe, "https://pkgs.tailscale.com/stable/tailscale_${TAILSCALE_VERSION}_${TARGETARCH}.tgz"), "missing archive URL")
 	Check(t, strings.Contains(recipe, `ENTRYPOINT ["/usr/local/bin/tailscaled"]`), "missing entrypoint")
-	Check(t, strings.Contains(recipe, "COPY appliance/licenses/tailscale-LICENSE /usr/share/licenses/tailscale/LICENSE"), "missing license COPY")
-	license := ReadFile(t, "appliance/licenses/tailscale-LICENSE")
+	Check(t, strings.Contains(recipe, "COPY system/licenses/tailscale-LICENSE /usr/share/licenses/tailscale/LICENSE"), "missing license COPY")
+	license := ReadFile(t, "system/licenses/tailscale-LICENSE")
 	Check(t, strings.Contains(license, "Copyright (c) 2020 Tailscale Inc & contributors."), "license text changed")
 }
 
@@ -29,7 +29,7 @@ func TestTailnetBuildWiresLiveInputsWithoutLock(t *testing.T) {
 	build := strings.ReplaceAll(ReadFile(t, "lib/soda-release-build/src/production.rs"), " ", "")
 	Check(t, strings.Contains(build, `"--build-arg=TAILSCALE_VERSION={}"`), "missing version arg")
 	Check(t, strings.Contains(build, `"--build-arg=ARCHIVE_SHA256={}"`), "missing sha arg")
-	Check(t, strings.Contains(build, `"appliance/tailnet.Containerfile"`), "missing Containerfile ref")
+	Check(t, strings.Contains(build, `"system/containers/tailnet/Containerfile"`), "missing Containerfile ref")
 }
 
 func TestTailnetObservedVersionsRecordedWithoutGate(t *testing.T) {

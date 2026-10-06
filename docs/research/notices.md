@@ -12,7 +12,7 @@ The predecessor checkout remains unchanged. No new license is assigned to inheri
 
 Tea's upstream MIT license is delivered beside this notice and inside the project image. Other packages and container layers retain their upstream notices/licenses; the input record identifies resolved bytes. Canonical Soda branding is reused, not redrawn or relicensed. See the source repository's `docs/design/branding.md`, `docs/research/predecessor-reuse.md`, `docs/guides/project-clis.md` and dependency locks.
 
-The Soda extension package staged from `appliance/soda-extension/` and its SodaOS
+The Soda extension package staged from `system/containers/extension/` and its SodaOS
 backend are original Apache-2.0 SodaOS work. Their source is retained in the
 candidate's SodaOS source archive, and `soda-LICENSE` plus `soda-NOTICE` accompany
 the bundle. Fountain is a modified Forgejo 15.0 LTS executable, licensed under

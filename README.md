@@ -42,7 +42,7 @@ Fedora CoreOS host — operator administration only
 ```
 
 Forgejo, Soda and Caddy are separate containers; **Forgejo is not a Podman pod**.
-See [architecture](docs/architecture/overview.md) and `appliance/services/` for
+See [architecture](docs/architecture/overview.md) and `system/host/services/` for
 ownership and placement. The repository's human owner administers its project, not
 the host. Each user explicitly joins. Native Git authorization is separate. Normal
 startup preserves the existing container/root; see
@@ -61,7 +61,7 @@ routing are separate configuration.
 | Bounded software work | `rust/soda-factory/`, `internal/factory/`, [Operator reference](docs/reference/factory.md), [First task](docs/public/30-Use-Soda/15-software-factory.md) |
 | Host capability strategy | [Host strategy](docs/research/host-strategy.md) |
 | API / auth / Forgejo customization | `cmd/`, `internal/`, [API](docs/reference/api.md), [Credentials](docs/reference/credentials.md), [Forgejo](docs/reference/forgejo.md) |
-| Installation / operator access | `appliance/`, `scripts/`, [Installation](docs/guides/installation.md), [Operator setup](docs/guides/operator-setup.md), [Media](docs/guides/media.md) |
+| Installation / operator access | `system/`, `scripts/`, [Installation](docs/guides/installation.md), [Operator setup](docs/guides/operator-setup.md), [Media](docs/guides/media.md) |
 | Project environments | `system/project/`, [Project OS](docs/reference/project-os.md), [Develop](docs/guides/develop.md), [Services](docs/guides/project-services.md), [CLIs](docs/guides/project-clis.md) |
 | Cockpit, runners, support tools | `assets/branding/cockpit/`, `tools/`, [Cockpit](docs/development/cockpit.md), [Runners](docs/reference/runners.md), [Native support](docs/development/native-support.md) |
 | Branding and reuse | `assets/`, [Branding](docs/design/branding.md), [Attribution](docs/research/predecessor-reuse.md), [Console](docs/design/console-welcome.md), [Screenshots](docs/design/screenshot-capture.md) |

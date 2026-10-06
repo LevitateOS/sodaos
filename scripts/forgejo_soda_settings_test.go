@@ -7,7 +7,7 @@ import (
 )
 
 func TestSodaNavigationComesFromForgejoExtensionManifest(t *testing.T) {
-	manifestBytes, err := os.ReadFile("../appliance/soda-extension/extension.json")
+	manifestBytes, err := os.ReadFile("../system/containers/extension/extension.json")
 	if err != nil {
 		t.Fatal(err)
 	}

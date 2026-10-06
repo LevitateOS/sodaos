@@ -34,7 +34,7 @@ func stageBinary(t *testing.T) string {
 }
 
 func TestSodaspacesSpacesEntryIsPackagedByTheExtension(t *testing.T) {
-	extension := ReadJSON(t, "appliance/soda-extension/extension.json").(map[string]any)
+	extension := ReadJSON(t, "system/containers/extension/extension.json").(map[string]any)
 	manifest := payloadFiles(t)
 	var spaces map[string]any
 	for _, entry := range extension["pages"].([]any) {
@@ -135,6 +135,8 @@ func TestSodaspacesActualStageRecipeWithSyntheticBuildInputs(t *testing.T) {
 	chmodTree(t, filepath.Join(checkout, "assets"))
 	copyTree(t, filepath.Join(RepoRoot, "appliance"), filepath.Join(checkout, "appliance"))
 	copyTree(t, filepath.Join(RepoRoot, "frontend"), filepath.Join(checkout, "frontend"))
+	copyTree(t, filepath.Join(RepoRoot, "system", "host", "config"), filepath.Join(checkout, "system/host/config"))
+	copyTree(t, filepath.Join(RepoRoot, "system", "licenses"), filepath.Join(checkout, "system/licenses"))
 	// The branding payload manifest rides along inside the copied assets/.
 	payloadSrc, err := os.ReadFile(filepath.Join(RepoRoot, "assets/branding/forgejo/forgejo-payload.json"))
 	Require(t, err == nil, "read payload: %v", err)

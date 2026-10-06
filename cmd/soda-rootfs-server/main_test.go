@@ -59,7 +59,7 @@ func TestSetupAndServerConvergeOnOneHomeDirectory(t *testing.T) {
 }
 
 func TestUnitRunsTheSingleServerSource(t *testing.T) {
-	raw, err := os.ReadFile(repoPath(t, "scripts", "ops", "soda-rootfs-server.service"))
+	raw, err := os.ReadFile(repoPath(t, "tools", "soda-rootfs-server", "soda-rootfs-server.service"))
 	require.NoError(t, err)
 	unit := string(raw)
 	require.NotContains(t, unit, "b64decode", "the unit must not embed a duplicate encoded server")

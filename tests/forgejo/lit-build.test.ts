@@ -63,7 +63,7 @@ test('emitted Forgejo imports share the presentation cache epoch', async () => {
 });
 
 test('staged Lit notice matches the resolved browser dependency licenses', async () => {
-  const license = await readFile(join(root, 'appliance/licenses/lit-LICENSE'), 'utf8');
+  const license = await readFile(join(root, 'system/licenses/lit-LICENSE'), 'utf8');
   const litEntry = Bun.resolveSync('lit', root);
   for (const name of ['lit', 'lit-element', 'lit-html', '@lit/reactive-element']) {
     let directory = dirname(name === 'lit' ? litEntry : Bun.resolveSync(name, dirname(litEntry)));

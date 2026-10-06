@@ -292,15 +292,15 @@ fn oracle_production_sequence() {
             "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
         ),
         (
-            "appliance/dashboard.Containerfile",
+            "system/containers/dashboard/Containerfile",
             "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
         ),
         (
-            "appliance/services/forgejo.container",
+            "system/host/services/forgejo.container",
             "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.9\n",
         ),
         (
-            "appliance/services/soda-proxy.container",
+            "system/host/services/soda-proxy.container",
             "[Container]\nImage=docker.io/library/caddy:2\n",
         ),
     ] {

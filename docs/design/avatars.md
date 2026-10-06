@@ -128,7 +128,7 @@ test-owned loopback requests. On macOS, use a real nonsymlinked `TMPDIR` for nat
 
 Artwork is embedded in the backend binary, so there is no new runtime asset path
 or container. Native metadata collection includes
-[`avatar-dependencies.txt`](../../appliance/licenses/avatar-dependencies.txt); the
+[`avatar-dependencies.txt`](../../system/licenses/avatar-dependencies.txt); the
 bundle verifier requires it for new bundles. Older bundles retain their matching
 verifier. The preview tool and `.artifacts/` are not appliance payloads.
 

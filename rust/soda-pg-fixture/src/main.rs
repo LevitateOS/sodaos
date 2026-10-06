@@ -33,7 +33,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-// Must match Image= in appliance/services/soda-postgres.container.
+// Must match Image= in system/host/services/soda-postgres.container.
 const IMAGE: &str =
     "docker.io/library/postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675";
 const READY_TIMEOUT: Duration = Duration::from_secs(90);

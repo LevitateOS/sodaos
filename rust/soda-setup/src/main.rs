@@ -18,7 +18,7 @@ const POSTGRES_SECRET_DIR: &str = "/etc/soda/postgres";
 // groups, so group readability alone does not admit it.
 const FORGEJO_DB_USER: u32 = 1000;
 // The soda DSN is read by the dashboard (uid/gid 2000) and the identity
-// broker (gid 2000). Group soda (2000, appliance/config/soda.sysusers)
+// broker (gid 2000). Group soda (2000, system/host/config/soda.sysusers)
 // admits exactly those service identities.
 const SODA_SERVICE_GROUP: u32 = 2000;
 // postgresSocketDir is the host path of the PostgreSQL unix-socket

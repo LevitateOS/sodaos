@@ -448,17 +448,18 @@ impl Production {
     fn recipe_image_refs(&self) -> Result<(String, String, String), Error> {
         let rocky = recipe_base(&PathBuf::from(&self.source).join("system/project/Containerfile"))
             .map_err(|e| Error::msg(e.to_string()))?;
-        let dashboard =
-            recipe_base(&PathBuf::from(&self.source).join("appliance/dashboard.Containerfile"))
-                .map_err(|e| Error::msg(e.to_string()))?;
+        let dashboard = recipe_base(
+            &PathBuf::from(&self.source).join("system/containers/dashboard/Containerfile"),
+        )
+        .map_err(|e| Error::msg(e.to_string()))?;
         if rocky != dashboard {
             return Err(Error::msg("dashboard and Project OS base owners disagree"));
         }
         let forgejo =
-            unit_image(&PathBuf::from(&self.source).join("appliance/services/forgejo.container"))
+            unit_image(&PathBuf::from(&self.source).join("system/host/services/forgejo.container"))
                 .map_err(|e| Error::msg(e.to_string()))?;
         let proxy = unit_image(
-            &PathBuf::from(&self.source).join("appliance/services/soda-proxy.container"),
+            &PathBuf::from(&self.source).join("system/host/services/soda-proxy.container"),
         )
         .map_err(|e| Error::msg(e.to_string()))?;
         Ok((rocky, forgejo, proxy))
@@ -572,9 +573,10 @@ impl Production {
     fn resolve_rocky_base(&self, pull: PullFn) -> Result<(String, String), Error> {
         let rocky = recipe_base(&PathBuf::from(&self.source).join("system/project/Containerfile"))
             .map_err(|e| Error::msg(e.to_string()))?;
-        let dashboard =
-            recipe_base(&PathBuf::from(&self.source).join("appliance/dashboard.Containerfile"))
-                .map_err(|e| Error::msg(e.to_string()))?;
+        let dashboard = recipe_base(
+            &PathBuf::from(&self.source).join("system/containers/dashboard/Containerfile"),
+        )
+        .map_err(|e| Error::msg(e.to_string()))?;
         if rocky != dashboard {
             return Err(Error::msg("dashboard and Project OS base owners disagree"));
         }
@@ -597,7 +599,7 @@ impl Production {
             let file = if name == "project-os" {
                 "system/project/Containerfile"
             } else {
-                "appliance/dashboard.Containerfile"
+                "system/containers/dashboard/Containerfile"
             };
             let id = build(
                 name,
@@ -622,7 +624,7 @@ impl Production {
         export: ExportFn,
     ) -> Result<(), Error> {
         let forgejo =
-            unit_image(&PathBuf::from(&self.source).join("appliance/services/forgejo.container"))
+            unit_image(&PathBuf::from(&self.source).join("system/host/services/forgejo.container"))
                 .map_err(|e| Error::msg(e.to_string()))?;
         let (_, pinned) = pull("Forgejo", &forgejo, "forgejo-base")?;
         let id = build("forgejo", forgejo_context, "Containerfile", &pinned, &[])?;
@@ -631,7 +633,7 @@ impl Production {
 
     fn export_proxy_image(&self, pull: PullFn, export: ExportFn) -> Result<(), Error> {
         let proxy = unit_image(
-            &PathBuf::from(&self.source).join("appliance/services/soda-proxy.container"),
+            &PathBuf::from(&self.source).join("system/host/services/soda-proxy.container"),
         )
         .map_err(|e| Error::msg(e.to_string()))?;
         let (id, _) = pull("Proxy", &proxy, "proxy")?;
@@ -650,7 +652,7 @@ impl Production {
         let id = build(
             "tailnet",
             &self.source,
-            "appliance/tailnet.Containerfile",
+            "system/containers/tailnet/Containerfile",
             &pinned,
             &[
                 format!("--build-arg=TAILSCALE_VERSION={}", tail.version),
@@ -824,15 +826,15 @@ mod tests {
                 "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
             ),
             (
-                "appliance/dashboard.Containerfile",
+                "system/containers/dashboard/Containerfile",
                 "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
             ),
             (
-                "appliance/services/forgejo.container",
+                "system/host/services/forgejo.container",
                 "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.9\n",
             ),
             (
-                "appliance/services/soda-proxy.container",
+                "system/host/services/soda-proxy.container",
                 "[Container]\nImage=docker.io/library/caddy:2\n",
             ),
         ];
@@ -1008,7 +1010,7 @@ mod tests {
         let (mut prod, calls, _root) = production_fixture();
         let execute = prod.execute.take();
         prod.execute = Some(Box::new(move |dir, name, args| {
-            if name == "podman" && args.join(" ").contains("dashboard.Containerfile") {
+            if name == "podman" && args.join(" ").contains("dashboard/Containerfile") {
                 return Err(Error::msg("fixture build refused"));
             }
             execute.as_ref().unwrap()(dir, name, args)
@@ -1035,7 +1037,8 @@ mod tests {
                 }
                 "base" => {
                     std::fs::write(
-                        PathBuf::from(&prod.source).join("appliance/dashboard.Containerfile"),
+                        PathBuf::from(&prod.source)
+                            .join("system/containers/dashboard/Containerfile"),
                         b"ARG BASE_IMAGE=unrelated\n",
                     )
                     .unwrap();

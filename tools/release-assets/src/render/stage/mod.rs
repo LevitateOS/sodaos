@@ -247,13 +247,13 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
     .map_err(|e| StageError::failure(e.to_string()))?;
     copy(
         stage,
-        &source.join("appliance/config/forgejo.env"),
+        &source.join("system/host/config/forgejo.env"),
         "/etc/soda/forgejo.env",
         Some(0o600),
     )?;
     copy(
         stage,
-        &source.join("appliance/config/proxy.Caddyfile"),
+        &source.join("system/host/config/proxy.Caddyfile"),
         "/etc/soda/proxy.Caddyfile",
         Some(0o644),
     )?;

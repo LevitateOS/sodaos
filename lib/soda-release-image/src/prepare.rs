@@ -97,12 +97,7 @@ impl PreparedWriter {
     }
 
     pub fn write_base_files(&self, packages: &[String], repo: &str) -> Result<(), Error> {
-        self.copy_file(
-            "appliance/host.Containerfile",
-            "Containerfile",
-            0o644,
-            false,
-        )?;
+        self.copy_file("system/host/Containerfile", "Containerfile", 0o644, false)?;
         // Bare names only: the install floats on current repositories and the
         // built image's inventory is recorded as the bill-of-materials.
         // Nothing here pins versions.
@@ -185,29 +180,32 @@ impl PreparedWriter {
 pub fn rootfs_file_map() -> Vec<(String, String)> {
     let mut files: Vec<(String, String)> = [
         (
-            "appliance/config/soda.sysusers",
+            "system/host/config/soda.sysusers",
             "usr/lib/sysusers.d/soda.conf",
         ),
         (
-            "appliance/host-image/packages.tmpfiles",
+            "system/host/image/packages.tmpfiles",
             "usr/lib/tmpfiles.d/soda-host-packages.conf",
         ),
         (
-            "appliance/config/soda.tmpfiles",
+            "system/host/config/soda.tmpfiles",
             "usr/lib/tmpfiles.d/soda.conf",
         ),
         (
-            "appliance/config/90-soda-routing.conf",
+            "system/host/config/90-soda-routing.conf",
             "usr/lib/sysctl.d/90-soda-routing.conf",
         ),
         (
-            "appliance/config/cockpit.socket.conf",
+            "system/host/config/cockpit.socket.conf",
             "usr/lib/systemd/system/cockpit.socket.d/10-soda.conf",
         ),
-        ("appliance/config/cockpit.pam", "etc/pam.d/cockpit"),
-        ("appliance/config/cockpit.conf", "etc/cockpit/cockpit.conf"),
+        ("system/host/config/cockpit.pam", "etc/pam.d/cockpit"),
         (
-            "appliance/config/console-welcome.sh",
+            "system/host/config/cockpit.conf",
+            "etc/cockpit/cockpit.conf",
+        ),
+        (
+            "system/host/config/console-welcome.sh",
             "etc/profile.d/soda-console-welcome.sh",
         ),
         ("LICENSE", "usr/share/licenses/soda/LICENSE"),
@@ -233,7 +231,7 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
         "soda-forgejo-migrate.service",
     ] {
         files.push((
-            format!("appliance/services/{name}"),
+            format!("system/host/services/{name}"),
             format!("usr/lib/systemd/system/{name}"),
         ));
     }
@@ -245,7 +243,7 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
         "soda.network",
     ] {
         files.push((
-            format!("appliance/services/{name}"),
+            format!("system/host/services/{name}"),
             format!("usr/share/containers/systemd/{name}"),
         ));
     }
@@ -281,7 +279,7 @@ fn finish_base_inputs(
     if !model::is_revision(revision) {
         return Err(Error::msg("exact source revision required"));
     }
-    let data = fs::read(sys::join(&[source, "appliance/provisioning/base.json"]))?;
+    let data = fs::read(sys::join(&[source, "system/host/provisioning/base.json"]))?;
     let (packages, repo) = packages::package_inputs(&data)?;
     Ok((base, packages, repo))
 }

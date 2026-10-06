@@ -88,7 +88,7 @@ Brand assets: [Branding](../design/branding.md).
 ## Source owners
 
 - Fountain host and standalone SDK: the separate canonical Fountain repository
-- Soda extension package: `appliance/soda-extension/` and its backend entry point
+- Soda extension package: `system/containers/extension/` and its backend entry point
 - Templates/assets: `appliance/forgejo/`
 - Extension browser sources: `frontend/spaces/`,
   `frontend/tailnet/`; packaged by `scripts/build-soda-extension.ts`

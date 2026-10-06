@@ -6,7 +6,7 @@
 #   sudo install -m 0755 "$HOME/soda-rootfs-server" \
 #     /usr/local/lib/soda/soda-rootfs-server
 #   rm "$HOME/soda-rootfs-server"
-#   sudo install -m 0644 scripts/ops/soda-rootfs-server.service \
+#   sudo install -m 0644 tools/soda-rootfs-server/soda-rootfs-server.service \
 #     /etc/systemd/system/soda-rootfs-server.service
 #   sudo cp /home/libvirt/images/*-rootfs.img /home/soda-rootfs/
 #   sudo chown root:root /home/soda-rootfs/*-rootfs.img

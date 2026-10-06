@@ -180,7 +180,7 @@ pub(crate) fn file_entry(path: &str, mode: u32, inline: &str) -> JsonValue {
 /// One public bootstrap for private provisioning and installer-media
 /// conversion: the base document plus the shared branding file.
 pub(crate) fn public_config(source: &Path) -> Result<JsonValue, ProvError> {
-    let path = source.join("appliance/provisioning/base.json");
+    let path = source.join("system/host/provisioning/base.json");
     let text = read_text(&path)?;
     let mut config = JsonValue::parse(&text).map_err(|_| {
         ProvError::new(

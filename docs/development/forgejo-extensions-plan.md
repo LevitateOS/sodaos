@@ -866,7 +866,7 @@ changes nor created/renamed native paths.
   the package's private data; any explicit purge identifies that package's exact
   data directory and respects required-package checks. Preserve replacement
   staging, file limits, symlink rejection and data retention. No broad cleanup.
-- Update `appliance/forgejo.Containerfile` to ship the actual patched binary.
+- Update `system/containers/forgejo/Containerfile` to ship the actual patched binary.
   The current file only overlays presentation assets on a stock image. Pin source,
   upstream base, toolchain and image identity; verify entrypoint and native runtime
   dependencies established by P1b rather than guessing a binary path.

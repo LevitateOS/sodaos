@@ -2,7 +2,7 @@
 # No containerboot wrapper: the trusted helper invokes tailscaled directly.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
-COPY appliance/licenses/tailscale-LICENSE /usr/share/licenses/tailscale/LICENSE
+COPY system/licenses/tailscale-LICENSE /usr/share/licenses/tailscale/LICENSE
 ARG TAILSCALE_VERSION
 ARG TARGETARCH
 ARG ARCHIVE_SHA256

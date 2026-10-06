@@ -19,7 +19,7 @@ the lifetime of the native page and persistent workspace-panel contributions.
 - `sodaspaces-page.ts` and `soda-workspace-panel-entry.ts` adapt the shared owner
   to the native page and persistent panel.
 
-`appliance/soda-extension/extension.json` declares the browser entries.
+`system/containers/extension/extension.json` declares the browser entries.
 `scripts/build-soda-extension.ts` checks that declaration against the entries and
 their styles, bundles the extension modules, and adds the locked terminal assets
 and required notices to the independently installed package. The Forgejo image
