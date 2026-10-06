@@ -18,6 +18,7 @@
 mod account;
 mod b64;
 mod broker;
+mod cgroup;
 mod fs;
 mod key_lines;
 mod key_request;
