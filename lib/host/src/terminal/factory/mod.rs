@@ -10,5 +10,3 @@ pub mod run;
 pub mod tcodex;
 #[cfg(test)]
 pub mod tests;
-pub mod tfactory;
-pub mod tmuse;

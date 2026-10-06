@@ -15,37 +15,26 @@
 
 use std::time::{Duration, Instant};
 
+use super::native::{
+    factory_unit_name_or_denied, harness_install_script, reserve_run_argv, shell_quote,
+    systemd_escape,
+};
+use super::run::{
+    valid_factory_role, valid_factory_run_id, valid_harness_version, valid_preparation_id,
+    FACTORY_SCOPE_CODEX, MAX_FACTORY_PROMPT,
+};
 use crate::domain;
 use crate::project::Executor;
 use crate::sha256;
 use crate::terminal::{self, Binding, Lease, Service, KIND_FACTORY};
 
 // `muse_serve_oracle` compiles this module through a private `#[path]` copy
-// that never touches some re-exported names; they serve the real library.
+// that never touches some re-exported names; they serve the real library
+// (dbackend conversions until the serial caller join).
 #[allow(unused_imports)]
-pub use super::artifacts::{
-    export_argv, takeover_destination, takeover_source, takeover_steps, ERR_FACTORY_EXPORT_BOUNDS,
-    ERR_FACTORY_EXPORT_CANDIDATE, FACTORY_EXPORT_SCRIPT, MAX_FACTORY_EXPORT_BUNDLE,
-    TAKEOVER_DIR_NAME,
-};
-pub use super::lifecycle::factory_retire;
-pub use super::output::{
-    factory_output_size, FactoryCodexOutputSlice, MAX_FACTORY_OUTPUT_READ,
-    MAX_FACTORY_OUTPUT_WINDOW,
-};
+pub use super::output::FactoryCodexOutputSlice;
 #[allow(unused_imports)]
-pub use super::run::{
-    valid_commit, valid_digest, valid_factory_role, valid_factory_run_id, valid_harness_family,
-    valid_harness_version, valid_preparation_id, FactoryRun, FACTORY_HARNESS_CODEX,
-    FACTORY_HARNESS_MUSE, FACTORY_SCOPE_CODEX, FACTORY_SCOPE_MUSE, MAX_FACTORY_PROMPT, ROLE_CODER,
-    ROLE_REVIEWER,
-};
-// Temporary native forwarding until caller rebinds close; retired before release.
-pub use super::native::{
-    factory_role_id, factory_unit_name, factory_user_bus, harness_install_script,
-    parse_factory_unit_show, reserve_run_argv, shell_quote, systemd_escape, FactoryUnitShow,
-};
-pub(crate) use super::native::{factory_unit_name_or_denied, sleep_until};
+pub use super::run::{FactoryRun, FACTORY_SCOPE_MUSE};
 
 /// `FactoryRunPaths`: fixed container paths for one run; `None` on an
 /// invalid identity. Returns `(checkout, run_dir, home, codex_home)`.
@@ -148,7 +137,7 @@ pub fn factory_supervisor(p: &FactoryCodexPaths, guest: &str, model: &str) -> St
 /// `factoryCodexBinding`: supervised factory-Codex binding check plus
 /// derived run paths. The recorded credential root must equal the derived
 /// run directory. Family policy (login, generation) wraps the shared
-/// `tfactory` checks.
+/// `binding` checks.
 pub fn factory_codex_binding(lease: &Lease) -> Result<FactoryCodexPaths, String> {
     let Some(b) = &lease.binding else {
         return Err(terminal::err_denied());

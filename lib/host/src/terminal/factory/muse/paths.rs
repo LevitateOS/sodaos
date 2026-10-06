@@ -74,7 +74,7 @@ pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> 
 /// `factoryCodexBinding` shape for Muse runs: supervised
 /// factory-muse binding check plus derived run paths. The recorded
 /// credential root must equal the derived run directory. Family policy
-/// (factory role, generation) wraps the shared `tfactory` checks.
+/// (factory role, generation) wraps the shared `binding` checks.
 pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
     let Some(b) = &lease.binding else {
         return Err(terminal::err_denied());
