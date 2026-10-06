@@ -7,7 +7,6 @@ import {renderProjectStatus} from './sodaspaces-project-view.js';
 import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
 import {object, check, id, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
 import {osObservation} from './sodaspaces-project-response.js';
-import {profileKeysResponse, keyPreviewResponse} from './sodaspaces-keys-response.js';
 import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
 import {renderJourney} from './sodaspaces-project-journey-view.js';
@@ -35,6 +34,19 @@ import {
   setNetworkConfirmed,
 } from './sodaspaces-project-network.js';
 import type {NetworkInput} from './sodaspaces-project-network.js';
+import {
+  applyKeys,
+  joinEnvironment,
+  removeSavedKey,
+  reviewKeys,
+  reviewProfileKeys,
+  saveKey,
+  selectForgejoKey,
+  setConfirmEmpty,
+  setDraft,
+  setUseSavedKeys,
+} from './sodaspaces-project-access.js';
+import type {AccessInput} from './sodaspaces-project-access.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;
@@ -365,7 +377,7 @@ export class SodaProjectControls extends LitElement {
       needsNetworkReview: () => this.networkReview,
       requestRefresh: (event) => this.command(event, () => this.refresh()),
       refreshNow: () => this.refresh(),
-      requestJoin: (event) => this.command(event, () => this.joinEnvironment()),
+      requestJoin: (event) => this.command(event, () => joinEnvironment(this.accessInput())),
       requestStart: (event) => this.command(event, () => this.changeLifecycle(false)),
       requestCreate: (event) => this.command(event, () => this.createProject()),
       requestRepositoryChange: (event) => this.command(event, () => this.requestRepositoryChange()),
@@ -477,10 +489,10 @@ export class SodaProjectControls extends LitElement {
       tabKey: (event, view) => this.tabKey(event, view),
       setCreateNetworkEnabled: (enabled) => setCreateNetworkEnabled(this.networkInput(), enabled),
       selectProfile: (value) => this.onSelectProfile(value),
-      setUseSavedKeys: (checked) => this.onUseSavedKeys(checked),
+      setUseSavedKeys: (checked) => setUseSavedKeys(this.accessInput(), checked),
       requestRefresh: (event) => this.command(event, () => this.refresh()),
       requestCreate: (event) => this.command(event, () => this.createProject()),
-      requestJoin: (event) => this.command(event, () => this.joinEnvironment()),
+      requestJoin: (event) => this.command(event, () => joinEnvironment(this.accessInput())),
       requestStart: (event) => this.command(event, () => this.changeLifecycle(false)),
       requestStop: (event) => this.command(event, () => this.changeLifecycle(true)),
       setStopConfirmed: (checked) => this.onStopConfirmed(checked),
@@ -489,22 +501,19 @@ export class SodaProjectControls extends LitElement {
       copyConnection: () => {
         void copyConnection(this.connectionInput());
       },
-      removeSavedKey: (event, key) => this.removeSavedKey(event, key),
-      setDraft: (value) => this.onDraft(value),
-      requestSaveKey: (event) => this.command(event, () => this.saveKey()),
-      requestReviewKeys: (event) => this.command(event, () => this.reviewKeys()),
-      setConfirmEmpty: (checked) => this.onConfirmEmpty(checked),
-      requestApplyKeys: (event) => this.command(event, () => this.applyKeys()),
+      removeSavedKey: (event, key) => removeSavedKey(this.accessInput(), event, key),
+      setDraft: (value) => setDraft(this.accessInput(), value),
+      requestSaveKey: (event) => this.command(event, () => saveKey(this.accessInput())),
+      requestReviewKeys: (event) => this.command(event, () => reviewKeys(this.accessInput())),
+      setConfirmEmpty: (checked) => setConfirmEmpty(this.accessInput(), checked),
+      requestApplyKeys: (event) => this.command(event, () => applyKeys(this.accessInput())),
       reviewProfileKeysPage: (page) => {
-        void this.reviewProfileKeys(page);
+        void reviewProfileKeys(this.accessInput(), page);
       },
-      selectForgejoKey: (key) => this.selectForgejoKey(key),
+      selectForgejoKey: (key) => selectForgejoKey(this.accessInput(), key),
       setNetworkConfirmed: (confirmed) => setNetworkConfirmed(this.networkInput(), confirmed),
       changeProjectNetwork: (event, action) => this.command(event, () => changeNetwork(this.networkInput(), action)),
     };
-  }
-  private onUseSavedKeys(checked: boolean) {
-    this.useSavedKeys = checked;
   }
   private onReloadPage(event: Event) {
     if (this.reloadAdmitted(event)) window.location.reload();
@@ -517,46 +526,46 @@ export class SodaProjectControls extends LitElement {
   private onStopConfirmed(checked: boolean) {
     this.stopConfirmed = checked;
   }
-  private onDraft(value: string) {
-    this.draft = value;
-  }
-  private onConfirmEmpty(checked: boolean) {
-    this.emptyConfirmed = checked;
-  }
-  private joinEnvironment() {
-    if (
-      !this.environment ||
-      !this.running ||
-      !this.detail?.execution_allowed ||
-      this.detail.login ||
-      this.detail.authority_unavailable
-    )
-      return;
-    return mutate(
-      this.mutationsInput(),
-      '/api/environments/' + this.environment.id + '/join',
-      {
-        ssh_keys: this.presentation !== 'journey' && this.useSavedKeys ? 'saved' : 'none',
+  private accessInput(): AccessInput {
+    return {
+      readEnvironment: () => this.environment,
+      readDetail: () => this.detail,
+      isRunning: () => this.running,
+      readPresentation: () => this.presentation,
+      readUseSavedKeys: () => this.useSavedKeys,
+      setUseSavedKeys: (checked) => {
+        this.useSavedKeys = checked;
       },
-      'Native join confirmed. Your browser terminal uses this account, not SSH. Later SSH-key changes require a separate explicit Apply.'
-    );
-  }
-  private removeSavedKey(event: Event, key: SavedKey) {
-    this.command(event, () =>
-      mutate(
-        this.mutationsInput(),
-        '/api/me/development-keys/' + key.id,
-        {},
-        'Saved key removed. Existing project SSH access is unchanged until explicitly applied.',
-        'DELETE'
-      )
-    );
-  }
-  private selectForgejoKey(key: string) {
-    if (this.blocked || this.selected !== 'access' || this.closest('[hidden], [inert]')) return;
-    this.draft = key;
-    this.outcome =
-      'Review the selected public key above, then explicitly Save public key. Joining/applying to a project remains a separate action.';
+      readDraft: () => this.draft,
+      setDraft: (value) => {
+        this.draft = value;
+      },
+      readEmptyConfirmed: () => this.emptyConfirmed,
+      setEmptyConfirmed: (confirmed) => {
+        this.emptyConfirmed = confirmed;
+      },
+      readKeyPreview: () => this.keyPreview,
+      setKeyPreview: (preview) => {
+        this.keyPreview = preview;
+      },
+      setProfileKeys: (keys) => {
+        this.profileKeys = keys;
+      },
+      isBlocked: () => this.blocked,
+      isAccessSelected: () => this.selected === 'access',
+      isConcealed: () => !!this.closest('[hidden], [inert]'),
+      readEpoch: () => this.epoch,
+      isActive: (generation) => this.active(generation),
+      setBusy: (busy) => {
+        this.busy = busy;
+      },
+      setOutcome: (outcome) => {
+        this.outcome = outcome;
+      },
+      runCommand: (event, action) => this.command(event, action),
+      api: (path, method, body, signal) => this.api(path, method, body, signal),
+      mutations: this.mutationsInput(),
+    };
   }
   private networkInput(): NetworkInput {
     return {
@@ -863,101 +872,6 @@ export class SodaProjectControls extends LitElement {
       stop
         ? 'Stop confirmed; next-boot start disabled. Existing data was not recreated or deleted.'
         : 'Start confirmed and next-boot start enabled. Refresh connection status while services initialize.'
-    );
-  }
-  private saveKey() {
-    const value = this.draft.trim();
-    if (!/^(ssh-|ecdsa-|sk-)/.test(value) || /PRIVATE KEY/.test(value) || /[\r\n]/.test(value)) {
-      this.outcome = 'Provide one public SSH key. Never upload a private key.';
-      return;
-    }
-    this.draft = '';
-    return mutate(
-      this.mutationsInput(),
-      '/api/me/development-keys',
-      {
-        public_key: value,
-      },
-      'Public key saved for future joins. Existing project access is unchanged until explicitly applied.'
-    );
-  }
-  private profileKeysPageAdmitted(page: number) {
-    return (
-      !this.blocked &&
-      this.selected === 'access' &&
-      !this.closest('[hidden], [inert]') &&
-      Number.isInteger(page) &&
-      page >= 1 &&
-      page <= 8
-    );
-  }
-  private async reviewProfileKeys(page: number) {
-    if (!this.profileKeysPageAdmitted(page)) return;
-    const epoch = this.epoch;
-    this.busy = true;
-    const controller = new AbortController(),
-      timeout = window.setTimeout(() => controller.abort(), 20000);
-    try {
-      const keys = profileKeysResponse(
-        await this.api('/api/me/forgejo-keys?page=' + page, 'GET', undefined, controller.signal),
-        page
-      );
-      if (this.active(epoch)) this.profileKeys = keys;
-    } catch {
-      this.profileKeysFailed(epoch);
-    } finally {
-      window.clearTimeout(timeout);
-      if (this.active(epoch)) this.busy = false;
-    }
-  }
-  private profileKeysFailed(epoch: number) {
-    if (!this.active(epoch)) return;
-    this.profileKeys = undefined;
-    this.outcome =
-      'Own Forgejo keys are unavailable. Nothing was imported; use native profile settings or explicitly paste a public key.';
-  }
-  private async reviewKeys() {
-    if (this.blocked || !this.environment || !this.detail) return;
-    const n = this.epoch;
-    this.busy = true;
-    const controller = new AbortController(),
-      timeout = window.setTimeout(() => controller.abort(), 15000);
-    try {
-      const preview = keyPreviewResponse(
-        await this.api(`/api/environments/${this.environment.id}/access-keys`, 'GET', undefined, controller.signal),
-        this.detail.login
-      );
-      if (!this.active(n)) return;
-      this.keyPreview = preview;
-      this.emptyConfirmed = false;
-    } catch {
-      if (this.active(n)) {
-        this.keyPreview = undefined;
-        this.outcome = 'Key preview unavailable or changed. No update was requested; refresh and inspect.';
-      }
-    } finally {
-      window.clearTimeout(timeout);
-      if (this.active(n)) this.busy = false;
-    }
-  }
-  private applyKeys() {
-    if (!this.keyPreview || !this.environment || !this.detail?.execution_allowed) return;
-    if (!this.keyPreview.saved_fingerprints.length && !this.emptyConfirmed) {
-      this.outcome = 'Explicitly confirm removal of the last managed key.';
-      return;
-    }
-    const preview = this.keyPreview;
-    this.keyPreview = undefined;
-    this.emptyConfirmed = false;
-    return mutate(
-      this.mutationsInput(),
-      `/api/environments/${this.environment.id}/access-keys`,
-      {
-        revision: preview.revision,
-        saved_fingerprints: preview.saved_fingerprints,
-        confirm_empty: !preview.saved_fingerprints.length,
-      },
-      'Managed SSH key file updated for this project. Verify new-key login and old-key refusal from your SSH client. Existing sessions and browser access are not revoked.'
     );
   }
   dispose() {
