@@ -175,7 +175,7 @@ func portedSourcePin(file string, lines []string) (string, []string) {
 			wants = append(wants, fragment)
 		}
 	}
-	return "rust/soda-setup/src/main.rs", wants
+	return "cmd/soda-setup/src/cli.rs", wants
 }
 
 func TestCLISurface(t *testing.T) {
