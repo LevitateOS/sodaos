@@ -5,8 +5,9 @@ audit. The [task list](implementation-tasks.md) retains its 27 primary packets
 and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
-for replacement are superseded. Implementation remains deferred. The current
-instruction authorizes planning and reviewed documentation commits only.
+for replacement are superseded. L01 is complete at its recorded source scope.
+The current instruction finishes L00 before any L02 dispatch; later unchecked
+packets retain their scoped implementation and admission requirements.
 
 Prepared on **2026-10-06** against clean checkout
 `de65ff684c29cf9510134d01917ec4e5a7afdcc3`. Its committed delta from the audit
@@ -107,7 +108,8 @@ hunk editing of a shared file as a substitute for ownership.
   library or native proof into a whole-plan hold. Dependencies apply to the relevant
   M/C/V subtask's required boundary output, not completion of an entire packet.
   Existing normal-mode restrictions
-  still apply; this planning command authorizes only these documents.
+  still apply; the current instruction authorizes L00 preparation and proofs,
+  with L02 held until that preparation closes.
 - [ ] **R01 — Integrate each coherent packet.** Complete module/import/manifest,
   compiler, payload, source-check and caller joins in the same reviewable change.
   Commit bounded coherent batches early and often when commits are authorized;
@@ -139,42 +141,82 @@ The existing [task list](implementation-tasks.md) remains the queue, and the
 contract. This sequence resets future dispatch. Completed investigation,
 planning and structural work are reused at their recorded scope.
 
-The Phase::child repair is committed as `9fda53fe`, with its regression proven
-failing before the fix and three child-phase checks passing afterward. QMP and
-redaction drafts are uncommitted and unverified; they remain parked for review.
-CoreOS and VM capture repairs are still open. No worker resumes implementation
-as part of this planning reset.
+L01 is complete: preserve Phase `9fda53fe`, CoreOS completion `3873614f`,
+bounded evidence `d80aec93`, and QMP/VM ownership `4c87f5e9`. Its 126
+acceptance library tests and all three binary compile checks passed. This is
+local source evidence; native QEMU and installed workflows remain unqualified.
+The current instruction puts L00 preparation before L02. No L02 implementation
+is dispatched during this pass.
 
 | Step | Existing packet/lead | Executor setting | Required output before dependent work |
 | --- | --- | --- | --- |
-| 0. Establish restart state | R00 / Coordinator | Luna low for bounded checks | Record actual revision, completed Phase repair, unfinished draft files and exact custody; reuse the 53-finding investigation and reconciled plans |
-| 1. Finish deadlines and evidence | L01 / C; exclusive writer per defining file | Luna medium for QMP/redaction; Luna low for CoreOS close/error joins; Luna medium for VM pump lifetime | Demonstrate absolute timeout/cancellation, final curl metadata, safe split/malformed URLs, bounded expansion/pending capture and refusal of successful evidence after pump/close failure |
-| 2. Repair immediate trust and entropy defects | L02 / C; L03 / A | Luna low for typed primitive fixes; Luna medium review of trust/fail-closed behavior | Reject off-curve/lenient signature input; eliminate successful predictable entropy fallback; preserve raw digest/TBS and role authority |
-| 3. Prove costly replacement boundaries early | L00 / Coordinator, A driver/transport writers; L07 / B | Luna medium for PG/Hyper proofs; Luna low for native SQL caller edits | Demonstrate driver deadline/cancel/discard and whole transaction custody; prove Unix HTTP backend/shutdown and upgrade read-ahead; finish native $n parameters before L08 cutover |
-| 4. Replace common engines by caller profile | L03 / A; L04 / C | Luna medium to settle duplicate/alias/encoding profiles, then Luna low for mechanical caller transfer | Real producer/refusal fixtures, original signed bytes and bounded inputs; remove each old engine with its last callers |
+| 0. Establish restart state — complete | R00 / Coordinator | Luna low for bounded checks | Preserve completed corrections and structural scopes, identify the canonical revision and reconcile stopped drafts |
+| 1. Finish deadlines and evidence — complete | L01 / C | Luna medium for QMP/redaction/VM pump lifetime; Luna low for CoreOS close/error joins | Recorded absolute deadlines, final curl metadata, safe split/malformed URLs, bounded evidence and failure propagation |
+| 2. Finish admission and costly boundary preparation — current | L00 / Coordinator; named disjoint proof writers | Luna low for dependency/license/cache inventory; Luna medium for PG/Hyper/WS proofs and independent review | Record exact compiler and feature closures, locked offline checks, PG deadline/cancel/discard/transaction custody, Unix client/server and upgrade read-ahead, nonblocking WS flush/close/reap; disposition every open cutover gate before L02 |
+| 3. Repair immediate trust and entropy defects — held until step 2 closes | L02 / C; L03 / A | Luna low for settled typed primitive fixes; Luna medium review of trust/fail-closed behavior | Reject off-curve/lenient signature input; eliminate successful predictable entropy fallback; preserve raw digest/TBS and role authority |
+| 4. Replace common engines and native SQL parameters | L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles; Luna low for settled caller/SQL edits | Real producer/refusal fixtures, original signed bytes and bounded inputs; remove each old engine with its last callers; finish native $n parameters before L08 |
 | 5. Adopt PostgreSQL and Unix HTTP/WS | L08/L09 / A, named B/C handoffs | Luna medium | PG requires L07 and LA-G2; ordinary clients precede servers, coupled upgrade/pump follows LA-G3; complete cancellation/flush/close/reap and affected offline graph |
 | 6. Adopt SSH and local CA formats | L05 / A; L06 / C | Luna medium | SSH consumes required L03/L04 outputs; CA consumes L02/relevant PEM profile and Caddy/critical-extension evidence, with no SSH prerequisite |
-| 7. Replace independent external/network adapters | L10 / C; L11 / A | Luna low for settled caller adapters; Luna medium only for unresolved admission/deadline semantics | Setup/provider HTTP and URL/IP/time preserve each caller's credentials, raw literals, bounds and unavailable/uncertain outcomes |
+| 7. Replace independent external/network adapters | L10 / C; L11 / A with C acceptance handoff | Luna low for settled caller adapters; Luna medium for unresolved admission/deadline semantics | Setup/provider HTTP and URL/IP/time preserve each caller's credentials, raw literals, bounds and unavailable/uncertain outcomes |
 | 8. Consolidate file/FD/process mechanics | L12 / C, A/B physical writers | Luna medium for custody/cancellation; Luna low for settled repetitive plumbing | Same-FD bounds before temp convenience; root confinement, descriptor ownership, bounded capture and cleanup errors remain exercised |
-| 9. Replace release format and CLI emulators | L13/L14 / C | Luna low after declared format/CLI profiles; Luna medium for EOF/budget or cross-crate ownership uncertainty | Complete decoded trailer/EOF and budgets before reuse; retain deterministic new output, original signed bytes, command tails and exact shipping inventory |
+| 9. Replace release format and CLI emulators | L13/L14 / C | Luna low after declared format/CLI profiles; Luna medium for EOF/budget or cross-crate ownership uncertainty | Complete decoded trailer/EOF and budgets before reuse; retain deterministic output, original signed bytes, command tails and exact shipping inventory |
 | 10. Close bounded external/configuration questions | L15 / B; L17 / C | Luna low for pinned census/corpus collection; Luna medium for demonstrated semantic mismatch | SDK exact source/scope and native effective-config evidence; missing corpus holds CFG01 only, retained locale work remains independent |
 | 11. Remove dead machinery and assess parked seams | L18 / C with A/B handoffs; R02 | Luna low | Current last-caller proof and actual test/build owners; useful A/C seams assessed against replacement adapters; no replay of already integrated B27 work |
 | 12. Consider optional matcher adoption | L16 / C | Luna medium | Separate change after L01 and its bounded secret-input custody; no Aho-Corasick change is required to complete step 1 |
 | 13. Qualify the integrated changed subjects | R03/R04 / Coordinator | Luna low for commands/receipts; Luna medium for unresolved consequential results | Applicable source/build checks first, native qualification only for a ready selected candidate and its authorized operations; evidence states its actual scope |
 
-Numbers express priority and required outputs, not global wave barriers. Step 3
-can overlap ready step 2 repairs. Independent parts of steps 7–11 can fill
-available slots; orphaned deletion does not wait for a full pipeline cutover.
-The relevant L00 admission applies before every new dependency cutover. Optional
-step 12 does not hold unrelated qualification or closure of the immediate repairs.
+L00 is the current priority barrier before L02 by explicit user instruction.
+After initial preparation closes, its exact per-adoption gates still apply to
+each changed package/features/runtime graph. Independent parts of later ready
+packets can fill available slots after dispatch; optional step 12 does not hold
+unrelated qualification. Do not treat the preparation probes as implemented
+production adapters or installed qualification.
 
-For step 1, retain the committed Phase result, then review the parked QMP and
-redaction drafts against the actual acceptance before using them. QMP must use
-one budget across connect, negotiation, partial writes/reads and buffered event
-matching. CoreOS must finish pump ownership, propagate failures, eagerly close
-both redactors and check final flushes before reading buffers. VM output closure
-must follow owned pump completion. Test split/slashless/malformed/binary URLs,
-unterminated metadata and resource exhaustion against the real callers.
+### Restart state (2026-10-07)
+
+The preparation source is `4b02122b`, after completed L01. The committed
+`Phase::child` correction remains `9fda53fe`: unbounded parents produce
+bounded children and finite parents retain the tighter deadline. Its regression
+failed before repair and three child-phase checks passed afterward. The former
+QMP/redaction drafts and CoreOS/VM assignments were integrated through L01;
+their old parked/unverified dispatch register is retired. Source-test completion
+does not qualify native QEMU or installed workflows.
+
+Other previously recorded correctness work remains closed only at its
+documented scope: [A05.C](implementation-tasks.md#a05-broker-custody-and-execution-state)
+covers the terminal execution fence;
+[A07.C](implementation-tasks.md#a07-native-launch-and-interactive-attachment)
+covers the specified ABI/select/pump/reap repairs;
+[B02.C](implementation-tasks.md#b02-accepted-inputs-and-readiness)
+covers the recorded replay/stale-screen and diagnostic corrections;
+[C02.C](implementation-tasks.md#c02-private-ipc-and-postgresql-persistence)
+records the H01/H02 disposition and routing; and
+[C08.C](implementation-tasks.md#c08-build-controllers-and-candidate-production)
+records the
+release architecture/discovery corrections. These task-list records do not
+qualify native transport pumping, provider/native behavior, systemd/progress
+output, or any wider workflow.
+[C01.C](implementation-tasks.md#c01-parser-and-filesystem-primitives) is
+partial (H03-F1 panic correction only), and
+[C09.C](implementation-tasks.md#c09-inputs-authenticated-media-assets-and-attribution)
+is partial (D02-F1 byte-safe HTTPS predicate only; Q7 remains open); neither is
+a fully closed correction packet. No broader validity claim is added here.
+
+L00 workers own only isolated proof/inventory artifacts. Production source,
+manifests and locks remain unchanged during preparation. The coordinator alone
+owns shared graph resolution, fixture lifecycle, checks, tracked planning joins
+and commits; tests/builds are serialized.
+
+| L00 assignment | Exact ownership | Prerequisites and acceptance | Setting |
+| --- | --- | --- | --- |
+| Dependency inventory | `.artifacts/l00/dependency-inventory/inventory.md` and `resolved-graphs.json` | Read coordinator-resolved metadata and exact cached manifests; account for direct/features/transitive licenses, compiler/MSRV, source/archive/checksum coverage, runtime and affected selectors; distinguish local cache from artifact worker | Luna low |
+| PostgreSQL boundary proof | `.artifacts/l00/pg-boundary/src/lib.rs` | Coordinator-owned fresh PG17 socket fixture; prove one absolute deadline, acknowledged cancel/discard/join/reconnect and whole-transaction exclusion; state sync-driver and auth/TLS limits | Luna medium |
+| Unix HTTP/WS proof | `.artifacts/l00/transport-boundary/src/lib.rs` and `README.md` | Exact resolved Hyper/Tokio/tungstenite graph; prove client/server Unix I/O, bounded backend admission and shutdown, validated upgrade plus first-frame read-ahead, owner wakeup/flush/automatic Pong/close/reap | Luna medium |
+| Independent acceptance review | Read-only actual proof sources, results and affected plan changes | Challenge deadline/custody assertions, swallowed failures and admission claims; report exact consequential gaps for correction | Luna medium |
+
+These assignments close preparation only. L02's C-owned trust/signature files
+remain undispatched. The existing investigation, coverage, adoption chapter and
+task list remain the authorities; this register creates no new queue.
 
 Every coherent packet gets one independent review at the chosen level. Routine
 checks need no additional reasoning agent. Commit passing bounded changes early

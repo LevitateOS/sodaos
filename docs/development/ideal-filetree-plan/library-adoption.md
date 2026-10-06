@@ -5,8 +5,9 @@ handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and
 [lane schedule](implementation-lanes.md) remain the execution plan. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
-Implementation is deferred. The current instruction authorizes planning and
-reviewed documentation commits only.
+L01 is complete at its recorded source scope. The current instruction finishes
+L00 preparation before L02; later cutovers retain their scoped authorization and
+admission checks.
 
 Planning reconciliation uses source `72e4bb9015b6d6a622b45638104c74851a137473`
 and SDK `86a70e1155f1036fdcd38f2af49d4ca6defa8280`. The completed
@@ -29,14 +30,15 @@ from these packets.
 L identifiers are subpackets of the existing A/B/C tasks. Each has one lead;
 physical writers remain the exclusive owners in the lane schedule. A lead sends
 cross-owner changes through named handoffs rather than editing another owner's
-files. The coordinator owns manifests/locks and integration. All packets are
-planning-ready subject to their exact gates below, not dispatched.
+files. The coordinator owns manifests/locks and integration. Packet state is
+recorded in the task list: L01 is complete, L00 is active, and later unchecked
+packets remain undispatched subject to their exact gates below.
 
 | Packet | Lead | Existing task joins | Sequence and required output |
 | --- | --- | --- | --- |
-| L00 Admission and boundary preparation | Coordinator | R00/R01, C01/C02/C08 | Per selected dependency/contract; no whole-repository preparation barrier |
+| L00 Admission and boundary preparation | Coordinator | R00/R01, C01/C02/C08 | Finish initial preparation before L02; retain admission per selected dependency/contract |
 | L01 Deadline and evidence repair | C | C11.C/V | Immediate; preserves the existing small lifecycle/evidence owners |
-| L02 Trust-key and signature repair | C | C07/C10 | Immediate; existing curve/DER libraries and raw-byte contracts |
+| L02 Trust-key and signature repair | C | C07/C10 | After initial L00 preparation; existing curve/DER libraries and raw-byte contracts |
 | L03 Hash, curve and randomness owners | A | A03/A05/A06, C10/C11 | Fail-closed entropy first; complete primitive owners can proceed independently |
 | L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | Define the selected caller profile before replacing that owner |
 | L05 SSH formats | A | A01/A07, C07 | Requires its CF-01/02/04 profiles from L03/L04 |
