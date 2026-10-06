@@ -290,7 +290,8 @@ pub fn approve_inputs(data: &JsonValue) -> Result<ApprovedInputs, Error> {
 
 /// Root-owned read-only snapshot, verified bundle, role-owned checkout,
 /// credential binding, then the request receipt. The clone always starts
-/// from an empty directory; any failure removes everything.
+/// from an empty directory; any failure removes invocation-created state
+/// while a preexisting checkout path is refused and preserved.
 pub fn write_snapshot(
     ctx: &crate::Ctx,
     directory: &Path,
@@ -350,6 +351,10 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
         .mode(0o755)
         .create(&directory)
         .map_err(Error::classify)?;
+    // Ownership probe for failure cleanup: only a checkout this invocation
+    // created may be removed; a preexisting path is refused and preserved.
+    let checkout_path = account.dir.join("checkouts").join(&inputs.fields.id);
+    let checkout_existed = fsx::lexists(&checkout_path);
     match write_snapshot(ctx, &directory, &inputs, &account) {
         Ok((checkout, credential_path)) => Ok(obj(vec![
             ("approved", str_value(&inputs.fields.id)),
@@ -359,7 +364,9 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
         ])),
         Err(err) => {
             let _ = std::fs::remove_dir_all(&directory);
-            let _ = std::fs::remove_dir_all(account.dir.join("checkouts").join(&inputs.fields.id));
+            if !checkout_existed {
+                let _ = std::fs::remove_dir_all(&checkout_path);
+            }
             Err(err)
         }
     }

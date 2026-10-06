@@ -309,6 +309,62 @@ fn approve_failure_removes_everything() {
     do_approve(&ctx_ok, &approve_default(PID)).unwrap();
 }
 
+/// Seed a foreign preexisting checkout holding operator bytes, resolving the
+/// role home through production account lookup rather than a hardcoded layout.
+fn preexisting_checkout(ctx: &crate::Ctx, marker: &[u8]) -> std::path::PathBuf {
+    let account = crate::account::role_record(ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    let checkout = account.dir.join("checkouts").join(PID);
+    std::fs::create_dir_all(&checkout).unwrap();
+    // A realistic preexisting home is secured; only the checkout is foreign.
+    std::fs::set_permissions(
+        &account.dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    std::fs::write(checkout.join("marker.txt"), marker).unwrap();
+    checkout
+}
+
+#[test]
+fn approve_refusal_preserves_preexisting_checkout() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = preexisting_checkout(&ctx, b"operator data");
+    assert_fail(
+        do_approve(&ctx, &approve_default(PID)),
+        "checkout path already exists",
+    );
+    assert_eq!(
+        std::fs::read(checkout.join("marker.txt")).unwrap(),
+        b"operator data",
+        "preexisting checkout bytes preserved on refusal"
+    );
+    assert!(
+        !ctx.preparations.join(PID).exists(),
+        "owned preparation state still cleaned"
+    );
+}
+
+#[test]
+fn approve_bundle_failure_preserves_preexisting_checkout() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-fail", 1);
+    let ctx = scratch.ctx(&git);
+    let checkout = preexisting_checkout(&ctx, b"operator data");
+    assert_fail(
+        do_approve(&ctx, &approve_default(PID)),
+        "source bundle does not carry the approved commit",
+    );
+    assert_eq!(
+        std::fs::read(checkout.join("marker.txt")).unwrap(),
+        b"operator data",
+        "preexisting checkout bytes preserved on bundle failure"
+    );
+}
+
 #[test]
 fn approve_binds_role_private_credentials() {
     let scratch = Scratch::fresh();
