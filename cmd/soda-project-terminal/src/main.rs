@@ -27,6 +27,7 @@ mod sha;
 mod subscription_credentials;
 mod subscription_prepare;
 mod subscription_profile;
+mod subscription_start;
 mod subscription_wire;
 mod svc;
 mod sys;
