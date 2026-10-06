@@ -1,5 +1,7 @@
 import {LitElement} from 'lit';
 import {renderFactoryWatch} from './sodaspaces-factory-view.js';
+import {statusText, watchCommands, watchPresentation, watchTitle} from './sodaspaces-factory-display.js';
+import type {DisplayInput} from './sodaspaces-factory-display.js';
 import {object, readSodaJSON} from './sodaspaces-api.js';
 import {factoryOutputFrame, factoryOutputCursor, factoryClosedReason} from './sodaspaces-factory-stream-response.js';
 import {factoryRunStatusResponse, factoryStatusFrame} from './sodaspaces-factory-response.js';
@@ -112,73 +114,44 @@ export class SodaFactoryWatch extends LitElement {
     this.dispose();
   }
   protected render() {
-    return renderFactoryWatch(this.watchPresentation(), this.watchCommands());
+    return renderFactoryWatch(watchPresentation(this.displayInput()), watchCommands(this.displayInput()));
   }
-  private viewDisabled() {
-    return this.disposed || this.state === 'stale';
-  }
-  private canWatchView(disabled: boolean) {
-    return !(disabled || this.state === 'opening' || this.state === 'ready');
-  }
-  private watchTitle() {
-    const target = this.binding?.issue
-      ? `issue #${this.binding.issue}`
-      : this.binding?.attempt || `run ${this.binding?.runId.slice(0, 8) || ''}`;
-    return `${this.binding?.role || 'factory'} · ${target}`;
-  }
-  private watchPresentation() {
-    const disabled = this.viewDisabled();
+  private displayInput(): DisplayInput {
     return {
-      watching: this.state === 'ready' || this.state === 'opening',
-      disabled,
-      canWatch: this.canWatchView(disabled),
-      watchLabel: this.state === 'idle' ? 'Watch run' : 'Watch again',
-      title: this.watchTitle(),
-      status: this.statusLine || 'Not watching.',
-      message: this.message,
-      notice: this.notice,
-      screenVisible: this.screenVisible,
+      readDisposed: () => this.disposed,
+      readState: () => this.state,
+      readMessage: () => this.message,
+      readNotice: () => this.notice,
+      readScreenVisible: () => this.screenVisible,
+      readStatusLine: () => this.statusLine,
+      readIssue: () => this.binding?.issue,
+      readAttempt: () => this.binding?.attempt,
+      readRunId: () => this.binding?.runId,
+      readRole: () => this.binding?.role,
+      setRetries: (retries) => {
+        this.retries = retries;
+      },
+      setCursor: (cursor) => {
+        this.cursor = cursor;
+      },
+      isHiddenOrInert: () => !!this.closest('[hidden], [inert]'),
+      queryDetails: () => this.querySelector('details'),
+      focusSummary: () => {
+        this.querySelector<HTMLElement>('summary')?.focus();
+      },
+      dispatchHide: () => {
+        this.dispatchEvent(
+          new CustomEvent('soda-factory-command', {
+            bubbles: true,
+            detail: 'hide',
+          })
+        );
+      },
+      watchNow: () => {
+        void this.watch();
+      },
+      detach: (message) => this.detach(message),
     };
-  }
-  private menuKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      this.closeMenu();
-      this.querySelector<HTMLElement>('summary')?.focus();
-    }
-  };
-  private watchCommands() {
-    return {
-      watch: () => this.watchFromControls(),
-      stop: () => this.stopFromControls(),
-      hide: () => this.hideFromControls(),
-      menuKey: this.menuKey,
-    };
-  }
-  private watchFromControls() {
-    this.closeMenu();
-    this.retries = 0;
-    this.cursor = 0;
-    void this.watch();
-  }
-  private stopFromControls() {
-    this.closeMenu();
-    this.detach('Stopped watching. The run continues without this view.');
-  }
-  private hideFromControls() {
-    if (this.disposed || this.state === 'stale' || this.closest('[hidden], [inert]')) return;
-    this.closeMenu();
-    this.dispatchEvent(
-      new CustomEvent('soda-factory-command', {
-        bubbles: true,
-        detail: 'hide',
-      })
-    );
-  }
-  private closeMenu() {
-    const menu = this.querySelector('details');
-    if (menu) menu.open = false;
   }
   private live(generation: number) {
     return !this.disposed && this.state !== 'stale' && this.generation === generation;
@@ -226,11 +199,6 @@ export class SodaFactoryWatch extends LitElement {
           bubbles: true,
         })
       );
-  }
-  private statusText(phase: string, live: boolean, terminal: boolean, exit: number | null | undefined) {
-    const ended = terminal && exit !== undefined && exit !== null ? `ended: ${phase} (exit ${exit})` : phase;
-    const running = live ? `${phase} · live` : phase;
-    return terminal ? ended : running;
   }
   private fitReady() {
     return !!this.terminal && !!this.fit && this.viewVisible && !this.closest('[hidden]');
@@ -303,7 +271,7 @@ export class SodaFactoryWatch extends LitElement {
   }
   private endedRun(detail: {state?: {phase: string; exit_code?: number; output?: string; output_truncated: boolean}}) {
     const state = detail.state;
-    this.statusLine = state ? this.statusText(state.phase, false, true, state.exit_code ?? null) : 'ended';
+    this.statusLine = state ? statusText(state.phase, false, true, state.exit_code ?? null) : 'ended';
     const excerpt = state?.output ? `\nLast output:\n${state.output}` : '';
     const cut = state?.output_truncated ? '\n… output truncated …' : '';
     this.detach(
@@ -321,7 +289,7 @@ export class SodaFactoryWatch extends LitElement {
       this.endedRun(detail);
       return true;
     }
-    if (detail.state) this.statusLine = this.statusText(detail.state.phase, detail.state.live, false, null);
+    if (detail.state) this.statusLine = statusText(detail.state.phase, detail.state.live, false, null);
     else this.statusLine = detail.outcome ? `recorded · ${detail.outcome}` : 'recorded';
     return false;
   }
@@ -346,13 +314,13 @@ export class SodaFactoryWatch extends LitElement {
     }
   }
   private acceptStatus(frame: ReturnType<typeof factoryStatusFrame>) {
-    this.statusLine = this.statusText(frame.phase, frame.live, frame.terminal, frame.exit_code);
+    this.statusLine = statusText(frame.phase, frame.live, frame.terminal, frame.exit_code);
     if (this.state === 'opening') {
       window.clearTimeout(this.timer);
       this.state = 'ready';
       this.retries = 0;
       this.notice = false;
-      this.message = `Watching ${this.watchTitle()}.`;
+      this.message = `Watching ${watchTitle(this.displayInput())}.`;
       void this.screenReady();
     }
   }
