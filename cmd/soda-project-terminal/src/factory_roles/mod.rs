@@ -12,11 +12,8 @@
 
 #[path = "accounts.rs"]
 pub(crate) mod account;
-#[path = "../../../../rust/soda-project-factory-roles/src/b64.rs"]
 pub(crate) mod b64;
-#[path = "../../../../rust/soda-project-factory-roles/src/emit.rs"]
 pub(crate) mod emit;
-#[path = "../../../../rust/soda-project-factory-roles/src/error.rs"]
 pub(crate) mod error;
 #[path = "layout.rs"]
 pub(crate) mod fsx;
