@@ -6,6 +6,7 @@ use std::os::unix::io::RawFd;
 
 use super::sha256::{hex_encode, Sha256};
 use super::MUSE_VERSION;
+use sha2::Digest;
 
 // go_clean mirrors filepath.Clean lexical rules.
 pub(crate) fn go_clean(path: &str) -> String {
@@ -308,7 +309,7 @@ pub(crate) fn verify_native(tool: &Tool, digest: &str) -> Result<(), String> {
         hasher.update(&chunk[..n as usize]);
         offset += n as i64;
     }
-    let sum = hasher.finish();
+    let sum = hasher.finalize();
     if hex_encode(&sum) != digest {
         return Err(String::from("muse native digest mismatch"));
     }

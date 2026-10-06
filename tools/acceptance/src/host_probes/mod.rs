@@ -15,7 +15,7 @@ use std::process::{Command, Stdio};
 
 use soda_json::JsonValue;
 
-use crate::sha256::{self, Sha256};
+use crate::sha256::{self, Digest, Sha256};
 
 mod content;
 mod deployments;

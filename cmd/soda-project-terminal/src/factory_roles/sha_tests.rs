@@ -1,9 +1,7 @@
 use super::*;
 
 fn hex_of(data: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    hex(&hasher.finish())
+    hex(&Sha256::digest(data))
 }
 
 #[test]

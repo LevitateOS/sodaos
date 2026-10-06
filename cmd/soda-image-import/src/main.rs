@@ -37,7 +37,6 @@ use platform::{
     is_coreos_version, is_digest, is_prefixed_digest, is_revision, oci_architecture,
     require_native, valid_repository_prefix,
 };
-use sha256::{hex_lower, sha256_hex, Sha256};
 
 #[link(name = "c")]
 extern "C" {

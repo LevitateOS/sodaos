@@ -16,6 +16,10 @@ name = "soda-forgejo-tailnet"
 path = "../../cmd/soda-forgejo-tailnet/main.rs"
 
 [dependencies]
+p256 = { version = "=0.13.2", default-features = false, features = ["arithmetic"] }
+p384 = { version = "=0.13.1", default-features = false, features = ["arithmetic"] }
+p521 = { version = "=0.13.3", default-features = false, features = ["arithmetic"] }
+sha2 = "=0.10.9"
 getrandom = { version = "=0.4.3", features = ["std"] }
 libc = "0.2"
 soda-release-deliver = { path = "../../lib/soda-release-deliver" }

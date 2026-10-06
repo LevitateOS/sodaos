@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicU64;
 
 use super::super::*;
+use crate::sha256::sha256_hex;
 
 static TEST_SEQ: AtomicU64 = AtomicU64::new(0);
 

@@ -1,4 +1,4 @@
-use super::mpint::put_string;
+use super::mpint::{put_string, read_string};
 use super::*;
 
 // Public-key fixtures only (comments stripped). RSA/ECDSA/Ed25519 from
@@ -14,6 +14,17 @@ const CERT: &str = "ssh-ed25519-cert-v01@openssh.com AAAAIHNzaC1lZDI1NTE5LWNlcnQ
 fn canonical(line: &str) -> (String, bool) {
     let (key, opts) = parse_authorized_key(line.as_bytes()).unwrap();
     (marshal_authorized_key(&key.key_type, &key.blob), opts)
+}
+
+fn ordinary_p256_point() -> Vec<u8> {
+    let raw = b64_decode(ECDSA256.split_once(' ').unwrap().1).unwrap();
+    let (algorithm, fields) = read_string(&raw).unwrap();
+    assert_eq!(algorithm, ALGO_ECDSA256.as_bytes());
+    let (curve, fields) = read_string(fields).unwrap();
+    assert_eq!(curve, b"nistp256");
+    let (point, rest) = read_string(fields).unwrap();
+    assert!(rest.is_empty());
+    point.to_vec()
 }
 
 #[test]
@@ -37,6 +48,50 @@ fn sk_types_parse() {
     put_string(&mut blob, b"ssh:test");
     let line = format!("{ALGO_SKED25519} {}", b64_encode(&blob));
     assert_eq!(canonical(&line).0, format!("{line}\n"));
+}
+
+#[test]
+fn sk_ecdsa_p256_validates_point_and_curve_id() {
+    let point = ordinary_p256_point();
+    let mut blob = Vec::new();
+    put_string(&mut blob, ALGO_SKECDSA.as_bytes());
+    put_string(&mut blob, b"nistp256");
+    put_string(&mut blob, &point);
+    put_string(&mut blob, b"ssh:test");
+    let line = format!("{ALGO_SKECDSA} {}", b64_encode(&blob));
+    assert_eq!(canonical(&line).0, format!("{line}\n"));
+
+    let mut off_curve = vec![0; point.len()];
+    off_curve[0] = 0x04;
+    let mut blob = Vec::new();
+    put_string(&mut blob, ALGO_SKECDSA.as_bytes());
+    put_string(&mut blob, b"nistp256");
+    put_string(&mut blob, &off_curve);
+    put_string(&mut blob, b"ssh:test");
+    assert!(
+        parse_authorized_key(format!("{ALGO_SKECDSA} {}", b64_encode(&blob)).as_bytes()).is_err()
+    );
+
+    let mut blob = Vec::new();
+    put_string(&mut blob, ALGO_SKECDSA.as_bytes());
+    put_string(&mut blob, b"nistp384");
+    put_string(&mut blob, &point);
+    put_string(&mut blob, b"ssh:test");
+    assert!(
+        parse_authorized_key(format!("{ALGO_SKECDSA} {}", b64_encode(&blob)).as_bytes()).is_err()
+    );
+}
+
+#[test]
+fn ecdsa_algorithm_rejects_wrong_curve_id() {
+    let point = ordinary_p256_point();
+    let mut blob = Vec::new();
+    put_string(&mut blob, ALGO_ECDSA256.as_bytes());
+    put_string(&mut blob, b"nistp384");
+    put_string(&mut blob, &point);
+    assert!(
+        parse_authorized_key(format!("{ALGO_ECDSA256} {}", b64_encode(&blob)).as_bytes()).is_err()
+    );
 }
 
 #[test]

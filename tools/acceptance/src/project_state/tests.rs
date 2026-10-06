@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use super::*;
 use crate::files::TempDir;
-use crate::sha256::{self, Sha256};
+use crate::sha256::{self, Digest, Sha256};
 
 /// Port of `TestEntryHashAndMode` from `test_u08_state.py`.
 #[test]

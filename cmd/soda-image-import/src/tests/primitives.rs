@@ -1,5 +1,7 @@
 use super::super::*;
 use super::fixtures::*;
+use crate::sha256::{hex_lower, sha256_hex, Sha256};
+use sha2::Digest;
 
 #[test]
 fn admission_requires_root_and_no_arguments() {
@@ -66,7 +68,7 @@ fn sha256_matches_fips_vectors_streamed_and_oneshot() {
         for byte in input.iter() {
             h.update(std::slice::from_ref(byte));
         }
-        assert_eq!(&hex_lower(&h.finish()), want);
+        assert_eq!(&hex_lower(&h.finalize()), want);
     }
     let million = vec![b'a'; 1_000_000];
     let mut h = Sha256::new();
@@ -74,7 +76,7 @@ fn sha256_matches_fips_vectors_streamed_and_oneshot() {
         h.update(chunk);
     }
     assert_eq!(
-        hex_lower(&h.finish()),
+        hex_lower(&h.finalize()),
         "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
     );
 }

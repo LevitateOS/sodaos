@@ -7,7 +7,7 @@ use soda_json::JsonValue;
 use crate::account::{self, Account};
 use crate::fs;
 use crate::pyemit;
-use crate::sha;
+use crate::sha::{self, Digest};
 use crate::svc;
 use crate::sys;
 use crate::term_attach::subscription_lifetime;
@@ -51,7 +51,7 @@ pub fn file_sha256_hex(file: &File) -> io::Result<String> {
         }
         hasher.update(&chunk[..got as usize]);
     }
-    Ok(sha::hex(&hasher.finish()))
+    Ok(sha::hex(&hasher.finalize()))
 }
 
 fn verify_program(source_hash: &str) -> Result<(), String> {

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use soda_json::JsonValue;
 
-use crate::sha256::{self, Sha256};
+use crate::sha256::{self, Digest, Sha256};
 
 use super::{n, obj, s, set, SnapshotFailure, SnapshotKind};
 

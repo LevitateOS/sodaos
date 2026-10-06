@@ -5,7 +5,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 use crate::error::Error;
-use crate::sha256::Sha256;
+use crate::sha256::{Digest, Sha256};
 
 use super::{same_file, FileAttr, OwnedDir, PRIVATE_FILE_LIMIT};
 

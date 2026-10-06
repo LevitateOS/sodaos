@@ -98,13 +98,11 @@ pub fn parse_key_fields(algo: &str, buf: &[u8]) -> Result<(KeyMaterial, Vec<u8>)
             if curve_id != expect.as_bytes() {
                 return Err(());
             }
-            if !nist::valid_point(curve, point) {
-                return Err(());
-            }
+            let point = nist::decode_point(curve, point).ok_or(())?;
             Ok((
                 KeyMaterial::Ecdsa {
                     curve: expect,
-                    point: point.to_vec(),
+                    point,
                 },
                 rest.to_vec(),
             ))
@@ -113,12 +111,13 @@ pub fn parse_key_fields(algo: &str, buf: &[u8]) -> Result<(KeyMaterial, Vec<u8>)
             let (curve_id, rest) = read_string(buf)?;
             let (point, rest) = read_string(rest)?;
             let (app, rest) = read_string(rest)?;
-            if curve_id != b"nistp256" || !nist::valid_point(&nist::P256, point) {
+            if curve_id != b"nistp256" {
                 return Err(());
             }
+            let point = nist::decode_point(&nist::P256, point).ok_or(())?;
             Ok((
                 KeyMaterial::SkEcdsa {
-                    point: point.to_vec(),
+                    point,
                     app: app.to_vec(),
                 },
                 rest.to_vec(),

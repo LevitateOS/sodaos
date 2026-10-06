@@ -1,6 +1,7 @@
 use crate::options::default_tools;
 use crate::sha256::{hex_encode, Sha256};
 use crate::test_support::{hex_string, is_root, TestDir, MUSE_VERSION};
+use sha2::Digest;
 use std::ffi::CString;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -40,7 +41,7 @@ fn sha256_known_answers() {
         for b in input.iter() {
             h.update(std::slice::from_ref(b));
         }
-        assert_eq!(&hex_encode(&h.finish()), want);
+        assert_eq!(&hex_encode(&h.finalize()), want);
     }
 }
 
@@ -111,7 +112,7 @@ fn tool_source_and_digest_admission() {
     );
     let mut h = Sha256::new();
     h.update(body);
-    verify_native(&tool, &hex_encode(&h.finish())).unwrap();
+    verify_native(&tool, &hex_encode(&h.finalize())).unwrap();
     // pread verification leaves the offset at zero.
     assert_eq!(unsafe { libc::lseek(fd, 0, libc::SEEK_CUR) }, 0);
     drop(tool);
