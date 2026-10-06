@@ -7,7 +7,7 @@ pub(crate) struct Options {
 }
 
 pub(crate) fn default_tools() -> String {
-    super::go_clean("/usr/libexec/soda/../../share/soda/muse-tools")
+    super::filesystem::go_clean("/usr/libexec/soda/../../share/soda/muse-tools")
 }
 
 pub(crate) fn parse(args: &[String]) -> Result<Options, String> {

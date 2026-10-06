@@ -31,7 +31,7 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
         || !c.identity_socket.starts_with('/')
         || !super::is_hex_string(&c.muse_sha256, 64)
         || c.muse_version.is_empty()
-        || super::go_base(&c.muse_socket) != "launch.sock"
+        || super::filesystem::go_base(&c.muse_socket) != "launch.sock"
     {
         return Err(String::from(
             "explicit muse socket, broker socket and release digest required",
