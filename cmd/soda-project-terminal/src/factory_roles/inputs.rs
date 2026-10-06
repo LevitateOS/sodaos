@@ -290,8 +290,9 @@ pub fn approve_inputs(data: &JsonValue) -> Result<ApprovedInputs, Error> {
 
 /// Root-owned read-only snapshot, verified bundle, role-owned checkout,
 /// credential binding, then the request receipt. The clone always starts
-/// from an empty directory; any failure removes invocation-created state
-/// while a preexisting checkout path is refused and preserved.
+/// from an empty directory; any failure removes invocation-created state.
+/// Checkout creation is exclusive, so a preexisting path of any identity
+/// is refused untouched and only a directory this call created is cleaned.
 pub fn write_snapshot(
     ctx: &crate::Ctx,
     directory: &Path,
@@ -309,22 +310,36 @@ pub fn write_snapshot(
     fsx::write_new(&snapshot.join("source.bundle"), &inputs.bundle, 0o644)?;
     verify_bundle(ctx, &snapshot, &inputs.fields.source_commit)?;
     let checkout = account.dir.join("checkouts").join(&inputs.fields.id);
-    if fsx::lexists(&checkout) {
-        return fail("checkout path already exists");
+    // CODEX-P07-003: exclusive creation is the provenance record. Any
+    // preexisting path — present before or planted during verification,
+    // of any identity — is refused untouched; only a directory this call
+    // created is ever removed, by the tail scope below.
+    match std::fs::create_dir(&checkout) {
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+            return fail("checkout path already exists");
+        }
+        Err(err) => return Err(Error::classify(err)),
     }
-    std::fs::DirBuilder::new()
-        .mode(0o755)
-        .create(&checkout)
-        .map_err(Error::classify)?;
-    fsx::chown(&checkout, account.uid, account.gid)?;
-    let mut credential_path = String::new();
-    if !inputs.fields.credential.is_empty() {
-        credential_path =
-            check_credential_file(ctx, &inputs.fields.role, &inputs.fields.credential)?;
+    let tail: Result<String, Error> = (|| {
+        fsx::chmod(&checkout, 0o755)?;
+        fsx::chown(&checkout, account.uid, account.gid)?;
+        let mut credential_path = String::new();
+        if !inputs.fields.credential.is_empty() {
+            credential_path =
+                check_credential_file(ctx, &inputs.fields.role, &inputs.fields.credential)?;
+        }
+        let receipt = emit::dumps_default(&inputs.fields.to_json());
+        fsx::write_new(&directory.join("request.json"), receipt.as_bytes(), 0o644)?;
+        Ok(credential_path)
+    })();
+    match tail {
+        Ok(credential_path) => Ok((checkout, credential_path)),
+        Err(err) => {
+            let _ = std::fs::remove_dir_all(&checkout);
+            Err(err)
+        }
     }
-    let receipt = emit::dumps_default(&inputs.fields.to_json());
-    fsx::write_new(&directory.join("request.json"), receipt.as_bytes(), 0o644)?;
-    Ok((checkout, credential_path))
 }
 
 pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
@@ -351,10 +366,6 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
         .mode(0o755)
         .create(&directory)
         .map_err(Error::classify)?;
-    // Ownership probe for failure cleanup: only a checkout this invocation
-    // created may be removed; a preexisting path is refused and preserved.
-    let checkout_path = account.dir.join("checkouts").join(&inputs.fields.id);
-    let checkout_existed = fsx::lexists(&checkout_path);
     match write_snapshot(ctx, &directory, &inputs, &account) {
         Ok((checkout, credential_path)) => Ok(obj(vec![
             ("approved", str_value(&inputs.fields.id)),
@@ -363,10 +374,10 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
             ("credential_file", str_value(&credential_path)),
         ])),
         Err(err) => {
+            // CODEX-P07-003: only the invocation-owned preparation
+            // directory is removed here; checkout cleanup belongs to the
+            // scope that created it, inside `write_snapshot`.
             let _ = std::fs::remove_dir_all(&directory);
-            if !checkout_existed {
-                let _ = std::fs::remove_dir_all(&checkout_path);
-            }
             Err(err)
         }
     }

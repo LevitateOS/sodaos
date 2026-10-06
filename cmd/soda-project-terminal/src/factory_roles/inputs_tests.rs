@@ -365,6 +365,180 @@ fn approve_bundle_failure_preserves_preexisting_checkout() {
     );
 }
 
+/// Resolve the checkout path an approve of `PID` as soda-coder would claim.
+/// Pure production path math; touches nothing.
+fn claimed_checkout(ctx: &crate::Ctx) -> std::path::PathBuf {
+    let account = crate::account::role_record(ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    account.dir.join("checkouts").join(PID)
+}
+
+/// CODEX-P07-003: a checkout appearing DURING bundle verification (after any
+/// pre-probe) is refused and must survive: the failure arm only removes
+/// state this invocation created. The git fixture plants it synchronously
+/// inside verification, so the race is deterministic. Pre-fix the planted
+/// directory is deleted.
+#[test]
+fn approve_refusal_preserves_checkout_planted_during_verification() {
+    let scratch = Scratch::fresh();
+    let (git_probe, _) = scratch.git_script("git-ok", 0);
+    let checkout = claimed_checkout(&scratch.ctx(&git_probe));
+    let record = scratch.root.join("git-plant.record");
+    let script = scratch.root.join("git-plant");
+    let body = format!(
+        "#!/bin/sh\n{{ echo '---'; printf '<%s>\\\\n' \"$@\"; }} >> '{}'\nmkdir -p '{}' && echo 'foreign data' > '{}/marker.txt'\nexit 0\n",
+        record.to_string_lossy(),
+        checkout.to_string_lossy(),
+        checkout.to_string_lossy(),
+    );
+    std::fs::write(&script, body).expect("git script");
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    let ctx = scratch.ctx(&script);
+    assert_fail(
+        do_approve(&ctx, &approve_default(PID)),
+        "checkout path already exists",
+    );
+    assert_eq!(
+        std::fs::read(checkout.join("marker.txt")).unwrap(),
+        b"foreign data\n",
+        "checkout planted during verification survives refusal"
+    );
+    assert!(
+        !ctx.preparations.join(PID).exists(),
+        "owned preparation state still cleaned"
+    );
+}
+
+/// CODEX-P07-003: a dangling symlink at the checkout path is refused and
+/// preserved (metadata identity, not existence, decides). Pre-fix the
+/// failure arm deletes the link itself.
+#[test]
+fn approve_refusal_preserves_dangling_checkout_symlink() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = claimed_checkout(&ctx);
+    std::fs::create_dir_all(checkout.parent().unwrap()).unwrap();
+    let account = crate::account::role_record(&ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    // A realistic preexisting home is secured; only the link is foreign.
+    std::fs::set_permissions(
+        &account.dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    std::os::unix::fs::symlink("/nonexistent-soda-target", &checkout).unwrap();
+    assert_fail(
+        do_approve(&ctx, &approve_default(PID)),
+        "checkout path already exists",
+    );
+    assert_eq!(
+        std::fs::read_link(&checkout).unwrap(),
+        Path::new("/nonexistent-soda-target"),
+        "dangling checkout link survives refusal"
+    );
+}
+
+/// CODEX-P07-003 guard: a regular file at the checkout path is refused and
+/// preserved. Green before and after; pins the identity branch.
+#[test]
+fn approve_refusal_preserves_checkout_path_file() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = claimed_checkout(&ctx);
+    std::fs::create_dir_all(checkout.parent().unwrap()).unwrap();
+    let account = crate::account::role_record(&ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    std::fs::set_permissions(
+        &account.dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    std::fs::write(&checkout, b"operator bytes").unwrap();
+    assert_fail(
+        do_approve(&ctx, &approve_default(PID)),
+        "checkout path already exists",
+    );
+    assert_eq!(
+        std::fs::read(&checkout).unwrap(),
+        b"operator bytes",
+        "file at checkout path survives refusal"
+    );
+}
+
+/// CODEX-P07-003 guard: a failure AFTER the checkout was created (valid
+/// name, missing credential file) still removes the invocation-owned
+/// checkout and preparation. Green before and after; proves the provenance
+/// restructure preserves owned cleanup.
+#[test]
+fn approve_credential_failure_removes_owned_checkout() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let request = approve_value(PID, "soda-coder", &fixture_files(), b"bundle", "nokey");
+    assert_fail(
+        do_approve(&ctx, &request),
+        "assigned service credential is missing",
+    );
+    let checkout = claimed_checkout(&ctx);
+    assert!(!checkout.exists(), "owned checkout removed on late failure");
+    assert!(
+        !ctx.preparations.join(PID).exists(),
+        "owned preparation removed on late failure"
+    );
+}
+
+/// CODEX-P07-003 guard: when the checkout cannot even be metadata-probed
+/// (unwritable parent), approve refuses without deleting anything. Green
+/// before and after; pins metadata-error refusal through the restructure.
+#[test]
+fn approve_refuses_when_checkout_parent_unwritable() {
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("SKIP unwritable-parent case: root writes through 555");
+        return;
+    }
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let checkout = claimed_checkout(&ctx);
+    std::fs::create_dir_all(checkout.parent().unwrap()).unwrap();
+    let account = crate::account::role_record(&ctx, "soda-coder")
+        .expect("role record")
+        .expect("soda-coder account");
+    std::fs::set_permissions(
+        &account.dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        checkout.parent().unwrap(),
+        std::fs::Permissions::from_mode(0o555),
+    )
+    .unwrap();
+    let result = do_approve(&ctx, &approve_default(PID));
+    std::fs::set_permissions(
+        checkout.parent().unwrap(),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    assert!(
+        result.is_err(),
+        "unwritable parent must refuse, got {result:?}"
+    );
+    assert!(
+        !ctx.preparations.join(PID).exists(),
+        "owned preparation removed on metadata refusal"
+    );
+    assert!(
+        !checkout.exists(),
+        "no checkout created on metadata refusal"
+    );
+}
+
 #[test]
 fn approve_binds_role_private_credentials() {
     let scratch = Scratch::fresh();
