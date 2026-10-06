@@ -42,6 +42,7 @@ mod svc;
 mod sys;
 mod term;
 mod term_binding;
+mod term_collect;
 mod term_paths;
 mod term_status;
 mod timex;
