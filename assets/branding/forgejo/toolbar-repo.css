@@ -1,0 +1,150 @@
+.soda-toolbar > .ui.menu > .dropdown > .menu > :is(a,.item),
+.soda-toolbar #repo-search-form > .dropdown > .menu > :is(a,.item),
+.soda-toolbar .list-header > .dropdown > .content > :is(a,.item),
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .item {
+  color: var(--soda-page-text);
+}
+
+.soda-toolbar > .ui.menu > .dropdown > .menu > .active.item,
+.soda-toolbar #repo-search-form > .dropdown > .menu > .active.item,
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .active.item {
+  color: var(--soda-page-link) !important;
+  background: var(--soda-page-selected) !important;
+}
+
+.soda-toolbar > .ui.menu > .dropdown > .menu > .item:hover,
+.soda-toolbar #repo-search-form > .dropdown > .menu > .item:hover,
+.soda-toolbar .list-header > .dropdown > .content > .item:hover,
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .item:hover {
+  background: var(--soda-page-hover);
+}
+
+/* Toolbar action appearance and dimensions live in components-buttons.css. */
+
+.soda-tabs > .item:hover,
+.soda-tabs > .secondary-nav > .overflow-menu-items > .item:hover,
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > .button:hover,
+.soda-toolbar .list-header-search > .show-modal:hover,
+.soda-toolbar .soda-toolbar-action:not(.soda-toolbar-action--primary):hover,
+.soda-toolbar .list-header summary.options:hover {
+  color: var(--soda-page-link) !important;
+  background: var(--soda-page-hover) !important;
+}
+
+.soda-toolbar > .ui.menu > .dropdown:hover,
+.soda-context-switcher .secondary-nav .ui.dropdown.jump:hover,
+.soda-toolbar #repo-search-form > .dropdown:hover,
+.soda-toolbar .list-header summary.options:hover {
+  border-color: var(--soda-page-link);
+}
+
+@media (max-width: 700px) {
+  .soda-toolbar {
+    padding: 0;
+    gap: 12px;
+  }
+
+  .soda-toolbar--plain {
+    padding: 0;
+  }
+
+  .soda-toolbar > :is(.list-header-search,.filter.menu,.list-header) {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .soda-toolbar #repo-search-form {
+    flex-wrap: wrap;
+  }
+
+  .soda-toolbar #repo-search-form > .input {
+    flex-basis: 100% !important;
+  }
+
+  .soda-toolbar > .ui.secondary.menu:not(.filter) {
+    flex-wrap: wrap;
+  }
+
+  .soda-context-switcher {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .soda-context-switcher .secondary-nav > .ui.menu {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .soda-context-switcher .secondary-nav .ui.dropdown.jump {
+    max-width: 100%;
+  }
+
+  .soda-context-switcher .secondary-nav > .ui.menu > .item {
+    align-self: flex-start;
+    max-width: 100%;
+  }
+
+  .soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu {
+    min-width: min(270px, calc(100vw - 32px));
+    left: 0;
+    right: auto;
+  }
+
+}
+
+/* Repository file toolbar: native compact/small/tiny variants represent the
+   same action row here. Normalize only its top-level controls, never dropdown
+   menu items or the branch picker's search field. Native compact padding and
+   joined-input radii are enforced, hence the bounded !important declarations. */
+.repo-button-row.soda-toolbar :is(
+  .button-sequence > .ui.button,
+  .branch-dropdown-button,
+  .clone-panel > .ui.button,
+  .clone-panel > input
+) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--soda-control-height);
+  min-height: var(--soda-control-height);
+  margin-block: 0;
+  padding: 0 12px !important;
+  border-radius: var(--soda-button-radius) !important;
+  font: var(--soda-font-button);
+}
+.repo-button-row.soda-toolbar .button-sequence {
+  align-items: center;
+  gap: 8px;
+}
+.repo-button-row.soda-toolbar :is(#new-pull-request, .clone-panel > .icon.button) {
+  width: var(--soda-control-height);
+  min-width: var(--soda-control-height);
+  padding: 0 !important;
+}
+.repo-button-row.soda-toolbar .clone-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+.repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input) {
+  flex-shrink: 0;
+  border-radius: 0;
+}
+.repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input):first-child {
+  border-radius: var(--soda-button-radius) 0 0 var(--soda-button-radius) !important;
+}
+/* The inline native clone script follows the last visual control. */
+.repo-button-row.soda-toolbar .clone-panel > .ui.button:last-of-type {
+  border-radius: 0;
+}
+.repo-button-row.soda-toolbar .clone-panel > input {
+  /* Native action inputs prohibit shrinking; clone text may truncate. */
+  border: 1px solid var(--soda-page-edge);
+  flex: 1 1 0 !important;
+  min-width: 0;
+  font: 400 13px/1.5 "IBM Plex Mono", monospace !important;
+}
