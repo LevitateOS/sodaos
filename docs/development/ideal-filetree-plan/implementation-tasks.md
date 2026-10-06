@@ -66,7 +66,7 @@ Lead A; [P10](reviews/P10.md), [P11](reviews/P11.md). C owns system/Containerfil
 Lead A; [I01](reviews/I01.md), [I02](reviews/I02.md), [I03](reviews/I03.md), [I04](reviews/I04.md), [I05](reviews/I05.md), [I06](reviews/I06.md), [I10](reviews/I10.md). C01 bounded parser work; B01/H02 schema/admin-reader handoffs.
 
 - [x] **A05.M** [run 20261005: DONE, integrated 8c489d16 + R01 91c6d3e7] Consolidate broker/provider package ownership under `cmd/soda-identity`; keep one Controller/State/Store/Tx and reviewed enrollment/grant/acquisition/registration/retirement/store/wire descendants. Retain Go domain/client and canonical PostgreSQL schema with its existing mirror assertion.
-- [x] **A05.C** [run 20261005: DONE, lane V closed on live disposable PG; overall acceptance pending C CORR-C-001 caller closure] Correct I06-F1 terminal execution fencing after successful admitted End/expiry/return using actual provider-specific retirement; preserve legitimate recovery before any returned binding. Do not add I05 terminal-Muse InvocationID enforcement or public history/retention from unresolved requirements (Q3/Q4).
+- [x] **A05.C** [run 20261005: DONE, lane V closed on live disposable PG; overall acceptance CLOSED via CORR-C-001 (merged + real-tree proven)] Correct I06-F1 terminal execution fencing after successful admitted End/expiry/return using actual provider-specific retirement; preserve legitimate recovery before any returned binding. Do not add I05 terminal-Muse InvocationID enforcement or public history/retention from unresolved requirements (Q3/Q4).
 - [x] **A05.V** [run 20261005: DONE, 25 unit + 10 integration executed, 0 skips] Exercise actual same-ID terminal fencing, current grants, encrypted custody and atomic append subjects; coordinate sponsor metadata and fixture rebinding with B01 before shadow-write retirement.
 
 ### A06 Provider adapters
@@ -83,7 +83,7 @@ Compose/Muse-maintain command changes route to C; reserve their current module
 roots once across their P/I/H duties, while A owns host/guest changes.
 
 - [ ] **A07.M** Define shared run/native/binding/lifecycle/output/artifact units directly under `lib/host/src/terminal/factory/`; preserve distinct Codex/Muse launch/custody owners and the existing Service. Split actual guest terminal/PTY, attachment/pump and Compose/maintenance caller duties without new processes.
-- [ ] **A07.C** [run 20261005: PARTIAL — H01-F3 done, integrated 865f0e2f; S04-F1/S05-F1 open] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
+- [x] **A07.C** [run 20261005: DONE, integrated 865f0e2f (H01-F3) + 9d5a9281 (S04-F1/S05-F1)] [run 20261005: PARTIAL — H01-F3 done, integrated 865f0e2f; S04-F1/S05-F1 open] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
 - [ ] **A07.V** Exercise real PTY/relay/pump subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement before expensive native runs.
 
 ### A08 Spaces browser inventory and viewer
@@ -166,16 +166,16 @@ Lead B; [G08](reviews/G08.md). Physical writer C; C09/H05/H06 payload/build/stag
 
 Lead C; [H03](reviews/H03.md), [H04](reviews/H04.md). Starts independently; A/B implement callers in their owned files; Q6 gates policy/equivalence changes.
 
-- [ ] **C01.M** Move shared Rust JSON to `lib/json`, retain Go strict binding and caller-specific filesystem/configuration owners; split actual private tests and all 36 config fixtures without new helper packages.
-- [ ] **C01.C** Correct H03-F1 bounded surrogate panic and other established parser/error findings at their real callers. Correct confinement only after the record's allowed-link/admissibility gate; retire only proven-unused `root_chain` units.
-- [ ] **C01.V** Exercise real malformed/truncated input and file/error subjects. Preserve distinct duplicate/null/case policies rather than treating all parsers as equivalent.
+- [ ] **C01.M** [run 20261005: PARTIAL — json->lib/json done; 36 config fixtures Q4-deferred spec-only] Move shared Rust JSON to `lib/json`, retain Go strict binding and caller-specific filesystem/configuration owners; split actual private tests and all 36 config fixtures without new helper packages.
+- [ ] **C01.C** [run 20261005: PARTIAL — H03-F1 done; other parser findings/root_chain open] Correct H03-F1 bounded surrogate panic and other established parser/error findings at their real callers. Correct confinement only after the record's allowed-link/admissibility gate; retire only proven-unused `root_chain` units.
+- [x] **C01.V** [run 20261005: DONE, 5/5 json (truncated/duplicate/garbage subjects)] Exercise real malformed/truncated input and file/error subjects. Preserve distinct duplicate/null/case policies rather than treating all parsers as equivalent.
 
 ### C02 Private IPC and PostgreSQL persistence
 
 Lead C; [H01](reviews/H01.md), [H02](reviews/H02.md). A owns Rust host/broker; B owns Go clients/Store/schema. Prioritize bounded runtime assumptions early.
 
 - [ ] **C02.M** Rebind actual daemon/client/wire and transport fixture subjects; retain exclusive broker State/Store transaction custody, PostgreSQL, canonical Go DDL and existing Rust mirror.
-- [ ] **C02.C** Close H01-Q2 framing disposition (Q9), then route bounded H01-F1 correction or evidenced decoder retirement in current Rust broker `runtime.rs` to A05/A; B owns its Go callers. Route H01-F2 pipe drain and H01-F3 attachment mutex correction to A. Correct H02-F1 stale SQLite guidance without selecting a different database or reusing old concurrency proof.
+- [x] **C02.C** [run 20261005: DONE (H01-Q2/Q9 disposition closed, H01-F1/F2/F3 routed to A, H02-F1 docs)] Close H01-Q2 framing disposition (Q9), then route bounded H01-F1 correction or evidenced decoder retirement in current Rust broker `runtime.rs` to A05/A; B owns its Go callers. Route H01-F2 pipe drain and H01-F3 attachment mutex correction to A. Correct H02-F1 stale SQLite guidance without selecting a different database or reusing old concurrency proof.
 - [ ] **C02.V** Exercise the real frame/pipe/pump and existing disposable PostgreSQL subjects. Readiness of host output/input/expiry precedes expensive native qualification; no new service or store.
 
 ### C03 Host and Project network observations
@@ -221,9 +221,9 @@ Lead C; [O04](reviews/O04.md), [O07](reviews/O07.md). Existing installer/private
 
 Lead C; [D01](reviews/D01.md), [D03](reviews/D03.md). Start early on disjoint release files; consumes explicit binary/source tuples from A/C09/C11 through R01.
 
-- [ ] **C08.M** Move the four existing Rust release crates to `lib/soda-release-{build,deliver,image,tools}`; split controllers/compiler/staging/progress/oracle concerns. Retire only the evidenced dead build progress/clock mirror and definition-only helpers, keeping actual release-tools progress/image Runner.
-- [ ] **C08.C** Correct recorded architecture namespace, clean-inspection/signal/progress and pipe-drain defects; explicitly fix D01-F2 obsolete Go controller build/candidate selectors and executable stamp, D03-F2 deleted Go artifact compile selector, and D03-F3 missing acceptance remote companion before inventory. Fix discovery for mixed Go/Rust `cmd` and explicit package/bin compilation in the actual cutover.
-- [ ] **C08.V** Verify real producer/worker subjects and exact tools/rootfs selectors without a full release first. `soda-candidate-check` is already Rust: rebind its paths, do not schedule another port.
+- [x] **C08.M** [run 20261005: DONE, integrated 26327094 + R01 526bae78 (4 lib moves pure, 5 splits pure, D03-E4 retired)] Move the four existing Rust release crates to `lib/soda-release-{build,deliver,image,tools}`; split controllers/compiler/staging/progress/oracle concerns. Retire only the evidenced dead build progress/clock mirror and definition-only helpers, keeping actual release-tools progress/image Runner.
+- [x] **C08.C** [run 20261005: DONE (D01-F1..F5, D03-F1..F3, D01-F2/F3, mixed-cmd discovery proven on real tree)] Correct recorded architecture namespace, clean-inspection/signal/progress and pipe-drain defects; explicitly fix D01-F2 obsolete Go controller build/candidate selectors and executable stamp, D03-F2 deleted Go artifact compile selector, and D03-F3 missing acceptance remote companion before inventory. Fix discovery for mixed Go/Rust `cmd` and explicit package/bin compilation in the actual cutover.
+- [x] **C08.V** [run 20261005: DONE (mirror counts matched, Go pins green, candidate-check no stale pins)] Verify real producer/worker subjects and exact tools/rootfs selectors without a full release first. `soda-candidate-check` is already Rust: rebind its paths, do not schedule another port.
 
 ### C09 Inputs, authenticated media, assets and attribution
 
