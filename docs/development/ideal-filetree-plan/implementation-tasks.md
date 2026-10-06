@@ -83,7 +83,7 @@ Compose/Muse-maintain command changes route to C; reserve their current module
 roots once across their P/I/H duties, while A owns host/guest changes.
 
 - [ ] **A07.M** Define shared run/native/binding/lifecycle/output/artifact units directly under `lib/host/src/terminal/factory/`; preserve distinct Codex/Muse launch/custody owners and the existing Service. Split actual guest terminal/PTY, attachment/pump and Compose/maintenance caller duties without new processes.
-- [ ] **A07.C** Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
+- [ ] **A07.C** [run 20261005: PARTIAL — H01-F3 done, integrated 865f0e2f; S04-F1/S05-F1 open] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
 - [ ] **A07.V** Exercise real PTY/relay/pump subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement before expensive native runs.
 
 ### A08 Spaces browser inventory and viewer
