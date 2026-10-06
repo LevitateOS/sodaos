@@ -333,23 +333,39 @@ fn stage_forgejo_env(fd: RawFd, temp: &std::path::Path, updated: &[u8]) -> Resul
             std::io::Error::last_os_error()
         ));
     }
-    let mut written = 0;
-    while written < updated.len() {
-        let n = unsafe {
-            libc::write(
-                fd,
-                updated[written..].as_ptr() as *const libc::c_void,
-                updated.len() - written,
-            )
-        };
+    write_full(temp, updated, |buf| {
+        let n = unsafe { libc::write(fd, buf.as_ptr() as *const libc::c_void, buf.len()) };
         if n < 0 {
-            let e = std::io::Error::last_os_error();
-            if e.kind() == std::io::ErrorKind::Interrupted {
-                continue;
-            }
-            return Err(format!("write {}: {e}", temp.display()));
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(n as usize)
         }
-        written += n as usize;
+    })
+}
+
+/// Complete write with EINTR retry. A zero write fails like
+/// `File::write_all`'s WriteZero instead of spinning forever.
+fn write_full(
+    temp: &std::path::Path,
+    mut remaining: &[u8],
+    mut write: impl FnMut(&[u8]) -> Result<usize, std::io::Error>,
+) -> Result<(), String> {
+    while !remaining.is_empty() {
+        match write(remaining) {
+            Ok(0) => {
+                return Err(format!(
+                    "write {}: {}",
+                    temp.display(),
+                    std::io::Error::new(
+                        std::io::ErrorKind::WriteZero,
+                        "failed to write whole buffer"
+                    )
+                ));
+            }
+            Ok(n) => remaining = &remaining[n.min(remaining.len())..],
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(format!("write {}: {e}", temp.display())),
+        }
     }
     Ok(())
 }
@@ -844,12 +860,49 @@ mod tests {
 
     #[test]
     fn checked_close_reports_errors() {
-        // A second close of the same owned descriptor deterministically
-        // fails, proving close errors surface instead of dropping.
+        // An owned descriptor closes cleanly exactly once; an invalid
+        // sentinel deterministically fails, proving close errors surface
+        // instead of dropping. Never close a released number: another
+        // test may have reused it.
         let file = std::fs::File::open("/dev/null").unwrap();
-        let fd = file.into_raw_fd();
-        close_owned(fd).unwrap();
-        assert!(close_owned(fd).is_err());
+        close_owned(file.into_raw_fd()).unwrap();
+        assert!(close_owned(-1).is_err());
+    }
+
+    #[test]
+    fn zero_write_fails_without_spinning() {
+        use std::io::ErrorKind;
+        let temp = std::path::Path::new("forgejo.env");
+        // A writer that always reports zero fails like write_all's
+        // WriteZero instead of looping forever.
+        let err = write_full(temp, "data".as_bytes(), |_| Ok(0)).unwrap_err();
+        assert_eq!(err, "write forgejo.env: failed to write whole buffer");
+        // Partial progress then zero still fails after consuming input.
+        let mut calls = 0;
+        let err = write_full(temp, "data".as_bytes(), |buf| {
+            calls += 1;
+            if calls == 1 {
+                assert_eq!(buf, "data".as_bytes());
+                Ok(1)
+            } else {
+                assert_eq!(buf, "ata".as_bytes());
+                Ok(0)
+            }
+        })
+        .unwrap_err();
+        assert_eq!(err, "write forgejo.env: failed to write whole buffer");
+        assert_eq!(calls, 2);
+        // Short writes and interrupts complete; first error wins.
+        let mut steps = vec![Ok(1), Err(ErrorKind::Interrupted), Ok(3)].into_iter();
+        assert!(write_full(temp, "data".as_bytes(), |_| {
+            steps.next().unwrap().map_err(std::io::Error::from)
+        })
+        .is_ok());
+        let err = write_full(temp, "data".as_bytes(), |_| {
+            Err(std::io::Error::from(ErrorKind::PermissionDenied))
+        })
+        .unwrap_err();
+        assert!(err.starts_with("write forgejo.env: "), "{err}");
     }
 
     #[test]
