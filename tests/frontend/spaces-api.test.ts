@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {repositoryChoices} from '../../frontend/spaces/sodaspaces-api';
+import {repositoryChoices} from '../../frontend/spaces/sodaspaces-repository-response';
 import {spacesResponse} from '../../frontend/spaces/sodaspaces-inventory-response';
 import {terminalResponse} from '../../frontend/spaces/sodaspaces-terminal-response';
 import {

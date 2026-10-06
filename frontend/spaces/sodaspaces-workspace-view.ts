@@ -1,7 +1,7 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
-import type {RepositoryChoices} from './sodaspaces-api.js';
+import type {RepositoryChoices} from './sodaspaces-repository-response.js';
 
 /** Welcome artwork is decorative, theme-bound vector geometry, not a control. */
 export function renderWelcome(blocked: boolean, create: () => void) {
