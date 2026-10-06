@@ -10,20 +10,10 @@ import {renderNetwork, renderNetworkSelection} from './sodaspaces-network.js';
 import {projectOptions, projectView} from '../tailnet/soda-tailnet-response.js';
 import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
 import type {TemplateResult} from 'lit';
-import {
-  object,
-  check,
-  id,
-  projectId,
-  fingerprint,
-  savedKeysResponse,
-  profileKeysResponse,
-  keyPreviewResponse,
-  SodaRequestError,
-  readSodaJSON,
-} from './sodaspaces-api.js';
+import {object, check, id, projectId, fingerprint, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
 import {creationProfile, osObservation, environmentResponse, detailResponse} from './sodaspaces-project-response.js';
-import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-api.js';
+import {savedKeysResponse, profileKeysResponse, keyPreviewResponse} from './sodaspaces-keys-response.js';
+import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
 export interface ProjectContext {
   expectedUserId: string;

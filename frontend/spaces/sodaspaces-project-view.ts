@@ -1,6 +1,6 @@
 import {html, nothing} from 'lit';
 import type {TemplateResult} from 'lit';
-import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-api.js';
+import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 
 export interface Connection {
   readonly command: string;
