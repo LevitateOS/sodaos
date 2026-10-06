@@ -9,11 +9,10 @@ import (
 
 // Test-only identity seed helpers. Production code must never call these:
 // they exist so fixture setup across test packages shares one purpose-scoped
-// owner instead of calling the production save path directly. They mirror
-// the IdentitySaveConnection/IdentitySaveGrant logic exactly (validation,
-// seal binding, transaction, credential-free event append); any semantic
-// change must land in identity.go/identity_events.go first and be mirrored
-// here. They live here because raw SQL is allowed only in internal/store.
+// owner. They own the fixture insert logic exactly (validation, seal
+// binding, transaction, credential-free event append) via seedIdentityInsert
+// below; the seal binding stays owned by identityBinding in identity.go.
+// They live here because raw SQL is allowed only in internal/store.
 
 // seedIdentityInsert is the single owner of fixture insert semantics: one
 // transactional insert plus one credential-free audit event. Both Seed
@@ -29,7 +28,7 @@ func (s *Store) seedIdentityInsert(ctx context.Context, insert func(*tx) error, 
 }
 
 // SeedIdentityConnection inserts one identity connection with its sealed
-// credential and "connected" audit event, mirroring IdentitySaveConnection.
+// credential and "connected" audit event.
 func (s *Store) SeedIdentityConnection(ctx context.Context, c identity.Connection, credential []byte) error {
 	if s.grants == nil {
 		return ErrGrantKey
@@ -50,7 +49,7 @@ func (s *Store) SeedIdentityConnection(ctx context.Context, c identity.Connectio
 }
 
 // SeedIdentityGrant inserts one identity grant with its "grant_created"
-// audit event, mirroring IdentitySaveGrant.
+// audit event.
 func (s *Store) SeedIdentityGrant(ctx context.Context, g identity.Grant) error {
 	data, err := json.Marshal(g)
 	if err != nil {
