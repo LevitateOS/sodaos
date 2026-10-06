@@ -28,6 +28,7 @@ pub(crate) mod ops_inspect;
 pub(crate) mod ops_record;
 #[path = "../../../../rust/soda-project-factory-roles/src/proc.rs"]
 pub(crate) mod proc;
+pub(crate) mod records;
 #[path = "../../../../rust/soda-project-factory-roles/src/sha.rs"]
 pub(crate) mod sha;
 #[cfg(test)]
