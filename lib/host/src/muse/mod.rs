@@ -80,6 +80,10 @@ pub use self::request::{muse_descriptors_valid, muse_request_from_fd, MuseReques
 
 mod resolve;
 mod socket;
+mod spawn;
+
+pub(in crate::muse) use self::spawn::spawn_execution;
+
 mod stage;
 mod stop;
 
@@ -89,29 +93,6 @@ pub use self::socket::{muse_peer_from_fd, parse_unix_rights};
 pub(in crate::muse) use self::inspect::{
     muse_peer_alive, sleep_until, MuseInspection, MUSE_INSPECTION_SPECS,
 };
-
-/// Spawn the prepared execution with owned stdio files.
-fn spawn_execution(
-    execution: &MuseExecution,
-    stdio: [std::fs::File; 3],
-) -> Result<std::process::Child, String> {
-    let [stdin, stdout, stderr] = stdio;
-    let argv = muse_command_argv(
-        &execution.caller,
-        &execution.request,
-        &execution.unit,
-        &execution.path,
-    );
-    std::process::Command::new("/usr/bin/podman")
-        .args(&argv)
-        .env_clear()
-        .envs(muse_host_environment())
-        .stdin(std::process::Stdio::from(stdin))
-        .stdout(std::process::Stdio::from(stdout))
-        .stderr(std::process::Stdio::from(stderr))
-        .spawn()
-        .map_err(|e| format!("/usr/bin/podman failed: {e}"))
-}
 
 /// Tolerant `map[string][]byte` decode for nested config views
 /// (`encoding/json` into `map[string][]byte`: base64 strings or numeric
