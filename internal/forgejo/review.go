@@ -13,7 +13,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 // Reviewer submits only exact body-only reviews through the shared native
@@ -203,7 +203,7 @@ func (r *Reviewer) CancelOp(ctx context.Context, id string) (factory.OperationOu
 }
 
 func reviewCallError(err error) error {
-	var status *hostpublish.StatusError
+	var status *forgejopublish.StatusError
 	if !errors.As(err, &status) {
 		return err
 	}

@@ -13,7 +13,7 @@ import (
 	extensions "forgejo.org/extension-sdk"
 
 	"github.com/levitateos/sodaos/internal/config"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 // maxBackgroundBodyBytes bounds one background response, mirroring the
@@ -280,7 +280,7 @@ func (b *ServiceBackground) call(ctx context.Context, path string, payload any, 
 		return err
 	}
 	if err := b.post(ctx, path, data, admission, target); err != nil {
-		var status *hostpublish.StatusError
+		var status *forgejopublish.StatusError
 		if !errors.As(err, &status) || status.Status != http.StatusUnauthorized {
 			return err
 		}
@@ -408,7 +408,7 @@ func (b *ServiceBackground) post(ctx context.Context, path string, data []byte, 
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return &hostpublish.StatusError{Status: response.StatusCode, Body: readStatusBody(response.Body)}
+		return &forgejopublish.StatusError{Status: response.StatusCode, Body: readStatusBody(response.Body)}
 	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxBackgroundBodyBytes+1))
 	if err != nil || len(body) > maxBackgroundBodyBytes {

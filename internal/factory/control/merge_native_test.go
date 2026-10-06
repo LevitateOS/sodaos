@@ -27,7 +27,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -128,7 +128,7 @@ func nativeMergeStaleRefusal(outcome factory.OperationOutcome) bool {
 // nativeMergeBusyError reports whether err is the transient busy-host
 // signal on a direct native call: an HTTP 503 or a native_busy wait.
 func nativeMergeBusyError(err error) bool {
-	var status *hostpublish.StatusError
+	var status *forgejopublish.StatusError
 	if errors.As(err, &status) && status.Status == http.StatusServiceUnavailable {
 		return true
 	}
