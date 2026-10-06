@@ -18,7 +18,7 @@ mod domain;
 #[path = "../src/json/mod.rs"]
 #[allow(dead_code)]
 mod json;
-#[path = "../src/muse.rs"]
+#[path = "../src/muse/mod.rs"]
 #[allow(dead_code)]
 mod muse;
 #[path = "../src/muse_serve.rs"]
