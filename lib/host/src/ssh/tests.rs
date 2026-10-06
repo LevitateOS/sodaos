@@ -1,8 +1,6 @@
 use super::mpint::put_string;
 use super::*;
 
-use super::*;
-
 // Public-key fixtures only (comments stripped). RSA/ECDSA/Ed25519 from
 // ssh-keygen, DSA and the OpenSSH certificate from Go's x/crypto.
 const RSA: &str = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7sz+R+V5I0foZSFl3AOjfvN9eOpNqb/n1QFuiO6XzEo4kKnOs5/nIp/XOFC0/SzBl4S0xhmBw+bbNgpPQ+rreuLrsA01wqEoNmtE7VsEXNysYV58cVaGaGI4E/hAjKuyRzdQkI99uGiHXnEN5iwojR493ZJ0wvN8mWhsjU2U+ctjQneR4sphYRUgDet3mPqHMYucH7eZgfPVxHNUTxTTUXinZPxhRODHz0QRCezBoMDY1nwpFy/gC8hXusrKomlWkGg3mEZTMTbmMsWcpz/xVT48S3M+z9LYptTXTS6bPhiUh4xHsQWOo6Iy1LIiSMCPcBkhgCebx23OGjpFbjuNJ";
