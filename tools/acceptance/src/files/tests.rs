@@ -170,3 +170,46 @@ fn fresh_directory_and_destination_gates() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+fn open_fd_count() -> usize {
+    std::fs::read_dir("/proc/self/fd").unwrap().count()
+}
+
+#[test]
+fn walk_lstat_error_closes_stream() {
+    let dir = temp_dir("soda-files-walk-leak");
+    let before = open_fd_count();
+    for _ in 0..8 {
+        for i in 0..16 {
+            std::fs::write(dir.join(format!("f{i:02}")), b"x").unwrap();
+        }
+        // Fresh handle per round: a consumed directory offset is shared
+        // with later duplicates of the same handle.
+        let root = OwnedDir::open(dir.to_str().unwrap()).unwrap();
+        let mut visits = 0u32;
+        // The first visit deletes every entry; names already buffered by
+        // readdir then fail lstat with ENOENT, exercising the error path.
+        // A leaked stream would leave one fd behind per walk.
+        let err = root
+            .walk_files(&mut |_rel: &str, _regular: bool| {
+                visits += 1;
+                if visits == 1 {
+                    for i in 0..16 {
+                        let _ = std::fs::remove_file(dir.join(format!("f{i:02}")));
+                    }
+                }
+                Ok(())
+            })
+            .unwrap_err();
+        assert_eq!(err.io_kind(), Some(std::io::ErrorKind::NotFound));
+    }
+    // Other test threads may briefly hold fds; a real leak never drains.
+    for _ in 0..50 {
+        if open_fd_count() <= before {
+            std::fs::remove_dir_all(&dir).unwrap();
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    panic!("walk leaked directory streams");
+}
