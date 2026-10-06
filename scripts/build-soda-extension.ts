@@ -104,7 +104,7 @@ async function buildStyles(assets: string) {
 }
 
 async function copyLockedTerminal(assets: string, terminal: string) {
-  const lock = JSON.parse(await readFile(source('appliance/terminal-assets.lock.json'), 'utf8')) as Array<{
+  const lock = JSON.parse(await readFile(source('tools/release-assets/terminal-assets.lock.json'), 'utf8')) as Array<{
     files: Array<{file: string; sha256: string}>;
   }>;
   const destination = resolve(assets, 'soda-terminal');

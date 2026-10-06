@@ -57,12 +57,12 @@ fn parse_lock(text: &str) -> Result<Vec<Item>, String> {
     Ok(items)
 }
 
-/// The owner reads `appliance/terminal-assets.lock.json` under the repo
+/// The owner reads `tools/release-assets/terminal-assets.lock.json` under the repo
 /// root; every caller runs fetchers from the source root, so the working
 /// directory resolves the same file.
 pub fn default_lock() -> Result<PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
-    Ok(cwd.join("appliance/terminal-assets.lock.json"))
+    Ok(cwd.join("tools/release-assets/terminal-assets.lock.json"))
 }
 
 /// Every listed file already staged with a matching digest. An item with
@@ -388,7 +388,7 @@ mod tests {
         let lock = default_lock().unwrap();
         assert!(lock.is_absolute());
         assert!(
-            lock.ends_with("appliance/terminal-assets.lock.json"),
+            lock.ends_with("tools/release-assets/terminal-assets.lock.json"),
             "{}",
             lock.display()
         );

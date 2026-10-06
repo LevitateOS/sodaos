@@ -37,7 +37,7 @@ pub(crate) fn payload_entries(source: &Path) -> Result<Vec<(String, String)>, St
 }
 
 pub(crate) fn locked_terminal_assets(source: &Path) -> Result<HashMap<String, String>, StageError> {
-    let path = source.join("appliance/terminal-assets.lock.json");
+    let path = source.join("tools/release-assets/terminal-assets.lock.json");
     let text = read_text(&path)?;
     let value = JsonValue::parse(&text)
         .map_err(|_| StageError::failure(format!("cannot parse {}", path.display())))?;

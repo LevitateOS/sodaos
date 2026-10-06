@@ -160,7 +160,10 @@ func TestSodaspacesActualStageRecipeWithSyntheticBuildInputs(t *testing.T) {
 	Require(t, os.Mkdir(filepath.Join(build, "forgejo-locales"), 0o755) == nil, "mkdir locales")
 	WriteFile(t, filepath.Join(build, "forgejo-locales/locale_en-US.ini"), []byte("synthetic full-catalog output; not native proof"), 0o644)
 	Require(t, os.Mkdir(filepath.Join(build, "terminal-assets"), 0o755) == nil, "mkdir terminal-assets")
-	lockPath := filepath.Join(checkout, "appliance/terminal-assets.lock.json")
+	lockSrc, err := os.ReadFile(filepath.Join(RepoRoot, "tools/release-assets/terminal-assets.lock.json"))
+	Require(t, err == nil, "read lock: %v", err)
+	lockPath := filepath.Join(checkout, "tools/release-assets/terminal-assets.lock.json")
+	WriteFile(t, lockPath, lockSrc, 0o644)
 	lockData, err := os.ReadFile(lockPath)
 	Require(t, err == nil, "read lock: %v", err)
 	var lock []map[string]any

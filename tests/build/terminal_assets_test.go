@@ -53,7 +53,7 @@ func TestTerminalAssetsBrowserBuildPreparesLockedRenderer(t *testing.T) {
 }
 
 func TestTerminalAssetsShippingLockHasOnlyExactLocalRendererFiles(t *testing.T) {
-	raw, ok := ReadJSON(t, "appliance/terminal-assets.lock.json").([]any)
+	raw, ok := ReadJSON(t, "tools/release-assets/terminal-assets.lock.json").([]any)
 	Require(t, ok, "terminal lock is not a list")
 	type pair struct{ pkg, ver string }
 	var pairs []pair
