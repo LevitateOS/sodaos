@@ -3,7 +3,7 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `cd111721` (A00): account.rs + project.rs verified byte-identical moves to `*/mod.rs`; intervals kept.
+R02 @HEAD `cd111721` (A00, corrected per review-015): account.rs verified byte-identical move to `account/mod.rs`, intervals kept; project.rs STALE vs the `0d8d3b8e` audit source (76680→78944, drain/reap + 3 tests) — bannered. New project/* split leaves reconciled in A01/R02 upkeep.
 
 <a id="coverage-7417f4912a73"></a>
 
@@ -175,6 +175,8 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 <a id="rustsoda-hostsrcprojectrs-1"></a>
 
 ## [rust/soda-host/src/project/mod.rs](../../../../../rust/soda-host/src/project/mod.rs)
+
+> R02 STALE: intervals below reference the `0d8d3b8e` audit source; bytes changed 76680→78944 including concurrent output drain/reap and three tests — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

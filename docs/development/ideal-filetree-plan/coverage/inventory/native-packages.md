@@ -32,8 +32,8 @@ except identical test_server.rs + 5 fixtures); tests cli.rs: fetchers and
 locales verified identical moves, stage SPLIT in c2145e05 (audit row kept).
 New C08/C09 split leaves without rows remain pending with the map re-audit.
 
-R02 @HEAD `cd111721` (A00 in-place roots): 8 `rust/soda-host/src/*.rs` rows
-rebound (account/preparation/prepare/project → `*/mod.rs` byte-identical;
+R02 @HEAD `cd111721` (A00 in-place roots, corrected per review-015): 8 `rust/soda-host/src/*.rs` rows
+rebound (account/preparation/prepare → `*/mod.rs` byte-identical; project.rs → `project/mod.rs` STALE vs `0d8d3b8e` audit, see map banner;
 tcodex/tfactory/tmuse → `terminal/factory/*.rs` with import-rebind drift;
 texec → `terminal/mod.rs` whole + 2 import lines).
 
@@ -73,7 +73,7 @@ texec → `terminal/mod.rs` whole + 2 import lines).
 | [rust/soda-acceptance/src/vm.rs](../../../../../rust/soda-acceptance/src/vm.rs) | source / active | [D06](../../slices/release-and-installation.md#d06-installed-qualification) — [interval map](../maps/acceptance-native-qualification.md#coverage-42c2f9adc933) |
 | [rust/soda-activate/Cargo.toml](../../../../../rust/soda-activate/Cargo.toml) | manifest / active | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) |
 | [rust/soda-activate/src/main.rs](../../../../../rust/soda-activate/src/main.rs) | source / active | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) — [interval map](../maps/soda-activate.md#coverage-e5789a937347) |
-| [tools/release-assets/Cargo.toml](../../../../../tools/release-assets/Cargo.toml) | manifest / folded (C09; 3 manifests merged, no separate file) | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) |
+| [tools/release-assets/Cargo.toml](../../../../../tools/release-assets/Cargo.toml) | manifest / folded (C09; 3 manifests merged, no separate file) | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition), [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation), [D03](../../slices/release-and-installation.md#d03-candidate-production) |
 | [tools/release-assets/src/bin/soda-fetch-muse.rs](../../../../../tools/release-assets/src/bin/soda-fetch-muse.rs) | source / active | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) |
 | [tools/release-assets/src/bin/soda-fetch-tea.rs](../../../../../tools/release-assets/src/bin/soda-fetch-tea.rs) | source / active | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) |
 | [tools/release-assets/src/bin/soda-fetch-terminal.rs](../../../../../tools/release-assets/src/bin/soda-fetch-terminal.rs) | source / active | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) |
@@ -102,7 +102,6 @@ texec → `terminal/mod.rs` whole + 2 import lines).
 | [rust/soda-factory/src/main.rs](../../../../../rust/soda-factory/src/main.rs) | source / active | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention), [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime), [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) — [interval map](../maps/soda-factory.md#coverage-b25e1fd0f0dd) |
 | [rust/soda-forgejo-domain/Cargo.toml](../../../../../rust/soda-forgejo-domain/Cargo.toml) | manifest / active | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) |
 | [rust/soda-forgejo-domain/src/main.rs](../../../../../rust/soda-forgejo-domain/src/main.rs) | source / active | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing), [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) — [interval map](../maps/soda-forgejo-domain.md#coverage-91dc6070452d) |
-| [tools/release-assets/Cargo.toml](../../../../../tools/release-assets/Cargo.toml) | manifest / folded (C09; 3 manifests merged, no separate file) | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) |
 | [tools/release-assets/src/bin/soda-forgejo-locales.rs](../../../../../tools/release-assets/src/bin/soda-forgejo-locales.rs) | source / active | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) |
 | [tools/release-assets/src/locales/mod.rs](../../../../../tools/release-assets/src/locales/mod.rs) | source / active | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation), [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) — [interval map](../maps/soda-forgejo-locales.md#coverage-09c1f2dd0505) |
 | [tools/release-assets/src/locales/merge.rs](../../../../../tools/release-assets/src/locales/merge.rs) | source / active | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition), [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) — [interval map](../maps/soda-forgejo-locales.md#coverage-621f066f7532) |
@@ -387,7 +386,6 @@ texec → `terminal/mod.rs` whole + 2 import lines).
 | [rust/soda-rotate-lab-creds/tests/cli.rs](../../../../../rust/soda-rotate-lab-creds/tests/cli.rs) | test / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
 | [rust/soda-setup/Cargo.toml](../../../../../rust/soda-setup/Cargo.toml) | manifest / active | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) |
 | [rust/soda-setup/src/main.rs](../../../../../rust/soda-setup/src/main.rs) | source / active | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime), [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing), [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives), [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning), [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) — [interval map](../maps/soda-setup.md#coverage-bcf0fc800d74) |
-| [tools/release-assets/Cargo.toml](../../../../../tools/release-assets/Cargo.toml) | manifest / folded (C09; 3 manifests merged, no separate file) | [D03](../../slices/release-and-installation.md#d03-candidate-production) |
 | [tools/release-assets/src/bin/soda-render-provisioning.rs](../../../../../tools/release-assets/src/bin/soda-render-provisioning.rs) | source / active | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) |
 | [tools/release-assets/src/bin/soda-render-terminal-logo.rs](../../../../../tools/release-assets/src/bin/soda-render-terminal-logo.rs) | source / active | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) |
 | [tools/release-assets/src/bin/soda-stage.rs](../../../../../tools/release-assets/src/bin/soda-stage.rs) | source / active | [D03](../../slices/release-and-installation.md#d03-candidate-production) |
