@@ -1,4 +1,8 @@
 use super::*;
+use crate::account::user_environment;
+use crate::pty_process::{
+    child_exited, cstring, end_child, env_entries, set_size, tmux_attach_argv,
+};
 
 fn login() -> Account {
     Account {
