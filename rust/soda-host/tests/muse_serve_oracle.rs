@@ -29,7 +29,7 @@ mod net;
 #[path = "../src/nist.rs"]
 #[allow(dead_code)]
 mod nist;
-#[path = "../src/project.rs"]
+#[path = "../src/project/mod.rs"]
 #[allow(dead_code)]
 mod project;
 #[path = "../src/sha256.rs"]
