@@ -282,7 +282,7 @@ func st15BuildFactoryRoles(t *testing.T) string {
 		t.Skip("cargo unavailable")
 	}
 	root := st15RepoRoot(t)
-	build := exec.Command("cargo", "build", "-p", "soda-project-factory-roles", "--bin", "project-factory-roles")
+	build := exec.Command("cargo", "build", "-p", "soda-project-terminal", "--bin", "project-factory-roles")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build project-factory-roles: %v\n%s", err, out)
