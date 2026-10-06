@@ -292,7 +292,7 @@ pub fn approve_inputs(data: &JsonValue) -> Result<ApprovedInputs, Error> {
 
 /// CODEX-P07-003b: open a directory by path without following a trailing
 /// symlink and refusing non-directories. The returned descriptor pins the
-/// opened directory's identity for fd-bound chmod/chown/removal.
+/// opened directory's identity for fd-bound chmod/chown/publication.
 fn open_dir_no_follow(path: &Path) -> Result<std::fs::File, Error> {
     std::fs::OpenOptions::new()
         .read(true)
@@ -317,19 +317,6 @@ fn fchown(file: &std::fs::File, uid: u32, gid: u32) -> Result<(), Error> {
     Ok(())
 }
 
-/// True only when the retained descriptor's directory holds no entries.
-/// Any read failure reports uncertainty (`None`): the caller preserves.
-fn dir_is_empty(file: &std::fs::File) -> Option<bool> {
-    // Reopening through /proc pins the same directory even if the
-    // pathname was swapped; read_dir never yields `.`/`..`.
-    let entries = std::fs::read_dir(format!("/proc/self/fd/{}", file.as_raw_fd())).ok()?;
-    for entry in entries {
-        entry.ok()?;
-        return Some(false);
-    }
-    Some(true)
-}
-
 /// NUL-free checkout name for descriptor-relative calls. Validated ids
 /// (`f` + 24 hex) can never contain NUL; anything else is refused rather
 /// than truncated or reinterpreted.
@@ -337,21 +324,18 @@ fn checkout_cname(name: &str) -> Result<std::ffi::CString, Error> {
     std::ffi::CString::new(name).map_err(|_| Error::fail("unsafe checkout name"))
 }
 
-/// Exclusive publication of the checkout name under the pinned parent.
-/// Any preexisting identity fails untouched with the established error.
+/// Exclusive mkdir under the pinned parent. The staging parent is this
+/// invocation's fresh exclusive scope, so preexistence is corruption rather
+/// than a refused public name; every failure stays mechanical.
 fn mkdirat_exclusive(parent: &std::fs::File, name: &str, mode: u32) -> Result<(), Error> {
     let cname = checkout_cname(name)?;
     if unsafe { libc::mkdirat(parent.as_raw_fd(), cname.as_ptr(), mode) } != 0 {
-        let err = std::io::Error::last_os_error();
-        if err.kind() == std::io::ErrorKind::AlreadyExists {
-            return fail("checkout path already exists");
-        }
-        return Err(Error::classify(err));
+        return Err(Error::classify(std::io::Error::last_os_error()));
     }
     Ok(())
 }
 
-/// Bind the published name to a descriptor without following a trailing
+/// Bind the staged name to a descriptor without following a trailing
 /// symlink and refusing non-directories. Close-on-exec matches `std` so
 /// git children never inherit the descriptor.
 fn openat_dir_no_follow(parent: &std::fs::File, name: &str) -> Result<std::fs::File, Error> {
@@ -369,85 +353,55 @@ fn openat_dir_no_follow(parent: &std::fs::File, name: &str) -> Result<std::fs::F
     Ok(unsafe { std::fs::File::from_raw_fd(fd) })
 }
 
-/// CODEX-P07-003b CORRECTION-05 admission gate: the bound descriptor must
-/// be this call's created directory — a directory, owned by the privileged
-/// creator, and empty. Exclusive mkdir proves the name was absent; only the
-/// creator makes creator-owned entries, so a swapped-in role directory is
-/// refused before any privileged mutation. A name↔descriptor comparison
-/// cannot help here: after a create→open swap the two agree by
-/// construction; creation ownership is the only proof.
-fn checkout_created(child: &std::fs::File, priv_uid: u32) -> bool {
-    let meta = match child.metadata() {
-        Ok(meta) => meta,
-        Err(_) => return false,
-    };
-    meta.is_dir() && meta.uid() == priv_uid && dir_is_empty(child) == Some(true)
-}
+/// Staging name inside this invocation's preparation scope. The scope is
+/// exclusive and helper-owned, so a fixed name is unambiguous; publication
+/// renames it away, leaving no residue on success.
+const CHECKOUT_STAGING: &str = "checkout-tmp";
 
-/// Publication/cleanup gate: the published name must still resolve to the
-/// bound descriptor (same device+inode, a directory — never a link) and the
-/// directory must still be empty; nothing legitimate lands in it before
-/// handoff. Any replacement, removal, plant, or unreadable state fails and
-/// the caller preserves. Descriptor-relative calls keep the residual
-/// check→use sliver to adjacent syscalls under the pinned parent; a
-/// pathname lstat here would re-resolve the role-mutable parent chain.
-fn checkout_intact(parent: &std::fs::File, child: &std::fs::File, name: &str) -> bool {
-    let cname = match checkout_cname(name) {
-        Ok(cname) => cname,
-        Err(_) => return false,
-    };
-    let mut at_name: libc::stat = unsafe { std::mem::zeroed() };
-    if unsafe {
-        libc::fstatat(
-            parent.as_raw_fd(),
-            cname.as_ptr(),
-            &mut at_name,
-            libc::AT_SYMLINK_NOFOLLOW,
+/// CODEX-P07-CUSTODY-17 exclusive publication: atomically move the staged
+/// checkout into the public namespace, or fail with the public name
+/// untouched. `renameat2` with `RENAME_NOREPLACE` never replaces — an
+/// ordinary rename would silently swap an empty directory, breaking the
+/// refusal contract — and never checks-then-acts. Refusal keeps the
+/// established error; a cross-filesystem topology fails explicitly with
+/// the public name preserved (no copy fallback: copying cannot carry
+/// custody); anything else is mechanical. The staging descriptor survives
+/// the move for the post-publication privileged mutation.
+fn publish_checkout(
+    staging_parent: &std::fs::File,
+    staging: &str,
+    public_parent: &std::fs::File,
+    name: &str,
+) -> Result<(), Error> {
+    let staging_cname = checkout_cname(staging)?;
+    let name_cname = checkout_cname(name)?;
+    let rc = unsafe {
+        libc::renameat2(
+            staging_parent.as_raw_fd(),
+            staging_cname.as_ptr(),
+            public_parent.as_raw_fd(),
+            name_cname.as_ptr(),
+            libc::RENAME_NOREPLACE,
         )
-    } != 0
-    {
-        return false;
-    }
-    if at_name.st_mode & libc::S_IFMT != libc::S_IFDIR {
-        return false;
-    }
-    let mut at_child: libc::stat = unsafe { std::mem::zeroed() };
-    if unsafe { libc::fstat(child.as_raw_fd(), &mut at_child) } != 0 {
-        return false;
-    }
-    if at_name.st_dev != at_child.st_dev || at_name.st_ino != at_child.st_ino {
-        return false;
-    }
-    dir_is_empty(child) == Some(true)
-}
-
-/// Remove the gate-verified empty name. Returns false only when the removal
-/// itself voids the verified binding (gone or planted meanwhile): ownership
-/// is then unestablishable and the caller reports the missing precondition.
-/// Mechanical failures leave the binding intact, so the original error
-/// stands and the preserved directory waits for operator inspection.
-fn remove_verified_empty(parent: &std::fs::File, name: &str) -> bool {
-    let cname = match checkout_cname(name) {
-        Ok(cname) => cname,
-        Err(_) => return false,
     };
-    if unsafe { libc::unlinkat(parent.as_raw_fd(), cname.as_ptr(), libc::AT_REMOVEDIR) } == 0 {
-        return true;
+    if rc == 0 {
+        return Ok(());
     }
-    match std::io::Error::last_os_error().raw_os_error() {
-        Some(code) if code == libc::ENOENT || code == libc::ENOTEMPTY => false,
-        _ => true,
+    let err = std::io::Error::last_os_error();
+    match err.raw_os_error() {
+        Some(code) if code == libc::EEXIST => fail("checkout path already exists"),
+        Some(code) if code == libc::EXDEV => fail("checkout publication crosses filesystems"),
+        _ => Err(Error::classify(err)),
     }
 }
 
 /// Root-owned read-only snapshot, verified bundle, role-owned checkout,
 /// credential binding, then the request receipt. The clone always starts
 /// from an empty directory; any failure removes invocation-created state.
-/// Checkout creation is exclusive under a pinned parent descriptor, so a
-/// preexisting path of any identity is refused untouched. Permission,
-/// publication, and cleanup steps each verify the created directory's
-/// binding first; replaced or uncertain state is preserved and reported
-/// as an unestablished-ownership failure.
+/// The checkout is staged inside this invocation's protected preparation
+/// scope and published atomically without replacement, so a preexisting
+/// public path of any identity is refused untouched and no public name is
+/// ever unlinked from under the role-writable parent.
 pub fn write_snapshot(
     ctx: &crate::Ctx,
     directory: &Path,
@@ -465,28 +419,22 @@ pub fn write_snapshot(
     fsx::write_new(&snapshot.join("source.bundle"), &inputs.bundle, 0o644)?;
     verify_bundle(ctx, &snapshot, &inputs.fields.source_commit)?;
     let checkout = account.dir.join("checkouts").join(&inputs.fields.id);
-    // CODEX-P07-003: exclusive creation is the provenance record. Any
-    // preexisting path — present before or planted during verification,
-    // of any identity — is refused untouched; removal below only ever
-    // targets a name verified bound to this call's created directory.
-    // CODEX-P07-003b CORRECTION-05: pin the parent descriptor first; the
-    // exclusive mkdir, the bind, every gate, and the removal are all
-    // descriptor-relative, so the role-mutable namespace cannot redirect
-    // any step across calls. If stable ownership cannot be established
-    // at any gate, the checkout is preserved and failure names the
-    // missing precondition instead of the untrustworthy tail state.
-    let parent_path = checkout
-        .parent()
-        .ok_or_else(|| Error::io_msg("checkout has no parent"))?;
-    let parent = open_dir_no_follow(parent_path)?;
-    mkdirat_exclusive(&parent, &inputs.fields.id, 0o755)?;
-    let child = openat_dir_no_follow(&parent, &inputs.fields.id)?;
-    if !checkout_created(&child, ctx.priv_uid()) {
-        return fail("checkout ownership unestablished");
-    }
-    let tail: Result<String, Error> = (|| {
-        fchmod(&child, 0o755)?;
-        fchown(&child, account.uid, account.gid)?;
+    // CODEX-P07-003: exclusive publication is the provenance record. Any
+    // preexisting public path — present before or planted during
+    // verification, of any identity — is refused untouched.
+    // CODEX-P07-CUSTODY-17: stage this invocation's checkout inode inside
+    // the protected preparation scope. The retained caller preconditions
+    // (ensure_layout helper ownership + 0755, exclusive preparation
+    // create, helper lock) keep the staging parent helper-owned, so the
+    // role cannot redirect creation or binding; the retained descriptor
+    // IS this invocation's inode. Mode 0700 keeps even entry metadata
+    // role-invisible until the carried descriptor is mutated after
+    // publication. Staging leaves with the preparation directory on any
+    // failure, so nothing unlinks a public name, ever.
+    let staging_parent = open_dir_no_follow(directory)?;
+    mkdirat_exclusive(&staging_parent, CHECKOUT_STAGING, 0o700)?;
+    let staging = openat_dir_no_follow(&staging_parent, CHECKOUT_STAGING)?;
+    let credential_path: String = (|| -> Result<String, Error> {
         let mut credential_path = String::new();
         if !inputs.fields.credential.is_empty() {
             credential_path =
@@ -495,25 +443,26 @@ pub fn write_snapshot(
         let receipt = emit::dumps_default(&inputs.fields.to_json());
         fsx::write_new(&directory.join("request.json"), receipt.as_bytes(), 0o644)?;
         Ok(credential_path)
-    })();
-    match tail {
-        Ok(credential_path) => {
-            if !checkout_intact(&parent, &child, &inputs.fields.id) {
-                return fail("checkout ownership unestablished");
-            }
-            Ok((checkout, credential_path))
-        }
-        Err(err) => {
-            if !checkout_intact(&parent, &child, &inputs.fields.id) {
-                return fail("checkout ownership unestablished");
-            }
-            if remove_verified_empty(&parent, &inputs.fields.id) {
-                Err(err)
-            } else {
-                fail("checkout ownership unestablished")
-            }
-        }
-    }
+    })()?;
+    // Exclusive publication into the public namespace, then privileged
+    // mutation through the carried descriptor — which survives the rename
+    // and still addresses this invocation's inode. A post-publication
+    // mutation failure preserves the published name and fails; the public
+    // namespace stays role-writable by design, so later stages resolve the
+    // published path the way they always have.
+    let public_parent_path = checkout
+        .parent()
+        .ok_or_else(|| Error::io_msg("checkout has no parent"))?;
+    let public_parent = open_dir_no_follow(public_parent_path)?;
+    publish_checkout(
+        &staging_parent,
+        CHECKOUT_STAGING,
+        &public_parent,
+        &inputs.fields.id,
+    )?;
+    fchmod(&staging, 0o755)?;
+    fchown(&staging, account.uid, account.gid)?;
+    Ok((checkout, credential_path))
 }
 
 pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
@@ -548,9 +497,10 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
             ("credential_file", str_value(&credential_path)),
         ])),
         Err(err) => {
-            // CODEX-P07-003: only the invocation-owned preparation
-            // directory is removed here; checkout cleanup belongs to the
-            // scope that created it, inside `write_snapshot`.
+            // CODEX-P07-CUSTODY-17: the whole invocation-owned preparation
+            // directory goes here, staging included; public checkout names
+            // are never unlinked from under the role-writable parent, so a
+            // post-publication failure preserves the published name.
             let _ = std::fs::remove_dir_all(&directory);
             Err(err)
         }
