@@ -5810,7 +5810,6 @@
         "repo/settings/push_mirror_sync_modal"
       ],
       "roles": [
-        "soda-notice",
         "soda-p-form",
         "soda-p-heading",
         "soda-repo-settings-detail",
@@ -5837,7 +5836,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f115b76a15f98b5ac2092ee10289eeb7c9862e69674193c20fb58fc5dc10aa2c",
+      "beforeRoleHash": "6ac3b6642d8e0cd95075b9566b642d7b2c1c92d3ccd47cc901e6e429fc3da20d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "repository-settings-structural-overhaul",
@@ -5899,6 +5898,35 @@
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "4f732ce2cd6e7287096875967b004cf3daa48a5c98e8832756a184985bf234db",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/settings/options_mirrors.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/options.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-notice",
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "populated",
+        "error",
+        "conditional-fields",
+        "empty"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "0fa3b689964eea2cb74a3912341a00485e1ae0c0fe2a710e2070880d1af89be5",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
