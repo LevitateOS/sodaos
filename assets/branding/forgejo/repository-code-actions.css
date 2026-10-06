@@ -1,0 +1,75 @@
+/* Actions keeps the native workflow filter, dispatch gates, HTMX refresh and app. */
+.soda-code-actions .flex-list {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.soda-code-actions .flex-list > .flex-item {
+  padding: 16px var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+}
+.soda-code-actions .actions-menu {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.soda-code-actions .actions-menu .item {
+  border-color: var(--soda-page-edge);
+  color: var(--soda-page-muted);
+  font-weight: 600;
+}
+.soda-code-actions .actions-menu .active.item {
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
+.soda-code-actions #repo-action-view {
+  width: min(1400px,calc(100% - 48px));
+  margin-inline: auto;
+}
+.soda-code-no-workflows > svg {
+  margin-bottom: 16px;
+  color: var(--soda-page-link);
+}
+.soda-code-workflows .filter.menu {
+  padding: 0;
+  margin-bottom: 16px;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.soda-code-workflows .filter.menu > .dropdown.item {
+  min-height: var(--soda-control-height);
+  border-radius: var(--soda-control-radius);
+  color: var(--soda-page-text);
+  background: var(--soda-page-canvas);
+}
+.soda-code-runs .flex-item-title { font: 600 17px/1.5 Barlow,Arial,sans-serif; }
+.soda-code-runs .flex-item-body { color: var(--soda-page-muted); line-height: 1.6; }
+.soda-code-dispatch { flex-wrap: wrap; gap: 12px; border-radius: var(--soda-panel-radius); }
+.soda-code-dispatch #workflow_dispatch_dropdown > .menu {
+  padding: 16px;
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  max-width: calc(100vw - 48px);
+}
+.soda-code-dispatch .menu .ui.form {
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+}
+
+@media (max-width: 700px) {
+  .soda-code :is(.soda-code-finder,.soda-code-branch-picker) {
+    padding: 16px;
+  }
+  .soda-code-editor #editor-bar { flex-wrap: wrap; }
+  .soda-code-editor #editor-bar .switch > .item { padding-inline: 8px; }
+  .soda-code-branch-picker > .dropdown { width: 100%; }
+  .soda-code-branch-picker > .dropdown > .menu {
+    max-width: calc(100vw - 64px);
+  }
+  .soda-code-actions #repo-action-view { width: calc(100% - 32px); }
+}
