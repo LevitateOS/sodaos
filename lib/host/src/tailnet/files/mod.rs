@@ -223,21 +223,17 @@ pub fn open_runtime_project(
     open_runtime_project_owned(base, project, 0, 0, deadline)
 }
 
-#[path = "tailnet/files/run.rs"]
 mod run;
 
-#[path = "tailnet/files/keys.rs"]
 mod keys;
 
 pub use keys::{
     read_companion_id, retire_pending_run_key, retire_run_key, write_companion_id, write_run_key,
 };
 
-#[path = "tailnet/files/resolver.rs"]
 mod resolver;
 
 pub use resolver::validate_run_resolver;
 
 #[cfg(test)]
-#[path = "tailnet/files/tests.rs"]
 mod tests;

@@ -29,6 +29,7 @@ pub mod ssh;
 pub mod tailnet_companion;
 #[path = "tailnet/domain/mod.rs"]
 pub mod tailnet_domain;
+#[path = "tailnet/files/mod.rs"]
 pub mod tailnet_files;
 pub mod tailnet_runtime;
 pub mod tcontrol;
