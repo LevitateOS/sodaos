@@ -3,9 +3,17 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 reconciliation @HEAD `74a6a1b7` (post-C09): nine sections moved
+`appliance/config/*`→`system/host/config/*`,
+`appliance/provisioning/base.json`→`system/host/provisioning/base.json`,
+`appliance/services/*`→`system/host/services/*`,
+`appliance/soda-extension/extension.json`→`system/containers/extension/extension.json`.
+Line ranges re-verified against moved files (contents intact); audit baseline
+paths retained in this note. `appliance/forgejo/**` sections unmoved.
+
 <a id="coverage-2ff14f94cf6d"></a>
 
-## [appliance/config/forgejo.env](../../../../../appliance/config/forgejo.env)
+## [system/host/config/forgejo.env](../../../../../system/host/config/forgejo.env)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
@@ -16,7 +24,7 @@ Authored installed configuration/build input; service dependency wiring is not a
 
 <a id="coverage-d6987f7d8f3c"></a>
 
-## [appliance/config/proxy.Caddyfile](../../../../../appliance/config/proxy.Caddyfile)
+## [system/host/config/proxy.Caddyfile](../../../../../system/host/config/proxy.Caddyfile)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
@@ -27,7 +35,7 @@ Authored installed configuration/build input; service dependency wiring is not a
 
 <a id="coverage-b5b1e03b7afd"></a>
 
-## [appliance/config/soda.sysusers](../../../../../appliance/config/soda.sysusers)
+## [system/host/config/soda.sysusers](../../../../../system/host/config/soda.sysusers)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
@@ -38,7 +46,7 @@ Authored installed configuration/build input; service dependency wiring is not a
 
 <a id="coverage-6f9dcc209ec6"></a>
 
-## [appliance/config/soda.tmpfiles](../../../../../appliance/config/soda.tmpfiles)
+## [system/host/config/soda.tmpfiles](../../../../../system/host/config/soda.tmpfiles)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
@@ -100,7 +108,7 @@ Maintained native template, not generated code. Native Forgejo owns handler/sess
 
 <a id="coverage-d4613f4f5c25"></a>
 
-## [appliance/provisioning/base.json](../../../../../appliance/provisioning/base.json)
+## [system/host/provisioning/base.json](../../../../../system/host/provisioning/base.json)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
@@ -111,7 +119,7 @@ Authored installed configuration/build input; service dependency wiring is not a
 
 <a id="coverage-32654a4b2cac"></a>
 
-## [appliance/services/forgejo.container](../../../../../appliance/services/forgejo.container)
+## [system/host/services/forgejo.container](../../../../../system/host/services/forgejo.container)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
@@ -123,7 +131,7 @@ Authored installed configuration/build input; service dependency wiring is not a
 
 <a id="coverage-a74a2fbcc6f0"></a>
 
-## [appliance/services/soda-dashboard.container](../../../../../appliance/services/soda-dashboard.container)
+## [system/host/services/soda-dashboard.container](../../../../../system/host/services/soda-dashboard.container)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
@@ -141,7 +149,7 @@ Authored installed configuration/build input; service dependency wiring is not a
 
 <a id="coverage-7204b9c0af73"></a>
 
-## [appliance/services/soda-project@.service](../../../../../appliance/services/soda-project@.service)
+## [system/host/services/soda-project@.service](../../../../../system/host/services/soda-project@.service)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
@@ -153,7 +161,7 @@ Authored installed configuration/build input; service dependency wiring is not a
 
 <a id="coverage-21ba044ba45b"></a>
 
-## [appliance/soda-extension/extension.json](../../../../../appliance/soda-extension/extension.json)
+## [system/containers/extension/extension.json](../../../../../system/containers/extension/extension.json)
 
 Authored installed configuration/build input; service dependency wiring is not a second authority owner.
 
