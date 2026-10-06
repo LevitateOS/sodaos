@@ -12,6 +12,8 @@ use crate::validate;
 use soda_json::JsonValue;
 use std::os::unix::fs::DirBuilderExt;
 use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 
 pub const MAX_APPROVED_FILES: usize = 8;
@@ -288,11 +290,70 @@ pub fn approve_inputs(data: &JsonValue) -> Result<ApprovedInputs, Error> {
     })
 }
 
+/// CODEX-P07-003b: open a directory by path without following a trailing
+/// symlink and refusing non-directories. The returned descriptor pins the
+/// opened directory's identity for fd-bound chmod/chown/removal.
+fn open_dir_no_follow(path: &Path) -> Result<std::fs::File, Error> {
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(Error::classify)
+}
+
+/// fchmod/fchown bound to the retained descriptor: never follows a
+/// swapped pathname.
+fn fchmod(file: &std::fs::File, mode: u32) -> Result<(), Error> {
+    if unsafe { libc::fchmod(file.as_raw_fd(), mode) } != 0 {
+        return Err(Error::classify(std::io::Error::last_os_error()));
+    }
+    Ok(())
+}
+
+fn fchown(file: &std::fs::File, uid: u32, gid: u32) -> Result<(), Error> {
+    if unsafe { libc::fchown(file.as_raw_fd(), uid, gid) } != 0 {
+        return Err(Error::classify(std::io::Error::last_os_error()));
+    }
+    Ok(())
+}
+
+/// True only when the retained descriptor's directory holds no entries.
+/// Any read failure reports uncertainty (`None`): the caller preserves.
+fn dir_is_empty(file: &std::fs::File) -> Option<bool> {
+    // Reopening through /proc pins the same directory even if the
+    // pathname was swapped; read_dir never yields `.`/`..`.
+    let entries = std::fs::read_dir(format!("/proc/self/fd/{}", file.as_raw_fd())).ok()?;
+    for entry in entries {
+        entry.ok()?;
+        return Some(false);
+    }
+    Some(true)
+}
+
+/// Remove `name` from the retained parent when — and only when — the
+/// retained child is verifiably empty. Anything else (content, unreadable
+/// state, a failed removal) preserves whatever the pathname holds now;
+/// only an empty directory can ever go.
+fn remove_if_empty_owned(parent: &std::fs::File, child: &std::fs::File, name: &str) {
+    if dir_is_empty(child) != Some(true) {
+        return;
+    }
+    let cname = match std::ffi::CString::new(name) {
+        Ok(cname) => cname,
+        Err(_) => return,
+    };
+    unsafe {
+        libc::unlinkat(parent.as_raw_fd(), cname.as_ptr(), libc::AT_REMOVEDIR);
+    }
+}
+
 /// Root-owned read-only snapshot, verified bundle, role-owned checkout,
 /// credential binding, then the request receipt. The clone always starts
 /// from an empty directory; any failure removes invocation-created state.
 /// Checkout creation is exclusive, so a preexisting path of any identity
-/// is refused untouched and only a directory this call created is cleaned.
+/// is refused untouched. Permission and cleanup steps bind the created
+/// directory's descriptor; replaced or uncertain state is preserved and
+/// reported as failure.
 pub fn write_snapshot(
     ctx: &crate::Ctx,
     directory: &Path,
@@ -321,9 +382,19 @@ pub fn write_snapshot(
         }
         Err(err) => return Err(Error::classify(err)),
     }
+    // CODEX-P07-003b: bind the created directory's identity before any
+    // permission or removal step. The checkouts parent is role-owned, so
+    // the name can be swapped under us; pathname chmod/chown/removal
+    // would follow the swap. If stable ownership cannot be established,
+    // the checkout is preserved and failure is returned.
+    let parent_path = checkout
+        .parent()
+        .ok_or_else(|| Error::io_msg("checkout has no parent"))?;
+    let parent = open_dir_no_follow(parent_path)?;
+    let child = open_dir_no_follow(&checkout)?;
     let tail: Result<String, Error> = (|| {
-        fsx::chmod(&checkout, 0o755)?;
-        fsx::chown(&checkout, account.uid, account.gid)?;
+        fchmod(&child, 0o755)?;
+        fchown(&child, account.uid, account.gid)?;
         let mut credential_path = String::new();
         if !inputs.fields.credential.is_empty() {
             credential_path =
@@ -336,7 +407,7 @@ pub fn write_snapshot(
     match tail {
         Ok(credential_path) => Ok((checkout, credential_path)),
         Err(err) => {
-            let _ = std::fs::remove_dir_all(&checkout);
+            remove_if_empty_owned(&parent, &child, &inputs.fields.id);
             Err(err)
         }
     }
