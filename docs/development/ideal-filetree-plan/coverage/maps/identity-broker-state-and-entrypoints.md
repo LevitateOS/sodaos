@@ -3,9 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `67ec940a` (A05+A06): headings rebound to `cmd/soda-identity/*`. Intervals VERIFIED intact (byte-identical move): schema. Intervals STALE pending re-audit: main (provider-path renames shift lines), store (content split out) — see per-section banners. Audit paths in banners.
+
 <a id="coverage-9d94b3328ec0"></a>
 
-## [rust/soda-identity/src/main.rs](../../../../../rust/soda-identity/src/main.rs)
+## [cmd/soda-identity/src/main.rs](../../../../../cmd/soda-identity/src/main.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/main.rs` layout; content moved/split — pending re-audit.
 
 
 
@@ -26,7 +30,7 @@ Page grouping is navigation; the slice IDs retain their individual review owners
 
 <a id="coverage-00ed7b9f06a9"></a>
 
-## [rust/soda-identity/src/schema.rs](../../../../../rust/soda-identity/src/schema.rs)
+## [cmd/soda-identity/src/schema.rs](../../../../../cmd/soda-identity/src/schema.rs)
 
 Embedded generated compatibility copy names internal/store/schema.go as the source of truth; embedded drift test is structural source coverage, not native PostgreSQL execution. The users SQL lines mix native actor mirror id/login (G01) and local display-name preference name (G09); Project declaration mixes association/owner (P01), readiness/profile (P02) and LAN ip (N02). These are generated same-line schema references, not broker domain mutation ownership. Named generated SQL subunits on lines 11/13/149/151 share physical lines because the declaration/query is dense; symbols identify disjoint fields, not competing ownership of a field or duplicate production operations.
 
@@ -91,7 +95,9 @@ Embedded generated compatibility copy names internal/store/schema.go as the sour
 
 <a id="rustsoda-identitysrcstorers-1"></a>
 
-## [rust/soda-identity/src/store.rs](../../../../../rust/soda-identity/src/store.rs)
+## [cmd/soda-identity/src/store.rs](../../../../../cmd/soda-identity/src/store.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/store.rs` layout; content moved/split — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

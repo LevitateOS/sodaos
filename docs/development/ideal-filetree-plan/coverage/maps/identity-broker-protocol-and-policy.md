@@ -3,11 +3,15 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `67ec940a` (A05+A06): headings rebound to `cmd/soda-identity/*`. Intervals VERIFIED intact (byte-identical move): crypto, pg, strict. Intervals STALE pending re-audit (content split out): control, http, lib, runtime, wire, tests/broker — see per-section banners. Audit paths in banners.
+
 <a id="coverage-3e4294f35465"></a>
 
 <a id="rustsoda-identitysrccontrolrs-1"></a>
 
-## [rust/soda-identity/src/control.rs](../../../../../rust/soda-identity/src/control.rs)
+## [cmd/soda-identity/src/control.rs](../../../../../cmd/soda-identity/src/control.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/control.rs` layout; content moved/split — pending re-audit.
 
  Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -95,7 +99,7 @@ Page grouping is navigation; the slice IDs retain their individual review owners
 
 <a id="coverage-917dd4d29da0"></a>
 
-## [rust/soda-identity/src/crypto.rs](../../../../../rust/soda-identity/src/crypto.rs)
+## [cmd/soda-identity/src/crypto.rs](../../../../../cmd/soda-identity/src/crypto.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -108,7 +112,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-identitysrchttprs-1"></a>
 
-## [rust/soda-identity/src/http.rs](../../../../../rust/soda-identity/src/http.rs)
+## [cmd/soda-identity/src/http.rs](../../../../../cmd/soda-identity/src/http.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/http.rs` layout; content moved/split — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -165,7 +171,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-f29e4693296d"></a>
 
-## [rust/soda-identity/src/lib.rs](../../../../../rust/soda-identity/src/lib.rs)
+## [cmd/soda-identity/src/lib.rs](../../../../../cmd/soda-identity/src/lib.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/lib.rs` layout; content moved/split — pending re-audit.
 
 Public module wiring is mapped separately; module exposure does not create a new process boundary.
 
@@ -186,7 +194,7 @@ Public module wiring is mapped separately; module exposure does not create a new
 
 <a id="rustsoda-identitysrcpgrs-1"></a>
 
-## [rust/soda-identity/src/pg.rs](../../../../../rust/soda-identity/src/pg.rs)
+## [cmd/soda-identity/src/pg.rs](../../../../../cmd/soda-identity/src/pg.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -229,7 +237,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-e6620e3beafc"></a>
 
-## [rust/soda-identity/src/runtime.rs](../../../../../rust/soda-identity/src/runtime.rs)
+## [cmd/soda-identity/src/runtime.rs](../../../../../cmd/soda-identity/src/runtime.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/runtime.rs` layout; content moved/split — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -249,7 +259,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-identitysrcstrictrs-1"></a>
 
-## [rust/soda-identity/src/strict.rs](../../../../../rust/soda-identity/src/strict.rs)
+## [cmd/soda-identity/src/strict.rs](../../../../../cmd/soda-identity/src/strict.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -287,7 +297,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-identitysrcwirers-1"></a>
 
-## [rust/soda-identity/src/wire.rs](../../../../../rust/soda-identity/src/wire.rs)
+## [cmd/soda-identity/src/wire.rs](../../../../../cmd/soda-identity/src/wire.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/wire.rs` layout; content moved/split — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -458,7 +470,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-identitytestsbrokerrs-1"></a>
 
-## [rust/soda-identity/tests/broker.rs](../../../../../rust/soda-identity/tests/broker.rs)
+## [cmd/soda-identity/tests/broker.rs](../../../../../cmd/soda-identity/tests/broker.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/tests/broker.rs` layout; content moved/split — pending re-audit.
 
 Source-only integration suite gated on SODA_PG_HOST/PORT/SUPER_PASSWORD_FILE; tests skip without fixture. No execution or native provider success claimed. Compound lifecycle tests reference several distinct broker responsibilities. Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

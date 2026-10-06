@@ -3,11 +3,15 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `67ec940a` (A06 fold): headings rebound to `providers/*` homes. ALL intervals STALE pending re-audit (codex/muse split across mod+config/protocol/tests leaves; lib folded into providers/mod.rs; manifest merged with no separate file) — see per-section banners. Audit paths in banners.
+
 <a id="coverage-533cd08fa569"></a>
 
 <a id="rustidentity-providerssrccodexrs-1"></a>
 
-## [rust/identity-providers/src/codex.rs](../../../../../rust/identity-providers/src/codex.rs)
+## [cmd/soda-identity/src/providers/codex/mod.rs](../../../../../cmd/soda-identity/src/providers/codex/mod.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/identity-providers/src/codex.rs` layout; content moved/split — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -92,7 +96,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-a9d928996350"></a>
 
-## [rust/identity-providers/src/lib.rs](../../../../../rust/identity-providers/src/lib.rs)
+## [cmd/soda-identity/src/providers/mod.rs](../../../../../cmd/soda-identity/src/providers/mod.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/identity-providers/src/lib.rs` layout; content moved/split — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Public module wiring is mapped separately; module exposure does not create a new process boundary.
 
@@ -108,7 +114,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustidentity-providerssrcmusers-1"></a>
 
-## [rust/identity-providers/src/muse.rs](../../../../../rust/identity-providers/src/muse.rs)
+## [cmd/soda-identity/src/providers/muse/mod.rs](../../../../../cmd/soda-identity/src/providers/muse/mod.rs)
+
+> R02 STALE: intervals below reference the pre-A05/A06 `rust/identity-providers/src/muse.rs` layout; content moved/split — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
