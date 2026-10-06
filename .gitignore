@@ -8,4 +8,5 @@ __pycache__/
 *.db-wal
 /tools/lit-check/node_modules/
 .DS_Store
-/target/
+# Cargo build/test output in any crate directory.
+target/
