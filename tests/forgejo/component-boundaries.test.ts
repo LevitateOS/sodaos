@@ -6,6 +6,19 @@ import {chromium} from 'playwright';
 // Explicit local opt-in. Native CSS plus the complete candidate CSS cascade,
 // with small native markup contracts; no account, fixture or provider writes.
 const origin = process.env.SODA_FORGEJO_LAYOUT_ORIGIN;
+// Inline same-directory concern stylesheets so assertions cover the delivered
+// cascade, not just the composing entry file. Parent-directory imports keep
+// their existing handling below.
+async function inlineLocalImports(css: string): Promise<string> {
+  const refs = [...css.matchAll(/@import\s+"\.\/([^"?]+\.css)[^;]*;\r?\n?/g)];
+  let out = css;
+  for (const [directive, name] of refs) {
+    assert(name);
+    const body = await readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8');
+    out = out.replace(directive, () => body);
+  }
+  return out;
+}
 test('expanded components preserve native state and layout boundaries', {skip: !origin}, async (t) => {
   assert.equal(origin, 'http://localhost:3300');
   const header = await readFile(
@@ -14,7 +27,9 @@ test('expanded components preserve native state and layout boundaries', {skip: !
   );
   const files = [...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map(([, name]) => name);
   const styles = await Promise.all(
-    files.map((name) => readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8'))
+    files.map(async (name) =>
+      inlineLocalImports(await readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8'))
+    )
   );
   const palette = await readFile(new URL('../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
   const browser = await chromium.launch({channel: 'chrome', headless: true, chromiumSandbox: true});

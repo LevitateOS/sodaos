@@ -6,6 +6,18 @@ import {chromium} from 'playwright';
 // Explicit opt-in: read only the existing local stock preview's public CSS.
 // No login, fixture mutations, template reload or service lifecycle operations.
 const origin = process.env.SODA_FORGEJO_LAYOUT_ORIGIN;
+// Inline same-directory concern stylesheets so assertions cover the delivered
+// cascade, not just the composing entry file.
+async function inlineLocalImports(css: string): Promise<string> {
+  const refs = [...css.matchAll(/@import\s+"\.\/([^"?]+\.css)[^;]*;\r?\n?/g)];
+  let out = css;
+  for (const [directive, name] of refs) {
+    assert(name);
+    const body = await readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8');
+    out = out.replace(directive, () => body);
+  }
+  return out;
+}
 test('milestone rows retain one canvas, clear boundaries and responsive columns', {skip: !origin}, async () => {
   assert.equal(origin, 'http://localhost:3300');
   const response = await fetch(`${origin}/assets/css/index.css`);
@@ -17,7 +29,7 @@ test('milestone rows retain one canvas, clear boundaries and responsive columns'
   );
   const styles = await Promise.all(
     [...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map(async ([, file]) =>
-      readFile(new URL(`../../assets/branding/forgejo/${file}`, import.meta.url), 'utf8')
+      inlineLocalImports(await readFile(new URL(`../../assets/branding/forgejo/${file}`, import.meta.url), 'utf8'))
     )
   );
   const palette = await readFile(new URL('../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
