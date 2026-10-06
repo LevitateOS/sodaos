@@ -254,7 +254,13 @@ impl OwnedDir {
             } else {
                 format!("{prefix}/{name}")
             };
-            let attr = dir.lstat_at(&name)?;
+            let attr = match dir.lstat_at(&name) {
+                Ok(attr) => attr,
+                Err(e) => {
+                    result = Err(e);
+                    break;
+                }
+            };
             if attr.is_dir {
                 if let Err(e) = self.walk_recursion(&rel, visit) {
                     result = Err(e);
