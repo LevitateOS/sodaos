@@ -3,13 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `67ec940a` (A05+A06): headings rebound to `cmd/soda-identity/*`. Intervals VERIFIED intact (byte-identical move): schema. Intervals STALE pending re-audit: main (provider-path renames shift lines), store (content split out) — see per-section banners. Audit paths in banners.
+R02 re-audit COMPLETE @HEAD: main.rs + schema.rs verified clean; store.rs split re-mapped (store + 6 store_* siblings). All rows machine-verified against current bytes.
 
 <a id="coverage-9d94b3328ec0"></a>
 
 ## [cmd/soda-identity/src/main.rs](../../../../../cmd/soda-identity/src/main.rs)
 
-> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/main.rs` layout; content moved/split — pending re-audit.
+Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
 
 
 
@@ -20,13 +20,13 @@ R02 @HEAD `67ec940a` (A05+A06): headings rebound to `cmd/soda-identity/*`. Inter
 | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 133–197 | Distinct admin/runtime socket activation and listener admission; declarations/fields: `service_listeners`, `listen`, `activated_listeners` |
 | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 198–203 | Open shared broker PostgreSQL Store with protected configured DSN/key; declarations/fields: `open_store` |
 | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 204–244 | Broker key/DSN secret input and protected encryption custody; declarations/fields: `open_store`, `grant_key`, `secret` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 245–246, 276–280 | Broker assembly and provider/controller initialization; declarations/fields: `open_broker` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 247–261 | Construct configured Codex enrollment adapter and private native enrollment root; declarations/fields: `identity_providers::codex::Provider::new` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 262–275 | Construct configured Muse enrollment adapter and private native enrollment root; declarations/fields: `identity_providers::muse::Provider::new` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 281–316 | Protected directory creation; declarations/fields: `mkdir_all_mode` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 317–344, 347–356, 363–372 | Private server worker lifetime and periodic reconciliation; declarations/fields: `serve` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 345–346 | Schedule broker periodic exact lease reconciliation; declarations/fields: `broker.sweep` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 357–362 | Drive periodic lease retirement/reconciliation and preserve unconfirmed termination result; declarations/fields: `broker.sweep` |
+| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 245–246, 278–282 | Broker assembly and provider/controller initialization; declarations/fields: `open_broker` |
+| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 247–262 | Construct configured Codex enrollment adapter and private native enrollment root; declarations/fields: `identity_providers::codex::Provider::new` |
+| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 263–277 | Construct configured Muse enrollment adapter and private native enrollment root; declarations/fields: `identity_providers::muse::Provider::new` |
+| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 283–318 | Protected directory creation; declarations/fields: `mkdir_all_mode` |
+| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 319–346, 349–358, 365–374 | Private server worker lifetime and periodic reconciliation; declarations/fields: `serve` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 347–348 | Schedule broker periodic exact lease reconciliation; declarations/fields: `broker.sweep` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 359–364 | Drive periodic lease retirement/reconciliation and preserve unconfirmed termination result; declarations/fields: `broker.sweep` |
 
 <a id="coverage-00ed7b9f06a9"></a>
 
@@ -97,71 +97,117 @@ Embedded generated compatibility copy names internal/store/schema.go as the sour
 
 ## [cmd/soda-identity/src/store.rs](../../../../../cmd/soda-identity/src/store.rs)
 
-> R02 STALE: intervals below reference the pre-A05/A06 `rust/soda-identity/src/store.rs` layout; content moved/split — pending re-audit.
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Re-audit @HEAD: pre-A05/A06 `store.rs` split into `store.rs` + 6 `store_*` siblings; rows re-mapped declaration-by-declaration to current bytes.
 
 | Slice / lifecycle | Current lines | Responsibility and declarations |
 | --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–12 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `identity_binding`, `bind`, `Store`, `Tx`, `open_encrypted`, `open`, `query`, `exec`, `query_row`, `simple`, `transaction` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 13–18 | Transactional PostgreSQL Store and shared schema admission; declaration/member identity_binding; declarations/fields: `identity_binding` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 19–50 | Transactional PostgreSQL Store and shared schema admission; declaration/member bind; declarations/fields: `bind` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 51 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store; declarations/fields: `Store` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 52 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store.client; declarations/fields: `Store.client` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 53–55 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store.grants; declarations/fields: `Store.grants` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 56 | Transactional PostgreSQL Store and shared schema admission; declaration/member Tx; declarations/fields: `Tx` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 57–60 | Transactional PostgreSQL Store and shared schema admission; declaration/member Tx.store; declarations/fields: `Tx.store` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 61–65 | Transactional PostgreSQL Store and shared schema admission; declaration/member open_encrypted; declarations/fields: `open_encrypted` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 66–80 | Transactional PostgreSQL Store and shared schema admission; declaration/member open; declarations/fields: `open` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 81–86 | Transactional PostgreSQL Store and shared schema admission; declaration/member query; declarations/fields: `query` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 87–90 | Transactional PostgreSQL Store and shared schema admission; declaration/member exec; declarations/fields: `exec` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 91–95 | Transactional PostgreSQL Store and shared schema admission; declaration/member query_row; declarations/fields: `query_row` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 96–99 | Transactional PostgreSQL Store and shared schema admission; declaration/member simple; declarations/fields: `simple` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 100–117 | Transactional PostgreSQL Store and shared schema admission; declaration/member transaction; declarations/fields: `transaction` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 118–132 | Grant encryption-key verification and custody init; declarations/fields: `check_grant_key` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 133–152 | Grant encryption-key verification and custody init; declaration/member reject_unkeyed_identity_credentials; declarations/fields: `reject_unkeyed_identity_credentials` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 153–165 | Grant encryption-key verification and custody init; declaration/member validate_grant_key; declarations/fields: `validate_grant_key` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 166–177 | Grant encryption-key verification and custody init; declaration/member initialize_grant_key; declarations/fields: `initialize_grant_key` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 178–200 | Shared schema version admission; declarations/fields: `initialize_schema` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 201–206 | Delegation value validation; declarations/fields: `grants` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 207–254 | Encrypted connection credential save/read; declarations/fields: `save_connection` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 255–262 | Connection metadata read; declarations/fields: `connection` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 263–273 | Protected credential read; declarations/fields: `credential` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 274–283 | Connection availability; declarations/fields: `connections` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 284–300 | Connection availability; declaration/member available; declarations/fields: `available` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 301–333 | Connection state/generation mutation; declarations/fields: `set_state` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 334–365 | Grant save/read/revoke authority; declarations/fields: `save_grant` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 366–373 | Grant save/read/revoke authority; declaration/member grant; declarations/fields: `grant` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 374–383 | Grant save/read/revoke authority; declaration/member grants_for; declarations/fields: `grants_for` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 384–412 | Grant save/read/revoke authority; declaration/member revoke_grant; declarations/fields: `revoke_grant` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 413–419 | Lease read/reserve and exact execution fences; declarations/fields: `leases` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 420–427 | Lease read/reserve and exact execution fences; declaration/member lease; declarations/fields: `lease` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 428–458 | Lease read/reserve and exact execution fences; declaration/member reserve; declarations/fields: `reserve` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 459–471 | Native binding registration persistence; declarations/fields: `register` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 472–488 | Lease return and credential maintenance; declarations/fields: `return_lease` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 489–499 | Execution fence read/admission; declarations/fields: `execution` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 500–524 | Execution fence read/admission; declaration/member admit_execution; declarations/fields: `admit_execution` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 525–543 | Terminal execution observation and forgotten lease reconciliation; declarations/fields: `observe_execution` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 544–555 | Terminal execution observation and forgotten lease reconciliation; declaration/member forget_lease; declarations/fields: `forget_lease` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / unknown | 556–572 | Bounded owner/connection immutable event read helper; runtime read exposure/retention unresolved; declarations/fields: `events` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 573–575 | Transaction query and shared schema mechanics; declarations/fields: `query`, `exec`, `query_row`, `load_schema_version`, `verify_required_columns`, `verify_trigger` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 576–579 | Transaction query and shared schema mechanics; declaration/member query; declarations/fields: `query` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 580–583 | Transaction query and shared schema mechanics; declaration/member exec; declarations/fields: `exec` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 584–587 | Transaction query and shared schema mechanics; declaration/member query_row; declarations/fields: `query_row` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 588–620 | Transaction query and shared schema mechanics; declaration/member load_schema_version; declarations/fields: `load_schema_version` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 621–628 | Transaction query and shared schema mechanics; declaration/member verify_required_columns; declarations/fields: `verify_required_columns` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 629–639 | Transaction query and shared schema mechanics; declaration/member verify_trigger; declarations/fields: `verify_trigger` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 640–667 | Credential-free immutable event append inside domain transaction; declarations/fields: `append_event` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 668–704 | Provider credential maintenance under current exact lease; declarations/fields: `maintain_credential` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 705–711 | Connection change and lease audit event construction; declarations/fields: `changed` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 712–729 | Connection change and lease audit event construction; declaration/member lease_event; declarations/fields: `lease_event` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 730–737 | PostgreSQL parameter formatting; declarations/fields: `Param` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 738–741 | PostgreSQL parameter formatting; declaration/member text; declarations/fields: `text` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 742–745 | PostgreSQL parameter formatting; declaration/member int; declarations/fields: `int` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 746–749 | PostgreSQL parameter formatting; declaration/member boolean; declarations/fields: `boolean` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 750–753 | PostgreSQL parameter formatting; declaration/member bytea; declarations/fields: `bytea` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 754–774 | PostgreSQL parameter formatting; declaration/member encode; declarations/fields: `encode` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 775–778 | SQL parameter/source assertions; declarations/fields: `tests` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 779–795 | SQL parameter/source assertions; declaration/member bind_rewrites_placeholders_outside_literals; declarations/fields: `bind_rewrites_placeholders_outside_literals` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 796–799 | SQL parameter/source assertions; declaration/member bytea_params_use_hex_text_form; declarations/fields: `bytea_params_use_hex_text_form` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–9 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `identity_binding`, `bind`, `Store`, `Store.client`, `Store.grants`, `Tx`, `Tx.store`, `open_encrypted`, `open`, `query`, `exec`, `query_row`, `simple`, `transaction`, `changed`, `Param`, `text`, `int`, `boolean`, `bytea`, `encode`, `tests`, `bind_rewrites_placeholders_outside_literals`, `bytea_params_use_hex_text_form` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 11–13 | Transactional PostgreSQL Store and shared schema admission; declaration/member identity_binding; declarations/fields: `identity_binding` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 17–47 | Transactional PostgreSQL Store and shared schema admission; declaration/member bind; declarations/fields: `bind` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 49–52 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store; declarations/fields: `Store` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 50 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store.client; declarations/fields: `Store.client` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 51 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store.grants; declarations/fields: `Store.grants` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 54–56 | Transactional PostgreSQL Store and shared schema admission; declaration/member Tx; declarations/fields: `Tx` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 55 | Transactional PostgreSQL Store and shared schema admission; declaration/member Tx.store; declarations/fields: `Tx.store` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 59–62 | Transactional PostgreSQL Store and shared schema admission; declaration/member open_encrypted; declarations/fields: `open_encrypted` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 64–77 | Transactional PostgreSQL Store and shared schema admission; declaration/member open; declarations/fields: `open` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 79–83 | Transactional PostgreSQL Store and shared schema admission; declaration/member query; declarations/fields: `query` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 79–83, 85–87, 89–92 | Transaction query and shared schema mechanics; declarations/fields: `query`, `exec`, `query_row`, `load_schema_version`, `verify_required_columns`, `verify_trigger` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 79–83 | Transaction query and shared schema mechanics; declaration/member query; declarations/fields: `query` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 85–87 | Transactional PostgreSQL Store and shared schema admission; declaration/member exec; declarations/fields: `exec` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 85–87 | Transaction query and shared schema mechanics; declaration/member exec; declarations/fields: `exec` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 89–92 | Transactional PostgreSQL Store and shared schema admission; declaration/member query_row; declarations/fields: `query_row` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 89–92 | Transaction query and shared schema mechanics; declaration/member query_row; declarations/fields: `query_row` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 94–96 | Transactional PostgreSQL Store and shared schema admission; declaration/member simple; declarations/fields: `simple` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 98 | Transactional PostgreSQL Store and shared schema admission; declaration/member transaction; declarations/fields: `transaction` |
+| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 134–139 | Connection change and lease audit event construction; declarations/fields: `changed` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 141–147 | PostgreSQL parameter formatting; declarations/fields: `Param` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 150–152 | PostgreSQL parameter formatting; declaration/member text; declarations/fields: `text` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 154–156 | PostgreSQL parameter formatting; declaration/member int; declarations/fields: `int` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 158–160 | PostgreSQL parameter formatting; declaration/member boolean; declarations/fields: `boolean` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 162–164 | PostgreSQL parameter formatting; declaration/member bytea; declarations/fields: `bytea` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 166–184 | PostgreSQL parameter formatting; declaration/member encode; declarations/fields: `encode` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 186–211 | SQL parameter/source assertions; declarations/fields: `tests` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 190–205 | SQL parameter/source assertions; declaration/member bind_rewrites_placeholders_outside_literals; declarations/fields: `bind_rewrites_placeholders_outside_literals` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 207–211 | SQL parameter/source assertions; declaration/member bytea_params_use_hex_text_form; declarations/fields: `bytea_params_use_hex_text_form` |
 
+## [cmd/soda-identity/src/store_connections.rs](../../../../../cmd/soda-identity/src/store_connections.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–5 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `save_connection`, `connection`, `credential`, `connections`, `available`, `set_state` |
+| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 6–52 | Encrypted connection credential save/read; declarations/fields: `save_connection` |
+| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 54–60 | Connection metadata read; declarations/fields: `connection` |
+| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 62–71 | Protected credential read; declarations/fields: `credential` |
+| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 73–81 | Connection availability; declarations/fields: `connections` |
+| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 83–97 | Connection availability; declaration/member available; declarations/fields: `available` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 100–132 | Connection state/generation mutation; declarations/fields: `set_state` |
+
+## [cmd/soda-identity/src/store_events.rs](../../../../../cmd/soda-identity/src/store_events.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–5 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `events`, `append_event`, `lease_event` |
+| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / unknown | 6–23 | Bounded owner/connection immutable event read helper; runtime read exposure/retention unresolved; declarations/fields: `events` |
+| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 26–53 | Credential-free immutable event append inside domain transaction; declarations/fields: `append_event` |
+| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 55–70 | Connection change and lease audit event construction; declaration/member lease_event; declarations/fields: `lease_event` |
+
+## [cmd/soda-identity/src/store_executions.rs](../../../../../cmd/soda-identity/src/store_executions.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–5 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `execution`, `admit_execution`, `observe_execution` |
+| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 8–14 | Execution fence read/admission; declarations/fields: `execution` |
+| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 19–39 | Execution fence read/admission; declaration/member admit_execution; declarations/fields: `admit_execution` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 44–62 | Terminal execution observation and forgotten lease reconciliation; declarations/fields: `observe_execution` |
+
+## [cmd/soda-identity/src/store_grants.rs](../../../../../cmd/soda-identity/src/store_grants.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–5 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `save_grant`, `grant`, `grants_for`, `revoke_grant` |
+| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 6–36 | Grant save/read/revoke authority; declarations/fields: `save_grant` |
+| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 38–44 | Grant save/read/revoke authority; declaration/member grant; declarations/fields: `grant` |
+| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 46–54 | Grant save/read/revoke authority; declaration/member grants_for; declarations/fields: `grants_for` |
+| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 56–84 | Grant save/read/revoke authority; declaration/member revoke_grant; declarations/fields: `revoke_grant` |
+
+## [cmd/soda-identity/src/store_leases.rs](../../../../../cmd/soda-identity/src/store_leases.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–6 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `leases`, `lease`, `reserve`, `register`, `return_lease`, `forget_lease`, `maintain_credential` |
+| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 7–12 | Lease read/reserve and exact execution fences; declarations/fields: `leases` |
+| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 14–20 | Lease read/reserve and exact execution fences; declaration/member lease; declarations/fields: `lease` |
+| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 22–51 | Lease read/reserve and exact execution fences; declaration/member reserve; declarations/fields: `reserve` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 53–63 | Native binding registration persistence; declarations/fields: `register` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 66–79 | Lease return and credential maintenance; declarations/fields: `return_lease` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 81–92 | Terminal execution observation and forgotten lease reconciliation; declaration/member forget_lease; declarations/fields: `forget_lease` |
+| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 95 | Provider credential maintenance under current exact lease; declarations/fields: `maintain_credential` |
+
+## [cmd/soda-identity/src/store_schema.rs](../../../../../cmd/soda-identity/src/store_schema.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–7 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `check_grant_key`, `reject_unkeyed_identity_credentials`, `validate_grant_key`, `initialize_grant_key`, `initialize_schema`, `grants`, `load_schema_version`, `verify_required_columns`, `verify_trigger` |
+| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 8–21 | Grant encryption-key verification and custody init; declarations/fields: `check_grant_key` |
+| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 23–41 | Grant encryption-key verification and custody init; declaration/member reject_unkeyed_identity_credentials; declarations/fields: `reject_unkeyed_identity_credentials` |
+| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 43–54 | Grant encryption-key verification and custody init; declaration/member validate_grant_key; declarations/fields: `validate_grant_key` |
+| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 56–66 | Grant encryption-key verification and custody init; declaration/member initialize_grant_key; declarations/fields: `initialize_grant_key` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 68–89 | Shared schema version admission; declarations/fields: `initialize_schema` |
+| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 91–96 | Delegation value validation; declarations/fields: `grants` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 99–130, 132–138, 140–150 | Transaction query and shared schema mechanics; declarations/fields: `query`, `exec`, `query_row`, `load_schema_version`, `verify_required_columns`, `verify_trigger` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 99–130 | Transaction query and shared schema mechanics; declaration/member load_schema_version; declarations/fields: `load_schema_version` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 132–138 | Transaction query and shared schema mechanics; declaration/member verify_required_columns; declarations/fields: `verify_required_columns` |
+| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 140–150 | Transaction query and shared schema mechanics; declaration/member verify_trigger; declarations/fields: `verify_trigger` |
