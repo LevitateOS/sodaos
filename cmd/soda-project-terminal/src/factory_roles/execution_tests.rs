@@ -475,6 +475,119 @@ fn log_failure_cleanup_reports_unconfirmed_when_child_gone() {
     );
 }
 
+/// CODEX-P07-001b: no signal may follow ownership loss. A helper thread
+/// reaps the child inside the TERM-grace window; the iteration is
+/// conclusive when the main waiter observes the loss before grace expiry
+/// (an expired grace legitimately escalates, and is skipped), and then no
+/// SIGKILL for the lost pid may have been sent. Pre-fix the post-TERM
+/// SIGKILL is unconditional and the signal log proves it.
+#[test]
+fn terminate_child_never_signals_after_ownership_loss() {
+    assert!(
+        std::fs::metadata("/bin/sleep").is_ok(),
+        "P07-001b regression needs /bin/sleep"
+    );
+    let mut conclusive = 0;
+    for _ in 0..25 {
+        let pid = unsafe { libc::fork() };
+        assert!(pid >= 0, "fork failed");
+        if pid == 0 {
+            unsafe {
+                let argv0 = c"/bin/sleep".as_ptr();
+                let argv1 = c"30".as_ptr();
+                let argv = [argv0, argv1, std::ptr::null()];
+                let envp = [std::ptr::null()];
+                libc::execve(argv0, argv.as_ptr(), envp.as_ptr());
+                libc::_exit(127);
+            }
+        }
+        // A second waiter reaps the child as soon as it dies, so the
+        // main waiter can observe ownership loss mid-grace.
+        let helper = std::thread::spawn(move || {
+            let mut status = 0;
+            unsafe { libc::waitpid(pid, &mut status, 0) };
+        });
+        super::KILL_LOG.lock().unwrap().clear();
+        let start = std::time::Instant::now();
+        let outcome = terminate_child(pid);
+        let elapsed = start.elapsed();
+        helper.join().expect("helper joined");
+        if outcome.is_some() {
+            continue; // Main waiter won the race: inconclusive, retry.
+        }
+        if elapsed >= std::time::Duration::from_millis(1000) {
+            continue; // Grace expired while owned: KILL legitimate here.
+        }
+        conclusive += 1;
+        let logged_kill = super::KILL_LOG
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(logged_pid, signal)| *logged_pid == pid && *signal == libc::SIGKILL);
+        assert!(
+            !logged_kill,
+            "SIGKILL sent after ownership of {pid} was lost"
+        );
+    }
+    assert!(conclusive > 0, "loss window never observed; test vacuous");
+}
+
+/// CODEX-P07-001b characterization: the bounded wait distinguishes a
+/// reaped exit, an owned child outliving its deadline, and ownership
+/// loss. Green-post only (the outcomes are the fix's new surface).
+#[test]
+fn reap_until_distinguishes_reaped_alive_and_gone() {
+    // Gone: an already-reaped pid reports loss without waiting.
+    let pid = unsafe { libc::fork() };
+    assert!(pid >= 0, "fork failed");
+    if pid == 0 {
+        unsafe {
+            libc::_exit(0);
+        }
+    }
+    let mut status = 0;
+    assert_eq!(unsafe { libc::waitpid(pid, &mut status, 0) }, pid);
+    assert_eq!(
+        reap_until(
+            pid,
+            std::time::Instant::now() + std::time::Duration::from_secs(5)
+        ),
+        ReapOutcome::Gone
+    );
+    // Alive: a live owned child with an expired deadline reports owned.
+    assert!(
+        std::fs::metadata("/bin/sleep").is_ok(),
+        "P07-001b outcomes need /bin/sleep"
+    );
+    let live = unsafe { libc::fork() };
+    assert!(live >= 0, "fork failed");
+    if live == 0 {
+        unsafe {
+            let argv0 = c"/bin/sleep".as_ptr();
+            let argv1 = c"30".as_ptr();
+            let argv = [argv0, argv1, std::ptr::null()];
+            let envp = [std::ptr::null()];
+            libc::execve(argv0, argv.as_ptr(), envp.as_ptr());
+            libc::_exit(127);
+        }
+    }
+    assert_eq!(
+        reap_until(live, std::time::Instant::now()),
+        ReapOutcome::Alive
+    );
+    signal_child(live, libc::SIGKILL);
+    match reap_until(
+        live,
+        std::time::Instant::now() + std::time::Duration::from_secs(5),
+    ) {
+        ReapOutcome::Reaped(status) => assert!(
+            libc::WIFSIGNALED(status) && libc::WTERMSIG(status) == libc::SIGKILL,
+            "reaped exit reports the wait status, got {status}"
+        ),
+        other => panic!("expected Reaped, got {other:?}"),
+    }
+}
+
 /// CODEX-P07-002: an uncertain stop (tombstone present, supervisor group
 /// still live) must bar hold release. Pre-fix `any_running` trusts the
 /// tombstone alone and the release succeeds.

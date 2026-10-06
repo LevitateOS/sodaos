@@ -89,70 +89,107 @@ fn wait_child(pid: libc::pid_t) -> libc::c_int {
     }
 }
 
+/// Test-only log of signals this module sends to role children, so a
+/// regression can prove no signal follows ownership loss. Release builds
+/// emit the raw kill with no footprint.
+#[cfg(test)]
+static KILL_LOG: std::sync::Mutex<Vec<(libc::pid_t, libc::c_int)>> =
+    std::sync::Mutex::new(Vec::new());
+
+fn signal_child(pid: libc::pid_t, signal: libc::c_int) {
+    #[cfg(test)]
+    if let Ok(mut log) = KILL_LOG.lock() {
+        log.push((pid, signal));
+    }
+    unsafe {
+        libc::kill(pid, signal);
+    }
+}
+
+/// CODEX-P07-001b: every bounded wait ends in exactly one of these.
+/// `Alive` means the deadline expired while the pid was positively still
+/// an owned child (escalation authorized); `Gone` means wait established
+/// it is no longer an owned child (no signal may follow).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReapOutcome {
+    Reaped(libc::c_int),
+    Alive,
+    Gone,
+}
+
+const TERM_GRACE_MS: u64 = 1000;
+const KILL_GRACE_MS: u64 = 1000;
+const POLL_SLICE_MS: u64 = 20;
+
+fn reap_once(pid: libc::pid_t) -> ReapOutcome {
+    let mut status = 0;
+    loop {
+        let rc = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+        if rc == pid {
+            return ReapOutcome::Reaped(status);
+        }
+        if rc < 0 {
+            let errno = std::io::Error::last_os_error().raw_os_error();
+            if errno == Some(libc::EINTR) {
+                continue;
+            }
+            // Not a waitable child (already reaped elsewhere): ownership
+            // lost, so no signal may be sent.
+            return ReapOutcome::Gone;
+        }
+        return ReapOutcome::Alive;
+    }
+}
+
+fn reap_until(pid: libc::pid_t, deadline: std::time::Instant) -> ReapOutcome {
+    loop {
+        match reap_once(pid) {
+            ReapOutcome::Alive => {}
+            settled => return settled,
+        }
+        if std::time::Instant::now() >= deadline {
+            // The last poll saw a live owned child: still owned at expiry.
+            return ReapOutcome::Alive;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(POLL_SLICE_MS));
+    }
+}
+
 /// CODEX-P07-001: bounded checked termination of an owned role child after
 /// a log failure. SIGTERM with a grace interval, then SIGKILL with a final
 /// reap interval; every wait is `WNOHANG` so even an unkillable
-/// (uninterruptible-sleep) child cannot hang the supervisor. The first
-/// probe runs before any signal: an already-reaped pid reports `None`
-/// without signaling, so a recycled pid is never touched. Returns the wait
-/// status when the child was confirmed reaped, or `None` when termination
-/// could not be confirmed (the caller must report uncertainty, never Ok).
+/// (uninterruptible-sleep) child cannot hang the supervisor. SIGKILL is
+/// sent only when the grace expired while the child was positively still
+/// owned; ownership loss at any point reports `None` with no further
+/// signal, so a recycled pid is never touched. Returns the wait status
+/// when the child was confirmed reaped, or `None` when termination could
+/// not be confirmed (the caller must report uncertainty, never Ok).
 fn terminate_child(pid: libc::pid_t) -> Option<libc::c_int> {
-    const TERM_GRACE_MS: u64 = 1000;
-    const KILL_GRACE_MS: u64 = 1000;
-    const POLL_SLICE_MS: u64 = 20;
-    fn reap_once(pid: libc::pid_t) -> Option<Option<libc::c_int>> {
-        let mut status = 0;
-        loop {
-            let rc = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
-            if rc == pid {
-                return Some(Some(status));
-            }
-            if rc < 0 {
-                let errno = std::io::Error::last_os_error().raw_os_error();
-                if errno == Some(libc::EINTR) {
-                    continue;
-                }
-                // Not a waitable child (already reaped elsewhere): gone,
-                // so no signal may be sent.
-                return Some(None);
-            }
-            return None;
-        }
-    }
-    fn reap_until(pid: libc::pid_t, deadline: std::time::Instant) -> Option<libc::c_int> {
-        loop {
-            match reap_once(pid) {
-                Some(outcome) => return outcome,
-                None => {}
-            }
-            if std::time::Instant::now() >= deadline {
-                return None;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(POLL_SLICE_MS));
-        }
-    }
     match reap_once(pid) {
-        Some(outcome) => return outcome,
-        None => {}
+        ReapOutcome::Reaped(status) => return Some(status),
+        ReapOutcome::Gone => return None,
+        ReapOutcome::Alive => {}
     }
-    unsafe {
-        libc::kill(pid, libc::SIGTERM);
-    }
-    let outcome = reap_until(
+    signal_child(pid, libc::SIGTERM);
+    match reap_until(
         pid,
         std::time::Instant::now() + std::time::Duration::from_millis(TERM_GRACE_MS),
-    );
-    if outcome.is_some() {
-        return outcome;
+    ) {
+        ReapOutcome::Reaped(status) => return Some(status),
+        ReapOutcome::Gone => return None,
+        ReapOutcome::Alive => {}
     }
-    unsafe {
-        libc::kill(pid, libc::SIGKILL);
-    }
-    reap_until(
+    // The grace expired while the pid was positively still an owned
+    // child, so escalation is authorized. Production is a single-child
+    // waiter, which keeps this exact: no other reaper can interleave.
+    signal_child(pid, libc::SIGKILL);
+    match reap_until(
         pid,
         std::time::Instant::now() + std::time::Duration::from_millis(KILL_GRACE_MS),
-    )
+    ) {
+        ReapOutcome::Reaped(status) => Some(status),
+        ReapOutcome::Alive | ReapOutcome::Gone => None,
+    }
 }
 
 /// CODEX-P07-001: log-failure exit for `run_as_role`. The original log
