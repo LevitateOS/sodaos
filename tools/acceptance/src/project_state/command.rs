@@ -20,6 +20,13 @@ const MAX_OUTPUT: usize = 4 * 1024 * 1024;
 /// exited-before-deadline command wins over the deadline, like the
 /// previous poll loop. Pump read errors stay tolerated like the
 /// previous ignored `read_to_end` results.
+///
+/// Latency budget, reported separately: the phase deadline bounds the
+/// wait plus pipe completion (phased pumps exit, marked cancelled, at
+/// the deadline even when an escaped writer group retirement cannot
+/// touch holds the pipes). Owned stop adds its own bounded grace past
+/// the deadline on the timeout path only: TERM, then KILL after ten
+/// seconds, then a five-second reap wait — fifteen seconds worst case.
 pub fn command_with_timeout(
     argv: &[String],
     extra_env: &[(&str, &str)],
@@ -63,6 +70,12 @@ pub fn command_with_timeout(
     let _ = process.join_pumps();
     if !clean {
         return Err(failed_command(argv));
+    }
+    if stdout.cancelled() {
+        // The command finished but its pipes did not: an escaped writer
+        // held them past the deadline. The deadline covers pipe
+        // completion, so this is a timeout, not partial success.
+        return Err(SnapshotFailure::bare(SnapshotKind::TimeoutExpired));
     }
     let (stdout, overflow) = stdout.take();
     if overflow {

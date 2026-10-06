@@ -84,6 +84,80 @@ fn raw_capture_keeps_bounded_bytes_and_discards_stderr() {
 
 #[test]
 #[cfg(target_os = "linux")]
+fn phased_pumps_exit_on_deadline_without_detaching() {
+    // A setsid daemon escapes the group with inherited pipes and
+    // outlives group retirement; phased pumps must exit at the deadline
+    // (joined, marked cancelled, partial bytes kept) rather than hang
+    // on the foreign-held pipes. No foreign signal is sent: the daemon
+    // outlives this fixture on its own inside a five-second stray. The
+    // ready file proves the escape completed before the leader exited;
+    // without it retirement could reap the daemon mid-escape.
+    let dir = crate::files::TempDir::new("escape").unwrap();
+    let ready = dir.path().join("escaped");
+    let script = format!(
+        "setsid sh -c 'echo ready > {}; exec sleep 5' & while [ ! -f {} ]; do sleep 0.01; done; echo out",
+        ready.display(),
+        ready.display()
+    );
+    let start = std::time::Instant::now();
+    let (process, out, _) = start_raw_process(
+        &Phase::timeout(Duration::from_millis(300)),
+        &shell_command(script.as_str()),
+        64,
+    )
+    .unwrap();
+    process
+        .wait(&Phase::timeout(Duration::from_secs(60)))
+        .unwrap();
+    process.join_pumps();
+    assert!(out.cancelled());
+    assert_eq!(out.take(), (b"out\n".to_vec(), false));
+    assert!(
+        start.elapsed() < Duration::from_secs(5),
+        "pumps outlived the deadline"
+    );
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn stop_is_safe_at_any_lifecycle_point() {
+    // Sealed ownership: stop() must be safe racing the reaper, after
+    // completion, and twice — signaling and sealing share one mutex
+    // so they cannot interleave into an unpinned group. Outcomes vary
+    // with the race (clean exit or signal termination); safety and
+    // termination do not. This locks the contract; the resealed race
+    // itself closes structurally and has no deterministic trigger.
+    for _ in 0..25 {
+        let process = start_process(
+            &Phase::background(),
+            &shell_command("echo done"),
+            discard_pair().0,
+            discard_pair().1,
+        )
+        .unwrap();
+        let first = process.stop().map_err(|e| e.to_string());
+        let second = process.stop().map_err(|e| e.to_string());
+        assert_eq!(first, second, "later stops replay the first outcome");
+        let _ = process.wait(&Phase::timeout(Duration::from_secs(5)));
+        assert!(process.is_done());
+        process.join_pumps();
+    }
+    let process = start_process(
+        &Phase::background(),
+        &shell_command("echo done"),
+        discard_pair().0,
+        discard_pair().1,
+    )
+    .unwrap();
+    process
+        .wait(&Phase::timeout(Duration::from_secs(5)))
+        .unwrap();
+    process.stop().unwrap();
+    assert_eq!(process.outcome().and_then(|o| o.exit_code), Some(0));
+}
+
+#[test]
+#[cfg(target_os = "linux")]
 fn leader_exit_and_resistant_descendants() {
     for mode in ["leader-exit", "leader-term", "leader-resistant"] {
         let mut dir = std::env::temp_dir();
