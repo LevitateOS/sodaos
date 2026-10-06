@@ -2,7 +2,7 @@ use super::*;
 use std::fs::File;
 use std::io::BufReader;
 use std::os::unix::io::AsRawFd;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
