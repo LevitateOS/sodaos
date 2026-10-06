@@ -14,6 +14,10 @@ path = "src/main.rs"
 name = "project-account"
 path = "src/bin/project-account.rs"
 
+[[bin]]
+name = "project-factory-roles"
+path = "src/bin/project-factory-roles.rs"
+
 [dependencies]
 soda-json = { path = "../../lib/json" }
 libc = "0.2"
