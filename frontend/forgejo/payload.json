@@ -232,6 +232,7 @@
   "templates/repo/settings/navbar.tmpl": "frontend/forgejo/templates/repo/settings/navbar.tmpl",
   "templates/repo/settings/options.tmpl": "frontend/forgejo/templates/repo/settings/options.tmpl",
   "templates/repo/settings/options_federation.tmpl": "frontend/forgejo/templates/repo/settings/options_federation.tmpl",
+  "templates/repo/settings/options_maintenance.tmpl": "frontend/forgejo/templates/repo/settings/options_maintenance.tmpl",
   "templates/repo/settings/options_mirrors.tmpl": "frontend/forgejo/templates/repo/settings/options_mirrors.tmpl",
   "templates/repo/settings/options_repository.tmpl": "frontend/forgejo/templates/repo/settings/options_repository.tmpl",
   "templates/repo/settings/options_trust.tmpl": "frontend/forgejo/templates/repo/settings/options_trust.tmpl",

@@ -1,0 +1,71 @@
+{{/* Admin maintenance settings for repo/settings/options.tmpl. Entry retains layout, order and root context. */}}
+		{{if .IsAdmin}}
+		<section class="soda-settings-section">
+		<h2 class="soda-p-heading">
+			{{ctx.Locale.Tr "repo.settings.admin_settings"}}
+		</h2>
+		<div class="soda-settings-section-body">
+			<form class="ui form soda-p-form" method="post">
+				<input type="hidden" name="action" value="admin">
+				<div class="field">
+					<div class="ui checkbox">
+						<input name="enable_health_check" type="checkbox" {{if .Repository.IsFsckEnabled}}checked{{end}}>
+						<label>{{ctx.Locale.Tr "repo.settings.admin_enable_health_check"}}</label>
+					</div>
+				</div>
+
+				<div class="field">
+					<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.update_settings"}}</button>
+				</div>
+			</form>
+
+			<form class="ui form soda-p-form tw-mt-6" method="post">
+				<input type="hidden" name="action" value="admin_index">
+				{{if .CodeIndexerEnabled}}
+					<h3 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.settings.admin_code_indexer"}}</h3>
+					<div class="inline fields">
+						<label>{{ctx.Locale.Tr "repo.settings.admin_indexer_commit_sha"}}</label>
+						<span class="field">
+							{{if .CodeIndexerStatus}}
+								<a rel="nofollow" class="sha label" href="{{.RepoLink}}/commit/{{.CodeIndexerStatus.CommitSha}}">
+									<span class="shortsha">{{ShortSha .CodeIndexerStatus.CommitSha}}</span>
+								</a>
+							{{else}}
+									<span>{{ctx.Locale.Tr "repo.settings.admin_indexer_unindexed"}}</span>
+							{{end}}
+						</span>
+						<div class="field">
+							<button class="ui primary button" name="request_reindex_type" value="code">{{ctx.Locale.Tr "repo.settings.reindex_button"}}</button>
+						</div>
+					</div>
+				{{end}}
+
+				<h3 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.issue_indexer.title"}}</h3>
+				<div class="inline fields">
+					<div class="field">
+						<button class="ui primary button" name="request_reindex_type" value="issues">{{ctx.Locale.Tr "repo.settings.reindex_button"}}</button>
+					</div>
+				</div>
+
+				<h3 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.settings.admin_stats_indexer"}}</h3>
+				<div class="inline fields">
+					{{if and .StatsIndexerStatus .StatsIndexerStatus.CommitSha}}
+						<label>{{ctx.Locale.Tr "repo.settings.admin_indexer_commit_sha"}}</label>
+					{{end}}
+					<span class="field">
+						{{if and .StatsIndexerStatus .StatsIndexerStatus.CommitSha}}
+							<a rel="nofollow" class="sha label" href="{{.RepoLink}}/commit/{{.StatsIndexerStatus.CommitSha}}">
+								<span class="shortsha">{{ShortSha .StatsIndexerStatus.CommitSha}}</span>
+							</a>
+						{{else}}
+							<span>{{ctx.Locale.Tr "repo.settings.admin_indexer_unindexed"}}</span>
+						{{end}}
+					</span>
+					<div class="field">
+						<button class="ui primary button" name="request_reindex_type" value="stats">{{ctx.Locale.Tr "repo.settings.reindex_button"}}</button>
+					</div>
+				</div>
+			</form>
+		</div>
+		</section>
+		{{end}}
