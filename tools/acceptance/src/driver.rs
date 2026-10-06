@@ -17,13 +17,14 @@ use crate::evidence::{create_evidence, Evidence};
 use crate::files;
 use crate::jsonio;
 use crate::process::Phase;
-use crate::provisioning;
 use crate::remote;
 use crate::report::{self, Observation};
 use crate::vm;
 
+mod inputs;
 mod options;
 
+use inputs::collect_all_secrets;
 #[cfg(test)]
 use options::parse_duration;
 use options::{flag_string, parse_flags, parse_run_options, FlagKind, RunOptions};
@@ -61,48 +62,6 @@ fn client_platform() -> String {
         other => other,
     };
     format!("{os}/{arch}")
-}
-
-fn read_secret_files(files: &[String]) -> Result<Vec<Vec<u8>>, Error> {
-    let mut secrets = Vec::new();
-    for file in files {
-        let bytes = files::private_file(file)?;
-        if bytes.is_empty() {
-            return Err(Error::msg("empty secret input"));
-        }
-        let mut trimmed = bytes.clone();
-        while trimmed.last().is_some_and(|b| *b == b'\r' || *b == b'\n') {
-            trimmed.pop();
-        }
-        secrets.push(bytes);
-        secrets.push(trimmed);
-    }
-    Ok(secrets)
-}
-
-fn load_vm_secrets(
-    config_path: &str,
-    arch: &str,
-    target: &str,
-) -> Result<(vm::VmConfig, Vec<Vec<u8>>), Error> {
-    let (value, _) = jsonio::read_json_file(config_path)?;
-    let vm_config = vm::decode_vm_config(&value)?;
-    if vm_config.architecture != arch || vm_config.name != target {
-        return Err(Error::msg("VM target/platform mismatch"));
-    }
-    let private = provisioning::provisioning_secrets(&vm_config.ignition)?;
-    Ok((vm_config, private))
-}
-
-fn collect_all_secrets(opts: &RunOptions) -> Result<(Vec<Vec<u8>>, vm::VmConfig), Error> {
-    let mut secrets = read_secret_files(&opts.secret_files)?;
-    let mut vm_config = vm::VmConfig::default();
-    if opts.action == "vm" {
-        let (config, vm_secrets) = load_vm_secrets(&opts.config, &opts.arch, &opts.target)?;
-        vm_config = config;
-        secrets.extend(vm_secrets);
-    }
-    Ok((secrets, vm_config))
 }
 
 fn init_observation(opts: &RunOptions) -> Result<(Observation, Remote), Error> {
