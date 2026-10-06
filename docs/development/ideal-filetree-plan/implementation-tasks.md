@@ -15,8 +15,7 @@ and maps, including retained unchanged files, mixed responsibilities, tests,
 fixtures and real build/install callers. The paths here locate the defining
 owners; the current review allocations specify their exact leaves. Do not
 implement just the named examples or repeat another packet's shared-file edits.
-Current source is the clean `de65ff68` planning snapshot, with documentation-only
-changes since the `f7e9cf9d` source audit. All 80 slices have one primary packet
+Current source is post-integration canonical (run 20261005; implementation STARTED — see ticked boxes), superseding the clean `de65ff68` planning snapshot. The `f7e9cf9d` source audit and `d7e565aa`/`0d8d3b8e` structural baselines remain the preserved historical identities. All 80 slices have one primary packet
 below; shared duties route through their physical writer in the lane schedule.
 
 ## A — Projects, identity and Spaces
@@ -83,7 +82,7 @@ Compose/Muse-maintain command changes route to C; reserve their current module
 roots once across their P/I/H duties, while A owns host/guest changes.
 
 - [ ] **A07.M** Define shared run/native/binding/lifecycle/output/artifact units directly under `lib/host/src/terminal/factory/`; preserve distinct Codex/Muse launch/custody owners and the existing Service. Split actual guest terminal/PTY, attachment/pump and Compose/maintenance caller duties without new processes.
-- [x] **A07.C** [run 20261005: DONE, integrated 865f0e2f (H01-F3) + 9d5a9281 (S04-F1/S05-F1)] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
+- [x] **A07.C** [run 20261005: LANDED 865f0e2f (H01-F3) + 9d5a9281 (S04-F1/S05-F1); ACCEPTANCE PENDING CODEX-H01-REAP-1 (kill-without-wait repair routed to A)] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
 - [ ] **A07.V** Exercise real PTY/relay/pump subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement before expensive native runs.
 
 ### A08 Spaces browser inventory and viewer
@@ -222,7 +221,7 @@ Lead C; [O04](reviews/O04.md), [O07](reviews/O07.md). Existing installer/private
 Lead C; [D01](reviews/D01.md), [D03](reviews/D03.md). Start early on disjoint release files; consumes explicit binary/source tuples from A/C09/C11 through R01.
 
 - [x] **C08.M** [run 20261005: DONE, integrated 26327094 + R01 526bae78 (4 lib moves pure, 5 splits pure, D03-E4 retired)] Move the four existing Rust release crates to `lib/soda-release-{build,deliver,image,tools}`; split controllers/compiler/staging/progress/oracle concerns. Retire only the evidenced dead build progress/clock mirror and definition-only helpers, keeping actual release-tools progress/image Runner.
-- [x] **C08.C** [run 20261005: DONE (D01-F1..F5, D03-F1..F3, D01-F2/F3, mixed-cmd discovery proven on real tree)] Correct recorded architecture namespace, clean-inspection/signal/progress and pipe-drain defects; explicitly fix D01-F2 obsolete Go controller build/candidate selectors and executable stamp, D03-F2 deleted Go artifact compile selector, and D03-F3 missing acceptance remote companion before inventory. Fix discovery for mixed Go/Rust `cmd` and explicit package/bin compilation in the actual cutover.
+- [x] **C08.C** [run 20261005: LANDED (D01-F1..F5, D03-F1..F3, D01-F2/F3, mixed-cmd discovery proven); ACCEPTANCE PENDING CODEX-D01-CANCEL-1 (cancel/exit-code mapping repair routed to C)] Correct recorded architecture namespace, clean-inspection/signal/progress and pipe-drain defects; explicitly fix D01-F2 obsolete Go controller build/candidate selectors and executable stamp, D03-F2 deleted Go artifact compile selector, and D03-F3 missing acceptance remote companion before inventory. Fix discovery for mixed Go/Rust `cmd` and explicit package/bin compilation in the actual cutover.
 - [x] **C08.V** [run 20261005: DONE (mirror counts matched, Go pins green, candidate-check no stale pins)] Verify real producer/worker subjects and exact tools/rootfs selectors without a full release first. `soda-candidate-check` is already Rust: rebind its paths, do not schedule another port.
 
 ### C09 Inputs, authenticated media, assets and attribution

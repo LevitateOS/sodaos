@@ -18,8 +18,10 @@ Last maintained: **2026-10-06**. The execution schedule now provides
 [parallel implementation lanes](implementation-lanes.md) and a
 [dependency-ordered task list](implementation-tasks.md), prepared against
 `de65ff68`. That checkout's delta from the audit source is documentation only;
-this scheduling update does not advance the audit or historical structural
-baseline and does not start implementation. The latest coverage pass accounts for all
+the scheduling update itself does not advance the audit or historical structural
+baseline. Implementation has since STARTED under run 20261005 (parallel lanes;
+landed boxes in implementation-tasks.md; current canonical post-dates de65ff68).
+Audit/structural baselines above are preserved historical identities, not current source. The latest coverage pass accounts for all
 **1,719 tracked paths** and their mixed responsibilities across **80 candidate
 review slices**, at `0d8d3b8ebb5a7df36759685529f27f417d96fac8`. The complete
 proposed tree, package counts and historical decomposition use the structural
@@ -27,7 +29,7 @@ baseline `d7e565aa1019753997a99fd430ba103d7a472b48`, corrected here to exclude
 11 positively evidenced obsolete proposed leaves. The plan folder layout is
 also reflected in the proposed tree. The five-file source delta and the
 documentation split are reconciled in the catalog and coverage ledger. Complete structural
-reconciliation of later changes remains pending. Pending source cutovers remain
+reconciliation of later changes remains pending. Post-integration status (run 20261005): task boxes record landed A00/A05/A06/A07.C(partial-acceptance), B01-B04, C01(partial)/C02.C/C08 work; package-ownership.md rows carry run-status notes. NOT YET reconciled: proposed-tree.md paths/counts, coverage/inventory/* + coverage/maps/*, slice cards + catalog refs, decomposition seam refs, root-count table recount. In-flight branches (A01, B05, C09) are observations only, excluded from merged coverage. The plan is NOT fully current; this paragraph is the explicit pending list. Pending source cutovers remain
 explicit; proposed paths are not landed code.
 
 The separately [pinned review input baseline](review-baseline.md) records source
