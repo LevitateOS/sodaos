@@ -1,0 +1,45 @@
+{{/* Signature trust settings for repo/settings/options.tmpl. Entry retains layout, order and root context. */}}
+		<section class="soda-settings-section">
+		<h2 class="soda-p-heading">
+			{{ctx.Locale.Tr "repo.settings.signing_settings"}}
+		</h2>
+		<div class="soda-settings-section-body">
+			<form class="ui form soda-p-form" method="post">
+				<input type="hidden" name="action" value="signing">
+				<div class="field">
+					<label>{{ctx.Locale.Tr "repo.settings.trust_model"}}</label><br>
+					<div class="field">
+						<div class="ui radio checkbox">
+							<input type="radio" id="trust_model_default" name="trust_model" {{if eq .Repository.TrustModel.String "default"}}checked="checked"{{end}} value="default">
+							<label for="trust_model_default">{{ctx.Locale.Tr "repo.settings.trust_model.default"}}</label>
+							<p class="help">{{ctx.Locale.Tr "repo.settings.trust_model.default.desc"}}</p>
+						</div>
+					</div>
+					<div class="field">
+						<div class="ui radio checkbox">
+							<input type="radio" id="trust_model_collaborator" name="trust_model" {{if eq .Repository.TrustModel.String "collaborator"}}checked="checked"{{end}} value="collaborator">
+							<label for="trust_model_collaborator">{{ctx.Locale.Tr "repo.settings.trust_model.collaborator.long"}}</label>
+							<p class="help">{{ctx.Locale.Tr "repo.settings.trust_model.collaborator.desc"}}</p>
+						</div>
+					</div>
+					<div class="field">
+						<div class="ui radio checkbox">
+							<input type="radio" name="trust_model" id="trust_model_committer" {{if eq .Repository.TrustModel.String "committer"}}checked="checked"{{end}} value="committer">
+							<label for="trust_model_committer">{{ctx.Locale.Tr "repo.settings.trust_model.committer.long"}}</label>
+							<p class="help">{{ctx.Locale.Tr "repo.settings.trust_model.committer.desc"}}</p>
+						</div>
+					</div>
+					<div class="field">
+						<div class="ui radio checkbox">
+							<input type="radio" name="trust_model" id="trust_model_collaboratorcommitter" {{if eq .Repository.TrustModel.String "collaboratorcommitter"}}checked="checked"{{end}} value="collaboratorcommitter">
+							<label for="trust_model_collaboratorcommitter">{{ctx.Locale.Tr "repo.settings.trust_model.collaboratorcommitter.long"}}</label>
+							<p class="help">{{ctx.Locale.Tr "repo.settings.trust_model.collaboratorcommitter.desc"}}</p>
+						</div>
+					</div>
+				</div>
+				<div class="field">
+					<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.update_settings"}}</button>
+				</div>
+			</form>
+		</div>
+		</section>

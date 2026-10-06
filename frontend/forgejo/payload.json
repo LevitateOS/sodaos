@@ -234,6 +234,7 @@
   "templates/repo/settings/options_federation.tmpl": "frontend/forgejo/templates/repo/settings/options_federation.tmpl",
   "templates/repo/settings/options_mirrors.tmpl": "frontend/forgejo/templates/repo/settings/options_mirrors.tmpl",
   "templates/repo/settings/options_repository.tmpl": "frontend/forgejo/templates/repo/settings/options_repository.tmpl",
+  "templates/repo/settings/options_trust.tmpl": "frontend/forgejo/templates/repo/settings/options_trust.tmpl",
   "templates/repo/settings/protected_branch.tmpl": "frontend/forgejo/templates/repo/settings/protected_branch.tmpl",
   "templates/repo/settings/runner_create.tmpl": "frontend/forgejo/templates/repo/settings/runner_create.tmpl",
   "templates/repo/settings/runner_details.tmpl": "frontend/forgejo/templates/repo/settings/runner_details.tmpl",
