@@ -24,13 +24,6 @@ pub(super) struct OciManifest {
     pub(super) layers: Vec<Descriptor>,
 }
 
-#[derive(Debug, Clone, Default)]
-pub(super) struct LayerMember {
-    pub(super) hash: String,
-    pub(super) present: bool,
-    pub(super) blocked: bool,
-}
-
 // ---------------------------------------------------------------------------
 // Small decoders (encoding/json semantics: lenient, last-wins)
 // ---------------------------------------------------------------------------
