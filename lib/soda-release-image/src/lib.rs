@@ -33,6 +33,7 @@ pub mod jsonio;
 pub mod layout;
 pub mod media;
 mod media_assembler;
+mod media_authentication;
 pub mod model;
 pub mod packages;
 pub mod payload_stage;
