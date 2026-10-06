@@ -115,6 +115,7 @@ fn snapshot_gate_requires_root_container() {
 }
 
 #[test]
+#[cfg(target_os = "linux")]
 fn snapshot_command_reports_failures() {
     let ok = command(&arg_list(&["echo", "  hi  "]), &[]).unwrap();
     assert_eq!(ok, "hi");
@@ -129,15 +130,58 @@ fn snapshot_command_reports_failures() {
     assert_eq!(err.detail, "Snapshot output exceeded bound");
 }
 
-/// ACCEPTANCE-19-002: the timeout path retires the whole process group.
-/// A backgrounded grandchild holds the pipes for 60s; killing only the
-/// direct child would leave the stderr join hanging until then. The call
-/// must report TimeoutExpired promptly instead.
+/// Owner rule shared with the process tests: never signal a PID read
+/// from disk. A missing /proc entry or a zombie state proves the
+/// descendant no longer executes.
+#[cfg(target_os = "linux")]
+fn assert_descendant_retired(pid_file: &std::path::Path) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let pid = loop {
+        if let Ok(raw) = std::fs::read_to_string(pid_file) {
+            let trimmed = raw.trim().to_string();
+            if !trimmed.is_empty() {
+                break trimmed;
+            }
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "descendant pid never recorded"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    loop {
+        match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
+            Err(e) if e.raw_os_error() == Some(libc::ESRCH) => return,
+            Err(e) => panic!("{e}"),
+            Ok(raw) => {
+                let tail = raw.rsplit(')').next().unwrap_or("");
+                if tail.split_whitespace().next() == Some("Z") {
+                    return;
+                }
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "descendant {pid} survived"
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+    }
+}
+
+/// ACCEPTANCE-20-001: the timeout path retires the whole group through
+/// the owned lifecycle. A backgrounded grandchild holds the pipes for
+/// 60s; the call must report TimeoutExpired promptly with no detached
+/// readers and no surviving descendant.
 #[test]
-fn snapshot_command_timeout_retires_pipe_holding_descendants() {
+#[cfg(target_os = "linux")]
+fn snapshot_command_timeout_retires_group_and_readers() {
+    let dir = TempDir::new("snapshot").unwrap();
+    let pid_file = dir.path().join("descendant.pid");
+    let script = format!("sleep 60 & echo $! > {}; wait", pid_file.display());
     let start = std::time::Instant::now();
     let err = command_with_timeout(
-        &arg_list(&["sh", "-c", "sleep 60 & wait"]),
+        &arg_list(&["sh", "-c", script.as_str()]),
         &[],
         Duration::from_millis(200),
     )
@@ -148,27 +192,33 @@ fn snapshot_command_timeout_retires_pipe_holding_descendants() {
         "group retirement took {:?}",
         start.elapsed()
     );
+    assert_descendant_retired(&pid_file);
 }
 
-/// ACCEPTANCE-19-002: the deadline also covers pipe completion after a
-/// clean leader exit. The leader exits at once while a grandchild holds
-/// the pipes for 5s; the call must report TimeoutExpired at the deadline
-/// rather than succeeding late.
+/// ACCEPTANCE-20-001: direct-parent exit with inherited pipes. The
+/// leader prints and exits at once while a grandchild holds the pipes;
+/// owned group retirement reaps the descendant, drains complete bytes,
+/// and reports success — nothing detaches and nothing survives.
 #[test]
-fn snapshot_command_exit_path_bounds_pipe_completion() {
+#[cfg(target_os = "linux")]
+fn snapshot_command_exit_path_retires_inherited_pipes() {
+    let dir = TempDir::new("snapshot").unwrap();
+    let pid_file = dir.path().join("descendant.pid");
+    let script = format!("echo hello; sleep 60 & echo $! > {}", pid_file.display());
     let start = std::time::Instant::now();
-    let err = command_with_timeout(
-        &arg_list(&["sh", "-c", "sleep 5 &"]),
+    let out = command_with_timeout(
+        &arg_list(&["sh", "-c", script.as_str()]),
         &[],
-        Duration::from_millis(300),
+        Duration::from_secs(30),
     )
-    .unwrap_err();
-    assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
+    .unwrap();
+    assert_eq!(out, "hello");
     assert!(
-        start.elapsed() < Duration::from_secs(5),
-        "pipe join returned after {:?}",
+        start.elapsed() < Duration::from_secs(10),
+        "pipe retirement took {:?}",
         start.elapsed()
     );
+    assert_descendant_retired(&pid_file);
 }
 
 #[test]

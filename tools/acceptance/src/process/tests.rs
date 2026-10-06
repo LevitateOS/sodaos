@@ -60,6 +60,30 @@ fn owned_process_wait_and_cleanup() {
 
 #[test]
 #[cfg(target_os = "linux")]
+fn raw_capture_keeps_bounded_bytes_and_discards_stderr() {
+    // Raw mode keeps exact machine bytes (no redaction), flags overflow
+    // past the cap while still draining, and discards stderr.
+    let (process, out, err) = start_raw_process(
+        &Phase::background(),
+        &shell_command("echo hello; echo noise >&2"),
+        4,
+    )
+    .unwrap();
+    process
+        .wait(&Phase::timeout(Duration::from_secs(5)))
+        .unwrap();
+    process.join_pumps();
+    assert_eq!(out.take(), (b"hell".to_vec(), true));
+    assert_eq!(err.take(), (Vec::new(), true));
+    let (exact, bytes, _) =
+        start_raw_process(&Phase::background(), &shell_command("printf 'a\\tb'"), 64).unwrap();
+    exact.wait(&Phase::timeout(Duration::from_secs(5))).unwrap();
+    exact.join_pumps();
+    assert_eq!(bytes.take(), (b"a\tb".to_vec(), false));
+}
+
+#[test]
+#[cfg(target_os = "linux")]
 fn leader_exit_and_resistant_descendants() {
     for mode in ["leader-exit", "leader-term", "leader-resistant"] {
         let mut dir = std::env::temp_dir();

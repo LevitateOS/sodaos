@@ -15,10 +15,12 @@ use crate::evidence::RedactingWriter;
 mod launch;
 mod owned_process;
 mod phase;
+mod raw;
 
 pub use self::launch::start_process;
 pub use self::owned_process::Process;
 pub use self::phase::Phase;
+pub use self::raw::{start_raw_process, RawCapture};
 
 /// Shared redacting sink for pump threads.
 pub type SharedWriter = Arc<Mutex<RedactingWriter>>;
