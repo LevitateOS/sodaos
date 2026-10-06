@@ -83,6 +83,12 @@ fn execute(
 ) -> Result<Vec<u8>, String> {
     use std::io::Write;
     use std::process::Stdio;
+    // Refuse before launch: an expired deadline must never start an
+    // effectful command. The error describes the refusal, never a kill
+    // (no child exists), like Go's expired-context Start refusal.
+    if Instant::now() >= deadline {
+        return Err(refusal_text(cmd, status_only));
+    }
     let mut child = std::process::Command::new(cmd)
         .args(args)
         .stdin(Stdio::piped())
@@ -165,6 +171,16 @@ fn execute(
         exit_text(status),
         String::from_utf8_lossy(&stderr)
     ))
+}
+
+/// Expired-deadline refusal text: no child was started, so the wording
+/// reports the missed deadline and never claims a killed child.
+fn refusal_text(cmd: &str, status_only: bool) -> String {
+    if status_only {
+        String::from("deadline exceeded")
+    } else {
+        format!("{cmd} failed: deadline exceeded")
+    }
 }
 
 #[cfg(unix)]

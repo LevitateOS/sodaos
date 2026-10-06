@@ -1014,14 +1014,28 @@ mod tests {
     }
 
     #[test]
-    fn status_only_deadline_kills() {
-        let exec = NativeStatusOnly;
-        // An already-expired deadline kills deterministically: sleep cannot
-        // exit before the first poll observes the expiry.
+    fn expired_deadline_refuses_without_launch() {
+        use soda_host::project::Native;
+        // An expired deadline refuses before launch: no child starts, so no
+        // fixture effect occurs and the error never claims a killed child.
+        let env = TestEnv::fresh("refused");
+        let witness = env.path("launched");
+        let script = stub_cli(&env, "effect.sh", &format!("touch \"{witness}\"\nsleep 60"));
+        // Monotonic clock: the check below always observes now >= deadline.
         let deadline = Instant::now();
         assert_eq!(
-            exec.run(&[], "/bin/sleep", &["60"], deadline).unwrap_err(),
-            "signal: killed"
+            Native.run(&[], &script, &[], deadline).unwrap_err(),
+            format!("{script} failed: deadline exceeded")
+        );
+        assert_eq!(
+            NativeStatusOnly
+                .run(&[], &script, &[], deadline)
+                .unwrap_err(),
+            "deadline exceeded"
+        );
+        assert!(
+            std::fs::metadata(&witness).is_err(),
+            "expired request launched a child"
         );
     }
 
