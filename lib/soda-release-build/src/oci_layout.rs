@@ -2,7 +2,8 @@
 //! exact named image set and its local blobs without running image code.
 //! References are immutable config IDs, as in our OCI exports.
 
-use crate::files::{is_digest, is_revision, oci_architecture, Root};
+use crate::confined_files::Root;
+use crate::files::{is_digest, is_revision, oci_architecture};
 use crate::oci::{inspect_oci_image, read_oci_blob, read_oci_index, Blob, Image, LoadBlobs};
 use crate::{io_error, Error};
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ pub struct OciLayout {
     pub bytes: u64,
 }
 
-fn same_opened(st: &crate::files::FileMeta, actual: &std::fs::Metadata) -> bool {
+fn same_opened(st: &crate::confined_files::FileMeta, actual: &std::fs::Metadata) -> bool {
     use std::os::unix::fs::MetadataExt;
     st.dev == actual.dev() && st.ino == actual.ino()
 }

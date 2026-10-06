@@ -5,9 +5,10 @@
 //! consulted.
 
 use crate::coreos::{https_url, CoreOSImage};
-use crate::files::{is_digest, oci_architecture, read_json, write_new};
+use crate::files::{is_digest, oci_architecture, write_new};
 use crate::http::{get_follow, HttpTransport, UreqTransport};
 use crate::json_go::{marshal_indent, Emit, Fields, Strict};
+use crate::json_input::read_json;
 use crate::Error;
 use soda_json::JsonValue;
 use std::collections::HashMap;

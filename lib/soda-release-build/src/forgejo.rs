@@ -290,7 +290,7 @@ mod tests {
         assert!(!joined.contains("golang:1.26.7-alpine"));
         assert!(!joined.contains("apk add --no-cache build-base git"));
         assert!(context.join("forgejo-bin").exists());
-        let toolchain: ForgejoToolchain = crate::files::read_json(
+        let toolchain: ForgejoToolchain = crate::json_input::read_json(
             &out.join("forgejo-toolchain.json"),
             "build.ForgejoToolchain",
             ForgejoToolchain::decode,

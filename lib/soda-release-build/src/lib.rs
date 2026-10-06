@@ -14,6 +14,7 @@
 //!   outputs are exact under any umask (identical to Go under a standard
 //!   umask, where the tests pin them).
 
+pub mod confined_files;
 pub mod coreos;
 pub mod coreos_iso;
 pub mod coreos_stream;
@@ -22,6 +23,7 @@ pub mod files;
 pub mod forgejo;
 pub mod http;
 pub mod json_go;
+pub mod json_input;
 pub mod oci;
 pub mod oci_layout;
 pub mod production;

@@ -10,14 +10,16 @@ mod oracle_vectors;
 
 use oracle_vectors as oracle;
 use soda_build_tools::reader::settings::soda_commands;
+use soda_release_build::confined_files::Root;
 use soda_release_build::coreos::{https_url, CoreOSImage, VerifiedBase};
 use soda_release_build::coreos_stream::{
     read_live_inputs, valid_live_inputs, valid_tailnet_inputs, write_live_inputs, LiveInputs,
     ResolvedCoreOS, TailnetInputs,
 };
-use soda_release_build::files::{is_digest, read_json, read_json_at, File, Root};
+use soda_release_build::files::{is_digest, File};
 use soda_release_build::forgejo::{forgejo_build_args, ForgejoToolchain, FORGEJO_COMPILER_IMAGE};
 use soda_release_build::json_go;
+use soda_release_build::json_input::{read_json, read_json_at};
 use soda_release_build::oci::{inspect_oci, inspect_oci_content};
 use soda_release_build::oci_layout::inspect_oci_layout;
 use soda_release_build::production::{Production, ResolvedInput};
