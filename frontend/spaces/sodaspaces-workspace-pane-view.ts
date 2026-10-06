@@ -2,7 +2,8 @@ import {html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import type {Space} from './sodaspaces-api.js';
 import type {Area, LayoutEntry, Pane, Split, WorkspaceLayout} from './sodaspaces-layout.js';
-import {consolidate, moveTab, panes, splitPane} from './sodaspaces-layout.js';
+import {moveTab, panes, splitPane} from './sodaspaces-layout.js';
+import {consolidatePanes, toggleMaximizedPane} from './sodaspaces-workspace-layout.js';
 import type {NavReading} from './sodaspaces-workspace-navigation.js';
 import {rowAttention, rowName} from './sodaspaces-workspace-navigation.js';
 import type {PaneSession, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
@@ -37,17 +38,6 @@ export interface PaneChromeInput {
   rectangle: (area: Area) => string;
   showSessions: (pane: string) => void;
   newTerminal: (pane: string) => void;
-}
-
-export function toggleMaximizedPane(input: PaneChromeInput) {
-  input.closeMenus();
-  input.setMaximized(input.readMaximized() ? undefined : input.readLayout().focused);
-  input.requestUpdate();
-}
-
-export function consolidatePanes(input: PaneChromeInput) {
-  input.closeMenus();
-  input.arrange(consolidate(input.readLayout()));
 }
 
 export function showPaneSwitcher(input: PaneChromeInput) {

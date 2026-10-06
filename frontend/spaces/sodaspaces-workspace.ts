@@ -22,16 +22,11 @@ import {
   putEntry,
   forgetEntry,
   sameLocator,
-  parseLayout,
-  serializeLayout,
   layoutLimit,
   panes,
-  splitPane,
   moveTab,
-  resizeSplit,
-  projectLayout,
 } from './sodaspaces-layout.js';
-import type {WorkspaceLayout, LayoutEntry, Pane, Split, Area, Minimum, DividerArea} from './sodaspaces-layout.js';
+import type {WorkspaceLayout, LayoutEntry, Pane, Area} from './sodaspaces-layout.js';
 import {
   check,
   id,
@@ -107,6 +102,23 @@ import {
   renderMoreProjects,
 } from './sodaspaces-workspace-inventory.js';
 import type {InventoryInput, MoreProjectsInput} from './sodaspaces-workspace-inventory.js';
+import {
+  arrange,
+  canSplit,
+  compact as layoutCompact,
+  focusPane,
+  loadLayout,
+  move,
+  paneMinimum,
+  persist as layoutPersist,
+  projection as layoutProjection,
+  renderPaneDivider,
+  resizeSidebar,
+  sidebarKey,
+  split,
+  toggleSidebar,
+} from './sodaspaces-workspace-layout.js';
+import type {LayoutInput, MinimumInput} from './sodaspaces-workspace-layout.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -334,35 +346,18 @@ export class SodaSpaces extends LitElement {
     return focusedPane(this.layout).selected || '';
   }
   private get compact() {
-    return (
-      this.binding?.kind !== 'page' ||
-      this.workspaceWidth < (this.layout.sidebar || 220) + this.paneMinimum(focusedPane(this.layout)).width + 6
-    );
+    return layoutCompact(this.layoutInput());
   }
   private get projection() {
-    return projectLayout(
-      this.layout,
-      {
-        x: 0,
-        y: 0,
-        ...this.canvasSize,
-      },
-      (pane) => this.paneMinimum(pane),
-      this.compact,
-      this.maximized
-    );
+    return layoutProjection(this.layoutInput());
+  }
+  private minimumInput(): MinimumInput {
+    return {slots: this.slots, cell: this.cell, tabHeight: this.tabHeight};
   }
   private locator(slot: Slot) {
     const entry = this.layout.entries.find((entry) => entry.key === slot.key);
     check(entry);
     return entry.locator;
-  }
-  private paneMinimum(pane: Pane): Minimum {
-    const min = this.slots.find((s) => s.key === pane.selected)?.minimum;
-    return {
-      width: min?.width || Math.ceil(this.cell.width * 56 + 24),
-      height: (min?.height || Math.ceil(this.cell.height * 12 + 40)) + this.tabHeight,
-    };
   }
   private get tabHeight() {
     return this.workspaceWidth < 800 ? 48 : 40;
@@ -454,7 +449,7 @@ export class SodaSpaces extends LitElement {
     this.requestUpdate();
   }
   private publishMinimum() {
-    const min = this.paneMinimum(focusedPane(this.layout)).width;
+    const min = paneMinimum(this.minimumInput(), focusedPane(this.layout)).width;
     if (min === this.lastMinimum) return;
     this.lastMinimum = min;
     this.dispatchEvent(new CustomEvent('soda-workspace-minimum', {bubbles: true, detail: min}));
@@ -505,9 +500,9 @@ export class SodaSpaces extends LitElement {
   private readonly onCancelSetup = () => this.cancelSetup();
   private readonly onSetupBack = () => (this.setup === 'configure' ? this.changeRepository() : this.cancelSetup());
   private readonly onCapturePointer = (e: PointerEvent) => this.capture(e);
-  private readonly onResizeSidebar = (e: PointerEvent) => this.resizeSidebar(e);
+  private readonly onResizeSidebar = (e: PointerEvent) => resizeSidebar(this.layoutInput(), e);
   private readonly onReleasePointer = (e: PointerEvent) => this.releasePointer(e);
-  private readonly onSidebarKey = (e: KeyboardEvent) => this.sidebarKey(e);
+  private readonly onSidebarKey = (e: KeyboardEvent) => sidebarKey(this.layoutInput(), e);
   private navigationEscape(e: KeyboardEvent) {
     if (e.key !== 'Escape' || this.view !== 'sessions') return;
     e.preventDefault();
@@ -596,36 +591,6 @@ export class SodaSpaces extends LitElement {
     )
       return '';
     return html`<p>${this.emptyFilterMessage()}</p>`;
-  }
-  private readonly onDividerPointerMove = (e: PointerEvent) => {
-    const key = (e.currentTarget as HTMLElement).dataset.dividerKey;
-    const divider = this.projection.dividers.find((item) => item.key === key);
-    if (divider) this.dragDivider(e, divider);
-  };
-  private readonly onDividerKey = (e: KeyboardEvent) => {
-    const key = (e.currentTarget as HTMLElement).dataset.dividerKey;
-    const divider = this.projection.dividers.find((item) => item.key === key);
-    if (divider) this.keyDivider(e, divider);
-  };
-  private renderPaneDivider(
-    divider: {key: string; axis: string; minimum: number; maximum: number; ratio: number} & Area
-  ) {
-    return html`<div
-      class="soda-pane-divider"
-      role="separator"
-      tabindex="0"
-      data-divider-key=${divider.key}
-      aria-label="Resize panes"
-      aria-orientation=${divider.axis === 'right' ? 'vertical' : 'horizontal'}
-      aria-valuemin=${Math.ceil(divider.minimum * 100)}
-      aria-valuemax=${Math.floor(divider.maximum * 100)}
-      aria-valuenow=${Math.round(divider.ratio * 100)}
-      style=${this.rectangle(divider)}
-      @pointerdown=${this.onCapturePointer}
-      @pointermove=${this.onDividerPointerMove}
-      @pointerup=${this.onReleasePointer}
-      @keydown=${this.onDividerKey}
-    ></div>`;
   }
   private renderWelcomeFooter() {
     if (!this.welcomeScreen && !this.setup) return '';
@@ -770,7 +735,7 @@ export class SodaSpaces extends LitElement {
         ${repeat(
           this.projection.dividers,
           (divider) => divider.key,
-          (divider) => this.renderPaneDivider(divider)
+          (divider) => renderPaneDivider(this.layoutInput(), divider)
         )}
       </div>
       <div class="soda-workspace-owners"></div>
@@ -844,7 +809,7 @@ export class SodaSpaces extends LitElement {
       this.selected,
       () => this.openInDrawer()
     );
-    const toggleSidebar = renderToggleSidebarOption(this.binding?.kind, () => this.toggleSidebar());
+    const toggleSidebarOption = renderToggleSidebarOption(this.binding?.kind, () => toggleSidebar(this.layoutInput()));
     const nativeMgmt = renderNativeManagementOption(
       this.binding,
       workspaceBlocked(this.stale, this.available),
@@ -857,7 +822,7 @@ export class SodaSpaces extends LitElement {
         <button class="ui button" ?disabled=${this.busy || this.stale} @click=${this.onRefreshClick}>
           Refresh Spaces
         </button>
-        ${openInDrawer} ${toggleSidebar} ${nativeMgmt}
+        ${openInDrawer} ${toggleSidebarOption} ${nativeMgmt}
       `
     );
   }
@@ -1096,10 +1061,6 @@ export class SodaSpaces extends LitElement {
     if (!space.login || !space.environment.provisioned || space.observed?.running !== true)
       void this.showManagement(this.project, 'journey');
   }
-  private toggleSidebar() {
-    this.layout = {...this.layout, sidebar: this.layout.sidebar === null ? 256 : null};
-    this.persist();
-  }
   private visibleSlot(slot: Slot) {
     return (
       this.activeSurface &&
@@ -1190,11 +1151,11 @@ export class SodaSpaces extends LitElement {
       reading: this.navReading(),
       requestUpdate: () => this.requestUpdate(),
       closeMenus: () => this.closeMenus(),
-      arrange: (layout) => this.arrange(layout),
-      focusPane: (key) => this.focusPane(key),
-      canSplit: (axis, key = this.layout.focused) => this.canSplit(axis, key),
-      split: (axis) => this.split(axis),
-      move: (key, destination, before) => this.move(key, destination, before),
+      arrange: (layout) => arrange(this.layoutInput(), layout),
+      focusPane: (key) => focusPane(this.layoutInput(), key),
+      canSplit: (axis, key = this.layout.focused) => canSplit(this.layoutInput(), axis, key),
+      split: (axis) => split(this.layoutInput(), axis),
+      move: (key, destination, before) => move(this.layoutInput(), key, destination, before),
       openSaved: (entry) => {
         void this.openSaved(entry);
       },
@@ -1454,7 +1415,7 @@ export class SodaSpaces extends LitElement {
         this.reconnectRequired = required;
       },
       invalidate: () => this.invalidate(),
-      loadLayout: () => this.loadLayout(),
+      loadLayout: () => loadLayout(this.layoutInput()),
       restoreLocators: (n, signal) => this.restoreLocators(n, signal),
       display: () => this.display(),
       showManagement: (repositoryId, mode) => {
@@ -1491,27 +1452,8 @@ export class SodaSpaces extends LitElement {
   async refresh() {
     return inventoryRefresh(this.inventoryInput());
   }
-  private loadLayout() {
-    this.storageLoaded = true;
-    try {
-      const current = sessionStorage.getItem(this.storageKey);
-      if (current !== null) this.layout = parseLayout(current);
-    } catch {
-      this.layout = emptyLayout(crypto.randomUUID());
-      this.storageNotice =
-        'Stored layout was reset. Native terminals remain discoverable; no work was created or ended.';
-      this.persist();
-    }
-  }
   private persist() {
-    if (!this.storageLoaded || this.stale || this.disposed) return false;
-    try {
-      sessionStorage.setItem(this.storageKey, serializeLayout(this.layout));
-      return true;
-    } catch {
-      this.storageNotice = 'Live workspace remains usable, but reload restoration could not be saved.';
-    }
-    return false;
+    return layoutPersist(this.layoutInput());
   }
   private drawerOpenBlocked() {
     return this.binding?.kind !== 'page' || this.openingDrawer || !this.available || !this.activeSurface;
@@ -1815,7 +1757,7 @@ export class SodaSpaces extends LitElement {
   }
   private onTerminalFocusIn(key: string) {
     const pane = paneFor(this.layout.tree, key);
-    if (pane && this.layout.focused !== pane.key) this.focusPane(pane.key);
+    if (pane && this.layout.focused !== pane.key) focusPane(this.layoutInput(), pane.key);
   }
   private async addSlot(space: Space, entry: LayoutEntry, metadata?: TerminalMetadata): Promise<Slot | undefined> {
     if (this.stale || this.disposed) return;
@@ -1909,58 +1851,44 @@ export class SodaSpaces extends LitElement {
   private rectangle(area: Area) {
     return `left:${area.x}px;top:${area.y}px;width:${area.width}px;height:${area.height}px`;
   }
-  private arrange(layout: WorkspaceLayout) {
-    if (this.stale || this.disposed) return;
-    this.layout = layout;
-    if (!panes(layout.tree).some((p) => p.key === this.maximized)) this.maximized = undefined;
-    this.persist();
-    this.requestUpdate();
-  }
-  private focusPane(key: string) {
-    if (panes(this.layout.tree).some((p) => p.key === key)) {
-      if (this.maximized) this.maximized = key;
-      this.arrange({
-        ...this.layout,
-        focused: key,
-      });
-    }
-  }
-  private splitBlocked() {
-    return (
-      this.stale ||
-      this.view !== 'terminal' ||
-      this.binding?.kind !== 'page' ||
-      !!this.maximized ||
-      panes(this.layout.tree).length >= layoutLimit
-    );
-  }
-  private emptyPaneMinimum() {
-    return this.paneMinimum({kind: 'pane', key: '', tabs: [], selected: null});
-  }
-  private splitFits(axis: Split['axis'], area: Area & {pane: Pane}) {
-    const min = this.paneMinimum(area.pane),
-      empty = this.emptyPaneMinimum();
-    if (axis === 'right')
-      return area.width >= min.width + empty.width + 6 && area.height >= Math.max(min.height, empty.height);
-    return area.height >= min.height + empty.height + 6 && area.width >= Math.max(min.width, empty.width);
-  }
-  private canSplit(axis: Split['axis'], key = this.layout.focused) {
-    if (this.splitBlocked()) return false;
-    const area = this.projection.panes.find((a) => a.pane.key === key);
-    if (!area || this.projection.compact) return false;
-    return this.splitFits(axis, area);
-  }
-  private split(axis: Split['axis']) {
-    if (!this.canSplit(axis)) return;
-    this.closeMenus();
-    this.arrange(splitPane(this.layout, this.layout.focused, axis, crypto.randomUUID(), crypto.randomUUID()));
-  }
-  private move(key: string, destination: string, before?: string) {
-    try {
-      this.arrange(moveTab(this.layout, key, destination, before));
-    } catch {
-      this.status = 'The pane destination changed; no terminal was replaced.';
-    }
+  private layoutInput(): LayoutInput {
+    return {
+      binding: this.binding,
+      readLayout: () => this.layout,
+      readMaximized: () => this.maximized,
+      readWorkspaceWidth: () => this.workspaceWidth,
+      readCanvasSize: () => this.canvasSize,
+      readSlots: () => this.slots,
+      readCell: () => this.cell,
+      readTabHeight: () => this.tabHeight,
+      readView: () => this.view,
+      isStale: () => this.stale,
+      isDisposed: () => this.disposed,
+      readStorageLoaded: () => this.storageLoaded,
+      readStorageKey: () => this.storageKey,
+      hostRect: () => this.getBoundingClientRect(),
+      canvasRect: () => this.querySelector('.soda-workspace-canvas')?.getBoundingClientRect(),
+      setLayout: (layout) => {
+        this.layout = layout;
+      },
+      setMaximized: (key) => {
+        this.maximized = key;
+      },
+      setStorageNotice: (notice) => {
+        this.storageNotice = notice;
+      },
+      setStatus: (status) => {
+        this.status = status;
+      },
+      setStorageLoaded: (loaded) => {
+        this.storageLoaded = loaded;
+      },
+      closeMenus: () => this.closeMenus(),
+      requestUpdate: () => this.requestUpdate(),
+      rectangle: (area) => this.rectangle(area),
+      capture: (event) => this.capture(event),
+      releasePointer: (event) => this.releasePointer(event),
+    };
   }
   private capture(event: PointerEvent) {
     if (event.button === 0 && event.currentTarget instanceof HTMLElement) {
@@ -1971,57 +1899,6 @@ export class SodaSpaces extends LitElement {
   private releasePointer(event: PointerEvent) {
     if (event.currentTarget instanceof HTMLElement && event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
-  }
-  private dragDivider(event: PointerEvent, divider: DividerArea) {
-    if (!(event.currentTarget instanceof HTMLElement) || !event.currentTarget.hasPointerCapture(event.pointerId))
-      return;
-    const canvas = this.querySelector('.soda-workspace-canvas')?.getBoundingClientRect();
-    if (!canvas) return;
-    this.adjustDivider(
-      divider,
-      ((divider.axis === 'right' ? event.clientX - canvas.x : event.clientY - canvas.y) - divider.origin) /
-        divider.extent
-    );
-  }
-  private keyDivider(event: KeyboardEvent, divider: DividerArea) {
-    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    this.adjustDivider(
-      divider,
-      event.key === 'Home'
-        ? divider.minimum
-        : event.key === 'End'
-          ? divider.maximum
-          : divider.ratio + (event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -0.05 : 0.05)
-    );
-  }
-  private adjustDivider(divider: DividerArea, ratio: number) {
-    this.arrange({
-      ...this.layout,
-      tree: resizeSplit(this.layout.tree, divider.key, Math.max(divider.minimum, Math.min(divider.maximum, ratio))),
-    });
-  }
-  private resizeSidebar(event: PointerEvent) {
-    if (event.currentTarget instanceof HTMLElement && event.currentTarget.hasPointerCapture(event.pointerId))
-      this.setSidebar(event.clientX - this.getBoundingClientRect().left);
-  }
-  private sidebarKey(event: KeyboardEvent) {
-    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-      event.preventDefault();
-      this.setSidebar(
-        event.key === 'Home'
-          ? 220
-          : event.key === 'End'
-            ? 360
-            : (this.layout.sidebar || 256) + (event.key === 'ArrowLeft' ? -10 : 10)
-      );
-    }
-  }
-  private setSidebar(width: number) {
-    this.arrange({
-      ...this.layout,
-      sidebar: Math.max(220, Math.min(360, Math.round(width))),
-    });
   }
   private tabKey(event: KeyboardEvent, key: string, keys: string[]) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -2045,7 +1922,7 @@ export class SodaSpaces extends LitElement {
     }
   }
   private hideSlot(slot: Slot) {
-    if (!this.stale && !this.disposed) this.arrange(hideTab(this.layout, slot.key));
+    if (!this.stale && !this.disposed) arrange(this.layoutInput(), hideTab(this.layout, slot.key));
   }
   private createAdmitted(draft: Creation | null): draft is Creation {
     return (
