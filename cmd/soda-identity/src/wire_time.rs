@@ -108,7 +108,10 @@ pub fn parse_rfc3339_nano(text: &str) -> Result<(i64, u32), String> {
         return Err(err());
     }
     let num = |from: usize, to: usize| -> Result<i64, String> {
-        text[from..to].parse::<i64>().map_err(|_| err())
+        text.get(from..to)
+            .ok_or_else(|| err())?
+            .parse::<i64>()
+            .map_err(|_| err())
     };
     let year = num(0, 4)?;
     let month = num(5, 7)?;
@@ -144,7 +147,11 @@ pub fn parse_rfc3339_nano(text: &str) -> Result<(i64, u32), String> {
         rest = "";
     } else if rest.len() >= 3 && (rest.as_bytes()[0] == b'+' || rest.as_bytes()[0] == b'-') {
         let sign = if rest.as_bytes()[0] == b'-' { -1 } else { 1 };
-        let hour: i64 = rest[1..3].parse().map_err(|_| err())?;
+        let hour: i64 = rest
+            .get(1..3)
+            .ok_or_else(|| err())?
+            .parse()
+            .map_err(|_| err())?;
         let mut minute: i64 = 0;
         rest = &rest[3..];
         if let Some(tail) = rest.strip_prefix(':') {
