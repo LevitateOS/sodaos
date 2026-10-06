@@ -275,7 +275,12 @@ impl Process {
     }
 
     fn signal(&self, signal: i32) -> Result<(), Error> {
-        if *lock(&self.sealed) {
+        // Hold the seal through the signal: the reaper seals under this
+        // same mutex immediately before reaping, so a false seal here
+        // pins the leader (alive or zombie) and the group signal cannot
+        // race sealing/reaping into foreign PIDs.
+        let sealed = lock(&self.sealed);
+        if *sealed {
             return Ok(());
         }
         signal_group(self.pid, signal)

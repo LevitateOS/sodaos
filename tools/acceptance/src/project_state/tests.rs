@@ -187,12 +187,130 @@ fn snapshot_command_timeout_retires_group_and_readers() {
     )
     .unwrap_err();
     assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
+    // Latency budget, reported separately: 200ms phase deadline plus the
+    // owned stop grace (TERM, KILL after 10s, 5s reap wait — 15s worst
+    // case), plus scheduling margin.
     assert!(
-        start.elapsed() < Duration::from_secs(15),
+        start.elapsed() < Duration::from_secs(20),
         "group retirement took {:?}",
         start.elapsed()
     );
     assert_descendant_retired(&pid_file);
+}
+
+/// ACCEPTANCE-20-001 D1: the leader exits at once while a setsid daemon
+/// holds the pipes past group retirement (foreign: never signalled).
+/// Phased pumps exit at the deadline and the call reports TimeoutExpired
+/// — bounded and joined, not partial success. The ready file proves the
+/// escape completed before the leader exited.
+#[test]
+#[cfg(target_os = "linux")]
+fn snapshot_command_escaped_pipes_cancel_at_deadline() {
+    let dir = TempDir::new("snapshot").unwrap();
+    let ready = dir.path().join("escaped");
+    let script = format!(
+        "setsid sh -c 'echo ready > {}; exec sleep 5' & while [ ! -f {} ]; do sleep 0.01; done; echo hi",
+        ready.display(),
+        ready.display()
+    );
+    let start = std::time::Instant::now();
+    let err = command_with_timeout(
+        &arg_list(&["sh", "-c", script.as_str()]),
+        &[],
+        Duration::from_millis(300),
+    )
+    .unwrap_err();
+    assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
+    assert!(
+        start.elapsed() < Duration::from_secs(5),
+        "escaped pipes outlived the deadline by {:?}",
+        start.elapsed()
+    );
+}
+
+/// ACCEPTANCE-21-001: the leader prints clean stdout and exits while a
+/// setsid daemon holds ONLY stderr past group retirement (its stdout is
+/// /dev/null, unsignalled foreign). Stdout completes but stderr never
+/// does: either required pipe's cancellation prevents success, so the
+/// call reports TimeoutExpired — never Ok("complete") on the clean
+/// leader alone. The ready file proves the escape completed before the
+/// leader exited.
+#[test]
+#[cfg(target_os = "linux")]
+fn snapshot_command_stderr_only_escape_cancels_at_deadline() {
+    let dir = TempDir::new("snapshot").unwrap();
+    let ready = dir.path().join("escaped");
+    let script = format!(
+        "setsid sh -c 'echo ready > {}; exec sleep 5' 1>/dev/null & while [ ! -f {} ]; do sleep 0.01; done; echo complete",
+        ready.display(),
+        ready.display()
+    );
+    let start = std::time::Instant::now();
+    let err = command_with_timeout(
+        &arg_list(&["sh", "-c", script.as_str()]),
+        &[],
+        Duration::from_millis(300),
+    )
+    .unwrap_err();
+    assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
+    assert!(
+        start.elapsed() < Duration::from_secs(5),
+        "stderr-only escape outlived the deadline by {:?}",
+        start.elapsed()
+    );
+}
+
+/// ACCEPTANCE-21-001: mirror — a setsid daemon holds ONLY stdout past
+/// group retirement (its stderr is /dev/null) while the leader's own
+/// stderr completes. Stdout cancellation still reports TimeoutExpired;
+/// stdout behavior is unchanged while stderr joins the completion
+/// contract. The ready file proves the escape completed before the
+/// leader exited.
+#[test]
+#[cfg(target_os = "linux")]
+fn snapshot_command_stdout_only_escape_cancels_at_deadline() {
+    let dir = TempDir::new("snapshot").unwrap();
+    let ready = dir.path().join("escaped");
+    let script = format!(
+        "setsid sh -c 'echo ready > {}; exec sleep 5' 2>/dev/null & while [ ! -f {} ]; do sleep 0.01; done; echo noise >&2",
+        ready.display(),
+        ready.display()
+    );
+    let start = std::time::Instant::now();
+    let err = command_with_timeout(
+        &arg_list(&["sh", "-c", script.as_str()]),
+        &[],
+        Duration::from_millis(300),
+    )
+    .unwrap_err();
+    assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
+    assert!(
+        start.elapsed() < Duration::from_secs(5),
+        "stdout-only escape outlived the deadline by {:?}",
+        start.elapsed()
+    );
+}
+
+/// ACCEPTANCE-20-001 D1: the leader stays alive on an escaped daemon
+/// past the deadline. Owned stop retires the group (the foreign daemon
+/// survives, unsignalled), phased pumps exit, and the call reports
+/// TimeoutExpired within phase deadline plus stop grace.
+#[test]
+#[cfg(target_os = "linux")]
+fn snapshot_command_timeout_with_escaped_pipes_stays_bounded() {
+    let start = std::time::Instant::now();
+    let err = command_with_timeout(
+        &arg_list(&["sh", "-c", "setsid sleep 5"]),
+        &[],
+        Duration::from_millis(300),
+    )
+    .unwrap_err();
+    assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
+    assert!(
+        start.elapsed() < Duration::from_secs(5),
+        "escaped timeout took {:?}",
+        start.elapsed()
+    );
 }
 
 /// ACCEPTANCE-20-001: direct-parent exit with inherited pipes. The

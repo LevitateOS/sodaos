@@ -17,6 +17,7 @@ struct RawState {
     bytes: Vec<u8>,
     total: usize,
     cap: usize,
+    cancelled: bool,
 }
 
 /// Shared raw byte sink for pump threads. Bytes past `cap` are counted
@@ -33,6 +34,7 @@ impl RawCapture {
                 bytes: Vec::new(),
                 total: 0,
                 cap,
+                cancelled: false,
             })),
         }
     }
@@ -42,6 +44,13 @@ impl RawCapture {
     pub fn take(&self) -> (Vec<u8>, bool) {
         let mut state = lock(&self.state);
         (std::mem::take(&mut state.bytes), state.total > state.cap)
+    }
+
+    /// Whether the pump gave up at the phase deadline with the pipe still
+    /// open (an escaped writer group retirement cannot touch). Call after
+    /// [`Process::join_pumps`]: the thread joined, nothing detached.
+    pub fn cancelled(&self) -> bool {
+        lock(&self.state).cancelled
     }
 }
 
@@ -55,11 +64,17 @@ impl PumpSink for RawState {
         }
         Ok(())
     }
+
+    fn pump_cancelled(&mut self) {
+        self.cancelled = true;
+    }
 }
 
 /// Start an owned process capturing raw stdout/stderr bytes, like
 /// [`super::start_process`] but with in-memory bounded sinks instead of
-/// redacting writers. The stderr sink discards everything.
+/// redacting writers. The stderr sink discards everything. Pumps follow
+/// the phase: they exit (marked cancelled) at its deadline instead of
+/// hanging on pipes an escaped writer holds past group retirement.
 pub fn start_raw_process(
     phase: &Phase,
     spec: &CommandSpec,
@@ -68,6 +83,11 @@ pub fn start_raw_process(
     phase.check()?;
     let out = RawCapture::new(cap);
     let err = RawCapture::new(0);
-    let process = start_inner(spec, out.state.clone(), err.state.clone())?;
+    let process = start_inner(
+        spec,
+        out.state.clone(),
+        err.state.clone(),
+        Some(phase.clone()),
+    )?;
     Ok((process, out, err))
 }
