@@ -3,7 +3,7 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `d5012d10` (C08+CORRs+DELTA): 5 headings verified byte-identical (foreign, host, layout, model, request); build/media/payload_stage/prepare/sys STALE drift (splits + CORR-C-001/004/005 + DELTA-C-001) — bannered.
+R02 re-audit COMPLETE @HEAD: build.rs split re-mapped (build+compile+runner+tests+source, doubles in place); foreign/host/layout/media/model/payload/prepare/request/sys verified; CORR-C-001/C-004 + C09-paths tests rowed. GAP (pre-existing): build_media.rs/complete.rs never interval-mapped; leaf inventory covers them.
 
 <a id="coverage-0387b9fa196a"></a>
 
@@ -11,134 +11,169 @@ R02 @HEAD `d5012d10` (C08+CORRs+DELTA): 5 headings verified byte-identical (fore
 
 ## [lib/soda-release-image/src/build.rs](../../../../../lib/soda-release-image/src/build.rs)
 
-> R02 STALE: `lib/soda-release-image/src/build.rs` differs from the audited `rust/soda-release-image/src/build.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Re-audit @HEAD: pre-C08 `build.rs` (1447 lines) split into `build.rs` + `build_compile.rs` + `build_runner.rs` + `build_runner/tests.rs` + `build_source.rs`; rows re-mapped declaration-by-declaration to current bytes. Test-local `RunnerProduction`/`Stub` doubles re-mapped in place. `build_media.rs`/`complete.rs` content was never interval-mapped (pre-existing audit gap; leaf inventory covers them).
 
 | Slice / lifecycle | Current lines | Responsibility and declarations |
 | --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–31 | Native candidate build runner/cancellation/logging; declarations/fields: `PINNED_GO_VERSION`, `Cancel`, `new`, `cancel`, `is_cancelled`, `SharedFile`, `wrap`, `write`, `flush`, `Runner`, `execute`, `capture`, `open_log`, `reason`, `LogCloser`, `close`, `ProductionInputs`, `build` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 32–35 | Native candidate build runner/cancellation/logging; declaration/member PINNED_GO_VERSION; declarations/fields: `PINNED_GO_VERSION` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 36 | Native candidate build runner/cancellation/logging; declaration/member Cancel; declarations/fields: `Cancel` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 37–40 | Native candidate build runner/cancellation/logging; declaration/member Cancel.flag; declarations/fields: `Cancel.flag` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 41–44, 84–90 | Native candidate build runner/cancellation/logging; declaration/member new; declarations/fields: `new` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 45–48 | Native candidate build runner/cancellation/logging; declaration/member cancel; declarations/fields: `cancel` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 49–56 | Native candidate build runner/cancellation/logging; declaration/member is_cancelled; declarations/fields: `is_cancelled` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 57–59 | Native candidate build runner/cancellation/logging; declaration/member SharedFile; declarations/fields: `SharedFile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 60–65 | Native candidate build runner/cancellation/logging; declaration/member wrap; declarations/fields: `wrap` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 66–69 | Native candidate build runner/cancellation/logging; declaration/member write; declarations/fields: `write` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 70–77 | Native candidate build runner/cancellation/logging; declaration/member flush; declarations/fields: `flush` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 78 | Native candidate build runner/cancellation/logging; declaration/member Runner; declarations/fields: `Runner` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 79 | Native candidate build runner/cancellation/logging; declaration/member Runner.cancel; declarations/fields: `Runner.cancel` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 80–83 | Native candidate build runner/cancellation/logging; declaration/member Runner.log; declarations/fields: `Runner.log` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 91–98 | Native candidate build runner/cancellation/logging; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 99–103 | Native candidate build runner/cancellation/logging; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 104–148 | Native candidate build runner/cancellation/logging; declaration/member open_log; declarations/fields: `open_log` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 149–154 | Native candidate build runner/cancellation/logging; declaration/member reason; declarations/fields: `reason` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 155 | Native candidate build runner/cancellation/logging; declaration/member LogCloser; declarations/fields: `LogCloser` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 156–159 | Native candidate build runner/cancellation/logging; declaration/member LogCloser.files; declarations/fields: `LogCloser.files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 160–170 | Native candidate build runner/cancellation/logging; declaration/member close; declarations/fields: `close` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 171 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs; declarations/fields: `ProductionInputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 172 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.source; declarations/fields: `ProductionInputs.source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 173 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.forgejo_source; declarations/fields: `ProductionInputs.forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 174 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.forgejo_revision; declarations/fields: `ProductionInputs.forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 175 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.native; declarations/fields: `ProductionInputs.native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 176 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.out; declarations/fields: `ProductionInputs.out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 177 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.arch; declarations/fields: `ProductionInputs.arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 178 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.revision; declarations/fields: `ProductionInputs.revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 179–184 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.live_inputs; declarations/fields: `ProductionInputs.live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 185–204 | Native candidate build runner/cancellation/logging; declaration/member build; declarations/fields: `build` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 205–228 | Clean exact checkout and source/compiler/output admission; declarations/fields: `verify_checkout_source` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 229–266 | Clean exact checkout and source/compiler/output admission; declaration/member verify_committed_revision; declarations/fields: `verify_committed_revision` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 267–276 | Clean exact checkout and source/compiler/output admission; declaration/member verify_compiler; declarations/fields: `verify_compiler` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 277–294 | Clean exact checkout and source/compiler/output admission; declaration/member admit_build_output; declarations/fields: `admit_build_output` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 295–316 | Clean exact checkout and source/compiler/output admission; declaration/member admit_build_inputs; declarations/fields: `admit_build_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 317–323 | Fresh build workspace and native snapshot extraction; declarations/fields: `init_build_directories` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 324–356 | Fresh build workspace and native snapshot extraction; declaration/member extract_build_snapshot; declarations/fields: `extract_build_snapshot` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 357–378 | Fresh build workspace and native snapshot extraction; declaration/member setup_build_workspace; declarations/fields: `setup_build_workspace` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 379–450 | Frozen native base image identity acquisition; declarations/fields: `freeze_base_image_config` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 451–490 | Prepare/compile/stage shipping tools and candidate image; declarations/fields: `prepare_build_host_context` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 491–521 | Prepare/compile/stage shipping tools and candidate image; declaration/member prepare_build_production; declarations/fields: `prepare_build_production` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 522–554 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_soda_commands; declarations/fields: `compile_soda_commands` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 555–608 | Prepare/compile/stage shipping tools and candidate image; declaration/member record_tool_files; declarations/fields: `record_tool_files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 609–661 | Prepare/compile/stage shipping tools and candidate image; declaration/member RUST_TOOLS; declarations/fields: `RUST_TOOLS` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 662–670 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_rust_tools; declarations/fields: `compile_rust_tools` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 671–711 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_shipping_tools; declarations/fields: `compile_shipping_tools` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 712–772 | Prepare/compile/stage shipping tools and candidate image; declaration/member build_host_candidate; declarations/fields: `build_host_candidate` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 773–808 | Prepare/compile/stage shipping tools and candidate image; declaration/member execute_build_production; declarations/fields: `execute_build_production` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 809–826 | Prepare/compile/stage shipping tools and candidate image; declaration/member finalize_build; declarations/fields: `finalize_build` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 827–853 | Prepare/compile/stage shipping tools and candidate image; declaration/member run_build; declarations/fields: `run_build` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 854–865 | Prepare/compile/stage shipping tools and candidate image; declaration/member run_build_inner; declarations/fields: `run_build_inner` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 866 | Real native production operation adapter; declarations/fields: `RunnerProduction` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 867 | Real native production operation adapter; declaration/member RunnerProduction.runner; declarations/fields: `RunnerProduction.runner` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 868–870 | Real native production operation adapter; declaration/member RunnerProduction.inputs; declarations/fields: `RunnerProduction.inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 871–873 | Real native production operation adapter; declaration/member source; declarations/fields: `source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 874–876 | Real native production operation adapter; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 877–879 | Real native production operation adapter; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 880–882 | Real native production operation adapter; declaration/member native; declarations/fields: `native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 883–885 | Real native production operation adapter; declaration/member out; declarations/fields: `out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 886–888 | Real native production operation adapter; declaration/member arch; declarations/fields: `arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 889–891 | Real native production operation adapter; declaration/member revision; declarations/fields: `revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 892–894 | Real native production operation adapter; declaration/member live_inputs; declarations/fields: `live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 895–897 | Real native production operation adapter; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 898–900 | Real native production operation adapter; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 901–903 | Real native production operation adapter; declaration/member next; declarations/fields: `next` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 904–906 | Pinned live-input resolution adapter; declarations/fields: `resolve_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 907–909 | Native dependencies/compile/fork/assets/images adapter; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 910–912 | Native dependencies/compile/fork/assets/images adapter; declaration/member compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 913–915 | Native dependencies/compile/fork/assets/images adapter; declaration/member compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 916–918 | Native dependencies/compile/fork/assets/images adapter; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 919–921 | Native dependencies/compile/fork/assets/images adapter; declaration/member assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 922–924 | Native dependencies/compile/fork/assets/images adapter; declaration/member images; declarations/fields: `images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 925–927 | OCI/content verification adapter; declarations/fields: `inspect_oci` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 928–934 | OCI/content verification adapter; declaration/member verify_content; declarations/fields: `verify_content` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 935–937 | Pinned CoreOS/live inputs adapter; declarations/fields: `resolve_core_os` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 938–940 | Pinned CoreOS/live inputs adapter; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 941–943 | Native candidate check adapter; declarations/fields: `check_native` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 944–955 | Media signing adapter; declarations/fields: `sign_media` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 956–965 | Verified external copy adapter; declarations/fields: `verify_copy` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 966–973 | Immutable document output adapter; declarations/fields: `write_document` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 974–1059 | Candidate/media orchestration and native build environment; declarations/fields: `build_host_candidate_with_progress`, `build_environment_pairs`, `resolve_build_tool`, `look_path`, `run_build_command`, `link_prepared_assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1060–1122 | Candidate/media orchestration and native build environment; declaration/member build_host_candidate_with_progress; declarations/fields: `build_host_candidate_with_progress` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1123–1154 | Candidate/media orchestration and native build environment; declaration/member build_environment_pairs; declarations/fields: `build_environment_pairs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1155–1163 | Candidate/media orchestration and native build environment; declaration/member resolve_build_tool; declarations/fields: `resolve_build_tool` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1164–1177 | Candidate/media orchestration and native build environment; declaration/member look_path; declarations/fields: `look_path` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1178–1246 | Candidate/media orchestration and native build environment; declaration/member run_build_command; declarations/fields: `run_build_command` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1247–1266 | Candidate/media orchestration and native build environment; declaration/member link_prepared_assets; declarations/fields: `link_prepared_assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1267–1270 | Native build source fixtures/assertions; declarations/fields: `tests` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1271–1327 | Native build source fixtures/assertions; declaration/member oracle_build_command_capture_environment_and_failure; declarations/fields: `oracle_build_command_capture_environment_and_failure` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1328–1329 | Native build source fixtures/assertions; declaration/member oracle_link_prepared_assets_runs_no_commands; declarations/fields: `oracle_link_prepared_assets_runs_no_commands` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1330 | Native build source fixtures/assertions; declaration/member Stub; declarations/fields: `Stub` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1331 | Native build source fixtures/assertions; declaration/member Stub.source; declarations/fields: `Stub.source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1332–1334 | Native build source fixtures/assertions; declaration/member Stub.native; declarations/fields: `Stub.native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1335–1337 | Native build source fixtures/assertions; declaration/member source; declarations/fields: `source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1338–1340 | Native build source fixtures/assertions; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1341–1343 | Native build source fixtures/assertions; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1344–1346 | Native build source fixtures/assertions; declaration/member native; declarations/fields: `native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1347–1349 | Native build source fixtures/assertions; declaration/member out; declarations/fields: `out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1350–1352 | Native build source fixtures/assertions; declaration/member arch; declarations/fields: `arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1353–1355 | Native build source fixtures/assertions; declaration/member revision; declarations/fields: `revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1356–1358 | Native build source fixtures/assertions; declaration/member live_inputs; declarations/fields: `live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1359–1361 | Native build source fixtures/assertions; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1362–1364 | Native build source fixtures/assertions; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1365–1367 | Native build source fixtures/assertions; declaration/member next; declarations/fields: `next` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1368–1370 | Native build source fixtures/assertions; declaration/member resolve_inputs; declarations/fields: `resolve_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1371–1373 | Native build source fixtures/assertions; declaration/member dependencies; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1374–1376 | Native build source fixtures/assertions; declaration/member compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1377–1379 | Native build source fixtures/assertions; declaration/member compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1380–1382 | Native build source fixtures/assertions; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1383–1385 | Native build source fixtures/assertions; declaration/member assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1386–1388 | Native build source fixtures/assertions; declaration/member images; declarations/fields: `images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1389–1391 | Native build source fixtures/assertions; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1392–1398 | Native build source fixtures/assertions; declaration/member verify_content; declarations/fields: `verify_content` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1399–1401 | Native build source fixtures/assertions; declaration/member resolve_core_os; declarations/fields: `resolve_core_os` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1402–1404 | Native build source fixtures/assertions; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1405–1407 | Native build source fixtures/assertions; declaration/member check_native; declarations/fields: `check_native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1408–1419 | Native build source fixtures/assertions; declaration/member sign_media; declarations/fields: `sign_media` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1420–1429 | Native build source fixtures/assertions; declaration/member verify_copy; declarations/fields: `verify_copy` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1430–1447 | Native build source fixtures/assertions; declaration/member write_document; declarations/fields: `write_document` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–28 | Native candidate build runner/cancellation/logging; declarations/fields: `PINNED_GO_VERSION`, `ProductionInputs`, `ProductionInputs.source`, `ProductionInputs.forgejo_source`, `ProductionInputs.forgejo_revision`, `ProductionInputs.native`, `ProductionInputs.out`, `ProductionInputs.arch`, `ProductionInputs.revision`, `ProductionInputs.live_inputs`, `build`, `init_build_directories`, `extract_build_snapshot`, `setup_build_workspace`, `freeze_base_image_config`, `prepare_build_host_context`, `prepare_build_production`, `build_host_candidate`, `execute_build_production`, `finalize_build`, `run_build`, `run_build_inner`, `RunnerProduction`, `RunnerProduction.runner`, `RunnerProduction.inputs`, `source`, `forgejo_source`, `forgejo_revision`, `native`, `out`, `arch`, `revision`, `live_inputs`, `execute`, `capture`, `next`, `resolve_inputs`, `dependencies`, `compile`, `compile_rust`, `stage_fork_binary`, `assets`, `images`, `inspect_oci`, `verify_content`, `resolve_core_os`, `read_live_inputs`, `check_native`, `sign_media`, `verify_copy`, `write_document`, `build_host_candidate_with_progress`, `link_prepared_assets`, `tests`, `oracle_link_prepared_assets_runs_no_commands`, `Stub`, `Stub.source`, `Stub.native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 33 | Native candidate build runner/cancellation/logging; declaration/member PINNED_GO_VERSION; declarations/fields: `PINNED_GO_VERSION` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 36–46 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs; declarations/fields: `ProductionInputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 38 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.source; declarations/fields: `ProductionInputs.source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 39 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.forgejo_source; declarations/fields: `ProductionInputs.forgejo_source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 40 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.forgejo_revision; declarations/fields: `ProductionInputs.forgejo_revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 41 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.native; declarations/fields: `ProductionInputs.native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 42 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.out; declarations/fields: `ProductionInputs.out` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 43 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.arch; declarations/fields: `ProductionInputs.arch` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 44 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.revision; declarations/fields: `ProductionInputs.revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 45 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.live_inputs; declarations/fields: `ProductionInputs.live_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 51–69 | Native candidate build runner/cancellation/logging; declaration/member build; declarations/fields: `build` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 71–76 | Fresh build workspace and native snapshot extraction; declarations/fields: `init_build_directories` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 78–109 | Fresh build workspace and native snapshot extraction; declaration/member extract_build_snapshot; declarations/fields: `extract_build_snapshot` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 111–131 | Fresh build workspace and native snapshot extraction; declaration/member setup_build_workspace; declarations/fields: `setup_build_workspace` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 133–203 | Frozen native base image identity acquisition; declarations/fields: `freeze_base_image_config` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 205–240 | Prepare/compile/stage shipping tools and candidate image; declarations/fields: `prepare_build_host_context` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 245–274 | Prepare/compile/stage shipping tools and candidate image; declaration/member prepare_build_production; declarations/fields: `prepare_build_production` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 280–339 | Prepare/compile/stage shipping tools and candidate image; declaration/member build_host_candidate; declarations/fields: `build_host_candidate` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 341–375 | Prepare/compile/stage shipping tools and candidate image; declaration/member execute_build_production; declarations/fields: `execute_build_production` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 377–393 | Prepare/compile/stage shipping tools and candidate image; declaration/member finalize_build; declarations/fields: `finalize_build` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 395–420 | Prepare/compile/stage shipping tools and candidate image; declaration/member run_build; declarations/fields: `run_build` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 422–626 | Prepare/compile/stage shipping tools and candidate image; declaration/member run_build_inner; declarations/fields: `run_build_inner` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 434–438 | Real native production operation adapter; declarations/fields: `RunnerProduction` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 435 | Real native production operation adapter; declaration/member RunnerProduction.runner; declarations/fields: `RunnerProduction.runner` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 436 | Real native production operation adapter; declaration/member RunnerProduction.inputs; declarations/fields: `RunnerProduction.inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 439–441 | Real native production operation adapter; declaration/member source; declarations/fields: `source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 442–444 | Real native production operation adapter; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 445–447 | Real native production operation adapter; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 448–450 | Real native production operation adapter; declaration/member native; declarations/fields: `native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 451–453 | Real native production operation adapter; declaration/member out; declarations/fields: `out` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 454–456 | Real native production operation adapter; declaration/member arch; declarations/fields: `arch` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 457–459 | Real native production operation adapter; declaration/member revision; declarations/fields: `revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 460–462 | Real native production operation adapter; declaration/member live_inputs; declarations/fields: `live_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 463–465 | Real native production operation adapter; declaration/member execute; declarations/fields: `execute` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 466–468 | Real native production operation adapter; declaration/member capture; declarations/fields: `capture` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 469–471 | Real native production operation adapter; declaration/member next; declarations/fields: `next` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 472–474 | Pinned live-input resolution adapter; declarations/fields: `resolve_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 475–477 | Native dependencies/compile/fork/assets/images adapter; declarations/fields: `dependencies` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 478–480 | Native dependencies/compile/fork/assets/images adapter; declaration/member compile; declarations/fields: `compile` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 481–483 | Native dependencies/compile/fork/assets/images adapter; declaration/member compile_rust; declarations/fields: `compile_rust` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 484–486 | Native dependencies/compile/fork/assets/images adapter; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 487–489 | Native dependencies/compile/fork/assets/images adapter; declaration/member assets; declarations/fields: `assets` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 490–492 | Native dependencies/compile/fork/assets/images adapter; declaration/member images; declarations/fields: `images` |
+| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 493–495 | OCI/content verification adapter; declarations/fields: `inspect_oci` |
+| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 496 | OCI/content verification adapter; declaration/member verify_content; declarations/fields: `verify_content` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 503–505 | Pinned CoreOS/live inputs adapter; declarations/fields: `resolve_core_os` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 506–508 | Pinned CoreOS/live inputs adapter; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
+| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 509–511 | Native candidate check adapter; declarations/fields: `check_native` |
+| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 512 | Media signing adapter; declarations/fields: `sign_media` |
+| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 524 | Verified external copy adapter; declarations/fields: `verify_copy` |
+| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 534–626 | Immutable document output adapter; declarations/fields: `write_document` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 628–686, 693–710 | Candidate/media orchestration and native build environment; declarations/fields: `build_host_candidate_with_progress`, `build_environment_pairs`, `resolve_build_tool`, `look_path`, `run_build_command`, `link_prepared_assets` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 628–686 | Candidate/media orchestration and native build environment; declaration/member build_host_candidate_with_progress; declarations/fields: `build_host_candidate_with_progress` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 693–710 | Candidate/media orchestration and native build environment; declaration/member link_prepared_assets; declarations/fields: `link_prepared_assets` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 712–836 | Native build source fixtures/assertions; declarations/fields: `tests` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 716–717 | Native build source fixtures/assertions; declaration/member oracle_link_prepared_assets_runs_no_commands; declarations/fields: `oracle_link_prepared_assets_runs_no_commands` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 719–723 | Native build source fixtures/assertions; declaration/member Stub; declarations/fields: `Stub` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 720 | Native build source fixtures/assertions; declaration/member Stub.source; declarations/fields: `Stub.source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 721 | Native build source fixtures/assertions; declaration/member Stub.native; declarations/fields: `Stub.native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 724–726 | Native build source fixtures/assertions; declaration/member source; declarations/fields: `source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 727–729 | Native build source fixtures/assertions; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 730–732 | Native build source fixtures/assertions; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 733–735 | Native build source fixtures/assertions; declaration/member native; declarations/fields: `native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 736–738 | Native build source fixtures/assertions; declaration/member out; declarations/fields: `out` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 739–741 | Native build source fixtures/assertions; declaration/member arch; declarations/fields: `arch` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 742–744 | Native build source fixtures/assertions; declaration/member revision; declarations/fields: `revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 745–747 | Native build source fixtures/assertions; declaration/member live_inputs; declarations/fields: `live_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 748–750 | Native build source fixtures/assertions; declaration/member execute; declarations/fields: `execute` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 751–753 | Native build source fixtures/assertions; declaration/member capture; declarations/fields: `capture` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 754–756 | Native build source fixtures/assertions; declaration/member next; declarations/fields: `next` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 757–759 | Native build source fixtures/assertions; declaration/member resolve_inputs; declarations/fields: `resolve_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 760–762 | Native build source fixtures/assertions; declaration/member dependencies; declarations/fields: `dependencies` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 763–765 | Native build source fixtures/assertions; declaration/member compile; declarations/fields: `compile` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 766–768 | Native build source fixtures/assertions; declaration/member compile_rust; declarations/fields: `compile_rust` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 769–771 | Native build source fixtures/assertions; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 772–774 | Native build source fixtures/assertions; declaration/member assets; declarations/fields: `assets` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 775–777 | Native build source fixtures/assertions; declaration/member images; declarations/fields: `images` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 778–780 | Native build source fixtures/assertions; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 781 | Native build source fixtures/assertions; declaration/member verify_content; declarations/fields: `verify_content` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 788–790 | Native build source fixtures/assertions; declaration/member resolve_core_os; declarations/fields: `resolve_core_os` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 791–793 | Native build source fixtures/assertions; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 794–796 | Native build source fixtures/assertions; declaration/member check_native; declarations/fields: `check_native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 797 | Native build source fixtures/assertions; declaration/member sign_media; declarations/fields: `sign_media` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 809 | Native build source fixtures/assertions; declaration/member verify_copy; declarations/fields: `verify_copy` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 819–836 | Native build source fixtures/assertions; declaration/member write_document; declarations/fields: `write_document` |
 
-<a id="coverage-06edbfe39c61"></a>
+## [lib/soda-release-image/src/build_compile.rs](../../../../../lib/soda-release-image/src/build_compile.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–8 | Native candidate build runner/cancellation/logging; declarations/fields: `compile_soda_commands`, `record_tool_files`, `RUST_TOOLS`, `compile_rust_tools`, `compile_shipping_tools`, `shipping_tools_use_rust_recipes_and_ship_remote_companion`, `soda_commands_follow_actual_go_rust_owners`, `cmd1_compile_skips_terminal_identity_and_tools_ship_it_once` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 10–51 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_soda_commands; declarations/fields: `compile_soda_commands` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 53–102 | Prepare/compile/stage shipping tools and candidate image; declaration/member record_tool_files; declarations/fields: `record_tool_files` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 107–158 | Prepare/compile/stage shipping tools and candidate image; declaration/member RUST_TOOLS; declarations/fields: `RUST_TOOLS` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 160–167 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_rust_tools; declarations/fields: `compile_rust_tools` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 169–212 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_shipping_tools; declarations/fields: `compile_shipping_tools` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 335–385 | Prepare/compile/stage shipping tools and candidate image; declaration/member shipping_tools_use_rust_recipes_and_ship_remote_companion; declarations/fields: `shipping_tools_use_rust_recipes_and_ship_remote_companion` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 387–431 | Prepare/compile/stage shipping tools and candidate image; declaration/member soda_commands_follow_actual_go_rust_owners; declarations/fields: `soda_commands_follow_actual_go_rust_owners` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 433–490 | Prepare/compile/stage shipping tools and candidate image; declaration/member cmd1_compile_skips_terminal_identity_and_tools_ship_it_once; declarations/fields: `cmd1_compile_skips_terminal_identity_and_tools_ship_it_once` |
+
+## [lib/soda-release-image/src/build_runner.rs](../../../../../lib/soda-release-image/src/build_runner.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–12 | Native candidate build runner/cancellation/logging; declarations/fields: `Cancel`, `Cancel.flag`, `new`, `cancel`, `is_cancelled`, `SharedFile`, `wrap`, `write`, `flush`, `Runner`, `Runner.cancel`, `Runner.log`, `execute`, `capture`, `open_log`, `reason`, `LogCloser`, `LogCloser.files`, `close`, `build_environment_pairs`, `resolve_build_tool`, `look_path`, `run_build_command`, `drain_pipe` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 15–18 | Native candidate build runner/cancellation/logging; declaration/member Cancel; declarations/fields: `Cancel` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 17 | Native candidate build runner/cancellation/logging; declaration/member Cancel.flag; declarations/fields: `Cancel.flag` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 21–23 | Native candidate build runner/cancellation/logging; declaration/member new; declarations/fields: `new` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 25–27 | Native candidate build runner/cancellation/logging; declaration/member cancel; declarations/fields: `cancel` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 29–32 | Native candidate build runner/cancellation/logging; declaration/member is_cancelled; declarations/fields: `is_cancelled` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 36–37 | Native candidate build runner/cancellation/logging; declaration/member SharedFile; declarations/fields: `SharedFile` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 40–43 | Native candidate build runner/cancellation/logging; declaration/member wrap; declarations/fields: `wrap` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 46–48 | Native candidate build runner/cancellation/logging; declaration/member write; declarations/fields: `write` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 50–53 | Native candidate build runner/cancellation/logging; declaration/member flush; declarations/fields: `flush` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 57–61 | Native candidate build runner/cancellation/logging; declaration/member Runner; declarations/fields: `Runner` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 59 | Native candidate build runner/cancellation/logging; declaration/member Runner.cancel; declarations/fields: `Runner.cancel` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 60 | Native candidate build runner/cancellation/logging; declaration/member Runner.log; declarations/fields: `Runner.log` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 71–77 | Native candidate build runner/cancellation/logging; declaration/member execute; declarations/fields: `execute` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 79–82 | Native candidate build runner/cancellation/logging; declaration/member capture; declarations/fields: `capture` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 84–127 | Native candidate build runner/cancellation/logging; declaration/member open_log; declarations/fields: `open_log` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 129–132 | Native candidate build runner/cancellation/logging; declaration/member reason; declarations/fields: `reason` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 135–137 | Native candidate build runner/cancellation/logging; declaration/member LogCloser; declarations/fields: `LogCloser` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 136 | Native candidate build runner/cancellation/logging; declaration/member LogCloser.files; declarations/fields: `LogCloser.files` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 140–147 | Native candidate build runner/cancellation/logging; declaration/member close; declarations/fields: `close` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 152–178, 184–191, 193–205, 207–279 | Candidate/media orchestration and native build environment; declarations/fields: `build_host_candidate_with_progress`, `build_environment_pairs`, `resolve_build_tool`, `look_path`, `run_build_command`, `link_prepared_assets` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 152–178 | Candidate/media orchestration and native build environment; declaration/member build_environment_pairs; declarations/fields: `build_environment_pairs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 184–191 | Candidate/media orchestration and native build environment; declaration/member resolve_build_tool; declarations/fields: `resolve_build_tool` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 193–205 | Candidate/media orchestration and native build environment; declaration/member look_path; declarations/fields: `look_path` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 207–279 | Candidate/media orchestration and native build environment; declaration/member run_build_command; declarations/fields: `run_build_command` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 281–291 | Candidate/media orchestration and native build environment; declaration/member drain_pipe; declarations/fields: `drain_pipe` |
+
+## [lib/soda-release-image/src/build_runner/tests.rs](../../../../../lib/soda-release-image/src/build_runner/tests.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1 | Native candidate build runner/cancellation/logging; declarations/fields: `oracle_build_command_capture_environment_and_failure`, `run_build_command_drains_saturated_pipes`, `run_build_command_cancel_kills_and_reports` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 3–58 | Native build source fixtures/assertions; declaration/member oracle_build_command_capture_environment_and_failure; declarations/fields: `oracle_build_command_capture_environment_and_failure` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 60–80 | Native build source fixtures/assertions; declaration/member run_build_command_drains_saturated_pipes; declarations/fields: `run_build_command_drains_saturated_pipes` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 82–104 | Native build source fixtures/assertions; declaration/member run_build_command_cancel_kills_and_reports; declarations/fields: `run_build_command_cancel_kills_and_reports` |
+
+## [lib/soda-release-image/src/build_source.rs](../../../../../lib/soda-release-image/src/build_source.rs)
+
+Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–9 | Native candidate build runner/cancellation/logging; declarations/fields: `verify_checkout_source`, `verify_committed_revision`, `verify_compiler`, `admit_build_output`, `admit_build_inputs` |
+| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 11–33 | Clean exact checkout and source/compiler/output admission; declarations/fields: `verify_checkout_source` |
+| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 35–71 | Clean exact checkout and source/compiler/output admission; declaration/member verify_committed_revision; declarations/fields: `verify_committed_revision` |
+| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 73–81 | Clean exact checkout and source/compiler/output admission; declaration/member verify_compiler; declarations/fields: `verify_compiler` |
+| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 83–99 | Clean exact checkout and source/compiler/output admission; declaration/member admit_build_output; declarations/fields: `admit_build_output` |
+| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 101–121 | Clean exact checkout and source/compiler/output admission; declaration/member admit_build_inputs; declarations/fields: `admit_build_inputs` |
 
 ## [lib/soda-release-image/src/foreign.rs](../../../../../lib/soda-release-image/src/foreign.rs)
 
@@ -190,7 +225,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 ## [lib/soda-release-image/src/media.rs](../../../../../lib/soda-release-image/src/media.rs)
 
-> R02 STALE: `lib/soda-release-image/src/media.rs` differs from the audited `rust/soda-release-image/src/media.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
+Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -445,15 +480,15 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 ## [lib/soda-release-image/src/payload_stage.rs](../../../../../lib/soda-release-image/src/payload_stage.rs)
 
-> R02 STALE: `lib/soda-release-image/src/payload_stage.rs` differs from the audited `rust/soda-release-image/src/payload_stage.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
+Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; C09-paths regression tests rowed.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
 | Slice / lifecycle | Current lines | Responsibility and declarations |
 | --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–110 | Native candidate payload/image metadata staging; declarations/fields: `link_candidate_commands`, `stage_candidate_forgejo`, `stage_extension_package`, `record_candidate_images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 111–275 | Staged immutable candidate input/content inspection; declarations/fields: `inspect_candidate_forgejo`, `inspect_candidate_files`, `inspect_extension_assets`, `inspect_packaged_file`, `seal_candidate_payload` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 276–335 | Complete candidate metadata/content staging; declarations/fields: `complete_candidate`, `tests`, `oracle_record_candidate_images_binds_references` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–113 | Native candidate payload/image metadata staging; declarations/fields: `link_candidate_commands`, `stage_candidate_forgejo`, `stage_extension_package`, `record_candidate_images` |
+| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 114–278 | Staged immutable candidate input/content inspection; declarations/fields: `inspect_candidate_forgejo`, `inspect_candidate_files`, `inspect_extension_assets`, `inspect_packaged_file`, `seal_candidate_payload` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 279–406 | Complete candidate metadata/content staging; declarations/fields: `complete_candidate`, `tests`, `oracle_record_candidate_images_binds_references`, `extension_package_reads_new_layout`, `cmd1_staging_links_resolve_without_terminal_identity` |
 
 <a id="coverage-c74a73ba4b6a"></a>
 
@@ -461,7 +496,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 ## [lib/soda-release-image/src/prepare.rs](../../../../../lib/soda-release-image/src/prepare.rs)
 
-> R02 STALE: `lib/soda-release-image/src/prepare.rs` differs from the audited `rust/soda-release-image/src/prepare.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
+Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -481,47 +516,47 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 71–74 | Complete native candidate image assembly and authenticated live media; declaration/member PreparedWriter.out; declarations/fields: `PreparedWriter.out` |
 | [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 75–82 | Complete native candidate image assembly and authenticated live media; declaration/member write; declarations/fields: `write` |
 | [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 83–98 | Complete native candidate image assembly and authenticated live media; declaration/member copy_file; declarations/fields: `copy_file` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 99–119 | Complete native candidate image assembly and authenticated live media; declaration/member write_base_files; declarations/fields: `write_base_files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 120–134 | Complete native candidate image assembly and authenticated live media; declaration/member stage_symlinks_and_extras; declarations/fields: `stage_symlinks_and_extras` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 135–145 | Complete native candidate image assembly and authenticated live media; declaration/member stage_rootfs_files; declarations/fields: `stage_rootfs_files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 146–184 | Complete native candidate image assembly and authenticated live media; declaration/member write_build_record; declarations/fields: `write_build_record` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 185–254 | Complete native candidate image assembly and authenticated live media; declaration/member rootfs_file_map; declarations/fields: `rootfs_file_map` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 255–264 | Complete native candidate image assembly and authenticated live media; declaration/member load_base_inputs; declarations/fields: `load_base_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 265–275 | Complete native candidate image assembly and authenticated live media; declaration/member load_base_inputs_resolved; declarations/fields: `load_base_inputs_resolved` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 276–291 | Complete native candidate image assembly and authenticated live media; declaration/member finish_base_inputs; declarations/fields: `finish_base_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 292–304 | Complete native candidate image assembly and authenticated live media; declaration/member prepare; declarations/fields: `prepare` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 305–317 | Complete native candidate image assembly and authenticated live media; declaration/member prepare_resolved; declarations/fields: `prepare_resolved` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 318–340 | Complete native candidate image assembly and authenticated live media; declaration/member finish_prepare; declarations/fields: `finish_prepare` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 341–377 | Complete native candidate image assembly and authenticated live media; declaration/member inventory; declarations/fields: `inventory` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 378–381 | Complete native candidate image assembly and authenticated live media; declaration/member tests; declarations/fields: `tests` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 382–383 | Complete native candidate image assembly and authenticated live media; declaration/member oracle_base_inputs_require_exact_revision; declarations/fields: `oracle_base_inputs_require_exact_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 384–385 | Complete native candidate image assembly and authenticated live media; declaration/member Stub; declarations/fields: `Stub` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 386–388 | Complete native candidate image assembly and authenticated live media; declaration/member source; declarations/fields: `source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 389–391 | Complete native candidate image assembly and authenticated live media; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 392–394 | Complete native candidate image assembly and authenticated live media; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 395–397 | Complete native candidate image assembly and authenticated live media; declaration/member native; declarations/fields: `native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 398–400 | Complete native candidate image assembly and authenticated live media; declaration/member out; declarations/fields: `out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 401–403 | Complete native candidate image assembly and authenticated live media; declaration/member arch; declarations/fields: `arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 404–406 | Complete native candidate image assembly and authenticated live media; declaration/member revision; declarations/fields: `revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 407–409 | Complete native candidate image assembly and authenticated live media; declaration/member live_inputs; declarations/fields: `live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 410–412 | Complete native candidate image assembly and authenticated live media; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 413–415 | Complete native candidate image assembly and authenticated live media; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 416–418 | Complete native candidate image assembly and authenticated live media; declaration/member next; declarations/fields: `next` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 419–421 | Complete native candidate image assembly and authenticated live media; declaration/member resolve_inputs; declarations/fields: `resolve_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 422–424 | Complete native candidate image assembly and authenticated live media; declaration/member dependencies; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 425–427 | Complete native candidate image assembly and authenticated live media; declaration/member compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 428–430 | Complete native candidate image assembly and authenticated live media; declaration/member compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 431–433 | Complete native candidate image assembly and authenticated live media; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 434–436 | Complete native candidate image assembly and authenticated live media; declaration/member assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 437–443 | Complete native candidate image assembly and authenticated live media; declaration/member images; declarations/fields: `images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 444–446 | Complete native candidate image assembly and authenticated live media; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 447–453 | Complete native candidate image assembly and authenticated live media; declaration/member verify_content; declarations/fields: `verify_content` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 454–456 | Complete native candidate image assembly and authenticated live media; declaration/member resolve_core_os; declarations/fields: `resolve_core_os` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 457–459 | Complete native candidate image assembly and authenticated live media; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 460–462 | Complete native candidate image assembly and authenticated live media; declaration/member check_native; declarations/fields: `check_native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 463–474 | Complete native candidate image assembly and authenticated live media; declaration/member sign_media; declarations/fields: `sign_media` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 475–484 | Complete native candidate image assembly and authenticated live media; declaration/member verify_copy; declarations/fields: `verify_copy` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 485–501 | Complete native candidate image assembly and authenticated live media; declaration/member write_document; declarations/fields: `write_document` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 99–114 | Complete native candidate image assembly and authenticated live media; declaration/member write_base_files; declarations/fields: `write_base_files` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 115–129 | Complete native candidate image assembly and authenticated live media; declaration/member stage_symlinks_and_extras; declarations/fields: `stage_symlinks_and_extras` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 130–140 | Complete native candidate image assembly and authenticated live media; declaration/member stage_rootfs_files; declarations/fields: `stage_rootfs_files` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 141–179 | Complete native candidate image assembly and authenticated live media; declaration/member write_build_record; declarations/fields: `write_build_record` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 180–252 | Complete native candidate image assembly and authenticated live media; declaration/member rootfs_file_map; declarations/fields: `rootfs_file_map` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 253–262 | Complete native candidate image assembly and authenticated live media; declaration/member load_base_inputs; declarations/fields: `load_base_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 263–273 | Complete native candidate image assembly and authenticated live media; declaration/member load_base_inputs_resolved; declarations/fields: `load_base_inputs_resolved` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 274–289 | Complete native candidate image assembly and authenticated live media; declaration/member finish_base_inputs; declarations/fields: `finish_base_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 290–302 | Complete native candidate image assembly and authenticated live media; declaration/member prepare; declarations/fields: `prepare` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 303–315 | Complete native candidate image assembly and authenticated live media; declaration/member prepare_resolved; declarations/fields: `prepare_resolved` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 316–338 | Complete native candidate image assembly and authenticated live media; declaration/member finish_prepare; declarations/fields: `finish_prepare` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 339–375 | Complete native candidate image assembly and authenticated live media; declaration/member inventory; declarations/fields: `inventory` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 376–379 | Complete native candidate image assembly and authenticated live media; declaration/member tests; declarations/fields: `tests` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 380–381 | Complete native candidate image assembly and authenticated live media; declaration/member oracle_base_inputs_require_exact_revision; declarations/fields: `oracle_base_inputs_require_exact_revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 382–383 | Complete native candidate image assembly and authenticated live media; declaration/member Stub; declarations/fields: `Stub` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 384–386 | Complete native candidate image assembly and authenticated live media; declaration/member source; declarations/fields: `source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 387–389 | Complete native candidate image assembly and authenticated live media; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 390–392 | Complete native candidate image assembly and authenticated live media; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 393–395 | Complete native candidate image assembly and authenticated live media; declaration/member native; declarations/fields: `native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 396–398 | Complete native candidate image assembly and authenticated live media; declaration/member out; declarations/fields: `out` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 399–401 | Complete native candidate image assembly and authenticated live media; declaration/member arch; declarations/fields: `arch` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 402–404 | Complete native candidate image assembly and authenticated live media; declaration/member revision; declarations/fields: `revision` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 405–407 | Complete native candidate image assembly and authenticated live media; declaration/member live_inputs; declarations/fields: `live_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 408–410 | Complete native candidate image assembly and authenticated live media; declaration/member execute; declarations/fields: `execute` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 411–413 | Complete native candidate image assembly and authenticated live media; declaration/member capture; declarations/fields: `capture` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 414–416 | Complete native candidate image assembly and authenticated live media; declaration/member next; declarations/fields: `next` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 417–419 | Complete native candidate image assembly and authenticated live media; declaration/member resolve_inputs; declarations/fields: `resolve_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 420–422 | Complete native candidate image assembly and authenticated live media; declaration/member dependencies; declarations/fields: `dependencies` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 423–425 | Complete native candidate image assembly and authenticated live media; declaration/member compile; declarations/fields: `compile` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 426–428 | Complete native candidate image assembly and authenticated live media; declaration/member compile_rust; declarations/fields: `compile_rust` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 429–431 | Complete native candidate image assembly and authenticated live media; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 432–434 | Complete native candidate image assembly and authenticated live media; declaration/member assets; declarations/fields: `assets` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 435–441 | Complete native candidate image assembly and authenticated live media; declaration/member images; declarations/fields: `images` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 442–444 | Complete native candidate image assembly and authenticated live media; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 445–451 | Complete native candidate image assembly and authenticated live media; declaration/member verify_content; declarations/fields: `verify_content` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 452–454 | Complete native candidate image assembly and authenticated live media; declaration/member resolve_core_os; declarations/fields: `resolve_core_os` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 455–457 | Complete native candidate image assembly and authenticated live media; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 458–460 | Complete native candidate image assembly and authenticated live media; declaration/member check_native; declarations/fields: `check_native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 461–472 | Complete native candidate image assembly and authenticated live media; declaration/member sign_media; declarations/fields: `sign_media` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 473–482 | Complete native candidate image assembly and authenticated live media; declaration/member verify_copy; declarations/fields: `verify_copy` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 483–499 | Complete native candidate image assembly and authenticated live media; declaration/member write_document; declarations/fields: `write_document` |
 
 <a id="coverage-ad348e05d9a8"></a>
 
@@ -538,7 +573,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 ## [lib/soda-release-image/src/sys.rs](../../../../../lib/soda-release-image/src/sys.rs)
 
-> R02 STALE: `lib/soda-release-image/src/sys.rs` differs from the audited `rust/soda-release-image/src/sys.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
+Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; CORR-C-001/C-004 command-discovery additions rowed.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -546,6 +581,6 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | --- | --- | --- |
 | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1–220 | Builder confined filesystem/hash/process primitives; declarations/fields: `File`, `to_json`, `parse`, `clean_path`, `is_abs`, `join`, `dir_name`, `base_name`, `rel_path`, `to_slash`, `components`, `hash_file`, `hex_sha256`, `hex_bytes`, `fresh_directory`, `write_new`, `read_bounded` |
 | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 221–261 | Strict bounded JSON input; declarations/fields: `read_json_build`, `read_json_deliver`, `refused`, `private_file` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 262–271 | Matching native architecture/source admission; declarations/fields: `require_native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 272–391 | Native shipping command inventory; declarations/fields: `soda_commands`, `is_soda_command`, `mkdir_all`, `create_dir`, `walk`, `tests`, `oracle_clean_path_matches_go`, `oracle_hash_file_refuses_symlink`, `oracle_write_new_refuses_overwrite` |
+| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 262–273 | Matching native architecture/source admission; declarations/fields: `require_native` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 274–462 | Native shipping command inventory; declarations/fields: `soda_commands`, `is_soda_command`, `mkdir_all`, `create_dir`, `walk`, `tests`, `oracle_clean_path_matches_go`, `oracle_hash_file_refuses_symlink`, `oracle_write_new_refuses_overwrite`, `is_rust_command`, `rust_command_follows_manifest_presence`, `cmd1_discovery_skips_folded_terminal_crate`, `require_native_accepts_matching_x86_64_linux` |
 
