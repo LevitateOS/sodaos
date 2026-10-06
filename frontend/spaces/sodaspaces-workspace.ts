@@ -93,6 +93,14 @@ import {attentionRows, filteredSpaces, projectRows, rows} from './sodaspaces-wor
 import {displayFactoryWatches, factorySection} from './sodaspaces-workspace-factory.js';
 import {paneChrome} from './sodaspaces-workspace-pane-view.js';
 import type {PaneChromeInput} from './sodaspaces-workspace-pane-view.js';
+import {
+  closeMenus as closeWorkspaceMenus,
+  menuFocusOut,
+  rememberFocus as rememberWorkspaceFocus,
+  restoreFocus as restoreWorkspaceFocus,
+  workspaceClick,
+  workspaceKey,
+} from './sodaspaces-workspace-focus.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -376,7 +384,7 @@ export class SodaSpaces extends LitElement {
     };
     this.factory = factory;
     this.storageKey = '';
-    this.addEventListener('focusout', (event) => this.menuFocusOut(event), {signal: this.lifetime.signal});
+    this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal,
     });
@@ -479,8 +487,18 @@ export class SodaSpaces extends LitElement {
     this.recordCanvasGeometry();
     this.publishMinimum();
   };
-  private readonly onWorkspaceKey = (e: KeyboardEvent) => this.workspaceKey(e);
-  private readonly onWorkspaceClick = (e: MouseEvent) => this.workspaceClick(e);
+  private readonly onWorkspaceKey = (e: KeyboardEvent) =>
+    workspaceKey(
+      {
+        isEditing: () => !!this.editing,
+        clearEditing: () => {
+          this.editing = null;
+        },
+        restoreFocus: () => this.restoreFocus(),
+      },
+      e
+    );
+  private readonly onWorkspaceClick = (e: MouseEvent) => workspaceClick(this, e);
   private readonly onNavKey = (e: KeyboardEvent) => this.navigationEscape(e);
   private readonly onSearchInput = (e: Event) => this.setSearchFromEvent(e);
   private readonly onThisPageChange = (e: Event) => this.setThisPageFromEvent(e);
@@ -1251,77 +1269,24 @@ export class SodaSpaces extends LitElement {
       }
     );
   }
-  private workspaceKey(event: KeyboardEvent) {
-    if (event.key !== 'Escape' || !(event.target instanceof HTMLElement)) return;
-    const menu = event.target.closest<HTMLDetailsElement>('.soda-menu');
-    if (menu) {
-      event.preventDefault();
-      event.stopPropagation();
-      menu.open = false;
-      menu.querySelector<HTMLElement>('summary')?.focus();
-    } else if (this.editing && event.target.closest('.soda-workspace-dialog')) {
-      event.preventDefault();
-      event.stopPropagation();
-      this.editing = null;
-      this.restoreFocus();
-    }
-  }
-  private workspaceClick(event: MouseEvent) {
-    if (!(event.target instanceof Element)) return;
-    const menu = event.target.closest<HTMLDetailsElement>('.soda-menu');
-    if (!menu) {
-      this.closeMenus();
-      return;
-    }
-    if (!event.target.closest('summary')) return;
-    for (const other of this.querySelectorAll<HTMLDetailsElement>('.soda-menu[open]'))
-      if (other !== menu) other.open = false;
-    const summary = menu.querySelector('summary');
-    const boundary = menu.closest('.soda-workspace-terminal, .soda-workspace-canvas') || this;
-    if (summary)
-      menu.style.setProperty(
-        '--soda-menu-available-height',
-        Math.max(
-          0,
-          Math.min(window.innerHeight, boundary.getBoundingClientRect().bottom) -
-            summary.getBoundingClientRect().bottom -
-            2
-        ) + 'px'
-      );
-  }
-  private menuFocusOut(event: FocusEvent) {
-    if (!(event.target instanceof Element) || !(event.relatedTarget instanceof Node)) return;
-    const menu = event.target.closest<HTMLDetailsElement>('.soda-menu');
-    if (menu && !menu.contains(event.relatedTarget)) menu.open = false;
-  }
   private closeMenus() {
-    for (const menu of this.querySelectorAll<HTMLDetailsElement>('.soda-menu')) menu.open = false;
+    closeWorkspaceMenus(this);
   }
   private rememberFocus() {
-    this.invoker = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-    this.closeMenus();
+    rememberWorkspaceFocus({
+      root: this,
+      setInvoker: (invoker) => {
+        this.invoker = invoker;
+      },
+    });
   }
   private restoreFocus() {
-    const target = this.invoker,
-      active = document.activeElement;
-    void this.updateComplete.then(() => {
-      if (
-        !this.stale &&
-        this.activeSurface &&
-        (document.activeElement === active || document.activeElement === document.body)
-      ) {
-        const visible = (node: HTMLElement) =>
-          node.isConnected && !node.closest('[hidden], [inert]') && node.getClientRects().length > 0;
-        const next =
-          target && visible(target)
-            ? target
-            : [
-                ...this.querySelectorAll<HTMLElement>(
-                  '.soda-setup-welcome .primary, .soda-workspace-intro h2, .soda-workspace-toolbar button'
-                ),
-              ].find(visible);
-        next?.focus();
-      }
+    restoreWorkspaceFocus({
+      invoker: this.invoker,
+      updateComplete: this.updateComplete,
+      isStale: () => this.stale,
+      isActiveSurface: () => this.activeSurface,
+      root: this,
     });
   }
   private showSessions(pane?: string) {
