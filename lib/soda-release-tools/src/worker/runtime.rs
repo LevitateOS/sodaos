@@ -10,7 +10,7 @@ use super::config::{
     worker_runtime_ids, Worker, WorkerConfig, PINNED_GO_ROOT, WORKER_FORGEJO, WORKER_HOME,
     WORKER_RUNTIME, WORKER_SOURCE, WORKER_TOOLS,
 };
-use super::execution::run_worker;
+use super::execution::{run_worker, WorkerError};
 
 /// Claim one fresh attempt runtime directory under `parent` and hand it to
 /// (`uid`, `gid`). Returns the directory; release with `release_attempt_runtime`.
@@ -344,7 +344,7 @@ pub fn run_build_worker(
     config: &WorkerConfig,
     request: &Request,
     progress: &mut BuildProgress,
-) -> Result<ImageResult, String> {
+) -> Result<ImageResult, WorkerError> {
     let boundary = if request.wants_media() {
         "P1-P8 / Isolated source-to-media worker"
     } else {
@@ -376,7 +376,7 @@ fn run_build_worker_attempt(
     c: &WorkerConfig,
     r: &Request,
     progress: &mut BuildProgress,
-) -> Result<ImageResult, String> {
+) -> Result<ImageResult, WorkerError> {
     let w = build_worker(c, r)?;
     let mut out = std::io::stderr();
     let mut err = std::io::stderr();
@@ -397,7 +397,7 @@ fn run_build_worker_attempt(
             if let Err(e) = b {
                 parts.push(e);
             }
-            Err(parts.join("\n"))
+            Err(WorkerError::Failed(parts.join("\n")))
         }
     }
 }

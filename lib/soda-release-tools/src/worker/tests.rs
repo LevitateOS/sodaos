@@ -565,7 +565,7 @@ fn run_build_worker_fails_before_dispatch_without_progress() {
     ] {
         assert_eq!(
             run_build_worker(&config, &request, &mut progress).unwrap_err(),
-            "invalid progress transition"
+            WorkerError::Failed("invalid progress transition".to_owned())
         );
     }
 }
