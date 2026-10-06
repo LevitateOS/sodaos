@@ -1189,8 +1189,62 @@ mod tests {
             std::fs::metadata(&mark).is_err(),
             "retired group wrote after completion"
         );
+    }
+
+    #[test]
+    fn run_command_completion_bounded_by_grace() {
+        // Selected adapter path: the leader exits at once while a
+        // grandchild holds the pipes; capture settles within the 1s
+        // post-exit grace even with a 30s caller deadline (the retired
+        // WaitDelay=1s equivalent), and the held group is retired.
+        let env = TestEnv::fresh("grace");
+        let beat = env.path("beat");
+        let script = stub_cli(
+            &env,
+            "held.sh",
+            &format!(
+                "(while true; do echo x >> \"{beat}\"; sleep 0.05; done) &\necho done\nexit 0"
+            ),
+        );
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let start = Instant::now();
+        assert_eq!(
+            tcontrol_native::run_command(&Native, &script, &[], deadline).unwrap_err(),
+            "tailnet outcome is unconfirmed"
+        );
+        assert!(start.elapsed() >= Duration::from_millis(500), "too fast");
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "used full deadline"
+        );
+        std::thread::sleep(Duration::from_millis(300));
+        let before = std::fs::read(&beat).unwrap().len();
+        assert!(before > 0, "holder never ran");
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(
+            std::fs::read(&beat).unwrap().len(),
+            before,
+            "held group survived the grace"
+        );
+        // Capture that settles inside the grace still completes exactly.
+        let quick = stub_cli(&env, "quick.sh", "echo done");
+        assert_eq!(
+            tcontrol_native::run_command(
+                &Native,
+                &quick,
+                &[],
+                Instant::now() + Duration::from_secs(30)
+            )
+            .unwrap(),
+            b"done\n"
+        );
+    }
+
+    #[test]
+    fn descendant_stdin_hold_cannot_wedge_completion() {
         // A descendant holding the stdin read end wedges the writer the
         // same way: 1 MiB can never drain into a sleeper.
+        let env = TestEnv::fresh("wedge-stdin");
         let stdin_held = stub_cli(&env, "stdin.sh", "(sleep 5 <&0 &)\necho done\nexit 0");
         let big = vec![7u8; 1 << 20];
         for (exec, want) in [

@@ -8,6 +8,20 @@ pub trait Executor {
         args: &[&str],
         deadline: Instant,
     ) -> Result<Vec<u8>, String>;
+    /// Run with a bounded post-exit capture grace (Go WaitDelay analog):
+    /// after the leader exits, capture must settle within `grace`
+    /// (clamped to `deadline`) or the run fails. Default: full-deadline
+    /// capture, preserving existing behavior for unselected callers.
+    fn run_with_capture_grace(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        _grace: Duration,
+    ) -> Result<Vec<u8>, String> {
+        self.run(stdin, cmd, args, deadline)
+    }
     /// Mirrors Go's `HostNative()` marker assertion: the privileged host
     /// executor whose native protocols must never leak stderr text.
     fn is_host_native(&self) -> bool {
@@ -24,6 +38,17 @@ impl<E: Executor> Executor for &E {
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
         (*self).run(stdin, cmd, args, deadline)
+    }
+
+    fn run_with_capture_grace(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        grace: Duration,
+    ) -> Result<Vec<u8>, String> {
+        (*self).run_with_capture_grace(stdin, cmd, args, deadline, grace)
     }
 
     fn is_host_native(&self) -> bool {
@@ -44,7 +69,18 @@ impl Executor for Native {
         args: &[&str],
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
-        execute(stdin, cmd, args, deadline, false)
+        execute(stdin, cmd, args, deadline, false, None)
+    }
+
+    fn run_with_capture_grace(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        grace: Duration,
+    ) -> Result<Vec<u8>, String> {
+        execute(stdin, cmd, args, deadline, false, Some(grace))
     }
 
     fn is_host_native(&self) -> bool {
@@ -67,7 +103,7 @@ impl Executor for NativeStatusOnly {
         args: &[&str],
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
-        execute(stdin, cmd, args, deadline, true)
+        execute(stdin, cmd, args, deadline, true, None)
     }
 
     fn is_host_native(&self) -> bool {
@@ -81,6 +117,7 @@ fn execute(
     args: &[&str],
     deadline: Instant,
     status_only: bool,
+    capture_grace: Option<Duration>,
 ) -> Result<Vec<u8>, String> {
     use std::os::unix::io::AsRawFd;
     use std::os::unix::process::CommandExt;
@@ -128,22 +165,27 @@ fn execute(
         }
     }
     let pid = child.id() as libc::pid_t;
+    // Post-exit capture bound, shared with the transfers. Unselected
+    // callers keep the full caller deadline; selected callers tighten it
+    // to the capture grace once exit is observed.
+    let capture = std::sync::Mutex::new(deadline);
+    let cap = capture_grace.map(|_| &capture);
     let outcome = std::thread::scope(|scope| {
         // Stdin/stdout/stderr transfer concurrently: a child emitting
         // beyond pipe capacity would otherwise block forever while the
         // poll loop below waits for exit (H01-F2). Every transfer honors
-        // the same caller deadline, so every join below is bounded and no
-        // pump is ever detached.
+        // the capture bound, so every join below is bounded and no pump
+        // is ever detached.
         let writer = scope.spawn(|| match input.take() {
-            Some(w) => pump_stdin(w, stdin, deadline),
+            Some(w) => pump_stdin(w, stdin, deadline, cap),
             None => Transfer::Done(()),
         });
         let out_drain = scope.spawn(|| match out_pipe.take() {
-            Some(o) => drain_pipe(o, deadline),
+            Some(o) => drain_pipe(o, deadline, cap),
             None => Transfer::Done(Vec::new()),
         });
         let err_drain = scope.spawn(|| match err_pipe.take() {
-            Some(e) => drain_pipe(e, deadline),
+            Some(e) => drain_pipe(e, deadline, cap),
             None => Transfer::Done(Vec::new()),
         });
         loop {
@@ -151,7 +193,14 @@ fn execute(
                 // Exited but UN-REAPED: the zombie pins the PID/PGID
                 // against reuse until capture and group retirement
                 // settle below; the single reap follows the joins.
-                Ok(true) => break,
+                Ok(true) => {
+                    if let Some(grace) = capture_grace {
+                        if let Ok(mut bound) = capture.lock() {
+                            *bound = deadline.min(Instant::now() + grace);
+                        }
+                    }
+                    break;
+                }
                 Ok(false) => {
                     if Instant::now() >= deadline {
                         // Timeout: bounded cleanup of the owned child
@@ -357,32 +406,93 @@ fn poll_ready(fd: std::os::unix::io::RawFd, events: libc::c_short, deadline: Ins
             return false;
         }
         let timeout = remaining.as_millis().min(i32::MAX as u128) as libc::c_int;
+        match poll_once(fd, events, timeout) {
+            Poll::Ready => return true,
+            Poll::Timeout => return false,
+            Poll::Failed => return false,
+        }
+    }
+}
+
+/// Single poll outcome.
+enum Poll {
+    Ready,
+    Timeout,
+    Failed,
+}
+
+/// One poll with a millisecond timeout. EINTR retries.
+fn poll_once(fd: std::os::unix::io::RawFd, events: libc::c_short, timeout_ms: libc::c_int) -> Poll {
+    loop {
         let mut pfd = libc::pollfd {
             fd,
             events,
             revents: 0,
         };
-        match unsafe { libc::poll(&mut pfd, 1, timeout) } {
-            0 => return false,
-            n if n > 0 => return true,
+        match unsafe { libc::poll(&mut pfd, 1, timeout_ms) } {
+            n if n > 0 => return Poll::Ready,
+            0 => return Poll::Timeout,
             _ => {
                 if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
                     continue;
                 }
-                return false;
+                return Poll::Failed;
             }
+        }
+    }
+}
+
+/// Wait for readiness until the effective capture bound: the caller
+/// deadline, tightened by the shared post-exit cap when selected. False
+/// only when the bound passed (or the fd failed).
+fn wait_ready(
+    fd: std::os::unix::io::RawFd,
+    events: libc::c_short,
+    deadline: Instant,
+    capture: Option<&std::sync::Mutex<Instant>>,
+) -> bool {
+    let Some(cap) = capture else {
+        return poll_ready(fd, events, deadline);
+    };
+    loop {
+        let bound = cap
+            .lock()
+            .ok()
+            .map(|c| *c)
+            .unwrap_or(deadline)
+            .min(deadline);
+        let remaining = bound.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return false;
+        }
+        // Re-check the shared cap every 100 ms so post-exit tightening
+        // lands promptly without busy-waiting.
+        let chunk = remaining.as_millis().min(100) as libc::c_int;
+        match poll_once(fd, events, chunk) {
+            Poll::Ready => return true,
+            Poll::Timeout => continue,
+            Poll::Failed => return false,
         }
     }
 }
 
 /// Read one pipe to EOF or the caller deadline. Never blocks past the
 /// deadline; partial bytes after an error are Incomplete, never Done.
-fn drain_pipe(pipe: impl std::os::unix::io::AsRawFd, deadline: Instant) -> Transfer<Vec<u8>> {
+fn drain_pipe(
+    pipe: impl std::os::unix::io::AsRawFd,
+    deadline: Instant,
+    capture: Option<&std::sync::Mutex<Instant>>,
+) -> Transfer<Vec<u8>> {
     let fd = pipe.as_raw_fd();
     let mut buf = Vec::new();
     let mut chunk = [0u8; 8192];
     loop {
-        if !poll_ready(fd, libc::POLLIN | libc::POLLHUP | libc::POLLERR, deadline) {
+        if !wait_ready(
+            fd,
+            libc::POLLIN | libc::POLLHUP | libc::POLLERR,
+            deadline,
+            capture,
+        ) {
             return Transfer::Incomplete;
         }
         match unsafe { libc::read(fd, chunk.as_mut_ptr() as *mut libc::c_void, chunk.len()) } {
@@ -405,10 +515,16 @@ fn pump_stdin(
     pipe: impl std::os::unix::io::AsRawFd,
     mut stdin: &[u8],
     deadline: Instant,
+    capture: Option<&std::sync::Mutex<Instant>>,
 ) -> Transfer<()> {
     let fd = pipe.as_raw_fd();
     while !stdin.is_empty() {
-        if !poll_ready(fd, libc::POLLOUT | libc::POLLHUP | libc::POLLERR, deadline) {
+        if !wait_ready(
+            fd,
+            libc::POLLOUT | libc::POLLHUP | libc::POLLERR,
+            deadline,
+            capture,
+        ) {
             return Transfer::Incomplete;
         }
         match unsafe { libc::write(fd, stdin.as_ptr() as *const libc::c_void, stdin.len()) } {

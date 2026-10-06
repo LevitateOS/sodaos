@@ -559,8 +559,14 @@ pub fn observe(
 
 // ---------- Command execution ----------
 
+/// Post-exit capture grace for `RunNative`, mirroring Go's WaitDelay=1s:
+/// after the leader exits, pipes must settle within a second or the
+/// action reports unconfirmed (never truncated success).
+const COMPLETION_GRACE: Duration = Duration::from_secs(1);
+
 /// Bounded native command run, mirroring `RunNative`: stdout is capped at
-/// 64 KiB and every failure (spawn, deadline, exit status, overflow) is an
+/// 64 KiB, post-exit capture settles within the completion grace, and
+/// every failure (spawn, deadline, exit status, overflow) is an
 /// unconfirmed outcome with no native diagnostics attached.
 pub fn run_command(
     exec: &dyn crate::project::Executor,
@@ -568,7 +574,7 @@ pub fn run_command(
     args: &[&str],
     deadline: Instant,
 ) -> Result<Vec<u8>, String> {
-    match exec.run(&[], path, args, deadline) {
+    match exec.run_with_capture_grace(&[], path, args, deadline, COMPLETION_GRACE) {
         Ok(out) if out.len() <= RESPONSE_LIMIT => Ok(out),
         _ => Err(wire::err_unconfirmed()),
     }
