@@ -20,8 +20,9 @@ below; shared duties route through their physical writer in the lane schedule.
 
 Current dispatch priority is [library adoption](library-adoption.md) at source
 `72e4bb9015b6d6a622b45638104c74851a137473`, selectively refreshed after L01
-at `4b02122b`. L01 is complete at its documented scope. The current instruction
-finishes L00 before L02 dispatch; later unchecked work remains undispatched. L00–L18 below are bounded subpackets of
+at `4b02122b`. L00 initial preparation and L01 are complete at their documented
+scopes. L02 and later unchecked work remain
+undispatched. L00–L18 below are bounded subpackets of
 these existing owners, not new slices. Their scope, finding allocation and
 acceptance are defined once in the chapter. Completed M/C/V entries remain
 unchanged; replacement or fresh behavioral verification remains unchecked.
@@ -266,7 +267,7 @@ the lane schedule supplies one physical writer and integration order. Checked en
 are complete only at their stated scope. Each library conversion carries its
 affected build/offline qualification.
 
-- [ ] **L00** Coordinator: finish initial dependency admission and PG/transport boundary proofs before L02; retain per-adoption graph qualification. [Defined boundary](library-adoption.md#l00-admission-and-boundary-preparation).
+- [x] **L00** Coordinator: initial compiler/dependency/license/local cache/archive inventory, nine boundary/API probes and affected L02 package/caller offline checks complete. tokio-postgres deadline facade selected; production cutover/native/profile gates remain with their named packets. L02 remains undispatched. [Defined boundary](library-adoption.md#l00-admission-and-boundary-preparation).
 - [x] **L01** C: repair acceptance deadlines and evidence completion/confidentiality. Phase fix `9fda53fe` preserved; CoreOS finalization `3873614f`, evidence/pump bounds and failure propagation `d80aec93`, QMP/VM ownership `4c87f5e9`. All 126 acceptance library tests and three binary compile checks pass. Local shell/socket evidence only; N13 library parser adoption remains in L11 and L16 matching stays separate. [Defined boundary](library-adoption.md#l01-deadline-and-evidence-repair).
 - [ ] **L02** C: on-curve trust-key admission and strict signature DER after initial L00 closure; currently undispatched. [Defined boundary](library-adoption.md#l02-trust-key-and-signature-repair).
 - [ ] **L03** A: fail-closed entropy, mature hashes and curve validation. [Defined boundary](library-adoption.md#l03-hash-curve-and-randomness-owners).
@@ -274,7 +275,7 @@ affected build/offline qualification.
 - [ ] **L05** A: complete SSH format ownership with separate product policy. [Defined boundary](library-adoption.md#l05-ssh-formats).
 - [ ] **L06** C: local CA parser with raw DER/TBS and pinned Caddy gate. [Defined boundary](library-adoption.md#l06-local-ca-parsing).
 - [ ] **L07** B: native PostgreSQL parameters and translator deletion. [Defined boundary](library-adoption.md#l07-native-sql-parameters).
-- [ ] **L08** A: complete typed PG driver after deadline/transaction proof. [Defined boundary](library-adoption.md#l08-postgresql-driver).
+- [ ] **L08** A: complete typed tokio-postgres deadline/transaction adapter after L07; retain DSN/auth/typed-value and production Store/Tx checks. [Defined boundary](library-adoption.md#l08-postgresql-driver).
 - [ ] **L09** A: complete Unix HTTP/WS engines and in-process fixture lifecycle. [Defined boundary](library-adoption.md#l09-unix-http-and-websocket-engines).
 - [ ] **L10** C: setup HTTPS and provider HTTP library adapters. [Defined boundary](library-adoption.md#l10-external-http-adapters).
 - [ ] **L11** A: URL/IP/time grammar with purpose-specific admission. [Defined boundary](library-adoption.md#l11-url-ip-and-time-adapters).

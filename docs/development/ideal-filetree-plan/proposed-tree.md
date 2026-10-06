@@ -21,7 +21,7 @@ the earlier exact-match/delta counts below are historical observations.
 
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
-| Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and postgres typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
+| Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
 | Host `daemon/{http,response,websocket}`, `json/{bind,specs}`, `ssh/material` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
 | Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar grammar is retired after L06 gates |
 | `lib/json`, release `json*`, Compose/Muse/guest wire | Only demonstrated shared or caller-specific Serde admission/emission profiles; no replacement generic lexer or emitter |

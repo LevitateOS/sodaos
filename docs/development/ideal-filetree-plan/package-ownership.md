@@ -171,7 +171,7 @@ in the lane schedule; this table describes remaining responsibilities.
 | Selected machinery | Remaining application owner and adapter duty |
 | --- | --- |
 | Host/identity Unix HTTP and WebSocket engines (N1/N2/N5/N6) | Existing A-owned listener/route/admission/backend and single bounded upgrade/pump adapters around Hyper/Tokio/tungstenite; C owns candidate fixture lifecycle |
-| Identity PG wire/DSN/query translators (PG01/SQL01) | A-owned Store/Tx policy around postgres; B owns native Go SQL/schema and A maintains its Rust mirror |
+| Identity PG wire/DSN/query translators (PG01/SQL01) | A-owned Store/Tx policy around the L00-proved tokio-postgres deadline/whole-transaction adapter; B owns native Go SQL/schema and A maintains its Rust mirror |
 | Hash, curve, SSH and Base64 engines (CF-01–04/RNG01) | Existing callers retain fingerprint recipes, algorithm/encoding admission and fail-closed entropy; library engines replace private algorithm/format modules |
 | Installer X509/DER/calendar/URL engines (X50901/CF-05/06) | C-owned bounded local-CA custody, original TBS/fingerprint and explicit CA/critical-extension/signature policy around typed libraries |
 | JSON grammars/emitters (JSON01) | Existing profile adapters and domain validation; no shared replacement parser process |

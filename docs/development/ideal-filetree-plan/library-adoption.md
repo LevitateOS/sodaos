@@ -5,8 +5,8 @@ handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and
 [lane schedule](implementation-lanes.md) remain the execution plan. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
-L01 is complete at its recorded source scope. The current instruction finishes
-L00 preparation before L02; later cutovers retain their scoped authorization and
+L00 initial preparation and L01 are complete at their recorded source scopes.
+L02 remains undispatched; later cutovers retain their scoped authorization and
 admission checks.
 
 Planning reconciliation uses source `72e4bb9015b6d6a622b45638104c74851a137473`
@@ -31,8 +31,8 @@ L identifiers are subpackets of the existing A/B/C tasks. Each has one lead;
 physical writers remain the exclusive owners in the lane schedule. A lead sends
 cross-owner changes through named handoffs rather than editing another owner's
 files. The coordinator owns manifests/locks and integration. Packet state is
-recorded in the task list: L01 is complete, L00 is active, and later unchecked
-packets remain undispatched subject to their exact gates below.
+recorded in the task list: L00 initial preparation and L01 are complete; later
+unchecked packets remain undispatched subject to their exact gates below.
 
 | Packet | Lead | Existing task joins | Sequence and required output |
 | --- | --- | --- | --- |
@@ -79,6 +79,65 @@ closure and affected locked offline build, plus actual boundary-proof results an
 limits against the implementation revision. Admit or hold that exact cutover;
 no unrelated adoption inherits a global preparation gate.
 
+#### Initial preparation result (2026-10-07)
+
+Complete against application source `4b02122b`; the sequence reconciliation
+is `fcbcccb4`. No production source, Cargo manifest, workspace lock, toolchain
+selector or installed payload changed. The coordinator ran isolated probes on
+x86_64 Linux with rustc **1.99.0** (`b940084d7`, 2026-09-28), Cargo
+**1.99.0** (`5f94df478`, 2026-08-27), GCC **14.3.1** and Perl **5.40.2**.
+The floating `stable` selector remains visible; this records the actual compiler
+rather than claiming a release-worker pin.
+
+The [exact inventory](../../../.artifacts/l00/dependency-inventory/inventory.md)
+and [package-level closure](../../../.artifacts/l00/dependency-inventory/resolved-graphs.json)
+record direct versions/features, active transitive features, license expressions,
+declared MSRVs, cache/archive checksums and affected package/bin selectors.
+Isolated manifests/locks and receipts are retained under `.artifacts/l00` on
+`/home`; their fingerprints and commands are recorded with this completion
+commit. They are preparation artifacts, not new shipping packages.
+
+| Isolated locked graph | Registry packages / active Linux nodes | Source + archive + lock checksum coverage | Result |
+| --- | --- | --- | --- |
+| Selected library candidates | 171 / 155 | 171/171 | Offline compilation and two typed-API probes pass |
+| PG deadline adapter | 85 / 62 | 85/85 | Three real/socket/transaction probes pass |
+| Hyper client/server + WS | 46 / 42 | 46/46 | Four Unix I/O/upgrade/owner probes pass |
+
+Every active node has license metadata. Some omit a declared MSRV; compilation
+on the recorded compiler supplies the local evidence. The highest declared
+requirements are 1.88 for library candidates, 1.87 for PG and 1.85 for transport.
+The ureq TLS graph uses rustls/webpki roots and bundled ring C/assembly, requiring
+a C compiler for this packaged Linux graph. PostgreSQL and transport add an
+in-process Tokio runtime. No new daemon or OpenSSL runtime is selected.
+Artifact distribution still follows [licensing](../../research/licensing.md).
+
+| Finding/boundary | Exact demonstrated subject and result | Adoption disposition and remaining owner |
+| --- | --- | --- |
+| CF-05/CF-06 → L02 | P-256 SPKI roundtrip/off-curve refusal; canonical/redundant DER on P-224/P-256/P-384/P-521 typed signatures; **2/2** pass. Current release-image/deliver/install graphs plus soda-build/soda-candidate compile locked offline | Ready for C-owned repair. Keep original DER/TBS, uncompressed-only policy, role separation and existing bounds. Actual edited manifests/features/callers and wrong-key/tampered-signature regressions remain L02 acceptance |
+| PG01 → L08 | Fresh PostgreSQL **17.11** private Unix socket, NoTls/trust fixture: one absolute 5s connect/query/cancel/ack/discard/join/reconnect budget; actual SQLSTATE 57014 and new backend PID; 100ms silent-socket expiry; full transaction guard excludes competitor; **3/3** pass | Select **tokio-postgres 0.7.18** futures behind the A-owned small deadline facade. Hold a synchronous postgres-only Client migration: private blocking calls expose no operation deadline hook. L07, admitted DSN/auth/TLS policy, typed values/errors and actual Store/Tx integration remain L08 gates |
+| N1/N2/N5/N6 → L09 | Hyper **1.12.0** `http1,client,server`, hyper-util **0.1.21** `tokio`, Tokio **1.53.2**; real Unix client/server, one admitted blocking backend plus rejected excess request and bounded shutdown joins | API/runtime fit proved. A owns actual listener/client/backend policy; C owns candidate fixture. Production request/header/body/admission bounds, cancellation and affected offline graphs remain L09 acceptance |
+| N5 → L09 upgrade/session | Validated HTTP upgrade with first masked frame in the same write; assert all eight frame bytes in Hyper read-ahead, restore into tungstenite **0.30.0** `handshake`; one nonblocking owner, idle blocking/wakeup, short writes/WouldBlock without duplicate frame, automatic Pong, bounded close/child reap/slot release; included in **4/4** transport pass | Preserve one bounded production owner/queue and upgrade task custody. Slow-peer caps, real NativeAttach/error paths and integrated shutdown remain A's L09 acceptance |
+| CLI03 → L14 | Exact humantime **2.4.0** source checked: no features, MIT OR Apache-2.0, declared Rust 1.60; candidate graph compiles offline | Metadata uncertainty closed. C still retains positive-duration/precision/overflow and command-tail policy at actual caller transfer |
+
+Current affected package checks and development builds both passed using
+`cargo check` and `cargo build` with `--locked --offline -p soda-release-image
+-p soda-release-deliver -p soda-install`, followed by `--locked --offline -p
+soda-release-tools --bin soda-build --bin soda-candidate`.
+The installer emits 17 existing unused-import warnings; no new probe warning or
+compile failure remains. All nine preparation tests passed. The exact PG fixture
+was stopped and its postmaster PID file is absent. Independent Luna medium
+review passed the final proof subjects, receipts and affected plan changes;
+Luna low handled the bounded inventory.
+
+Initial preparation is closed and L02 remains undispatched. LA-G1 continues at
+each actual cutover for the changed workspace graph, selected compiler and
+worker cache; local probe cache is not artifact-worker qualification. LA-G2/3
+now have demonstrated adapter fit, while actual production acceptance remains
+with L08/L09. LA-G4 caller profiles/Caddy corpus, LA-G5 native configuration and
+LA-G6 external SDK scope remain explicit dependent holds. R03/R04 still own
+integrated source and separately scoped native qualification. No readiness claim
+is added for those future implementations.
+
 ### L01 Deadline and evidence repair
 
 Scope/callers: acceptance `process/phase.rs`, `qmp.rs`, VM lifecycle,
@@ -114,9 +173,13 @@ matcher change remain open; no dependency or manifest change was needed here.
 
 Scope: release-image and release-deliver SPKI intake, installer
 `x509/verify.rs` signature decoding and their trust/CA callers. CF-05 selects
-existing p256 0.13.2 with spki/der; CF-06 selects ecdsa 0.16.9 typed DER
-signatures. Complete both trust-key intake owners and all supported signature
-curves. Keep uncompressed-point admission, role separation, input bounds, raw
+existing p256 0.13.2 public PKCS8/SPKI APIs (spki/der transitively);
+CF-06 selects ecdsa 0.16.9 typed DER signatures on all four installer curves.
+The demonstrated P-256 tuple is `default-features=false` with
+`arithmetic,ecdsa,pem,std`; generic ecdsa uses `verifying,pkcs8,std`.
+Do not add direct spki/der dependencies unless the chosen adapter imports them.
+Complete both trust-key intake owners and all supported signature curves. Keep
+uncompressed-point admission, role separation, input bounds, raw
 DER fingerprints and raw TBS verification. This is independent of full SSH/CA
 parser adoption.
 
@@ -201,9 +264,13 @@ SQLite behavior is outside this conversion.
 ### L08 PostgreSQL driver
 
 Scope: identity `pg.rs`, `pg_dsn.rs`, `pg_query.rs`, Store/Tx and all store/controller
-callers. A leads; B retains canonical Go schema ownership. Select postgres
-0.19.14 Config/typed bindings/rows/Transaction inside the existing process.
-Preserve controller serialization, schema/CAS/sealing/events and safe errors.
+callers. A leads; B retains canonical Go schema ownership. L00 selects
+**tokio-postgres 0.7.18** Config/typed bindings/rows/Transaction with an internal
+Tokio 1.53.2 deadline facade inside the existing process. The synchronous
+postgres 0.19.14-only path is held because its private blocking methods expose
+no operation-deadline hook. Preserve the synchronous repository-facing boundary,
+controller serialization, schema/CAS/sealing/events and safe errors; no broader
+async conversion follows from the internal adapter.
 
 Requires L07 and L00's demonstrated operation deadline/cancel/reconnect behavior
 including relevant connection/auth/network/mutex waits. connect_timeout plus
@@ -301,7 +368,8 @@ installer fmtx literal callers, release-image sys target discovery. C selects
 clap 4.6.7, humantime 2.4.0, Rust formatting and existing Cargo metadata.
 Keep action/owner validation before effects, repeat/scalar/bool and literal
 command-tail behavior, explicit positive-duration grammar/precision and safe
-diagnostics. Confirm exact humantime manifest/MSRV in L00.
+diagnostics. L00 verified exact humantime metadata and offline availability;
+the actual caller's grammar and feature/build checks remain this packet's duty.
 
 Use bounded cargo metadata --format-version 1 --no-deps with admitted manifest
 identity, opaque IDs and intended bin/features/lock policy. Keep RUST_TOOLS
@@ -363,9 +431,9 @@ closure plus affected existing package/source checks, not a new absence harness.
 
 | Gate | Exact requirement | Holds only |
 | --- | --- | --- |
-| LA-G1 Dependency admission | Concrete compiler, selected features/license/cache closure and affected locked offline build; humantime metadata explicitly unverified | Each new adoption before its substantial cutover |
-| LA-G2 Driver fit | Demonstrated PG operation/cancel/discard/reconnect and whole-transaction exclusion | L08 cutover; not L07 or domain corrections |
-| LA-G3 Transport fit | Hyper Unix/backend/shutdown and read-ahead bridge; single WS readiness/flush/close owner | L09 relevant server/upgrade cutover; not L10 HTTPS |
+| LA-G1 Dependency admission | Initial compiler/candidate closures and humantime metadata recorded above; requalify exact changed workspace features/license/cache and affected locked offline build on the selected worker | Each new adoption before its substantial cutover |
+| LA-G2 Driver fit | tokio-postgres adapter deadline/cancel/discard/reconnect/exclusion proved locally; retain admitted auth/DSN/transport and actual Store/Tx integration checks | L08 cutover; not L07 or domain corrections |
+| LA-G3 Transport fit | Hyper Unix client/server/backend/shutdown/read-ahead and WS owner fit proved locally; retain production framing/caps/slow-peer/lifetime and affected graph checks | L09 relevant server/upgrade cutover; not L10 HTTPS |
 | LA-G4 Encoding/trust profiles | Actual producer semantics, original signed bytes, Caddy roots and critical-extension choice | Corresponding L04/L05/L06 boundary only |
 | LA-G5 Native configuration | CFG01 native effective-config corpus | L17 parser selection only |
 | LA-G6 External SDK | Pinned boundary and matching scope for sibling implementation/native evidence | L15 external change only |

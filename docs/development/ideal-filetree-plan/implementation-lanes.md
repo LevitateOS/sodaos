@@ -6,7 +6,7 @@ and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. L01 is complete at its recorded source scope.
-The current instruction finishes L00 before any L02 dispatch; later unchecked
+L00 preparation is complete before any L02 dispatch; later unchecked
 packets retain their scoped implementation and admission requirements.
 
 Prepared on **2026-10-06** against clean checkout
@@ -108,8 +108,8 @@ hunk editing of a shared file as a substitute for ownership.
   library or native proof into a whole-plan hold. Dependencies apply to the relevant
   M/C/V subtask's required boundary output, not completion of an entire packet.
   Existing normal-mode restrictions
-  still apply; the current instruction authorizes L00 preparation and proofs,
-  with L02 held until that preparation closes.
+  still apply; L00 preparation and proofs are complete at their recorded scope.
+  L02 remains undispatched.
 - [ ] **R01 — Integrate each coherent packet.** Complete module/import/manifest,
   compiler, payload, source-check and caller joins in the same reviewable change.
   Commit bounded coherent batches early and often when commits are authorized;
@@ -152,8 +152,8 @@ is dispatched during this pass.
 | --- | --- | --- | --- |
 | 0. Establish restart state — complete | R00 / Coordinator | Luna low for bounded checks | Preserve completed corrections and structural scopes, identify the canonical revision and reconcile stopped drafts |
 | 1. Finish deadlines and evidence — complete | L01 / C | Luna medium for QMP/redaction/VM pump lifetime; Luna low for CoreOS close/error joins | Recorded absolute deadlines, final curl metadata, safe split/malformed URLs, bounded evidence and failure propagation |
-| 2. Finish admission and costly boundary preparation — current | L00 / Coordinator; named disjoint proof writers | Luna low for dependency/license/cache inventory; Luna medium for PG/Hyper/WS proofs and independent review | Record exact compiler and feature closures, locked offline checks, PG deadline/cancel/discard/transaction custody, Unix client/server and upgrade read-ahead, nonblocking WS flush/close/reap; disposition every open cutover gate before L02 |
-| 3. Repair immediate trust and entropy defects — held until step 2 closes | L02 / C; L03 / A | Luna low for settled typed primitive fixes; Luna medium review of trust/fail-closed behavior | Reject off-curve/lenient signature input; eliminate successful predictable entropy fallback; preserve raw digest/TBS and role authority |
+| 2. Finish admission and costly boundary preparation — complete | L00 / Coordinator; named disjoint proof writers | Luna low for dependency/license/cache inventory; Luna medium for PG/Hyper/WS proofs and independent review | Record exact compiler and feature closures, locked offline checks, PG deadline/cancel/discard/transaction custody, Unix client/server and upgrade read-ahead, nonblocking WS flush/close/reap; disposition every open cutover gate before L02 |
+| 3. Repair immediate trust and entropy defects — ready, undispatched | L02 / C; L03 / A | Luna low for settled typed primitive fixes; Luna medium review of trust/fail-closed behavior | Reject off-curve/lenient signature input; eliminate successful predictable entropy fallback; preserve raw digest/TBS and role authority |
 | 4. Replace common engines and native SQL parameters | L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles; Luna low for settled caller/SQL edits | Real producer/refusal fixtures, original signed bytes and bounded inputs; remove each old engine with its last callers; finish native $n parameters before L08 |
 | 5. Adopt PostgreSQL and Unix HTTP/WS | L08/L09 / A, named B/C handoffs | Luna medium | PG requires L07 and LA-G2; ordinary clients precede servers, coupled upgrade/pump follows LA-G3; complete cancellation/flush/close/reap and affected offline graph |
 | 6. Adopt SSH and local CA formats | L05 / A; L06 / C | Luna medium | SSH consumes required L03/L04 outputs; CA consumes L02/relevant PEM profile and Caddy/critical-extension evidence, with no SSH prerequisite |
@@ -165,9 +165,10 @@ is dispatched during this pass.
 | 12. Consider optional matcher adoption | L16 / C | Luna medium | Separate change after L01 and its bounded secret-input custody; no Aho-Corasick change is required to complete step 1 |
 | 13. Qualify the integrated changed subjects | R03/R04 / Coordinator | Luna low for commands/receipts; Luna medium for unresolved consequential results | Applicable source/build checks first, native qualification only for a ready selected candidate and its authorized operations; evidence states its actual scope |
 
-L00 is the current priority barrier before L02 by explicit user instruction.
-After initial preparation closes, its exact per-adoption gates still apply to
-each changed package/features/runtime graph. Independent parts of later ready
+L00 initial preparation is complete before L02, as explicitly instructed. Its
+results and exact dependent holds are recorded in the adoption chapter. The
+per-adoption gates still apply to each changed package/features/runtime graph.
+Independent parts of later ready
 packets can fill available slots after dispatch; optional step 12 does not hold
 unrelated qualification. Do not treat the preparation probes as implemented
 production adapters or installed qualification.
