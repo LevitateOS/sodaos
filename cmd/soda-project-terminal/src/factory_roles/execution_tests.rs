@@ -475,6 +475,152 @@ fn log_failure_cleanup_reports_unconfirmed_when_child_gone() {
     );
 }
 
+/// CODEX-P07-002: an uncertain stop (tombstone present, supervisor group
+/// still live) must bar hold release. Pre-fix `any_running` trusts the
+/// tombstone alone and the release succeeds.
+#[test]
+fn uncertain_stop_bars_hold_release() {
+    assert!(
+        std::fs::metadata("/bin/sleep").is_ok(),
+        "P07-002 regression needs /bin/sleep"
+    );
+    let pid = unsafe { libc::fork() };
+    assert!(pid >= 0, "fork failed");
+    if pid == 0 {
+        unsafe {
+            libc::setpgid(0, 0);
+            let argv0 = c"/bin/sleep".as_ptr();
+            let argv1 = c"30".as_ptr();
+            let argv = [argv0, argv1, std::ptr::null()];
+            let envp = [std::ptr::null()];
+            libc::execve(argv0, argv.as_ptr(), envp.as_ptr());
+            libc::_exit(127);
+        }
+    }
+    // The group exists once the child leads it; poll before asserting.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !group_alive(pid, std::path::Path::new("/proc")) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "supervisor group never appeared"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let dir = ctx.preparations.join(PID);
+    std::fs::create_dir_all(&dir).unwrap();
+    let started = format!("{{\"pid\": {pid}, \"pgid\": {pid}}}");
+    crate::fsx::write_new(&dir.join("started.json"), started.as_bytes(), 0o644).unwrap();
+    crate::fsx::write_new(&dir.join("stopped.json"), b"{\"stopped\": true}", 0o644).unwrap();
+    do_hold(&ctx, &hold_request("1")).unwrap();
+    let result = do_release(&ctx, &release_request("1"));
+    // Owned-group cleanup before asserting (the sleep exits alone on panic).
+    let _ = killpg(pid, libc::SIGKILL);
+    unsafe {
+        libc::waitpid(pid, std::ptr::null_mut(), 0);
+    }
+    assert_fail(result, "running preparations bar hold release");
+}
+
+/// CODEX-P07-002: the release probe maps quiet/active/unreadable native
+/// state, and the record gate bars release on unreadable state.
+#[test]
+fn release_probe_maps_native_states() {
+    // Unknown: unreadable process root.
+    assert_eq!(
+        probe_group_quiet(1, Path::new("/nonexistent-soda-proot")),
+        None
+    );
+    let root = std::env::temp_dir().join(format!("soda-p2-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("4242")).unwrap();
+    // Quiet: sole member in another group.
+    std::fs::write(
+        root.join("4242").join("stat"),
+        b"4242 (test) S 1 777 777 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0",
+    )
+    .unwrap();
+    assert_eq!(probe_group_quiet(999, &root), Some(true));
+    // Active: non-zombie member keeps the group.
+    std::fs::write(
+        root.join("4242").join("stat"),
+        b"4242 (test) S 1 999 999 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0",
+    )
+    .unwrap();
+    assert_eq!(probe_group_quiet(999, &root), Some(false));
+    // Zombies hold no scope: quiet despite the recorded group.
+    std::fs::write(
+        root.join("4242").join("stat"),
+        b"4242 (test) Z 1 999 999 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0",
+    )
+    .unwrap();
+    assert_eq!(probe_group_quiet(999, &root), Some(true));
+    // Unreadable stat hides a potential member: uncertainty.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("SKIP stat-unreadable probe case: root reads through 000");
+    } else {
+        let stat = root.join("4242").join("stat");
+        std::fs::set_permissions(&stat, std::os::unix::fs::PermissionsExt::from_mode(0o000))
+            .unwrap();
+        assert_eq!(probe_group_quiet(999, &root), None);
+        std::fs::set_permissions(&stat, std::os::unix::fs::PermissionsExt::from_mode(0o644))
+            .unwrap();
+    }
+    std::fs::remove_dir_all(&root).ok();
+    // Record-level mapping: no record never bars; unreadable native
+    // state with a record on file always bars.
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let dir = ctx.preparations.join(PID);
+    std::fs::create_dir_all(&dir).unwrap();
+    assert!(!preparation_blocks_release(
+        &ctx,
+        &dir,
+        Path::new("/nonexistent-soda-proot")
+    ));
+    crate::fsx::write_new(
+        &dir.join("started.json"),
+        b"{\"pid\": 4242, \"pgid\": 999}",
+        0o644,
+    )
+    .unwrap();
+    assert!(preparation_blocks_release(
+        &ctx,
+        &dir,
+        Path::new("/nonexistent-soda-proot")
+    ));
+}
+
+/// CODEX-P07-002 guard: terminal markers with a positively quiet group
+/// must not wedge the hold (an impossible group is deterministically
+/// quiet). Green before and after; proves the gate is not block-always.
+#[test]
+fn release_after_quiesced_preparation_succeeds() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    let dir = ctx.preparations.join(PID);
+    std::fs::create_dir_all(&dir).unwrap();
+    crate::fsx::write_new(
+        &dir.join("started.json"),
+        b"{\"pid\": 1, \"pgid\": 1073741824}",
+        0o644,
+    )
+    .unwrap();
+    crate::fsx::write_new(&dir.join("stopped.json"), b"{\"stopped\": true}", 0o644).unwrap();
+    do_hold(&ctx, &hold_request("1")).unwrap();
+    let released = do_release(&ctx, &release_request("1")).unwrap();
+    assert_eq!(
+        released
+            .get("hold")
+            .and_then(|h| h.get("active"))
+            .and_then(|v| v.as_bool()),
+        Some(false)
+    );
+}
+
 fn proc_startup() -> Option<(u32, i32, String)> {
     let meta = std::fs::symlink_metadata("/proc/1").ok()?;
     let uid = std::os::unix::fs::MetadataExt::uid(&meta);
