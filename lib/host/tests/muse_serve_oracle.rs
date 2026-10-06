@@ -12,7 +12,7 @@
 #[path = "../src/account/mod.rs"]
 #[allow(dead_code)]
 mod account;
-#[path = "../src/domain.rs"]
+#[path = "../src/domain/mod.rs"]
 #[allow(dead_code)]
 mod domain;
 #[path = "../src/json.rs"]
