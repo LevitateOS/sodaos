@@ -9,7 +9,7 @@ use crate::files;
 use crate::jsonio;
 use crate::process::Phase;
 
-use super::{look_path, quote, ssh_true, CommandSpec, StdinSpec};
+use super::{look_path, quote, CommandSpec, StdinSpec};
 
 /// Pinned SSH endpoint. Keys are file references, never inline contents.
 pub struct Remote {
@@ -167,6 +167,33 @@ impl Remote {
                 return Err(Error::wrap("pinned SSH readiness", e));
             }
             std::thread::sleep(Duration::from_secs(1));
+        }
+    }
+}
+
+fn ssh_true(args: &[String]) -> bool {
+    let mut command = std::process::Command::new("ssh");
+    command.args(args).arg("true");
+    command.stdin(std::process::Stdio::null());
+    command.stdout(std::process::Stdio::null());
+    command.stderr(std::process::Stdio::null());
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(_) => return false,
+    };
+    let deadline = std::time::Instant::now() + Duration::from_secs(12);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status.success(),
+            Ok(None) => {
+                if std::time::Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return false;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(_) => return false,
         }
     }
 }
