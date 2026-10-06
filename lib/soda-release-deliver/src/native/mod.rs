@@ -10,7 +10,7 @@ use crate::jsonx::{marshal, parse_lenient, Emit};
 use crate::model::Trust;
 use crate::{hash_bytes, Error};
 
-const TOOL_LOCK: &str = include_str!("../tools.json");
+const TOOL_LOCK: &str = include_str!("../../tools.json");
 
 /// Skopeo command runner. Failures surface as `ErrUnavailable`, like Go.
 pub trait Runner {
