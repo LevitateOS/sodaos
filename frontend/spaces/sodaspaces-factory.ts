@@ -4,6 +4,8 @@ import {watchCommands, watchPresentation, watchTitle} from './sodaspaces-factory
 import type {DisplayInput} from './sodaspaces-factory-display.js';
 import {watch as runWatch} from './sodaspaces-factory-request.js';
 import type {RequestInput} from './sodaspaces-factory-request.js';
+import {awaitScreen, clearScreen, openScreen, resize, screenReady} from './sodaspaces-factory-screen.js';
+import type {FactoryScreenInput} from './sodaspaces-factory-screen.js';
 import {object, readSodaJSON} from './sodaspaces-api.js';
 import type {TerminalView, Renderer} from './sodaspaces-terminal.js';
 import type {FitAddon} from '@xterm/addon-fit';
@@ -90,10 +92,10 @@ export class SodaFactoryWatch extends LitElement {
       ...context,
     };
     this.loadRenderer = load;
-    document.fonts.addEventListener('loadingdone', this.resize, {
+    document.fonts.addEventListener('loadingdone', () => resize(this.screenInput()), {
       signal: this.lifetime.signal,
     });
-    window.visualViewport?.addEventListener('resize', this.resize, {
+    window.visualViewport?.addEventListener('resize', () => resize(this.screenInput()), {
       signal: this.lifetime.signal,
     });
     window.addEventListener('pagehide', () => this.invalidate(), {
@@ -161,13 +163,6 @@ export class SodaFactoryWatch extends LitElement {
     this.socket = undefined;
     if (old && old.readyState < 2) old.close();
   }
-  private clearScreen() {
-    this.terminal?.dispose();
-    this.terminal = undefined;
-    this.fit = undefined;
-    this.querySelector('.soda-terminal-screen')?.replaceChildren();
-    this.screenVisible = false;
-  }
   private detach(message: string, stale = false) {
     ++this.generation;
     this.state = stale ? 'stale' : 'closed';
@@ -200,72 +195,36 @@ export class SodaFactoryWatch extends LitElement {
         })
       );
   }
-  private fitReady() {
-    return !!this.terminal && !!this.fit && this.viewVisible && !this.closest('[hidden]');
-  }
-  private screenPresent(screen: HTMLElement | null): screen is HTMLElement {
-    return !!screen?.isConnected && !!screen.clientWidth && !!screen.clientHeight;
-  }
-  private canFit(screen: HTMLElement | null): screen is HTMLElement {
-    return this.fitReady() && this.screenPresent(screen) && (this.state === 'ready' || this.state === 'opening');
-  }
-  // Presentation only: fitting never sends a resize frame. The read-only
-  // stream rejects every client frame past the handshake.
-  private resize = () => {
-    const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
-    if (!this.canFit(screen)) return;
-    this.fit!.fit();
-  };
-  private requiredToken(styles: CSSStyleDeclaration, name: string) {
-    const value = styles.getPropertyValue(name).trim();
-    if (!value) throw Error(`Missing terminal token ${name}`);
-    return value;
-  }
-  private terminalTheme(styles: CSSStyleDeclaration) {
-    return {
-      background: this.requiredToken(styles, '--soda-terminal-screen'),
-      foreground: this.requiredToken(styles, '--soda-terminal-text'),
-      cursor: this.requiredToken(styles, '--soda-terminal-text'),
-    };
-  }
-  private async awaitScreen(n: number) {
-    this.screenVisible = true;
-    await this.updateComplete;
-    if (!this.live(n) || !this.viewVisible || !this.isConnected || this.closest('[hidden]')) return;
-    const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
-    if (!screen) throw Error('Missing factory screen');
-    await document.fonts.ready;
-    if (!this.live(n) || !this.isConnected || this.closest('[hidden]')) return;
-    return screen;
-  }
-  private openScreen(screen: HTMLElement, Terminal: Renderer['Terminal'], FitAddon: Renderer['FitAddon']) {
-    const styles = getComputedStyle(this);
-    const fontSize = Number.parseFloat(this.requiredToken(styles, '--soda-font-mono-size')),
-      lineHeight = Number(this.requiredToken(styles, '--soda-font-mono-line'));
-    if (!Number.isFinite(fontSize) || fontSize <= 0 || !Number.isFinite(lineHeight) || lineHeight < 1)
-      throw Error('Invalid factory typography');
-    const terminal = (this.terminal = new Terminal({
-      allowProposedApi: true,
-      disableStdin: true,
-      scrollback: 1000,
-      windowOptions: {},
-      convertEol: false,
-      cols: 80,
-      rows: 24,
-      fontFamily: this.requiredToken(styles, '--soda-font-mono-family'),
-      fontSize,
-      lineHeight,
-      theme: this.terminalTheme(styles),
-    }));
-    const fit = (this.fit = new FitAddon());
-    terminal.loadAddon(fit);
-    for (const code of [0, 1, 2, 8, 52]) terminal.parser.registerOscHandler(code, () => true);
-    terminal.open(screen);
-    if (screen.clientWidth && screen.clientHeight) fit.fit();
-    return terminal;
-  }
   async watch(resume = false) {
     return runWatch(this.requestInput(), resume);
+  }
+  private screenInput(): FactoryScreenInput {
+    return {
+      readTerminal: () => this.terminal,
+      setTerminal: (terminal) => {
+        this.terminal = terminal;
+      },
+      readFit: () => this.fit,
+      setFit: (fit) => {
+        this.fit = fit;
+      },
+      readState: () => this.state,
+      isViewVisible: () => this.viewVisible,
+      isHidden: () => !!this.closest('[hidden]'),
+      isConnected: () => this.isConnected,
+      queryScreen: () => this.querySelector<HTMLElement>('.soda-terminal-screen'),
+      setScreenVisible: (visible) => {
+        this.screenVisible = visible;
+      },
+      hostStyles: () => getComputedStyle(this),
+      updateComplete: () => this.updateComplete,
+      isLive: (generation) => this.live(generation),
+      readGeneration: () => this.generation,
+      setObserver: (observer) => {
+        this.observer = observer;
+      },
+      detach: (message, stale) => this.detach(message, stale),
+    };
   }
   private requestInput(): RequestInput {
     return {
@@ -305,35 +264,21 @@ export class SodaFactoryWatch extends LitElement {
       json: (path, signal) => this.json(path, signal),
       readTitle: () => watchTitle(this.displayInput()),
       loadRenderer: () => this.loadRenderer(),
-      awaitScreen: (n) => this.awaitScreen(n),
-      openScreen: (screen, Terminal, FitAddon) => this.openScreen(screen, Terminal, FitAddon),
+      awaitScreen: (n) => awaitScreen(this.screenInput(), n),
+      openScreen: (screen, Terminal, FitAddon) => openScreen(this.screenInput(), screen, Terminal, FitAddon),
       readTerminal: () => this.terminal,
       setSocket: (socket) => {
         this.socket = socket;
       },
       screenReady: () => {
-        void this.screenReady();
+        void screenReady(this.screenInput());
       },
-      clearScreen: () => this.clearScreen(),
+      clearScreen: () => clearScreen(this.screenInput()),
     };
-  }
-  private async screenReady() {
-    const n = this.generation;
-    try {
-      await this.updateComplete;
-      if (!this.live(n) || !this.terminal) return;
-      const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
-      if (!screen?.isConnected) return;
-      this.observer = new ResizeObserver(this.resize);
-      this.observer.observe(screen);
-      this.resize();
-    } catch {
-      if (this.live(n)) this.detach('Factory rendering failed. No input was sent.');
-    }
   }
   setVisible(visible: boolean) {
     this.viewVisible = visible;
-    if (visible) this.resize(); // Presentation only: never connect.
+    if (visible) resize(this.screenInput()); // Presentation only: never connect.
   }
   stop() {
     this.detach('Stopped watching. The run continues without this view.');
@@ -344,7 +289,7 @@ export class SodaFactoryWatch extends LitElement {
   dispose() {
     if (this.disposed) return;
     this.detach('Detached.', true);
-    this.clearScreen();
+    clearScreen(this.screenInput());
     this.disposed = true;
     this.lifetime.abort();
     this.remove();
