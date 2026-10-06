@@ -12,7 +12,7 @@ import (
 
 func renderBinary(t *testing.T) string {
 	t.Helper()
-	return CargoBinary(t, "soda-stage-render", "soda-render-provisioning", "--bin", "soda-render-provisioning")
+	return CargoBinary(t, "soda-release-assets", "soda-render-provisioning", "--bin", "soda-render-provisioning")
 }
 
 type provisionFixture struct {

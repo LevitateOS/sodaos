@@ -30,7 +30,7 @@ func testVMBinary(t *testing.T) string {
 
 func stageBinary(t *testing.T) string {
 	t.Helper()
-	return CargoBinary(t, "soda-stage-render", "soda-stage", "--bin", "soda-stage")
+	return CargoBinary(t, "soda-release-assets", "soda-stage", "--bin", "soda-stage")
 }
 
 func TestSodaspacesSpacesEntryIsPackagedByTheExtension(t *testing.T) {

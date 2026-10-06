@@ -21,7 +21,7 @@ function merge(native: string, additions: string): {status: number; out: string}
       '--release',
       '--locked',
       '-p',
-      'soda-forgejo-locales',
+      'soda-release-assets',
       '--bin',
       'soda-forgejo-locales',
       '--',

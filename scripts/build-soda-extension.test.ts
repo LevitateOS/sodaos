@@ -18,7 +18,7 @@ test('native Soda package contains its entire local browser asset graph', async 
         '--release',
         '--locked',
         '-p',
-        'soda-asset-fetchers',
+        'soda-release-assets',
         '--bin',
         'soda-fetch-terminal',
         '--',

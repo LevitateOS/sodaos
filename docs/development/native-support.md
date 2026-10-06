@@ -19,7 +19,7 @@ Notices: [Notices](../research/notices.md).
 | `build-native.sh` / `build-iso.sh` / `soda-host-image` | Use `soda-build` (`lib/soda-release-tools`). |
 | `check-native.sh ARCH CANDIDATE_DIR` | Verifies a soda-build candidate artifacts directory; does not build. |
 | Containerfile `BASE_IMAGE` argument | The build pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
-| `soda-render-provisioning` (`rust/soda-stage-render`) | Public `system/host/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
+| `soda-render-provisioning` (`tools/release-assets`) | Public `system/host/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
 | `soda-artifacts` (`lib/soda-release-tools`), `soda-acceptance` (`rust/soda-acceptance`) | Separate native tool output, never appliance `cmd/`, rootfs or container payload. Candidates carry them for archive inspection and media-input conversion, not as installed programs. |
 | Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; the read-only native-page journey and exported-payload checks passed at their documented local scope. |
 
@@ -358,7 +358,7 @@ Both compressed/uncompressed hashes and the selected GPG signature must match. S
 Prepare one private directory, a fresh Ed25519 **host** key, the operator's existing public authentication key, and a private crypt password-hash file. Host and operator keys are different identities. Host-key generation and conversion are explicit actions; never put passwords/hashes/key contents in shell arguments or logs.
 
 ```sh
-cargo run -p soda-stage-render --bin soda-render-provisioning -- --bootstrap minimal \
+cargo run -p soda-release-assets --bin soda-render-provisioning -- --bootstrap minimal \
   --operator-key-file /absolute/private/operator.pub \
   --root-password-hash-file /absolute/private/root.hash \
   --ssh-host-key-file /absolute/private/instance-host-key \

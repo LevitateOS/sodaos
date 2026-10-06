@@ -25,7 +25,7 @@ func TestTerminalAssetsBrowserBuildPreparesLockedRenderer(t *testing.T) {
 	scripts := packageScripts(t)
 	parts := strings.SplitN(scripts["build:forgejo"], " && ", 2)
 	Require(t, len(parts) == 2, "build:forgejo has no prepare step")
-	Check(t, parts[0] == "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-terminal -- --out .artifacts/browser-terminal/vendor",
+	Check(t, parts[0] == "cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out .artifacts/browser-terminal/vendor",
 		"prepare = %q", parts[0])
 	Check(t, parts[1] == "bun scripts/build-forgejo.ts", "emit = %q", parts[1])
 	groups := []string{"frontend", "forgejo"}
