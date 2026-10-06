@@ -4,7 +4,7 @@ use crate::testutil::{
     PID2,
 };
 use soda_json::JsonValue;
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
 fn mode(path: &Path) -> u32 {
@@ -108,6 +108,9 @@ fn approve_writes_protected_snapshot_and_verifies_bundle() {
     // The checkout is role-owned; the receipt pins the inputs.
     let checkout = Path::new(result.get("checkout").and_then(|v| v.as_str()).unwrap());
     assert!(checkout.is_dir());
+    assert_eq!(mode(checkout), 0o755);
+    assert_eq!(std::fs::read_dir(checkout).unwrap().count(), 0);
+    assert!(!ctx.preparations.join(PID).join("checkout-tmp").exists());
     assert_eq!(
         result.get("credential_file").and_then(|v| v.as_str()),
         Some("")
@@ -599,11 +602,11 @@ fn approve_failure_preserves_checkout_swapped_during_cleanup() {
     assert!(survived, "racing swap cost foreign bytes");
 }
 
-/// CODEX-P07-003b CORRECTION-05 characterization: the fd-binding
-/// primitives refuse non-directories and symlinks (never following a link,
-/// even to a real directory), publish exclusively, report emptiness
-/// honestly, and gate admission/publication/cleanup on creation ownership.
-/// Green-post (the gated surface is new).
+/// CODEX-P07-CUSTODY-17 characterization: the bind primitives refuse
+/// non-directories and symlinks (never following a link, even to a real
+/// directory); staging publishes atomically with inode continuity, and the
+/// carried descriptor mutates the published inode after the move.
+/// Green-post (the custody surface is new).
 #[test]
 fn checkout_identity_primitives_refuse_and_preserve() {
     let root = std::env::temp_dir().join(format!("soda-p3b-{}", std::process::id()));
@@ -625,69 +628,138 @@ fn checkout_identity_primitives_refuse_and_preserve() {
     assert!(openat_dir_no_follow(&parent_fd, "file").is_err());
     assert!(openat_dir_no_follow(&parent_fd, "dirlink").is_err());
     assert!(openat_dir_no_follow(&parent_fd, "absent").is_err());
-    // Exclusive publication refuses any preexisting identity untouched.
-    mkdirat_exclusive(&parent_fd, "claimed", 0o755).unwrap();
-    let assert_exists = |result: Result<(), crate::error::Error>| match result {
-        Err(crate::error::Error::Fail(text)) => assert_eq!(text, "checkout path already exists"),
-        other => panic!("expected Fail(checkout path already exists), got {other:?}"),
-    };
-    assert_exists(mkdirat_exclusive(&parent_fd, "claimed", 0o755));
-    assert_exists(mkdirat_exclusive(&parent_fd, "file", 0o755));
-    assert_exists(mkdirat_exclusive(&parent_fd, "dangle", 0o755));
-    // Empty owned dir: created-gated, bound, confirmed intact, removed.
-    let child = openat_dir_no_follow(&parent_fd, "claimed").unwrap();
+    // Exclusive staging; restaging over any identity is mechanical Exists.
+    mkdirat_exclusive(&parent_fd, "staged", 0o700).unwrap();
+    assert!(matches!(
+        mkdirat_exclusive(&parent_fd, "staged", 0o700),
+        Err(crate::error::Error::Exists)
+    ));
+    // Publish, then mutate through the carried descriptor: the published
+    // path shows this invocation's inode, mode, and ownership.
+    let staging = openat_dir_no_follow(&parent_fd, "staged").unwrap();
+    let before = staging.metadata().unwrap();
+    publish_checkout(&parent_fd, "staged", &parent_fd, "published").unwrap();
+    assert!(!parent.join("staged").exists());
+    fchmod(&staging, 0o755).unwrap();
     let uid = unsafe { libc::geteuid() };
-    assert!(checkout_created(&child, uid));
-    fchmod(&child, 0o755).unwrap();
-    fchown(&child, uid, unsafe { libc::getegid() }).unwrap();
-    assert_eq!(dir_is_empty(&child), Some(true));
-    assert!(checkout_intact(&parent_fd, &child, "claimed"));
-    assert!(remove_verified_empty(&parent_fd, "claimed"));
-    assert!(!parent.join("claimed").exists());
-    // Non-empty dir: reported changed, fails both gates, keeps its bytes.
-    mkdirat_exclusive(&parent_fd, "full", 0o755).unwrap();
-    let full_fd = openat_dir_no_follow(&parent_fd, "full").unwrap();
-    std::fs::write(parent.join("full").join("marker.txt"), b"data").unwrap();
-    assert_eq!(dir_is_empty(&full_fd), Some(false));
-    assert!(!checkout_created(&full_fd, uid));
-    assert!(!checkout_intact(&parent_fd, &full_fd, "full"));
-    assert!(!remove_verified_empty(&parent_fd, "full"));
-    assert_eq!(
-        std::fs::read(parent.join("full").join("marker.txt")).unwrap(),
-        b"data"
-    );
+    let gid = unsafe { libc::getegid() };
+    fchown(&staging, uid, gid).unwrap();
+    let after = std::fs::metadata(parent.join("published")).unwrap();
+    assert_eq!((after.dev(), after.ino()), (before.dev(), before.ino()));
+    assert!(after.is_dir());
+    assert_eq!(mode(&parent.join("published")), 0o755);
+    assert_eq!((after.uid(), after.gid()), (uid, gid));
     std::fs::remove_dir_all(&root).ok();
 }
 
-/// CORRECTION-05 gates: a name bound to a different directory, a removed
-/// name, and a foreign-owned directory all fail intactness/creation, so
-/// publication and cleanup preserve. No race: fixtures hold both sides.
+/// CUSTODY-17 publication: the public name refuses every preexisting
+/// identity without replacement — including an empty directory, which an
+/// ordinary rename would silently swap — and a refused publication leaves
+/// both the staging scope and the public name untouched. Quiet fixtures;
+/// same-UID test mappings cannot qualify production custody, only the
+/// refusal mechanics.
 #[test]
-fn checkout_gates_reject_replaced_removed_and_foreign_dirs() {
-    let root = std::env::temp_dir().join(format!("soda-p3b-g{}", std::process::id()));
-    std::fs::create_dir_all(root.join("parent")).unwrap();
-    let parent = root.join("parent");
-    let parent_fd = open_dir_no_follow(&parent).unwrap();
-    mkdirat_exclusive(&parent_fd, "ours", 0o755).unwrap();
-    mkdirat_exclusive(&parent_fd, "theirs", 0o755).unwrap();
-    let ours = openat_dir_no_follow(&parent_fd, "ours").unwrap();
-    // Replaced: our descriptor against their name is not intact.
-    assert!(!checkout_intact(&parent_fd, &ours, "theirs"));
-    // Removed: no name resolves, and removal reports voided ownership.
-    std::fs::remove_dir(parent.join("theirs")).unwrap();
-    assert!(!checkout_intact(&parent_fd, &ours, "theirs"));
-    assert!(!remove_verified_empty(&parent_fd, "theirs"));
-    // Foreign-owned: creator-ownership fails even when empty.
-    if unsafe { libc::geteuid() } != 0 {
-        eprintln!("SKIP foreign-uid gate: needs privilege to chown away");
-    } else {
-        std::fs::create_dir(parent.join("foreign")).unwrap();
-        let foreign = openat_dir_no_follow(&parent_fd, "foreign").unwrap();
-        fchown(&foreign, 65534, 65534).unwrap();
-        assert!(!checkout_created(&foreign, 0));
+fn checkout_publication_refuses_without_replacement() {
+    let root = std::env::temp_dir().join(format!("soda-pub-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("staging")).unwrap();
+    std::fs::create_dir_all(root.join("public")).unwrap();
+    let staging_dir = root.join("staging");
+    let public = root.join("public");
+    let staging_parent = open_dir_no_follow(&staging_dir).unwrap();
+    let public_parent = open_dir_no_follow(&public).unwrap();
+    let assert_refused = |result: Result<(), crate::error::Error>| match result {
+        Err(crate::error::Error::Fail(text)) => assert_eq!(text, "checkout path already exists"),
+        other => panic!("expected Fail(checkout path already exists), got {other:?}"),
+    };
+    mkdirat_exclusive(&staging_parent, "staged", 0o700).unwrap();
+    // Non-empty dir with foreign bytes.
+    std::fs::create_dir(public.join("full")).unwrap();
+    std::fs::write(public.join("full").join("marker.txt"), b"foreign").unwrap();
+    assert_refused(publish_checkout(
+        &staging_parent,
+        "staged",
+        &public_parent,
+        "full",
+    ));
+    // Empty dir: ordinary rename would replace; noreplace refuses.
+    std::fs::create_dir(public.join("empty")).unwrap();
+    assert_refused(publish_checkout(
+        &staging_parent,
+        "staged",
+        &public_parent,
+        "empty",
+    ));
+    // Regular file.
+    std::fs::write(public.join("file"), b"operator bytes").unwrap();
+    assert_refused(publish_checkout(
+        &staging_parent,
+        "staged",
+        &public_parent,
+        "file",
+    ));
+    // Dangling symlink.
+    std::os::unix::fs::symlink("/nonexistent-soda-target", public.join("dangle")).unwrap();
+    assert_refused(publish_checkout(
+        &staging_parent,
+        "staged",
+        &public_parent,
+        "dangle",
+    ));
+    // Nothing replaced, nothing lost: staging and every target survive.
+    assert!(staging_dir.join("staged").is_dir());
+    assert_eq!(
+        std::fs::read(public.join("full").join("marker.txt")).unwrap(),
+        b"foreign"
+    );
+    assert!(public.join("empty").is_dir());
+    assert_eq!(
+        std::fs::read(public.join("file")).unwrap(),
+        b"operator bytes"
+    );
+    assert_eq!(
+        std::fs::read_link(public.join("dangle")).unwrap(),
+        Path::new("/nonexistent-soda-target")
+    );
+    // And the surviving staging still publishes onto a free name.
+    publish_checkout(&staging_parent, "staged", &public_parent, "claimed").unwrap();
+    assert!(public.join("claimed").is_dir());
+    assert!(!staging_dir.join("staged").exists());
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// CUSTODY-17 publication across filesystems fails explicitly with both
+/// sides preserved and no copy fallback. Skips where no second writable
+/// filesystem exists: the refusal string is pinned only where runnable.
+#[test]
+fn checkout_publication_across_filesystems_fails_explicitly() {
+    let root = std::env::temp_dir().join(format!("soda-xdev-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("staging")).unwrap();
+    let shm =
+        std::path::PathBuf::from("/dev/shm").join(format!("soda-xdev-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&shm);
+    if std::fs::create_dir_all(shm.join("public")).is_err() {
+        eprintln!("SKIP cross-filesystem publication: /dev/shm unavailable");
+        return;
     }
-    // Control: our own binding stays intact.
-    assert!(checkout_intact(&parent_fd, &ours, "ours"));
+    let staging_dev = std::fs::metadata(root.join("staging")).unwrap().dev();
+    let public_dev = std::fs::metadata(shm.join("public")).unwrap().dev();
+    if staging_dev == public_dev {
+        eprintln!("SKIP cross-filesystem publication: single filesystem");
+        let _ = std::fs::remove_dir_all(&shm);
+        return;
+    }
+    let staging_parent = open_dir_no_follow(&root.join("staging")).unwrap();
+    let public_parent = open_dir_no_follow(&shm.join("public")).unwrap();
+    mkdirat_exclusive(&staging_parent, "staged", 0o700).unwrap();
+    match publish_checkout(&staging_parent, "staged", &public_parent, "claimed") {
+        Err(crate::error::Error::Fail(text)) => {
+            assert_eq!(text, "checkout publication crosses filesystems")
+        }
+        other => panic!("expected Fail(crosses filesystems), got {other:?}"),
+    }
+    assert!(root.join("staging").join("staged").is_dir());
+    assert!(!shm.join("public").join("claimed").exists());
+    let _ = std::fs::remove_dir_all(&shm);
     std::fs::remove_dir_all(&root).ok();
 }
 
