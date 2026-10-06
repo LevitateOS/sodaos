@@ -1,5 +1,7 @@
 use super::*;
 
+use soda_json::JsonValue;
+
 #[test]
 fn hostnames_follow_the_script_regexes() {
     assert!(is_appliance_hostname("factory-01.lab.example"));
