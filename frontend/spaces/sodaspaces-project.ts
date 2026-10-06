@@ -24,6 +24,8 @@ import type {Lifecycle, SettingsViewInput, View} from './sodaspaces-project-sett
 import {views} from './sodaspaces-project-settings-view.js';
 import {refresh as runRefresh} from './sodaspaces-project-refresh.js';
 import type {RefreshInput} from './sodaspaces-project-refresh.js';
+import {copyConnection} from './sodaspaces-project-connection.js';
+import type {ConnectionInput} from './sodaspaces-project-connection.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;
@@ -495,7 +497,7 @@ export class SodaProjectControls extends LitElement {
       requestInspectOS: (event) => this.command(event, () => this.inspectOS()),
       reloadPage: (event) => this.onReloadPage(event),
       copyConnection: () => {
-        void this.copyConnection();
+        void copyConnection(this.connectionInput());
       },
       removeSavedKey: (event, key) => this.removeSavedKey(event, key),
       setDraft: (value) => this.onDraft(value),
@@ -567,27 +569,18 @@ export class SodaProjectControls extends LitElement {
     this.outcome =
       'Review the selected public key above, then explicitly Save public key. Joining/applying to a project remains a separate action.';
   }
-  private copyBlocked() {
-    return (
-      !this.binding?.page ||
-      this.blocked ||
-      !this.connection ||
-      this.selected !== 'access' ||
-      !!this.closest('[hidden], [inert]')
-    );
-  }
-  private noteCopy(ok: boolean) {
-    if (this.disposed) return;
-    this.outcome = ok ? 'SSH connection copied.' : 'Copy failed. Select and copy the displayed SSH command.';
-  }
-  private async copyConnection() {
-    if (this.copyBlocked()) return;
-    try {
-      await navigator.clipboard.writeText(this.connection!.command);
-      this.noteCopy(true);
-    } catch {
-      this.noteCopy(false);
-    }
+  private connectionInput(): ConnectionInput {
+    return {
+      hasPage: () => !!this.binding?.page,
+      isBlocked: () => this.blocked,
+      readConnection: () => this.connection,
+      isAccessSelected: () => this.selected === 'access',
+      isConcealed: () => !!this.closest('[hidden], [inert]'),
+      isDisposed: () => this.disposed,
+      setOutcome: (outcome) => {
+        this.outcome = outcome;
+      },
+    };
   }
   private reset() {
     this.network = this.networkOptions = undefined;
