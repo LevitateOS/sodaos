@@ -6,7 +6,7 @@ import type {Page, WebSocket} from 'playwright';
 import {object} from './sodaspaces-input';
 import {terminalID} from '../../frontend/spaces/sodaspaces-terminal-response';
 import type {MatrixInput, MatrixProject} from './sodaspaces-matrix-input';
-import type {MatrixFacts, MatrixSession} from './sodaspaces-workspace-journey';
+import type {MatrixFacts, MatrixSession} from './sodaspaces-journey-evidence';
 export async function restrictedText(file: string, limit: number) {
   assert(file.startsWith('/'));
   const stat = await lstat(file);
