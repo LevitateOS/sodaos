@@ -15,7 +15,7 @@ mod account;
 #[path = "../src/domain/mod.rs"]
 #[allow(dead_code)]
 mod domain;
-#[path = "../src/json.rs"]
+#[path = "../src/json/mod.rs"]
 #[allow(dead_code)]
 mod json;
 #[path = "../src/muse.rs"]
