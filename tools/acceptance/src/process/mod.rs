@@ -12,11 +12,8 @@ use std::sync::{Arc, Mutex};
 use crate::error::Error;
 use crate::evidence::RedactingWriter;
 
-#[path = "process/launch.rs"]
 mod launch;
-#[path = "process/owned_process.rs"]
 mod owned_process;
-#[path = "process/phase.rs"]
 mod phase;
 
 pub use self::launch::start_process;
@@ -48,5 +45,4 @@ impl ProcessOutcome {
 }
 
 #[cfg(test)]
-#[path = "process/tests.rs"]
 mod tests;
