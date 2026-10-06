@@ -11,7 +11,6 @@ pub mod sha256;
 pub mod types;
 
 use std::fmt;
-use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
@@ -84,11 +83,19 @@ impl From<std::io::Error> for Error {
 /// Unique `enrollment-*` directory under a provider root, mirroring
 /// `os.MkdirTemp(root, "enrollment-")`.
 pub(crate) fn enrollment_tempdir(root: &Path) -> std::io::Result<PathBuf> {
+    enrollment_tempdir_with(root, |out| {
+        getrandom::fill(out).map_err(std::io::Error::other)
+    })
+}
+
+fn enrollment_tempdir_with(
+    root: &Path,
+    mut fill: impl FnMut(&mut [u8]) -> std::io::Result<()>,
+) -> std::io::Result<PathBuf> {
     for _ in 0..100 {
         let mut suffix = [0u8; 16];
-        if !random_bytes(&mut suffix) {
-            return Err(std::io::Error::other("enrollment randomness unavailable"));
-        }
+        fill(&mut suffix)
+            .map_err(|_| std::io::Error::other("enrollment randomness unavailable"))?;
         let dir = root.join(format!("enrollment-{}", sha256::hex(&suffix)));
         match std::fs::create_dir(&dir) {
             Ok(()) => return Ok(dir),
@@ -100,30 +107,6 @@ pub(crate) fn enrollment_tempdir(root: &Path) -> std::io::Result<PathBuf> {
         std::io::ErrorKind::AlreadyExists,
         "enrollment directory unavailable",
     ))
-}
-
-fn random_bytes(out: &mut [u8]) -> bool {
-    if let Ok(mut f) = File::open("/dev/urandom") {
-        if f.read_exact(out).is_ok() {
-            return true;
-        }
-    }
-    // Fallback when urandom is unavailable: pid mixed with a nanos clock.
-    // Collisions only retry the directory creation loop above.
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let mut x = nanos ^ ((std::process::id() as u128) << 64) ^ 0x9e3779b97f4a7c15;
-    for chunk in out.chunks_mut(8) {
-        x ^= x >> 12;
-        x ^= x << 25;
-        x ^= x >> 27;
-        let v = x.wrapping_mul(0x2545f4914f6cdd1d).to_le_bytes();
-        let n = chunk.len().min(8);
-        chunk[..n].copy_from_slice(&v[..n]);
-    }
-    true
 }
 
 /// Enrollment roots must be private tmpfs, mirroring `privateTmpfs`.
@@ -160,7 +143,7 @@ pub(crate) struct TestDir {
 impl TestDir {
     pub(crate) fn new() -> TestDir {
         let mut suffix = [0u8; 8];
-        assert!(random_bytes(&mut suffix));
+        getrandom::fill(&mut suffix).expect("test entropy unavailable");
         let path = std::env::temp_dir().join(format!(
             "soda-idp-test-{}-{}",
             std::process::id(),
@@ -172,6 +155,24 @@ impl TestDir {
 
     pub(crate) fn path(&self) -> &Path {
         &self.path
+    }
+}
+
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn enrollment_tempdir_propagates_partial_entropy_failure() {
+        let root = std::env::temp_dir().join(format!("soda-idp-entropy-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        let result = enrollment_tempdir_with(&root, |out| {
+            out[0] = 1;
+            Err(std::io::Error::other("injected entropy failure"))
+        });
+        assert!(result.is_err());
+        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
 

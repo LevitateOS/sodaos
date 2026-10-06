@@ -1,5 +1,5 @@
 use std::fs::{self, OpenOptions};
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::Path;
 
@@ -76,9 +76,8 @@ pub(crate) fn setup(
 }
 
 fn read_random_32_inner() -> io::Result<[u8; 32]> {
-    let mut file = fs::File::open("/dev/urandom")?;
     let mut raw = [0u8; 32];
-    file.read_exact(&mut raw)?;
+    getrandom::fill(&mut raw).map_err(io::Error::other)?;
     Ok(raw)
 }
 

@@ -256,37 +256,21 @@ fn encode_project_entry(v: &ProjectPolicyEntry) -> Vec<u8> {
 
 // ---------- Random revisions ----------
 
-/// Fresh 128-bit hex revision. Mirrors Go's ignored `rand.Read` error by
-/// falling back to `/dev/urandom` and then to zeros.
-pub fn new_revision() -> String {
+/// Fresh 128-bit hex revision.
+pub fn new_revision() -> Result<String, String> {
+    new_revision_with(|out| getrandom::fill(out).map_err(std::io::Error::other))
+}
+
+fn new_revision_with(
+    fill: impl FnOnce(&mut [u8]) -> std::io::Result<()>,
+) -> Result<String, String> {
     let mut buf = [0u8; 16];
-    let mut filled = 0;
-    while filled < buf.len() {
-        // SAFETY: `getrandom` writes at most the remaining length.
-        let n = unsafe {
-            libc::getrandom(
-                buf[filled..].as_mut_ptr() as *mut libc::c_void,
-                (buf.len() - filled) as libc::size_t,
-                0,
-            )
-        };
-        if n <= 0 {
-            break;
-        }
-        filled += n as usize;
-    }
-    if filled < buf.len() {
-        // Best-effort fallback; zeros on total failure, like Go.
-        if let Ok(mut f) = File::open("/dev/urandom") {
-            use std::io::Read;
-            let _ = f.read_exact(&mut buf[filled..]);
-        }
-    }
+    fill(&mut buf).map_err(|_| wire::err_unavailable())?;
     let mut out = String::with_capacity(32);
     for b in buf {
         out.push_str(&format!("{b:02x}"));
     }
-    out
+    Ok(out)
 }
 
 // ---------- Locked directory plumbing ----------
@@ -499,7 +483,7 @@ impl PolicyStore {
         if body.len() as u64 > POLICY_FILE_LIMIT {
             return Err(wire::err_invalid());
         }
-        let temp = cstr(&format!("pending-{}", new_revision()));
+        let temp = cstr(&format!("pending-{}", new_revision()?));
         // SAFETY: `openat` on the live lock fd.
         let fd = unsafe {
             libc::openat(
@@ -642,7 +626,7 @@ impl PolicyStore {
         }
         let mut out = v.clone();
         if r.action == "save" {
-            out.binding = new_revision();
+            out.binding = new_revision()?;
             out.default = false;
             out.admission = true;
         }
@@ -717,7 +701,7 @@ impl PolicyStore {
         if Instant::now() >= deadline {
             return Err(wire::err_unconfirmed());
         }
-        v.revision = new_revision();
+        v.revision = new_revision()?;
         let mut body = encode_enrollment_policy(&v);
         let published = self.publish(&lock, "policy.json", &body);
         // Zero the transient encoded copy; the file keeps the credential, as
@@ -806,7 +790,7 @@ impl PolicyStore {
         }
         v.enabled = r.action != "disable";
         v.version = PROJECT_VERSION;
-        v.revision = new_revision();
+        v.revision = new_revision()?;
         let body = encode_project_entry(&v);
         self.publish(lock, &format!("project-{}.json", r.project), &body)?;
         Ok(v)
@@ -917,5 +901,19 @@ impl PolicyStore {
             tailnet: policy.tailnet,
             tags: policy.tags,
         })
+    }
+}
+
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn revision_generation_propagates_partial_entropy_failure() {
+        let result = new_revision_with(|out| {
+            out[0] = 1;
+            Err(std::io::Error::other("injected entropy failure"))
+        });
+        assert_eq!(result.unwrap_err(), wire::err_unavailable());
     }
 }

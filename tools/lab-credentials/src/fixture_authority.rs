@@ -1,7 +1,7 @@
 use std::env;
 use std::ffi::CString;
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
@@ -67,10 +67,7 @@ fn command_v_in(tool: &str, path_env: &std::ffi::OsStr) -> Option<PathBuf> {
 /// | tr -d ' \n'`: 64 lowercase hex characters, no trailing newline.
 pub(crate) fn random_hex_passphrase() -> Result<String, Exit> {
     let mut bytes = [0u8; 32];
-    let mut urandom = fs::File::open("/dev/urandom").map_err(|_| Exit::Propagate(1))?;
-    urandom
-        .read_exact(&mut bytes)
-        .map_err(|_| Exit::Propagate(1))?;
+    getrandom::fill(&mut bytes).map_err(|_| Exit::Propagate(1))?;
     let mut hex = String::with_capacity(64);
     for byte in bytes {
         hex.push_str(&format!("{byte:02x}"));

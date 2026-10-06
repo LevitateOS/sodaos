@@ -317,6 +317,22 @@ fn claim_attempt_runtime_refuses_bad_input() {
 }
 
 #[test]
+fn claim_attempt_runtime_entropy_failure_creates_no_directory() {
+    let parent = temp_dir("runtime-entropy-failure");
+    let parent = parent.to_string_lossy().into_owned();
+    let uid = unsafe { libc::getuid() };
+    let gid = unsafe { libc::getgid() };
+    let result =
+        runtime::claim_attempt_runtime_with_random(&parent, "/source/out/leaf", uid, gid, |out| {
+            out[0] = 1;
+            Err(std::io::Error::other("injected entropy failure"))
+        });
+    assert_eq!(result.unwrap_err(), "worker runtime randomness unavailable");
+    assert_eq!(std::fs::read_dir(&parent).unwrap().count(), 0);
+    std::fs::remove_dir_all(parent).unwrap();
+}
+
+#[test]
 fn release_attempt_runtime_refuses_foreign_paths() {
     let parent = temp_dir("release");
     let parent = parent.to_string_lossy().into_owned();

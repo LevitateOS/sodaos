@@ -171,18 +171,33 @@ pub(crate) fn join_errors(failures: Vec<Error>) -> Result<(), Error> {
 }
 
 pub(crate) fn new_id() -> String {
-    let mut bytes = [0u8; 16];
-    fill_random(&mut bytes).expect("identity randomness unavailable");
-    crate::providers::sha256::hex(&bytes)
+    new_id_with(|out| getrandom::fill(out).map_err(std::io::Error::other))
 }
 
-fn fill_random(out: &mut [u8]) -> std::io::Result<()> {
-    use std::io::Read;
-    std::fs::File::open("/dev/urandom")?.read_exact(out)
+fn new_id_with(fill: impl FnOnce(&mut [u8]) -> std::io::Result<()>) -> String {
+    let mut bytes = [0u8; 16];
+    fill(&mut bytes).expect("identity randomness unavailable");
+    crate::providers::sha256::hex(&bytes)
 }
 
 pub(crate) fn zeroize(data: &mut [u8]) {
     for byte in data.iter_mut() {
         unsafe { std::ptr::write_volatile(byte, 0) };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn identity_id_fails_closed_after_partial_entropy_write() {
+        let result = std::panic::catch_unwind(|| {
+            new_id_with(|out| {
+                out[0] = 1;
+                Err(std::io::Error::other("injected entropy failure"))
+            });
+        });
+        assert!(result.is_err());
     }
 }

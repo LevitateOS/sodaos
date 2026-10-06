@@ -38,26 +38,27 @@ pub trait IdentityBroker {
 
 /// 16 bytes of kernel randomness, hex-encoded (`museID` / launch IDs).
 pub fn rand_id() -> Result<String, String> {
+    rand_id_with(|bytes| getrandom::fill(bytes).map_err(std::io::Error::other))
+}
+
+fn rand_id_with(fill: impl FnOnce(&mut [u8]) -> std::io::Result<()>) -> Result<String, String> {
     let mut bytes = [0u8; 16];
-    let mut filled = 0;
-    while filled < bytes.len() {
-        let n = unsafe {
-            libc::getrandom(
-                bytes[filled..].as_mut_ptr() as *mut libc::c_void,
-                bytes.len() - filled,
-                0,
-            )
-        };
-        if n < 0 {
-            let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-            if errno == libc::EINTR {
-                continue;
-            }
-            return Err(format!("kernel randomness unavailable: errno {errno}"));
-        }
-        filled += n as usize;
-    }
+    fill(&mut bytes).map_err(|_| "kernel randomness unavailable".to_owned())?;
     Ok(sha256::hex_lower(&bytes))
+}
+
+#[cfg(test)]
+mod entropy_tests {
+    use super::*;
+
+    #[test]
+    fn id_generation_rejects_partial_entropy_output() {
+        let result = rand_id_with(|bytes| {
+            bytes[0] = 1;
+            Err(std::io::Error::other("injected entropy failure"))
+        });
+        assert_eq!(result.unwrap_err(), "kernel randomness unavailable");
+    }
 }
 
 /// `Daemon.identityLaunch`: acquire, prepare, register, start. Every

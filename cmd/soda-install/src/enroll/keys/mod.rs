@@ -37,24 +37,16 @@ pub fn append_enrollment_key(ctx: &Ctx, home: &str, key: &str, uid: u32) -> Resu
 }
 
 pub fn random_hex(bytes: usize) -> Result<String, Error> {
+    random_hex_with(bytes, |buffer| {
+        getrandom::fill(buffer).map_err(std::io::Error::other)
+    })
+}
+
+fn random_hex_with(
+    bytes: usize,
+    mut fill: impl FnMut(&mut [u8]) -> std::io::Result<()>,
+) -> Result<String, Error> {
     let mut random = vec![0u8; bytes];
-    let mut filled = 0;
-    while filled < bytes {
-        let n = unsafe {
-            libc::getrandom(
-                random[filled..].as_mut_ptr() as *mut libc::c_void,
-                (bytes - filled) as libc::size_t,
-                0,
-            )
-        };
-        if n < 0 {
-            let errno = unsafe { *libc::__errno_location() };
-            if errno == libc::EINTR {
-                continue;
-            }
-            return Err(errors::os_error(std::io::Error::from_raw_os_error(errno)));
-        }
-        filled += n as usize;
-    }
+    fill(&mut random).map_err(errors::os_error)?;
     Ok(crate::buildx::hex_encode(&random))
 }

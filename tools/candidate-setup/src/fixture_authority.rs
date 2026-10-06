@@ -1,5 +1,4 @@
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use super::config::{config_json, trust_json, worker_json};
@@ -11,10 +10,7 @@ use super::{is_file, stripped_string, write_staged, Exit, ADMITTED, AUTHORITY, T
 /// | tr -d ' \n'`: 64 lowercase hex characters, no trailing newline.
 pub(super) fn random_hex_passphrase() -> Result<String, Exit> {
     let mut bytes = [0u8; 32];
-    let mut urandom = fs::File::open("/dev/urandom").map_err(|_| Exit::Propagate(1))?;
-    urandom
-        .read_exact(&mut bytes)
-        .map_err(|_| Exit::Propagate(1))?;
+    getrandom::fill(&mut bytes).map_err(|_| Exit::Propagate(1))?;
     let mut hex = String::with_capacity(64);
     for byte in bytes {
         hex.push_str(&format!("{byte:02x}"));

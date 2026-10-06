@@ -20,6 +20,18 @@ pub fn claim_attempt_runtime(
     uid: u32,
     gid: u32,
 ) -> Result<String, String> {
+    claim_attempt_runtime_with_random(parent, out, uid, gid, |bytes| {
+        getrandom::fill(bytes).map_err(std::io::Error::other)
+    })
+}
+
+pub(super) fn claim_attempt_runtime_with_random(
+    parent: &str,
+    out: &str,
+    uid: u32,
+    gid: u32,
+    mut fill: impl FnMut(&mut [u8]) -> std::io::Result<()>,
+) -> Result<String, String> {
     let leaf = out.rsplit('/').next().unwrap_or_default();
     if leaf.is_empty() || leaf == "." || leaf == ".." {
         return Err("explicit safe output leaf required".to_owned());
@@ -36,7 +48,7 @@ pub fn claim_attempt_runtime(
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.subsec_nanos())
                 .unwrap_or(0))
-            ^ rand_u32();
+            ^ rand_u32(&mut fill)?;
         let dir = format!("{parent}/soda-build-{leaf}-{nonce:08x}");
         match std::fs::create_dir(&dir) {
             Ok(()) => {
@@ -63,14 +75,10 @@ pub fn claim_attempt_runtime(
     Err("cannot claim attempt runtime: no unique name".to_owned())
 }
 
-fn rand_u32() -> u32 {
+fn rand_u32(fill: &mut impl FnMut(&mut [u8]) -> std::io::Result<()>) -> Result<u32, String> {
     let mut bytes = [0u8; 4];
-    if let Ok(f) = std::fs::File::open("/dev/urandom") {
-        use std::io::Read;
-        let mut f = f;
-        let _ = f.read_exact(&mut bytes);
-    }
-    u32::from_ne_bytes(bytes)
+    fill(&mut bytes).map_err(|_| "worker runtime randomness unavailable".to_owned())?;
+    Ok(u32::from_ne_bytes(bytes))
 }
 
 /// Remove one claimed attempt directory, refusing anything that is not a

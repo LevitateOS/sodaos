@@ -26,7 +26,7 @@
 
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -97,9 +97,7 @@ fn valid_db_name(db: &str) -> bool {
 }
 
 fn read_urandom(buf: &mut [u8]) -> Result<(), String> {
-    fs::File::open("/dev/urandom")
-        .and_then(|mut f| f.read_exact(buf))
-        .map_err(|e| format!("/dev/urandom: {e}"))
+    getrandom::fill(buf).map_err(|e| format!("/dev/urandom: {e}"))
 }
 
 /// `mktemp -d "${TMPDIR:-/tmp}/soda-pg-fixture.XXXXXX"` (mode 0700), or the

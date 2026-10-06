@@ -23,9 +23,20 @@ impl GrantCipher {
     }
 
     pub fn seal(&self, data: &[u8], binding: &str) -> Vec<u8> {
+        self.seal_with_random(data, binding, |out| {
+            getrandom::fill(out).map_err(std::io::Error::other)
+        })
+    }
+
+    fn seal_with_random(
+        &self,
+        data: &[u8],
+        binding: &str,
+        fill: impl FnOnce(&mut [u8]) -> std::io::Result<()>,
+    ) -> Vec<u8> {
         let mut raw = [0u8; 12];
         // crypto/rand fills the buffer or terminates the process; match that.
-        fill_random(&mut raw).expect("credential randomness unavailable");
+        fill(&mut raw).expect("credential randomness unavailable");
         let nonce = aes_gcm::Nonce::from(raw);
         let body = self
             .cipher
@@ -63,11 +74,6 @@ impl GrantCipher {
     pub fn nonce_size() -> usize {
         12
     }
-}
-
-fn fill_random(out: &mut [u8]) -> std::io::Result<()> {
-    use std::io::Read;
-    std::fs::File::open("/dev/urandom")?.read_exact(out)
 }
 
 #[cfg(test)]
@@ -109,6 +115,18 @@ mod tests {
             )
             .unwrap();
         assert_eq!(hex(&tag), "530f8afbc74536b9a963b4f1c4cb738b");
+    }
+
+    #[test]
+    fn seal_fails_closed_after_partial_entropy_write() {
+        let cipher = GrantCipher::new(&[7u8; 32]).unwrap();
+        let result = std::panic::catch_unwind(|| {
+            cipher.seal_with_random(b"secret", "binding", |out| {
+                out[0] = 1;
+                Err(std::io::Error::other("injected entropy failure"))
+            });
+        });
+        assert!(result.is_err());
     }
 
     fn hex(bytes: &[u8]) -> String {

@@ -45,9 +45,7 @@ pub(crate) fn registration_root() -> Result<(String, String), String> {
 }
 
 fn read_random(buf: &mut [u8]) -> Result<(), String> {
-    use std::io::Read;
-    let mut f = fs::File::open("/dev/urandom").map_err(|e| e.to_string())?;
-    f.read_exact(buf).map_err(|e| e.to_string())
+    getrandom::fill(buf).map_err(|e| e.to_string())
 }
 
 fn hex_encode(bytes: &[u8]) -> String {

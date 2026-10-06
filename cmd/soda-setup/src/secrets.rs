@@ -1,16 +1,13 @@
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 
 use crate::system::{chown_path, euid, FORGEJO_DB_USER, POSTGRES_SOCKET_DIR, SODA_SERVICE_GROUP};
 
 fn read_random_32() -> Result<[u8; 32], String> {
-    let mut file =
-        fs::File::open("/dev/urandom").map_err(|e| format!("generate database password: {e}"))?;
     let mut raw = [0u8; 32];
-    file.read_exact(&mut raw)
-        .map_err(|e| format!("generate database password: {e}"))?;
+    getrandom::fill(&mut raw).map_err(|e| format!("generate database password: {e}"))?;
     Ok(raw)
 }
 

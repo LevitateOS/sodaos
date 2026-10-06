@@ -775,10 +775,13 @@ fn wire_encoder_goldens() {
 #[test]
 fn policy_revision_format() {
     for _ in 0..8 {
-        let r = policy::new_revision();
+        let r = policy::new_revision().unwrap();
         assert!(wire::is_hex32(&r), "{r}");
     }
-    assert_ne!(policy::new_revision(), policy::new_revision());
+    assert_ne!(
+        policy::new_revision().unwrap(),
+        policy::new_revision().unwrap()
+    );
 }
 
 #[test]

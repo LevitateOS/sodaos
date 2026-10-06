@@ -58,12 +58,7 @@ fn run() -> i32 {
 /// file so a failed rewrite never truncates the config; do the same.
 fn create_tmp(conf: &Path) -> Result<PathBuf, ()> {
     let mut rand = [0u8; 6];
-    fs::File::open("/dev/urandom")
-        .and_then(|mut f| {
-            use std::io::Read;
-            f.read_exact(&mut rand)
-        })
-        .map_err(|_| ())?;
+    getrandom::fill(&mut rand).map_err(|_| ())?;
     let suffix: String = rand
         .iter()
         .map(|b| {

@@ -4,6 +4,18 @@ use super::*;
 use std::io::Write as _;
 use std::os::unix::fs::PermissionsExt;
 
+#[test]
+fn random_hex_entropy_failure_returns_without_issuing_a_value() {
+    let mut calls = 0;
+    let result = super::random_hex_with(32, |out| {
+        calls += 1;
+        out[0] = 1;
+        Err(std::io::Error::other("injected entropy failure"))
+    });
+    assert!(result.is_err());
+    assert_eq!(calls, 1);
+}
+
 fn make_ssh_dir(home: &str) -> String {
     let dir = format!("{home}/.ssh");
     std::fs::create_dir(&dir).unwrap();
