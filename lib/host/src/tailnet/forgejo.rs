@@ -403,6 +403,7 @@ fn restart_forgejo_if_needed(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use soda_host::project::Native;
     use std::cell::RefCell;
 
     struct Mock {
@@ -1015,7 +1016,6 @@ mod tests {
 
     #[test]
     fn expired_deadline_refuses_without_launch() {
-        use soda_host::project::Native;
         // An expired deadline refuses before launch: no child starts, so no
         // fixture effect occurs and the error never claims a killed child.
         let env = TestEnv::fresh("refused");
@@ -1037,6 +1037,169 @@ mod tests {
             std::fs::metadata(&witness).is_err(),
             "expired request launched a child"
         );
+    }
+
+    #[test]
+    fn live_timeout_cleans_up_child_and_group() {
+        let env = TestEnv::fresh("timeout");
+        let beat = env.path("beat");
+        // Direct child sleeps while a background grandchild holds every
+        // stdio pipe and appends heartbeats; both must die at the deadline.
+        let script = stub_cli(
+            &env,
+            "hang.sh",
+            &format!("(while true; do echo x >> \"{beat}\"; sleep 0.05; done) &\nsleep 30"),
+        );
+        for (exec, want) in [
+            (
+                &Native as &dyn Executor,
+                format!("{script} failed: deadline exceeded"),
+            ),
+            (
+                &NativeStatusOnly as &dyn Executor,
+                String::from("signal: killed"),
+            ),
+        ] {
+            let deadline = Instant::now() + Duration::from_secs(1);
+            let start = Instant::now();
+            assert_eq!(exec.run(&[], &script, &[], deadline).unwrap_err(), want);
+            assert!(start.elapsed() < Duration::from_secs(10), "wedged");
+            // Settle past the kill, then prove the grandchild is silent:
+            // heartbeats flowed before the deadline and froze after it.
+            std::thread::sleep(Duration::from_millis(300));
+            let before = std::fs::read(&beat).unwrap().len();
+            assert!(before > 0, "heartbeat never ran");
+            std::thread::sleep(Duration::from_millis(300));
+            assert_eq!(
+                std::fs::read(&beat).unwrap().len(),
+                before,
+                "descendant survived the timeout cleanup"
+            );
+        }
+    }
+
+    #[test]
+    fn large_transfers_complete_exactly() {
+        let exec = Native;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        // 256 KiB stdout: multi-chunk drain, byte-exact, no cap.
+        let out = exec
+            .run(
+                &[],
+                "/bin/sh",
+                &["-c", "exec /usr/bin/head -c 262144 /dev/zero"],
+                deadline,
+            )
+            .unwrap();
+        assert_eq!(out.len(), 262144);
+        assert!(out.iter().all(|b| *b == 0));
+        // 256 KiB stderr on a succeeding child: consumed, ignored, exact Ok.
+        assert_eq!(
+            exec.run(
+                &[],
+                "/bin/sh",
+                &["-c", "/usr/bin/head -c 262144 /dev/zero >&2"],
+                deadline,
+            )
+            .unwrap(),
+            Vec::<u8>::new()
+        );
+        // 256 KiB stdin round trip: writer multi-chunk plus the stdin EOF
+        // close (cat exits only at EOF; a missing close would time out).
+        let input: Vec<u8> = (0..262144u32).map(|i| (i % 251) as u8).collect();
+        assert_eq!(
+            exec.run(&input, "/bin/sh", &["-c", "exec /bin/cat"], deadline)
+                .unwrap(),
+            input
+        );
+    }
+
+    #[test]
+    fn native_real_error_shapes() {
+        let env = TestEnv::fresh("shapes");
+        let exec = Native;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        // Ordinary failure formatting preserved: status plus raw stderr.
+        let script = stub_cli(&env, "fail.sh", "echo DETAIL >&2\nexit 3");
+        assert_eq!(
+            exec.run(&[], &script, &[], deadline).unwrap_err(),
+            format!("{script} failed: exit status 3: DETAIL\n")
+        );
+        // Signal with empty stderr keeps the exact established shape.
+        let script = stub_cli(&env, "term.sh", "kill -TERM $$");
+        assert_eq!(
+            exec.run(&[], &script, &[], deadline).unwrap_err(),
+            format!("{script} failed: signal: terminated: ")
+        );
+        // Spawn failure keeps the command-prefixed shape.
+        let err = exec
+            .run(&[], "/nonexistent-a25-probe", &[], deadline)
+            .unwrap_err();
+        assert!(
+            err.starts_with("/nonexistent-a25-probe failed: "),
+            "unexpected spawn diagnostic: {err}"
+        );
+    }
+
+    #[test]
+    fn descendant_pipes_cannot_wedge_completion() {
+        let env = TestEnv::fresh("wedge");
+        // Direct child exits at once while a grandchild holds the pipes
+        // past the deadline: completion must error promptly, never succeed
+        // with the truncated "done" output.
+        let held = stub_cli(&env, "held.sh", "(sleep 5 &)\necho done\nexit 0");
+        for (exec, want) in [
+            (
+                &Native as &dyn Executor,
+                format!("{held} failed: deadline exceeded"),
+            ),
+            (
+                &NativeStatusOnly as &dyn Executor,
+                String::from("deadline exceeded"),
+            ),
+        ] {
+            let deadline = Instant::now() + Duration::from_secs(1);
+            let start = Instant::now();
+            assert_eq!(exec.run(&[], &held, &[], deadline).unwrap_err(), want);
+            assert!(start.elapsed() < Duration::from_secs(10), "wedged");
+        }
+        // A grandchild outliving our completion proves no post-reap
+        // signals: it writes its marker after we already errored.
+        let mark = env.path("alive");
+        let survivor = stub_cli(
+            &env,
+            "survivor.sh",
+            &format!("(sleep 2; echo alive >> \"{mark}\") &\necho done\nexit 0"),
+        );
+        let deadline = Instant::now() + Duration::from_secs(1);
+        assert_eq!(
+            Native.run(&[], &survivor, &[], deadline).unwrap_err(),
+            format!("{survivor} failed: deadline exceeded")
+        );
+        std::thread::sleep(Duration::from_secs(3));
+        assert_eq!(std::fs::read(&mark).unwrap(), b"alive\n");
+        // A descendant holding the stdin read end wedges the writer the
+        // same way: 1 MiB can never drain into a sleeper.
+        let stdin_held = stub_cli(&env, "stdin.sh", "(sleep 5 <&0 &)\necho done\nexit 0");
+        let big = vec![7u8; 1 << 20];
+        for (exec, want) in [
+            (
+                &Native as &dyn Executor,
+                format!("{stdin_held} failed: deadline exceeded"),
+            ),
+            (
+                &NativeStatusOnly as &dyn Executor,
+                String::from("deadline exceeded"),
+            ),
+        ] {
+            let deadline = Instant::now() + Duration::from_secs(1);
+            let start = Instant::now();
+            assert_eq!(
+                exec.run(&big, &stdin_held, &[], deadline).unwrap_err(),
+                want
+            );
+            assert!(start.elapsed() < Duration::from_secs(10), "wedged");
+        }
     }
 
     fn stub_cli(env: &TestEnv, name: &str, body: &str) -> String {
