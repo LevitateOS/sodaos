@@ -2350,6 +2350,9 @@ impl NativeAttach {
                     Ok(None) => {
                         if Instant::now() >= deadline {
                             let _ = child.kill();
+                            // Reap the killed child (CODEX-H01-REAP-1):
+                            // kill leaves a zombie without wait.
+                            let _ = child.wait();
                             break;
                         }
                         std::thread::sleep(Duration::from_millis(10));
@@ -4891,6 +4894,66 @@ mod tests {
         attach.input_frame(&frame).unwrap();
         drop(out_peer);
         assert_eq!(out.join().unwrap().unwrap_err(), "terminal output ended");
+        attach.close();
+    }
+
+    /// Spawn a real quiet child owned by a test `NativeAttach` (reader
+    /// detached, stdin open): the task-owned `Some(child)` close path.
+    fn attach_with_child(argv: &[&str]) -> (NativeAttach, u32) {
+        use std::os::unix::io::FromRawFd;
+        let mut child = std::process::Command::new(argv[0])
+            .args(&argv[1..])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        let stdin = child.stdin.take().unwrap();
+        // Same ownership transfer as `attach`: exactly-once raw fds.
+        let fd = stdin.as_raw_fd();
+        std::mem::forget(stdin);
+        let stdin = unsafe { File::from_raw_fd(fd) };
+        (
+            NativeAttach {
+                child: Some(child),
+                stdin: Some(stdin),
+                reader: None,
+                closed: false,
+            },
+            pid,
+        )
+    }
+
+    /// True once the PID is reaped and gone (a zombie still answers the
+    /// null signal, so this distinguishes reaped from merely killed).
+    fn pid_reaped(pid: u32) -> bool {
+        let gone = unsafe { libc::kill(pid as libc::pid_t, 0) } != 0;
+        gone && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+    }
+
+    #[test]
+    fn close_reaps_eof_exited_child() {
+        // CODEX-H01-REAP-1: `cat` exits on the stdin EOF that `close`
+        // causes by dropping stdin; the exit must be reaped.
+        let (mut attach, pid) = attach_with_child(&["cat"]);
+        attach.close();
+        assert!(attach.child.is_none());
+        assert!(pid_reaped(pid));
+        // Once-only close stays idempotent.
+        attach.close();
+    }
+
+    #[test]
+    fn close_reaps_killed_child() {
+        // CODEX-H01-REAP-1: `sleep` ignores stdin EOF, so `close` must
+        // kill after the 3s grace and then reap the forced termination.
+        let (mut attach, pid) = attach_with_child(&["sleep", "30"]);
+        let start = Instant::now();
+        attach.close();
+        assert!(start.elapsed() >= Duration::from_secs(3), "grace skipped");
+        assert!(attach.child.is_none());
+        assert!(pid_reaped(pid));
         attach.close();
     }
 }
