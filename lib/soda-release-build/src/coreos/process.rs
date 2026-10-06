@@ -28,15 +28,26 @@ pub(super) fn run_bounded(
     let mut buf = [0u8; 32 << 10];
     let mut drained = stdout.is_none();
     let mut timed_out = false;
+    // Retires a still-owned direct child on a failed path: SIGKILL where
+    // live (harmless if it raced exit), then reap. The caller keeps and
+    // returns the initiating error unchanged.
+    let retire = |child: &mut std::process::Child| {
+        let _ = child.kill();
+        let _ = child.wait();
+    };
     while !drained {
         if std::time::Instant::now() > deadline {
             timed_out = true;
             break;
         }
-        match child
-            .try_wait()
-            .map_err(|e| io_error(name, Path::new(name), e))?
-        {
+        let exited = match child.try_wait() {
+            Ok(exited) => exited,
+            Err(e) => {
+                retire(&mut child);
+                return Err(io_error(name, Path::new(name), e));
+            }
+        };
+        match exited {
             Some(_) => {
                 // Process exited; drain the rest of the pipe.
                 if let Some(out) = stdout.as_mut() {
@@ -67,16 +78,22 @@ pub(super) fn run_bounded(
                         Ok(0) => std::thread::sleep(Duration::from_millis(5)),
                         Ok(n) => {
                             if n as i64 > remaining {
-                                let _ = child.kill();
+                                retire(&mut child);
                                 return Err(Error::msg("input exceeds size limit"));
                             }
-                            drain(&buf[..n])?;
+                            if let Err(e) = drain(&buf[..n]) {
+                                retire(&mut child);
+                                return Err(e);
+                            }
                             remaining -= n as i64;
                         }
                         Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                             std::thread::sleep(Duration::from_millis(5))
                         }
-                        Err(e) => return Err(Error::msg(e.to_string())),
+                        Err(e) => {
+                            retire(&mut child);
+                            return Err(Error::msg(e.to_string()));
+                        }
                     }
                 }
             }

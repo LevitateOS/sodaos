@@ -371,4 +371,117 @@ mod tests {
         assert!(text.starts_with("{\n  \"Path\": "));
         assert!(text.contains("\n  \"Signer\": \"ABC\"\n}"));
     }
+
+    /// Serializes the child-process regressions: run_bounded is the only
+    /// spawner in this binary, so one waiting observer is unambiguous.
+    static PROCESS_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Locks the guard, tolerating poisoning: a sibling regression may
+    /// panic mid-fixture, and exclusion (not shared state) is all we need.
+    fn lock_process_guard() -> std::sync::MutexGuard<'static, ()> {
+        PROCESS_GUARD
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+    }
+
+    /// Reaps already-waitable direct children; live strays from a
+    /// known-leaky run die within their bounded sleep, so retry briefly.
+    fn settle_owned_children() {
+        for _ in 0..40 {
+            let mut status = 0;
+            let waited = unsafe { libc::waitpid(-1, &mut status, libc::WNOHANG) };
+            if waited > 0 {
+                continue;
+            }
+            if waited == 0 {
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            }
+            return;
+        }
+        panic!("stray child process outlived its bounded fixture");
+    }
+
+    /// Asserts no direct child (live or zombie) survived the helper.
+    fn assert_no_owned_child() {
+        let mut status = 0;
+        let waited = unsafe { libc::waitpid(-1, &mut status, libc::WNOHANG) };
+        assert_eq!(waited, -1, "run_bounded left a waitable/live direct child");
+    }
+
+    #[test]
+    fn run_bounded_drain_error_reaps_live_child() {
+        // CODEX-CR05D-001: a drain failure against a live child must retire
+        // the child while preserving the drain's own error.
+        let _guard = lock_process_guard();
+        settle_owned_children();
+        let mut failing =
+            |_chunk: &[u8]| -> Result<(), Error> { Err(Error::msg("fixture drain refused")) };
+        let err = process::run_bounded(
+            "sh",
+            &["-c".to_string(), "echo hi; exec sleep 1".to_string()],
+            Duration::from_secs(30),
+            i64::MAX,
+            &mut failing,
+        )
+        .unwrap_err();
+        assert_eq!(err.message(), "fixture drain refused");
+        assert_no_owned_child();
+    }
+
+    #[test]
+    fn run_bounded_oversize_reaps_live_child() {
+        // CODEX-CR05D-001: an oversize read against a live child must reap
+        // the killed child instead of leaving a zombie.
+        let _guard = lock_process_guard();
+        settle_owned_children();
+        let mut drained = Vec::new();
+        let mut keep = |chunk: &[u8]| -> Result<(), Error> {
+            drained.extend_from_slice(chunk);
+            Ok(())
+        };
+        let err = process::run_bounded(
+            "sh",
+            &["-c".to_string(), "echo hi; exec sleep 1".to_string()],
+            Duration::from_secs(30),
+            1,
+            &mut keep,
+        )
+        .unwrap_err();
+        assert_eq!(err.message(), "input exceeds size limit");
+        assert_no_owned_child();
+    }
+
+    #[test]
+    fn run_bounded_success_and_timeout_unchanged() {
+        // CODEX-CR05D-001 pin: success and timeout behavior are unchanged.
+        let _guard = lock_process_guard();
+        settle_owned_children();
+        let mut drained = Vec::new();
+        let mut keep = |chunk: &[u8]| -> Result<(), Error> {
+            drained.extend_from_slice(chunk);
+            Ok(())
+        };
+        process::run_bounded(
+            "sh",
+            &["-c".to_string(), "echo hi".to_string()],
+            Duration::from_secs(30),
+            i64::MAX,
+            &mut keep,
+        )
+        .unwrap();
+        assert_eq!(drained, b"hi\n");
+        assert_no_owned_child();
+        let mut sink = |_chunk: &[u8]| -> Result<(), Error> { Ok(()) };
+        let err = process::run_bounded(
+            "sleep",
+            &["5".to_string()],
+            Duration::from_millis(100),
+            i64::MAX,
+            &mut sink,
+        )
+        .unwrap_err();
+        assert_eq!(err.message(), "sleep timed out");
+        assert_no_owned_child();
+    }
 }
