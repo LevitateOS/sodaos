@@ -237,3 +237,22 @@ fn pty_proceeds_past_console_check() {
     std::env::remove_var("SSH_CONNECTION");
     std::env::remove_var("SSH_TTY");
 }
+
+#[test]
+fn enrollment_write_requires_complete_count() {
+    // O07-F1: a successful short write must block publication; only a
+    // complete count may proceed to close and link.
+    assert!(enrollment_write_error("sshd_config", "/tmp/t", 10, Ok(10)).is_none());
+    let err =
+        enrollment_write_error("sshd_config", "/tmp/t", 10, Ok(4)).expect("short write refuses");
+    assert!(err.to_string().contains("short write"), "{err}");
+    assert!(err.to_string().contains("sshd_config"), "{err}");
+    let err =
+        enrollment_write_error("sshd_config", "/tmp/t", 10, Ok(0)).expect("empty write refuses");
+    assert!(err.to_string().contains("short write"), "{err}");
+    let io_err = std::io::Error::new(std::io::ErrorKind::WriteZero, "no space");
+    let err =
+        enrollment_write_error("sshd_config", "/tmp/t", 10, Err(io_err)).expect("io error reports");
+    assert!(err.to_string().contains("write"), "{err}");
+    assert!(err.to_string().contains("/tmp/t"), "{err}");
+}

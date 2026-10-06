@@ -93,6 +93,25 @@ fn create_enrollment_temp(directory: &str, name: &str) -> Result<(String, std::f
     Err(Error::msg("cannot reserve enrollment temporary file"))
 }
 
+/// O07-F1: maps one publication write outcome to the error (if any) that
+/// must block publication. Callers still close exactly once, honor a write
+/// error before any close error, and remove only this call's temporary path
+/// on every error path; there are no retries.
+pub(crate) fn enrollment_write_error(
+    name: &str,
+    temp_path: &str,
+    expected: usize,
+    written: std::io::Result<usize>,
+) -> Option<Error> {
+    match written {
+        Ok(count) if count == expected => None,
+        Ok(count) => Some(Error::msg(format!(
+            "short write publishing enrollment {name}: wrote {count} of {expected} bytes"
+        ))),
+        Err(e) => Some(errors::path_error("write", temp_path, e)),
+    }
+}
+
 pub fn enrollment_write(directory: &str, name: &str, value: &str) -> Result<(), Error> {
     use std::io::Write;
     use std::os::unix::io::IntoRawFd;
@@ -100,10 +119,8 @@ pub fn enrollment_write(directory: &str, name: &str, value: &str) -> Result<(), 
     // Only this call's exact temporary path is removed on every path; the
     // atomic link publishes the complete file without replacing existing
     // state. Readers must never observe a just-created empty success receipt.
-    let write_err = temp
-        .write(value.as_bytes())
-        .err()
-        .map(|e| errors::path_error("write", &temp_path, e));
+    let written = temp.write(value.as_bytes());
+    let write_err = enrollment_write_error(name, &temp_path, value.len(), written);
     // Go closes explicitly and reports the close error; a dropped File
     // swallows it, so close through libc for the same observation.
     let close_err = if unsafe { libc::close(temp.into_raw_fd()) } != 0 {
