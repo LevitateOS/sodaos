@@ -22,7 +22,10 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::gmux_backend::{BackendError, ExecBackend, TerminalSession};
-use crate::{domain, json, pfactory, project, tcodex, tcontrol, terminal};
+use crate::{
+    domain, json, pfactory, project, tcontrol,
+    terminal::{self, factory::tcodex},
+};
 
 /// False: every lane module is integrated, no scaffold remains.
 pub const HAS_SCAFFOLDS: bool = false;
@@ -316,8 +319,8 @@ fn cv_binding_to_pfactory(b: &terminal::Binding) -> pfactory::Binding {
     }
 }
 
-fn cv_run_to_tcodex(r: &pfactory::FactoryRun) -> crate::tcodex::FactoryRun {
-    crate::tcodex::FactoryRun {
+fn cv_run_to_tcodex(r: &pfactory::FactoryRun) -> crate::terminal::factory::tcodex::FactoryRun {
+    crate::terminal::factory::tcodex::FactoryRun {
         deadline_raw: r.deadline.clone(),
         actor: r.actor,
         id: r.id.clone(),
@@ -368,7 +371,9 @@ fn cv_lease_to_pfactory(l: &terminal::Lease) -> pfactory::Lease {
     }
 }
 
-fn cv_slice_to_pfactory(s: &crate::tcodex::FactoryCodexOutputSlice) -> pfactory::OutputSlice {
+fn cv_slice_to_pfactory(
+    s: &crate::terminal::factory::tcodex::FactoryCodexOutputSlice,
+) -> pfactory::OutputSlice {
     pfactory::OutputSlice {
         data: s.data.clone(),
         total: s.total,

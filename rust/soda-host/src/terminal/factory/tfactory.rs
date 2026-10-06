@@ -12,7 +12,7 @@
 
 use crate::domain;
 use crate::project::Executor;
-use crate::tcodex;
+use crate::terminal::factory::tcodex;
 use crate::terminal::{self, Binding, Lease, Service, KIND_FACTORY};
 use std::time::{Duration, Instant};
 

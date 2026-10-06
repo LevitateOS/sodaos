@@ -16,7 +16,7 @@
 
 use crate::project::Executor;
 use crate::sha256;
-use crate::tcodex::{
+use crate::terminal::factory::tcodex::{
     self, valid_factory_role, valid_factory_run_id, valid_harness_version, valid_preparation_id,
     FactoryRun, MAX_FACTORY_PROMPT,
 };
@@ -105,12 +105,13 @@ pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
     if b.uid <= 0 || b.gid <= 0 || b.generation != lease.generation || b.generation <= 0 {
         return Err(terminal::err_denied());
     }
-    let (checkout, run_dir, home, muse_config) = crate::tfactory::checked_binding_paths(
-        lease,
-        terminal::PROVIDER_MUSE,
-        tcodex::FACTORY_SCOPE_MUSE,
-        factory_muse_run_paths,
-    )?;
+    let (checkout, run_dir, home, muse_config) =
+        crate::terminal::factory::tfactory::checked_binding_paths(
+            lease,
+            terminal::PROVIDER_MUSE,
+            tcodex::FACTORY_SCOPE_MUSE,
+            factory_muse_run_paths,
+        )?;
     Ok(FactoryMusePaths {
         checkout,
         run_dir: run_dir.clone(),
@@ -560,8 +561,8 @@ impl<E: Executor> Service<E> {
         offset: i64,
         limit: i64,
         deadline: Instant,
-    ) -> Result<crate::tfactory::FactoryOutputSlice, String> {
-        crate::tfactory::check_output_range(offset, limit)?;
+    ) -> Result<crate::terminal::factory::tfactory::FactoryOutputSlice, String> {
+        crate::terminal::factory::tfactory::check_output_range(offset, limit)?;
         let stdout = self.factory_output_stdout(
             project_id,
             binding,

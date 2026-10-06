@@ -44,7 +44,7 @@
 //!   propagates `factory role is not resolvable` / `invalid role identity`.
 
 use soda_host::project::Executor;
-use soda_host::tcodex::{self, FactoryUnitShow};
+use soda_host::terminal::factory::tcodex::{self, FactoryUnitShow};
 use soda_host::terminal::{
     self, Binding, Delivery, Lease, Service, ERR_DENIED, ERR_UNCERTAIN, KIND_FACTORY,
     PROVIDER_CODEX, TERMINAL_INSPECT,

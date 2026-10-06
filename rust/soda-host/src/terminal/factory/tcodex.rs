@@ -447,12 +447,13 @@ pub fn factory_codex_binding(lease: &Lease) -> Result<FactoryCodexPaths, String>
     if b.uid <= 0 || b.gid <= 0 || b.generation != lease.generation || b.generation <= 0 {
         return Err(terminal::err_denied());
     }
-    let (checkout, run_dir, home, codex) = crate::tfactory::checked_binding_paths(
-        lease,
-        terminal::PROVIDER_CODEX,
-        FACTORY_SCOPE_CODEX,
-        factory_run_paths,
-    )?;
+    let (checkout, run_dir, home, codex) =
+        crate::terminal::factory::tfactory::checked_binding_paths(
+            lease,
+            terminal::PROVIDER_CODEX,
+            FACTORY_SCOPE_CODEX,
+            factory_run_paths,
+        )?;
     Ok(FactoryCodexPaths {
         checkout,
         run_dir: run_dir.clone(),
@@ -1284,7 +1285,7 @@ impl<E: Executor> Service<E> {
         limit: i64,
         deadline: Instant,
     ) -> Result<FactoryCodexOutputSlice, String> {
-        crate::tfactory::check_output_range(offset, limit)?;
+        crate::terminal::factory::tfactory::check_output_range(offset, limit)?;
         let stdout = self.factory_output_stdout(
             project_id,
             binding,
