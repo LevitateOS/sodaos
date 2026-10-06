@@ -3,7 +3,7 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `d5012d10` (C08, corrected per review-012): 5 headings verified byte-identical moves (coreos, coreos_stream, files, json_go, oci); lib.rs STALE (C08 removed clock/progress exports vs the `0d8d3b8e` audit source — bannered); production.rs STALE drift; progress.rs RETIRED (3aaec1c8, D03-E4, bannered).
+R02 re-audit COMPLETE @HEAD: 7 live sections verified clean (coreos, coreos_stream, files, json_go, lib, oci, production); progress.rs section retained as RETIRED (C08 3aaec1c8). GAP (pre-existing audit scope, not drift): `coreos_iso.rs`, `elf.rs`, `forgejo.rs`, `http.rs`, `oci_layout.rs` exist since the audit blob but were never interval-mapped in any map; leaf-level inventory covers them (native-packages.md:290-299, D02/D03/D05); first-audit rows pending as new work.
 
 <a id="coverage-0ee161fbce5f"></a>
 
@@ -234,28 +234,26 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 ## [lib/soda-release-build/src/lib.rs](../../../../../lib/soda-release-build/src/lib.rs)
 
-> R02 STALE: intervals below reference the `0d8d3b8e` audit source; C08 removed the clock/progress exports and shifted spans — pending re-audit.
+R02 re-audited vs `0d8d3b8e` audit blob: `pub mod clock` + `pub mod progress` rows DROPPED (modules retired in 3aaec1c8/D03-E4, no successor); doc range tightened 1–14; all module rows verified at new lines; Error/helpers rows verified current.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Public module wiring is mapped separately; module exposure does not create a new process boundary.
 
 | Slice / lifecycle | Current lines | Responsibility and declarations |
 | --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–19, 40–113 | Native production module/error wiring; declarations/fields: `Error`, `msg`, `message`, `exit_code`, `signal`, `is_cancelled`, `with_exit_code`, `with_signal`, `cancelled`, `fmt`, `from`, `io_error` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 20 | Module wiring: clock; Candidate production; declarations/fields: `clock` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 21 | Module wiring: coreos; Pinned input acquisition; declarations/fields: `coreos` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 22 | Module wiring: coreos_iso; Pinned input acquisition; declarations/fields: `coreos_iso` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 23 | Module wiring: coreos_stream; Pinned input acquisition; declarations/fields: `coreos_stream` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 24 | Module wiring: elf; Candidate production; declarations/fields: `elf` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 25 | Module wiring: files; Configuration and filesystem primitives; declarations/fields: `files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 26 | Module wiring: forgejo; Candidate production; declarations/fields: `forgejo` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 27 | Module wiring: http; Private IPC and service lifetime; declarations/fields: `http` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 28 | Module wiring: json_go; Encoding and parsing; declarations/fields: `json_go` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 29 | Module wiring: oci; Artifact verification; declarations/fields: `oci` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 30 | Module wiring: oci_layout; Artifact verification; declarations/fields: `oci_layout` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 31 | Module wiring: production; Candidate production; declarations/fields: `production` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 32–39 | Module wiring: progress; Candidate production; declarations/fields: `progress` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 114–170 | Exact digest hashing; declarations/fields: `sha256_hex`, `sha256_hex_stream`, `hex_lower`, `look_path`, `is_executable` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 171–255 | Native input/path admission and protected byte primitives; declarations/fields: `path_clean`, `to_slash`, `test_env_lock`, `LOCK`, `tests`, `oracle_path_clean_vectors`, `look_path_matches_go_errors` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–14, 35–108 | Native production module/error wiring; declarations/fields: `Error`, `msg`, `message`, `exit_code`, `signal`, `is_cancelled`, `with_exit_code`, `with_signal`, `cancelled`, `fmt`, `from`, `io_error` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 18 | Module wiring: coreos; Pinned input acquisition; declarations/fields: `coreos` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 18 | Module wiring: coreos_iso; Pinned input acquisition; declarations/fields: `coreos_iso` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 19 | Module wiring: coreos_stream; Pinned input acquisition; declarations/fields: `coreos_stream` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 20 | Module wiring: elf; Candidate production; declarations/fields: `elf` |
+| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 21 | Module wiring: files; Configuration and filesystem primitives; declarations/fields: `files` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 22 | Module wiring: forgejo; Candidate production; declarations/fields: `forgejo` |
+| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 23 | Module wiring: http; Private IPC and service lifetime; declarations/fields: `http` |
+| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 24 | Module wiring: json_go; Encoding and parsing; declarations/fields: `json_go` |
+| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 25 | Module wiring: oci; Artifact verification; declarations/fields: `oci` |
+| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 26 | Module wiring: oci_layout; Artifact verification; declarations/fields: `oci_layout` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 27 | Module wiring: production; Candidate production; declarations/fields: `production` |
+| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 109–165 | Exact digest hashing; declarations/fields: `sha256_hex`, `sha256_hex_stream`, `hex_lower`, `look_path`, `is_executable` |
+| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 166–250 | Native input/path admission and protected byte primitives; declarations/fields: `path_clean`, `to_slash`, `test_env_lock`, `LOCK`, `tests`, `oracle_path_clean_vectors`, `look_path_matches_go_errors` |
 
 <a id="coverage-b01b99e67b72"></a>
 
@@ -366,7 +364,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 ## [lib/soda-release-build/src/production.rs](../../../../../lib/soda-release-build/src/production.rs)
 
-> R02 STALE: `lib/soda-release-build/src/production.rs` differs from the audited `rust/soda-release-build/src/production.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
+Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -406,38 +404,38 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 365–379 | Native image production/inspection result assembly; declarations/fields: `images` |
 | [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 380–389 | Native image production/inspection result assembly; declaration/member admit_resolved_input_record; declarations/fields: `admit_resolved_input_record` |
 | [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 390–447 | Native image production/inspection result assembly; declaration/member pull_resolved_input; declarations/fields: `pull_resolved_input` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 448–469 | Native image production/inspection result assembly; declaration/member recipe_image_refs; declarations/fields: `recipe_image_refs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 470–477 | Native image production/inspection result assembly; declaration/member live_tailnet_inputs; declarations/fields: `live_tailnet_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 478–495 | Pinned CoreOS/live input resolution; declarations/fields: `resolve_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 496–539 | Pinned CoreOS/live input resolution; declaration/member build_image; declarations/fields: `build_image` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 540–571 | Pinned CoreOS/live input resolution; declaration/member export_image_archive; declarations/fields: `export_image_archive` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 572–588 | Pinned CoreOS/live input resolution; declaration/member resolve_rocky_base; declarations/fields: `resolve_rocky_base` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 589–616 | Native image export and exact build receipts; declarations/fields: `export_app_images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 617–631 | Native image export and exact build receipts; declaration/member export_forgejo_image; declarations/fields: `export_forgejo_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 632–640 | Native image export and exact build receipts; declaration/member export_proxy_image; declarations/fields: `export_proxy_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 641–663 | Native image export and exact build receipts; declaration/member export_tailnet_image; declarations/fields: `export_tailnet_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 664–681 | Native image export and exact build receipts; declaration/member export_extension_image; declarations/fields: `export_extension_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 682–733 | Native image export and exact build receipts; declaration/member export_images; declarations/fields: `export_images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 734–738 | Native image export and exact build receipts; declaration/member build_forgejo_binary; declarations/fields: `build_forgejo_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 739–745 | Native image export and exact build receipts; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 746 | Native image export and exact build receipts; declaration/member ProducedImage; declarations/fields: `ProducedImage` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 747 | Native image export and exact build receipts; declaration/member ProducedImage.image; declarations/fields: `ProducedImage.image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 748–752 | Native image export and exact build receipts; declaration/member ProducedImage.archive_sha256; declarations/fields: `ProducedImage.archive_sha256` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 753 | Native image export and exact build receipts; declaration/member ResolvedInput; declarations/fields: `ResolvedInput` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 754 | Native image export and exact build receipts; declaration/member ResolvedInput.requested; declarations/fields: `ResolvedInput.requested` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 755 | Native image export and exact build receipts; declaration/member ResolvedInput.reference; declarations/fields: `ResolvedInput.reference` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 756–759 | Native image export and exact build receipts; declaration/member ResolvedInput.config; declarations/fields: `ResolvedInput.config` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 760–768 | Native image export and exact build receipts; declaration/member emit; declarations/fields: `emit` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 769–778 | Native image export and exact build receipts; declaration/member parse_image_repo; declarations/fields: `parse_image_repo` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 779–796 | Native image export and exact build receipts; declaration/member lexical_rel; declarations/fields: `lexical_rel` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 797–805 | Native image export and exact build receipts; declaration/member tests; declarations/fields: `tests` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 806–938 | Native image export and exact build receipts; declaration/member production_fixture; declarations/fields: `production_fixture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 939–1005 | Native image export and exact build receipts; declaration/member oracle_production_sequence; declarations/fields: `oracle_production_sequence` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1006–1025 | Native image export and exact build receipts; declaration/member oracle_production_failure_stops; declarations/fields: `oracle_production_failure_stops` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1026–1063 | Native image export and exact build receipts; declaration/member oracle_production_refusals; declarations/fields: `oracle_production_refusals` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1064–1078 | Native image export and exact build receipts; declaration/member oracle_asset_destinations_refuse_early; declarations/fields: `oracle_asset_destinations_refuse_early` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1079–1114 | Native image export and exact build receipts; declaration/member oracle_compile_recipes; declarations/fields: `oracle_compile_recipes` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1115–1124 | Native image export and exact build receipts; declaration/member oracle_image_repo_parsing; declarations/fields: `oracle_image_repo_parsing` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 448–470 | Native image production/inspection result assembly; declaration/member recipe_image_refs; declarations/fields: `recipe_image_refs` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 471–478 | Native image production/inspection result assembly; declaration/member live_tailnet_inputs; declarations/fields: `live_tailnet_inputs` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 479–496 | Pinned CoreOS/live input resolution; declarations/fields: `resolve_inputs` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 497–540 | Pinned CoreOS/live input resolution; declaration/member build_image; declarations/fields: `build_image` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 541–572 | Pinned CoreOS/live input resolution; declaration/member export_image_archive; declarations/fields: `export_image_archive` |
+| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 573–590 | Pinned CoreOS/live input resolution; declaration/member resolve_rocky_base; declarations/fields: `resolve_rocky_base` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 591–618 | Native image export and exact build receipts; declarations/fields: `export_app_images` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 619–633 | Native image export and exact build receipts; declaration/member export_forgejo_image; declarations/fields: `export_forgejo_image` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 634–642 | Native image export and exact build receipts; declaration/member export_proxy_image; declarations/fields: `export_proxy_image` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 643–665 | Native image export and exact build receipts; declaration/member export_tailnet_image; declarations/fields: `export_tailnet_image` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 666–683 | Native image export and exact build receipts; declaration/member export_extension_image; declarations/fields: `export_extension_image` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 684–735 | Native image export and exact build receipts; declaration/member export_images; declarations/fields: `export_images` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 736–740 | Native image export and exact build receipts; declaration/member build_forgejo_binary; declarations/fields: `build_forgejo_binary` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 741–747 | Native image export and exact build receipts; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 748 | Native image export and exact build receipts; declaration/member ProducedImage; declarations/fields: `ProducedImage` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 749 | Native image export and exact build receipts; declaration/member ProducedImage.image; declarations/fields: `ProducedImage.image` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 750–754 | Native image export and exact build receipts; declaration/member ProducedImage.archive_sha256; declarations/fields: `ProducedImage.archive_sha256` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 755 | Native image export and exact build receipts; declaration/member ResolvedInput; declarations/fields: `ResolvedInput` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 756 | Native image export and exact build receipts; declaration/member ResolvedInput.requested; declarations/fields: `ResolvedInput.requested` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 757 | Native image export and exact build receipts; declaration/member ResolvedInput.reference; declarations/fields: `ResolvedInput.reference` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 758–761 | Native image export and exact build receipts; declaration/member ResolvedInput.config; declarations/fields: `ResolvedInput.config` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 762–770 | Native image export and exact build receipts; declaration/member emit; declarations/fields: `emit` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 771–780 | Native image export and exact build receipts; declaration/member parse_image_repo; declarations/fields: `parse_image_repo` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 781–798 | Native image export and exact build receipts; declaration/member lexical_rel; declarations/fields: `lexical_rel` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 799–807 | Native image export and exact build receipts; declaration/member tests; declarations/fields: `tests` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 808–939 | Native image export and exact build receipts; declaration/member production_fixture; declarations/fields: `production_fixture` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 940–1006 | Native image export and exact build receipts; declaration/member oracle_production_sequence; declarations/fields: `oracle_production_sequence` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1007–1026 | Native image export and exact build receipts; declaration/member oracle_production_failure_stops; declarations/fields: `oracle_production_failure_stops` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1027–1065 | Native image export and exact build receipts; declaration/member oracle_production_refusals; declarations/fields: `oracle_production_refusals` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1066–1080 | Native image export and exact build receipts; declaration/member oracle_asset_destinations_refuse_early; declarations/fields: `oracle_asset_destinations_refuse_early` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1081–1116 | Native image export and exact build receipts; declaration/member oracle_compile_recipes; declarations/fields: `oracle_compile_recipes` |
+| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1117–1126 | Native image export and exact build receipts; declaration/member oracle_image_repo_parsing; declarations/fields: `oracle_image_repo_parsing` |
 
 <a id="coverage-876126f7558f"></a>
 
