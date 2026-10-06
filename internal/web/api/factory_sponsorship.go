@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
@@ -63,15 +64,32 @@ func (s *API) apiFactorySponsorship(w http.ResponseWriter, r *http.Request, v st
 
 // checkSponsorshipBroker verifies the sponsorship references the caller's
 // own current connection and a live canonical broker grant. It reads grant
-// metadata only; credential custody stays with the broker.
+// metadata only from the identity broker; credential custody stays with the
+// broker. Refusals preserve the established sponsorship admission contract.
 func (s *API) checkSponsorshipBroker(w http.ResponseWriter, r *http.Request, v store.Session, sponsorship factory.Sponsorship) bool {
-	connection, err := s.Store.IdentityConnection(r.Context(), sponsorship.Connection)
+	if s.Identity == nil {
+		auth.JSONError(w, 503, "identity_unavailable", "Identity service is unavailable.")
+		return false
+	}
+	connections, err := s.Identity.Connections(r.Context(), v.User.ID)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			auth.JSONError(w, 404, "not_found", "Provider connection not found.")
+		if errors.Is(err, identity.ErrDenied) {
+			auth.JSONError(w, 403, "connection_owner_required", "Only the connection owner can sponsor factory use.")
 			return false
 		}
 		auth.JSONError(w, 503, "store_unavailable", "Could not read provider connection.")
+		return false
+	}
+	var connection identity.Connection
+	found := false
+	for _, c := range connections {
+		if c.ID == sponsorship.Connection {
+			connection, found = c, true
+			break
+		}
+	}
+	if !found {
+		auth.JSONError(w, 404, "not_found", "Provider connection not found.")
 		return false
 	}
 	if connection.OwnerID != v.User.ID {
@@ -82,13 +100,29 @@ func (s *API) checkSponsorshipBroker(w http.ResponseWriter, r *http.Request, v s
 		auth.JSONError(w, 409, "stale_credential_generation", "Connection credential changed; refresh and retry.")
 		return false
 	}
-	grant, err := s.Store.IdentityGrant(r.Context(), sponsorship.GrantID)
+	grants, err := s.Identity.Grants(r.Context(), v.User.ID, sponsorship.Connection)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+		if errors.Is(err, identity.ErrNotFound) {
 			auth.JSONError(w, 404, "not_found", "Broker grant not found.")
 			return false
 		}
+		if errors.Is(err, identity.ErrDenied) {
+			auth.JSONError(w, 403, "connection_owner_required", "Only the connection owner can sponsor factory use.")
+			return false
+		}
 		auth.JSONError(w, 503, "store_unavailable", "Could not read broker grant.")
+		return false
+	}
+	var grant identity.Grant
+	found = false
+	for _, g := range grants {
+		if g.ID == sponsorship.GrantID {
+			grant, found = g, true
+			break
+		}
+	}
+	if !found {
+		auth.JSONError(w, 404, "not_found", "Broker grant not found.")
 		return false
 	}
 	if grant.ConnectionID != sponsorship.Connection || grant.Revoked {
