@@ -1,8 +1,6 @@
 import {LitElement, html} from 'lit';
-import type {ReactiveController} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import {attentionReason, terminalObservation} from './sodaspaces-attention.js';
-import type {TerminalObservation} from './sodaspaces-attention.js';
 import {
   renderMenu,
   renderSessionTab,
@@ -56,58 +54,10 @@ import {
   factoryRunText,
 } from './sodaspaces-api.js';
 import type {Space, TerminalMetadata, RepositoryChoices, FactoryRun} from './sodaspaces-api.js';
-import type {PreparedExtensionMount} from './soda-extension.js';
-export type WorkspaceContext = {transport: PreparedExtensionMount; forgejoPrefix?: string} & (
-  | {
-      kind: 'native';
-      repositoryId?: string;
-      pageRepositoryId?: string;
-    }
-  | {
-      kind: 'page';
-    }
-);
+import type {Creation, FactoryWatch, PaneSession, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
+import {WorkspaceMeasurement} from './sodaspaces-workspace-measurement.js';
 type TerminalFactory = typeof mountTerminal;
-interface Slot {
-  key: string;
-  binding: TerminalContext;
-  unread: boolean;
-  readRequested: boolean;
-  observedAt: number;
-  observation: TerminalObservation | undefined;
-  metadata: TerminalMetadata | undefined;
-  proposedName?: string;
-  minimum?: Minimum;
-  unavailable: boolean;
-  host: HTMLElement;
-  terminal: ReturnType<typeof mountTerminal>;
-}
-interface Row {
-  key: string;
-  entry?: LayoutEntry;
-  metadata?: TerminalMetadata;
-}
-interface PaneSession {
-  entry: LayoutEntry;
-  space: Space;
-  slot: Slot | undefined;
-}
-interface FactoryWatch {
-  run: string;
-  environmentId: string;
-  repositoryId: string;
-  role: string;
-  issue?: string;
-  attempt?: string;
-  hidden: boolean;
-  view?: ReturnType<typeof mountFactoryWatch>;
-}
 const factoryWatchLimit = 8;
-interface Creation {
-  pane: string;
-  environmentId: string;
-  name: string;
-}
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
 function drawerRepositoryPart(value: unknown): value is string {
@@ -137,51 +87,6 @@ function sodaWorkspaceInit(
     signal,
   };
 }
-// Only subscriptions live here. Geometry, layout and minimum-size publication
-// remain with SodaSpaces. A disconnected workspace is permanently disposed, so
-// retirement must also block late font promises and already queued observer calls.
-class WorkspaceMeasurement implements ReactiveController {
-  private observer: ResizeObserver | undefined;
-  private lifetime: AbortController | undefined;
-  private retired = false;
-
-  constructor(
-    private readonly host: LitElement,
-    private readonly measure: () => void
-  ) {
-    host.addController(this);
-  }
-
-  hostUpdated() {
-    if (this.retired || this.observer || !this.host.isConnected) return;
-    // Connection precedes the first render. Wait for the actual canvas, and
-    // retry on a later update if the initial render did not contain it.
-    const canvas = this.host.querySelector('.soda-workspace-canvas');
-    if (!canvas) return;
-    const lifetime = (this.lifetime = new AbortController());
-    const notify = () => {
-      if (!lifetime.signal.aborted && this.host.isConnected) this.measure();
-    };
-    this.observer = new ResizeObserver(notify);
-    this.observer.observe(canvas);
-    this.observer.observe(this.host);
-    document.fonts.addEventListener('loadingdone', notify, {signal: lifetime.signal});
-    window.visualViewport?.addEventListener('resize', notify, {signal: lifetime.signal});
-    void document.fonts.ready.then(notify);
-  }
-
-  hostDisconnected() {
-    this.retire();
-  }
-
-  retire() {
-    this.retired = true;
-    this.observer?.disconnect();
-    this.observer = undefined;
-    this.lifetime?.abort();
-  }
-}
-
 // Both surfaces share this owner. Pane chrome is keyed separately; live terminal
 // hosts never leave their flat parent. Rendering cannot create/attach/Return.
 export class SodaSpaces extends LitElement {
