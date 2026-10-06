@@ -89,7 +89,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "af9fbb22fd93a1fd13d0eeb5799e4ecf69c322425fe790f9d336f990165628fb",
+      "beforeRoleHash": "e3249d10f91ef6340c0b857254c857fdaf80bed6e86506c21ab371b5ddcd0482",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -113,6 +113,28 @@
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "8474f9050499ee3095698f66dba7d14d10c9bef60c4ddad42b73cd2448420349",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "admin/auth/edit_smtp.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [
+        "admin/auth/edit.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [],
+      "states": [
+        "populated",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "8354dab80b53f0a289aaff030b3c5b70a96018dc724b72498c891ecd9d02ef83",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
