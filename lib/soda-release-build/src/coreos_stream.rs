@@ -5,17 +5,12 @@
 //! consulted.
 
 use crate::coreos::{https_url, CoreOSImage};
-use crate::files::{is_digest, oci_architecture, write_new};
-use crate::http::{get_follow, HttpTransport, UreqTransport};
-use crate::json_emit::{marshal_indent, Emit};
-use crate::json_go::{Fields, Strict};
-use crate::json_input::read_json;
+use crate::files::oci_architecture;
+use crate::http::{fetch_capped_json, HttpTransport, UreqTransport};
+use crate::json_go::Fields;
 use crate::Error;
 use soda_json::JsonValue;
 use std::collections::HashMap;
-use std::io::Read;
-use std::path::Path;
-use std::time::Duration;
 
 use crate::coreos_registry::resolve_registry_digests_with;
 pub use crate::live_inputs::{
@@ -67,48 +62,6 @@ pub fn tailnet_base_tags_url() -> String {
     } else {
         value.trim().to_string()
     }
-}
-
-pub(crate) fn fetch_capped_json<T: HttpTransport>(
-    transport: &T,
-    url: &str,
-    max_bytes: i64,
-) -> Result<Vec<u8>, Error> {
-    if !https_url(url) || max_bytes <= 0 {
-        return Err(Error::msg("bounded HTTPS fetch required"));
-    }
-    let response = get_follow(
-        transport,
-        url,
-        None,
-        Duration::from_secs(60),
-        "unsafe metadata redirect",
-    )
-    .map_err(|e| Error::msg(format!("live input fetch failed: {}", e.message())))?;
-    if response.status != 200 {
-        return Err(Error::msg(format!(
-            "live input HTTP failure: {}",
-            response.status_line()
-        )));
-    }
-    let mut data = Vec::new();
-    response
-        .body
-        .take((max_bytes + 1) as u64)
-        .read_to_end(&mut data)
-        .map_err(|e| Error::msg(e.to_string()))?;
-    if data.len() as i64 > max_bytes {
-        return Err(Error::msg("live input exceeds size limit"));
-    }
-    Ok(data)
-}
-
-pub(crate) fn fetch_capped_text<T: HttpTransport>(
-    transport: &T,
-    url: &str,
-    max_bytes: i64,
-) -> Result<String, Error> {
-    Ok(String::from_utf8_lossy(&fetch_capped_json(transport, url, max_bytes)?).into_owned())
 }
 
 /// Parses one stable-stream document into release + x86_64 ISO/QEMU triples.
@@ -299,41 +252,6 @@ pub fn resolve_coreos_with<T: HttpTransport>(transport: &T) -> Result<ResolvedCo
 pub(crate) mod tests {
     use super::*;
     use crate::http::tests::Stub;
-
-    pub fn fixture_live_inputs() -> LiveInputs {
-        let img = CoreOSImage {
-            url: "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso".to_string(),
-            signature_url: "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso.sig"
-                .to_string(),
-            sha256: "a".repeat(64),
-            uncompressed_sha256: "b".repeat(64),
-        };
-        let mut container = HashMap::new();
-        container.insert(
-            "x86_64".to_string(),
-            format!("quay.io/fedora/fedora-coreos@sha256:{}", "c".repeat(64)),
-        );
-        let mut iso = HashMap::new();
-        iso.insert("x86_64".to_string(), img.clone());
-        let mut qemu = HashMap::new();
-        qemu.insert("x86_64".to_string(), img);
-        LiveInputs {
-            coreos: ResolvedCoreOS {
-                release: "44.20260901.1.0".to_string(),
-                metadata_url:
-                    "https://builds.test/prod/streams/stable/builds/44.20260901.1.0/release.json"
-                        .to_string(),
-                container,
-                iso,
-                qemu,
-            },
-            tailnet: TailnetInputs {
-                version: "1.98.2".to_string(),
-                sha256: "e".repeat(64),
-                base: "docker.io/tailscale/alpine-base:3.22".to_string(),
-            },
-        }
-    }
 
     fn stream_doc() -> String {
         let base = "https://builds.test/prod/streams/stable/builds/44.20260901.1.0/x86_64/fedora-coreos-44.20260901.1.0";

@@ -2,11 +2,9 @@
 //! selection, checksum/base-tag selection and resolve_tailnet_inputs
 //! with the release-selection case.
 
-use crate::coreos_stream::{
-    fetch_capped_json, fetch_capped_text, tailnet_base_tags_url, tailnet_index_url,
-};
+use crate::coreos_stream::{tailnet_base_tags_url, tailnet_index_url};
 use crate::files::oci_architecture;
-use crate::http::{HttpTransport, UreqTransport};
+use crate::http::{fetch_capped_json, fetch_capped_text, HttpTransport, UreqTransport};
 use crate::json_go::Fields;
 use crate::live_inputs::{valid_tailnet_inputs, TailnetInputs};
 use crate::Error;

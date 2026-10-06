@@ -207,7 +207,7 @@ pub fn valid_resolved_coreos(resolved: &ResolvedCoreOS) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::coreos_stream::tests::fixture_live_inputs;
+    use crate::test_support::fixture_live_inputs;
 
     #[test]
     fn oracle_live_inputs_round_trip() {

@@ -1,8 +1,11 @@
 //! Shared cfg(test) fixtures with production-test consumers in more
 //! than one module. Each fixture keeps its current bytes and owner.
 
+use crate::coreos::CoreOSImage;
+use crate::live_inputs::{LiveInputs, ResolvedCoreOS, TailnetInputs};
 use crate::oci::{CONFIG_MEDIA_TYPE, LAYER_TAR, MANIFEST_MEDIA_TYPE};
 use crate::sha256_hex;
+use std::collections::HashMap;
 
 pub const FIXTURE_REVISION: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -67,4 +70,39 @@ pub fn fixture_oci_bytes(arch: &str) -> Vec<u8> {
         writer.into_inner().unwrap();
     }
     archive
+}
+
+pub fn fixture_live_inputs() -> LiveInputs {
+    let img = CoreOSImage {
+        url: "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso".to_string(),
+        signature_url: "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso.sig"
+            .to_string(),
+        sha256: "a".repeat(64),
+        uncompressed_sha256: "b".repeat(64),
+    };
+    let mut container = HashMap::new();
+    container.insert(
+        "x86_64".to_string(),
+        format!("quay.io/fedora/fedora-coreos@sha256:{}", "c".repeat(64)),
+    );
+    let mut iso = HashMap::new();
+    iso.insert("x86_64".to_string(), img.clone());
+    let mut qemu = HashMap::new();
+    qemu.insert("x86_64".to_string(), img);
+    LiveInputs {
+        coreos: ResolvedCoreOS {
+            release: "44.20260901.1.0".to_string(),
+            metadata_url:
+                "https://builds.test/prod/streams/stable/builds/44.20260901.1.0/release.json"
+                    .to_string(),
+            container,
+            iso,
+            qemu,
+        },
+        tailnet: TailnetInputs {
+            version: "1.98.2".to_string(),
+            sha256: "e".repeat(64),
+            base: "docker.io/tailscale/alpine-base:3.22".to_string(),
+        },
+    }
 }
