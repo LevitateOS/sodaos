@@ -1,5 +1,5 @@
 use super::launch::{controls_loop, forward_signals, launch_shell};
-use super::ShellRequest;
+use super::shell::ShellRequest;
 
 #[test]
 fn launch_shell_passes_fds_and_maps_exit() {

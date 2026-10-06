@@ -3,14 +3,12 @@ mod account;
 mod config;
 #[cfg(test)]
 mod config_tests;
-mod env_prepare;
 mod execution;
-mod home_cfg;
 mod launch;
 mod launch_json;
 #[cfg(test)]
 mod launch_tests;
-mod maintenance;
+mod launch_wire;
 mod paths;
 mod runtime;
 mod shell;
@@ -91,16 +89,4 @@ fn metadata_action(args: &[String]) -> Option<(i32, Option<String>)> {
         _ => account_for(&args[1]).err(),
     };
     Some((0, err))
-}
-
-struct ShellRequest {
-    cwd: String,
-    args: Vec<String>,
-    home: String,
-    connection_id: String,
-    config_home: String,
-    term: String,
-    tty: bool,
-    cols: u16,
-    rows: u16,
 }
