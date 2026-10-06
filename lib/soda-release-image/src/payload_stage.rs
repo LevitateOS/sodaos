@@ -373,4 +373,35 @@ mod tests {
         assert!(out.join("extension-context/Containerfile").is_file());
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn cmd1_staging_links_resolve_without_terminal_identity() {
+        // CORR-C-004-AMEND-1 (CODEX-A01-CMD-1): payload staging links only
+        // real commands. Post-fold, context holds project-terminal (via
+        // RUST_TOOLS) but no soda-project-terminal binary; staging must
+        // succeed and must not link the bogus identity.
+        let dir = std::env::temp_dir().join(format!("sri-cmd1c-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let source = dir.join("src");
+        fs::create_dir_all(source.join("cmd/soda-fakego")).unwrap();
+        let folded = source.join("cmd/soda-project-terminal");
+        fs::create_dir_all(&folded).unwrap();
+        fs::write(folded.join("Cargo.toml"), b"[package]\n").unwrap();
+        let context = dir.join("ctx");
+        let bindir = context.join("rootfs/usr/libexec/soda");
+        fs::create_dir_all(&bindir).unwrap();
+        fs::write(bindir.join("soda-fakego"), b"fake").unwrap();
+        fs::write(bindir.join("project-terminal"), b"terminal").unwrap();
+        fs::write(bindir.join("project-account"), b"account").unwrap();
+        let native = dir.join("native");
+        link_candidate_commands(
+            source.to_str().unwrap(),
+            context.to_str().unwrap(),
+            native.to_str().unwrap(),
+        )
+        .unwrap();
+        assert!(native.join("bin/soda-fakego").is_file());
+        assert!(!native.join("bin/soda-project-terminal").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

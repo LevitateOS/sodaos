@@ -290,6 +290,15 @@ pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
         .collect();
     dirs.sort();
     for name in dirs {
+        // CORR-C-004-AMEND-1 (CODEX-A01-CMD-1): post-A01 fold,
+        // cmd/soda-project-terminal carries a manifest, but its package ships
+        // project-terminal + project-account — never a soda-project-terminal
+        // binary. RUST_TOOLS + asset_steps already produce both; skip it here
+        // (not error) so compile/link never reference the bogus identity.
+        // Manifest-gated: only the folded Rust-owned crate skips.
+        if name == "soda-project-terminal" && is_rust_command(&join(&[source, "cmd", &name])) {
+            continue;
+        }
         if !is_soda_command(&name) || name == "soda-artifacts" || name == "soda-acceptance" {
             return Err(Error::msg(
                 "support tools must remain outside appliance commands",
@@ -403,6 +412,29 @@ mod tests {
         assert!(is_rust_command(rust_cmd.to_str().unwrap()));
         assert!(!is_rust_command(go_cmd.to_str().unwrap()));
         assert!(!is_rust_command(dir.join("soda-missing").to_str().unwrap()));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cmd1_discovery_skips_folded_terminal_crate() {
+        // CORR-C-004-AMEND-1 (CODEX-A01-CMD-1): post-A01 fold, cmd/
+        // soda-project-terminal carries a manifest, but its package ships
+        // project-terminal + project-account — never a soda-project-terminal
+        // binary. Discovery must skip it (RUST_TOOLS owns those bins) while
+        // real commands still list.
+        let dir = std::env::temp_dir().join(format!("sri-cmd1a-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
+        let folded = snapshot.join("cmd/soda-project-terminal");
+        fs::create_dir_all(&folded).unwrap();
+        fs::write(
+            folded.join("Cargo.toml"),
+            b"[package]\nname = \"soda-project-terminal\"\n[[bin]]\nname = \"project-terminal\"\n[[bin]]\nname = \"project-account\"\n",
+        )
+        .unwrap();
+        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
+        assert_eq!(names, vec!["soda-fakego".to_string()]);
         let _ = fs::remove_dir_all(&dir);
     }
 

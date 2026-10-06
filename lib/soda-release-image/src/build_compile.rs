@@ -429,4 +429,63 @@ mod tests {
             .any(|(_, p, _)| p == "./cmd/soda-identity"));
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn cmd1_compile_skips_terminal_identity_and_tools_ship_it_once() {
+        // CORR-C-004-AMEND-1 (CODEX-A01-CMD-1): compile must never reference
+        // the bogus (soda-project-terminal, soda-project-terminal) identity —
+        // that binary does not exist post-fold. RUST_TOOLS retains the real
+        // tuple and produces project-terminal exactly once.
+        let dir = std::env::temp_dir().join(format!("sri-cmd1b-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
+        let folded = snapshot.join("cmd/soda-project-terminal");
+        fs::create_dir_all(&folded).unwrap();
+        fs::write(
+            folded.join("Cargo.toml"),
+            b"[package]\nname = \"soda-project-terminal\"\n[[bin]]\nname = \"project-terminal\"\n[[bin]]\nname = \"project-account\"\n",
+        )
+        .unwrap();
+        fs::create_dir_all(dir.join("ctx/rootfs/usr/libexec/soda")).unwrap();
+        let context = dir.join("ctx").to_str().unwrap().to_string();
+        let recorder = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        assert!(!recorder
+            .rust
+            .borrow()
+            .iter()
+            .any(|(c, b, _)| c == "soda-project-terminal" && b == "soda-project-terminal"));
+        assert!(!recorder
+            .go
+            .borrow()
+            .iter()
+            .any(|(_, p, _)| p == "./cmd/soda-project-terminal"));
+        // The retained RUST_TOOLS tuple ships project-terminal exactly once.
+        let tuples = RUST_TOOLS
+            .iter()
+            .filter(|(m, b, d)| {
+                *m == "soda-project-terminal"
+                    && *b == "project-terminal"
+                    && *d == "rootfs/usr/libexec/soda/project-terminal"
+            })
+            .count();
+        assert_eq!(tuples, 1);
+        let tools = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        compile_rust_tools(&tools, &context).unwrap();
+        let shipped = tools
+            .rust
+            .borrow()
+            .iter()
+            .filter(|(c, b, _)| c == "soda-project-terminal" && b == "project-terminal")
+            .count();
+        assert_eq!(shipped, 1);
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
