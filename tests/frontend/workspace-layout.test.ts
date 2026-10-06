@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {setupWorkspaceDriver, fixture, openSession, paneAction} from './fixtures/workspace-driver';
+import {installMeasurementProbe} from './fixtures/workspace-measurement-probe';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 import {parseLayout} from '../../frontend/spaces/sodaspaces-layout';
 setupWorkspaceDriver();
@@ -131,3 +132,73 @@ test('sidebar bounds, tab overflow, pointer reorder and edge split preserve owne
     [0, 0, 0]
   );
 });
+for (const retirement of ['invalidate', 'dispose', 'disconnect'] as const)
+  test(`measurement subscriptions retire on ${retirement}, including queued callbacks`, async (t) => {
+    const page = await fixture(t, 'page', installMeasurementProbe);
+    await page.waitForFunction(() => window.measurementProbe.minimumNotifications > 0);
+    assert.deepEqual(
+      await page.evaluate(() => {
+        const p = window.measurementProbe;
+        return {
+          beforeRender: p.beforeFirstRender,
+          observers: p.observers.length,
+          targets: p.observers[0]?.targets.map((target) =>
+            target.matches('.soda-workspace-canvas') ? 'canvas' : target.localName
+          ),
+          activeSignals: p.signals.filter((signal) => !signal.aborted).length,
+        };
+      }),
+      {beforeRender: 0, observers: 1, targets: ['canvas', 'soda-spaces'], activeSignals: 2}
+    );
+    await page.evaluate(() => window.workspaceFixture.api.refresh());
+    await page.setViewportSize({width: 1100, height: 800});
+    assert.equal(await page.evaluate(() => window.measurementProbe.observers.length), 1, 'updates resubscribed');
+    await page.evaluate((retirement) => {
+      const f = window.workspaceFixture;
+      if (retirement === 'disconnect') f.root.querySelector('soda-spaces')?.remove();
+      else f.api[retirement]();
+    }, retirement);
+    // Let the caller's own invalidation render settle before delivering stale work.
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    );
+    const before = await page.evaluate(() => ({
+      html: window.workspaceFixture.root.innerHTML,
+      notifications: window.measurementProbe.minimumNotifications,
+      calls: window.workspaceFixture.calls.length,
+    }));
+    await page.evaluate(async () => {
+      const p = window.measurementProbe;
+      for (const observer of p.observers) observer.deliver();
+      p.releaseFonts();
+      document.fonts.dispatchEvent(new Event('loadingdone'));
+      window.visualViewport?.dispatchEvent(new Event('resize'));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    assert.deepEqual(
+      await page.evaluate(() => ({
+        html: window.workspaceFixture.root.innerHTML,
+        notifications: window.measurementProbe.minimumNotifications,
+        calls: window.workspaceFixture.calls.length,
+      })),
+      before
+    );
+    assert.deepEqual(
+      await page.evaluate(() => ({
+        disconnects: window.measurementProbe.observers.map((o) => o.disconnected),
+        aborted: window.measurementProbe.signals.every((s) => s.aborted),
+        sockets: window.workspaceFixture.sockets.length,
+      })),
+      {disconnects: [1], aborted: true, sockets: 0}
+    );
+    // A mount disposed before its first render must never install subscriptions.
+    assert.equal(
+      await page.evaluate(async () => {
+        const f = window.createWorkspaceFixture();
+        f.api.dispose();
+        await f.api.ready;
+        return window.measurementProbe.observers.length;
+      }),
+      1
+    );
+  });

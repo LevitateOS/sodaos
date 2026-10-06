@@ -113,3 +113,27 @@ test('stale metadata and late transport generations cannot claim cleanup or repl
     /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/
   );
 });
+test('authorized collection reports an observed other writer without needing a failed attachment', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {
+    const f = window.workspaceFixture,
+      terminal = f.spaces[0]?.terminals[0];
+    if (!terminal) throw Error('fixture');
+    terminal.attached = true;
+    await f.api.refresh();
+  });
+  await page.getByRole('button', {name: 'Attention (1)', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Next attention', exact: true}).click();
+  await page.getByText('An existing writer is attached.', {exact: false}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  await page.evaluate(async () => {
+    const f = window.workspaceFixture,
+      terminal = f.spaces[0]?.terminals[0];
+    if (!terminal) throw Error('fixture');
+    terminal.attached = false;
+    await f.api.refresh();
+  });
+  assert.equal(await page.locator('.soda-attention-filters:visible').count(), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.body).length), 0);
+});
