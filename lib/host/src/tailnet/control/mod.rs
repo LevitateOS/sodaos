@@ -282,3 +282,6 @@ fn capped(body: Vec<u8>) -> Result<Vec<u8>, String> {
     }
     Ok(body)
 }
+
+#[cfg(test)]
+mod tests;
