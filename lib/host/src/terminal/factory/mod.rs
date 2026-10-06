@@ -3,6 +3,7 @@ pub mod binding;
 #[cfg(test)]
 pub mod codex;
 pub mod lifecycle;
+pub mod muse;
 pub mod output;
 pub mod run;
 pub mod tcodex;
