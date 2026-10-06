@@ -46,6 +46,7 @@ mod term_binding;
 mod term_collect;
 mod term_create;
 mod term_paths;
+mod term_prepare;
 mod term_status;
 mod timex;
 mod tmux;
