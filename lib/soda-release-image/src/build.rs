@@ -27,6 +27,7 @@ use crate::record;
 use crate::request;
 use crate::sys;
 
+pub use crate::build_candidate::build_host_candidate;
 pub use crate::build_context::{
     freeze_base_image_config, link_prepared_assets, prepare_build_host_context,
 };
@@ -166,71 +167,6 @@ pub fn prepare_build_production(
     production.dependencies()?;
     let (tooling, assembler) = build_media::prepare_build_media(production, request)?;
     Ok((context_dir, base, tooling, assembler))
-}
-
-/// buildHostCandidate observes the floating package inventory from an
-/// observation build, seals the payload (release metadata included) into the
-/// context, then bakes and verifies the final image. The sealed fingerprint
-/// must reproduce from the final image; a shift fails the build.
-pub fn build_host_candidate(
-    snapshot: &str,
-    context_dir: &str,
-    artifacts: &str,
-    arch: &str,
-    revision: &str,
-    prefix: &str,
-    base: &prepare::Base,
-    production: &dyn Production,
-    next: &mut dyn FnMut(&str) -> Result<(), Error>,
-) -> Result<(), Error> {
-    let mut payload = payload_stage::complete_candidate(
-        snapshot,
-        context_dir,
-        artifacts,
-        arch,
-        revision,
-        prefix,
-        base,
-        production,
-        next,
-    )?;
-    next("P5 / Build FCOS host candidate")?;
-    let observation = host::build_host_image(
-        context_dir,
-        artifacts,
-        arch,
-        revision,
-        prefix,
-        base,
-        production,
-    )?;
-    let package_hash =
-        host::record_host_packages(context_dir, artifacts, &observation, production)?;
-    payload.host_packages_sha256 = package_hash.clone();
-    payload_stage::seal_candidate_payload(&payload, snapshot, context_dir, artifacts, production)?;
-    record::write_content_inventory(context_dir, artifacts)?;
-    prepare::inventory(context_dir)?;
-    let id = host::build_host_image(
-        context_dir,
-        artifacts,
-        arch,
-        revision,
-        prefix,
-        base,
-        production,
-    )?;
-    host::verify_built_host(
-        context_dir,
-        artifacts,
-        arch,
-        revision,
-        prefix,
-        &id,
-        &package_hash,
-        base,
-        production,
-        next,
-    )
 }
 
 pub fn execute_build_production(
@@ -495,15 +431,16 @@ fn run_build_inner(
             revision,
             &request.arch,
         )?;
-        build_host_candidate_with_progress(
-            request,
+        build_host_candidate(
             &snapshot,
             &context_dir,
             &artifacts,
+            &request.arch,
             revision,
+            &request.repository_prefix,
             &base,
             &*production,
-            progress,
+            &mut |label| progress.phase(label),
         )?;
         build_media::finish_build_media(
             &*production,
@@ -518,66 +455,6 @@ fn run_build_inner(
         Ok(result) => finalize_build(progress, result, Ok(())),
         Err(e) => finalize_build(progress, request::Result::default(), Err(e)),
     }
-}
-
-fn build_host_candidate_with_progress(
-    request: &request::Request,
-    snapshot: &str,
-    context_dir: &str,
-    artifacts: &str,
-    revision: &str,
-    base: &prepare::Base,
-    production: &dyn Production,
-    progress: &mut dyn Progress,
-) -> Result<(), Error> {
-    let mut payload = payload_stage::complete_candidate(
-        snapshot,
-        context_dir,
-        artifacts,
-        &request.arch,
-        revision,
-        &request.repository_prefix,
-        base,
-        production,
-        &mut |label| progress.phase(label),
-    )?;
-    progress.phase("P5 / Build FCOS host candidate")?;
-    let observation = host::build_host_image(
-        context_dir,
-        artifacts,
-        &request.arch,
-        revision,
-        &request.repository_prefix,
-        base,
-        production,
-    )?;
-    let package_hash =
-        host::record_host_packages(context_dir, artifacts, &observation, production)?;
-    payload.host_packages_sha256 = package_hash.clone();
-    payload_stage::seal_candidate_payload(&payload, snapshot, context_dir, artifacts, production)?;
-    record::write_content_inventory(context_dir, artifacts)?;
-    prepare::inventory(context_dir)?;
-    let id = host::build_host_image(
-        context_dir,
-        artifacts,
-        &request.arch,
-        revision,
-        &request.repository_prefix,
-        base,
-        production,
-    )?;
-    host::verify_built_host(
-        context_dir,
-        artifacts,
-        &request.arch,
-        revision,
-        &request.repository_prefix,
-        &id,
-        &package_hash,
-        base,
-        production,
-        &mut |label| progress.phase(label),
-    )
 }
 
 #[cfg(test)]
