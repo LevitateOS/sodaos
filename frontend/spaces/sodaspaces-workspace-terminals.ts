@@ -6,7 +6,7 @@ import type {LayoutEntry, PaneArea, WorkspaceLayout} from './sodaspaces-layout.j
 import {forgetEntry, layoutLimit, moveTab, panes, putEntry, sameLocator, selectTab} from './sodaspaces-layout.js';
 import type {TerminalLocator} from './sodaspaces-terminal.js';
 import type {Creation, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
-import {renderCreation} from './sodaspaces-workspace-view.js';
+import {renderCreation} from './sodaspaces-terminal-dialog-view.js';
 
 export interface TerminalsInput {
   isStale: () => boolean;

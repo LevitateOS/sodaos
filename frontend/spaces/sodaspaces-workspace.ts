@@ -1,12 +1,7 @@
 import {LitElement, html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
-import {
-  renderMenu,
-  renderRename,
-  renderWelcome,
-  renderWelcomeSteps,
-  renderWorkspaceIntro,
-} from './sodaspaces-workspace-view.js';
+import {renderMenu, renderWelcome, renderWelcomeSteps, renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
+import {renderRename} from './sodaspaces-terminal-dialog-view.js';
 import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
