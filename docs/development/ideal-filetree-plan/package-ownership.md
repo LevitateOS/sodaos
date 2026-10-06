@@ -27,12 +27,21 @@ cutover tasks. Actual per-slice records reconcile remaining responsibilities.
 | `docs` | 92 | Preserve canonical owners; retire the Python-only tooling guide when its final callers move. |
 | `factory-os` | 1 | Retire unselected alternate image recipe; excluded by the latest coverage correction. |
 | `frontend` | 32 | Retain ownership; include every leaf in the [proposed tree](proposed-tree.md). |
-| `internal` | 502 | Preserve domain/trust boundaries and live installed probes; relocate publication to Forgejo. Retire the obsolete acceptance execution/evidence/process closure, Go release pipeline and privileged host server/executors. Keep host clients and their pure wire types. | **[run 20261005:** publication leaf moved (see row above); B01-B04 Go splits LANDED inside existing owners; retirements pending cutovers.]
+| `internal` | 502 | Preserve domain/trust boundaries and live installed probes; relocate publication to Forgejo. Retire the obsolete acceptance execution/evidence/process closure, Go release pipeline and privileged host server/executors. Keep host clients and their pure wire types. | **[run 20261005:** publication leaf moved (see row above); B01-B05 Go splits LANDED inside existing owners; retirements pending cutovers.]
 | `project-os` | 17 | system/project, preserving rootfs paths and installed identities. Two extensionless Python helpers port at PR42. | **[run 20261005:** move LANDED (C09 c0a19d5a + R01 d296d340).]
 | `rust` | 283 | All 30 packages accounted for: 27 proposed packages after consolidation; host library and daemon ownership retained. | **[run 20261005:** counts are baseline-historical; recount after implementation lands.]
 | `scripts` | 83 | Retain build/check entrypoints; move SELinux and rootfs service definitions to their owners. |
 | `tests` | 133 | Preserve actual assertion coverage; retire `.py` predecessors and replace Python import drivers with tests of their native owners. |
 | `tools` | 40 | Retain ownership; ported Go tools retire at release cutover. |
+
+R02 recount @HEAD `1714f7d0` (baseline counts above preserved as audit;
+current tracked paths per root): root files 24→22, .agents 1→1,
+.githooks 1→1, appliance 306→257, assets 169→170, cmd 21→80, docs 92→300,
+factory-os 1→1, frontend 32→32, internal 502→430, project-os 17→0 (moved
+to system/project), rust 283→120, scripts 83→77, tests 133→110, tools
+40→76, lib —→206 (new), system —→64 (new). Total 1705→1947. Deltas reflect
+landed A00/A05/A06/A01, B01–B05, C01/C08/C09 + CORRs/DELTA (moves, splits,
+folds, retirements) plus run plan upkeep under docs/.
 
 Standalone Python inventory at this baseline: **25 tracked programs** — 23 `.py` files (21 in `tests/build`, 2 in `tests/installed`), plus 2 extensionless libexec helpers (`project-account`, `project-factory-roles`). Go test/probe files have landed, but several still execute Python source or import these predecessors. The Python cutover must replace that embedded execution and its test drivers as well as the 25 files; it is not complete merely because assertions moved to Go. Installed helper paths remain stable as compiled outputs, not tracked Python sources. See [Python cutover closure](port-assessment.md#python-cutover-closure).
 
