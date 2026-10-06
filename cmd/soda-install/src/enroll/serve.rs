@@ -10,7 +10,9 @@ use crate::command::Runner;
 use crate::errors::{self, Error};
 use crate::signal::Ctx;
 
-use super::arm::{enrollment_live_address, enrollment_state, enrollment_write};
+use super::arm::{
+    enrollment_live_address, enrollment_live_state, enrollment_state, enrollment_write,
+};
 use super::keys::{append_enrollment_key, enrollment_root_home};
 use super::{
     enrollment_connection_unit, enrollment_public_key, enrollment_receiver_unit, read_bounded,
@@ -103,7 +105,7 @@ fn read_enrollment_key_from_connection(
     if let Some(err) = phase.err() {
         return Err(err);
     }
-    enrollment_state()?;
+    enrollment_live_state()?;
     Ok(Some(key))
 }
 
@@ -192,7 +194,7 @@ fn serve_enrollment_loop(
             return Err(Error::msg("enrollment window closed"));
         }
         if fd.revents & libc::POLLIN == 0 {
-            enrollment_state()?;
+            enrollment_live_state()?;
             continue;
         }
         let (stream, _) = match broker.accept() {

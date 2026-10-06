@@ -256,3 +256,30 @@ fn enrollment_write_requires_complete_count() {
     assert!(err.to_string().contains("write"), "{err}");
     assert!(err.to_string().contains("/tmp/t"), "{err}");
 }
+
+#[test]
+fn enrollment_live_binding_requires_current_interface_address() {
+    // O07-F2: the ongoing window revalidates the stored binding against the
+    // current interfaces; either half of the binding changing closes it.
+    let selected = EnrollmentAddress {
+        name: "eth0".to_string(),
+        ip: "10.0.0.5".to_string(),
+    };
+    let live = |name: &str, ip: &str| EnrollmentAddress {
+        name: name.to_string(),
+        ip: ip.to_string(),
+    };
+    assert!(enrollment_binding_live(
+        &selected,
+        &[live("eth0", "10.0.0.5")]
+    ));
+    assert!(!enrollment_binding_live(
+        &selected,
+        &[live("eth0", "10.0.0.6")]
+    ));
+    assert!(!enrollment_binding_live(
+        &selected,
+        &[live("eth1", "10.0.0.5")]
+    ));
+    assert!(!enrollment_binding_live(&selected, &[]));
+}

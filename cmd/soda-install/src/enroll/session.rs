@@ -11,7 +11,9 @@ use crate::errors::{self, Error};
 use crate::fmtx::Arg;
 use crate::signal::Ctx;
 
-use super::arm::{enrollment_boot_seconds, enrollment_state, enrollment_write, EnrollmentAddress};
+use super::arm::{
+    enrollment_boot_seconds, enrollment_live_state, enrollment_write, EnrollmentAddress,
+};
 use super::keys::enrollment_safe_directory;
 use super::{
     enrollment_client_command, enrollment_config, enrollment_socket_unit_config,
@@ -328,7 +330,7 @@ fn wait_enrollment_result(
         if wait_ctx.err().is_some() {
             return Err(Error::msg("key enrollment closed without confirmed import"));
         }
-        if enrollment_state().is_err() {
+        if enrollment_live_state().is_err() {
             return Err(Error::msg("key enrollment window expired; closing it now"));
         }
         notify_enrollment_ready(console, selected, &mut ready);

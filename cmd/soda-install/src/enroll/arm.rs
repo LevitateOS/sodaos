@@ -59,9 +59,16 @@ pub fn enrollment_addresses() -> Result<Vec<EnrollmentAddress>, Error> {
     Ok(result)
 }
 
+pub(crate) fn enrollment_binding_live(
+    selected: &EnrollmentAddress,
+    current: &[EnrollmentAddress],
+) -> bool {
+    current.iter().any(|candidate| candidate == selected)
+}
+
 pub fn enrollment_live_address(selected: &EnrollmentAddress) -> bool {
     match enrollment_addresses() {
-        Ok(addresses) => addresses.iter().any(|candidate| candidate == selected),
+        Ok(addresses) => enrollment_binding_live(selected, &addresses),
         Err(_) => false,
     }
 }
@@ -184,6 +191,19 @@ pub fn enrollment_state() -> Result<(EnrollmentAddress, Duration), Error> {
     let data = crate::execute::read_regular(&format!("{ENROLLMENT_DIR}/armed"), 512)?;
     let (selected, until) = parse_armed_enrollment(&data)?;
     let remaining = enrollment_window_remaining(until, enrollment_boot_seconds())?;
+    Ok((selected, remaining))
+}
+
+/// Stored window state plus live revalidation of the selected interface
+/// address. Ongoing lifecycle checks use this: the window aborts when the
+/// selected interface address changes.
+pub fn enrollment_live_state() -> Result<(EnrollmentAddress, Duration), Error> {
+    let (selected, remaining) = enrollment_state()?;
+    if !enrollment_binding_live(&selected, &enrollment_addresses().unwrap_or_default()) {
+        return Err(Error::msg(
+            "selected interface address changed; closing enrollment window",
+        ));
+    }
     Ok((selected, remaining))
 }
 
