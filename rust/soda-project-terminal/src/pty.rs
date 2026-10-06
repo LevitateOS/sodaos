@@ -166,6 +166,19 @@ fn cstring(value: &str) -> io::Result<std::ffi::CString> {
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "nul byte"))
 }
 
+/// Join key/value pairs into owned NUL-terminated `KEY=value` entries for
+/// `execve`; the caller retains the vector so envp pointers stay valid.
+fn env_entries(env: &[(std::ffi::CString, std::ffi::CString)]) -> Vec<std::ffi::CString> {
+    env.iter()
+        .map(|(key, value)| {
+            let mut bytes = key.as_bytes().to_vec();
+            bytes.push(b'=');
+            bytes.extend_from_slice(value.as_bytes());
+            std::ffi::CString::new(bytes).unwrap()
+        })
+        .collect()
+}
+
 /// `TIOCSWINSZ` from validated dimensions.
 pub fn set_size(master: i32, cols: i64, rows: i64) -> io::Result<()> {
     let size = libc::winsize {
@@ -300,12 +313,10 @@ pub fn spawn_login_pty(account: &Account, sock: &str) -> io::Result<(i32, i32, i
                 let mut pointers: Vec<*const libc::c_char> =
                     argv.iter().map(|a| a.as_ptr()).collect();
                 pointers.push(std::ptr::null());
-                let mut env_pointers: Vec<*const libc::c_char> = Vec::new();
-                for (key, value) in &env {
-                    let entry = format!("{}={}", key.to_str().unwrap(), value.to_str().unwrap());
-                    let leaked: &'static str = Box::leak(entry.into_boxed_str());
-                    env_pointers.push(leaked.as_ptr() as *const libc::c_char);
-                }
+                // Owned entries retained through execve; envp points at them.
+                let owned_env = env_entries(&env);
+                let mut env_pointers: Vec<*const libc::c_char> =
+                    owned_env.iter().map(|e| e.as_ptr()).collect();
                 env_pointers.push(std::ptr::null());
                 libc::execve(program.as_ptr(), pointers.as_ptr(), env_pointers.as_ptr());
             }
@@ -496,8 +507,8 @@ pub fn pty_select(
         libc::select(
             top,
             &mut read_set,
-            std::ptr::null_mut(),
             &mut write_set,
+            std::ptr::null_mut(),
             &mut wait,
         )
     };
@@ -998,5 +1009,53 @@ mod tests {
             run_terminal(&login(), 80, 24, 43201, "/nonexistent.sock"),
             1
         );
+    }
+
+    #[test]
+    fn env_entries_are_nul_terminated() {
+        // S04-F1: every `KEY=value` entry handed to execve must be a real
+        // C string (single trailing NUL, no interior NUL).
+        let env: Vec<(std::ffi::CString, std::ffi::CString)> = user_environment(&login())
+            .iter()
+            .map(|(k, v)| (cstring(k).unwrap(), cstring(v).unwrap()))
+            .collect();
+        let entries = env_entries(&env);
+        assert_eq!(entries.len(), env.len());
+        for ((key, value), entry) in env.iter().zip(entries.iter()) {
+            let bytes = entry.as_bytes_with_nul();
+            assert_eq!(*bytes.last().unwrap(), 0);
+            assert!(!bytes[..bytes.len() - 1].contains(&0));
+            let mut expected = key.as_bytes().to_vec();
+            expected.push(b'=');
+            expected.extend_from_slice(value.as_bytes());
+            assert_eq!(&bytes[..bytes.len() - 1], expected.as_slice());
+        }
+        // envp pointers derive from these same owned objects.
+        let ptrs: Vec<*const libc::c_char> = entries.iter().map(|e| e.as_ptr()).collect();
+        for (entry, ptr) in entries.iter().zip(ptrs.iter()) {
+            assert_eq!(entry.as_ptr(), *ptr);
+        }
+    }
+
+    #[test]
+    fn select_reports_writable_fds() {
+        // S05-F1: queued relay writes must observe writability, not
+        // exceptional conditions. Uses real descriptors (/dev/null as the
+        // master stand-in, real stdout) with known queued bytes.
+        let null = unsafe { libc::open(c"/dev/null".as_ptr(), libc::O_RDWR | libc::O_CLOEXEC) };
+        assert!(null >= 0);
+        // Queued PTY output watches stdout for writability.
+        let (readable, writable) = pty_select(null, 0, 1, true, 0.0).unwrap();
+        assert_eq!(writable, vec![1]);
+        assert!(readable.contains(&null));
+        // Queued input watches the master for writability once attached.
+        let (_, writable) = pty_select(null, 1, 0, false, 0.0).unwrap();
+        assert_eq!(writable, vec![null]);
+        // Nothing queued watches nothing for writability.
+        let (_, writable) = pty_select(null, 0, 0, true, 0.0).unwrap();
+        assert!(writable.is_empty());
+        unsafe {
+            libc::close(null);
+        }
     }
 }
