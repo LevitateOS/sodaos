@@ -11,16 +11,7 @@ import {
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext} from './sodaspaces-terminal.js';
-import {
-  emptyLayout,
-  focusedPane,
-  selectTab,
-  hideTab,
-  putEntry,
-  sameLocator,
-  layoutLimit,
-  panes,
-} from './sodaspaces-layout.js';
+import {emptyLayout, focusedPane, hideTab} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
 import {check, id, object, terminalResponse, repositoryChoices, projectId} from './sodaspaces-api.js';
 import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
@@ -111,14 +102,21 @@ import {addSlot, displaySlots, visibleSlot} from './sodaspaces-workspace-termina
 import type {HostsInput} from './sodaspaces-workspace-terminal-hosts.js';
 import {
   confirmedEnd,
+  createTerminal,
   creationForm,
   defaultTerminalName,
   newTerminal,
+  openExisting,
   openSaved as openSavedTerminal,
   restoreLocators,
   slotName,
 } from './sodaspaces-workspace-terminals.js';
-import type {CreationFormInput, NewTerminalInput, TerminalsInput} from './sodaspaces-workspace-terminals.js';
+import type {
+  CreateInput,
+  CreationFormInput,
+  NewTerminalInput,
+  TerminalsInput,
+} from './sodaspaces-workspace-terminals.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -1089,7 +1087,7 @@ export class SodaSpaces extends LitElement {
     this.search = '';
     this.thisPage = false;
     if (next.row.entry) void this.openSaved(next.row.entry);
-    else if (next.row.metadata) void this.openExisting(next.space, next.row.metadata);
+    else if (next.row.metadata) void openExisting(this.createInput(), next.space, next.row.metadata);
   }
   private projectName(space: Space) {
     return space.environment.repository || space.environment.name || space.environment.id;
@@ -1107,7 +1105,7 @@ export class SodaSpaces extends LitElement {
   }
   private selectRow(space: Space, row: Row) {
     if (row.entry) void this.openSaved(row.entry, this.choosingPane);
-    else if (row.metadata) void this.openExisting(space, row.metadata, this.choosingPane);
+    else if (row.metadata) void openExisting(this.createInput(), space, row.metadata, this.choosingPane);
   }
   private paneViewInput(): PaneChromeInput {
     return {
@@ -1161,7 +1159,7 @@ export class SodaSpaces extends LitElement {
       isValidName: (name) => validName(name),
       restoreFocus: () => this.restoreFocus(),
       createTerminal: () => {
-        void this.createTerminal();
+        void createTerminal(this.createInput());
       },
     };
   }
@@ -1238,7 +1236,7 @@ export class SodaSpaces extends LitElement {
         this.querySelector<HTMLElement>('.soda-workspace-dialog select')?.focus();
       },
       createTerminal: () => {
-        void this.createTerminal();
+        void createTerminal(this.createInput());
       },
     };
   }
@@ -1592,94 +1590,37 @@ export class SodaSpaces extends LitElement {
   private hideSlot(slot: Slot) {
     if (!this.stale && !this.disposed) arrange(this.layoutInput(), hideTab(this.layout, slot.key));
   }
-  private createAdmitted(draft: Creation | null): draft is Creation {
-    return (
-      !!draft &&
-      !this.creating &&
-      this.available &&
-      !this.stale &&
-      !this.disposed &&
-      this.activeSurface &&
-      validName(draft.name)
-    );
-  }
-  private createSpaceReady(space: Space | undefined) {
-    return (
-      !!space?.login &&
-      space.environment.provisioned &&
-      !space.authority_unavailable &&
-      space.execution_allowed &&
-      space.observed?.running === true
-    );
-  }
-  private async openCreatedSlot(space: Space, draft: Creation) {
-    const entry: LayoutEntry = {key: crypto.randomUUID(), environmentId: space.environment.id, locator: {kind: 'new'}};
-    this.layout = selectTab(putEntry(this.layout, entry), entry.key, draft.pane);
-    this.view = 'terminal';
-    this.creation = null;
-    const slot = await addSlot(this.hostsInput(), space, entry);
-    if (!slot) return;
-    slot.proposedName = draft.name;
-    this.requestUpdate();
-    await slot.terminal.open(draft.name);
-  }
-  private async createTerminal() {
-    const draft = this.creation;
-    if (!this.createAdmitted(draft)) return;
-    const space = this.spaces.find((p) => p.environment.id === draft.environmentId);
-    if (!this.createSpaceReady(space)) return;
-    if (!panes(this.layout.tree).some((p) => p.key === draft.pane)) {
-      this.status = 'The destination pane changed. Choose New terminal again.';
-      return;
-    }
-    if (this.layout.entries.length >= layoutLimit) {
-      this.status = 'The working set is full; uncertain locators cannot be evicted.';
-      return;
-    }
-    this.creating = true;
-    try {
-      await this.openCreatedSlot(space!, draft);
-    } finally {
-      this.creating = false;
-    }
-  }
-  private openExistingBlocked(space: Space) {
-    return (
-      this.stale ||
-      this.disposed ||
-      !this.activeSurface ||
-      !this.available ||
-      space.authority_unavailable ||
-      !space.execution_allowed
-    );
-  }
-  private existingOrNewEntry(space: Space, metadata: TerminalMetadata) {
-    let entry = this.layout.entries.find((e) => sameLocator(e.locator, {kind: 'existing', id: metadata.id}));
-    if (entry) {
-      check(entry.environmentId === space.environment.id);
-      return entry;
-    }
-    entry = {
-      key: crypto.randomUUID(),
-      environmentId: space.environment.id,
-      locator: {kind: 'existing', id: metadata.id},
+  private createInput(): CreateInput {
+    return {
+      isStale: () => this.stale,
+      isDisposed: () => this.disposed,
+      isAvailable: () => this.available,
+      isActiveSurface: () => this.activeSurface,
+      readCreating: () => this.creating,
+      setCreating: (creating) => {
+        this.creating = creating;
+      },
+      readCreation: () => this.creation,
+      setCreation: (creation) => {
+        this.creation = creation;
+      },
+      readSpaces: () => this.spaces,
+      readLayout: () => this.layout,
+      setLayout: (layout) => {
+        this.layout = layout;
+      },
+      setView: (view) => {
+        this.view = view;
+      },
+      setStatus: (status) => {
+        this.status = status;
+      },
+      isValidName: (name) => validName(name),
+      addSlot: (space, entry) => addSlot(this.hostsInput(), space, entry),
+      openSaved: (entry, destination) => this.openSaved(entry, destination),
+      confirmedEnd: (key) => confirmedEnd(this.terminalsInput(), key),
+      requestUpdate: () => this.requestUpdate(),
     };
-    this.layout = putEntry(this.layout, entry);
-    return entry;
-  }
-  private async openExisting(space: Space, metadata: TerminalMetadata, destination?: string) {
-    if (this.openExistingBlocked(space)) return;
-    try {
-      const entry = this.existingOrNewEntry(space, metadata);
-      if (metadata.state === 'ended') {
-        confirmedEnd(this.terminalsInput(), entry.key);
-        return;
-      }
-      await this.openSaved(entry, destination);
-    } catch {
-      if (!this.stale)
-        this.status = 'The exact session could not be opened. No locator was replaced or creation requested.';
-    }
   }
   private managementAdmitted(repositoryId: string) {
     return id(repositoryId) && !!this.actor && this.available && !this.stale && !this.disposed && this.activeSurface;

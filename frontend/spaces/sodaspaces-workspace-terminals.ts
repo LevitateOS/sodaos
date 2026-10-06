@@ -1,6 +1,7 @@
-import type {Space} from './sodaspaces-api.js';
+import {check} from './sodaspaces-api.js';
+import type {Space, TerminalMetadata} from './sodaspaces-api.js';
 import type {LayoutEntry, PaneArea, WorkspaceLayout} from './sodaspaces-layout.js';
-import {forgetEntry, moveTab, selectTab} from './sodaspaces-layout.js';
+import {forgetEntry, layoutLimit, moveTab, panes, putEntry, sameLocator, selectTab} from './sodaspaces-layout.js';
 import type {TerminalLocator} from './sodaspaces-terminal.js';
 import type {Creation, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 import {renderCreation} from './sodaspaces-workspace-view.js';
@@ -340,4 +341,121 @@ export function newTerminal(input: NewTerminalInput, pane: string) {
     return;
   }
   focusCreationDialog(input, pane);
+}
+
+export interface CreateInput {
+  isStale: () => boolean;
+  isDisposed: () => boolean;
+  isAvailable: () => boolean;
+  isActiveSurface: () => boolean;
+  readCreating: () => boolean;
+  setCreating: (creating: boolean) => void;
+  readCreation: () => Creation | null;
+  setCreation: (creation: Creation | null) => void;
+  readSpaces: () => Space[];
+  readLayout: () => WorkspaceLayout;
+  setLayout: (layout: WorkspaceLayout) => void;
+  setView: (view: 'terminal' | 'sessions' | 'project') => void;
+  setStatus: (status: string) => void;
+  isValidName: (name: string) => boolean;
+  addSlot: (space: Space, entry: LayoutEntry) => Promise<Slot | undefined>;
+  openSaved: (entry: LayoutEntry, destination?: string) => Promise<void>;
+  confirmedEnd: (key: string) => void;
+  requestUpdate: () => void;
+}
+
+export function createAdmitted(input: CreateInput, draft: Creation | null): draft is Creation {
+  return (
+    !!draft &&
+    !input.readCreating() &&
+    input.isAvailable() &&
+    !input.isStale() &&
+    !input.isDisposed() &&
+    input.isActiveSurface() &&
+    input.isValidName(draft.name)
+  );
+}
+
+export function createSpaceReady(space: Space | undefined) {
+  return (
+    !!space?.login &&
+    space.environment.provisioned &&
+    !space.authority_unavailable &&
+    space.execution_allowed &&
+    space.observed?.running === true
+  );
+}
+
+export async function openCreatedSlot(input: CreateInput, space: Space, draft: Creation) {
+  const entry: LayoutEntry = {key: crypto.randomUUID(), environmentId: space.environment.id, locator: {kind: 'new'}};
+  input.setLayout(selectTab(putEntry(input.readLayout(), entry), entry.key, draft.pane));
+  input.setView('terminal');
+  input.setCreation(null);
+  const slot = await input.addSlot(space, entry);
+  if (!slot) return;
+  slot.proposedName = draft.name;
+  input.requestUpdate();
+  await slot.terminal.open(draft.name);
+}
+
+export async function createTerminal(input: CreateInput) {
+  const draft = input.readCreation();
+  if (!createAdmitted(input, draft)) return;
+  const space = input.readSpaces().find((p) => p.environment.id === draft.environmentId);
+  if (!createSpaceReady(space)) return;
+  if (!panes(input.readLayout().tree).some((p) => p.key === draft.pane)) {
+    input.setStatus('The destination pane changed. Choose New terminal again.');
+    return;
+  }
+  if (input.readLayout().entries.length >= layoutLimit) {
+    input.setStatus('The working set is full; uncertain locators cannot be evicted.');
+    return;
+  }
+  input.setCreating(true);
+  try {
+    await openCreatedSlot(input, space!, draft);
+  } finally {
+    input.setCreating(false);
+  }
+}
+
+export function openExistingBlocked(input: CreateInput, space: Space) {
+  return (
+    input.isStale() ||
+    input.isDisposed() ||
+    !input.isActiveSurface() ||
+    !input.isAvailable() ||
+    space.authority_unavailable ||
+    !space.execution_allowed
+  );
+}
+
+export function existingOrNewEntry(input: CreateInput, space: Space, metadata: TerminalMetadata) {
+  let entry = input.readLayout().entries.find((e) => sameLocator(e.locator, {kind: 'existing', id: metadata.id}));
+  if (entry) {
+    check(entry.environmentId === space.environment.id);
+    return entry;
+  }
+  entry = {
+    key: crypto.randomUUID(),
+    environmentId: space.environment.id,
+    locator: {kind: 'existing', id: metadata.id},
+  };
+  input.setLayout(putEntry(input.readLayout(), entry));
+  return entry;
+}
+
+export async function openExisting(input: CreateInput, space: Space, metadata: TerminalMetadata, destination?: string) {
+  if (openExistingBlocked(input, space)) return;
+  try {
+    const entry = existingOrNewEntry(input, space, metadata);
+    if (metadata.state === 'ended') {
+      input.confirmedEnd(entry.key);
+      return;
+    }
+    await input.openSaved(entry, destination);
+  } catch {
+    if (!input.isStale())
+      input.setStatus('The exact session could not be opened. No locator was replaced or creation requested.');
+  }
 }
