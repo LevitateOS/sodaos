@@ -25,6 +25,6 @@ pub(crate) fn load_config(path: &str) -> Result<Config, String> {
         .map_err(|e| super::path_error("read", path, e))?;
     let mut c = super::config_wire::decode_host_config(&data)?;
     super::apply_release_images(&mut c, super::RELEASE_PATH)?;
-    super::validate_runtime_config(&c)?;
+    super::config_validation::validate_runtime_config(&c)?;
     Ok(c)
 }
