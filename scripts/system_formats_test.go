@@ -218,6 +218,10 @@ func TestCLISurface(t *testing.T) {
 				} else if b.Package == "./cmd/soda-image-import" {
 					// PR11 ported image-import to Rust; the fixture stays frozen.
 					binary = buildRustPortBinary(t, "soda-image-import")
+				} else if b.Package == "./cmd/soda-forgejo-tailnet" {
+					// TAILNET-19-001: the tailnet CLI is a second binary of the
+					// soda-host package; the fixture stays frozen.
+					binary = buildRustPortBinaryAs(t, "soda-host", "soda-forgejo-tailnet")
 				} else {
 					binary = buildGoPortBinary(t, b.Package)
 				}
