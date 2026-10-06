@@ -4,6 +4,15 @@
 
 ## Coverage inventory: internal
 
+R02 check @HEAD `69e97afc` (B01–B05 pure splits): all 357 row paths verified
+present at HEAD — zero stale rows (split parents retained, no deletions).
+Census: 430 tracked `internal/` files / 357 rowed / 73 unlisted new split
+leaves (e.g. `checks_assessment/observation`, `merge_evidence/reconcile/
+withdraw`, `dispatch_*`, `acceptance_*`, `merge_native_*`); per-leaf rows
+pending (slice coverage inherited from parent rows). Parent-file interval
+maps (`maps/backend-*.md`) need re-audit where content moved to leaves —
+queued (show as STALE on touch, do not silently carry).
+
 | Current tracked path | Kind / lifecycle | Slice mapping |
 | --- | --- | --- |
 | [internal/acceptance/command.go](../../../../../internal/acceptance/command.go) | source / unknown | [D06](../../slices/release-and-installation.md#d06-installed-qualification) |
