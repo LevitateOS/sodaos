@@ -213,33 +213,42 @@ func TestFactoryEnvironmentGrantIsOwnerOnly(t *testing.T) {
 
 func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	s := factoryEncryptedServer(t)
-	ctx := context.Background()
-	connection := identity.Connection{ID: "conn-1", ProviderID: identity.Codex, OwnerID: 1, Label: "test", Generation: 1, State: identity.Ready}
-	if err := s.Store.SeedIdentityConnection(ctx, connection, []byte(`{}`)); err != nil {
-		t.Fatal(err)
+	s.API.Identity = &stubIdentityClient{
+		connections: []identity.Connection{{ID: "conn-1", ProviderID: identity.Codex, OwnerID: 1, Label: "test", Generation: 1, State: identity.Ready}},
+		grants: []identity.Grant{
+			{ID: "grant-1", ConnectionID: "conn-1", UserID: 1, ProjectID: factorySettingsProject},
+			{ID: "grant-2", ConnectionID: "conn-1", UserID: 1, ProjectID: factorySettingsProject, Revoked: true},
+		},
 	}
-	if err := s.Store.SeedIdentityGrant(ctx, identity.Grant{ID: "grant-1", ConnectionID: "conn-1", UserID: 1, ProjectID: factorySettingsProject}); err != nil {
-		t.Fatal(err)
-	}
-	sponsor := func(command string, generation int64) string {
-		return `{"command_id":"` + command + `","expected_revision":0,"grant_id":"grant-1","generation":` + strconv.FormatInt(generation, 10) +
+	sponsor := func(command, grant string, generation int64) string {
+		return `{"command_id":"` + command + `","expected_revision":0,"grant_id":"` + grant + `","generation":` + strconv.FormatInt(generation, 10) +
 			`,"roles":["soda-coder"],"allowance_minutes":60,"max_concurrent":1,"active":true}`
 	}
-	w := httptest.NewRecorder()
-	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/sponsorships/conn-1", sponsor(factory.NewID(), 1), "alice"))
+	put := func(connection, body, login string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/sponsorships/"+connection, body, login))
+		return w
+	}
+	w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice")
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	assertNoSecrets(t, w.Body.String())
-	denied := httptest.NewRecorder()
-	nativeAPIServe(t, s, denied, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/sponsorships/conn-1", sponsor(factory.NewID(), 1), "bob"))
-	if denied.Code != 403 {
-		t.Fatal("non-owner sponsored the connection", denied.Code, denied.Body.String())
+	foreign := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "bob")
+	if foreign.Code != 404 {
+		t.Fatal("non-owner saw the connection", foreign.Code, foreign.Body.String())
 	}
-	rotated := httptest.NewRecorder()
-	nativeAPIServe(t, s, rotated, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/sponsorships/conn-1", sponsor(factory.NewID(), 2), "alice"))
+	rotated := put("conn-1", sponsor(factory.NewID(), "grant-1", 2), "alice")
 	if rotated.Code != 409 {
 		t.Fatal("rotated credential generation accepted", rotated.Code, rotated.Body.String())
+	}
+	missing := put("conn-1", sponsor(factory.NewID(), "grant-9", 1), "alice")
+	if missing.Code != 404 {
+		t.Fatal("unknown grant accepted", missing.Code, missing.Body.String())
+	}
+	revoked := put("conn-1", sponsor(factory.NewID(), "grant-2", 1), "alice")
+	if revoked.Code != 409 {
+		t.Fatal("revoked grant accepted", revoked.Code, revoked.Body.String())
 	}
 	status := httptest.NewRecorder()
 	nativeAPIServe(t, s, status, apiTestRequest(http.MethodGet, "/api/repositories/7/factory", "", "bob"))
@@ -254,6 +263,25 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	decodeBody(t, status, &view)
 	if len(view.Sponsorships) != 1 || view.Sponsorships[0].Allowance != 0 {
 		t.Fatalf("allowance leaked to non-owner: %+v", view.Sponsorships)
+	}
+	stub := s.API.Identity.(*stubIdentityClient)
+	stub.grantsErr = identity.ErrDenied
+	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 403 {
+		t.Fatal("denied broker grant accepted", w.Code, w.Body.String())
+	}
+	stub.grantsErr = errStubIdentity
+	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 503 {
+		t.Fatal("broken broker grant accepted", w.Code, w.Body.String())
+	}
+	stub.grantsErr = nil
+	stub.connErr = errStubIdentity
+	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 503 {
+		t.Fatal("broken broker connection accepted", w.Code, w.Body.String())
+	}
+	stub.connErr = nil
+	s.API.Identity = nil
+	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 503 {
+		t.Fatal("missing identity service accepted", w.Code, w.Body.String())
 	}
 }
 
