@@ -27,7 +27,7 @@ func TestTerminalPythonSubjectRetired(t *testing.T) {
 func TestTerminalRustSuccessorOwnsTerminalBehavior(t *testing.T) {
 	_, err := os.Stat(filepath.Join(RepoRoot, "internal/host/terminal"))
 	Check(t, os.IsNotExist(err), "Go terminal executor resurrected; behavior lives in the Rust daemon")
-	executor := ReadFile(t, "rust/soda-host/src/texec.rs")
+	executor := ReadFile(t, "rust/soda-host/src/terminal/mod.rs")
 	for _, want := range []string{
 		"`AttachNative`",
 		"pub fn attach(container: &str",

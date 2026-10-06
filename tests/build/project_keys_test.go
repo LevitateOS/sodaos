@@ -28,7 +28,7 @@ func TestKeysPythonSubjectRetired(t *testing.T) {
 func TestKeysRustSuccessorOwnsKeyBehavior(t *testing.T) {
 	_, err := os.Stat(filepath.Join(RepoRoot, "internal/host/project/access_keys.go"))
 	Check(t, os.IsNotExist(err), "Go key successor resurrected; behavior lives in the Rust daemon")
-	successor := ReadFile(t, "rust/soda-host/src/account.rs")
+	successor := ReadFile(t, "rust/soda-host/src/account/mod.rs")
 	for _, want := range []string{
 		`"native key operation not confirmed"`,
 		`"native keys changed or are not managed canonical keys"`,
