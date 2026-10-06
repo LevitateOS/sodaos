@@ -19,6 +19,8 @@ mod release_validation;
 mod release_wire;
 mod sha256;
 mod stage;
+#[cfg(test)]
+mod test_support;
 
 use config::{load_config, Config};
 use filesystem::load_tools;
@@ -91,6 +93,9 @@ mod tests {
     use super::release::{apply_release_images, load_release_payload};
     use super::sha256::{hex_encode, Sha256};
     use super::stage::INSTALL_SCRIPT;
+    use super::test_support::{
+        emit_synthetic, hex_string, is_root, run_install_script, synthetic_feeds, TestDir, PROJECT,
+    };
     use super::*;
     use std::ffi::CString;
     use std::fs;
@@ -98,44 +103,6 @@ mod tests {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::os::unix::io::RawFd;
     use std::process::{Command, Stdio};
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static TEST_SEQ: AtomicU64 = AtomicU64::new(0);
-
-    struct TestDir(std::path::PathBuf);
-
-    impl TestDir {
-        fn make(tag: &str) -> TestDir {
-            let id = TEST_SEQ.fetch_add(1, Ordering::SeqCst);
-            let dir = std::env::temp_dir().join(format!(
-                "smm-test-{}-{}-{}",
-                std::process::id(),
-                id,
-                tag
-            ));
-            let _ = fs::remove_dir_all(&dir);
-            fs::create_dir_all(&dir).unwrap();
-            TestDir(dir)
-        }
-
-        fn path(&self, name: &str) -> String {
-            self.0.join(name).to_string_lossy().into_owned()
-        }
-
-        fn dir_str(&self) -> String {
-            self.0.to_string_lossy().into_owned()
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
-
-    fn is_root() -> bool {
-        unsafe { libc::geteuid() == 0 }
-    }
 
     #[test]
     fn sha256_known_answers() {
@@ -248,8 +215,6 @@ mod tests {
     fn args(v: &[&str]) -> Vec<String> {
         v.iter().map(|s| s.to_string()).collect()
     }
-
-    const PROJECT: &str = "p0123456789abcdef01234567";
 
     #[test]
     fn flag_parsing_vectors() {
@@ -649,10 +614,6 @@ mod tests {
                 (Err(got), None) => panic!("input {input:?}: rejected: {got}"),
             }
         }
-    }
-
-    fn hex_string(c: char, len: usize) -> String {
-        std::iter::repeat_n(c, len).collect()
     }
 
     fn valid_release_json() -> (String, String, String) {
@@ -1094,56 +1055,6 @@ mod tests {
         }
         assert_eq!(&h[148..156], format!("{sum:06o}\0 ").as_bytes());
         assert!(tar_header(&"n".repeat(101), 0).is_err());
-    }
-
-    fn synthetic_feeds(tools_dir: &TestDir) -> (Vec<(String, RawFd, u64)>, Vec<FdGuard>) {
-        let mut feeds = Vec::new();
-        let mut guards = Vec::new();
-        for name in ["muse", "soda-identity-compose", "muse-native"] {
-            let p = tools_dir.path(name);
-            fs::write(&p, format!("synthetic {name}")).unwrap();
-            let c = CString::new(p).unwrap();
-            let fd = unsafe { libc::open(c.as_ptr(), libc::O_RDONLY) };
-            assert!(fd >= 0);
-            let len = format!("synthetic {name}").len() as u64;
-            guards.push(FdGuard(fd));
-            feeds.push((name.to_string(), fd, len));
-        }
-        (feeds, guards)
-    }
-
-    fn emit_synthetic() -> Vec<u8> {
-        let tools_dir = TestDir::make("emit");
-        let (feeds, guards) = synthetic_feeds(&tools_dir);
-        let mut archive = Vec::new();
-        emit_archive(
-            &mut |b: &[u8]| {
-                archive.extend_from_slice(b);
-                Ok(())
-            },
-            &feeds,
-        )
-        .unwrap();
-        drop(guards);
-        archive
-    }
-
-    fn run_install_script(archive: &[u8], targets: &[String]) -> (bool, String) {
-        let mut cmd = Command::new("/bin/sh");
-        cmd.args(["-ceu", INSTALL_SCRIPT, "soda-muse-maintain"]);
-        for t in targets {
-            cmd.arg(t);
-        }
-        cmd.stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        let mut child = cmd.spawn().unwrap();
-        child.stdin.take().unwrap().write_all(archive).unwrap();
-        let out = child.wait_with_output().unwrap();
-        (
-            out.status.success(),
-            String::from_utf8_lossy(&out.stderr).into_owned(),
-        )
     }
 
     #[test]
