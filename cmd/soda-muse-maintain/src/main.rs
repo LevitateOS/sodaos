@@ -8,8 +8,10 @@ use std::os::unix::io::{FromRawFd, RawFd};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+mod config;
 mod options;
 
+use config::{load_config, Config};
 use options::{parse, Options};
 
 const MUSE_VERSION: &str = "1.4.0-R4161.1";
@@ -209,34 +211,6 @@ fn go_dir(path: &str) -> String {
         i -= 1;
     }
     go_clean(&path[..i])
-}
-
-#[derive(Default, Debug)]
-struct Config {
-    muse_sha256: String,
-    muse_version: String,
-    muse_socket: String,
-    identity_socket: String,
-    codex_harness: String,
-    codex_harness_sha256: String,
-    codex_harness_version: String,
-    tailnet_management: bool,
-    tailnet_image: String,
-    image: String,
-    network: String,
-    subnet: String,
-    bridge: String,
-}
-
-fn load_config(path: &str) -> Result<Config, String> {
-    let mut file = fs::File::open(path).map_err(|e| path_error("open", path, e))?;
-    let mut data = Vec::new();
-    file.read_to_end(&mut data)
-        .map_err(|e| path_error("read", path, e))?;
-    let mut c = decode_host_config(&data)?;
-    apply_release_images(&mut c, RELEASE_PATH)?;
-    validate_runtime_config(&c)?;
-    Ok(c)
 }
 
 fn path_error(op: &str, path: &str, e: io::Error) -> String {
@@ -2768,6 +2742,7 @@ fn validate_interface_directory(root: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use super::config::{load_config, Config};
     use super::options::{default_tools, parse, usage_text};
     use super::*;
     use std::io::Write as _;
