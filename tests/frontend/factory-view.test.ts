@@ -1,12 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  factoryStatusFrame,
-  factoryOutputFrame,
-  factoryOutputCursor,
-  factoryClosedReason,
-  factoryRunStatusResponse,
-} from '../../frontend/spaces/sodaspaces-api';
+import {factoryOutputFrame, factoryOutputCursor, factoryClosedReason} from '../../frontend/spaces/sodaspaces-api';
+import {factoryStatusFrame, factoryRunStatusResponse} from '../../frontend/spaces/sodaspaces-factory-response';
 
 const runId = 'a'.repeat(32);
 const repositoryId = '7';

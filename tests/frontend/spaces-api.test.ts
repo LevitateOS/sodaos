@@ -1,15 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {spacesResponse, repositoryChoices} from '../../frontend/spaces/sodaspaces-api';
+import {terminalResponse} from '../../frontend/spaces/sodaspaces-terminal-response';
 import {
-  spacesResponse,
-  repositoryChoices,
   factoryAuthorityText,
   factoryControlText,
   factoryCommandId,
   factoryRunText,
-} from '../../frontend/spaces/sodaspaces-api';
-import {terminalResponse} from '../../frontend/spaces/sodaspaces-terminal-response';
-import type {FactoryRun} from '../../frontend/spaces/sodaspaces-api';
+} from '../../frontend/spaces/sodaspaces-factory-response';
+import type {FactoryRun} from '../../frontend/spaces/sodaspaces-factory-response';
 const binding = {
   expectedUserId: '1',
   repositoryId: '7',

@@ -1,6 +1,6 @@
 import {html} from 'lit';
 import type {Space} from './sodaspaces-api.js';
-import {factoryAuthorityText, factoryControlText} from './sodaspaces-api.js';
+import {factoryAuthorityText, factoryControlText} from './sodaspaces-factory-response.js';
 import {attentionReason} from './sodaspaces-attention.js';
 import type {LayoutEntry, PaneTree} from './sodaspaces-layout.js';
 import {paneFor, sameLocator} from './sodaspaces-layout.js';

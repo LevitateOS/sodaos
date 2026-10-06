@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
-import type {FactoryRun, Space} from '../../frontend/spaces/sodaspaces-api';
+import type {Space} from '../../frontend/spaces/sodaspaces-api';
+import type {FactoryRun} from '../../frontend/spaces/sodaspaces-factory-response';
 import type {FactoryWatchMutation} from '../../frontend/spaces/sodaspaces-workspace-factory';
 import type {FactoryWatch} from '../../frontend/spaces/sodaspaces-workspace-types';
 

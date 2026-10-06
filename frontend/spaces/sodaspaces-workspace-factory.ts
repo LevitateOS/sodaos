@@ -1,6 +1,7 @@
 import type {TemplateResult} from 'lit';
-import {factoryRunText} from './sodaspaces-api.js';
-import type {FactoryRun, Space} from './sodaspaces-api.js';
+import {factoryRunText} from './sodaspaces-factory-response.js';
+import type {FactoryRun} from './sodaspaces-factory-response.js';
+import type {Space} from './sodaspaces-api.js';
 import {mountFactoryWatch} from './sodaspaces-factory.js';
 import type {FactoryWatchContext} from './sodaspaces-factory.js';
 import {renderFactoryRuns} from './sodaspaces-workspace-view.js';
