@@ -3,7 +3,6 @@ import {repeat} from 'lit/directives/repeat.js';
 import {terminalObservation} from './sodaspaces-attention.js';
 import {
   renderMenu,
-  renderSessionTab,
   renderRename,
   renderCreation,
   renderRepositoryPicker,
@@ -30,7 +29,6 @@ import {
   splitPane,
   moveTab,
   resizeSplit,
-  consolidate,
   projectLayout,
 } from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Pane, Split, Area, Minimum, DividerArea} from './sodaspaces-layout.js';
@@ -47,7 +45,7 @@ import {
   projectId,
 } from './sodaspaces-api.js';
 import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
-import type {Creation, FactoryWatch, PaneSession, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
+import type {Creation, FactoryWatch, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 import {WorkspaceMeasurement} from './sodaspaces-workspace-measurement.js';
 import {
   busyAttr,
@@ -91,15 +89,10 @@ import {
   setupIntroHelper,
   setupIntroKind,
 } from './sodaspaces-workspace-setup.js';
-import {
-  attentionRows,
-  filteredSpaces,
-  projectRows,
-  rowAttention,
-  rowName,
-  rows,
-} from './sodaspaces-workspace-navigation.js';
+import {attentionRows, filteredSpaces, projectRows, rows} from './sodaspaces-workspace-navigation.js';
 import {displayFactoryWatches, factorySection} from './sodaspaces-workspace-factory.js';
+import {paneChrome} from './sodaspaces-workspace-pane-view.js';
+import type {PaneChromeInput} from './sodaspaces-workspace-pane-view.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -530,7 +523,7 @@ export class SodaSpaces extends LitElement {
   private renderDrawerProjectionTabs() {
     if (this.binding?.kind !== 'native' || this.view === 'terminal' || this.stale) return '';
     return html`<div class="soda-drawer-projection-tabs" style=${`height:${this.tabHeight}px`}>
-      ${this.paneChrome(focusedPane(this.layout), {x: 0, y: 0, width: this.workspaceWidth, height: this.tabHeight}, true)}
+      ${paneChrome(this.paneViewInput(), focusedPane(this.layout), {x: 0, y: 0, width: this.workspaceWidth, height: this.tabHeight}, true)}
     </div>`;
   }
   private navAriaLabel() {
@@ -764,7 +757,7 @@ export class SodaSpaces extends LitElement {
         ${repeat(
           this.projection.panes,
           (area) => area.pane.key,
-          (area) => this.paneChrome(area.pane, area)
+          (area) => paneChrome(this.paneViewInput(), area.pane, area)
         )}
         ${repeat(
           this.projection.dividers,
@@ -1099,61 +1092,6 @@ export class SodaSpaces extends LitElement {
     this.layout = {...this.layout, sidebar: this.layout.sidebar === null ? 256 : null};
     this.persist();
   }
-  private toggleMaximizedPane() {
-    this.closeMenus();
-    this.maximized = this.maximized ? undefined : this.layout.focused;
-    this.requestUpdate();
-  }
-  private consolidatePanes() {
-    this.closeMenus();
-    this.arrange(consolidate(this.layout));
-  }
-  private showPaneSwitcher() {
-    if (this.binding?.kind !== 'page' || panes(this.layout.tree).length <= 1) return false;
-    return this.projection.compact || !!this.maximized;
-  }
-  private onFocusPaneChange(e: Event) {
-    if (e.target instanceof HTMLSelectElement) this.focusPane(e.target.value);
-  }
-  private renderPaneSwitcher() {
-    if (!this.showPaneSwitcher()) return '';
-    return html`<label
-      >Panes (${panes(this.layout.tree).length})
-      <select aria-label="Focused pane" .value=${this.layout.focused} @change=${this.onFocusPaneChange}>
-        ${panes(this.layout.tree).map((pane, index) => html`<option value=${pane.key} ?selected=${pane.key === this.layout.focused}>Pane ${index + 1}</option>`)}
-      </select></label
-    >`;
-  }
-  private renderPaneLayoutExtras() {
-    if (panes(this.layout.tree).length <= 1) return '';
-    const maximize = this.maximized ? 'Restore panes' : 'Maximize pane';
-    return html`<div class="soda-menu-separator"></div>
-      <button class="ui button" @click=${() => this.toggleMaximizedPane()}>${maximize}</button>
-      <button class="ui button" @click=${() => this.consolidatePanes()}>Consolidate panes</button>`;
-  }
-  private renderPaneSplitHelp() {
-    if (this.canSplit('right') || this.canSplit('below') || this.maximized) return '';
-    return html`<p class="soda-menu-help">Make the workspace larger to split this pane.</p>`;
-  }
-  private renderPaneMenu() {
-    if (this.binding?.kind !== 'page') return '';
-    // Button labels stay inline: wrapping whitespace text nodes around them
-    // breaks exact-text assertions.
-    // oxfmt-ignore
-    return renderMenu(
-      'Pane actions',
-      'Pane ⌄',
-      html`
-        <p class="soda-menu-heading">Pane layout</p>
-        <button class="ui button" ?disabled=${!this.canSplit('right')} @click=${() => this.split('right')}>Split right</button
-        ><button class="ui button" ?disabled=${!this.canSplit('below')} @click=${() => this.split('below')}>Split below</button>
-        ${this.renderPaneLayoutExtras()} ${this.renderPaneSplitHelp()}
-      `
-    );
-  }
-  private paneActions() {
-    return html`${this.renderPaneSwitcher()} ${this.renderPaneMenu()}`;
-  }
   private visibleSlot(slot: Slot) {
     return (
       this.activeSurface &&
@@ -1222,209 +1160,43 @@ export class SodaSpaces extends LitElement {
     if (row.entry) void this.openSaved(row.entry, this.choosingPane);
     else if (row.metadata) void this.openExisting(space, row.metadata, this.choosingPane);
   }
-  private paneTabKeys(pane: Pane) {
-    return this.binding?.kind === 'native' ? panes(this.layout.tree).flatMap((p) => p.tabs) : pane.tabs;
-  }
-  private paneSession(key: string): PaneSession[] {
-    const entry = this.layout.entries.find((e) => e.key === key);
-    const space = this.spaces.find((s) => s.environment.id === entry?.environmentId);
-    if (!entry || !space || !space.login || !space.execution_allowed || space.authority_unavailable) return [];
-    return [{entry, space, slot: this.slots.find((s) => s.key === key)}];
-  }
-  private paneAriaOwns(pane: Pane, navigation: boolean) {
-    if (navigation || !this.slots.some((s) => s.key === pane.selected && !s.unavailable)) return '';
-    return 'soda-owner-' + pane.selected;
-  }
-  private onTabListDragOver(e: DragEvent) {
-    if (this.dragged) e.preventDefault();
-  }
-  private onTabListDrop(e: DragEvent, paneKey: string) {
-    if (!this.dragged) return;
-    e.preventDefault();
-    this.move(this.dragged, paneKey);
-    this.dragged = undefined;
-  }
-  private sessionRow(entry: LayoutEntry, slot: Slot | undefined): Row {
-    return {key: entry.key, entry, ...(slot?.metadata ? {metadata: slot.metadata} : {})};
-  }
-  private onTabDragStart(event: DragEvent, key: string) {
-    if (this.binding?.kind !== 'page') return;
-    this.dragged = key;
-    event.dataTransfer?.setData('application/x-soda-tab', key);
-    this.requestUpdate();
-  }
-  private onTabDragEnd() {
-    this.dragged = undefined;
-    this.requestUpdate();
-  }
-  private onTabDrop(event: DragEvent, paneKey: string, before: string) {
-    if (!this.dragged) return;
-    event.preventDefault();
-    event.stopPropagation();
-    this.move(this.dragged, paneKey, before);
-    this.dragged = undefined;
-  }
-  private sessionTabProps(item: PaneSession, keys: string[], pane: Pane) {
-    const {entry, space, slot} = item;
+  private paneViewInput(): PaneChromeInput {
     return {
-      key: entry.key,
-      name: slot ? this.slotName(slot) : rowName({key: entry.key, entry}, this.slots),
-      project: this.projectName(space),
-      selected: entry.key === pane.selected,
-      unread: !!slot?.unread,
-      attention: rowAttention(this.navReading(), space, this.sessionRow(entry, slot)),
-      select: () => {
+      readLayout: () => this.layout,
+      readMaximized: () => this.maximized,
+      setMaximized: (key) => {
+        this.maximized = key;
+      },
+      readDragged: () => this.dragged,
+      setDragged: (key) => {
+        this.dragged = key;
+      },
+      binding: this.binding,
+      spaces: this.spaces,
+      slots: this.slots,
+      available: this.available,
+      stale: this.stale,
+      creating: this.creating,
+      tabHeight: this.tabHeight,
+      projectionCompact: this.projection.compact,
+      reading: this.navReading(),
+      requestUpdate: () => this.requestUpdate(),
+      closeMenus: () => this.closeMenus(),
+      arrange: (layout) => this.arrange(layout),
+      focusPane: (key) => this.focusPane(key),
+      canSplit: (axis, key = this.layout.focused) => this.canSplit(axis, key),
+      split: (axis) => this.split(axis),
+      move: (key, destination, before) => this.move(key, destination, before),
+      openSaved: (entry) => {
         void this.openSaved(entry);
       },
-      keydown: (event: KeyboardEvent) => this.tabKey(event, entry.key, keys),
-      dragstart: (event: DragEvent) => this.onTabDragStart(event, entry.key),
-      dragend: () => this.onTabDragEnd(),
-      drop: (event: DragEvent) => this.onTabDrop(event, pane.key, entry.key),
+      tabKey: (event, key, keys) => this.tabKey(event, key, keys),
+      slotName: (slot) => this.slotName(slot),
+      projectName: (space) => this.projectName(space),
+      rectangle: (area) => this.rectangle(area),
+      showSessions: (pane) => this.showSessions(pane),
+      newTerminal: (pane) => this.newTerminal(pane),
     };
-  }
-  private renderFocusedPaneActions(pane: Pane, navigation: boolean) {
-    if (pane.key !== this.layout.focused || !pane.selected || navigation) return html``;
-    return this.paneActions();
-  }
-  private filterOverflowTabs(e: Event) {
-    if (!(e.target instanceof HTMLInputElement) || !(e.currentTarget instanceof HTMLElement)) return;
-    const text = e.target.value.toLocaleLowerCase();
-    for (const button of e.currentTarget.parentElement?.querySelectorAll('button') || [])
-      button.hidden = !button.textContent?.toLocaleLowerCase().includes(text);
-  }
-  private overflowTabLabel(item: PaneSession) {
-    return (item.slot ? this.slotName(item.slot) : 'Saved terminal') + ' · ' + this.projectName(item.space);
-  }
-  private renderTabOverflow(entries: PaneSession[]) {
-    return html`<details class="soda-menu soda-tab-overflow" ?hidden=${entries.length < 2}>
-      <summary aria-label="Open tabs" title="Open tabs">Tabs ⌄</summary>
-      <div>
-        <input
-          type="search"
-          aria-label="Find an open tab"
-          @input=${(e: Event) => this.filterOverflowTabs(e)}
-        />${entries.map((item) => html`<button class="ui button" @click=${() => this.openSaved(item.entry)}>${this.overflowTabLabel(item)}</button>`)}
-      </div>
-    </details>`;
-  }
-  private showMoveMenu(pane: Pane) {
-    return (
-      this.binding?.kind === 'page' && !!pane.selected && (panes(this.layout.tree).length > 1 || pane.tabs.length > 1)
-    );
-  }
-  private moveTargetName(entries: PaneSession[], pane: Pane) {
-    return entries.find((item) => item.entry.key === pane.selected)?.slot?.metadata?.name || 'terminal';
-  }
-  private moveToPane(pane: Pane, destination: string) {
-    this.closeMenus();
-    if (pane.selected) this.move(pane.selected, destination);
-  }
-  private moveBeforeTab(pane: Pane, before: string) {
-    this.closeMenus();
-    if (pane.selected) this.move(pane.selected, pane.key, before);
-  }
-  private beforeTabName(entries: PaneSession[], before: string) {
-    return entries.find((item) => item.entry.key === before)?.slot?.metadata?.name || 'saved tab';
-  }
-  private renderMoveMenu(pane: Pane, entries: PaneSession[]) {
-    if (!this.showMoveMenu(pane)) return html``;
-    return html`<details class="soda-menu soda-move-menu">
-      <summary aria-label="Move terminal to pane" title="Move terminal to pane">Move ⌄</summary>
-      <div>
-        <p class="soda-menu-heading"><span>Move ${this.moveTargetName(entries, pane)}</span></p>
-        ${panes(this.layout.tree).map((destination, i) => html`<button class="ui button" @click=${() => this.moveToPane(pane, destination.key)}>Pane ${i + 1}${destination.key === pane.key ? ' — move to end' : ''}</button>`)}${pane.tabs.filter((key) => key !== pane.selected).map((before) => html`<button class="ui button" @click=${() => this.moveBeforeTab(pane, before)}>Move before ${this.beforeTabName(entries, before)}</button>`)}
-      </div>
-    </details>`;
-  }
-  private emptyPaneAttached(pane: Pane, entries: PaneSession[]) {
-    return entries.some((e) => e.entry.key === pane.selected && e.slot && !e.slot.unavailable);
-  }
-  private renderEmptyPane(pane: Pane, area: Area, navigation: boolean, entries: PaneSession[]) {
-    if (navigation || (pane.selected && this.emptyPaneAttached(pane, entries))) return html``;
-    const message = pane.selected
-      ? 'Saved terminal is not attached. Select it after current authorization.'
-      : 'No terminal in this pane. Splitting creates no shell.';
-    return html`<div
-      class="soda-empty-pane"
-      style=${`width:${area.width}px;height:${Math.max(0, area.height - this.tabHeight)}px;top:${this.tabHeight}px`}
-    >
-      <p>${message}</p>
-      <button class="ui button" ?disabled=${!this.available || this.stale} @click=${() => this.showSessions(pane.key)}>
-        Use existing terminal</button
-      ><button
-        class="ui button"
-        ?disabled=${!this.available || this.stale || this.creating}
-        @click=${() => this.newTerminal(pane.key)}
-      >
-        New terminal here
-      </button>
-    </div>`;
-  }
-  private dropEdgeStyle(axis: 'right' | 'below', area: Area) {
-    return axis === 'right'
-      ? `left:${area.width - 32}px;height:${area.height}px`
-      : `top:${area.height - 32}px;width:${area.width}px`;
-  }
-  private onDropEdgeOver(e: DragEvent, axis: 'right' | 'below', paneKey: string) {
-    if (this.dragged && this.canSplit(axis, paneKey)) e.preventDefault();
-  }
-  private onDropEdgeDrop(e: DragEvent, axis: 'right' | 'below', paneKey: string) {
-    if (!this.dragged || !this.canSplit(axis, paneKey)) return;
-    e.preventDefault();
-    const key = this.dragged,
-      next = splitPane(this.layout, paneKey, axis, crypto.randomUUID(), crypto.randomUUID());
-    this.arrange(moveTab(next, key, next.focused));
-    this.dragged = undefined;
-  }
-  private renderDropEdges(pane: Pane, area: Area) {
-    if (!this.dragged || this.binding?.kind !== 'page') return html``;
-    return (['right', 'below'] as const).map(
-      (axis) =>
-        html`<div
-          class=${'soda-drop-edge ' + axis}
-          ?hidden=${!this.canSplit(axis, pane.key)}
-          style=${this.dropEdgeStyle(axis, area)}
-          @dragover=${(e: DragEvent) => this.onDropEdgeOver(e, axis, pane.key)}
-          @drop=${(e: DragEvent) => this.onDropEdgeDrop(e, axis, pane.key)}
-        >
-          Split ${axis}
-        </div>`
-    );
-  }
-  private paneChrome(pane: Pane, area: Area, navigation = false) {
-    const keys = this.paneTabKeys(pane);
-    const entries = keys.flatMap((key) => this.paneSession(key));
-    return html`<section
-      class="soda-pane-chrome"
-      role="group"
-      aria-label=${'Pane ' + (panes(this.layout.tree).findIndex((p) => p.key === pane.key) + 1)}
-      aria-owns=${this.paneAriaOwns(pane, navigation)}
-      data-pane=${pane.key}
-      style=${this.rectangle({...area, height: this.tabHeight})}
-    >
-      <div
-        class="soda-workspace-tabs"
-        role="tablist"
-        aria-label="Terminal sessions"
-        @dragover=${(e: DragEvent) => this.onTabListDragOver(e)}
-        @drop=${(e: DragEvent) => this.onTabListDrop(e, pane.key)}
-      >
-        ${repeat(
-          entries,
-          ({entry}) => entry.key,
-          (item) =>
-            renderSessionTab(
-              this.sessionTabProps(item, keys, pane),
-              navigation,
-              this.binding?.kind === 'page',
-              (event) => this.onTabListDragOver(event)
-            )
-        )}
-      </div>
-      ${this.renderFocusedPaneActions(pane, navigation)} ${this.renderTabOverflow(entries)}
-      ${this.renderMoveMenu(pane, entries)} ${this.renderEmptyPane(pane, area, navigation, entries)}
-      ${this.renderDropEdges(pane, area)}
-    </section>`;
   }
   private creationEligible(space: Space | undefined) {
     return (
