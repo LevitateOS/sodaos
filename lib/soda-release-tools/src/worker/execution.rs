@@ -150,6 +150,21 @@ fn join_drains(
     Ok(())
 }
 
+/// Typed worker result: cancellation (with exact-unit stop/reap evidence)
+/// is distinct from failure so the CLI boundary maps exits without
+/// inferring cancellation from string text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WorkerError {
+    Failed(String),
+    Cancelled(String),
+}
+
+impl From<String> for WorkerError {
+    fn from(message: String) -> WorkerError {
+        WorkerError::Failed(message)
+    }
+}
+
 /// `acceptance.Worker.Run`: dispatch one admitted worker under its own
 /// transient systemd unit, forwarding unit output to the given writers.
 /// `cancelled` is polled while the unit runs (no async runtime in this
@@ -161,9 +176,11 @@ pub fn run_worker(
     out: &mut dyn std::io::Write,
     err_out: &mut dyn std::io::Write,
     cancelled: &dyn Fn() -> bool,
-) -> Result<(), String> {
+) -> Result<(), WorkerError> {
     if euid() != 0 {
-        return Err("trusted root controller required for worker dispatch".to_owned());
+        return Err(WorkerError::Failed(
+            "trusted root controller required for worker dispatch".to_owned(),
+        ));
     }
     let args = worker_argv(w)?;
     // Refuse an existing unit instead of adopting or replacing its processes.
@@ -176,7 +193,9 @@ pub fn run_worker(
             if output.status.success()
                 && String::from_utf8_lossy(&output.stdout).trim() == "not-found" => {}
         _ => {
-            return Err("worker unit is already present or could not be checked".to_owned());
+            return Err(WorkerError::Failed(
+                "worker unit is already present or could not be checked".to_owned(),
+            ));
         }
     }
     // Give systemd anonymous pipes, not caller-owned log file descriptors.
@@ -202,7 +221,10 @@ pub fn run_worker(
                 if status.success() {
                     return Ok(());
                 }
-                return Err(format!("worker {} failed: {status}", w.name));
+                return Err(WorkerError::Failed(format!(
+                    "worker {} failed: {status}",
+                    w.name
+                )));
             }
             None => std::thread::sleep(Duration::from_millis(10)),
         }
@@ -240,5 +262,9 @@ pub fn run_worker(
     let mut parts = vec!["cancelled".to_owned()];
     parts.extend(stop_err);
     parts.extend(child_err);
-    Err(format!("worker {} failed: {}", w.name, parts.join("\n")))
+    Err(WorkerError::Cancelled(format!(
+        "worker {} failed: {}",
+        w.name,
+        parts.join("\n")
+    )))
 }

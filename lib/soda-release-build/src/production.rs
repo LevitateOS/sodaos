@@ -223,7 +223,7 @@ impl Production {
             &bindir.join("project-terminal").to_string_lossy(),
         )?;
         self.compile_rust(
-            "soda-project-account",
+            "soda-project-terminal",
             "project-account",
             &bindir.join("project-account").to_string_lossy(),
         )?;
@@ -903,19 +903,18 @@ mod tests {
             if name == "cargo" && args.first().map(String::as_str) == Some("build") {
                 for (i, arg) in args.iter().enumerate() {
                     if arg == "-p" && i + 1 < args.len() {
-                        let mut bin = args[i + 1].clone();
-                        if bin == "soda-project-terminal" {
-                            bin = "project-terminal".to_string();
+                        // Post-A01 fold, -p soda-project-terminal builds both
+                        // bins like cargo; every other package keeps one.
+                        let bins: Vec<&str> = match args[i + 1].as_str() {
+                            "soda-project-terminal" => vec!["project-terminal", "project-account"],
+                            "soda-project-factory-roles" => vec!["project-factory-roles"],
+                            pkg => vec![pkg],
+                        };
+                        for bin in bins {
+                            let dest = PathBuf::from(dir).join("target/release").join(bin);
+                            std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
+                            std::fs::write(&dest, crate::elf::tests::fixture_elf()).unwrap();
                         }
-                        if bin == "soda-project-account" {
-                            bin = "project-account".to_string();
-                        }
-                        if bin == "soda-project-factory-roles" {
-                            bin = "project-factory-roles".to_string();
-                        }
-                        let dest = PathBuf::from(dir).join("target/release").join(bin);
-                        std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
-                        std::fs::write(&dest, crate::elf::tests::fixture_elf()).unwrap();
                         return Ok(());
                     }
                 }

@@ -67,7 +67,7 @@ pub fn write_complete_quadlets(
         ("dashboard", "soda-dashboard.container"),
         ("proxy", "soda-proxy.container"),
     ] {
-        let original = fs::read(sys::join(&[source, "appliance/services", unit]))?;
+        let original = fs::read(sys::join(&[source, "system/host/services", unit]))?;
         let body = quadlet::local_quadlet(
             &String::from_utf8_lossy(&original),
             &payload.image(name).config,
@@ -255,6 +255,40 @@ mod tests {
                 .0,
             "soda extension installer image binding is ambiguous"
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn quadlets_read_new_layout() {
+        // CORR-C-005: units live under system/host/services/.
+        let dir = std::env::temp_dir().join(format!("sri-cq-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let source = dir.join("src");
+        let units = source.join("system/host/services");
+        fs::create_dir_all(&units).unwrap();
+        let body =
+            "[Unit]\nDescription=x\n[Container]\nImage=localhost/x:dev\nPull=newer\nExec=a\n";
+        for name in [
+            "forgejo.container",
+            "soda-dashboard.container",
+            "soda-proxy.container",
+        ] {
+            fs::write(units.join(name), body).unwrap();
+        }
+        let root = dir.join("root");
+        let payload = model::Payload::default();
+        write_complete_quadlets(source.to_str().unwrap(), root.to_str().unwrap(), &payload)
+            .unwrap();
+        for name in [
+            "forgejo.container",
+            "soda-dashboard.container",
+            "soda-proxy.container",
+        ] {
+            assert!(root
+                .join("usr/share/containers/systemd")
+                .join(name)
+                .is_file());
+        }
         let _ = fs::remove_dir_all(&dir);
     }
 }

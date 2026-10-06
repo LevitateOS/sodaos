@@ -133,3 +133,36 @@ fn forgejo_root_refusals() {
         "canonical Forgejo checkout required"
     );
 }
+
+#[test]
+fn cancel_maps_recorded_signal_identity() {
+    let _guard = crate::exitcode::interrupt_test_lock();
+    for code in [130, 143] {
+        let _ = take_interrupt();
+        note_interrupt(code);
+        let err = map_worker_error(worker::WorkerError::Cancelled(
+            "worker w failed: cancelled".to_owned(),
+        ));
+        assert!(matches!(err, ToolError::Interrupted(i) if i.exit_code() == code));
+        assert_eq!(build_exit_code(Some(&err)), code);
+        assert!(take_interrupt().is_none());
+    }
+}
+
+#[test]
+fn cancel_without_interrupt_is_cancelled() {
+    let _guard = crate::exitcode::interrupt_test_lock();
+    let _ = take_interrupt();
+    let err = map_worker_error(worker::WorkerError::Cancelled(
+        "worker w failed: cancelled".to_owned(),
+    ));
+    assert!(matches!(err, ToolError::Cancelled));
+    assert_eq!(build_exit_code(Some(&err)), 130);
+}
+
+#[test]
+fn worker_failure_keeps_message_and_exit_1() {
+    let err = map_worker_error(worker::WorkerError::Failed("boom".to_owned()));
+    assert!(matches!(err, ToolError::Message(ref message) if message == "boom"));
+    assert_eq!(build_exit_code(Some(&err)), 1);
+}

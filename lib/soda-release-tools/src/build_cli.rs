@@ -305,11 +305,27 @@ pub fn run_parent_build(
     worker_config_path: &str,
     r: &Request,
     progress: &mut BuildProgress,
-) -> Result<(), String> {
-    let config = worker::load_worker_config(worker_config_path, r)?;
+) -> Result<(), worker::WorkerError> {
+    let config =
+        worker::load_worker_config(worker_config_path, r).map_err(worker::WorkerError::Failed)?;
     let result = worker::run_build_worker(&config, r, progress)?;
     print_build_artifacts(&result.candidate, &result.media, &result.scope);
     Ok(())
+}
+
+/// Map the isolated-worker result to the CLI error: failures keep their
+/// message and exit 1; cancellation keeps its stop/reap evidence on stderr
+/// and takes the recorded signal identity (128+sig) or CANCELLED (130).
+pub(crate) fn map_worker_error(e: worker::WorkerError) -> ToolError {
+    match e {
+        worker::WorkerError::Failed(message) => ToolError::msg(message),
+        worker::WorkerError::Cancelled(evidence) => {
+            eprintln!("{evidence}");
+            take_interrupt()
+                .map(ToolError::Interrupted)
+                .unwrap_or(ToolError::Cancelled)
+        }
+    }
 }
 
 pub fn run() -> Result<(), ToolError> {
@@ -346,7 +362,7 @@ pub fn run() -> Result<(), ToolError> {
             err = Some(ToolError::msg(e));
         }
     } else if let Err(e) = run_parent_build(&f.worker_config, &f.request, &mut progress) {
-        err = Some(ToolError::msg(e));
+        err = Some(map_worker_error(e));
     }
     if err.is_none() {
         err = take_interrupt().map(ToolError::Interrupted);

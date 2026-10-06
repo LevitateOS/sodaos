@@ -158,7 +158,7 @@ cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-identity
 STEP Compile project-terminal
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal
 STEP Compile project-account
-cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-account
+cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal
 STEP Compile project-factory-roles
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-factory-roles
 STEP Build frontend assets
