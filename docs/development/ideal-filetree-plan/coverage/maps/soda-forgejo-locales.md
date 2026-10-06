@@ -9,7 +9,7 @@ R02 re-audit COMPLETE @HEAD: merge test extraction + locales_cli 4-way split re-
 
 ## [tools/release-assets/src/locales/mod.rs](../../../../../tools/release-assets/src/locales/mod.rs)
 
-> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-forgejo-locales/src/lib.rs` layout (C09 consolidation; content reworked) — pending re-audit.
+Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
 
 Public module wiring is mapped separately; module exposure does not create a new process boundary.
 
