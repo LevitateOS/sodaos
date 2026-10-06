@@ -3,11 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C08): oracle.rs verified byte-identical move; intervals kept.
+
 <a id="coverage-16cef9a7838a"></a>
 
 <a id="rustsoda-release-imagetestsoraclers-1"></a>
 
-## [rust/soda-release-image/tests/oracle.rs](../../../../../rust/soda-release-image/tests/oracle.rs)
+## [lib/soda-release-image/tests/oracle.rs](../../../../../lib/soda-release-image/tests/oracle.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

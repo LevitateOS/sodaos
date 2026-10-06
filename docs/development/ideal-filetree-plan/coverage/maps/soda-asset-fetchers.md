@@ -3,11 +3,15 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C09 consolidation): 2 headings folded to `tools/release-assets/src/fetch/*`; content reworked, intervals STALE — bannered.
+
 <a id="coverage-820aaa3fbcac"></a>
 
 <a id="rustsoda-asset-fetcherssrcmusers-1"></a>
 
-## [rust/soda-asset-fetchers/src/muse.rs](../../../../../rust/soda-asset-fetchers/src/muse.rs)
+## [tools/release-assets/src/fetch/muse.rs](../../../../../tools/release-assets/src/fetch/muse.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-asset-fetchers/src/muse.rs` layout (C09 consolidation; content reworked) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -59,7 +63,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-asset-fetcherssrctears-1"></a>
 
-## [rust/soda-asset-fetchers/src/tea.rs](../../../../../rust/soda-asset-fetchers/src/tea.rs)
+## [tools/release-assets/src/fetch/tea.rs](../../../../../tools/release-assets/src/fetch/tea.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-asset-fetchers/src/tea.rs` layout (C09 consolidation; content reworked) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

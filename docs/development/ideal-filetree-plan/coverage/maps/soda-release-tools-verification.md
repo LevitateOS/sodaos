@@ -3,11 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C08): cli.rs verified byte-identical move; intervals kept.
+
 <a id="coverage-9093b495ba8c"></a>
 
 <a id="rustsoda-release-toolstestsclirs-1"></a>
 
-## [rust/soda-release-tools/tests/cli.rs](../../../../../rust/soda-release-tools/tests/cli.rs)
+## [lib/soda-release-tools/tests/cli.rs](../../../../../lib/soda-release-tools/tests/cli.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

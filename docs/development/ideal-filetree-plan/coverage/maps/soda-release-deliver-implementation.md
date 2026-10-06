@@ -3,11 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C08): all 11 headings verified byte-identical moves to `lib/soda-release-deliver/*`; intervals kept.
+
 <a id="coverage-74bad50280a1"></a>
 
 <a id="rustsoda-release-deliversrcbuildxrs-1"></a>
 
-## [rust/soda-release-deliver/src/buildx.rs](../../../../../rust/soda-release-deliver/src/buildx.rs)
+## [lib/soda-release-deliver/src/buildx.rs](../../../../../lib/soda-release-deliver/src/buildx.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -69,7 +71,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-deliversrcfetchrs-1"></a>
 
-## [rust/soda-release-deliver/src/fetch.rs](../../../../../rust/soda-release-deliver/src/fetch.rs)
+## [lib/soda-release-deliver/src/fetch.rs](../../../../../lib/soda-release-deliver/src/fetch.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -110,7 +112,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-fe28f76842f6"></a>
 
-## [rust/soda-release-deliver/src/finalize.rs](../../../../../rust/soda-release-deliver/src/finalize.rs)
+## [lib/soda-release-deliver/src/finalize.rs](../../../../../lib/soda-release-deliver/src/finalize.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -131,7 +133,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-deliversrcjsonxrs-1"></a>
 
-## [rust/soda-release-deliver/src/jsonx.rs](../../../../../rust/soda-release-deliver/src/jsonx.rs)
+## [lib/soda-release-deliver/src/jsonx.rs](../../../../../lib/soda-release-deliver/src/jsonx.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -189,7 +191,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-4fb86a3dd4f1"></a>
 
-## [rust/soda-release-deliver/src/lib.rs](../../../../../rust/soda-release-deliver/src/lib.rs)
+## [lib/soda-release-deliver/src/lib.rs](../../../../../lib/soda-release-deliver/src/lib.rs)
 
 Public module wiring is mapped separately; module exposure does not create a new process boundary.
 
@@ -217,7 +219,7 @@ Public module wiring is mapped separately; module exposure does not create a new
 
 <a id="rustsoda-release-deliversrcmodelrs-1"></a>
 
-## [rust/soda-release-deliver/src/model.rs](../../../../../rust/soda-release-deliver/src/model.rs)
+## [lib/soda-release-deliver/src/model.rs](../../../../../lib/soda-release-deliver/src/model.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -361,7 +363,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-deliversrcnativers-1"></a>
 
-## [rust/soda-release-deliver/src/native.rs](../../../../../rust/soda-release-deliver/src/native.rs)
+## [lib/soda-release-deliver/src/native.rs](../../../../../lib/soda-release-deliver/src/native.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -417,7 +419,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-deliversrcocirs-1"></a>
 
-## [rust/soda-release-deliver/src/oci.rs](../../../../../rust/soda-release-deliver/src/oci.rs)
+## [lib/soda-release-deliver/src/oci.rs](../../../../../lib/soda-release-deliver/src/oci.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -515,7 +517,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-deliversrcpayloadrs-1"></a>
 
-## [rust/soda-release-deliver/src/payload.rs](../../../../../rust/soda-release-deliver/src/payload.rs)
+## [lib/soda-release-deliver/src/payload.rs](../../../../../lib/soda-release-deliver/src/payload.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -565,7 +567,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-b84106523e8c"></a>
 
-## [rust/soda-release-deliver/src/prepare.rs](../../../../../rust/soda-release-deliver/src/prepare.rs)
+## [lib/soda-release-deliver/src/prepare.rs](../../../../../lib/soda-release-deliver/src/prepare.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -579,7 +581,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-deliversrcpublishrs-1"></a>
 
-## [rust/soda-release-deliver/src/publish.rs](../../../../../rust/soda-release-deliver/src/publish.rs)
+## [lib/soda-release-deliver/src/publish.rs](../../../../../lib/soda-release-deliver/src/publish.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

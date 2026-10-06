@@ -3,11 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C08): 6 headings verified byte-identical moves (coreos, coreos_stream, files, json_go, lib, oci); production.rs STALE drift; progress.rs RETIRED (3aaec1c8, D03-E4, bannered).
+
 <a id="coverage-0ee161fbce5f"></a>
 
 <a id="rustsoda-release-buildsrccoreosrs-1"></a>
 
-## [rust/soda-release-build/src/coreos.rs](../../../../../rust/soda-release-build/src/coreos.rs)
+## [lib/soda-release-build/src/coreos.rs](../../../../../lib/soda-release-build/src/coreos.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -48,7 +50,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-buildsrccoreos_streamrs-1"></a>
 
-## [rust/soda-release-build/src/coreos_stream.rs](../../../../../rust/soda-release-build/src/coreos_stream.rs)
+## [lib/soda-release-build/src/coreos_stream.rs](../../../../../lib/soda-release-build/src/coreos_stream.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -118,7 +120,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-buildsrcfilesrs-1"></a>
 
-## [rust/soda-release-build/src/files.rs](../../../../../rust/soda-release-build/src/files.rs)
+## [lib/soda-release-build/src/files.rs](../../../../../lib/soda-release-build/src/files.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -185,7 +187,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-buildsrcjson_gors-1"></a>
 
-## [rust/soda-release-build/src/json_go.rs](../../../../../rust/soda-release-build/src/json_go.rs)
+## [lib/soda-release-build/src/json_go.rs](../../../../../lib/soda-release-build/src/json_go.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -230,7 +232,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-33ce1bf6ebad"></a>
 
-## [rust/soda-release-build/src/lib.rs](../../../../../rust/soda-release-build/src/lib.rs)
+## [lib/soda-release-build/src/lib.rs](../../../../../lib/soda-release-build/src/lib.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Public module wiring is mapped separately; module exposure does not create a new process boundary.
 
@@ -257,7 +259,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-buildsrcocirs-1"></a>
 
-## [rust/soda-release-build/src/oci.rs](../../../../../rust/soda-release-build/src/oci.rs)
+## [lib/soda-release-build/src/oci.rs](../../../../../lib/soda-release-build/src/oci.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -360,7 +362,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-buildsrcproductionrs-1"></a>
 
-## [rust/soda-release-build/src/production.rs](../../../../../rust/soda-release-build/src/production.rs)
+## [lib/soda-release-build/src/production.rs](../../../../../lib/soda-release-build/src/production.rs)
+
+> R02 STALE: `lib/soda-release-build/src/production.rs` differs from the audited `rust/soda-release-build/src/production.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -438,6 +442,8 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 <a id="rustsoda-release-buildsrcprogressrs-1"></a>
 
 ## [rust/soda-release-build/src/progress.rs](../../../../../rust/soda-release-build/src/progress.rs)
+
+> R02 RETIRED: RETIRED in C08 commit 3aaec1c8 (evidenced-dead build progress/clock mirror, D03-E4); no successor. Intervals below are audit history.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

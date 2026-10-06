@@ -3,11 +3,15 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C08+CORRs+DELTA): 5 headings verified byte-identical (foreign, host, layout, model, request); build/media/payload_stage/prepare/sys STALE drift (splits + CORR-C-001/004/005 + DELTA-C-001) — bannered.
+
 <a id="coverage-0387b9fa196a"></a>
 
 <a id="rustsoda-release-imagesrcbuildrs-1"></a>
 
-## [rust/soda-release-image/src/build.rs](../../../../../rust/soda-release-image/src/build.rs)
+## [lib/soda-release-image/src/build.rs](../../../../../lib/soda-release-image/src/build.rs)
+
+> R02 STALE: `lib/soda-release-image/src/build.rs` differs from the audited `rust/soda-release-image/src/build.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -136,7 +140,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-06edbfe39c61"></a>
 
-## [rust/soda-release-image/src/foreign.rs](../../../../../rust/soda-release-image/src/foreign.rs)
+## [lib/soda-release-image/src/foreign.rs](../../../../../lib/soda-release-image/src/foreign.rs)
 
 
 
@@ -160,7 +164,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-6ec9c0721258"></a>
 
-## [rust/soda-release-image/src/host.rs](../../../../../rust/soda-release-image/src/host.rs)
+## [lib/soda-release-image/src/host.rs](../../../../../lib/soda-release-image/src/host.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -171,7 +175,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-9f6c9a85cf9b"></a>
 
-## [rust/soda-release-image/src/layout.rs](../../../../../rust/soda-release-image/src/layout.rs)
+## [lib/soda-release-image/src/layout.rs](../../../../../lib/soda-release-image/src/layout.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -184,7 +188,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-imagesrcmediars-1"></a>
 
-## [rust/soda-release-image/src/media.rs](../../../../../rust/soda-release-image/src/media.rs)
+## [lib/soda-release-image/src/media.rs](../../../../../lib/soda-release-image/src/media.rs)
+
+> R02 STALE: `lib/soda-release-image/src/media.rs` differs from the audited `rust/soda-release-image/src/media.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -272,7 +278,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-imagesrcmodelrs-1"></a>
 
-## [rust/soda-release-image/src/model.rs](../../../../../rust/soda-release-image/src/model.rs)
+## [lib/soda-release-image/src/model.rs](../../../../../lib/soda-release-image/src/model.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -437,7 +443,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-6170dd468d15"></a>
 
-## [rust/soda-release-image/src/payload_stage.rs](../../../../../rust/soda-release-image/src/payload_stage.rs)
+## [lib/soda-release-image/src/payload_stage.rs](../../../../../lib/soda-release-image/src/payload_stage.rs)
+
+> R02 STALE: `lib/soda-release-image/src/payload_stage.rs` differs from the audited `rust/soda-release-image/src/payload_stage.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -451,7 +459,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-imagesrcpreparers-1"></a>
 
-## [rust/soda-release-image/src/prepare.rs](../../../../../rust/soda-release-image/src/prepare.rs)
+## [lib/soda-release-image/src/prepare.rs](../../../../../lib/soda-release-image/src/prepare.rs)
+
+> R02 STALE: `lib/soda-release-image/src/prepare.rs` differs from the audited `rust/soda-release-image/src/prepare.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -515,7 +525,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-ad348e05d9a8"></a>
 
-## [rust/soda-release-image/src/request.rs](../../../../../rust/soda-release-image/src/request.rs)
+## [lib/soda-release-image/src/request.rs](../../../../../lib/soda-release-image/src/request.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -526,7 +536,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-3270fc4fae13"></a>
 
-## [rust/soda-release-image/src/sys.rs](../../../../../rust/soda-release-image/src/sys.rs)
+## [lib/soda-release-image/src/sys.rs](../../../../../lib/soda-release-image/src/sys.rs)
+
+> R02 STALE: `lib/soda-release-image/src/sys.rs` differs from the audited `rust/soda-release-image/src/sys.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 

@@ -3,11 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C08+CORR-C-003): 3 verified byte-identical (artifacts, candidate_fixture, candidate_hints); candidate/candidate_display/candidate_prompts/worker SPLIT into dirs (bannered with siblings); build_cli/pipeline/progress STALE drift — bannered.
+
 <a id="coverage-8e670c258300"></a>
 
 <a id="rustsoda-release-toolssrcartifactsrs-1"></a>
 
-## [rust/soda-release-tools/src/artifacts.rs](../../../../../rust/soda-release-tools/src/artifacts.rs)
+## [lib/soda-release-tools/src/artifacts.rs](../../../../../lib/soda-release-tools/src/artifacts.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -58,7 +60,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-toolssrcbuild_clirs-1"></a>
 
-## [rust/soda-release-tools/src/build_cli.rs](../../../../../rust/soda-release-tools/src/build_cli.rs)
+## [lib/soda-release-tools/src/build_cli.rs](../../../../../lib/soda-release-tools/src/build_cli.rs)
+
+> R02 STALE: `lib/soda-release-tools/src/build_cli.rs` differs from the audited `rust/soda-release-tools/src/build_cli.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -100,7 +104,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-toolssrccandidaters-1"></a>
 
-## [rust/soda-release-tools/src/candidate.rs](../../../../../rust/soda-release-tools/src/candidate.rs)
+## [lib/soda-release-tools/src/candidate/mod.rs](../../../../../lib/soda-release-tools/src/candidate/mod.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-release-tools/src/candidate.rs` layout (siblings options.rs, tests.rs) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -158,7 +164,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-toolssrccandidate_displayrs-1"></a>
 
-## [rust/soda-release-tools/src/candidate_display.rs](../../../../../rust/soda-release-tools/src/candidate_display.rs)
+## [lib/soda-release-tools/src/candidate_display/mod.rs](../../../../../lib/soda-release-tools/src/candidate_display/mod.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-release-tools/src/candidate_display.rs` layout (siblings events.rs, tests.rs) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -244,7 +252,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-toolssrccandidate_fixturers-1"></a>
 
-## [rust/soda-release-tools/src/candidate_fixture.rs](../../../../../rust/soda-release-tools/src/candidate_fixture.rs)
+## [lib/soda-release-tools/src/candidate_fixture.rs](../../../../../lib/soda-release-tools/src/candidate_fixture.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -278,7 +286,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-11a70dac03f3"></a>
 
-## [rust/soda-release-tools/src/candidate_hints.rs](../../../../../rust/soda-release-tools/src/candidate_hints.rs)
+## [lib/soda-release-tools/src/candidate_hints.rs](../../../../../lib/soda-release-tools/src/candidate_hints.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -291,7 +299,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-toolssrccandidate_promptsrs-1"></a>
 
-## [rust/soda-release-tools/src/candidate_prompts.rs](../../../../../rust/soda-release-tools/src/candidate_prompts.rs)
+## [lib/soda-release-tools/src/candidate_prompts/mod.rs](../../../../../lib/soda-release-tools/src/candidate_prompts/mod.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-release-tools/src/candidate_prompts.rs` layout (siblings defaults.rs, tests.rs) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -359,7 +369,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-8b6e0a656800"></a>
 
-## [rust/soda-release-tools/src/pipeline.rs](../../../../../rust/soda-release-tools/src/pipeline.rs)
+## [lib/soda-release-tools/src/pipeline.rs](../../../../../lib/soda-release-tools/src/pipeline.rs)
+
+> R02 STALE: `lib/soda-release-tools/src/pipeline.rs` differs from the audited `rust/soda-release-tools/src/pipeline.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -443,7 +455,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-toolssrcprogressrs-1"></a>
 
-## [rust/soda-release-tools/src/progress.rs](../../../../../rust/soda-release-tools/src/progress.rs)
+## [lib/soda-release-tools/src/progress.rs](../../../../../lib/soda-release-tools/src/progress.rs)
+
+> R02 STALE: `lib/soda-release-tools/src/progress.rs` differs from the audited `rust/soda-release-tools/src/progress.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -499,7 +513,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-release-toolssrcworkerrs-1"></a>
 
-## [rust/soda-release-tools/src/worker.rs](../../../../../rust/soda-release-tools/src/worker.rs)
+## [lib/soda-release-tools/src/worker/mod.rs](../../../../../lib/soda-release-tools/src/worker/mod.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-release-tools/src/worker.rs` layout (siblings config.rs, execution.rs, runtime.rs, tests.rs) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

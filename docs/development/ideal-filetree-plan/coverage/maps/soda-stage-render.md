@@ -3,9 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C09 consolidation): 5 headings folded to `tools/release-assets/src/render/*` + shared tests successor; intervals STALE — bannered with siblings.
+
 <a id="coverage-d04d16b4f1e0"></a>
 
-## [rust/soda-stage-render/src/lib.rs](../../../../../rust/soda-stage-render/src/lib.rs)
+## [tools/release-assets/src/render/mod.rs](../../../../../tools/release-assets/src/render/mod.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-stage-render/src/lib.rs` layout (C09 consolidation; see also src/lib.rs) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Public module wiring is mapped separately; module exposure does not create a new process boundary.
 
@@ -22,7 +26,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-stage-rendersrcprovisioningrs-1"></a>
 
-## [rust/soda-stage-render/src/provisioning.rs](../../../../../rust/soda-stage-render/src/provisioning.rs)
+## [tools/release-assets/src/render/provisioning/mod.rs](../../../../../tools/release-assets/src/render/provisioning/mod.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-stage-render/src/provisioning.rs` layout (siblings document.rs, private_files.rs, render.rs, tests.rs) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -76,7 +82,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-stage-rendersrcstagers-1"></a>
 
-## [rust/soda-stage-render/src/stage.rs](../../../../../rust/soda-stage-render/src/stage.rs)
+## [tools/release-assets/src/render/stage/mod.rs](../../../../../tools/release-assets/src/render/stage/mod.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-stage-render/src/stage.rs` layout (siblings branding.rs, files.rs, payload.rs, tests.rs) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -108,7 +116,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-stage-rendersrcterminal_logors-1"></a>
 
-## [rust/soda-stage-render/src/terminal_logo.rs](../../../../../rust/soda-stage-render/src/terminal_logo.rs)
+## [tools/release-assets/src/render/terminal_logo/mod.rs](../../../../../tools/release-assets/src/render/terminal_logo/mod.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-stage-render/src/terminal_logo.rs` layout (siblings geometry.rs, svg.rs, tests.rs) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -153,7 +163,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-stage-rendertestsclirs-1"></a>
 
-## [rust/soda-stage-render/tests/cli.rs](../../../../../rust/soda-stage-render/tests/cli.rs)
+## [tools/release-assets/tests/fetchers_cli.rs](../../../../../tools/release-assets/tests/fetchers_cli.rs)
+
+> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-stage-render/tests/cli.rs` layout (C09 consolidation; shared successor with locales cli) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

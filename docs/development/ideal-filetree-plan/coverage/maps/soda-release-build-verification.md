@@ -3,11 +3,15 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `d5012d10` (C08): oracle.rs rebound; STALE drift (REPAIR-C-001 import reorder) — bannered.
+
 <a id="coverage-944b552bf221"></a>
 
 <a id="rustsoda-release-buildtestsoraclers-1"></a>
 
-## [rust/soda-release-build/tests/oracle.rs](../../../../../rust/soda-release-build/tests/oracle.rs)
+## [lib/soda-release-build/tests/oracle.rs](../../../../../lib/soda-release-build/tests/oracle.rs)
+
+> R02 STALE: `lib/soda-release-build/tests/oracle.rs` differs from the audited `rust/soda-release-build/tests/oracle.rs` blob (C08 split / CORR repairs) — intervals pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
