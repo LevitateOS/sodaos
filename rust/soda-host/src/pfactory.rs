@@ -4913,8 +4913,7 @@ mod tests {
         let mut probe = receipt.clone();
         let held = factory.consume_start(&mut probe, deadline()).unwrap();
         assert_eq!(held.unwrap().phase, "uncertain");
-        let text =
-            String::from_utf8(receipt_bytes(&dir, &run.project, &run.id)).unwrap();
+        let text = String::from_utf8(receipt_bytes(&dir, &run.project, &run.id)).unwrap();
         assert!(text.contains("\"phase\":\"uncertain\""), "{text}");
         assert!(text.contains("\"reason\":\"stop-uncertain\""), "{text}");
     }
