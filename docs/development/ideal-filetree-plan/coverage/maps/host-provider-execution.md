@@ -3,13 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `cd111721` (A00): tcodex/tfactory/tmuse moved to `terminal/factory/*.rs` with import-rebind drift — intervals STALE, bannered.
+R02 re-audit COMPLETE @HEAD: 4 sections rebound rust→lib and verified clean (tcodex/tfactory/tmuse + ops oracle); factory/mod.rs wiring section added. All rows machine-verified against current bytes.
 
 <a id="coverage-60a9454258b1"></a>
 
-## [rust/soda-host/src/terminal/factory/tcodex.rs](../../../../../rust/soda-host/src/terminal/factory/tcodex.rs)
+## [lib/host/src/terminal/factory/tcodex.rs](../../../../../lib/host/src/terminal/factory/tcodex.rs)
 
-> R02 STALE: intervals below reference the audited `rust/soda-host/src/tcodex.rs` blob; the moved file differs (import rebinds / drift) — pending re-audit.
+Re-audit @HEAD: moved `rust/soda-host/src/*.rs` → `lib/host/...` (A00/A01); every row verified declaration-by-declaration against current bytes.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -85,128 +85,128 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 347–375 | Codex execution files/supervisor and reserve scripts; declaration/member factory_supervisor; declarations/fields: `factory_supervisor` |
 | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 376–407 | Codex native retirement script; declarations/fields: `factory_retire` |
 | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 408–439 | Codex native retirement script; declaration/member FACTORY_EXPORT_SCRIPT; declarations/fields: `FACTORY_EXPORT_SCRIPT` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 440–475 | Lease native binding attestation; declarations/fields: `factory_codex_binding` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 476–479 | Factory native user-bus/unit reservation and staging argv; declarations/fields: `factory_user_bus` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 480–484 | Factory native user-bus/unit reservation and staging argv; declaration/member current_euid; declarations/fields: `current_euid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 485–495 | Factory native user-bus/unit reservation and staging argv; declaration/member factory_systemctl_argv; declarations/fields: `factory_systemctl_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 496–506 | Factory native user-bus/unit reservation and staging argv; declaration/member factory_systemd_run_argv; declarations/fields: `factory_systemd_run_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 507–543 | Factory native user-bus/unit reservation and staging argv; declaration/member reserve_exec_argv; declarations/fields: `reserve_exec_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 544–556 | Factory native user-bus/unit reservation and staging argv; declaration/member reserve_run_argv; declarations/fields: `reserve_run_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 557–571 | Factory native user-bus/unit reservation and staging argv; declaration/member codex_setup_script; declarations/fields: `codex_setup_script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 572–582 | Factory native user-bus/unit reservation and staging argv; declaration/member harness_install_script; declarations/fields: `harness_install_script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 583–591 | Factory native user-bus/unit reservation and staging argv; declaration/member stage_file_command; declarations/fields: `stage_file_command` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 592–602 | Factory native user-bus/unit reservation and staging argv; declaration/member start_gate_script; declarations/fields: `start_gate_script` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 603–611 | Bounded factory output read command; declarations/fields: `output_read_command` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 612–651 | Explicit human takeover native copy; declarations/fields: `takeover_steps` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 652–682 | Exact candidate bundle export argv; declarations/fields: `export_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 683 | Native unit observations and role ids; declarations/fields: `FactoryUnitShow` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 684 | Native unit observations and role ids; declaration/member FactoryUnitShow.active; declarations/fields: `FactoryUnitShow.active` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 685–688 | Native unit observations and role ids; declaration/member FactoryUnitShow.invocation; declarations/fields: `FactoryUnitShow.invocation` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 689–702 | Native unit observations and role ids; declaration/member parse_factory_unit_show; declarations/fields: `parse_factory_unit_show` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 703–711 | Native unit observations and role ids; declaration/member factory_role_id; declarations/fields: `factory_role_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 712–728 | Native unit observations and role ids; declaration/member sleep_until; declarations/fields: `sleep_until` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 729–733 | Native unit observations and role ids; declaration/member run_env; declarations/fields: `run_env` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 734–744 | Native unit observations and role ids; declaration/member run_podman; declarations/fields: `run_podman` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 745–749 | Native unit observations and role ids; declaration/member factory_systemctl; declarations/fields: `factory_systemctl` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 750–759 | Native unit observations and role ids; declaration/member factory_systemd_run; declarations/fields: `factory_systemd_run` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 760–775 | Native unit observations and role ids; declaration/member factory_unit_state; declarations/fields: `factory_unit_state` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 776–799 | Native unit observations and role ids; declaration/member factory_active_invocation; declarations/fields: `factory_active_invocation` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 800–836 | Native unit observations and role ids; declaration/member factory_role_ids; declarations/fields: `factory_role_ids` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 837–892 | Codex native reserve/setup/start integration; declarations/fields: `factory_codex_reserve` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 893–936 | Codex native reserve/setup/start integration; declaration/member factory_codex_setup; declarations/fields: `factory_codex_setup` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 937–993 | Private auth/harness staging; declarations/fields: `factory_codex_stage` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 994 | Host harness staging and native start; declarations/fields: `factory_codex_stage_host` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 995–1046 | Host harness staging and native start; declaration/member HOST_GUEST; declarations/fields: `HOST_GUEST` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1047–1082 | Host harness staging and native start; declaration/member factory_codex_start; declarations/fields: `factory_codex_start` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1083–1106 | Bound private file stage; declarations/fields: `factory_stage_file` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1107–1128 | Native run completion wait; declarations/fields: `factory_codex_wait` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1129–1136 | Exact native Codex binding validation; declarations/fields: `factory_codex_validate` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1137–1148 | Stop/retire/capture/finish/unbound cleanup; declarations/fields: `factory_codex_stop` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1149–1170 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_await_inactive; declarations/fields: `factory_await_inactive` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1171–1195 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_retire; declarations/fields: `factory_retire` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1196–1216 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_read_pid; declarations/fields: `factory_read_pid` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1217–1230 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_container_exists; declarations/fields: `factory_container_exists` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1231–1245 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_codex_capture; declarations/fields: `factory_codex_capture` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1246–1256 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_codex_finish; declarations/fields: `factory_codex_finish` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1257–1273 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_codex_stop_unbound; declarations/fields: `factory_codex_stop_unbound` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1274–1278 | Native run liveness observation; declarations/fields: `factory_codex_live` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1279–1298 | Bounded native run output; declarations/fields: `factory_codex_output` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1299–1343 | Exact recorded candidate Git bundle export; declarations/fields: `factory_export_bundle` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1344–1445 | Explicit human takeover copy; declarations/fields: `factory_takeover_copy` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1446–1477 | Broker-native factory callback dispatch; declarations/fields: `factory_identity_operation` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1478–1487 | Output byte size parsing; declarations/fields: `factory_output_size` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1488–1493, 1855–1864, 1954–1986, 2710–2736, 3028–3089 | Codex native operation source fixtures/assertions; declarations/fields: `tests`, `GOLDEN_SUPERVISOR`, `unit_show_vectors`, `live_matrix`, `factory_identity_operation_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1494 | Codex native operation source fixtures/assertions; declaration/member PID; declarations/fields: `PID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1495 | Codex native operation source fixtures/assertions; declaration/member RID; declarations/fields: `RID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1496 | Codex native operation source fixtures/assertions; declaration/member IID; declarations/fields: `IID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1497 | Codex native operation source fixtures/assertions; declaration/member CID; declarations/fields: `CID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1498 | Codex native operation source fixtures/assertions; declaration/member PREP; declarations/fields: `PREP` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1499 | Codex native operation source fixtures/assertions; declaration/member ROLE; declarations/fields: `ROLE` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1500 | Codex native operation source fixtures/assertions; declaration/member COMMIT; declarations/fields: `COMMIT` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1501–1502 | Codex native operation source fixtures/assertions; declaration/member PIN; declarations/fields: `PIN` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1503–1504 | Codex native operation source fixtures/assertions; declaration/member TMP_COUNTER; declarations/fields: `TMP_COUNTER` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1505–1508 | Codex native operation source fixtures/assertions; declaration/member deadline; declarations/fields: `deadline` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1509–1515 | Codex native operation source fixtures/assertions; declaration/member test_tmp; declarations/fields: `test_tmp` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1516–1517 | Codex native operation source fixtures/assertions; declaration/member RecordedCall; declarations/fields: `RecordedCall` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1518 | Codex native operation source fixtures/assertions; declaration/member FakeExec; declarations/fields: `FakeExec` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1519 | Codex native operation source fixtures/assertions; declaration/member FakeExec.calls; declarations/fields: `FakeExec.calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1520–1523 | Codex native operation source fixtures/assertions; declaration/member FakeExec.script; declarations/fields: `FakeExec.script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1524–1530 | Codex native operation source fixtures/assertions; declaration/member new; declarations/fields: `new` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1531–1536 | Codex native operation source fixtures/assertions; declaration/member calls; declarations/fields: `calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1537–1556 | Codex native operation source fixtures/assertions; declaration/member run; declarations/fields: `run` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1557–1560 | Codex native operation source fixtures/assertions; declaration/member ok; declarations/fields: `ok` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1561–1564 | Codex native operation source fixtures/assertions; declaration/member err; declarations/fields: `err` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1565–1576 | Codex native operation source fixtures/assertions; declaration/member make_service; declarations/fields: `make_service` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1577–1582 | Codex native operation source fixtures/assertions; declaration/member inspect_json; declarations/fields: `inspect_json` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1583–1599 | Codex native operation source fixtures/assertions; declaration/member factory_run; declarations/fields: `factory_run` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1600–1603 | Codex native operation source fixtures/assertions; declaration/member run_dir; declarations/fields: `run_dir` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1604–1630 | Codex native operation source fixtures/assertions; declaration/member factory_lease; declarations/fields: `factory_lease` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1631–1642 | Codex native operation source fixtures/assertions; declaration/member write_harness; declarations/fields: `write_harness` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1643–1649 | Codex native operation source fixtures/assertions; declaration/member host_digest; declarations/fields: `host_digest` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1650–1670 | Codex native operation source fixtures/assertions; declaration/member domain_predicates; declarations/fields: `domain_predicates` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1671–1798 | Codex native operation source fixtures/assertions; declaration/member run_validate_pins; declarations/fields: `run_validate_pins` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1799–1845 | Codex native operation source fixtures/assertions; declaration/member path_vectors; declarations/fields: `path_vectors` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1846–1854 | Source assertion of Encoding and parsing; declarations/fields: `quote_vectors` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1865–1891 | Codex native operation source fixtures/assertions; declaration/member GOLDEN_RETIRE; declarations/fields: `GOLDEN_RETIRE` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1892–1919 | Codex native operation source fixtures/assertions; declaration/member script_goldens; declarations/fields: `script_goldens` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1920–1953 | Source assertion of Native binding and private delivery; declarations/fields: `binding_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1987–1990 | Codex native operation source fixtures/assertions; declaration/member euid; declarations/fields: `euid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1991–1998 | Codex native operation source fixtures/assertions; declaration/member reserve_harness; declarations/fields: `reserve_harness` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1999–2079 | Codex native operation source fixtures/assertions; declaration/member reserve_denial_pins; declarations/fields: `reserve_denial_pins` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2080–2158 | Codex native operation source fixtures/assertions; declaration/member reserve_success_argv_sequence; declarations/fields: `reserve_success_argv_sequence` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2159–2256 | Codex native operation source fixtures/assertions; declaration/member reserve_stage_and_failure_paths; declarations/fields: `reserve_stage_and_failure_paths` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2257–2296 | Codex native operation source fixtures/assertions; declaration/member reserve_unattested_unit_is_stopped; declarations/fields: `reserve_unattested_unit_is_stopped` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2297–2398 | Codex native operation source fixtures/assertions; declaration/member start_flows; declarations/fields: `start_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2399–2462 | Codex native operation source fixtures/assertions; declaration/member wait_flows; declarations/fields: `wait_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2463–2521 | Codex native operation source fixtures/assertions; declaration/member validate_flows; declarations/fields: `validate_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2522–2610 | Codex native operation source fixtures/assertions; declaration/member stop_flows; declarations/fields: `stop_flows` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2611–2661 | Source assertion of Completion, revocation and reconciliation; declarations/fields: `capture_and_finish_flows` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2662–2709 | Source assertion of Completion, revocation and reconciliation; declaration/member stop_unbound_flows; declarations/fields: `stop_unbound_flows` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 2737–2839 | Source assertion of Factory activity presentation; declarations/fields: `output_flows` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 2840–2919 | Source assertion of Publication progression; declarations/fields: `export_flows` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2920–3027 | Source assertion of Run lifecycle and intervention; declarations/fields: `takeover_flows` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 440–476 | Lease native binding attestation; declarations/fields: `factory_codex_binding` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 477–480 | Factory native user-bus/unit reservation and staging argv; declarations/fields: `factory_user_bus` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 481–485 | Factory native user-bus/unit reservation and staging argv; declaration/member current_euid; declarations/fields: `current_euid` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 486–496 | Factory native user-bus/unit reservation and staging argv; declaration/member factory_systemctl_argv; declarations/fields: `factory_systemctl_argv` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 497–507 | Factory native user-bus/unit reservation and staging argv; declaration/member factory_systemd_run_argv; declarations/fields: `factory_systemd_run_argv` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 508–544 | Factory native user-bus/unit reservation and staging argv; declaration/member reserve_exec_argv; declarations/fields: `reserve_exec_argv` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 545–557 | Factory native user-bus/unit reservation and staging argv; declaration/member reserve_run_argv; declarations/fields: `reserve_run_argv` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 558–572 | Factory native user-bus/unit reservation and staging argv; declaration/member codex_setup_script; declarations/fields: `codex_setup_script` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 573–583 | Factory native user-bus/unit reservation and staging argv; declaration/member harness_install_script; declarations/fields: `harness_install_script` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 584–592 | Factory native user-bus/unit reservation and staging argv; declaration/member stage_file_command; declarations/fields: `stage_file_command` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 593–603 | Factory native user-bus/unit reservation and staging argv; declaration/member start_gate_script; declarations/fields: `start_gate_script` |
+| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 604–612 | Bounded factory output read command; declarations/fields: `output_read_command` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 613–652 | Explicit human takeover native copy; declarations/fields: `takeover_steps` |
+| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 653–683 | Exact candidate bundle export argv; declarations/fields: `export_argv` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 684 | Native unit observations and role ids; declarations/fields: `FactoryUnitShow` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 685 | Native unit observations and role ids; declaration/member FactoryUnitShow.active; declarations/fields: `FactoryUnitShow.active` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 686–689 | Native unit observations and role ids; declaration/member FactoryUnitShow.invocation; declarations/fields: `FactoryUnitShow.invocation` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 690–703 | Native unit observations and role ids; declaration/member parse_factory_unit_show; declarations/fields: `parse_factory_unit_show` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 704–712 | Native unit observations and role ids; declaration/member factory_role_id; declarations/fields: `factory_role_id` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 713–729 | Native unit observations and role ids; declaration/member sleep_until; declarations/fields: `sleep_until` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 730–734 | Native unit observations and role ids; declaration/member run_env; declarations/fields: `run_env` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 735–745 | Native unit observations and role ids; declaration/member run_podman; declarations/fields: `run_podman` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 746–750 | Native unit observations and role ids; declaration/member factory_systemctl; declarations/fields: `factory_systemctl` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 751–760 | Native unit observations and role ids; declaration/member factory_systemd_run; declarations/fields: `factory_systemd_run` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 761–776 | Native unit observations and role ids; declaration/member factory_unit_state; declarations/fields: `factory_unit_state` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 777–800 | Native unit observations and role ids; declaration/member factory_active_invocation; declarations/fields: `factory_active_invocation` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 801–837 | Native unit observations and role ids; declaration/member factory_role_ids; declarations/fields: `factory_role_ids` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 838–893 | Codex native reserve/setup/start integration; declarations/fields: `factory_codex_reserve` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 894–937 | Codex native reserve/setup/start integration; declaration/member factory_codex_setup; declarations/fields: `factory_codex_setup` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 938–994 | Private auth/harness staging; declarations/fields: `factory_codex_stage` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 995 | Host harness staging and native start; declarations/fields: `factory_codex_stage_host` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 996–1047 | Host harness staging and native start; declaration/member HOST_GUEST; declarations/fields: `HOST_GUEST` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1048–1083 | Host harness staging and native start; declaration/member factory_codex_start; declarations/fields: `factory_codex_start` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1084–1107 | Bound private file stage; declarations/fields: `factory_stage_file` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1108–1129 | Native run completion wait; declarations/fields: `factory_codex_wait` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1130–1137 | Exact native Codex binding validation; declarations/fields: `factory_codex_validate` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1138–1149 | Stop/retire/capture/finish/unbound cleanup; declarations/fields: `factory_codex_stop` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1150–1171 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_await_inactive; declarations/fields: `factory_await_inactive` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1172–1196 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_retire; declarations/fields: `factory_retire` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1197–1217 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_read_pid; declarations/fields: `factory_read_pid` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1218–1231 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_container_exists; declarations/fields: `factory_container_exists` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1232–1246 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_codex_capture; declarations/fields: `factory_codex_capture` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1247–1257 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_codex_finish; declarations/fields: `factory_codex_finish` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1258–1274 | Stop/retire/capture/finish/unbound cleanup; declaration/member factory_codex_stop_unbound; declarations/fields: `factory_codex_stop_unbound` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1275–1279 | Native run liveness observation; declarations/fields: `factory_codex_live` |
+| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1280–1299 | Bounded native run output; declarations/fields: `factory_codex_output` |
+| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1300–1344 | Exact recorded candidate Git bundle export; declarations/fields: `factory_export_bundle` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1345–1446 | Explicit human takeover copy; declarations/fields: `factory_takeover_copy` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1447–1478 | Broker-native factory callback dispatch; declarations/fields: `factory_identity_operation` |
+| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1479–1488 | Output byte size parsing; declarations/fields: `factory_output_size` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1489–1494, 1856–1865, 1955–1987, 2711–2737, 3029–3090 | Codex native operation source fixtures/assertions; declarations/fields: `tests`, `GOLDEN_SUPERVISOR`, `unit_show_vectors`, `live_matrix`, `factory_identity_operation_matrix` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1495 | Codex native operation source fixtures/assertions; declaration/member PID; declarations/fields: `PID` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1496 | Codex native operation source fixtures/assertions; declaration/member RID; declarations/fields: `RID` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1497 | Codex native operation source fixtures/assertions; declaration/member IID; declarations/fields: `IID` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1498 | Codex native operation source fixtures/assertions; declaration/member CID; declarations/fields: `CID` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1499 | Codex native operation source fixtures/assertions; declaration/member PREP; declarations/fields: `PREP` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1500 | Codex native operation source fixtures/assertions; declaration/member ROLE; declarations/fields: `ROLE` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1501 | Codex native operation source fixtures/assertions; declaration/member COMMIT; declarations/fields: `COMMIT` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1502–1503 | Codex native operation source fixtures/assertions; declaration/member PIN; declarations/fields: `PIN` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1504–1505 | Codex native operation source fixtures/assertions; declaration/member TMP_COUNTER; declarations/fields: `TMP_COUNTER` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1506–1509 | Codex native operation source fixtures/assertions; declaration/member deadline; declarations/fields: `deadline` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1510–1516 | Codex native operation source fixtures/assertions; declaration/member test_tmp; declarations/fields: `test_tmp` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1517–1518 | Codex native operation source fixtures/assertions; declaration/member RecordedCall; declarations/fields: `RecordedCall` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1519 | Codex native operation source fixtures/assertions; declaration/member FakeExec; declarations/fields: `FakeExec` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1520 | Codex native operation source fixtures/assertions; declaration/member FakeExec.calls; declarations/fields: `FakeExec.calls` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1521–1524 | Codex native operation source fixtures/assertions; declaration/member FakeExec.script; declarations/fields: `FakeExec.script` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1525–1531 | Codex native operation source fixtures/assertions; declaration/member new; declarations/fields: `new` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1532–1537 | Codex native operation source fixtures/assertions; declaration/member calls; declarations/fields: `calls` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1538–1557 | Codex native operation source fixtures/assertions; declaration/member run; declarations/fields: `run` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1558–1561 | Codex native operation source fixtures/assertions; declaration/member ok; declarations/fields: `ok` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1562–1565 | Codex native operation source fixtures/assertions; declaration/member err; declarations/fields: `err` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1566–1577 | Codex native operation source fixtures/assertions; declaration/member make_service; declarations/fields: `make_service` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1578–1583 | Codex native operation source fixtures/assertions; declaration/member inspect_json; declarations/fields: `inspect_json` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1584–1600 | Codex native operation source fixtures/assertions; declaration/member factory_run; declarations/fields: `factory_run` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1601–1604 | Codex native operation source fixtures/assertions; declaration/member run_dir; declarations/fields: `run_dir` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1605–1631 | Codex native operation source fixtures/assertions; declaration/member factory_lease; declarations/fields: `factory_lease` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1632–1643 | Codex native operation source fixtures/assertions; declaration/member write_harness; declarations/fields: `write_harness` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1644–1650 | Codex native operation source fixtures/assertions; declaration/member host_digest; declarations/fields: `host_digest` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1651–1671 | Codex native operation source fixtures/assertions; declaration/member domain_predicates; declarations/fields: `domain_predicates` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1672–1799 | Codex native operation source fixtures/assertions; declaration/member run_validate_pins; declarations/fields: `run_validate_pins` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1800–1846 | Codex native operation source fixtures/assertions; declaration/member path_vectors; declarations/fields: `path_vectors` |
+| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1847–1855 | Source assertion of Encoding and parsing; declarations/fields: `quote_vectors` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1866–1892 | Codex native operation source fixtures/assertions; declaration/member GOLDEN_RETIRE; declarations/fields: `GOLDEN_RETIRE` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1893–1920 | Codex native operation source fixtures/assertions; declaration/member script_goldens; declarations/fields: `script_goldens` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1921–1954 | Source assertion of Native binding and private delivery; declarations/fields: `binding_matrix` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1988–1991 | Codex native operation source fixtures/assertions; declaration/member euid; declarations/fields: `euid` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1992–1999 | Codex native operation source fixtures/assertions; declaration/member reserve_harness; declarations/fields: `reserve_harness` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2000–2080 | Codex native operation source fixtures/assertions; declaration/member reserve_denial_pins; declarations/fields: `reserve_denial_pins` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2081–2159 | Codex native operation source fixtures/assertions; declaration/member reserve_success_argv_sequence; declarations/fields: `reserve_success_argv_sequence` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2160–2257 | Codex native operation source fixtures/assertions; declaration/member reserve_stage_and_failure_paths; declarations/fields: `reserve_stage_and_failure_paths` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2258–2297 | Codex native operation source fixtures/assertions; declaration/member reserve_unattested_unit_is_stopped; declarations/fields: `reserve_unattested_unit_is_stopped` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2298–2399 | Codex native operation source fixtures/assertions; declaration/member start_flows; declarations/fields: `start_flows` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2400–2463 | Codex native operation source fixtures/assertions; declaration/member wait_flows; declarations/fields: `wait_flows` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2464–2522 | Codex native operation source fixtures/assertions; declaration/member validate_flows; declarations/fields: `validate_flows` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2523–2611 | Codex native operation source fixtures/assertions; declaration/member stop_flows; declarations/fields: `stop_flows` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2612–2662 | Source assertion of Completion, revocation and reconciliation; declarations/fields: `capture_and_finish_flows` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2663–2710 | Source assertion of Completion, revocation and reconciliation; declaration/member stop_unbound_flows; declarations/fields: `stop_unbound_flows` |
+| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 2738–2840 | Source assertion of Factory activity presentation; declarations/fields: `output_flows` |
+| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 2841–2920 | Source assertion of Publication progression; declarations/fields: `export_flows` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2921–3028 | Source assertion of Run lifecycle and intervention; declarations/fields: `takeover_flows` |
 
 <a id="coverage-ec73e0d18b70"></a>
 
-## [rust/soda-host/src/terminal/factory/tfactory.rs](../../../../../rust/soda-host/src/terminal/factory/tfactory.rs)
+## [lib/host/src/terminal/factory/tfactory.rs](../../../../../lib/host/src/terminal/factory/tfactory.rs)
 
-> R02 STALE: intervals below reference the audited `rust/soda-host/src/tfactory.rs` blob; the moved file differs (import rebinds / drift) — pending re-audit.
+Re-audit @HEAD: moved `rust/soda-host/src/*.rs` → `lib/host/...` (A00/A01); every row verified declaration-by-declaration against current bytes.
 
 
 
 | Slice / lifecycle | Current lines | Responsibility and declarations |
 | --- | --- | --- |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1–127 | Shared native provider factory execution paths; declarations/fields: `check_output_range`, `checked_binding_paths`, `factory_wait_result` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 128–154 | Native factory binding attestation; declarations/fields: `factory_attest_live` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 155–241 | Bound/unbound stop and credential capture; declarations/fields: `factory_stop_confirmed`, `factory_stop_unbound_confirmed`, `factory_capture_valid` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 242–265 | Native factory run liveness; declarations/fields: `factory_live_scoped` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 266–379 | Bound output incarnation, size and bounded byte reads; declarations/fields: `factory_output_stdout`, `factory_output_window` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1–128 | Shared native provider factory execution paths; declarations/fields: `check_output_range`, `checked_binding_paths`, `factory_wait_result` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 129–155 | Native factory binding attestation; declarations/fields: `factory_attest_live` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 156–242 | Bound/unbound stop and credential capture; declarations/fields: `factory_stop_confirmed`, `factory_stop_unbound_confirmed`, `factory_capture_valid` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 243–266 | Native factory run liveness; declarations/fields: `factory_live_scoped` |
+| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 267–380 | Bound output incarnation, size and bounded byte reads; declarations/fields: `factory_output_stdout`, `factory_output_window` |
 
 <a id="coverage-15bd15f9cf85"></a>
 
-## [rust/soda-host/src/terminal/factory/tmuse.rs](../../../../../rust/soda-host/src/terminal/factory/tmuse.rs)
+## [lib/host/src/terminal/factory/tmuse.rs](../../../../../lib/host/src/terminal/factory/tmuse.rs)
 
-> R02 STALE: intervals below reference the audited `rust/soda-host/src/tmuse.rs` blob; the moved file differs (import rebinds / drift) — pending re-audit.
+Re-audit @HEAD: moved `rust/soda-host/src/*.rs` → `lib/host/...` (A00/A01); every row verified declaration-by-declaration against current bytes.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -230,66 +230,74 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 45–48 | Muse native factory paths, supervisor and allowed argv; declaration/member FactoryMusePaths.guest; declarations/fields: `FactoryMusePaths.guest` |
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 49–66 | Muse native factory paths, supervisor and allowed argv; declaration/member factory_muse_run_paths; declarations/fields: `factory_muse_run_paths` |
 | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 67–97 | Muse native factory paths, supervisor and allowed argv; declaration/member factory_muse_paths; declarations/fields: `factory_muse_paths` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 98–133 | Exact Muse lease binding attestation; declarations/fields: `factory_muse_binding` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 134–148 | Muse native public tool/supervisor setup; declarations/fields: `factory_muse_guest` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 149–180 | Muse native public tool/supervisor setup; declaration/member factory_muse_supervisor; declarations/fields: `factory_muse_supervisor` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 181–196 | Muse native public tool/supervisor setup; declaration/member muse_setup_script; declarations/fields: `muse_setup_script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 197–210 | Muse native public tool/supervisor setup; declaration/member muse_start_gate_script; declarations/fields: `muse_start_gate_script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 211–255 | Muse native public tool/supervisor setup; declaration/member muse_exec_argv; declarations/fields: `muse_exec_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 256–275 | Muse native public tool/supervisor setup; declaration/member verify_muse_harness; declarations/fields: `verify_muse_harness` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 276–331 | Muse native public tool/supervisor setup; declaration/member factory_muse_reserve; declarations/fields: `factory_muse_reserve` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 332–375 | Reserve/setup operation; declarations/fields: `factory_muse_setup` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 376–436 | Private subscription delivery; declarations/fields: `factory_muse_stage` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 437–474 | Native Muse start; declarations/fields: `factory_muse_start` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 475–495 | Native wait; declarations/fields: `factory_muse_wait` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 496–502 | Exact native binding callback; declarations/fields: `factory_muse_validate` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 503–515 | Native stop/unbound retirement/subscription finish; declarations/fields: `factory_muse_stop` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 516–535 | Native stop/unbound retirement/subscription finish; declaration/member factory_muse_stop_unbound; declarations/fields: `factory_muse_stop_unbound` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 536–550 | Native stop/unbound retirement/subscription finish; declaration/member factory_muse_capture; declarations/fields: `factory_muse_capture` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 551–555 | Native liveness; declarations/fields: `factory_muse_live` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 556–576 | Bounded native output; declarations/fields: `factory_muse_output` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 577–582, 799–836, 894–945, 1176–1201 | Muse factory source assertions; declarations/fields: `tests`, `supervisor_shape`, `reserve_denial_pins`, `stop_and_capture` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 583 | Muse factory source assertions; declaration/member PID; declarations/fields: `PID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 584 | Muse factory source assertions; declaration/member RID; declarations/fields: `RID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 585 | Muse factory source assertions; declaration/member IID; declarations/fields: `IID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 586 | Muse factory source assertions; declaration/member CID; declarations/fields: `CID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 587 | Muse factory source assertions; declaration/member PREP; declarations/fields: `PREP` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 588 | Muse factory source assertions; declaration/member ROLE; declarations/fields: `ROLE` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 589 | Muse factory source assertions; declaration/member COMMIT; declarations/fields: `COMMIT` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 590–591 | Muse factory source assertions; declaration/member PIN; declarations/fields: `PIN` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 592–593 | Muse factory source assertions; declaration/member TMP_COUNTER; declarations/fields: `TMP_COUNTER` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 594–597 | Muse factory source assertions; declaration/member deadline; declarations/fields: `deadline` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 598–604 | Muse factory source assertions; declaration/member test_tmp; declarations/fields: `test_tmp` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 605–606 | Muse factory source assertions; declaration/member RecordedCall; declarations/fields: `RecordedCall` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 607 | Muse factory source assertions; declaration/member FakeExec; declarations/fields: `FakeExec` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 608 | Muse factory source assertions; declaration/member FakeExec.calls; declarations/fields: `FakeExec.calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 609–612 | Muse factory source assertions; declaration/member FakeExec.script; declarations/fields: `FakeExec.script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 613–619 | Muse factory source assertions; declaration/member new; declarations/fields: `new` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 620–625 | Muse factory source assertions; declaration/member calls; declarations/fields: `calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 626–645 | Muse factory source assertions; declaration/member run; declarations/fields: `run` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 646–649 | Muse factory source assertions; declaration/member ok; declarations/fields: `ok` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 650–653 | Muse factory source assertions; declaration/member err; declarations/fields: `err` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 654–665 | Muse factory source assertions; declaration/member make_service; declarations/fields: `make_service` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 666–673 | Muse factory source assertions; declaration/member write_harness; declarations/fields: `write_harness` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 674–680 | Muse factory source assertions; declaration/member reserve_harness; declarations/fields: `reserve_harness` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 681–686 | Muse factory source assertions; declaration/member inspect_json; declarations/fields: `inspect_json` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 687–703 | Muse factory source assertions; declaration/member muse_run; declarations/fields: `muse_run` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 704–707 | Muse factory source assertions; declaration/member muse_run_dir; declarations/fields: `muse_run_dir` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 708–734 | Muse factory source assertions; declaration/member muse_lease; declarations/fields: `muse_lease` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 735–739 | Muse factory source assertions; declaration/member euid; declarations/fields: `euid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 740–767 | Muse factory source assertions; declaration/member paths_and_guest; declarations/fields: `paths_and_guest` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 768–798 | Source assertion of Native binding and private delivery; declarations/fields: `binding_gates` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 837–851 | Muse factory source assertions; declaration/member setup_and_gate_scripts; declarations/fields: `setup_and_gate_scripts` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 852–893 | Source assertion of Provider execution integration; declarations/fields: `verify_harness_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 946–1009 | Muse factory source assertions; declaration/member reserve_success_argv_sequence; declarations/fields: `reserve_success_argv_sequence` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1010–1062 | Muse factory source assertions; declaration/member reserve_stage_missing_guest; declarations/fields: `reserve_stage_missing_guest` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1063–1141 | Muse factory source assertions; declaration/member start_flows; declarations/fields: `start_flows` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1142–1175 | Source assertion of Factory activity presentation; declarations/fields: `wait_output_live` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1202–1218 | Muse factory source assertions; declaration/member finish_denied_for_muse; declarations/fields: `finish_denied_for_muse` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 98–134 | Exact Muse lease binding attestation; declarations/fields: `factory_muse_binding` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 135–149 | Muse native public tool/supervisor setup; declarations/fields: `factory_muse_guest` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 150–181 | Muse native public tool/supervisor setup; declaration/member factory_muse_supervisor; declarations/fields: `factory_muse_supervisor` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 182–197 | Muse native public tool/supervisor setup; declaration/member muse_setup_script; declarations/fields: `muse_setup_script` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 198–211 | Muse native public tool/supervisor setup; declaration/member muse_start_gate_script; declarations/fields: `muse_start_gate_script` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 212–256 | Muse native public tool/supervisor setup; declaration/member muse_exec_argv; declarations/fields: `muse_exec_argv` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 257–276 | Muse native public tool/supervisor setup; declaration/member verify_muse_harness; declarations/fields: `verify_muse_harness` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 277–332 | Muse native public tool/supervisor setup; declaration/member factory_muse_reserve; declarations/fields: `factory_muse_reserve` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 333–376 | Reserve/setup operation; declarations/fields: `factory_muse_setup` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 377–437 | Private subscription delivery; declarations/fields: `factory_muse_stage` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 438–475 | Native Muse start; declarations/fields: `factory_muse_start` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 476–496 | Native wait; declarations/fields: `factory_muse_wait` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 497–503 | Exact native binding callback; declarations/fields: `factory_muse_validate` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 504–516 | Native stop/unbound retirement/subscription finish; declarations/fields: `factory_muse_stop` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 517–536 | Native stop/unbound retirement/subscription finish; declaration/member factory_muse_stop_unbound; declarations/fields: `factory_muse_stop_unbound` |
+| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 537–551 | Native stop/unbound retirement/subscription finish; declaration/member factory_muse_capture; declarations/fields: `factory_muse_capture` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 552–556 | Native liveness; declarations/fields: `factory_muse_live` |
+| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 557–577 | Bounded native output; declarations/fields: `factory_muse_output` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 578–583, 800–837, 895–946, 1177–1202 | Muse factory source assertions; declarations/fields: `tests`, `supervisor_shape`, `reserve_denial_pins`, `stop_and_capture` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 584 | Muse factory source assertions; declaration/member PID; declarations/fields: `PID` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 585 | Muse factory source assertions; declaration/member RID; declarations/fields: `RID` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 586 | Muse factory source assertions; declaration/member IID; declarations/fields: `IID` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 587 | Muse factory source assertions; declaration/member CID; declarations/fields: `CID` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 588 | Muse factory source assertions; declaration/member PREP; declarations/fields: `PREP` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 589 | Muse factory source assertions; declaration/member ROLE; declarations/fields: `ROLE` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 590 | Muse factory source assertions; declaration/member COMMIT; declarations/fields: `COMMIT` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 591–592 | Muse factory source assertions; declaration/member PIN; declarations/fields: `PIN` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 593–594 | Muse factory source assertions; declaration/member TMP_COUNTER; declarations/fields: `TMP_COUNTER` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 595–598 | Muse factory source assertions; declaration/member deadline; declarations/fields: `deadline` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 599–605 | Muse factory source assertions; declaration/member test_tmp; declarations/fields: `test_tmp` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 606–607 | Muse factory source assertions; declaration/member RecordedCall; declarations/fields: `RecordedCall` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 608 | Muse factory source assertions; declaration/member FakeExec; declarations/fields: `FakeExec` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 609 | Muse factory source assertions; declaration/member FakeExec.calls; declarations/fields: `FakeExec.calls` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 610–613 | Muse factory source assertions; declaration/member FakeExec.script; declarations/fields: `FakeExec.script` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 614–620 | Muse factory source assertions; declaration/member new; declarations/fields: `new` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 621–626 | Muse factory source assertions; declaration/member calls; declarations/fields: `calls` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 627–646 | Muse factory source assertions; declaration/member run; declarations/fields: `run` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 647–650 | Muse factory source assertions; declaration/member ok; declarations/fields: `ok` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 651–654 | Muse factory source assertions; declaration/member err; declarations/fields: `err` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 655–666 | Muse factory source assertions; declaration/member make_service; declarations/fields: `make_service` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 667–674 | Muse factory source assertions; declaration/member write_harness; declarations/fields: `write_harness` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 675–681 | Muse factory source assertions; declaration/member reserve_harness; declarations/fields: `reserve_harness` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 682–687 | Muse factory source assertions; declaration/member inspect_json; declarations/fields: `inspect_json` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 688–704 | Muse factory source assertions; declaration/member muse_run; declarations/fields: `muse_run` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 705–708 | Muse factory source assertions; declaration/member muse_run_dir; declarations/fields: `muse_run_dir` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 709–735 | Muse factory source assertions; declaration/member muse_lease; declarations/fields: `muse_lease` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 736–740 | Muse factory source assertions; declaration/member euid; declarations/fields: `euid` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 741–768 | Muse factory source assertions; declaration/member paths_and_guest; declarations/fields: `paths_and_guest` |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 769–799 | Source assertion of Native binding and private delivery; declarations/fields: `binding_gates` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 838–852 | Muse factory source assertions; declaration/member setup_and_gate_scripts; declarations/fields: `setup_and_gate_scripts` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 853–894 | Source assertion of Provider execution integration; declarations/fields: `verify_harness_matrix` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 947–1010 | Muse factory source assertions; declaration/member reserve_success_argv_sequence; declarations/fields: `reserve_success_argv_sequence` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1011–1063 | Muse factory source assertions; declaration/member reserve_stage_missing_guest; declarations/fields: `reserve_stage_missing_guest` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1064–1142 | Muse factory source assertions; declaration/member start_flows; declarations/fields: `start_flows` |
+| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1143–1176 | Source assertion of Factory activity presentation; declarations/fields: `wait_output_live` |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1203–1219 | Muse factory source assertions; declaration/member finish_denied_for_muse; declarations/fields: `finish_denied_for_muse` |
 
 <a id="coverage-d3a966f6d3cc"></a>
 
-## [rust/soda-host/tests/tcodex_ops_oracle.rs](../../../../../rust/soda-host/tests/tcodex_ops_oracle.rs)
+## [lib/host/src/terminal/factory/mod.rs](../../../../../lib/host/src/terminal/factory/mod.rs)
+
+Re-audit @HEAD: new module wiring from the A00/A01 move (no audit predecessor); 3 re-export declarations.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1–3 | Factory provider module wiring; declarations/fields: `tcodex`, `tfactory`, `tmuse` |
+
+## [lib/host/tests/tcodex_ops_oracle.rs](../../../../../lib/host/tests/tcodex_ops_oracle.rs)
 
 Scripted Executor oracle of native command sequences; does not run real containers/systemd/provider execution. Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
