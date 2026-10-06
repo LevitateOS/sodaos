@@ -387,7 +387,7 @@ Observed size: 1312 lines, including tests where embedded. The file already name
 - `lib/soda-release-deliver/src/model/channel.rs` — Channel/Seen/Highwater shapes and decode/emission/state validation; channel reference/identity/timing/progression helpers and admit_channel.
 - `lib/soda-release-deliver/src/model/tests.rs` — Current content/path and trust-reference unit tests plus their full_content fixture.
 
-Library boundary: CF-05 uses p256 with spki/der to validate the complete key and reject off-curve points; matching OID/length is insufficient. Keep role limits, reference lookup and minimum sequence as Soda authority, and fingerprint admitted raw DER. JSON01 supplies DTO codec profiles; it does not merge Permit, Channel highwater or Release serial authority.
+Library boundary: CF-05 is implemented through the C-owned shared adapter in `lib/release-inputs/src/trust_key.rs`, using p256's typed SPKI/DER APIs. Both image and delivery reject off-curve keys and preserve admitted original DER. Their role limits, reference lookup and minimum sequence remain Soda authority. JSON01 supplies DTO codec profiles; it does not merge Permit, Channel highwater or Release serial authority.
 
 Evidence: 24-299 Trust and all PEM/DER/key-role helpers; 300-535 Candidate, exact content set, path_clean and code/asset binding; 536-615 media; 616-798 Release; 799-1021 Channel/Seen/Highwater; 1022-1125 channel admission; 1126-1179 release admission; 1180-1231 Permit; 1232-1312 tests.
 
@@ -508,7 +508,7 @@ Observed size: 1475 lines, including tests where embedded. Keep artifact records
 
 Evidence: 12-104: current constants, identity/digest/architecture/repository gates;105-290: URL/IPv4/IPv6/loopback implementation; 291-365: Image/ProducedImage;366-608: PayloadImage/Payload JSON/load/identity/base/image/upgrade validation; 609-695: ForgejoToolchain/APK provenance;696-939: Candidate and exact payload/source/host/content binding; 940-1176: Trust and private PEM/DER/SPKI/role-key admission;1177-1244: Permit/SecretFiles; 1245-1427: admitted CoreOS/Tailnet inputs;1428-1475: three unit groups; actual consumers are build,complete,host,inspect,layout,payload_stage,prepare,record,media and foreign trait signatures
 
-Open detail: Existing build/deliver owners remain reuse candidates only after their actual shape/profile comparison. Image upgrade_from [] versus deliver nil-to-null and the different ProducedImage records remain real gates. CF-05 removes both custom SPKI readers with one admitted-key boundary: reject off-curve input without silently re-encoding fingerprint bytes. JSON01/N7/N8 do not authorize aliases, FFI/RPC, signed-literal normalization or another schema owner.
+Open detail: Existing build/deliver owners remain reuse candidates only after their actual shape/profile comparison. Image upgrade_from [] versus deliver nil-to-null and the different ProducedImage records remain real gates. CF-05's two custom SPKI readers are retired behind the shared admitted-key adapter; trust policy stays in these model owners. JSON01/N7/N8 do not authorize aliases, FFI/RPC, signed-literal normalization or another schema owner.
 
 ## rust/soda-release-image/src/prepare.rs
 

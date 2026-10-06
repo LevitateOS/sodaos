@@ -5,9 +5,10 @@ audit. The [task list](implementation-tasks.md) retains its 27 primary packets
 and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
-for replacement are superseded. L01 is complete at its recorded source scope.
-L00 preparation is complete before any L02 dispatch; later unchecked
-packets retain their scoped implementation and admission requirements.
+for replacement are superseded. L01 and L02 are complete at their recorded
+source scopes; the RNG01 portion of L03 is complete, with CF-01/CF-02 remaining
+for step 4. L00 preparation preceded L02; later unchecked packets retain their
+scoped implementation and admission requirements.
 
 Prepared on **2026-10-06** against clean checkout
 `de65ff684c29cf9510134d01917ec4e5a7afdcc3`. Its committed delta from the audit
@@ -109,7 +110,8 @@ hunk editing of a shared file as a substitute for ownership.
   M/C/V subtask's required boundary output, not completion of an entire packet.
   Existing normal-mode restrictions
   still apply; L00 preparation and proofs are complete at their recorded scope.
-  L02 remains undispatched.
+  Refresh this state from the completed L02 and partial L03 evidence before
+  dispatching remaining work.
 - [ ] **R01 — Integrate each coherent packet.** Complete module/import/manifest,
   compiler, payload, source-check and caller joins in the same reviewable change.
   Commit bounded coherent batches early and often when commits are authorized;
@@ -145,16 +147,17 @@ L01 is complete: preserve Phase `9fda53fe`, CoreOS completion `3873614f`,
 bounded evidence `d80aec93`, and QMP/VM ownership `4c87f5e9`. Its 126
 acceptance library tests and all three binary compile checks passed. This is
 local source evidence; native QEMU and installed workflows remain unqualified.
-The current instruction puts L00 preparation before L02. No L02 implementation
-is dispatched during this pass.
+At the L00 preparation checkpoint, L02 had not started. It has since completed
+in `743dde17`; RNG01 completed as part of L03 in `a84447ff`. Detailed acceptance
+counts and remaining CF-01/CF-02 work are in the adoption chapter.
 
 | Step | Existing packet/lead | Executor setting | Required output before dependent work |
 | --- | --- | --- | --- |
 | 0. Establish restart state — complete | R00 / Coordinator | Luna low for bounded checks | Preserve completed corrections and structural scopes, identify the canonical revision and reconcile stopped drafts |
 | 1. Finish deadlines and evidence — complete | L01 / C | Luna medium for QMP/redaction/VM pump lifetime; Luna low for CoreOS close/error joins | Recorded absolute deadlines, final curl metadata, safe split/malformed URLs, bounded evidence and failure propagation |
 | 2. Finish admission and costly boundary preparation — complete | L00 / Coordinator; named disjoint proof writers | Luna low for dependency/license/cache inventory; Luna medium for PG/Hyper/WS proofs and independent review | Record exact compiler and feature closures, locked offline checks, PG deadline/cancel/discard/transaction custody, Unix client/server and upgrade read-ahead, nonblocking WS flush/close/reap; disposition every open cutover gate before L02 |
-| 3. Repair immediate trust and entropy defects — ready, undispatched | L02 / C; L03 / A | Luna low for settled typed primitive fixes; Luna medium review of trust/fail-closed behavior | Reject off-curve/lenient signature input; eliminate successful predictable entropy fallback; preserve raw digest/TBS and role authority |
-| 4. Replace common engines and native SQL parameters | L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles; Luna low for settled caller/SQL edits | Real producer/refusal fixtures, original signed bytes and bounded inputs; remove each old engine with its last callers; finish native $n parameters before L08 |
+| 3. Repair immediate trust and entropy defects — complete | L02 / C; RNG01 portion of L03 / A with C handoff | Luna low implementation; independent Luna medium trust/fail-closed review | `743dde17` completes strict trust/signature repair; `a84447ff` completes fail-closed entropy across ten packages. Preserve raw DER/TBS and role authority. Evidence and limits are recorded in the adoption chapter. |
+| 4. Replace common engines and native SQL parameters | Remaining L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles; Luna low for settled caller/SQL edits | Complete L03's CF-01 seven SHA definitions and CF-02 host NIST engines, real producer/refusal fixtures and bounded inputs; remove each old engine with its last callers; finish native $n parameters before L08 |
 | 5. Adopt PostgreSQL and Unix HTTP/WS | L08/L09 / A, named B/C handoffs | Luna medium | PG requires L07 and LA-G2; ordinary clients precede servers, coupled upgrade/pump follows LA-G3; complete cancellation/flush/close/reap and affected offline graph |
 | 6. Adopt SSH and local CA formats | L05 / A; L06 / C | Luna medium | SSH consumes required L03/L04 outputs; CA consumes L02/relevant PEM profile and Caddy/critical-extension evidence, with no SSH prerequisite |
 | 7. Replace independent external/network adapters | L10 / C; L11 / A with C acceptance handoff | Luna low for settled caller adapters; Luna medium for unresolved admission/deadline semantics | Setup/provider HTTP and URL/IP/time preserve each caller's credentials, raw literals, bounds and unavailable/uncertain outcomes |
@@ -165,9 +168,10 @@ is dispatched during this pass.
 | 12. Consider optional matcher adoption | L16 / C | Luna medium | Separate change after L01 and its bounded secret-input custody; no Aho-Corasick change is required to complete step 1 |
 | 13. Qualify the integrated changed subjects | R03/R04 / Coordinator | Luna low for commands/receipts; Luna medium for unresolved consequential results | Applicable source/build checks first, native qualification only for a ready selected candidate and its authorized operations; evidence states its actual scope |
 
-L00 initial preparation is complete before L02, as explicitly instructed. Its
-results and exact dependent holds are recorded in the adoption chapter. The
-per-adoption gates still apply to each changed package/features/runtime graph.
+L00 initial preparation preceded L02. L02 and the immediate RNG01 portion of
+L03 are now complete; their result details and exact dependent holds are
+recorded in the adoption chapter. The per-adoption gates still apply to each
+changed package/features/runtime graph.
 Independent parts of later ready
 packets can fill available slots after dispatch; optional step 12 does not hold
 unrelated qualification. Do not treat the preparation probes as implemented
@@ -215,9 +219,10 @@ and commits; tests/builds are serialized.
 | Unix HTTP/WS proof | `.artifacts/l00/transport-boundary/src/lib.rs` and `README.md` | Exact resolved Hyper/Tokio/tungstenite graph; prove client/server Unix I/O, bounded backend admission and shutdown, validated upgrade plus first-frame read-ahead, owner wakeup/flush/automatic Pong/close/reap | Luna medium |
 | Independent acceptance review | Read-only actual proof sources, results and affected plan changes | Challenge deadline/custody assertions, swallowed failures and admission claims; report exact consequential gaps for correction | Luna medium |
 
-These assignments close preparation only. L02's C-owned trust/signature files
-remain undispatched. The existing investigation, coverage, adoption chapter and
-task list remain the authorities; this register creates no new queue.
+These assignments closed preparation only. At that checkpoint L02's C-owned
+trust/signature files remained undispatched; they are now complete. The
+existing investigation, coverage, adoption chapter and task list remain the
+authorities; this register creates no new queue.
 
 Every coherent packet gets one independent review at the chosen level. Routine
 checks need no additional reasoning agent. Commit passing bounded changes early

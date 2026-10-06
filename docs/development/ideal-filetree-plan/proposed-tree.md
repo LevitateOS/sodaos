@@ -26,6 +26,7 @@ the earlier exact-match/delta counts below are historical observations.
 | Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar grammar is retired after L06 gates |
 | `lib/json`, release `json*`, Compose/Muse/guest wire | Only demonstrated shared or caller-specific Serde admission/emission profiles; no replacement generic lexer or emitter |
 | Release/build/import OCI adapters | Delivery owns low-level scanning; callers retain admitted content/layout/descriptor policy and original blob custody |
+| `lib/release-inputs/src/trust_key.rs` and release trust callers | Shared typed P-256 admission; image/delivery retain role authority and original-DER fingerprints |
 | Release/terminal/acceptance process, file and evidence modules | Existing authority, bounded input/output, cancellation, cleanup and narrow library adapters; no new framework |
 
 Hash/codec engines disappear into selected library calls and existing fingerprint
@@ -2134,7 +2135,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── stream.rs
 │   │   │   │   └── url.rs
 │   │   │   ├── lib.rs
-│   │   │   └── reader.rs
+│   │   │   ├── reader.rs
+│   │   │   └── trust_key.rs
 │   │   └── Cargo.toml
 │   ├── soda-release-build/
 │   │   ├── src/

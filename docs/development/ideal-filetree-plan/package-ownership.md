@@ -172,8 +172,10 @@ in the lane schedule; this table describes remaining responsibilities.
 | --- | --- |
 | Host/identity Unix HTTP and WebSocket engines (N1/N2/N5/N6) | Existing A-owned listener/route/admission/backend and single bounded upgrade/pump adapters around Hyper/Tokio/tungstenite; C owns candidate fixture lifecycle |
 | Identity PG wire/DSN/query translators (PG01/SQL01) | A-owned Store/Tx policy around the L00-proved tokio-postgres deadline/whole-transaction adapter; B owns native Go SQL/schema and A maintains its Rust mirror |
-| Hash, curve, SSH and Base64 engines (CF-01–04/RNG01) | Existing callers retain fingerprint recipes, algorithm/encoding admission and fail-closed entropy; library engines replace private algorithm/format modules |
-| Installer X509/DER/calendar/URL engines (X50901/CF-05/06) | C-owned bounded local-CA custody, original TBS/fingerprint and explicit CA/critical-extension/signature policy around typed libraries |
+| Hash, curve, SSH and Base64 engines (CF-01–04) | Existing callers retain fingerprint recipes and algorithm/encoding admission; remaining library migrations replace private algorithm/format modules |
+| Entropy callers (RNG01) | Implemented getrandom acquisition; A owns host/identity IDs, nonces and policy revision failure propagation, C owns installer/setup/maintenance/release callers and their retained custody |
+| Release trust-key intake (CF-05) | C owns the shared typed P-256 adapter in `lib/release-inputs/src/trust_key.rs`; image/delivery retain role/timing/reference policy and original-DER fingerprints |
+| Installer X509/DER/calendar/URL engines (X50901/CF-06) | C owns implemented strict ECDSA signature admission and original-TBS verification; bounded local-CA and critical-extension/parser adoption remain L06 |
 | JSON grammars/emitters (JSON01) | Existing profile adapters and domain validation; no shared replacement parser process |
 | Generic file/FD/process mechanics (L12) | Existing C operator/release and A host/guest adapters retain authority, same-FD bounds, cancellation and cleanup; no broad framework |
 | Archive/OCI/XML/CLI/Cargo emulators (L13/L14) | Existing C-owned format/renderer/command/shipping policy; delivery owns shared OCI scanning with an acyclic build dependency |

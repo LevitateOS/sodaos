@@ -5,8 +5,9 @@ handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and
 [lane schedule](implementation-lanes.md) remain the execution plan. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
-L00 initial preparation and L01 are complete at their recorded source scopes.
-L02 remains undispatched; later cutovers retain their scoped authorization and
+L00 initial preparation, L01, and L02 are complete at their recorded source
+scopes. The RNG01 portion of L03 is complete; its CF-01 SHA and CF-02 host NIST
+owners remain for step 4. Later cutovers retain their scoped authorization and
 admission checks.
 
 Planning reconciliation uses source `72e4bb9015b6d6a622b45638104c74851a137473`
@@ -31,15 +32,16 @@ L identifiers are subpackets of the existing A/B/C tasks. Each has one lead;
 physical writers remain the exclusive owners in the lane schedule. A lead sends
 cross-owner changes through named handoffs rather than editing another owner's
 files. The coordinator owns manifests/locks and integration. Packet state is
-recorded in the task list: L00 initial preparation and L01 are complete; later
-unchecked packets remain undispatched subject to their exact gates below.
+recorded in the task list: L00 initial preparation, L01, and L02 are complete;
+L03 is partial as described below. Later unchecked packets remain undispatched
+subject to their exact gates below.
 
 | Packet | Lead | Existing task joins | Sequence and required output |
 | --- | --- | --- | --- |
 | L00 Admission and boundary preparation | Coordinator | R00/R01, C01/C02/C08 | Finish initial preparation before L02; retain admission per selected dependency/contract |
 | L01 Deadline and evidence repair | C | C11.C/V | Immediate; preserves the existing small lifecycle/evidence owners |
-| L02 Trust-key and signature repair | C | C07/C10 | After initial L00 preparation; existing curve/DER libraries and raw-byte contracts |
-| L03 Hash, curve and randomness owners | A | A03/A05/A06, C10/C11 | Fail-closed entropy first; complete primitive owners can proceed independently |
+| L02 Trust-key and signature repair | C | C07/C10 | Complete after L00; existing curve/DER libraries and raw-byte contracts preserved |
+| L03 Hash, curve and randomness owners | A | A03/A05/A06, C10/C11 | RNG01 fail-closed entropy complete; CF-01 SHA and CF-02 host NIST owners remain for step 4 |
 | L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | Define the selected caller profile before replacing that owner |
 | L05 SSH formats | A | A01/A07, C07 | Requires its CF-01/02/04 profiles from L03/L04 |
 | L06 Local CA parsing | C | C05/C07 | L02 and required L04 PEM/Base64 profile; no L05 dependency |
@@ -113,13 +115,13 @@ Artifact distribution still follows [licensing](../../research/licensing.md).
 
 | Finding/boundary | Exact demonstrated subject and result | Adoption disposition and remaining owner |
 | --- | --- | --- |
-| CF-05/CF-06 → L02 | P-256 SPKI roundtrip/off-curve refusal; canonical/redundant DER on P-224/P-256/P-384/P-521 typed signatures; **2/2** pass. Current release-image/deliver/install graphs plus soda-build/soda-candidate compile locked offline | Ready for C-owned repair. Keep original DER/TBS, uncompressed-only policy, role separation and existing bounds. Actual edited manifests/features/callers and wrong-key/tampered-signature regressions remain L02 acceptance |
+| CF-05/CF-06 → L02 | L00 P-256 SPKI roundtrip/off-curve refusal; canonical/redundant DER on P-224/P-256/P-384/P-521 typed signatures; **2/2** pass. Current release-image/deliver/install graphs plus soda-build/soda-candidate compile locked offline | **Complete** in `743dde17`: C's shared `soda-build-tools` trust adapter serves release-image/deliver; the installer uses strict typed signatures. Original DER/TBS, uncompressed-only policy, role separation and existing bounds are retained; actual regression and package evidence is recorded under L02 below. |
 | PG01 → L08 | Fresh PostgreSQL **17.11** private Unix socket, NoTls/trust fixture: one absolute 5s connect/query/cancel/ack/discard/join/reconnect budget; actual SQLSTATE 57014 and new backend PID; 100ms silent-socket expiry; full transaction guard excludes competitor; **3/3** pass | Select **tokio-postgres 0.7.18** futures behind the A-owned small deadline facade. Hold a synchronous postgres-only Client migration: private blocking calls expose no operation deadline hook. L07, admitted DSN/auth/TLS policy, typed values/errors and actual Store/Tx integration remain L08 gates |
 | N1/N2/N5/N6 → L09 | Hyper **1.12.0** `http1,client,server`, hyper-util **0.1.21** `tokio`, Tokio **1.53.2**; real Unix client/server, one admitted blocking backend plus rejected excess request and bounded shutdown joins | API/runtime fit proved. A owns actual listener/client/backend policy; C owns candidate fixture. Production request/header/body/admission bounds, cancellation and affected offline graphs remain L09 acceptance |
 | N5 → L09 upgrade/session | Validated HTTP upgrade with first masked frame in the same write; assert all eight frame bytes in Hyper read-ahead, restore into tungstenite **0.30.0** `handshake`; one nonblocking owner, idle blocking/wakeup, short writes/WouldBlock without duplicate frame, automatic Pong, bounded close/child reap/slot release; included in **4/4** transport pass | Preserve one bounded production owner/queue and upgrade task custody. Slow-peer caps, real NativeAttach/error paths and integrated shutdown remain A's L09 acceptance |
 | CLI03 → L14 | Exact humantime **2.4.0** source checked: no features, MIT OR Apache-2.0, declared Rust 1.60; candidate graph compiles offline | Metadata uncertainty closed. C still retains positive-duration/precision/overflow and command-tail policy at actual caller transfer |
 
-Current affected package checks and development builds both passed using
+At that L00 checkpoint, affected baseline package checks and development builds passed using
 `cargo check` and `cargo build` with `--locked --offline -p soda-release-image
 -p soda-release-deliver -p soda-install`, followed by `--locked --offline -p
 soda-release-tools --bin soda-build --bin soda-candidate`.
@@ -129,7 +131,8 @@ was stopped and its postmaster PID file is absent. Independent Luna medium
 review passed the final proof subjects, receipts and affected plan changes;
 Luna low handled the bounded inventory.
 
-Initial preparation is closed and L02 remains undispatched. LA-G1 continues at
+At that checkpoint, initial preparation was closed and L02 had not yet started.
+L02 has since completed; LA-G1 continues at
 each actual cutover for the changed workspace graph, selected compiler and
 worker cache; local probe cache is not artifact-worker qualification. LA-G2/3
 now have demonstrated adapter fit, while actual production acceptance remains
@@ -188,19 +191,71 @@ rejection, wrong key/tampered signature and unchanged raw-byte fingerprints.
 Delete the replaced coordinate-only/lenient decoding bodies and revise only
 tests enforcing their unsupported permissiveness.
 
+Status: **complete**, implemented in commit `743dde17` by C at Luna low. The
+shared adapter is `lib/release-inputs/src/trust_key.rs`; release-image and
+release-deliver use typed strict P-256 SPKI admission with original-DER
+fingerprints and role separation. Installer signature verification uses strict
+typed DER on P-224/P-256/P-384/P-521 and preserves raw TBS bytes. Independent
+Luna medium source review found no blocker. The coordinator completed integration
+checks and committed the repair.
+
+| Completed acceptance evidence | Result |
+| --- | --- |
+| Trust foundation with `trust-key` | 24 passed |
+| Release-image and release-deliver models | 5 + 5 passed |
+| Installer X.509 | 26 passed, including valid signatures on all four curves, strict DER on all four, wrong-P256-key refusal and raw-TBS tamper detection |
+
+These checks cover admitted producer keys, off-curve refusal, redundant INTEGER
+rejection, wrong-key/tampered-signature behavior and unchanged raw-byte
+fingerprints. The L00 2/2 API probe remains historical admission evidence, not a
+substitute for these caller tests.
+
 ### L03 Hash, curve and randomness owners
 
 Scope: the seven CF-01 SHA-256 definitions, host NIST validation (CF-02), and
 RNG01 identity/host/terminal/Muse randomness callers. A owns host/identity/guest
-changes; C receives image-import, maintenance and acceptance changes. Reuse
+primitive changes; C receives image-import, maintenance and acceptance changes
+and owns the remaining entropy callers. Reuse
 sha2 0.10.9, existing p256/p384/p521 and getrandom 0.4.3. Fail entropy acquisition
 closed before other primitive work. Retain canonical grant/artifact/input
 recipes, nonce/identifier formats and safe errors; entropy is not hashing.
 
 Acceptance: canonical fingerprints/bindings and streaming boundaries; all three
-NIST curves with explicit uncompressed policy; acquisition failure cannot
+host NIST curves with explicit uncompressed policy; acquisition failure cannot
 return a usable predictable token or zero revision. Migrate one crate owner and
 all its callers, then delete its engine. WS-only SHA-1 deletion belongs to L09.
+
+Progress: **partial**. RNG01 is complete in `a84447ff`: A changed host and
+identity; C changed the remaining callers. All ten production packages now use
+`getrandom::fill`; PID/time fallbacks and zero-revision defaults were removed,
+and all four policy-revision callers propagate acquisition errors. L03 remains
+open for the seven CF-01 SHA-256 definitions and CF-02 host NIST validation,
+planned for step 4; no further L03 work is dispatched as step 3.
+
+| RNG01 completed evidence | Result |
+| --- | --- |
+| Installer enrollment keys; worker runtime | 9; 19 passed |
+| Host policy oracle | 57 passed |
+| Identity entropy and crypto | 3 + 4 passed; the seal test overlaps |
+| Host library entropy | 2 passed; its oracle also includes the revision test |
+| Setup callers | 14 passed |
+| Other affected caller package/CLI checks | 60 passed across candidate setup (26), lab credentials (19), identity-compose (10), PG fixture (3), and Forgejo migration (2) |
+
+All-default locked-offline development builds passed for 12 affected packages,
+including library and binary targets, host plus `forgejo-tailnet`, and all four
+release-tools binaries. The installer build had 16 existing unused-import
+warnings; one obsolete parser import was removed. Socket and worker executable
+fixtures passed in exact local runs outside sandbox network/UID restrictions.
+These results verify local development behavior. Installed appliance and
+artifact-worker qualification remain open. Source and inventory workers used
+Luna low; independent Luna medium source review found no blocker. Root owns
+manifests, checks and Git.
+
+Admission details and package selectors are in the [L02/L03 inventory](../../../.artifacts/l02-l03/inventory.md)
+and [verification record](../../../.artifacts/l02-l03/verification.md), with
+the exact commands and coordinator receipts. That x86_64 Linux refresh used
+rustc/Cargo 1.99.0; selected versions were already cached, no registry version
+changed, and the metadata matches the final manifest features.
 
 ### L04 JSON and Base64 profiles
 
