@@ -1,5 +1,5 @@
 use super::config::Config;
-use super::JsonParser;
+use super::json::JsonParser;
 
 // go_quoted mirrors strconv.Quote: ASCII graphic bytes and U+0020 pass
 // through, C0/DEL take short or \x escapes, and every other character
