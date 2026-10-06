@@ -7,7 +7,7 @@ This statement does not relicense inherited or third-party material.
 The original Soda robot v1 SVG style in internal/avatar/style-v1.json is also
 Apache-2.0. It uses DiceBear's MIT-licensed Go renderer; no Bottts artwork is
 included. Exact renderer dependency notices are retained in
-appliance/licenses/avatar-dependencies.txt and included in new native bundles.
+system/licenses/avatar-dependencies.txt and included in new native bundles.
 
 Selected code and canonical branding were adapted or imported from Soda OS
 (https://github.com/LevitateOS/soda-os), including the source at revision
