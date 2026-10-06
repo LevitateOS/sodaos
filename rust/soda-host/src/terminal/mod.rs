@@ -34,6 +34,8 @@ use crate::json::{self, BoundMap, Kind, Spec, Value};
 use crate::project::Executor;
 use crate::sha256;
 
+pub mod factory;
+
 // ---------- wire limits ----------
 
 /// `FrameLimit`: bounded 64-row metadata; IO payload bounds stay smaller.

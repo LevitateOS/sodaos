@@ -8,7 +8,7 @@
 //! and the role/preparation/digest/commit predicates from
 //! `preparation.go`).
 //!
-//! Methods extend [`Service`](crate::texec::Service); argv builders are
+//! Methods extend [`Service`](crate::terminal::Service); argv builders are
 //! plain `pub` fns. Polling loops bound sleeps by the caller deadline so
 //! a cancelled context ends the wait promptly, mirroring Go's `select`
 //! on `ctx.Done()`.
@@ -19,7 +19,7 @@ use crate::domain;
 use crate::json::{self, Kind, Spec};
 use crate::project::Executor;
 use crate::sha256;
-use crate::texec::{self, Binding, Delivery, Lease, Service, KIND_FACTORY};
+use crate::terminal::{self, Binding, Delivery, Lease, Service, KIND_FACTORY};
 
 // ---------- factory domain (internal/project) ----------
 
@@ -80,7 +80,7 @@ pub fn valid_commit(c: &str) -> bool {
 
 /// `ValidFactoryRunID = ^[a-f0-9]{32}$`.
 pub fn valid_factory_run_id(id: &str) -> bool {
-    texec::valid_terminal_id(id)
+    terminal::valid_terminal_id(id)
 }
 
 /// `ValidHarnessVersion = ^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$`.
@@ -206,7 +206,7 @@ impl FactoryRun {
         let m = json::bind_root(&v, "FactoryRun", FACTORY_RUN_SPECS, false).map_err(|e| e.0)?;
         let deadline_raw = m.take_string("deadline");
         if m.contains("deadline") {
-            texec::parse_rfc3339(&deadline_raw).ok_or_else(|| "invalid deadline".to_string())?;
+            terminal::parse_rfc3339(&deadline_raw).ok_or_else(|| "invalid deadline".to_string())?;
         }
         Ok(FactoryRun {
             deadline_raw,
@@ -260,7 +260,7 @@ pub fn factory_unit_name(run: &str) -> Option<String> {
 }
 
 pub(crate) fn factory_unit_name_or_denied(run: &str) -> Result<String, String> {
-    factory_unit_name(run).ok_or_else(texec::err_denied)
+    factory_unit_name(run).ok_or_else(terminal::err_denied)
 }
 
 /// `TakeoverDestination`: member-owned checkout destination for one run.
@@ -303,8 +303,8 @@ pub struct FactoryCodexPaths {
 pub fn factory_codex_paths(run: &FactoryRun) -> Result<FactoryCodexPaths, String> {
     run.validate()?;
     let (checkout, run_dir, home, codex) =
-        factory_run_paths(&run.role, &run.preparation, &run.id).ok_or_else(texec::err_denied)?;
-    let guest = factory_codex_guest(&run.harness_vers).ok_or_else(texec::err_denied)?;
+        factory_run_paths(&run.role, &run.preparation, &run.id).ok_or_else(terminal::err_denied)?;
+    let guest = factory_codex_guest(&run.harness_vers).ok_or_else(terminal::err_denied)?;
     Ok(FactoryCodexPaths {
         checkout,
         run_dir: run_dir.clone(),
@@ -439,20 +439,21 @@ git_export bundle create "$dir/candidate.bundle" HEAD 2>/dev/null
 /// `tfactory` checks.
 pub fn factory_codex_binding(lease: &Lease) -> Result<FactoryCodexPaths, String> {
     let Some(b) = &lease.binding else {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     };
     if !domain::valid_login(&b.login) || b.login == "root" {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     if b.uid <= 0 || b.gid <= 0 || b.generation != lease.generation || b.generation <= 0 {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
-    let (checkout, run_dir, home, codex) = crate::tfactory::checked_binding_paths(
-        lease,
-        texec::PROVIDER_CODEX,
-        FACTORY_SCOPE_CODEX,
-        factory_run_paths,
-    )?;
+    let (checkout, run_dir, home, codex) =
+        crate::terminal::factory::tfactory::checked_binding_paths(
+            lease,
+            terminal::PROVIDER_CODEX,
+            FACTORY_SCOPE_CODEX,
+            factory_run_paths,
+        )?;
     Ok(FactoryCodexPaths {
         checkout,
         run_dir: run_dir.clone(),
@@ -701,7 +702,7 @@ pub fn parse_factory_unit_show(body: &[u8]) -> FactoryUnitShow {
 
 /// `factoryRoleID`: positive role identity or `invalid role identity`.
 pub fn factory_role_id(out: &[u8]) -> Result<i64, String> {
-    match texec::parse_go_int(String::from_utf8_lossy(out).trim()) {
+    match terminal::parse_go_int(String::from_utf8_lossy(out).trim()) {
         Some(id) if id > 0 => Ok(id),
         _ => Err("invalid role identity".to_string()),
     }
@@ -782,13 +783,13 @@ impl<E: Executor> Service<E> {
         let end = Instant::now() + wait;
         loop {
             if let Ok(show) = self.factory_unit_state(unit, deadline) {
-                if show.active && texec::valid_terminal_id(&show.invocation) {
+                if show.active && terminal::valid_terminal_id(&show.invocation) {
                     return Ok(show.invocation);
                 }
             }
             let now = Instant::now();
             if now >= end || now >= deadline {
-                return Err(texec::err_stale());
+                return Err(terminal::err_stale());
             }
             if sleep_until(now + Duration::from_millis(100), deadline).is_err() {
                 return Err("context deadline exceeded".to_string());
@@ -844,16 +845,16 @@ impl<E: Executor> Service<E> {
     ) -> Result<(Binding, FactoryCodexPaths), String> {
         let p = factory_codex_paths(run)?;
         if lease.kind != KIND_FACTORY || lease.execution_id != run.id || lease.generation <= 0 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if pin_sha256.is_empty()
             || pin_sha256 != self.codex_harness_sha256
             || !self.codex_harness.starts_with('/')
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if !(60..=3 * 3600).contains(&max_secs) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         self.verify_identity_harness()?;
         let container = self.factory_project_container(&run.project, true, deadline)?;
@@ -940,7 +941,7 @@ impl<E: Executor> Service<E> {
         version: &str,
         deadline: Instant,
     ) -> Result<String, String> {
-        let guest = factory_codex_guest(version).ok_or_else(texec::err_denied)?;
+        let guest = factory_codex_guest(version).ok_or_else(terminal::err_denied)?;
         let probe = vec![
             "--remote=false".to_string(),
             "exec".to_string(),
@@ -950,7 +951,7 @@ impl<E: Executor> Service<E> {
         ];
         match self.run_podman(&[], &probe, deadline) {
             Err(_) => {
-                let host_bin = texec::clean_path(&format!("{}/bin/codex", self.codex_harness));
+                let host_bin = terminal::clean_path(&format!("{}/bin/codex", self.codex_harness));
                 let cp = vec![
                     "--remote=false".to_string(),
                     "cp".to_string(),
@@ -994,7 +995,7 @@ impl<E: Executor> Service<E> {
     fn factory_codex_stage_host(&self, container: &str, deadline: Instant) -> Result<(), String> {
         const HOST_GUEST: &str = "/usr/local/bin/codex-code-mode-host";
         let host_bin =
-            texec::clean_path(&format!("{}/bin/codex-code-mode-host", self.codex_harness));
+            terminal::clean_path(&format!("{}/bin/codex-code-mode-host", self.codex_harness));
         let want =
             std::fs::read(&host_bin).map_err(|_| "factory code host is not staged".to_string())?;
         let digest = sha256::hex_lower(&sha256::digest(&want));
@@ -1052,16 +1053,16 @@ impl<E: Executor> Service<E> {
         deadline: Instant,
     ) -> Result<(), String> {
         let p = factory_codex_binding(lease)?;
-        if !texec::credential_valid(credential) {
-            return Err(texec::err_denied());
+        if !terminal::credential_valid(credential) {
+            return Err(terminal::err_denied());
         }
         if prompt.is_empty() || prompt.len() > MAX_FACTORY_PROMPT {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
-        let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
+        let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
         let container = self.factory_project_container(&lease.project_id, true, deadline)?;
         if container != binding.project {
-            return Err(texec::err_stale());
+            return Err(terminal::err_stale());
         }
         self.factory_stage_file(&container, binding, &p.auth, credential, deadline)?;
         self.factory_stage_file(&container, binding, &p.prompt, prompt, deadline)?;
@@ -1128,7 +1129,7 @@ impl<E: Executor> Service<E> {
     /// before the broker releases credential bytes.
     pub fn factory_codex_validate(&self, lease: &Lease, deadline: Instant) -> Result<(), String> {
         factory_codex_binding(lease)?;
-        let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
+        let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
         self.factory_attest_live(&lease.project_id, binding, &lease.execution_id, deadline)
     }
 
@@ -1136,7 +1137,7 @@ impl<E: Executor> Service<E> {
     /// process group. Idempotent.
     pub fn factory_codex_stop(&self, lease: &Lease, deadline: Instant) -> Result<(), String> {
         let p = factory_codex_binding(lease)?;
-        let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
+        let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
         self.factory_stop_confirmed(
             &binding.project,
             &lease.execution_id,
@@ -1160,10 +1161,10 @@ impl<E: Executor> Service<E> {
             }
             let now = Instant::now();
             if now >= end || now >= deadline {
-                return Err(texec::err_uncertain());
+                return Err(terminal::err_uncertain());
             }
             if sleep_until(now + Duration::from_millis(250), deadline).is_err() {
-                return Err(texec::err_uncertain());
+                return Err(terminal::err_uncertain());
             }
         }
     }
@@ -1190,7 +1191,7 @@ impl<E: Executor> Service<E> {
         ];
         self.run_podman(&[], &argv, deadline)
             .map(|_| ())
-            .map_err(|_| texec::err_uncertain())
+            .map_err(|_| terminal::err_uncertain())
     }
 
     pub(crate) fn factory_read_pid(
@@ -1219,10 +1220,10 @@ impl<E: Executor> Service<E> {
         container: &str,
         deadline: Instant,
     ) -> Result<bool, String> {
-        match self.run_podman(&[], &texec::container_exists_argv(container), deadline) {
+        match self.run_podman(&[], &terminal::container_exists_argv(container), deadline) {
             Ok(_) => Ok(true),
-            Err(err) if texec::exit_code_of(&err) == Some(1) => Ok(false),
-            Err(_) => Err(texec::err_uncertain()),
+            Err(err) if terminal::exit_code_of(&err) == Some(1) => Ok(false),
+            Err(_) => Err(terminal::err_uncertain()),
         }
     }
 
@@ -1284,7 +1285,7 @@ impl<E: Executor> Service<E> {
         limit: i64,
         deadline: Instant,
     ) -> Result<FactoryCodexOutputSlice, String> {
-        crate::tfactory::check_output_range(offset, limit)?;
+        crate::terminal::factory::tfactory::check_output_range(offset, limit)?;
         let stdout = self.factory_output_stdout(
             project_id,
             binding,
@@ -1310,11 +1311,11 @@ impl<E: Executor> Service<E> {
             || !valid_commit(candidate)
             || !domain::valid_container_id(recorded)
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let current = self.factory_project_container(project_id, true, deadline)?;
         if current != recorded {
-            return Err(texec::err_stale());
+            return Err(terminal::err_stale());
         }
         let argv = export_argv(&current, role, &src, candidate);
         let bundle = match self.run_podman(&[], &argv, deadline) {
@@ -1327,7 +1328,7 @@ impl<E: Executor> Service<E> {
             }
         };
         if bundle == b"soda-export-missing\n" {
-            return Err(texec::ERR_NOT_FOUND.to_string());
+            return Err(terminal::ERR_NOT_FOUND.to_string());
         }
         if bundle == b"soda-export-invalid\n" {
             return Err(ERR_FACTORY_EXPORT_CANDIDATE.to_string());
@@ -1351,14 +1352,14 @@ impl<E: Executor> Service<E> {
         run: &str,
         deadline: Instant,
     ) -> Result<(String, bool), String> {
-        let dest = takeover_destination(member, run).ok_or_else(texec::err_denied)?;
+        let dest = takeover_destination(member, run).ok_or_else(terminal::err_denied)?;
         let src = format!("/home/{role}/checkouts/{preparation}");
         if !takeover_source(&src, role, preparation) || !domain::valid_container_id(recorded) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let current = self.factory_project_container(project_id, true, deadline)?;
         if current != recorded {
-            return Err(texec::err_stale());
+            return Err(terminal::err_stale());
         }
         let probe = |args: &[String]| self.run_podman(&[], args, deadline);
         let test_dir = vec![
@@ -1464,11 +1465,11 @@ impl<E: Executor> Service<E> {
             // Muse borrows: the broker forgets the lease on return and
             // never calls finish (same denial as the interactive muse
             // runtime, which allows only validate and stop).
-            "finish" if muse => return Err(texec::err_denied()),
+            "finish" if muse => return Err(terminal::err_denied()),
             "finish" => {
                 out.credential = Some(self.factory_codex_finish(&delivery.lease, deadline)?);
             }
-            _ => return Err(texec::err_denied()),
+            _ => return Err(terminal::err_denied()),
         }
         Ok(out)
     }
@@ -1476,7 +1477,7 @@ impl<E: Executor> Service<E> {
 
 /// `factoryOutputSize`: non-negative stat size from a short read.
 pub fn factory_output_size(out: &[u8]) -> Option<i64> {
-    let size = texec::parse_go_int(String::from_utf8_lossy(out).trim())?;
+    let size = terminal::parse_go_int(String::from_utf8_lossy(out).trim())?;
     if size >= 0 && out.len() <= 64 {
         Some(size)
     } else {
@@ -1487,7 +1488,7 @@ pub fn factory_output_size(out: &[u8]) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::texec::{ERR_DENIED, ERR_STALE, ERR_UNCERTAIN};
+    use crate::terminal::{ERR_DENIED, ERR_STALE, ERR_UNCERTAIN};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
 
@@ -1603,7 +1604,7 @@ mod tests {
 
     fn factory_lease() -> Lease {
         Lease {
-            provider_id: texec::PROVIDER_CODEX.to_string(),
+            provider_id: terminal::PROVIDER_CODEX.to_string(),
             id: "lease-f".to_string(),
             connection_id: "conn".to_string(),
             generation: 5,
@@ -2684,7 +2685,7 @@ exit 0
         let calls = svc.exec.calls();
         assert_eq!(
             calls[3].2,
-            texec::container_exists_argv(&format!("soda-{PID}"))
+            terminal::container_exists_argv(&format!("soda-{PID}"))
         );
         // Present-but-uninspectable container is uncertain.
         let svc = make_service(FakeExec::new(vec![
@@ -2877,7 +2878,7 @@ exit 0
         assert_eq!(
             svc.factory_export_bundle(PID, CID, ROLE, PREP, COMMIT, deadline())
                 .unwrap_err(),
-            texec::ERR_NOT_FOUND
+            terminal::ERR_NOT_FOUND
         );
         let svc = make_service(FakeExec::new(vec![
             ok(&inspect_json()),

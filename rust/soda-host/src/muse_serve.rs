@@ -32,7 +32,7 @@ use crate::muse::{
     LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer, MuseRuntime,
 };
 use crate::project::Executor;
-use crate::texec::Delivery;
+use crate::terminal::Delivery;
 
 /// Post-spawn custody-return horizon: Go's 30s `Finish` context.
 const CLEANUP_SECS: u64 = 30;

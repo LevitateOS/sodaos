@@ -1,7 +1,7 @@
 //! Oracle vectors for the factory-codex terminal callbacks.
 //!
 //! The three daemon callbacks live in the library as inherent methods on
-//! [`Service`](soda_host::texec::Service) and are dispatched by
+//! [`Service`](soda_host::terminal::Service) and are dispatched by
 //! `factory_identity_operation` (`tcodex.rs`, ported by the texec lane):
 //!
 //! * `factory_codex_validate(&self, lease, deadline) -> Result<(), String>`
@@ -44,8 +44,8 @@
 //!   propagates `factory role is not resolvable` / `invalid role identity`.
 
 use soda_host::project::Executor;
-use soda_host::tcodex::{self, FactoryUnitShow};
-use soda_host::texec::{
+use soda_host::terminal::factory::tcodex::{self, FactoryUnitShow};
+use soda_host::terminal::{
     self, Binding, Delivery, Lease, Service, ERR_DENIED, ERR_UNCERTAIN, KIND_FACTORY,
     PROVIDER_CODEX, TERMINAL_INSPECT,
 };
@@ -255,11 +255,11 @@ fn validate_denies_each_gate() {
             ..lease.clone()
         },
         Lease {
-            provider_id: texec::PROVIDER_MUSE.to_string(),
+            provider_id: terminal::PROVIDER_MUSE.to_string(),
             ..lease.clone()
         },
         Lease {
-            kind: texec::KIND_TERMINAL.to_string(),
+            kind: terminal::KIND_TERMINAL.to_string(),
             ..lease.clone()
         },
         Lease {

@@ -6,7 +6,7 @@
 //! re-exports below. Request bodies are pinned against bytes captured
 //! from the live Go client; config decisions against live `loadConfig`.
 
-use soda_host::{domain, json, muse, net, pfactory, ssh, texec};
+use soda_host::{domain, json, muse, net, pfactory, ssh, terminal};
 
 #[path = "../src/iclient.rs"]
 mod iclient;
@@ -178,7 +178,7 @@ const LEASE_JSON: &str = r#"{"id":"lease-1","connection_id":"conn","generation":
 fn acquire_body_matches_go_oracle() {
     let broker = FakeBroker::start("acquire", |_| json_reply(200, "OK", LEASE_JSON));
     let client = BrokerClient::new(&broker.path);
-    let req = texec::AcquireRequest {
+    let req = terminal::AcquireRequest {
         repository_id: 7,
         provider_id: "codex".to_string(),
         execution_id: "exec".to_string(),
@@ -211,7 +211,7 @@ fn acquire_body_matches_go_oracle() {
 fn acquire_omits_zero_repository_and_role() {
     let broker = FakeBroker::start("acquire2", |_| json_reply(200, "OK", LEASE_JSON));
     let client = BrokerClient::new(&broker.path);
-    let req = texec::AcquireRequest {
+    let req = terminal::AcquireRequest {
         provider_id: "muse".to_string(),
         execution_id: "exec-2".to_string(),
         actor_id: 3,
@@ -219,7 +219,7 @@ fn acquire_omits_zero_repository_and_role() {
         project_id: "proj-2".to_string(),
         kind: "terminal".to_string(),
         deadline_secs: 1907050150,
-        ..texec::AcquireRequest::default()
+        ..terminal::AcquireRequest::default()
     };
     client.acquire(&req, deadline()).unwrap();
     let body = "{\"provider_id\":\"\",\"owner_id\":\"0\",\"id\":\"\",\"label\":\"\",\"project_id\":\"\",\"acquire\":{\"provider_id\":\"muse\",\"execution_id\":\"exec-2\",\"actor_id\":\"3\",\"connection_id\":\"conn-2\",\"project_id\":\"proj-2\",\"kind\":\"terminal\",\"deadline\":\"2030-06-07T08:09:10Z\"}}\n";
@@ -227,8 +227,8 @@ fn acquire_omits_zero_repository_and_role() {
     assert_eq!(broker.request(), full_request("/acquire", body));
 }
 
-fn full_binding() -> texec::Binding {
-    texec::Binding {
+fn full_binding() -> terminal::Binding {
+    terminal::Binding {
         child_id: "child".to_string(),
         uid: 1000,
         gid: 1000,
@@ -264,11 +264,11 @@ fn register_full_binding_matches_go_oracle() {
 fn register_minimal_binding_matches_go_oracle() {
     let broker = FakeBroker::start("register2", |_| json_reply(200, "OK", DELIVERY_JSON));
     let client = BrokerClient::new(&broker.path);
-    let binding = texec::Binding {
+    let binding = terminal::Binding {
         kind: "factory".to_string(),
         id: "container".to_string(),
         generation: 1,
-        ..texec::Binding::default()
+        ..terminal::Binding::default()
     };
     client.register("lease-9", &binding, deadline()).unwrap();
     let body = "{\"provider_id\":\"\",\"owner_id\":\"0\",\"id\":\"lease-9\",\"label\":\"\",\"project_id\":\"\",\"binding\":{\"kind\":\"factory\",\"id\":\"container\",\"project\":\"\",\"login\":\"\",\"generation\":1}}\n";
@@ -341,11 +341,11 @@ fn return_execution_bodies_match_go_oracle() {
         }
     });
     let client = BrokerClient::new(&broker.path);
-    let binding = texec::Binding {
+    let binding = terminal::Binding {
         kind: "factory".to_string(),
         id: "container".to_string(),
         generation: 1,
-        ..texec::Binding::default()
+        ..terminal::Binding::default()
     };
     client
         .return_lease("lease-9", &binding, b"{}", deadline())
@@ -418,10 +418,10 @@ fn deadline_format_matches_go_time_json() {
     let broker = FakeBroker::start("dates", |_| json_reply(200, "OK", LEASE_JSON));
     let client = BrokerClient::new(&broker.path);
     for (secs, nanos, expected) in cases {
-        let req = texec::AcquireRequest {
+        let req = terminal::AcquireRequest {
             deadline_secs: secs,
             deadline_nanos: nanos,
-            ..texec::AcquireRequest::default()
+            ..terminal::AcquireRequest::default()
         };
         client.acquire(&req, deadline()).unwrap();
         let raw = broker.request();
@@ -513,9 +513,9 @@ fn response_limit_is_512kib() {
         assert_eq!(body.len(), size);
         let broker = FakeBroker::start("limit", move |_| json_reply(200, "OK", &body));
         let client = BrokerClient::new(&broker.path);
-        let req = texec::AcquireRequest {
+        let req = terminal::AcquireRequest {
             deadline_secs: 1907050150,
-            ..texec::AcquireRequest::default()
+            ..terminal::AcquireRequest::default()
         };
         let out = client.acquire(&req, deadline());
         assert_eq!(out.is_ok(), ok, "size {size}");
@@ -533,9 +533,9 @@ fn response_limit_is_512kib() {
         .into_bytes()
     });
     let client = BrokerClient::new(&broker.path);
-    let req = texec::AcquireRequest {
+    let req = terminal::AcquireRequest {
         deadline_secs: 1907050150,
-        ..texec::AcquireRequest::default()
+        ..terminal::AcquireRequest::default()
     };
     assert_eq!(
         client.acquire(&req, deadline()).unwrap_err(),
@@ -574,9 +574,9 @@ fn strict_response_decode() {
         let owned = body.to_string();
         let broker = FakeBroker::start("strict", move |_| json_reply(200, "OK", &owned));
         let client = BrokerClient::new(&broker.path);
-        let req = texec::AcquireRequest {
+        let req = terminal::AcquireRequest {
             deadline_secs: 1907050150,
-            ..texec::AcquireRequest::default()
+            ..terminal::AcquireRequest::default()
         };
         let err = client.acquire(&req, deadline()).unwrap_err();
         assert!(err.contains(needle), "{body:?} -> {err:?}");
@@ -902,10 +902,10 @@ fn crate_helpers_match_go_validators() {
     assert!(net::parse_prefix("10.0.0.1/24").is_ok());
     // `,string` decoding behind the connection projection.
     assert_eq!(
-        texec::parse_string_i64("9007199254740993"),
+        terminal::parse_string_i64("9007199254740993"),
         Some(9007199254740993)
     );
-    assert_eq!(texec::parse_string_i64(""), None);
+    assert_eq!(terminal::parse_string_i64(""), None);
     // JSON quoting behind request encoding.
     assert_eq!(json::quote("a&b"), "\"a\\u0026b\"");
 }
