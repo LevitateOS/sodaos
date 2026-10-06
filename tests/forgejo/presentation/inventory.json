@@ -5831,7 +5831,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e328bed3cf31ef4b1bd3c124877586a1b1e7216b12436d91bf533a20c3c13472",
+      "beforeRoleHash": "05807a74193c7fe1f01415ed3decda52f69db3790ffb5d7b5a83eb54c682462a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "repository-settings-structural-overhaul",
@@ -5978,6 +5978,31 @@
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "0fa3b689964eea2cb74a3912341a00485e1ae0c0fe2a710e2070880d1af89be5",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/settings/options_modals.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/options.tmpl"
+      ],
+      "nativeCalls": [
+        "base/modal_actions_confirm"
+      ],
+      "roles": [],
+      "states": [
+        "populated",
+        "conditional-fields",
+        "permission-gated"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "8d08305f75942abb4094220ed2e2174a478f03b3837ec415e8606bdea96c61da",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
