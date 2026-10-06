@@ -422,7 +422,7 @@ fn script_goldens() {
             "--config 'model_reasoning_effort=\"low\"' --model 'gpt-5' --output-last-message"
         )
     );
-    assert_eq!(factory_retire(&p), GOLDEN_RETIRE);
+    assert_eq!(factory_retire(&p.run_dir), GOLDEN_RETIRE);
     // Escaped supervisor doubles every dollar.
     let escaped = systemd_escape(&with_model);
     assert_eq!(escaped, with_model.replace('$', "$$"));

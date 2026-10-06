@@ -1,13 +1,13 @@
-use super::tcodex::{self, shell_quote, sleep_until, FactoryCodexPaths};
+use super::tcodex::{self, shell_quote, sleep_until};
 use crate::project::Executor;
 use crate::terminal::{self, Binding, Service, KIND_FACTORY};
 use std::time::{Duration, Instant};
 
 /// `factoryRetire`: identity-verified supervisor process-group kill plus a
 /// lingering-member scan. Golden-pinned against the Go output.
-pub fn factory_retire(p: &FactoryCodexPaths) -> String {
+pub fn factory_retire(run_dir: &str) -> String {
     let script = [
-        format!("RUNDIR={}", shell_quote(&p.run_dir)),
+        format!("RUNDIR={}", shell_quote(run_dir)),
         ": >\"$RUNDIR/stop\"".to_string(),
         "[ -f \"$RUNDIR/supervisor.pid\" ] || exit 0".to_string(),
         "read PID START <\"$RUNDIR/supervisor.pid\"".to_string(),
@@ -64,19 +64,13 @@ impl<E: Executor> Service<E> {
         run_dir: &str,
         deadline: Instant,
     ) -> Result<(), String> {
-        // The retire script only needs the run directory; build the shim
-        // paths so the golden-pinned builder stays untouched.
-        let p = FactoryCodexPaths {
-            run_dir: run_dir.to_string(),
-            ..Default::default()
-        };
         let argv = vec![
             "--remote=false".to_string(),
             "exec".to_string(),
             container.to_string(),
             "/usr/bin/sh".to_string(),
             "-c".to_string(),
-            factory_retire(&p),
+            factory_retire(run_dir),
         ];
         self.run_podman(&[], &argv, deadline)
             .map(|_| ())

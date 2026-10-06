@@ -394,7 +394,7 @@ fn stop_ok_argv_golden() {
             CID,
             "/usr/bin/sh",
             "-c",
-            &tcodex::factory_retire(&p),
+            &tcodex::factory_retire(&p.run_dir),
         ]
     );
     assert_podman(&calls[5], &pid_argv);

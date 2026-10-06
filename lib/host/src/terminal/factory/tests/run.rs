@@ -466,7 +466,7 @@ fn stop_flows() {
     svc.factory_codex_stop(&lease, deadline()).unwrap();
     let calls = svc.exec.calls();
     assert_eq!(calls.len(), 6);
-    assert_eq!(calls[4].2[5], factory_retire(&p));
+    assert_eq!(calls[4].2[5], factory_retire(&p.run_dir));
     // Removed container retires the unit only.
     let svc = make_service(FakeExec::new(vec![
         ok(""),
