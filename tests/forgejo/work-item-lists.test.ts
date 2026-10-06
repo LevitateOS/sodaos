@@ -30,7 +30,7 @@ test('work items share appearance across native callers and keep usable metadata
       );
     }
     const header = await readFile(
-      new URL('../../appliance/forgejo/templates/custom/header.tmpl', import.meta.url),
+      new URL('../../frontend/forgejo/templates/custom/header.tmpl', import.meta.url),
       'utf8'
     );
     const files = [...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map((m) => m[1]);

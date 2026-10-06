@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import payload from '../assets/branding/forgejo/forgejo-payload.json';
+import payload from '../frontend/forgejo/payload.json';
 import {assertForgejoSourceClosure, collectForgejoSources} from './build-forgejo';
 
 const staged = new Map(

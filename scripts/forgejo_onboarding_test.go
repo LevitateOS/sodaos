@@ -51,7 +51,7 @@ func TestForgejoOnboardingPreservesNativeRoutesAndFields(t *testing.T) {
 }
 
 func TestForgejoOnboardingMigrationProvidersUseSharedFormLayout(t *testing.T) {
-	dir := filepath.Join("..", "appliance", "forgejo", "templates", "repo", "migrate")
+	dir := filepath.Join("..", "frontend", "forgejo", "templates", "repo", "migrate")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("read migration overrides: %v", err)

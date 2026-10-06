@@ -18,9 +18,9 @@ fn logo_root(scratch: &TempDir) -> PathBuf {
     let terminal = root.join("assets/branding/terminal");
     fs::create_dir_all(&source).unwrap();
     fs::create_dir_all(&terminal).unwrap();
-    let marker = root.join("assets/branding/forgejo");
+    let marker = root.join("frontend/forgejo");
     fs::create_dir_all(&marker).unwrap();
-    fs::write(marker.join("forgejo-payload.json"), "{}").unwrap();
+    fs::write(marker.join("payload.json"), "{}").unwrap();
     let repo = repo_root();
     fs::copy(
         repo.join("assets/branding/source/soda-symbol-brutalist.svg"),

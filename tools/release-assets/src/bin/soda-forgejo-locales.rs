@@ -9,7 +9,7 @@ use soda_release_assets::locales::split_flag;
 const PROG: &str = "soda-forgejo-locales";
 const USAGE: &str =
     "usage: soda-forgejo-locales (--native FILE | --lock FILE) [--additions FILE] --out FILE";
-const HELP: &str = "usage: soda-forgejo-locales (--native FILE | --lock FILE) [--additions FILE] --out FILE\n\nCombine exact native Forgejo INI bytes with Soda additions, without reserializing.\n\nNative JSON catalogs remain untouched. Custom INI catalogs replace native files;\nthis command therefore requires the complete extracted native catalog as input.\n\noptions:\n  --native FILE     complete extracted native catalog (max 1 MiB)\n  --lock FILE       fetch the exact locked native catalog at build time\n  --additions FILE  Soda additions (default: appliance/forgejo/i18n/en-US.ini)\n  --out FILE        merged catalog to exclusively create\n";
+const HELP: &str = "usage: soda-forgejo-locales (--native FILE | --lock FILE) [--additions FILE] --out FILE\n\nCombine exact native Forgejo INI bytes with Soda additions, without reserializing.\n\nNative JSON catalogs remain untouched. Custom INI catalogs replace native files;\nthis command therefore requires the complete extracted native catalog as input.\n\noptions:\n  --native FILE     complete extracted native catalog (max 1 MiB)\n  --lock FILE       fetch the exact locked native catalog at build time\n  --additions FILE  Soda additions (default: frontend/forgejo/locales/en-US.ini)\n  --out FILE        merged catalog to exclusively create\n";
 
 struct Args {
     native: Native,

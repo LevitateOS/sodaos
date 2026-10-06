@@ -70,7 +70,7 @@ fn native_merge_supports_equals_flags() {
 fn default_additions_resolve_against_the_working_directory() {
     let dir = TempDir::new("defaults");
     let native = dir.file("native.ini", NATIVE.as_bytes());
-    dir.file("appliance/forgejo/i18n/en-US.ini", EXTRA.as_bytes());
+    dir.file("frontend/forgejo/locales/en-US.ini", EXTRA.as_bytes());
     let out = dir.path.join("locale.ini");
     let output = run(
         &dir.path,

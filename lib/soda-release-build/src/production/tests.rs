@@ -176,7 +176,7 @@ fn oracle_production_sequence() {
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-muse -- --arch x86_64 --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-tea -- --arch x86_64 --out ",
-        "cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock appliance/forgejo/locale.lock.json --out ",
+        "cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock frontend/forgejo/locale.lock.json --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-stage -- --arch x86_64 --host-context ",
         "STEP Build image: dashboard\n",
         "STEP Build image: project-os\n",

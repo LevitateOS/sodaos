@@ -26,7 +26,7 @@ pub fn source_root() -> Result<PathBuf, String> {
     let mut dir: &Path = &cwd;
     loop {
         if dir
-            .join("assets/branding/forgejo/forgejo-payload.json")
+            .join("frontend/forgejo/payload.json")
             .is_file()
         {
             return Ok(dir.to_path_buf());

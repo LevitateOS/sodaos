@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {test} from 'node:test';
 import {contracts} from './settings-contracts.ts';
-const root = new URL('../../../appliance/forgejo/templates/', import.meta.url);
+const root = new URL('../../../frontend/forgejo/templates/', import.meta.url);
 test('personal settings preserve native controls and capability conditions through structural changes', async () => {
   const snapshot = (await import('./settings-native-contracts.json')).default;
   for (const [path, native] of Object.entries(snapshot.entries)) {

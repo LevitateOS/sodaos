@@ -9,7 +9,7 @@ const origin = process.env.SODA_FORGEJO_LAYOUT_ORIGIN;
 test('notification preview uses native HTMX with stable accessible lifecycle', {skip: !origin}, async () => {
   assert.equal(origin, 'http://localhost:3300');
   const footerSource = await readFile(
-    new URL('../../appliance/forgejo/templates/custom/footer.tmpl', import.meta.url),
+    new URL('../../frontend/forgejo/templates/custom/footer.tmpl', import.meta.url),
     'utf8'
   );
   const footer = footerSource

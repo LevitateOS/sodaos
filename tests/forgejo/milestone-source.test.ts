@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-const root = new URL('../../appliance/forgejo/templates/', import.meta.url);
+const root = new URL('../../frontend/forgejo/templates/', import.meta.url);
 test('milestone redesign changes only list items in both callers', async () => {
   const expected = (await import('./milestone-page-boundaries.json')).default;
   for (const [path, hash] of Object.entries(expected)) {

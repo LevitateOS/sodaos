@@ -9,7 +9,7 @@ const origin = process.env.SODA_FORGEJO_LAYOUT_ORIGIN;
 test('expanded components preserve native state and layout boundaries', {skip: !origin}, async (t) => {
   assert.equal(origin, 'http://localhost:3300');
   const header = await readFile(
-    new URL('../../appliance/forgejo/templates/custom/header.tmpl', import.meta.url),
+    new URL('../../frontend/forgejo/templates/custom/header.tmpl', import.meta.url),
     'utf8'
   );
   const files = [...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map(([, name]) => name);

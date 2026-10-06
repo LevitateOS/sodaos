@@ -81,7 +81,7 @@ func TestForgejoStatus404RendersDefaultAndEscapedCustomPrompt(t *testing.T) {
 }
 
 func TestForgejoStatus500RetainsUpstreamPanicFallback(t *testing.T) {
-	path := filepath.Join("..", "appliance", "forgejo", "templates", "status", "500.tmpl")
+	path := filepath.Join("..", "frontend", "forgejo", "templates", "status", "500.tmpl")
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("500 must remain an upstream fallback without a custom override; stat error: %v", err)
 	}

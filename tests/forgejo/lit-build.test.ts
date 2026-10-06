@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import test from 'node:test';
 import {buildForgejoModule, presentationVersion} from '../../scripts/build-forgejo.ts';
-import payload from '../../assets/branding/forgejo/forgejo-payload.json';
+import payload from '../../frontend/forgejo/payload.json';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -79,7 +79,7 @@ test('staged Lit notice matches the resolved browser dependency licenses', async
 
 test('Lit scaffolding does not eagerly load or replace native page controls', async () => {
   for (const name of ['header', 'footer']) {
-    const source = await readFile(join(root, `appliance/forgejo/templates/custom/${name}.tmpl`), 'utf8');
+    const source = await readFile(join(root, `frontend/forgejo/templates/custom/${name}.tmpl`), 'utf8');
     assert.doesNotMatch(source, /lit\.js|soda-lit-smoke/);
   }
 });

@@ -13,7 +13,7 @@ test(
   async (t) => {
     const root = new URL('../../../', import.meta.url);
     const origin = 'http://localhost:3300';
-    const header = await readFile(new URL('appliance/forgejo/templates/custom/header.tmpl', root), 'utf8');
+    const header = await readFile(new URL('frontend/forgejo/templates/custom/header.tmpl', root), 'utf8');
     const revision = header.match(/name="soda-presentation-revision" content="([^"]+)"/)?.[1];
     assert(revision);
     const context = await chromium.launchPersistentContext(

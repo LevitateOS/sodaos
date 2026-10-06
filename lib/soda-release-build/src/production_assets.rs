@@ -115,7 +115,7 @@ impl Production {
                     "soda-forgejo-locales".to_string(),
                     "--".to_string(),
                     "--lock".to_string(),
-                    "appliance/forgejo/locale.lock.json".to_string(),
+                    "frontend/forgejo/locale.lock.json".to_string(),
                     "--out".to_string(),
                     format!("{native}/forgejo-locales/locale_en-US.ini"),
                 ],

@@ -12,7 +12,7 @@ test('milestone rows retain one canvas, clear boundaries and responsive columns'
   assert.equal(response.status, 200);
   const nativeCSS = await response.text();
   const header = await readFile(
-    new URL('../../appliance/forgejo/templates/custom/header.tmpl', import.meta.url),
+    new URL('../../frontend/forgejo/templates/custom/header.tmpl', import.meta.url),
     'utf8'
   );
   const styles = await Promise.all(

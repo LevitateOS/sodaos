@@ -142,7 +142,7 @@ async function main() {
   if (values.landmark && !values.verify) throw new Error('--landmark requires --verify');
   if (values.verify && values['local-css'])
     throw new Error('Verified native captures must load server assets without --local-css');
-  const registrySource = await Bun.file(path.join(root, 'appliance/forgejo/templates/custom/header.tmpl')).text();
+  const registrySource = await Bun.file(path.join(root, 'frontend/forgejo/templates/custom/header.tmpl')).text();
   const expectedRevision = registrySource.match(/name="soda-presentation-revision" content="([^"]+)"/)?.[1];
   const expectedStyles = [...registrySource.matchAll(/\/soda\/forgejo\/([a-z-]+\.css)\?v=([0-9]+)/g)].map(
     ([, name, version]): {name: string; version: string; sha256?: string} => {
@@ -180,7 +180,7 @@ async function main() {
   let context;
   let localStyles = new Map<string, string>();
   if (values['local-css']) {
-    const header = await Bun.file(path.join(root, 'appliance/forgejo/templates/custom/header.tmpl')).text();
+    const header = await Bun.file(path.join(root, 'frontend/forgejo/templates/custom/header.tmpl')).text();
     const names = [...header.matchAll(/\/soda\/forgejo\/([a-z-]+\.css)\?v=/g)].map(([, name]) => {
       assert(name);
       return name;

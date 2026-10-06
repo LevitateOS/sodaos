@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {readFile, readdir, stat} from 'node:fs/promises';
 import {test} from 'node:test';
-const root = new URL('../../../appliance/forgejo/templates/', import.meta.url);
+const root = new URL('../../../frontend/forgejo/templates/', import.meta.url);
 async function templates(dir = root, prefix = ''): Promise<string[]> {
   const result: string[] = [];
   for (const entry of await readdir(dir, {withFileTypes: true})) {

@@ -12,7 +12,7 @@ import (
 
 func payloadFiles(t *testing.T) map[string]string {
 	t.Helper()
-	raw, ok := ReadJSON(t, "assets/branding/forgejo/forgejo-payload.json").(map[string]any)
+	raw, ok := ReadJSON(t, "frontend/forgejo/payload.json").(map[string]any)
 	Require(t, ok, "payload manifest is not an object")
 	files := make(map[string]string, len(raw))
 	for dest, source := range raw {
@@ -26,7 +26,7 @@ func payloadFiles(t *testing.T) map[string]string {
 func TestForgejoPayloadExactSourcesTemplateClosureAndNotices(t *testing.T) {
 	files := payloadFiles(t)
 	templates := map[string]bool{}
-	root := filepath.Join(RepoRoot, "appliance/forgejo/templates")
+	root := filepath.Join(RepoRoot, "frontend/forgejo/templates")
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err

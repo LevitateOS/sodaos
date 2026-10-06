@@ -3,13 +3,13 @@ import {mkdir} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import {basename, posix, resolve} from 'node:path';
 import {parseArgs} from 'node:util';
-import payload from '../assets/branding/forgejo/forgejo-payload.json';
+import payload from '../frontend/forgejo/payload.json';
 
 const root = resolve(import.meta.dir, '..');
 // One reviewed presentation epoch covers the whole module graph, not just the
 // HTML entry. Relative imports otherwise keep their old six-hour cache identity.
 export const presentationVersion = readFileSync(
-  resolve(root, 'appliance/forgejo/templates/custom/header.tmpl'),
+  resolve(root, 'frontend/forgejo/templates/custom/header.tmpl'),
   'utf8'
 ).match(/name="soda-presentation-revision" content="([a-zA-Z0-9.-]+)"/)?.[1];
 assert(presentationVersion, 'Missing presentation cache epoch');
