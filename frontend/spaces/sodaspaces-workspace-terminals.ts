@@ -2,7 +2,7 @@ import type {Space} from './sodaspaces-api.js';
 import type {LayoutEntry, PaneArea, WorkspaceLayout} from './sodaspaces-layout.js';
 import {forgetEntry, moveTab, selectTab} from './sodaspaces-layout.js';
 import type {TerminalLocator} from './sodaspaces-terminal.js';
-import type {Creation, Slot} from './sodaspaces-workspace-types.js';
+import type {Creation, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 import {renderCreation} from './sodaspaces-workspace-view.js';
 
 export interface TerminalsInput {
@@ -252,4 +252,92 @@ export function creationForm(input: CreationFormInput, draft: Creation) {
       input.createTerminal();
     }
   );
+}
+
+export interface NewTerminalInput {
+  binding: WorkspaceContext | undefined;
+  isStale: () => boolean;
+  readCreating: () => boolean;
+  isAvailable: () => boolean;
+  isActiveSurface: () => boolean;
+  readSurfaceVisible: () => boolean;
+  readSelectedSpace: () => Space | undefined;
+  readSpaces: () => Space[];
+  readSlots: () => Slot[];
+  readSelected: () => string;
+  readLayout: () => WorkspaceLayout;
+  readCreation: () => Creation | null;
+  setCreation: (creation: Creation | null) => void;
+  readUpdateComplete: () => Promise<boolean>;
+  rememberFocus: () => void;
+  focusCreationSelect: () => void;
+  createTerminal: () => void;
+}
+
+export function defaultTerminalName(input: NewTerminalInput, space: Space | undefined) {
+  return (
+    'Terminal ' +
+    (Math.max(
+      space?.terminals.length || 0,
+      input.readLayout().entries.filter((e) => e.environmentId === space?.environment.id).length
+    ) +
+      1)
+  );
+}
+
+export function creationSpace(input: NewTerminalInput, selected: {binding: {environmentId: string}} | undefined) {
+  const preferred = input.binding?.kind === 'page' ? input.readSelectedSpace() : undefined;
+  if (preferred) return preferred;
+  const native = input.binding?.kind === 'native' ? input.binding.repositoryId : undefined;
+  return (
+    input.readSpaces().find((s) => s.environment.id === selected?.binding.environmentId) ||
+    input.readSpaces().find((s) => s.environment.repository_id === native) ||
+    input.readSpaces()[0]
+  );
+}
+
+export function pickCreationSpace(input: NewTerminalInput) {
+  const selected = input.readSlots().find((s) => s.key === input.readSelected());
+  const native = input.binding?.kind === 'native' ? input.binding.repositoryId : undefined;
+  if (input.binding?.kind === 'page' && input.readSelectedSpace()) return input.readSelectedSpace();
+  return (
+    input.readSpaces().find((s) => s.environment.id === selected?.binding.environmentId) ||
+    input.readSpaces().find((s) => s.environment.repository_id === native) ||
+    input.readSpaces()[0]
+  );
+}
+
+export function pageBlocksNewTerminal(input: NewTerminalInput, space: Space | undefined) {
+  if (input.binding?.kind !== 'page' || !space) return false;
+  return (
+    !space.login ||
+    !space.execution_allowed ||
+    space.authority_unavailable ||
+    !space.environment.provisioned ||
+    space.observed?.running !== true
+  );
+}
+
+export function newTerminalBlocked(input: NewTerminalInput) {
+  return input.isStale() || input.readCreating() || !input.isAvailable() || !input.isActiveSurface();
+}
+
+export function focusCreationDialog(input: NewTerminalInput, pane: string) {
+  void input.readUpdateComplete().then(() => {
+    if (input.readCreation()?.pane === pane && !input.isStale() && input.readSurfaceVisible())
+      input.focusCreationSelect();
+  });
+}
+
+export function newTerminal(input: NewTerminalInput, pane: string) {
+  if (newTerminalBlocked(input)) return;
+  input.rememberFocus();
+  const space = pickCreationSpace(input);
+  if (pageBlocksNewTerminal(input, space)) return;
+  input.setCreation({pane, environmentId: space?.environment.id || '', name: defaultTerminalName(input, space)});
+  if (input.binding?.kind === 'page' && input.readSelectedSpace()) {
+    input.createTerminal();
+    return;
+  }
+  focusCreationDialog(input, pane);
 }

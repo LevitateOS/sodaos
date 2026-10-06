@@ -112,11 +112,13 @@ import type {HostsInput} from './sodaspaces-workspace-terminal-hosts.js';
 import {
   confirmedEnd,
   creationForm,
+  defaultTerminalName,
+  newTerminal,
   openSaved as openSavedTerminal,
   restoreLocators,
   slotName,
 } from './sodaspaces-workspace-terminals.js';
-import type {CreationFormInput, TerminalsInput} from './sodaspaces-workspace-terminals.js';
+import type {CreationFormInput, NewTerminalInput, TerminalsInput} from './sodaspaces-workspace-terminals.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -483,7 +485,7 @@ export class SodaSpaces extends LitElement {
   private readonly onRefreshClick = () => this.refresh();
   private readonly onBeginSetup = () => this.beginSetup();
   private readonly onShowSessions = () => this.showSessions();
-  private readonly onNewTerminal = () => this.newTerminal();
+  private readonly onNewTerminal = () => newTerminal(this.newTerminalInput(), this.layout.focused);
   private readonly onCancelSetup = () => this.cancelSetup();
   private readonly onSetupBack = () => (this.setup === 'configure' ? this.changeRepository() : this.cancelSetup());
   private readonly onCapturePointer = (e: PointerEvent) => this.capture(e);
@@ -705,7 +707,7 @@ export class SodaSpaces extends LitElement {
       this.firstTerminal,
       this.selectedSpace,
       this.selectedSpace ? this.projectName(this.selectedSpace) : '',
-      this.defaultTerminalName(this.selectedSpace),
+      defaultTerminalName(this.newTerminalInput(), this.selectedSpace),
       workspaceBlocked(this.stale, this.available),
       this.creating,
       this.onNewTerminal
@@ -841,7 +843,7 @@ export class SodaSpaces extends LitElement {
       <button
         class=${newTerminalButtonClass(kind)}
         data-environment-id=${this.selectedSpace?.environment.id || ''}
-        data-terminal-name=${this.defaultTerminalName(this.selectedSpace)}
+        data-terminal-name=${defaultTerminalName(this.newTerminalInput(), this.selectedSpace)}
         aria-label="New terminal"
         title="New terminal"
         ?hidden=${hideNewTerminal(this.firstTerminal, kind, space)}
@@ -1142,7 +1144,7 @@ export class SodaSpaces extends LitElement {
       projectName: (space) => this.projectName(space),
       rectangle: (area) => this.rectangle(area),
       showSessions: (pane) => this.showSessions(pane),
-      newTerminal: (pane) => this.newTerminal(pane),
+      newTerminal: (pane) => newTerminal(this.newTerminalInput(), pane),
     };
   }
   private creationInput(): CreationFormInput {
@@ -1213,66 +1215,32 @@ export class SodaSpaces extends LitElement {
     this.restoreFocus();
     this.markViewed();
   }
-  private defaultTerminalName(space: Space | undefined) {
-    return (
-      'Terminal ' +
-      (Math.max(
-        space?.terminals.length || 0,
-        this.layout.entries.filter((e) => e.environmentId === space?.environment.id).length
-      ) +
-        1)
-    );
-  }
-  private creationSpace(selected: {binding: {environmentId: string}} | undefined) {
-    const preferred = this.binding?.kind === 'page' ? this.selectedSpace : undefined;
-    if (preferred) return preferred;
-    const native = this.binding?.kind === 'native' ? this.binding.repositoryId : undefined;
-    return (
-      this.spaces.find((s) => s.environment.id === selected?.binding.environmentId) ||
-      this.spaces.find((s) => s.environment.repository_id === native) ||
-      this.spaces[0]
-    );
-  }
-  private pickCreationSpace() {
-    const selected = this.slots.find((s) => s.key === this.selected);
-    const native = this.binding?.kind === 'native' ? this.binding.repositoryId : undefined;
-    if (this.binding?.kind === 'page' && this.selectedSpace) return this.selectedSpace;
-    return (
-      this.spaces.find((s) => s.environment.id === selected?.binding.environmentId) ||
-      this.spaces.find((s) => s.environment.repository_id === native) ||
-      this.spaces[0]
-    );
-  }
-  private pageBlocksNewTerminal(space: Space | undefined) {
-    if (this.binding?.kind !== 'page' || !space) return false;
-    return (
-      !space.login ||
-      !space.execution_allowed ||
-      space.authority_unavailable ||
-      !space.environment.provisioned ||
-      space.observed?.running !== true
-    );
-  }
-  private newTerminalBlocked() {
-    return this.stale || this.creating || !this.available || !this.activeSurface;
-  }
-  private focusCreationDialog(pane: string) {
-    void this.updateComplete.then(() => {
-      if (this.creation?.pane === pane && !this.stale && this.surfaceVisible)
+  private newTerminalInput(): NewTerminalInput {
+    return {
+      binding: this.binding,
+      isStale: () => this.stale,
+      readCreating: () => this.creating,
+      isAvailable: () => this.available,
+      isActiveSurface: () => this.activeSurface,
+      readSurfaceVisible: () => this.surfaceVisible,
+      readSelectedSpace: () => this.selectedSpace,
+      readSpaces: () => this.spaces,
+      readSlots: () => this.slots,
+      readSelected: () => this.selected,
+      readLayout: () => this.layout,
+      readCreation: () => this.creation,
+      setCreation: (creation) => {
+        this.creation = creation;
+      },
+      readUpdateComplete: () => this.updateComplete,
+      rememberFocus: () => this.rememberFocus(),
+      focusCreationSelect: () => {
         this.querySelector<HTMLElement>('.soda-workspace-dialog select')?.focus();
-    });
-  }
-  private newTerminal(pane = this.layout.focused) {
-    if (this.newTerminalBlocked()) return;
-    this.rememberFocus();
-    const space = this.pickCreationSpace();
-    if (this.pageBlocksNewTerminal(space)) return;
-    this.creation = {pane, environmentId: space?.environment.id || '', name: this.defaultTerminalName(space)};
-    if (this.binding?.kind === 'page' && this.selectedSpace) {
-      void this.createTerminal();
-      return;
-    }
-    this.focusCreationDialog(pane);
+      },
+      createTerminal: () => {
+        void this.createTerminal();
+      },
+    };
   }
   private moreProjectsInput(): MoreProjectsInput {
     return {
