@@ -34,8 +34,8 @@ route the browser workspace extraction to B.
 
 Lead A; [P01](reviews/P01.md), [P02](reviews/P02.md), [P03](reviews/P03.md), [P04](reviews/P04.md). A00 for shared native files; B owns Go counterparts.
 
-- [ ] **A01.M** Retain Go `internal/project`, Project API/Store/client owners; move native creation/profile/OS/connection/account/SSH duties to `lib/host/src/project/` and account/SSH descendants. Fold the existing account binary into `cmd/soda-project-terminal` with C/R01 producer selectors.
-- [ ] **A01.V** Preserve reservation reconciliation, immutable profile/login, explicit Join and exact admitted public-key revision/apply through existing real account/Project suites. Optional creation Tailnet intent is gate Q4, not new state.
+- [x] **A01.M** [run 20261005: DONE, integrated d4597974 (11 commits 1d9d38b2..31bf88cf: R100 wholesale host+terminal, account/ssh/project splits, account fold, OS move-follow, reap fix) + R01 859cfb2d (members, project-account bin, lock -account stanza, zerocopy pin kept); 5 conflicts resolved (2 take-deletion, 3 take-A-side)] Retain Go `internal/project`, Project API/Store/client owners; move native creation/profile/OS/connection/account/SSH duties to `lib/host/src/project/` and account/SSH descendants. Fold the existing account binary into `cmd/soda-project-terminal` with C/R01 producer selectors.
+- [x] **A01.V** [run 20261005: DONE on canonical mixed tree (859cfb2d): TestAccount* 12/12 green (11 previously red), terminal 19+92+12+12, host 645/0, image 59/59, build 50/50, Go build clean, successors green, fmt clean, clippy 1 pre-existing (dbackend, byte-identical to base); native transport pumping + provider qualification separate] Preserve reservation reconciliation, immutable profile/login, explicit Join and exact admitted public-key revision/apply through existing real account/Project suites. Optional creation Tailnet intent is gate Q4, not new state.
 
 ### A02 Preparation authority and Project lifecycle
 
@@ -82,7 +82,7 @@ Compose/Muse-maintain command changes route to C; reserve their current module
 roots once across their P/I/H duties, while A owns host/guest changes.
 
 - [ ] **A07.M** Define shared run/native/binding/lifecycle/output/artifact units directly under `lib/host/src/terminal/factory/`; preserve distinct Codex/Muse launch/custody owners and the existing Service. Split actual guest terminal/PTY, attachment/pump and Compose/maintenance caller duties without new processes.
-- [x] **A07.C** [run 20261005: LANDED 865f0e2f (H01-F3) + 9d5a9281 (S04-F1/S05-F1); ACCEPTANCE PENDING CODEX-H01-REAP-1 (kill-without-wait repair routed to A)] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
+- [x] **A07.C** [run 20261005: LANDED 865f0e2f (H01-F3) + 9d5a9281 (S04-F1/S05-F1); H01-F3 reap repair LANDED (6edf58b7+31bf88cf, integrated d4597974) + kill-then-wait source-verified; native transport pumping unproven (helpers lack output reader), provider/native qualification separate] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
 - [ ] **A07.V** Exercise real PTY/relay/pump subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement before expensive native runs.
 
 ### A08 Spaces browser inventory and viewer
