@@ -25,6 +25,7 @@ mod pty;
 mod pyemit;
 mod sha;
 mod subscription_prepare;
+mod subscription_profile;
 mod subscription_wire;
 mod svc;
 mod sys;
