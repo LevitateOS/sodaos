@@ -118,6 +118,76 @@ fn phased_pumps_exit_on_deadline_without_detaching() {
     );
 }
 
+#[cfg(target_os = "linux")]
+struct DeadPipe {
+    reads: usize,
+}
+
+#[cfg(target_os = "linux")]
+impl std::io::Read for DeadPipe {
+    fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+        self.reads += 1;
+        Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe))
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl std::os::fd::AsRawFd for DeadPipe {
+    fn as_raw_fd(&self) -> std::os::fd::RawFd {
+        // Never a valid descriptor, so fcntl fails deterministically;
+        // nothing is opened, so nothing is ever closed or signalled.
+        -1
+    }
+}
+
+#[cfg(target_os = "linux")]
+struct ProbeSink {
+    writes: usize,
+    cancelled: bool,
+}
+
+#[cfg(target_os = "linux")]
+impl launch::PumpSink for ProbeSink {
+    fn pump_write(&mut self, _bytes: &[u8]) -> Result<(), String> {
+        self.writes += 1;
+        Ok(())
+    }
+
+    fn pump_cancelled(&mut self) {
+        self.cancelled = true;
+    }
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn phased_pump_setup_failure_fails_without_fallback() {
+    // ACCEPTANCE-21-002: failed nonblocking setup must fail the capture
+    // promptly through the pump error result. Zero reads proves no
+    // blocking fallback was entered (the fallback's defining behavior
+    // is the read loop); the sink stays untouched — no partial writes
+    // and no cancellation, which would be deadline fiction.
+    let writer = Arc::new(Mutex::new(ProbeSink {
+        writes: 0,
+        cancelled: false,
+    }));
+    let pump_error = Arc::new(Mutex::new(None));
+    let mut dead = DeadPipe { reads: 0 };
+    launch::pump_phased(
+        &mut dead,
+        &writer,
+        &pump_error,
+        &Phase::timeout(Duration::from_secs(5)),
+    );
+    assert_eq!(dead.reads, 0, "setup failure entered the read loop");
+    assert!(
+        pump_error.lock().unwrap().is_some(),
+        "setup failure left no error"
+    );
+    let sink = writer.lock().unwrap();
+    assert_eq!(sink.writes, 0, "setup failure wrote partial bytes");
+    assert!(!sink.cancelled, "setup failure marked deadline fiction");
+}
+
 #[test]
 #[cfg(target_os = "linux")]
 fn stop_is_safe_at_any_lifecycle_point() {

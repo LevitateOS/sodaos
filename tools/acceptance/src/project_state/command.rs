@@ -46,7 +46,8 @@ pub fn command_with_timeout(
             .map(|(key, value)| format!("{key}={value}"))
             .collect(),
     };
-    let (process, stdout, _) = start_raw_process(&phase, &spec, MAX_OUTPUT).map_err(map_launch)?;
+    let (process, stdout, stderr) =
+        start_raw_process(&phase, &spec, MAX_OUTPUT).map_err(map_launch)?;
     let clean = match process.wait(&phase) {
         Ok(()) => process.outcome().and_then(|o| o.exit_code) == Some(0),
         Err(_) if process.is_done() => {
@@ -67,15 +68,22 @@ pub fn command_with_timeout(
             return Err(SnapshotFailure::bare(SnapshotKind::TimeoutExpired));
         }
     };
-    let _ = process.join_pumps();
+    let pump_failed = process.join_pumps().is_some();
     if !clean {
         return Err(failed_command(argv));
     }
-    if stdout.cancelled() {
-        // The command finished but its pipes did not: an escaped writer
-        // held them past the deadline. The deadline covers pipe
-        // completion, so this is a timeout, not partial success.
+    if stdout.cancelled() || stderr.cancelled() {
+        // The command finished but a required pipe did not: an escaped
+        // writer held it past the deadline. Stderr bytes stay discarded,
+        // but stderr completion is still required — a clean leader with
+        // an incomplete pipe is a timeout, not partial success.
         return Err(SnapshotFailure::bare(SnapshotKind::TimeoutExpired));
+    }
+    if pump_failed {
+        // A capture failed outright (nonblocking setup or a pump
+        // read/write fault on either pipe): an OS-level fault with no
+        // detail slot. Never partial success, never deadline fiction.
+        return Err(SnapshotFailure::bare(SnapshotKind::OSError));
     }
     let (stdout, overflow) = stdout.take();
     if overflow {

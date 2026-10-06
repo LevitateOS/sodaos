@@ -184,17 +184,19 @@ fn pump_blocking<S: PumpSink>(
 /// sink cancelled and returns, so the thread joins instead of detaching:
 /// pipes held by escaped writers still complete (partially) by the
 /// deadline with no foreign signals and no forced descriptor closes. If
-/// nonblocking setup fails, fall back to the blocking drain rather than
-/// truncate silently.
+/// nonblocking setup fails, record the OS failure and return promptly —
+/// never fall back to a blocking drain that would defeat the deadline,
+/// and never mark the sink cancelled (no deadline fiction). The caller
+/// maps the recorded failure to its OS-failure outcome.
 #[cfg(target_os = "linux")]
-fn pump_phased<S: PumpSink>(
+pub(super) fn pump_phased<S: PumpSink>(
     stream: &mut (impl Read + AsRawFd),
     writer: &Arc<Mutex<S>>,
     pump_error: &Arc<Mutex<Option<String>>>,
     phase: &Phase,
 ) {
-    if !set_nonblocking(stream) {
-        pump_blocking(stream, writer, pump_error);
+    if let Err(message) = set_nonblocking(stream) {
+        *lock(pump_error) = Some(message);
         return;
     }
     let mut buf = [0u8; 32768];
@@ -224,13 +226,16 @@ fn pump_phased<S: PumpSink>(
 }
 
 #[cfg(target_os = "linux")]
-fn set_nonblocking(stream: &impl AsRawFd) -> bool {
+fn set_nonblocking(stream: &impl AsRawFd) -> Result<(), String> {
     unsafe {
         let fd = stream.as_raw_fd();
         let flags = libc::fcntl(fd, libc::F_GETFL);
         if flags < 0 {
-            return false;
+            return Err(std::io::Error::last_os_error().to_string());
         }
-        libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) == 0
+        if libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) != 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        Ok(())
     }
 }
