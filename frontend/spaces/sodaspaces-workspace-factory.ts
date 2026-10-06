@@ -33,7 +33,7 @@ export function factoryRowDisabled(
 }
 
 export interface FactoryWatchMutation {
-  watches: FactoryWatch[];
+  readWatches: () => FactoryWatch[];
   isStale: () => boolean;
   pushWatch: (watch: FactoryWatch) => void;
   replaceWatches: (watches: FactoryWatch[]) => void;
@@ -41,15 +41,15 @@ export interface FactoryWatchMutation {
 }
 
 export function toggleFactoryWatch(mutation: FactoryWatchMutation, space: Space, run: FactoryRun) {
-  if (factoryWatching(mutation.watches, run.id)) unwatchRun(mutation, run.id);
+  if (factoryWatching(mutation.readWatches(), run.id)) unwatchRun(mutation, run.id);
   else watchRun(mutation, space, run);
 }
 
 export function watchRun(mutation: FactoryWatchMutation, space: Space, run: FactoryRun) {
   if (
     mutation.isStale() ||
-    factoryWatching(mutation.watches, run.id) ||
-    mutation.watches.length >= factoryWatchLimit ||
+    factoryWatching(mutation.readWatches(), run.id) ||
+    mutation.readWatches().length >= factoryWatchLimit ||
     !space.execution_allowed ||
     space.authority_unavailable
   )
@@ -67,8 +67,9 @@ export function watchRun(mutation: FactoryWatchMutation, space: Space, run: Fact
 }
 
 export function unwatchRun(mutation: FactoryWatchMutation, runId: string) {
-  const watch = mutation.watches.find((entry) => entry.run === runId);
-  mutation.replaceWatches(mutation.watches.filter((entry) => entry.run !== runId));
+  const watches = mutation.readWatches();
+  const watch = watches.find((entry) => entry.run === runId);
+  mutation.replaceWatches(watches.filter((entry) => entry.run !== runId));
   watch?.view?.dispose();
   mutation.updated();
 }
@@ -80,22 +81,18 @@ export interface FactorySectionInput extends FactoryWatchMutation {
 }
 
 export function factorySection(input: FactorySectionInput): TemplateResult | string {
+  const current = input.readWatches();
   const rows = input.space.factory_runs.filter(
     (run) => !input.query || factoryRunText(run).toLocaleLowerCase().includes(input.query)
   );
-  const watches = input.watches.filter((watch) => watch.environmentId === input.space.environment.id);
+  const watches = current.filter((watch) => watch.environmentId === input.space.environment.id);
   if (!rows.length && !watches.length) return '';
   return renderFactoryRuns(
     rows.map((run) => ({
       key: run.id,
       text: factoryRunText(run),
-      watching: factoryWatching(input.watches, run.id),
-      disabled: factoryRowDisabled(
-        {stale: input.isStale(), available: input.available},
-        input.space,
-        run,
-        input.watches
-      ),
+      watching: factoryWatching(current, run.id),
+      disabled: factoryRowDisabled({stale: input.isStale(), available: input.available}, input.space, run, current),
       toggle: () => toggleFactoryWatch(input, input.space, run),
     })),
     watches.map((watch) => ({
@@ -103,7 +100,7 @@ export function factorySection(input: FactorySectionInput): TemplateResult | str
       hidden: watch.hidden,
       close: () => unwatchRun(input, watch.run),
     })),
-    input.watches.length >= factoryWatchLimit
+    current.length >= factoryWatchLimit
   );
 }
 

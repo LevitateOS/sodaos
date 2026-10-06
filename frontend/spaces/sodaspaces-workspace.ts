@@ -730,7 +730,7 @@ export class SodaSpaces extends LitElement {
             status: this.projectStatus(space),
             projectName: this.projectName(space),
             factory: factorySection({
-              watches: this.watches,
+              readWatches: () => this.watches,
               isStale: () => this.stale,
               pushWatch: (watch) => {
                 this.watches.push(watch);
