@@ -9,13 +9,9 @@
 //! process readiness is polled instead of channel-signalled. `Close`
 //! replays its first outcome like the Go owner's `sync.Once`.
 
-#[path = "vm/base.rs"]
 mod base;
-#[path = "vm/config.rs"]
 mod config;
-#[path = "vm/launch.rs"]
 mod launch;
-#[path = "vm/lifecycle.rs"]
 mod lifecycle;
 
 pub use self::base::VerifiedBase;
@@ -24,5 +20,4 @@ pub use self::launch::LaunchFailure;
 pub use self::lifecycle::{launch_vm, Vm};
 
 #[cfg(test)]
-#[path = "vm/tests.rs"]
 mod tests;
