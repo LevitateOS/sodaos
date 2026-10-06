@@ -29,21 +29,25 @@ pub fn compile_soda_commands(
     // Rust-ported commands no longer live under cmd/; the workspace owns them.
     // Names already produced from cmd/ above are skipped: each existing
     // binary is produced and staged exactly once.
-    for name in [
-        "soda-identity-compose",
-        "soda-factory",
-        "soda-setup",
-        "soda-image-import",
-        "soda-muse",
-        "soda-muse-maintain",
-        "soda-identity",
-        "soda-host",
+    for (member, bin) in [
+        ("soda-identity-compose", "soda-identity-compose"),
+        ("soda-factory", "soda-factory"),
+        ("soda-setup", "soda-setup"),
+        ("soda-image-import", "soda-image-import"),
+        ("soda-muse", "soda-muse"),
+        ("soda-muse-maintain", "soda-muse-maintain"),
+        ("soda-identity", "soda-identity"),
+        ("soda-host", "soda-host"),
+        // N07-T3: the tailnet binary lives in the soda-host package and has
+        // no cmd manifest of its own; same libexec destination the Go recipe
+        // used for ./cmd/soda-forgejo-tailnet.
+        ("soda-host", "soda-forgejo-tailnet"),
     ] {
-        if !rust_seen.iter().any(|seen| seen.as_str() == name) {
+        if !rust_seen.iter().any(|seen| seen.as_str() == bin) {
             production.compile_rust(
-                name,
-                name,
-                &sys::join(&[context_dir, "rootfs/usr/libexec/soda", name]),
+                member,
+                bin,
+                &sys::join(&[context_dir, "rootfs/usr/libexec/soda", bin]),
             )?;
         }
     }
@@ -427,6 +431,42 @@ mod tests {
             .borrow()
             .iter()
             .any(|(_, p, _)| p == "./cmd/soda-identity"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn n07t3_tailnet_compiles_from_host_package_to_libexec() {
+        // N07-T3: package != bin selector. soda-forgejo-tailnet has no cmd
+        // manifest of its own; it compiles from the soda-host package to the
+        // same libexec destination the Go recipe used, exactly once, while
+        // the existing identity pairs keep their (member, member) shape.
+        let dir = std::env::temp_dir().join(format!("sri-n07t3a-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
+        fs::create_dir_all(dir.join("ctx/rootfs/usr/libexec/soda")).unwrap();
+        let context = dir.join("ctx").to_str().unwrap().to_string();
+        let recorder = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        let tailnet = recorder
+            .rust
+            .borrow()
+            .iter()
+            .filter(|(c, b, d)| {
+                c == "soda-host"
+                    && b == "soda-forgejo-tailnet"
+                    && d == &format!("{context}/rootfs/usr/libexec/soda/soda-forgejo-tailnet")
+            })
+            .count();
+        assert_eq!(tailnet, 1);
+        assert!(recorder.rust.borrow().iter().any(|(c, b, d)| {
+            c == "soda-host"
+                && b == "soda-host"
+                && d == &format!("{context}/rootfs/usr/libexec/soda/soda-host")
+        }));
         let _ = fs::remove_dir_all(&dir);
     }
 
