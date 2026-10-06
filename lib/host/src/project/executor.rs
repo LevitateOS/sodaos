@@ -640,87 +640,170 @@ mod tests {
     use super::*;
     use std::os::unix::io::RawFd;
 
-    extern "C" fn sigusr1_noop(_: libc::c_int) {}
+    static HITS_USR1: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    static HITS_USR2: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
-    /// Install the process-lifetime SIGUSR1 noop (no SA_RESTART, so polls
-    /// surface EINTR). Idempotent; never restored: restoring to SIG_DFL
-    /// while a sibling test's joined spammer runs would terminate the
-    /// process, and no test sends SIGUSR1 except through joined spammers.
-    fn arm_sigusr1() {
+    extern "C" fn sigusr1_hit(_: libc::c_int) {
+        HITS_USR1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    extern "C" fn sigusr2_hit(_: libc::c_int) {
+        HITS_USR2.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Install a process-lifetime counting noop for one test-private signal
+    /// (no SA_RESTART, so polls surface EINTR). Idempotent per signal;
+    /// never restored to SIG_DFL: a restore racing a sibling test's live
+    /// sender would terminate the process, and no test sends these signals
+    /// except through joined finite senders. Each signal test uses its own
+    /// number so hit counts never mix across parallel tests.
+    fn arm_sig(signo: libc::c_int, handler: extern "C" fn(libc::c_int)) {
         unsafe {
             let mut sa: libc::sigaction = std::mem::zeroed();
-            sa.sa_sigaction = sigusr1_noop as *const () as usize;
+            sa.sa_sigaction = handler as *const () as usize;
             sa.sa_flags = 0;
             libc::sigemptyset(&mut sa.sa_mask);
-            assert_eq!(libc::sigaction(libc::SIGUSR1, &sa, std::ptr::null_mut()), 0);
+            assert_eq!(libc::sigaction(signo, &sa, std::ptr::null_mut()), 0);
         }
     }
 
-    /// Finite self-signal spam: pthread_kill targets ONLY the calling
-    /// thread (process-directed kill would starve behind the harness
-    /// main thread), so sibling tests never observe a signal. Joined
-    /// before the test ends; the thread is gone before any assertion on
-    /// timing completes.
-    fn spam_self(tid: libc::pthread_t, rounds: u32) -> std::thread::JoinHandle<()> {
-        std::thread::spawn(move || {
-            for _ in 0..rounds {
-                unsafe {
-                    libc::pthread_kill(tid, libc::SIGUSR1);
-                }
-                std::thread::sleep(Duration::from_millis(1));
+    fn hits(signo: libc::c_int) -> usize {
+        let counter = if signo == libc::SIGUSR1 {
+            &HITS_USR1
+        } else {
+            &HITS_USR2
+        };
+        counter.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Own-thread signal mask: unblocks one signal, restores the saved mask
+    /// on drop (errors ignored there so unwinds never abort).
+    struct MaskGuard(libc::sigset_t);
+
+    impl MaskGuard {
+        fn unblock(signo: libc::c_int) -> MaskGuard {
+            unsafe {
+                let mut old = std::mem::zeroed();
+                let mut set = std::mem::zeroed();
+                libc::sigemptyset(&mut set);
+                libc::sigaddset(&mut set, signo);
+                assert_eq!(libc::pthread_sigmask(libc::SIG_UNBLOCK, &set, &mut old), 0);
+                MaskGuard(old)
             }
-        })
+        }
     }
 
-    fn never_ready_pipe() -> (RawFd, RawFd) {
-        let mut fds = [0; 2];
-        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
-        (fds[0], fds[1])
+    impl Drop for MaskGuard {
+        fn drop(&mut self) {
+            unsafe {
+                libc::pthread_sigmask(libc::SIG_SETMASK, &self.0, std::ptr::null_mut());
+            }
+        }
     }
 
-    fn close_fd(fd: RawFd) {
-        unsafe {
-            libc::close(fd);
+    struct PipeGuard(RawFd, RawFd);
+
+    impl PipeGuard {
+        fn new() -> PipeGuard {
+            let mut fds = [0; 2];
+            assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+            PipeGuard(fds[0], fds[1])
+        }
+
+        fn read(&self) -> RawFd {
+            self.0
+        }
+    }
+
+    impl Drop for PipeGuard {
+        fn drop(&mut self) {
+            unsafe {
+                libc::close(self.0);
+                libc::close(self.1);
+            }
+        }
+    }
+
+    /// Finite owned signal sender: pthread_kill targets ONLY the given
+    /// thread (process-directed kill would starve behind the harness main
+    /// thread), so sibling tests never observe a signal. Every send is
+    /// checked; the normal path joins asserting sender health, while Drop
+    /// joins best-effort (bounded by the finite rounds) on unwind.
+    struct SenderGuard(Option<std::thread::JoinHandle<()>>);
+
+    impl SenderGuard {
+        fn spawn(tid: libc::pthread_t, rounds: u32, signo: libc::c_int) -> SenderGuard {
+            SenderGuard(Some(std::thread::spawn(move || {
+                for _ in 0..rounds {
+                    assert_eq!(unsafe { libc::pthread_kill(tid, signo) }, 0);
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            })))
+        }
+
+        fn join_assert(mut self) {
+            self.0.take().unwrap().join().unwrap();
+        }
+    }
+
+    impl Drop for SenderGuard {
+        fn drop(&mut self) {
+            if let Some(handle) = self.0.take() {
+                let _ = handle.join();
+            }
         }
     }
 
     #[test]
     fn poll_once_reports_interruption() {
-        arm_sigusr1();
-        let (read, write) = never_ready_pipe();
-        let spam = spam_self(unsafe { libc::pthread_self() }, 1000);
-        // A 5s poll interrupted within milliseconds reports Interrupted;
-        // restarting the original timeout would sleep through the spam.
+        arm_sig(libc::SIGUSR1, sigusr1_hit);
+        // Mask first so it restores after the sender joins.
+        let _mask = MaskGuard::unblock(libc::SIGUSR1);
+        let pipe = PipeGuard::new();
+        let sender = SenderGuard::spawn(unsafe { libc::pthread_self() }, 1000, libc::SIGUSR1);
+        // A 5s poll interrupted within milliseconds reports exactly
+        // Interrupted; restarting the original timeout would sleep
+        // through the spam.
+        let before = hits(libc::SIGUSR1);
         let start = Instant::now();
-        let out = poll_once(read, libc::POLLIN, 5000);
+        let out = poll_once(pipe.read(), libc::POLLIN, 5000);
         let dt = start.elapsed();
-        spam.join().unwrap();
-        close_fd(read);
-        close_fd(write);
+        assert!(
+            hits(libc::SIGUSR1) > before,
+            "no interruption delivered during the poll"
+        );
+        sender.join_assert();
         assert!(
             dt < Duration::from_millis(1000),
             "EINTR restarted the full timeout: {dt:?}"
         );
-        match out {
-            Poll::Timeout => panic!("EINTR was retried with the original timeout"),
-            _ => {}
-        }
+        assert!(
+            matches!(out, Poll::Interrupted),
+            "expected exact Interrupted"
+        );
     }
 
     #[test]
     fn wait_ready_recomputes_budget_on_interruption() {
-        arm_sigusr1();
-        let (read, write) = never_ready_pipe();
-        let spam = spam_self(unsafe { libc::pthread_self() }, 1000);
-        // A 200ms bound fails at ~200ms despite constant interruption;
-        // restarting timeouts would push the failure out with the spam.
+        arm_sig(libc::SIGUSR2, sigusr2_hit);
+        // Mask first so it restores after the sender joins.
+        let _mask = MaskGuard::unblock(libc::SIGUSR2);
+        let pipe = PipeGuard::new();
+        let sender = SenderGuard::spawn(unsafe { libc::pthread_self() }, 1000, libc::SIGUSR2);
+        // A 200ms bound fails at ~200ms despite interruptions delivered
+        // during the wait; restarting timeouts would push the failure
+        // out with the spam.
         let deadline = Instant::now() + Duration::from_millis(200);
+        let before = hits(libc::SIGUSR2);
         let start = Instant::now();
-        assert!(!wait_ready(read, libc::POLLIN, deadline, None));
+        let ready = wait_ready(pipe.read(), libc::POLLIN, deadline, None);
         let dt = start.elapsed();
-        spam.join().unwrap();
-        close_fd(read);
-        close_fd(write);
+        assert!(
+            hits(libc::SIGUSR2) > before,
+            "no interruption delivered during the wait"
+        );
+        sender.join_assert();
+        assert!(!ready);
         assert!(
             dt < Duration::from_millis(500),
             "retries reset the budget: {dt:?}"
@@ -761,12 +844,53 @@ mod tests {
         }
     }
 
+    /// Bounded blocking reap: true on kernel-confirmed reap, false past
+    /// the bound or on wait error. Wait-only; never signals anything.
+    fn reap_bounded(pid: libc::pid_t, bound: Duration) -> bool {
+        let end = Instant::now() + bound;
+        loop {
+            let mut status = 0;
+            let r = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+            if r > 0 {
+                return true;
+            }
+            if r < 0 {
+                return false;
+            }
+            if Instant::now() >= end {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    /// Test-side reap custody for ECHILD-injected runs: production
+    /// correctly reaps nothing there, so the test owns every leader the
+    /// waiter observed. Explicit reaps assert kernel confirmation, then
+    /// drain the list; Drop reaps leftovers best-effort on unwind.
+    /// Restricted to this invocation's allocated children; wait-only.
+    struct ReapGuard<'a> {
+        seen: &'a std::cell::RefCell<Vec<libc::pid_t>>,
+    }
+
+    impl Drop for ReapGuard<'_> {
+        fn drop(&mut self) {
+            for pid in self.seen.borrow().iter() {
+                reap_bounded(*pid, Duration::from_secs(10));
+            }
+            self.seen.borrow_mut().clear();
+        }
+    }
+
     #[test]
     fn echild_never_signals_unpinned_group() {
         // Simulated ownership loss with a real owned child: the waiter
         // reports ECHILD while the leader and a heartbeat grandchild
         // live on. Nothing may be signaled (the numeric PGID is
         // unpinned); the beats prove survival past our bounded failure.
+        // Leaders stay this test's sole custody via the waiter-observed
+        // PIDs and are explicitly reaped per leg. This fixture tests
+        // branch signal refusal, NOT actual PID/PGID reuse safety.
         let fixture = Fixture::fresh();
         let beat = fixture.path("beat");
         let script = fixture.script(
@@ -785,13 +909,19 @@ mod tests {
                 format!("wait {script}: No child processes (os error 10)"),
             ),
         ] {
+            let seen: std::cell::RefCell<Vec<libc::pid_t>> = std::cell::RefCell::new(Vec::new());
+            let _reap = ReapGuard { seen: &seen };
             let deadline = Instant::now() + Duration::from_secs(1);
             let start = Instant::now();
-            let err = execute_with_waiter(&[], &script, &[], deadline, status_only, None, |_| {
+            let err = execute_with_waiter(&[], &script, &[], deadline, status_only, None, |pid| {
+                seen.borrow_mut().push(pid);
                 Err(std::io::Error::from_raw_os_error(libc::ECHILD))
             })
             .unwrap_err();
             assert_eq!(err, want);
+            // Exactly one probe of exactly one fresh leader per leg:
+            // cleanup stays restricted to this invocation's child.
+            assert_eq!(seen.borrow().len(), 1);
             assert!(start.elapsed() >= Duration::from_millis(500), "too fast");
             assert!(start.elapsed() < Duration::from_secs(10), "wedged");
             let at_return = std::fs::read(&beat).unwrap().len();
@@ -800,8 +930,19 @@ mod tests {
                 std::fs::read(&beat).unwrap().len() > at_return,
                 "group was signaled despite ECHILD"
             );
+            // Explicit test-side reaps with kernel confirmation (the
+            // leaders self-exit on finite timers), then drain so the
+            // guard only covers unwind leftovers.
+            for pid in seen.borrow().iter() {
+                assert!(
+                    reap_bounded(*pid, Duration::from_secs(10)),
+                    "test-side reap failed"
+                );
+            }
+            seen.borrow_mut().clear();
         }
-        // Finite fixture: the loops exit alone; nothing leaks.
+        // Leaders explicitly reaped per leg (waitpid evidence above);
+        // loops self-exit (settlement evidence below).
         std::thread::sleep(Duration::from_millis(1000));
         let end = std::fs::read(&beat).unwrap().len();
         std::thread::sleep(Duration::from_millis(500));
