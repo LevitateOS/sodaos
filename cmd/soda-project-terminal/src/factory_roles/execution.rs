@@ -89,6 +89,82 @@ fn wait_child(pid: libc::pid_t) -> libc::c_int {
     }
 }
 
+/// CODEX-P07-001: bounded checked termination of an owned role child after
+/// a log failure. SIGTERM with a grace interval, then SIGKILL with a final
+/// reap interval; every wait is `WNOHANG` so even an unkillable
+/// (uninterruptible-sleep) child cannot hang the supervisor. The first
+/// probe runs before any signal: an already-reaped pid reports `None`
+/// without signaling, so a recycled pid is never touched. Returns the wait
+/// status when the child was confirmed reaped, or `None` when termination
+/// could not be confirmed (the caller must report uncertainty, never Ok).
+fn terminate_child(pid: libc::pid_t) -> Option<libc::c_int> {
+    const TERM_GRACE_MS: u64 = 1000;
+    const KILL_GRACE_MS: u64 = 1000;
+    const POLL_SLICE_MS: u64 = 20;
+    fn reap_once(pid: libc::pid_t) -> Option<Option<libc::c_int>> {
+        let mut status = 0;
+        loop {
+            let rc = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+            if rc == pid {
+                return Some(Some(status));
+            }
+            if rc < 0 {
+                let errno = std::io::Error::last_os_error().raw_os_error();
+                if errno == Some(libc::EINTR) {
+                    continue;
+                }
+                // Not a waitable child (already reaped elsewhere): gone,
+                // so no signal may be sent.
+                return Some(None);
+            }
+            return None;
+        }
+    }
+    fn reap_until(pid: libc::pid_t, deadline: std::time::Instant) -> Option<libc::c_int> {
+        loop {
+            match reap_once(pid) {
+                Some(outcome) => return outcome,
+                None => {}
+            }
+            if std::time::Instant::now() >= deadline {
+                return None;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(POLL_SLICE_MS));
+        }
+    }
+    match reap_once(pid) {
+        Some(outcome) => return outcome,
+        None => {}
+    }
+    unsafe {
+        libc::kill(pid, libc::SIGTERM);
+    }
+    let outcome = reap_until(
+        pid,
+        std::time::Instant::now() + std::time::Duration::from_millis(TERM_GRACE_MS),
+    );
+    if outcome.is_some() {
+        return outcome;
+    }
+    unsafe {
+        libc::kill(pid, libc::SIGKILL);
+    }
+    reap_until(
+        pid,
+        std::time::Instant::now() + std::time::Duration::from_millis(KILL_GRACE_MS),
+    )
+}
+
+/// CODEX-P07-001: log-failure exit for `run_as_role`. The original log
+/// error is reported only when the owned child was confirmed reaped;
+/// otherwise cleanup is unconfirmed and uncertainty is retained.
+fn log_failure_cleanup(pid: libc::pid_t, original: Error) -> Error {
+    match terminate_child(pid) {
+        Some(_) => original,
+        None => Error::fail("log capture failed; role child termination unconfirmed"),
+    }
+}
+
 fn to_cstring(bytes: &[u8]) -> Option<CString> {
     CString::new(bytes).ok()
 }
@@ -174,16 +250,16 @@ pub fn run_as_role(
     unsafe {
         libc::close(writer);
     }
-    // P07-F1: log-I/O failures must still close owned descriptors and
-    // retire/reap the role child before reporting unconfirmed.
+    // P07-F1/001: log-I/O failures must still close owned descriptors
+    // and terminate/reap the role child within a bound before reporting;
+    // unconfirmed cleanup retains uncertainty instead of the log error.
     let mut log = match File::create(logpath) {
         Ok(log) => log,
         Err(err) => {
             unsafe {
                 libc::close(reader);
             }
-            wait_child(pid);
-            return Err(Error::classify(err));
+            return Err(log_failure_cleanup(pid, Error::classify(err)));
         }
     };
     let mut kept = 0usize;
@@ -198,8 +274,7 @@ pub fn run_as_role(
             unsafe {
                 libc::close(reader);
             }
-            wait_child(pid);
-            return Err(Error::io_msg("log pipe failed"));
+            return Err(log_failure_cleanup(pid, Error::io_msg("log pipe failed")));
         }
         if got == 0 {
             break;
@@ -211,8 +286,7 @@ pub fn run_as_role(
                 unsafe {
                     libc::close(reader);
                 }
-                wait_child(pid);
-                return Err(Error::io("write", &err));
+                return Err(log_failure_cleanup(pid, Error::io("write", &err)));
             }
             kept += take;
         }
@@ -223,8 +297,7 @@ pub fn run_as_role(
             unsafe {
                 libc::close(reader);
             }
-            wait_child(pid);
-            return Err(Error::io("write", &err));
+            return Err(log_failure_cleanup(pid, Error::io("write", &err)));
         }
     }
     drop(log);

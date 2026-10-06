@@ -394,6 +394,87 @@ fn log_io_failure_reaps_child_and_reports_unconfirmed() {
     );
 }
 
+/// CODEX-P07-001: the `yes` regression proves only SIGPIPE exit. A silent
+/// child that never writes must still be terminated and reaped on a log
+/// failure within a bound — never hang the privileged supervisor in an
+/// unbounded wait. Pre-fix this fails on the elapsed watchdog (the call
+/// blocks until the child exits on its own).
+#[test]
+fn log_io_failure_terminates_silent_child_bounded() {
+    assert!(
+        std::fs::metadata("/bin/sleep").is_ok(),
+        "P07-001 regression needs /bin/sleep"
+    );
+    let dir = std::env::temp_dir().join(format!("soda-f1s-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let logpath = dir.join("no-such-dir").join("setup.log");
+    let argv = vec!["/bin/sleep".to_string(), "10".to_string()];
+    let uid = unsafe { libc::geteuid() };
+    let gid = unsafe { libc::getegid() };
+    let start = std::time::Instant::now();
+    let outcome = run_as_role(&argv, &[], &dir, &logpath, uid, gid);
+    let elapsed = start.elapsed();
+    assert!(
+        outcome.is_err(),
+        "log I/O failure must report unconfirmed, got {outcome:?}"
+    );
+    // Owned-process cleanup first: reap any leaked silent child, then fail.
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let mut leaked = Vec::new();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(700);
+    while leaked.is_empty() && std::time::Instant::now() < deadline {
+        for pid in own_child_pids() {
+            if proc_comm(pid).as_deref() == Some("sleep") {
+                leaked.push(pid);
+            }
+        }
+        if leaked.is_empty() {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    }
+    for pid in &leaked {
+        unsafe {
+            libc::kill(*pid, libc::SIGKILL);
+        }
+    }
+    for pid in &leaked {
+        unsafe {
+            libc::waitpid(*pid, std::ptr::null_mut(), 0);
+        }
+    }
+    std::fs::remove_dir_all(&dir).ok();
+    assert!(
+        leaked.is_empty(),
+        "log I/O failure leaked silent children: {leaked:?}"
+    );
+    assert!(
+        elapsed < std::time::Duration::from_secs(5),
+        "silent child hung the supervisor: {elapsed:?}"
+    );
+}
+
+/// CODEX-P07-001: cleanup that cannot confirm the child reports
+/// uncertainty (never Ok, never the original error alone). A reaped pid is
+/// deterministically gone, so this pins the unconfirmed mapping without
+/// fabricating native state.
+#[test]
+fn log_failure_cleanup_reports_unconfirmed_when_child_gone() {
+    let pid = unsafe { libc::fork() };
+    assert!(pid >= 0, "fork failed");
+    if pid == 0 {
+        unsafe {
+            libc::_exit(0);
+        }
+    }
+    let mut status = 0;
+    assert_eq!(unsafe { libc::waitpid(pid, &mut status, 0) }, pid);
+    assert_eq!(terminate_child(pid), None);
+    assert_eq!(
+        log_failure_cleanup(pid, Error::io_msg("write: broken pipe")),
+        Error::Fail("log capture failed; role child termination unconfirmed".to_string()),
+    );
+}
+
 fn proc_startup() -> Option<(u32, i32, String)> {
     let meta = std::fs::symlink_metadata("/proc/1").ok()?;
     let uid = std::os::unix::fs::MetadataExt::uid(&meta);
