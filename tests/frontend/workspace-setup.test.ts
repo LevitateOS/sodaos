@@ -1,8 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import type {Page} from 'playwright';
 import {setupWorkspaceDriver, chooseFirstRepository, fixture} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
+
+async function projectPressed(page: Page) {
+  return page.evaluate(() => {
+    const el = document.querySelector('soda-spaces');
+    const scope = el?.shadowRoot ?? el;
+    if (!scope) throw Error('Missing workspace mount');
+    return [...scope.querySelectorAll('.soda-project-select')]
+      .map((b) => `${b.getAttribute('aria-label')}=${b.getAttribute('aria-pressed')}`)
+      .join(',');
+  });
+}
 
 test('setup: pending creation keeps its selection and disables navigation without duplicate writes', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
@@ -184,4 +196,109 @@ test('first use: second-project setup cancellation preserves the live renderer, 
     before
   );
   assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map((s) => s.closed)), [0]);
+});
+test('setup cancel restores the non-first return target instead of selecting the first project', async (t) => {
+  const page = await fixture(t, 'page', undefined, false);
+  await page.evaluate(() => {
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input), location.origin);
+        if (url.pathname.endsWith('/api/repositories'))
+          return Response.json({
+            items: [
+              {
+                id: '7',
+                owner: 'alice',
+                name: 'Alpha',
+                can_create: false,
+                project: {id: 'p111111111111111111111111', provisioned: true},
+              },
+              {
+                id: '8',
+                owner: 'alice',
+                name: 'Beta',
+                can_create: false,
+                project: {id: 'p222222222222222222222222', provisioned: true},
+              },
+              {id: '9', owner: 'alice', name: 'Gamma', can_create: true, project: null},
+            ],
+          });
+        return original(input, init);
+      },
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  await page.getByRole('button', {name: 'Project settings'}).click();
+  await page.getByRole('heading', {name: 'Project OS'}).waitFor();
+  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Gamma/}).waitFor();
+  await page.getByRole('radio', {name: /alice\/Gamma/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Cancel setup', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
+  await page.getByRole('heading', {name: 'Project OS'}).waitFor();
+  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).waitFor();
+  assert.equal(await projectPressed(page), 'alice/Alpha=false,alice/Beta=true');
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
+});
+test('setup cancel falls back to the first project only when the return target is gone', async (t) => {
+  const page = await fixture(t, 'page', undefined, false);
+  await page.evaluate(() => {
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input), location.origin);
+        if (url.pathname.endsWith('/api/repositories'))
+          return Response.json({
+            items: [
+              {
+                id: '7',
+                owner: 'alice',
+                name: 'Alpha',
+                can_create: false,
+                project: {id: 'p111111111111111111111111', provisioned: true},
+              },
+              {
+                id: '8',
+                owner: 'alice',
+                name: 'Beta',
+                can_create: false,
+                project: {id: 'p222222222222222222222222', provisioned: true},
+              },
+              {id: '9', owner: 'alice', name: 'Gamma', can_create: true, project: null},
+            ],
+          });
+        return original(input, init);
+      },
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Gamma/}).waitFor();
+  await page.getByRole('radio', {name: /alice\/Gamma/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Cancel setup', exact: true}).waitFor();
+  await page.evaluate(async () => {
+    const spaces = window.workspaceFixture.spaces;
+    spaces.splice(
+      spaces.findIndex((s) => s.environment.repository_id === '8'),
+      1
+    );
+    await window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
+  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('button', {name: 'alice/Alpha', exact: true}).waitFor();
+  assert.equal(await projectPressed(page), 'alice/Alpha=true');
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
 });
