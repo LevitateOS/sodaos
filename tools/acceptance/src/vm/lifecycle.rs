@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use soda_json::JsonValue;
 
@@ -63,6 +63,7 @@ pub fn launch_vm<'a>(
         wait_ssh: true,
         qmp: QmpClient {
             socket: String::new(),
+            #[cfg(test)]
             dial: None,
         },
         outputs: Vec::new(),
@@ -100,9 +101,6 @@ impl<'a> Vm<'a> {
 
     fn wait_qemu_ready(&self, phase: &Phase) -> Result<(), Error> {
         let ready = phase.child(Duration::from_secs(30));
-        let deadline = ready
-            .deadline()
-            .unwrap_or_else(|| Instant::now() + Duration::from_secs(30));
         let process = self.process.as_ref().unwrap();
         loop {
             let mut status = JsonValue::Null;
@@ -110,7 +108,7 @@ impl<'a> Vm<'a> {
             // the payload content is not consulted.
             if self
                 .qmp
-                .execute("query-status", "status", None, Some(&mut status), deadline)
+                .execute("query-status", "status", None, Some(&mut status), &ready)
                 .is_ok()
             {
                 return Ok(());
@@ -175,6 +173,7 @@ impl<'a> Vm<'a> {
         self.process = Some(process::start_process(phase, &spec, out, err_writer)?);
         self.qmp = QmpClient {
             socket: format!("{}/qmp.sock", self.config.work),
+            #[cfg(test)]
             dial: None,
         };
         self.wait_qemu_ready(phase)?;
@@ -193,22 +192,28 @@ impl<'a> Vm<'a> {
             return Ok(());
         };
         let shutdown = phase.child(Duration::from_secs(2 * 60));
-        let deadline = shutdown
-            .deadline()
-            .unwrap_or_else(|| Instant::now() + Duration::from_secs(2 * 60));
-        self.qmp
-            .execute("system_powerdown", "powerdown", None, None, deadline)?;
-        process.wait(&shutdown)?;
+        let mut err = self
+            .qmp
+            .execute("system_powerdown", "powerdown", None, None, &shutdown)
+            .err();
+        // A failed shutdown request leaves a live guest for close_once to
+        // stop; waiting out the graceful allowance cannot help that failure.
+        if err.is_some() && !process.is_done() {
+            return Err(err.expect("QMP shutdown failed"));
+        }
+        err = Error::join(vec![err, process.wait(&shutdown).err()]);
+        if !process.is_done() {
+            return err.map(Err).unwrap_or(Ok(()));
+        }
+        err = Error::join(vec![err, process.join_pumps().map(Error::msg)]);
         self.process = None;
         match std::fs::remove_file(&self.qmp.socket) {
             Ok(()) => {}
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-            Err(err) => return Err(Error::from(err)),
+            Err(remove_err) => err = Error::join(vec![err, Some(Error::from(remove_err))]),
         }
-        match self.close_outputs() {
-            Some(err) => Err(err),
-            None => Ok(()),
-        }
+        err = Error::join(vec![err, self.close_outputs()]);
+        err.map(Err).unwrap_or(Ok(()))
     }
 
     fn close_outputs(&mut self) -> Option<Error> {
@@ -245,12 +250,16 @@ impl<'a> Vm<'a> {
         let mut err = self.power_down(&shutdown).err();
         if let Some(process) = self.process.clone() {
             err = Error::join(vec![err, process.stop().err()]);
-            if !process.is_done() {
+            if process.is_done() {
+                err = Error::join(vec![err, process.join_pumps().map(Error::msg)]);
+                self.process = None;
+            } else {
                 // A kernel-stuck child still owns the capture writers. Do not
                 // close them concurrently or describe their retention as complete.
                 let outputs = std::mem::take(&mut self.outputs);
                 std::thread::spawn(move || {
                     let _ = process.wait(&Phase::background());
+                    let _ = process.join_pumps();
                     for writer in outputs {
                         let mut slot = writer.lock().unwrap_or_else(|e| e.into_inner());
                         let _ = slot.close();
@@ -280,7 +289,7 @@ impl<'a> Vm<'a> {
             } else {
                 Error::msg(String::new())
             };
-            return Err(Error::wrap(message.clone(), cause));
+            return Err(Error::redacted(message.clone(), cause));
         }
         let result = self.close_once();
         let (message, cancelled) = match &result {

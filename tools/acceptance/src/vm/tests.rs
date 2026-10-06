@@ -185,3 +185,61 @@ fn close_replays_first_outcome() {
     assert!(vm.close().is_ok());
     assert!(vm.wait(&Phase::background()).is_err());
 }
+
+#[test]
+#[cfg(target_os = "linux")]
+fn close_joins_expired_capture_before_closing_and_replays_error() {
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    use crate::command::{CommandSpec, StdinSpec};
+    use crate::evidence::RedactingWriter;
+    use crate::process::{self, Phase, SharedWriter};
+
+    let scratch = TempDir::new("vm-pump-close").unwrap();
+    let evidence_path = scratch.join("evidence").to_string_lossy().into_owned();
+    let evidence = create_evidence(&evidence_path, &[]).unwrap();
+    let ready = scratch.path().join("escaped");
+    let script = format!(
+        "setsid sh -c 'echo ready > {}; exec sleep 5' & while [ ! -f {} ]; do sleep 0.01; done; echo out",
+        ready.display(),
+        ready.display()
+    );
+    let capture_phase = Phase::timeout(Duration::from_millis(300));
+    let spec = CommandSpec {
+        name: "/bin/sh".to_string(),
+        args: vec!["-c".to_string(), script],
+        dir: None,
+        stdin: StdinSpec::Null,
+        env: Vec::new(),
+    };
+    let out_path = scratch.join("stdout");
+    let out_file = std::fs::File::create(out_path).unwrap();
+    let out: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(out_file, Vec::new())));
+    let err: SharedWriter = Arc::new(Mutex::new(RedactingWriter::discard()));
+    let process = process::start_process(&capture_phase, &spec, out.clone(), err.clone()).unwrap();
+    process
+        .wait(&Phase::timeout(Duration::from_secs(5)))
+        .unwrap();
+    std::thread::sleep(Duration::from_millis(350));
+
+    let mut vm = Vm {
+        config: fixture_config(),
+        process: Some(process),
+        boot_args: None,
+        wait_ssh: false,
+        qmp: QmpClient {
+            socket: scratch.join("missing.sock").to_string_lossy().into_owned(),
+            dial: None,
+        },
+        outputs: vec![out, err],
+        evidence: &evidence,
+        attempt: 1,
+        closed: None,
+    };
+    let first = vm.close().unwrap_err().to_string();
+    assert!(first.contains("capture incomplete"), "{first}");
+    assert!(vm.process.is_none(), "completed process ownership retained");
+    let second = vm.close().unwrap_err().to_string();
+    assert_eq!(second, first, "close did not replay its cached error");
+}
