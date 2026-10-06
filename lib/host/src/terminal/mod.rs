@@ -71,7 +71,7 @@ mod native;
 
 pub use self::native::{
     agent_program_hash, agent_program_path, clean_path, native_argv, parse_output_line,
-    valid_private_terminal_request, NativeAttach,
+    NativeAttach,
 };
 
 mod stream;
