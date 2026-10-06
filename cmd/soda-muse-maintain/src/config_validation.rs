@@ -5,7 +5,7 @@ pub(crate) fn validate_runtime_config(c: &Config) -> Result<(), String> {
     // tailnet, then network names.
     validate_muse_runtime(c)?;
     validate_identity_runtime(c)?;
-    super::parse_prefix(&c.subnet)?;
+    super::network::parse_prefix(&c.subnet)?;
     if !valid_tailnet_config(c) {
         return Err(String::from(
             "invalid immutable Tailnet companion configuration",
