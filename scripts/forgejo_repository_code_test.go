@@ -4,9 +4,26 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+var forgejoCSSImport = regexp.MustCompile(`@import\s+"\./([^"?]+\.css)[^;]*;\r?\n?`)
+
+// inlineForgejoCSSImports resolves same-directory leaf imports so family-marker
+// checks observe the composed parent exactly as the browser does.
+func inlineForgejoCSSImports(t *testing.T, css string) string {
+	t.Helper()
+	return forgejoCSSImport.ReplaceAllStringFunc(css, func(directive string) string {
+		name := forgejoCSSImport.FindStringSubmatch(directive)[1]
+		leaf, err := os.ReadFile("../assets/branding/forgejo/" + name)
+		if err != nil {
+			t.Fatalf("read css leaf %s: %v", name, err)
+		}
+		return string(leaf)
+	})
+}
 
 // Exact upstream recovery guards every native action, gate, input and JS delegate.
 func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
@@ -151,7 +168,7 @@ func TestForgejoCodeAndWorkflowStylesUsePositiveFamilyMarkers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", name, err)
 		}
-		css := string(contents)
+		css := inlineForgejoCSSImports(t, string(contents))
 		for _, marker := range markers {
 			if !strings.Contains(css, marker) {
 				t.Errorf("%s lost positive family marker %q", name, marker)

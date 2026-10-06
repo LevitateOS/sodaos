@@ -17,6 +17,7 @@
   "public/assets/soda/forgejo/admin.css": "assets/branding/forgejo/admin.css",
   "public/assets/soda/forgejo/apple-touch-icon.png": "assets/branding/forgejo/apple-touch-icon.png",
   "public/assets/soda/forgejo/auth.css": "assets/branding/forgejo/auth.css",
+  "public/assets/soda/forgejo/code-layout.css": "assets/branding/forgejo/code-layout.css",
   "public/assets/soda/forgejo/code-search.css": "assets/branding/forgejo/code-search.css",
   "public/assets/soda/forgejo/components-buttons.css": "assets/branding/forgejo/components-buttons.css",
   "public/assets/soda/forgejo/components-empty.css": "assets/branding/forgejo/components-empty.css",
