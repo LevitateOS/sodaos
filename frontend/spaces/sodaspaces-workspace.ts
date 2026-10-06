@@ -74,6 +74,21 @@ import {
   workspaceBodyStyle,
   workspaceClasses,
 } from './sodaspaces-workspace-shell-view.js';
+import {
+  disableNewTerminal,
+  hideNewTerminal,
+  newTerminalButtonClass,
+  newTerminalButtonLabel,
+  renderBackButton,
+  renderNativeManagementOption,
+  renderOpenInDrawerOption,
+  renderProjectSettingsButton,
+  renderSpacesLink,
+  renderToggleSidebarOption,
+  renderToolbarProject,
+  sessionsButtonHidden,
+  sessionsButtonLabel,
+} from './sodaspaces-workspace-toolbar-view.js';
 type TerminalFactory = typeof mountTerminal;
 const factoryWatchLimit = 8;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
@@ -753,106 +768,21 @@ export class SodaSpaces extends LitElement {
   private get connectURL() {
     return window.location.href;
   }
-  private sessionsButtonHidden() {
-    if (this.binding?.kind !== 'page') return false;
-    return !this.compact && this.layout.sidebar !== null && this.view !== 'sessions';
-  }
-  private sessionsButtonLabel() {
-    return this.binding?.kind === 'page' ? 'Projects' : 'Sessions';
-  }
-  private toolbarProjectTitle() {
-    return this.selectedSpace ? this.projectName(this.selectedSpace) : 'Spaces';
-  }
-  private renderToolbarProject() {
-    if (this.binding?.kind !== 'page') return '';
-    const space = this.selectedSpace;
-    const state = space
-      ? html`<span class="soda-project-state" data-state=${this.projectState(space)}
-          >${this.projectStatus(space)}</span
-        >`
-      : '';
-    const profile = space?.environment.profile
-      ? html`<p class="soda-project-profile">Rocky Linux ${space.environment.profile.version} · Terminal</p>`
-      : '';
-    const title = this.toolbarProjectTitle();
-    return html`<div class="soda-selected-project">
-      <div class="soda-project-heading">
-        <h1 title=${title}>${title}</h1>
-        ${state}
-      </div>
-      ${profile}
-    </div>`;
-  }
-  private hideNewTerminal() {
-    if (this.firstTerminal) return true;
-    if (this.binding?.kind !== 'page') return false;
-    return !this.selectedSpace?.login || this.selectedSpace.observed?.running !== true;
-  }
-  private disableNewTerminal() {
-    if (workspaceBlocked(this.stale, this.available) || this.creating) return true;
-    if (this.binding?.kind !== 'page') return false;
-    const space = this.selectedSpace;
-    return !space?.environment.provisioned || !!space.authority_unavailable || !!space.native_unavailable;
-  }
-  private newTerminalButtonClass() {
-    return this.binding?.kind === 'page' ? 'ui primary button' : 'ui button';
-  }
-  private newTerminalButtonLabel() {
-    return this.binding?.kind === 'page' ? html`<span aria-hidden="true">＋</span> New terminal` : '＋';
-  }
-  private renderProjectSettingsButton() {
-    if (this.binding?.kind !== 'page') return '';
-    return html`<button
-      class="ui button"
-      ?disabled=${workspaceBlocked(this.stale, this.available) || !this.selectedSpace}
-      @click=${() => this.showManagement(this.project)}
-    >
-      Project settings
-    </button>`;
-  }
-  private hideBackButton() {
-    if (this.view === 'terminal') return true;
-    return this.binding?.kind === 'page' && this.view === 'project' && this.managementMode === 'journey';
-  }
-  private backButtonLabel() {
-    return this.binding?.kind === 'page' ? 'Back to workspace' : 'Back to terminal';
-  }
-  private renderBackButton() {
-    if (this.hideBackButton()) return '';
-    return html`<button class="ui button" @click=${() => this.back()}>${this.backButtonLabel()}</button>`;
-  }
-  private renderOpenInDrawerOption() {
-    if (this.binding?.kind !== 'page') return '';
-    return html`<button
-      class="ui button"
-      ?disabled=${workspaceBlocked(this.stale, this.available) || this.openingDrawer || !this.selected}
-      @click=${() => this.openInDrawer()}
-    >
-      Open in drawer
-    </button>`;
-  }
-  private renderToggleSidebarOption() {
-    if (this.binding?.kind !== 'page') return '';
-    return html`<button class="ui button" @click=${() => this.toggleSidebar()}>Toggle sidebar</button>`;
-  }
-  private nativeManagementTarget() {
-    return this.binding?.kind === 'native' ? this.binding.repositoryId : '';
-  }
-  private renderNativeManagementOption() {
-    if (this.binding?.kind !== 'native' || !this.binding.repositoryId) return '';
-    return html`<button
-      class="ui button"
-      ?disabled=${workspaceBlocked(this.stale, this.available)}
-      @click=${() => {
-        const repository = this.nativeManagementTarget();
-        if (repository) void this.showManagement(repository);
-      }}
-    >
-      Repository environment / access
-    </button>`;
-  }
   private renderToolbarMenu() {
     if (this.workspaceIntro) return '';
+    const openInDrawer = renderOpenInDrawerOption(
+      this.binding?.kind,
+      workspaceBlocked(this.stale, this.available),
+      this.openingDrawer,
+      this.selected,
+      () => this.openInDrawer()
+    );
+    const toggleSidebar = renderToggleSidebarOption(this.binding?.kind, () => this.toggleSidebar());
+    const nativeMgmt = renderNativeManagementOption(
+      this.binding,
+      workspaceBlocked(this.stale, this.available),
+      (repository) => this.showManagement(repository)
+    );
     return renderMenu(
       'Workspace options',
       '⋯',
@@ -860,39 +790,48 @@ export class SodaSpaces extends LitElement {
         <button class="ui button" ?disabled=${this.busy || this.stale} @click=${this.onRefreshClick}>
           Refresh Spaces
         </button>
-        ${this.renderOpenInDrawerOption()} ${this.renderToggleSidebarOption()} ${this.renderNativeManagementOption()}
+        ${openInDrawer} ${toggleSidebar} ${nativeMgmt}
       `
     );
   }
-  private renderSpacesLink() {
-    return '';
-  }
   private renderToolbar() {
+    const kind = this.binding?.kind;
+    const space = this.selectedSpace;
+    const project = renderToolbarProject(
+      kind,
+      space,
+      space ? this.projectState(space) : '',
+      space ? this.projectStatus(space) : '',
+      space ? this.projectName(space) : ''
+    );
+    const settings = renderProjectSettingsButton(kind, workspaceBlocked(this.stale, this.available), space, () =>
+      this.showManagement(this.project)
+    );
+    const back = renderBackButton(this.view, kind, this.managementMode, () => this.back());
     return html`<header class="soda-workspace-toolbar" ?hidden=${this.setupScreen}>
       <button
         class="ui button"
         data-workspace="sessions"
-        ?hidden=${this.sessionsButtonHidden()}
+        ?hidden=${sessionsButtonHidden(kind, this.compact, this.layout.sidebar, this.view)}
         ?disabled=${workspaceBlocked(this.stale, this.available)}
         @click=${this.onShowSessions}
       >
-        ${this.sessionsButtonLabel()}
+        ${sessionsButtonLabel(kind)}
       </button>
-      ${this.renderToolbarProject()}
+      ${project}
       <button
-        class=${this.newTerminalButtonClass()}
+        class=${newTerminalButtonClass(kind)}
         data-environment-id=${this.selectedSpace?.environment.id || ''}
         data-terminal-name=${this.defaultTerminalName(this.selectedSpace)}
         aria-label="New terminal"
         title="New terminal"
-        ?hidden=${this.hideNewTerminal()}
-        ?disabled=${this.disableNewTerminal()}
+        ?hidden=${hideNewTerminal(this.firstTerminal, kind, space)}
+        ?disabled=${disableNewTerminal(workspaceBlocked(this.stale, this.available), this.creating, kind, space)}
         @click=${this.onNewTerminal}
       >
-        ${this.newTerminalButtonLabel()}
+        ${newTerminalButtonLabel(kind)}
       </button>
-      ${this.renderProjectSettingsButton()} ${this.renderBackButton()} ${this.renderToolbarMenu()}
-      ${this.renderSpacesLink()}
+      ${settings} ${back} ${this.renderToolbarMenu()} ${renderSpacesLink()}
     </header>`;
   }
   private repositoryPrefix() {
