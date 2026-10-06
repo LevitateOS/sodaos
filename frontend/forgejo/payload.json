@@ -83,6 +83,7 @@
   "templates/admin/applications/oauth2_edit.tmpl": "frontend/forgejo/templates/admin/applications/oauth2_edit.tmpl",
   "templates/admin/auth/edit.tmpl": "frontend/forgejo/templates/admin/auth/edit.tmpl",
   "templates/admin/auth/edit_ldap.tmpl": "frontend/forgejo/templates/admin/auth/edit_ldap.tmpl",
+  "templates/admin/auth/edit_oauth.tmpl": "frontend/forgejo/templates/admin/auth/edit_oauth.tmpl",
   "templates/admin/auth/edit_pam.tmpl": "frontend/forgejo/templates/admin/auth/edit_pam.tmpl",
   "templates/admin/auth/edit_smtp.tmpl": "frontend/forgejo/templates/admin/auth/edit_smtp.tmpl",
   "templates/admin/auth/list.tmpl": "frontend/forgejo/templates/admin/auth/list.tmpl",
