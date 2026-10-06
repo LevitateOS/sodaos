@@ -28,6 +28,7 @@ mod subscription_cgroup;
 mod subscription_credentials;
 mod subscription_prepare;
 mod subscription_profile;
+mod subscription_retire;
 mod subscription_start;
 mod subscription_wire;
 mod svc;

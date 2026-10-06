@@ -1,6 +1,7 @@
 use super::*;
 use crate::subscription_cgroup::parse_cgroup_events;
 use crate::subscription_prepare::mount_argv;
+use crate::subscription_retire::{is_mount, subscription_remove_model};
 use crate::subscription_start::respawn_argv;
 use crate::subscription_wire::{
     deadline_ok, empty_result, json_equal, json_int, lease_with_binding, native_binding,
