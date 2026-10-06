@@ -40,7 +40,13 @@ export async function openComponentBrowser(): Promise<ComponentBrowser> {
   );
   const palette = await readFile(new URL('../../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
   const browser = await chromium.launch({channel: 'chrome', headless: true, chromiumSandbox: true});
-  const page = await browser.newPage({viewport: {width: 1654, height: 1000}});
+  let page: Page;
+  try {
+    page = await browser.newPage({viewport: {width: 1654, height: 1000}});
+  } catch (error) {
+    await browser.close().catch(() => undefined);
+    throw error;
+  }
   async function render(markup: string, theme = 'light') {
     await page.mouse.move(1600, 990);
     await page.setContent(`<link rel="stylesheet" href="${origin}/assets/css/index.css">

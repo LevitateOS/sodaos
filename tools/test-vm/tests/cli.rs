@@ -5,12 +5,12 @@
 
 use std::fs;
 
-#[path = "cli/start.rs"]
+#[path = "start.rs"]
 mod start;
-#[path = "cli/status.rs"]
+#[path = "status.rs"]
 mod status;
 mod support;
-#[path = "cli/transport.rs"]
+#[path = "transport.rs"]
 mod transport;
 
 use self::support::{cmd, vm_fixture, TempDir};

@@ -29,3 +29,7 @@ pub(crate) fn load_config(path: &str) -> Result<Config, String> {
     super::config_validation::validate_runtime_config(&c)?;
     Ok(c)
 }
+
+#[cfg(test)]
+#[path = "config_tests.rs"]
+mod config_tests;

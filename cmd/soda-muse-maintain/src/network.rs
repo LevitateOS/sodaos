@@ -201,3 +201,7 @@ fn parse_ipv6(input: &str) -> Result<bool, String> {
     }
     Ok(has_zone)
 }
+
+#[cfg(test)]
+#[path = "network_tests.rs"]
+mod network_tests;

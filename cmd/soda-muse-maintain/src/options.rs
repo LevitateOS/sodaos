@@ -125,3 +125,7 @@ fn valid_project_id(id: &str) -> bool {
     // ^p[0-9a-f]{24}$: lowercase hex only.
     id.len() == 25 && id.starts_with('p') && id.bytes().skip(1).all(super::is_lower_hex)
 }
+
+#[cfg(test)]
+#[path = "options_tests.rs"]
+mod options_tests;
