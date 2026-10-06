@@ -1063,6 +1063,7 @@ mod tests {
             let deadline = Instant::now() + Duration::from_secs(1);
             let start = Instant::now();
             assert_eq!(exec.run(&[], &script, &[], deadline).unwrap_err(), want);
+            assert!(start.elapsed() >= Duration::from_millis(500), "too fast");
             assert!(start.elapsed() < Duration::from_secs(10), "wedged");
             // Settle past the kill, then prove the grandchild is silent:
             // heartbeats flowed before the deadline and froze after it.
@@ -1161,23 +1162,33 @@ mod tests {
             let deadline = Instant::now() + Duration::from_secs(1);
             let start = Instant::now();
             assert_eq!(exec.run(&[], &held, &[], deadline).unwrap_err(), want);
+            assert!(start.elapsed() >= Duration::from_millis(500), "too fast");
             assert!(start.elapsed() < Duration::from_secs(10), "wedged");
         }
-        // A grandchild outliving our completion proves no post-reap
-        // signals: it writes its marker after we already errored.
-        let mark = env.path("alive");
+        // A grandchild holding the pipes past the deadline is retired
+        // with its still-pinned group before the single reap: its late
+        // marker never lands, and completion reports the bounded failure.
+        let mark = env.path("retired");
         let survivor = stub_cli(
             &env,
             "survivor.sh",
             &format!("(sleep 2; echo alive >> \"{mark}\") &\necho done\nexit 0"),
         );
         let deadline = Instant::now() + Duration::from_secs(1);
+        let start = Instant::now();
         assert_eq!(
             Native.run(&[], &survivor, &[], deadline).unwrap_err(),
             format!("{survivor} failed: deadline exceeded")
         );
+        assert!(start.elapsed() >= Duration::from_millis(500), "too fast");
+        assert!(start.elapsed() < Duration::from_secs(10), "wedged");
+        // Settle past the marker's scheduled landing, then prove it never
+        // arrived: the group died with the capture deadline.
         std::thread::sleep(Duration::from_secs(3));
-        assert_eq!(std::fs::read(&mark).unwrap(), b"alive\n");
+        assert!(
+            std::fs::metadata(&mark).is_err(),
+            "retired group wrote after completion"
+        );
         // A descendant holding the stdin read end wedges the writer the
         // same way: 1 MiB can never drain into a sleeper.
         let stdin_held = stub_cli(&env, "stdin.sh", "(sleep 5 <&0 &)\necho done\nexit 0");
@@ -1198,6 +1209,7 @@ mod tests {
                 exec.run(&big, &stdin_held, &[], deadline).unwrap_err(),
                 want
             );
+            assert!(start.elapsed() >= Duration::from_millis(500), "too fast");
             assert!(start.elapsed() < Duration::from_secs(10), "wedged");
         }
     }

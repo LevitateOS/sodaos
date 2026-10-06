@@ -127,6 +127,7 @@ fn execute(
             return Err(format!("{cmd} failed: {e}"));
         }
     }
+    let pid = child.id() as libc::pid_t;
     let outcome = std::thread::scope(|scope| {
         // Stdin/stdout/stderr transfer concurrently: a child emitting
         // beyond pipe capacity would otherwise block forever while the
@@ -145,25 +146,29 @@ fn execute(
             Some(e) => drain_pipe(e, deadline),
             None => Transfer::Done(Vec::new()),
         });
-        let status = loop {
-            match child.try_wait() {
-                Ok(Some(status)) => break status,
-                Ok(None) => {
+        loop {
+            match wait_exit(pid) {
+                // Exited but UN-REAPED: the zombie pins the PID/PGID
+                // against reuse until capture and group retirement
+                // settle below; the single reap follows the joins.
+                Ok(true) => break,
+                Ok(false) => {
                     if Instant::now() >= deadline {
-                        // Timeout: stop the owned child and its group,
-                        // reap it, then join the already-due transfers
-                        // (prompt, never detached) and report the
-                        // timeout; the join results are discarded.
-                        let waited = cleanup_child(&mut child);
+                        // Timeout: bounded cleanup of the owned child
+                        // and group, then join the already-due
+                        // transfers (prompt, never detached) and report
+                        // the timeout; the join results are discarded.
+                        let cleaned = cleanup_child(&mut child);
                         let _ = writer.join();
                         let _ = out_drain.join();
                         let _ = err_drain.join();
                         if status_only {
-                            // A real kill happened here, so the wait
-                            // status is reported like Go's deadline kill.
-                            return match waited {
-                                Ok(status) => Err(exit_text(status)),
-                                Err(e) => Err(format!("wait {cmd}: {e}")),
+                            // A completed kill reports the wait status
+                            // like Go's deadline kill; an uncertain one
+                            // claims no kill at all.
+                            return match cleaned {
+                                Cleanup::Clean(status) => Err(exit_text(status)),
+                                Cleanup::Uncertain => Err(completion_text(cmd, status_only)),
                             };
                         }
                         return Err(format!("{cmd} failed: deadline exceeded"));
@@ -171,7 +176,7 @@ fn execute(
                     std::thread::sleep(Duration::from_millis(5));
                 }
                 Err(e) => {
-                    // try_wait failure leaves no reaped child to track;
+                    // Wait failure leaves no reaped child to track;
                     // join the bounded transfers and fail without
                     // signaling anything (never orphan, never detach).
                     let _ = writer.join();
@@ -180,9 +185,9 @@ fn execute(
                     return Err(format!("{cmd} failed: {e}"));
                 }
             }
-        };
-        // The child is reaped: ownership ends here. No further signals —
-        // the PID/PGID may be reused from this point on.
+        }
+        // Capture phase: the leader is a pinned zombie. Joins are bounded
+        // by the caller deadline, so they always return.
         let wrote = writer
             .join()
             .map_err(|_| format!("{cmd} failed: stdin writer panicked"))?;
@@ -195,17 +200,26 @@ fn execute(
         // No successful truncated output: any transfer that missed the
         // deadline fails the run even when the exit status is zero, like
         // Go's WaitDelay expiry (ErrWaitDelay instead of nil).
-        if !matches!(wrote, Transfer::Done(())) {
-            return Err(completion_text(cmd, status_only));
-        }
-        let stdout = match stdout {
-            Transfer::Done(buf) => buf,
-            Transfer::Incomplete => return Err(completion_text(cmd, status_only)),
+        let (stdout, stderr) = match (wrote, stdout, stderr) {
+            (Transfer::Done(()), Transfer::Done(out), Transfer::Done(err)) => (out, err),
+            _ => {
+                // Incomplete with the leader still pinned: retire the
+                // original owned group BEFORE the single reap (the zombie
+                // holds the PGID against reuse), then report the bounded
+                // capture failure. Never signal after the reap.
+                let _ = retire_group(pid);
+                let _ = child.wait();
+                return Err(completion_text(cmd, status_only));
+            }
         };
-        let stderr = match stderr {
-            Transfer::Done(buf) => buf,
-            Transfer::Incomplete => return Err(completion_text(cmd, status_only)),
-        };
+        // Single reap now that capture settled; the exit status decides.
+        let status = child.wait().map_err(|e| {
+            if status_only {
+                format!("wait {cmd}: {e}")
+            } else {
+                format!("{cmd} failed: {e}")
+            }
+        })?;
         Ok((status, stdout, stderr))
     })?;
     let (status, stdout, stderr): (std::process::ExitStatus, Vec<u8>, Vec<u8>) = outcome;
@@ -247,20 +261,80 @@ enum Transfer<T> {
     Incomplete,
 }
 
-/// Best-effort synchronous cleanup of an owned, un-reaped child and its
-/// process group. Call only while holding the un-reaped Child: the group
-/// id (== child pid via process_group(0)) cannot be reused until we reap,
-/// so no foreign PID/PGID is ever signaled. Returns the reap result.
-fn cleanup_child(child: &mut std::process::Child) -> std::io::Result<std::process::ExitStatus> {
-    let pgid = child.id() as libc::pid_t;
-    // Descendants first: SIGKILL the owned group so pipes held past the
-    // direct child's death release promptly. Errors ignored: an empty or
-    // already-dead group is a fine outcome.
-    unsafe {
-        libc::killpg(pgid, libc::SIGKILL);
+/// Bounded cleanup outcome. Clean carries the reaped status; Uncertain
+/// preserves caller uncertainty (reap missed the grace, or group
+/// retirement unverified) instead of claiming a completed kill.
+enum Cleanup {
+    Clean(std::process::ExitStatus),
+    Uncertain,
+}
+
+/// Post-kill reap grace: SIGKILL lands in milliseconds, so one second
+/// distinguishes a completed kill from an unkillable child without
+/// letting cleanup run open-ended.
+const CLEANUP_GRACE: Duration = Duration::from_secs(1);
+
+/// Retire the owned group: true when no member can remain (kill delivered
+/// or the group already gone); false preserves uncertainty.
+fn retire_group(pgid: libc::pid_t) -> bool {
+    if unsafe { libc::killpg(pgid, libc::SIGKILL) } == 0 {
+        return true;
     }
+    std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+}
+
+/// Bounded synchronous cleanup of an owned, un-reaped child and its group
+/// (group id == child pid via process_group(0), unreusable until we reap,
+/// so no foreign PID/PGID is signaled). Retires the group, kills the
+/// leader, then reaps within CLEANUP_GRACE.
+fn cleanup_child(child: &mut std::process::Child) -> Cleanup {
+    let retired = retire_group(child.id() as libc::pid_t);
     let _ = child.kill();
-    child.wait()
+    let grace = Instant::now() + CLEANUP_GRACE;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                return if retired {
+                    Cleanup::Clean(status)
+                } else {
+                    Cleanup::Uncertain
+                };
+            }
+            Ok(None) => {
+                if Instant::now() >= grace {
+                    return Cleanup::Uncertain;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Err(_) => return Cleanup::Uncertain,
+        }
+    }
+}
+
+/// Non-reaping exit probe: true when the leader exited (it stays a pinned
+/// zombie until the single reap), false while running. EINTR retries.
+/// waitid is Linux's non-reaping wait; waitpid rejects WNOWAIT with EINVAL.
+fn wait_exit(pid: libc::pid_t) -> Result<bool, std::io::Error> {
+    loop {
+        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+        let r = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                pid as libc::id_t,
+                &mut info,
+                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+            )
+        };
+        if r == 0 {
+            // WNOHANG with no state change leaves si_pid zeroed.
+            return Ok(unsafe { info.si_pid() } != 0);
+        }
+        let e = std::io::Error::last_os_error();
+        if e.kind() == std::io::ErrorKind::Interrupted {
+            continue;
+        }
+        return Err(e);
+    }
 }
 
 fn set_nonblocking(fd: std::os::unix::io::RawFd) -> std::io::Result<()> {
