@@ -1,7 +1,8 @@
 //! Native artifact support (`files.go`): validators, hashing, and
 //! private-output admission. No product policy or release qualification.
 
-use crate::json_go::{marshal_indent, Emit, Strict};
+use crate::json_emit::{marshal_indent, Emit};
+use crate::json_go::Strict;
 use crate::{io_error, sha256_hex_stream, Error};
 use std::fs::{File as FsFile, OpenOptions};
 use std::io::Write;

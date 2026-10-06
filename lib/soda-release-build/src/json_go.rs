@@ -3,11 +3,12 @@
 //! Lenient object extraction mirrors `json.Unmarshal` into structs:
 //! unknown fields ignored, exact-then-folded name matching, duplicate keys
 //! last-wins, `null` leaving the zero value. The strict binder adds
-//! `DisallowUnknownFields` for `ReadJSON`. The emitter reproduces
-//! `json.MarshalIndent` byte for byte (HTML escaping, `": "` separators,
-//! two-space indent, caller-ordered struct fields).
+//! `DisallowUnknownFields` for `ReadJSON`.
 
-use soda_json::{escape_into, JsonValue};
+use soda_json::JsonValue;
+
+#[cfg(test)]
+mod tests;
 
 /// Lenient field-extraction failure; callers map it to their message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -307,145 +308,5 @@ impl<'a> Strict<'a> {
         }
         let _ = self.target;
         Ok(())
-    }
-}
-
-/// A value for `marshal_indent`. Struct fields stay in caller order; maps
-/// must be pre-sorted (Go sorts map keys).
-pub enum Emit {
-    Str(String),
-    Int(i64),
-    UInt(u32),
-    Bool(bool),
-    List(Vec<Emit>),
-    Object(Vec<(String, Emit)>),
-}
-
-impl Emit {
-    pub fn sorted_object(mut fields: Vec<(String, Emit)>) -> Emit {
-        fields.sort_by(|a, b| a.0.cmp(&b.0));
-        Emit::Object(fields)
-    }
-}
-
-/// Go `json.MarshalIndent(value, "", "  ")`, without the trailing newline
-/// the callers append.
-pub fn marshal_indent(value: &Emit) -> String {
-    let mut out = String::new();
-    emit_value(&mut out, value, 0);
-    out
-}
-
-fn emit_indent(out: &mut String, depth: usize) {
-    for _ in 0..depth {
-        out.push_str("  ");
-    }
-}
-
-fn emit_value(out: &mut String, value: &Emit, depth: usize) {
-    match value {
-        Emit::Str(s) => escape_into(out, s),
-        Emit::Int(n) => out.push_str(&n.to_string()),
-        Emit::UInt(n) => out.push_str(&n.to_string()),
-        Emit::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
-        Emit::List(items) => {
-            if items.is_empty() {
-                out.push_str("[]");
-                return;
-            }
-            out.push_str("[\n");
-            for (i, item) in items.iter().enumerate() {
-                emit_indent(out, depth + 1);
-                emit_value(out, item, depth + 1);
-                if i + 1 < items.len() {
-                    out.push(',');
-                }
-                out.push('\n');
-            }
-            emit_indent(out, depth);
-            out.push(']');
-        }
-        Emit::Object(fields) => {
-            if fields.is_empty() {
-                out.push_str("{}");
-                return;
-            }
-            out.push_str("{\n");
-            for (i, (key, item)) in fields.iter().enumerate() {
-                emit_indent(out, depth + 1);
-                escape_into(out, key);
-                out.push_str(": ");
-                emit_value(out, item, depth + 1);
-                if i + 1 < fields.len() {
-                    out.push(',');
-                }
-                out.push('\n');
-            }
-            emit_indent(out, depth);
-            out.push('}');
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn oracle_marshal_indent_vectors() {
-        // Oracle: Go json.MarshalIndent outputs (no trailing newline).
-        let value = Emit::Object(vec![
-            (
-                "URL".to_string(),
-                Emit::Str("https://x.test/a.iso".to_string()),
-            ),
-            ("n".to_string(), Emit::Int(-3)),
-            ("ok".to_string(), Emit::Bool(true)),
-            (
-                "list".to_string(),
-                Emit::List(vec![Emit::Str("a<b".to_string()), Emit::UInt(7)]),
-            ),
-            ("empty".to_string(), Emit::List(vec![])),
-            (
-                "nested".to_string(),
-                Emit::Object(vec![("k".to_string(), Emit::Str("v&v".to_string()))]),
-            ),
-        ]);
-        assert_eq!(
-            marshal_indent(&value),
-            "{\n  \"URL\": \"https://x.test/a.iso\",\n  \"n\": -3,\n  \"ok\": true,\n  \"list\": [\n    \"a\\u003cb\",\n    7\n  ],\n  \"empty\": [],\n  \"nested\": {\n    \"k\": \"v\\u0026v\"\n  }\n}"
-        );
-        assert_eq!(marshal_indent(&Emit::Object(vec![])), "{}");
-    }
-
-    #[test]
-    fn strict_rejects_unknown_fields_go_style() {
-        let value = JsonValue::parse("{\"CompilerImage\":\"x\",\"bogus\":1}").unwrap();
-        let mut binder = Strict::bind(&value, "build.ForgejoToolchain").unwrap();
-        binder.string("CompilerImage").unwrap();
-        assert_eq!(
-            binder.finish().unwrap_err(),
-            "json: unknown field \"bogus\""
-        );
-    }
-
-    #[test]
-    fn strict_folds_names_and_skips_null() {
-        let value = JsonValue::parse("{\"compilerimage\":null,\"APKPackages\":[\"a\"]}").unwrap();
-        let mut binder = Strict::bind(&value, "build.ForgejoToolchain").unwrap();
-        assert_eq!(binder.string("CompilerImage").unwrap(), "");
-        assert_eq!(binder.string_list("APKPackages").unwrap(), vec!["a"]);
-        binder.finish().unwrap();
-    }
-
-    #[test]
-    fn lenient_lookup_folds_and_last_wins() {
-        let value =
-            JsonValue::parse("{\"mediatype\":\"a\",\"mediaType\":\"b\",\"size\":7}").unwrap();
-        let fields = Fields::of(&value).unwrap();
-        assert_eq!(fields.string("mediaType").unwrap(), "b");
-        assert_eq!(fields.int("size").unwrap(), 7);
-        assert_eq!(fields.string("missing").unwrap(), "");
-        assert!(fields.int("mediaType").is_err());
     }
 }

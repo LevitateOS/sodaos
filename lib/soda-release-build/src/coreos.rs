@@ -4,7 +4,7 @@
 
 use crate::files::{fresh_directory, hash_file, require_native, write_new};
 use crate::http::{get_follow, HttpTransport, UreqTransport};
-use crate::json_go::{marshal_indent, Emit};
+use crate::json_emit::{marshal_indent, Emit};
 use crate::{io_error, look_path, Error};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};

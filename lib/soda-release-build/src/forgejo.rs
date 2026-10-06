@@ -2,7 +2,8 @@
 //! provenance, musl binary builds, and image-context staging.
 
 use crate::files::{is_revision, oci_architecture, write_new};
-use crate::json_go::{marshal_indent, Emit, Strict};
+use crate::json_emit::{marshal_indent, Emit};
+use crate::json_go::Strict;
 use crate::production::Production;
 use crate::{io_error, Error};
 use std::path::{Path, PathBuf};

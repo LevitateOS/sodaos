@@ -18,7 +18,7 @@ use soda_release_build::coreos_stream::{
 };
 use soda_release_build::files::{is_digest, File};
 use soda_release_build::forgejo::{forgejo_build_args, ForgejoToolchain, FORGEJO_COMPILER_IMAGE};
-use soda_release_build::json_go;
+use soda_release_build::json_emit;
 use soda_release_build::json_input::{read_json, read_json_at};
 use soda_release_build::oci::{inspect_oci, inspect_oci_content};
 use soda_release_build::oci_layout::inspect_oci_layout;
@@ -237,7 +237,7 @@ fn oracle_resolved_inputs_bytes() {
         reference: format!("docker.io/rockylinux/rockylinux@sha256:{}", "b".repeat(64)),
         config: oracle::OCI_CONFIG.to_string(),
     }];
-    let body = json_go::marshal_indent(&json_go::Emit::List(
+    let body = json_emit::marshal_indent(&json_emit::Emit::List(
         inputs.iter().map(ResolvedInput::emit).collect(),
     )) + "\n";
     assert_eq!(body, oracle::RESOLVED_INPUTS_JSON);

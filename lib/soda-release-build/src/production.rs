@@ -4,7 +4,7 @@
 
 use crate::coreos_stream::{read_live_inputs, TailnetInputs};
 use crate::files::{is_digest, is_revision, oci_architecture, write_new};
-use crate::json_go::{marshal_indent, Emit};
+use crate::json_emit::{marshal_indent, Emit};
 use crate::oci::{inspect_oci, Image};
 use crate::{io_error, Error};
 use soda_build_tools::reader::settings::{recipe_base, unit_image};
