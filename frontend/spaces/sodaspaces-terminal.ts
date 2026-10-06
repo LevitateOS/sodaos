@@ -6,8 +6,10 @@ import {terminalID, terminalResponse} from './sodaspaces-terminal-response.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {cancelIfHidden, connect, send} from './sodaspaces-terminal-attachment.js';
+import {connect} from './sodaspaces-terminal-attachment.js';
 import type {AttachmentInput} from './sodaspaces-terminal-attachment.js';
+import {awaitScreen, clearScreen, openTerminal, resize, screenReady} from './sodaspaces-terminal-screen.js';
+import type {ScreenInput} from './sodaspaces-terminal-screen.js';
 export type TerminalView = Pick<
   Terminal,
   | 'cols'
@@ -133,10 +135,10 @@ export class SodaTerminal extends LitElement {
     };
     this.loadRenderer = load;
     if (locator.kind === 'existing') this.sessionID = locator.id;
-    document.fonts.addEventListener('loadingdone', this.resize, {
+    document.fonts.addEventListener('loadingdone', () => resize(this.screenInput()), {
       signal: this.lifetime.signal,
     });
-    window.visualViewport?.addEventListener('resize', this.resize, {
+    window.visualViewport?.addEventListener('resize', () => resize(this.screenInput()), {
       signal: this.lifetime.signal,
     });
     window.addEventListener('pagehide', () => this.invalidate(), {
@@ -302,14 +304,6 @@ export class SodaTerminal extends LitElement {
     this.socket = undefined;
     if (old && old.readyState < 2) old.close();
   }
-  private clearScreen() {
-    this.terminal?.dispose();
-    this.terminal = undefined;
-    this.fit = undefined;
-    this.lastSize = '';
-    this.querySelector('.soda-terminal-screen')?.replaceChildren();
-    this.screenVisible = false;
-  }
   private detach(message: string, stale = false, reason: ConnectionState = 'connection-lost') {
     ++this.generation;
     this.state = stale ? 'stale' : 'closed';
@@ -322,12 +316,61 @@ export class SodaTerminal extends LitElement {
     this.observer?.disconnect();
     this.observer = undefined;
     this.closeSocket();
-    this.clearScreen();
+    clearScreen(this.screenInput());
     this.message = message;
     this.publish('state', reason);
   }
   invalidate() {
     this.detach('Page context changed. No action was replayed; reconnect through a fresh authorized page.', true);
+  }
+  private screenInput(): ScreenInput {
+    return {
+      attachment: this.attachmentInput(),
+      readTerminal: () => this.terminal,
+      setTerminal: (terminal) => {
+        this.terminal = terminal;
+      },
+      readFit: () => this.fit,
+      setFit: (fit) => {
+        this.fit = fit;
+      },
+      readState: () => this.state,
+      isViewVisible: () => this.viewVisible,
+      isHidden: () => !!this.closest('[hidden]'),
+      isHiddenOrInert: () => !!this.closest('[hidden], [inert]'),
+      contains: (element) => this.contains(element),
+      queryScreen: () => this.querySelector<HTMLElement>('.soda-terminal-screen'),
+      focusControls: () => {
+        this.querySelector<HTMLElement>('[data-action=controls]')?.focus();
+      },
+      readHostHeight: () => this.offsetHeight,
+      readLastSize: () => this.lastSize,
+      setLastSize: (size) => {
+        this.lastSize = size;
+      },
+      setScreenVisible: (visible) => {
+        this.screenVisible = visible;
+      },
+      readMinimumSize: () => this.minimumSize,
+      setMinimumSize: (minimum) => {
+        this.minimumSize = minimum;
+      },
+      dispatchGeometry: (minimum) => {
+        this.dispatchEvent(
+          new CustomEvent('soda-terminal-geometry', {
+            bubbles: true,
+            detail: minimum,
+          })
+        );
+      },
+      setObserver: (observer) => {
+        this.observer = observer;
+      },
+      updateComplete: () => this.updateComplete,
+      isLive: (generation) => this.live(generation),
+      detach: (message, stale, reason) => this.detach(message, stale, reason),
+      hostStyles: () => getComputedStyle(this),
+    };
   }
   private attachmentInput(): AttachmentInput {
     return {
@@ -371,10 +414,10 @@ export class SodaTerminal extends LitElement {
         this.socket = socket;
       },
       loadRenderer: () => this.loadRenderer(),
-      awaitScreen: (n) => this.awaitScreen(n),
-      openTerminal: (n, screen, Terminal, FitAddon) => this.openTerminal(n, screen, Terminal, FitAddon),
+      awaitScreen: (n) => awaitScreen(this.screenInput(), n),
+      openTerminal: (n, screen, Terminal, FitAddon) => openTerminal(this.screenInput(), n, screen, Terminal, FitAddon),
       screenReady: (n, terminal, screen) => {
-        void this.screenReady(n, terminal, screen);
+        void screenReady(this.screenInput(), n, terminal, screen);
       },
       isViewVisible: () => this.viewVisible,
       isConnected: () => this.isConnected,
@@ -467,188 +510,6 @@ export class SodaTerminal extends LitElement {
       this.finishAction(control, timeout);
     }
   }
-  private canFit(screen: HTMLElement | null): screen is HTMLElement {
-    return (
-      !!this.terminal &&
-      !!this.fit &&
-      this.viewVisible &&
-      !this.closest('[hidden]') &&
-      this.state === 'ready' &&
-      !!screen?.isConnected &&
-      !!screen.clientWidth &&
-      !!screen.clientHeight
-    );
-  }
-  private resize = () => {
-    const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
-    if (!this.canFit(screen)) return;
-    this.fit!.fit();
-    const {cols, rows} = this.terminal!,
-      fitted = cols + ':' + rows;
-    if (cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300 && this.lastSize !== fitted) {
-      this.lastSize = fitted;
-      send(this.attachmentInput(), {
-        type: 'resize',
-        cols,
-        rows,
-      });
-    }
-  };
-  private geometryScreen() {
-    const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
-    if (
-      !this.terminal ||
-      this.state !== 'ready' ||
-      !this.viewVisible ||
-      !screen?.isConnected ||
-      this.closest('[hidden]')
-    )
-      return;
-    return screen;
-  }
-  private paneMinimum(screen: HTMLElement) {
-    const {cols, rows} = this.terminal!;
-    const grid = screen.querySelector<HTMLElement>('.xterm-screen')?.getBoundingClientRect();
-    if (!grid?.width || !grid.height || !cols || !rows) return;
-    const css = getComputedStyle(screen),
-      scrollbar = screen.querySelector<HTMLElement>('.scrollbar.vertical')?.getBoundingClientRect().width || 0;
-    return {
-      width:
-        Math.ceil((grid.width / cols) * 56 + scrollbar + parseFloat(css.paddingLeft) + parseFloat(css.paddingRight)) +
-        2,
-      height:
-        Math.ceil(
-          (grid.height / rows) * 12 +
-            this.offsetHeight -
-            screen.offsetHeight +
-            parseFloat(css.paddingTop) +
-            parseFloat(css.paddingBottom)
-        ) + 2,
-    };
-  }
-  private publishMinimum(minimum: {width: number; height: number}) {
-    if (
-      minimum.width <= 0 ||
-      minimum.height <= 0 ||
-      (minimum.width === this.minimumSize?.width && minimum.height === this.minimumSize?.height)
-    )
-      return;
-    this.minimumSize = minimum;
-    this.dispatchEvent(
-      new CustomEvent('soda-terminal-geometry', {
-        bubbles: true,
-        detail: minimum,
-      })
-    );
-  }
-  private measureMinimum() {
-    const screen = this.geometryScreen();
-    if (!screen) return;
-    const minimum = this.paneMinimum(screen);
-    if (minimum) this.publishMinimum(minimum);
-  }
-  private async awaitScreen(n: number) {
-    this.screenVisible = true;
-    await this.updateComplete;
-    if (!this.live(n) || cancelIfHidden(this.attachmentInput())) return;
-    const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
-    if (!screen) throw Error('Missing terminal screen');
-    await document.fonts.ready;
-    if (!this.live(n) || cancelIfHidden(this.attachmentInput())) return;
-    return screen;
-  }
-  private requiredToken(styles: CSSStyleDeclaration, name: string) {
-    const value = styles.getPropertyValue(name).trim();
-    if (!value) throw Error(`Missing terminal token ${name}`);
-    return value;
-  }
-  private terminalTheme(styles: CSSStyleDeclaration) {
-    return {
-      background: this.requiredToken(styles, '--soda-terminal-screen'),
-      foreground: this.requiredToken(styles, '--soda-terminal-text'),
-      cursor: this.requiredToken(styles, '--soda-terminal-text'),
-    };
-  }
-  private interceptControlFocus = (event: KeyboardEvent) => {
-    if (event.ctrlKey && event.shiftKey && event.key === 'Enter') {
-      event.preventDefault();
-      event.stopPropagation();
-      this.querySelector<HTMLElement>('[data-action=controls]')?.focus();
-      return false;
-    }
-    return true;
-  };
-  private sendInput(n: number, screen: HTMLElement, data: string) {
-    if (!this.live(n) || !this.viewVisible || this.closest('[hidden]') || !screen.contains(document.activeElement))
-      return;
-    if (data.length > 65536) {
-      this.detach('Input too large. Nothing was replayed.');
-      return;
-    }
-    const bytes = new TextEncoder().encode(data);
-    for (let i = 0; i < bytes.length; i += 16384)
-      if (
-        !send(this.attachmentInput(), {
-          type: 'input',
-          data: btoa(String.fromCharCode(...bytes.subarray(i, i + 16384))),
-        })
-      )
-        break;
-  }
-  private openTerminal(n: number, screen: HTMLElement, Terminal: Renderer['Terminal'], FitAddon: Renderer['FitAddon']) {
-    const styles = getComputedStyle(this);
-    const fontSize = Number.parseFloat(this.requiredToken(styles, '--soda-font-mono-size')),
-      lineHeight = Number(this.requiredToken(styles, '--soda-font-mono-line'));
-    if (!Number.isFinite(fontSize) || fontSize <= 0 || !Number.isFinite(lineHeight) || lineHeight < 1)
-      throw Error('Invalid terminal typography');
-    const terminal = (this.terminal = new Terminal({
-      allowProposedApi: true,
-      disableStdin: true,
-      scrollback: 1000,
-      windowOptions: {},
-      convertEol: false,
-      cols: 80,
-      rows: 24,
-      fontFamily: this.requiredToken(styles, '--soda-font-mono-family'),
-      fontSize,
-      lineHeight,
-      theme: this.terminalTheme(styles),
-    }));
-    const fit = (this.fit = new FitAddon());
-    terminal.loadAddon(fit);
-    for (const code of [0, 1, 2, 8, 52]) terminal.parser.registerOscHandler(code, () => true);
-    terminal.attachCustomKeyEventHandler(this.interceptControlFocus);
-    terminal.onData((data) => this.sendInput(n, screen, data));
-    terminal.onRender(() => this.measureIfCurrent(n, terminal));
-    terminal.open(screen);
-    if (screen.clientWidth && screen.clientHeight) fit.fit();
-    return terminal;
-  }
-  private measureIfCurrent(n: number, terminal: TerminalView) {
-    if (this.live(n) && this.terminal === terminal) this.measureMinimum();
-  }
-  private shouldFocusScreen() {
-    return (
-      document.hasFocus() &&
-      document.visibilityState !== 'hidden' &&
-      this.viewVisible &&
-      !this.closest('[hidden], [inert]') &&
-      (document.activeElement === document.body || this.contains(document.activeElement))
-    );
-  }
-  private async screenReady(n: number, terminal: TerminalView, screen: HTMLElement) {
-    try {
-      await this.updateComplete;
-      if (!this.live(n) || this.terminal !== terminal) return;
-      if (this.shouldFocusScreen()) terminal.focus();
-      if (!this.live(n) || this.terminal !== terminal || !screen.isConnected) return;
-      this.observer = new ResizeObserver(this.resize);
-      this.observer.observe(screen);
-      this.resize();
-    } catch {
-      if (this.live(n)) this.detach('Terminal rendering failed. No input or creation was replayed.');
-    }
-  }
   setVisible(visible: boolean) {
     this.viewVisible = visible;
     if (!visible) {
@@ -656,7 +517,7 @@ export class SodaTerminal extends LitElement {
       this.closeMenu();
     }
     if (this.terminal) this.terminal.options.disableStdin = !visible || this.state !== 'ready';
-    if (visible) this.resize(); // Presentation only: never connect or focus.
+    if (visible) resize(this.screenInput()); // Presentation only: never connect or focus.
   }
   focus() {
     if (this.viewVisible && !this.closest('[hidden], [inert]') && this.state === 'ready') this.terminal?.focus();
