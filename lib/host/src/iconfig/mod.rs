@@ -18,6 +18,9 @@
 use crate::json::{self, Kind, Spec};
 use crate::{domain, net, pfactory};
 
+#[cfg(test)]
+mod tests;
+
 /// Daemon runtime config (`host.Config`); JSON names match Go exactly.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Config {
