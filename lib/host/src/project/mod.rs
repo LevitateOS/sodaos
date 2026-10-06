@@ -37,7 +37,11 @@ pub use self::confirmation::{
     confirm_access_keys, confirm_lifecycle, confirm_observe_os, confirm_resolve_profile,
     valid_address,
 };
-pub use self::executor::{Executor, Native};
+// `muse_serve_oracle` compiles this root through a private `#[path]` copy
+// that never runs a restart; the re-export serves the real library
+// (`tailnet/forgejo.rs`).
+#[allow(unused_imports)]
+pub use self::executor::{Executor, Native, NativeStatusOnly};
 // `muse_serve_oracle` compiles this root through a private `#[path]` copy
 // that never touches the crate-visible specs; the re-export serves the
 // real library (`prepare/helper.rs`).

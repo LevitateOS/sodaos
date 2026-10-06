@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use soda_host::json::{decode_tolerant, Value};
-use soda_host::project::Executor;
+use soda_host::project::{Executor, NativeStatusOnly};
 use soda_host::tcontrol_native;
 
 const DEADLINE_SECS: u64 = 90;
@@ -34,8 +34,11 @@ pub fn run(exec: &dyn Executor) -> Result<(), String> {
     let live = inspect_forgejo(exec, deadline)?;
     let (domain, running) = published_state(&live, &endpoint.ipv4)?;
     let changed = update_ssh_domain(FORGEJO_ENV, &endpoint.identity)?;
+    // Restart diagnostics stay status-only like Go's Run: the shared
+    // runner with the status-only error policy, never subprocess stderr.
+    let status_exec = NativeStatusOnly;
     restart_forgejo_if_needed(
-        exec,
+        &status_exec,
         changed,
         &domain,
         &endpoint.identity,
@@ -766,6 +769,88 @@ mod tests {
         assert_eq!(
             restart_forgejo_if_needed(&mock, true, "id", "id", true, deadline).unwrap_err(),
             "native Forgejo configuration saved, restart failed: exit status 1"
+        );
+    }
+
+    #[test]
+    fn status_only_reports_real_status() {
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        // Real exit code, status-only like Go's Run.
+        assert_eq!(
+            exec.run(&[], "/bin/sh", &["-c", "exit 3"], deadline)
+                .unwrap_err(),
+            "exit status 3"
+        );
+        // Subprocess stderr never surfaces, even on failure.
+        assert_eq!(
+            exec.run(
+                &[],
+                "/bin/sh",
+                &["-c", "echo SECRET=never-log >&2; exit 3"],
+                deadline
+            )
+            .unwrap_err(),
+            "exit status 3"
+        );
+        assert!(exec.run(&[], "/bin/true", &[], deadline).is_ok());
+    }
+
+    #[test]
+    fn status_only_reports_real_signal() {
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        assert_eq!(
+            exec.run(&[], "/bin/sh", &["-c", "kill -TERM $$"], deadline)
+                .unwrap_err(),
+            "signal: terminated"
+        );
+    }
+
+    #[test]
+    fn status_only_argv_passthrough() {
+        use std::os::unix::fs::PermissionsExt;
+        let env = TestEnv::fresh("argv");
+        let script = env.path("record.sh");
+        let record = env.path("argv.bin");
+        std::fs::write(
+            &script,
+            format!("#!/bin/sh\nprintf \"%s\\0\" \"$@\" > \"{record}\"\n"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        exec.run(&[], &script, &["restart", "forgejo.service"], deadline)
+            .unwrap();
+        assert_eq!(
+            std::fs::read(&record).unwrap(),
+            b"restart\0forgejo.service\0"
+        );
+    }
+
+    #[test]
+    fn status_only_spawn_failure() {
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let err = exec
+            .run(&[], "/nonexistent-forgejo-helper", &[], deadline)
+            .unwrap_err();
+        assert!(
+            err.starts_with("fork/exec /nonexistent-forgejo-helper: "),
+            "unexpected spawn diagnostic: {err}"
+        );
+    }
+
+    #[test]
+    fn status_only_deadline_kills() {
+        let exec = NativeStatusOnly;
+        // An already-expired deadline kills deterministically: sleep cannot
+        // exit before the first poll observes the expiry.
+        let deadline = Instant::now();
+        assert_eq!(
+            exec.run(&[], "/bin/sleep", &["60"], deadline).unwrap_err(),
+            "signal: killed"
         );
     }
 
