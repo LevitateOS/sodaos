@@ -5810,12 +5810,8 @@
         "repo/settings/push_mirror_sync_modal"
       ],
       "roles": [
-        "soda-p-heading",
         "soda-repo-settings-detail",
-        "soda-repo-settings-options",
-        "soda-settings-danger",
-        "soda-settings-section",
-        "soda-settings-section-body"
+        "soda-repo-settings-options"
       ],
       "states": [
         "light",
@@ -5835,7 +5831,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "97965f451a60cd60ca663319fa09b00915ebbc0235f9ca5d1d46e9dfe8741c4e",
+      "beforeRoleHash": "e328bed3cf31ef4b1bd3c124877586a1b1e7216b12436d91bf533a20c3c13472",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "repository-settings-structural-overhaul",
@@ -5925,6 +5921,34 @@
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "ef634e02d271a160322d06af6c92d10ab6b4271fbd48840c98d88e08e475cb66",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/settings/options_danger.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/options.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-settings-danger",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "populated",
+        "conditional-fields",
+        "permission-gated"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "109a7cd8f5a3ed45aad9ef0788d148dab58b159e51a7a7f2e4b52b552205b29a",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
