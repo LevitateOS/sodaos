@@ -1,4 +1,4 @@
-import {check} from './sodaspaces-api.js';
+import {check, terminalResponse} from './sodaspaces-api.js';
 import type {Space, TerminalMetadata} from './sodaspaces-api.js';
 import type {LayoutEntry, PaneArea, WorkspaceLayout} from './sodaspaces-layout.js';
 import {forgetEntry, layoutLimit, moveTab, panes, putEntry, sameLocator, selectTab} from './sodaspaces-layout.js';
@@ -457,5 +457,69 @@ export async function openExisting(input: CreateInput, space: Space, metadata: T
   } catch {
     if (!input.isStale())
       input.setStatus('The exact session could not be opened. No locator was replaced or creation requested.');
+  }
+}
+
+export interface RenameInput {
+  isStale: () => boolean;
+  isDisposed: () => boolean;
+  isActiveSurface: () => boolean;
+  readEpoch: () => number;
+  readEditing: () => {key: string; name: string} | null;
+  setEditing: (editing: {key: string; name: string} | null) => void;
+  renaming: Set<string>;
+  isValidName: (name: string) => boolean;
+  locator: (slot: Slot) => TerminalLocator;
+  api: (path: string, body: Record<string, unknown>, signal: AbortSignal) => Promise<unknown>;
+  lifetimeSignal: AbortSignal;
+  live: (generation: number) => boolean;
+  setStatus: (message: string) => void;
+  requestUpdate: () => void;
+}
+
+function renameAdmitted(input: RenameInput, slot: Slot, name: string) {
+  return (
+    !input.renaming.has(slot.key) &&
+    !input.isStale() &&
+    !input.isDisposed() &&
+    input.isActiveSurface() &&
+    input.isValidName(name) &&
+    input.readEditing()?.key === slot.key
+  );
+}
+
+function applyRenamedMetadata(input: RenameInput, slot: Slot, value: TerminalMetadata, id: string) {
+  check(value?.id === id);
+  slot.metadata = value;
+  slot.terminal.setName(value.name);
+  if (input.readEditing()?.key === slot.key) input.setEditing(null);
+}
+
+export async function rename(input: RenameInput, slot: Slot, name: string) {
+  if (!renameAdmitted(input, slot, name)) return;
+  const locator = input.locator(slot);
+  if (locator.kind !== 'existing') return;
+  const id = locator.id,
+    n = input.readEpoch();
+  input.renaming.add(slot.key);
+  input.requestUpdate();
+  const request = new AbortController(),
+    timeout = window.setTimeout(() => request.abort(), 15000);
+  try {
+    const value = terminalResponse(
+      await input.api(
+        `/api/environments/${slot.binding.environmentId}/terminal-sessions/${id}`,
+        {action: 'rename', name},
+        AbortSignal.any([request.signal, input.lifetimeSignal])
+      ),
+      slot.binding
+    );
+    if (input.live(n) && value) applyRenamedMetadata(input, slot, value, id);
+  } catch {
+    if (input.live(n)) input.setStatus('Rename was not confirmed. No retry was made.');
+  } finally {
+    window.clearTimeout(timeout);
+    input.renaming.delete(slot.key);
+    input.requestUpdate();
   }
 }

@@ -13,8 +13,8 @@ import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext} from './sodaspaces-terminal.js';
 import {emptyLayout, focusedPane, hideTab} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
-import {check, id, object, terminalResponse, repositoryChoices, projectId} from './sodaspaces-api.js';
-import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
+import {check, id, object, repositoryChoices, projectId} from './sodaspaces-api.js';
+import type {Space, RepositoryChoices} from './sodaspaces-api.js';
 import type {Creation, FactoryWatch, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 import {WorkspaceMeasurement} from './sodaspaces-workspace-measurement.js';
 import {
@@ -108,6 +108,7 @@ import {
   newTerminal,
   openExisting,
   openSaved as openSavedTerminal,
+  rename,
   restoreLocators,
   slotName,
 } from './sodaspaces-workspace-terminals.js';
@@ -115,6 +116,7 @@ import type {
   CreateInput,
   CreationFormInput,
   NewTerminalInput,
+  RenameInput,
   TerminalsInput,
 } from './sodaspaces-workspace-terminals.js';
 type TerminalFactory = typeof mountTerminal;
@@ -594,7 +596,29 @@ export class SodaSpaces extends LitElement {
   private onRenameSave() {
     const edit = this.editing,
       slot = this.slots.find((s) => s.key === edit?.key);
-    if (slot && edit) void this.rename(slot, edit.name);
+    if (slot && edit) void rename(this.renameInput(), slot, edit.name);
+  }
+  private renameInput(): RenameInput {
+    return {
+      isStale: () => this.stale,
+      isDisposed: () => this.disposed,
+      isActiveSurface: () => this.activeSurface,
+      readEpoch: () => this.epoch,
+      readEditing: () => this.editing,
+      setEditing: (edit) => {
+        this.editing = edit;
+      },
+      renaming: this.renaming,
+      isValidName: (name) => validName(name),
+      locator: (slot) => this.locator(slot),
+      api: (path, body, signal) => this.api(path, body, signal),
+      lifetimeSignal: this.lifetime.signal,
+      live: (n) => this.live(n),
+      setStatus: (message) => {
+        this.status = message;
+      },
+      requestUpdate: () => this.requestUpdate(),
+    };
   }
   private renameDisabled() {
     if (!this.editing) return true;
@@ -1677,50 +1701,7 @@ export class SodaSpaces extends LitElement {
     await project.api.ready;
     this.focusConfigureIfNeeded(n, repositoryId);
   }
-  private renameAdmitted(slot: Slot, name: string) {
-    return (
-      !this.renaming.has(slot.key) &&
-      !this.stale &&
-      !this.disposed &&
-      this.activeSurface &&
-      validName(name) &&
-      this.editing?.key === slot.key
-    );
-  }
-  private applyRenamedMetadata(slot: Slot, value: TerminalMetadata, id: string) {
-    check(value?.id === id);
-    slot.metadata = value;
-    slot.terminal.setName(value.name);
-    if (this.editing?.key === slot.key) this.editing = null;
-  }
-  private async rename(slot: Slot, name: string) {
-    if (!this.renameAdmitted(slot, name)) return;
-    const locator = this.locator(slot);
-    if (locator.kind !== 'existing') return;
-    const id = locator.id,
-      n = this.epoch;
-    this.renaming.add(slot.key);
-    this.requestUpdate();
-    const request = new AbortController(),
-      timeout = window.setTimeout(() => request.abort(), 15000);
-    try {
-      const value = terminalResponse(
-        await this.api(
-          `/api/environments/${slot.binding.environmentId}/terminal-sessions/${id}`,
-          {action: 'rename', name},
-          AbortSignal.any([request.signal, this.lifetime.signal])
-        ),
-        slot.binding
-      );
-      if (this.live(n) && value) this.applyRenamedMetadata(slot, value, id);
-    } catch {
-      if (this.live(n)) this.status = 'Rename was not confirmed. No retry was made.';
-    } finally {
-      window.clearTimeout(timeout);
-      this.renaming.delete(slot.key);
-      this.requestUpdate();
-    }
-  }
+
   setVisible(visible: boolean) {
     this.surfaceVisible = visible;
     this.display();
