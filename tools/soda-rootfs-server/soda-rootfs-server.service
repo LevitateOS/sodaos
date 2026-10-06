@@ -2,7 +2,7 @@
 #
 # Status: staged only. This change never installs, restarts, or edits host
 # units. Installing this file is an explicit owner decision (host mutation):
-#   go build -o "$HOME/soda-rootfs-server" ./cmd/soda-rootfs-server
+#   go build -o "$HOME/soda-rootfs-server" ./tools/soda-rootfs-server
 #   sudo install -m 0755 "$HOME/soda-rootfs-server" \
 #     /usr/local/lib/soda/soda-rootfs-server
 #   rm "$HOME/soda-rootfs-server"
@@ -24,13 +24,13 @@
 # are unservable from here by path construction. Retained VMs remain
 # intact; never move their disks.
 #
-# The unit runs the single Go server source cmd/soda-rootfs-server
+# The unit runs the single Go server source tools/soda-rootfs-server
 # (installed as /usr/local/lib/soda/soda-rootfs-server) with no second
 # copy: no commented duplicate, no encoded blob. It serves exact
 # ^[0-9a-f]{64}-rootfs\.img$ names on the same guest-reachable address
 # and denies listings, QCOW2, ISO, traversal, subpaths, symlinks, and
 # non-GET/HEAD methods by construction. Behavior checks live in
-# cmd/soda-rootfs-server/main_test.go.
+# tools/soda-rootfs-server/main_test.go.
 #
 # Design: DynamicUser (no new account), read-only /home, no new
 # privileges, memory and CPU bounds, loopback-independent fixed bridge
