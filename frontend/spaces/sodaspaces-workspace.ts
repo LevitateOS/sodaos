@@ -36,8 +36,6 @@ import {
   check,
   id,
   object,
-  readSodaJSON,
-  spacesResponse,
   terminalResponse,
   terminalMetadata,
   terminalID,
@@ -101,6 +99,14 @@ import {
   workspaceClick,
   workspaceKey,
 } from './sodaspaces-workspace-focus.js';
+import {
+  api as inventoryApi,
+  live as inventoryLive,
+  loadMore,
+  refresh as inventoryRefresh,
+  renderMoreProjects,
+} from './sodaspaces-workspace-inventory.js';
+import type {InventoryInput, MoreProjectsInput} from './sodaspaces-workspace-inventory.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -115,22 +121,6 @@ function drawerRepositoryPart(value: unknown): value is string {
   );
 }
 
-function sodaWorkspaceInit(
-  headers: Record<string, string>,
-  body: Record<string, unknown> | undefined,
-  signal: AbortSignal
-): RequestInit {
-  return {
-    method: body ? 'POST' : 'GET',
-    headers,
-    ...(body
-      ? {
-          body: JSON.stringify(body),
-        }
-      : {}),
-    signal,
-  };
-}
 // Both surfaces share this owner. Pane chrome is keyed separately; live terminal
 // hosts never leave their flat parent. Rendering cannot create/attach/Return.
 export class SodaSpaces extends LitElement {
@@ -748,7 +738,7 @@ export class SodaSpaces extends LitElement {
             selectProject: (target) => this.selectProject(target),
           })
       )}
-      ${this.renderMoreProjects()} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
+      ${renderMoreProjects(this.moreProjectsInput())} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
     </nav>`;
   }
   private renderCanvas() {
@@ -1380,219 +1370,126 @@ export class SodaSpaces extends LitElement {
     }
     this.focusCreationDialog(pane);
   }
-  private live(n: number) {
-    return !this.disposed && !this.stale && this.epoch === n;
+  private moreProjectsInput(): MoreProjectsInput {
+    return {
+      nextAfter: this.nextAfter,
+      stale: this.stale,
+      busy: this.busy,
+      more: () => {
+        void loadMore(this.inventoryInput());
+      },
+    };
   }
-  private async readSpacesResponse(response: Response) {
-    if (response.ok) return readSodaJSON(response);
-    if (response.status === 401 || response.status === 403) {
-      this.invalidate();
-      this.reconnectRequired = response.status === 401;
-    }
-    throw Error('Spaces request refused');
+  private inventoryInput(): InventoryInput {
+    return {
+      binding: this.binding,
+      lifetimeSignal: this.lifetime.signal,
+      isDisposed: () => this.disposed,
+      isStale: () => this.stale,
+      readEpoch: () => this.epoch,
+      readBusy: () => this.busy,
+      readRequest: () => this.request,
+      readSpaces: () => this.spaces,
+      readComplete: () => this.complete,
+      readNextAfter: () => this.nextAfter,
+      readSetup: () => this.setup,
+      readSelectedSpace: () => this.selectedSpace,
+      readProject: () => this.project,
+      readObservedAt: () => this.observedAt,
+      readSlots: () => this.slots,
+      readRestored: () => this.restored,
+      readSurfaceVisible: () => this.surfaceVisible,
+      readActor: () => this.actor,
+      readView: () => this.view,
+      readManagementMode: () => this.managementMode,
+      readStorageLoaded: () => this.storageLoaded,
+      readUpdateComplete: () => this.updateComplete,
+      concealed: () => this.closest('[hidden]') !== null,
+      setBusy: (busy) => {
+        this.busy = busy;
+      },
+      setRequest: (request) => {
+        this.request = request;
+      },
+      setSpaces: (spaces) => {
+        this.spaces = spaces;
+      },
+      setComplete: (complete) => {
+        this.complete = complete;
+      },
+      setNextAfter: (nextAfter) => {
+        this.nextAfter = nextAfter;
+      },
+      setAvailable: (available) => {
+        this.available = available;
+      },
+      setProject: (project) => {
+        this.project = project;
+      },
+      stampNow: () => {
+        this.now = this.observedAt = Date.now();
+      },
+      setStatus: (status) => {
+        this.status = status;
+      },
+      setRestored: (restored) => {
+        this.restored = restored;
+      },
+      setActor: (actor) => {
+        this.actor = actor;
+      },
+      setStorageKey: (storageKey) => {
+        this.storageKey = storageKey;
+      },
+      setSetup: (setup) => {
+        this.setup = setup;
+      },
+      clearSetupReturn: () => {
+        this.setupReturn = undefined;
+      },
+      setView: (view) => {
+        this.view = view;
+      },
+      setReconnectRequired: (required) => {
+        this.reconnectRequired = required;
+      },
+      invalidate: () => this.invalidate(),
+      loadLayout: () => this.loadLayout(),
+      restoreLocators: (n, signal) => this.restoreLocators(n, signal),
+      display: () => this.display(),
+      showManagement: (repositoryId, mode) => {
+        void this.showManagement(repositoryId, mode);
+      },
+      projectRunnable: (space) => this.projectRunnable(space),
+      locator: (slot) => this.locator(slot),
+      confirmedEnd: (key) => this.confirmedEnd(key),
+      refreshJourneyProject: () => {
+        void this.projects.get(this.project)?.api.refresh();
+      },
+    };
+  }
+  private live(n: number) {
+    return inventoryLive({disposed: this.disposed, stale: this.stale, epoch: this.epoch}, n);
   }
   private async api(path: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-    check(this.binding && !this.disposed && !this.stale && !signal?.aborted);
-    const headers = body ? {'Content-Type': 'application/json'} : {};
-    const response = await this.binding.transport.request(
-      path.slice('/api/'.length),
-      sodaWorkspaceInit(headers, body, signal || this.lifetime.signal)
+    return inventoryApi(
+      {
+        binding: this.binding,
+        disposed: this.disposed,
+        stale: this.stale,
+        lifetimeSignal: this.lifetime.signal,
+        invalidate: () => this.invalidate(),
+        setReconnectRequired: (required) => {
+          this.reconnectRequired = required;
+        },
+      },
+      path,
+      body,
+      signal
     );
-    return this.readSpacesResponse(response);
-  }
-  private refreshBlocked() {
-    return this.busy || this.stale || this.disposed || !this.binding;
-  }
-  private beginRefreshRead() {
-    this.busy = true;
-    this.request?.abort();
-    const request = (this.request = new AbortController());
-    return request;
-  }
-  private collectionStatus(complete: boolean, factoryIncomplete: boolean) {
-    if (complete) return '';
-    return factoryIncomplete
-      ? 'We couldn’t load all projects, terminals and factory history. Some may be missing from this list.'
-      : 'We couldn’t load all projects and terminals. Some may be missing from this list.';
-  }
-  private applySpacesCollection(collection: {
-    items: Space[];
-    complete: boolean;
-    nextAfter: string;
-    factoryIncomplete: boolean;
-  }) {
-    this.spaces = collection.items;
-    this.complete = collection.complete;
-    this.nextAfter = collection.nextAfter;
-    this.available = true;
-    if (!this.setup && !this.selectedSpace && collection.complete)
-      this.project = this.spaces[0]?.environment.repository_id || '';
-    this.now = this.observedAt = Date.now();
-    this.status = this.collectionStatus(collection.complete, collection.factoryIncomplete);
-  }
-  private appendSpacesCollection(collection: {
-    items: Space[];
-    complete: boolean;
-    nextAfter: string;
-    factoryIncomplete: boolean;
-  }) {
-    const seen = new Set(this.spaces.map((s) => s.environment.id));
-    const grown = [...this.spaces];
-    for (const item of collection.items) {
-      if (seen.has(item.environment.id)) continue;
-      seen.add(item.environment.id);
-      grown.push(item);
-    }
-    this.spaces = grown;
-    this.nextAfter = collection.nextAfter;
-    // The last page decides: earlier pages always report incomplete
-    // while more follow, and degraded rows keep their own inline state.
-    this.complete = collection.nextAfter === '' && collection.complete;
-    this.now = this.observedAt = Date.now();
-    this.status = this.collectionStatus(this.complete, collection.factoryIncomplete);
-  }
-  private slotLost(slot: Slot, space: Space | undefined, complete: boolean) {
-    if (space) return space.authority_unavailable || !space.execution_allowed || space.login !== slot.binding.login;
-    return complete;
-  }
-  private invalidateSlot(slot: Slot) {
-    slot.unavailable = true;
-    slot.metadata = undefined;
-    delete slot.proposedName;
-    slot.observation = undefined;
-    slot.unread = slot.readRequested = false;
-    slot.terminal.invalidate();
-  }
-  private applySlotMetadata(slot: Slot, metadata: TerminalMetadata) {
-    if (metadata.state === 'ended') {
-      this.confirmedEnd(slot.key);
-      return;
-    }
-    slot.metadata = metadata;
-    slot.observedAt = this.observedAt;
-    slot.terminal.setName(metadata.name);
-  }
-  private existingSlotMetadata(slot: Slot, space: Space | undefined) {
-    const locator = this.locator(slot);
-    return space?.terminals.find((t) => locator.kind === 'existing' && t.id === locator.id);
-  }
-  private refreshSlots(complete: boolean) {
-    for (const slot of this.slots) {
-      const space = this.spaces.find((s) => s.environment.id === slot.binding.environmentId);
-      if (this.slotLost(slot, space, complete)) {
-        this.invalidateSlot(slot);
-        continue;
-      }
-      const metadata = this.existingSlotMetadata(slot, space);
-      if (metadata) this.applySlotMetadata(slot, metadata);
-    }
-  }
-  private async restoreIfNeeded(n: number, signal: AbortSignal) {
-    if (this.restored || !this.surfaceVisible || this.closest('[hidden]')) return;
-    this.restored = true;
-    await this.restoreLocators(n, signal);
-  }
-  private clearConfigureAfterCreate() {
-    if (this.setup === 'configure' && this.selectedSpace?.environment.provisioned) {
-      this.setup = null;
-      this.setupReturn = undefined;
-    }
-  }
-  private pageJourneyActive() {
-    return this.binding?.kind === 'page' && !this.setup && !!this.selectedSpace;
-  }
-  private leaveJourneyManagement() {
-    if (this.view === 'project' && this.managementMode === 'journey') this.view = 'terminal';
-  }
-  private refreshJourneyManagement() {
-    if (this.view === 'project' && this.managementMode === 'journey')
-      void this.projects.get(this.project)?.api.refresh();
-  }
-  private syncPageJourney() {
-    if (!this.pageJourneyActive()) return;
-    const space = this.selectedSpace!;
-    if (this.projectRunnable(space)) {
-      this.leaveJourneyManagement();
-      return;
-    }
-    if (this.view === 'terminal') void this.showManagement(this.project, 'journey');
-    else this.refreshJourneyManagement();
-  }
-  private refreshFailed(n: number) {
-    if (!this.live(n)) return;
-    this.available = false;
-    this.complete = false;
-    this.status = 'We couldn’t refresh your projects and terminals. The information shown may be out of date.';
-  }
-  private async finishRefreshSuccess(n: number, signal: AbortSignal) {
-    if (!this.storageLoaded) this.loadLayout();
-    await this.restoreIfNeeded(n, signal);
-    this.clearConfigureAfterCreate();
-    this.syncPageJourney();
-    this.display();
-  }
-  private async refreshLive(n: number, request: AbortController) {
-    const collection = spacesResponse(await this.api('/api/spaces', undefined, request.signal));
-    if (!this.live(n)) return;
-    if (this.actor && this.actor.id !== collection.actor.id) {
-      this.invalidate();
-      return;
-    }
-    this.actor = collection.actor;
-    this.storageKey = 'soda-spaces:v3:' + collection.actor.id;
-    this.applySpacesCollection(collection);
-    this.refreshSlots(collection.complete);
-    await this.updateComplete;
-    if (!this.live(n)) return;
-    await this.finishRefreshSuccess(n, request.signal);
   }
   async refresh() {
-    if (this.refreshBlocked()) return;
-    const n = this.epoch;
-    const request = this.beginRefreshRead();
-    const timer = window.setTimeout(() => request.abort(), 15000);
-    try {
-      await this.refreshLive(n, request);
-    } catch {
-      this.refreshFailed(n);
-    } finally {
-      window.clearTimeout(timer);
-      if (this.live(n)) this.busy = false;
-    }
-  }
-  private readonly onMoreProjects = () => this.loadMore();
-  private renderMoreProjects() {
-    if (!this.nextAfter || this.stale) return '';
-    const label = this.busy ? 'Loading…' : 'Show more projects';
-    return html`<button class="ui button soda-more-projects" ?disabled=${this.busy} @click=${this.onMoreProjects}>
-      ${label}
-    </button>`;
-  }
-  async loadMore() {
-    if (this.refreshBlocked() || !this.nextAfter) return;
-    const n = this.epoch;
-    const request = this.beginRefreshRead();
-    const timer = window.setTimeout(() => request.abort(), 15000);
-    try {
-      const collection = spacesResponse(
-        await this.api(`/api/spaces?after=${this.nextAfter}`, undefined, request.signal)
-      );
-      if (!this.live(n)) return;
-      if (this.actor && this.actor.id !== collection.actor.id) {
-        this.invalidate();
-        return;
-      }
-      this.appendSpacesCollection(collection);
-      this.refreshSlots(this.complete);
-      await this.updateComplete;
-      if (!this.live(n)) return;
-      await this.finishRefreshSuccess(n, request.signal);
-    } catch {
-      this.refreshFailed(n);
-    } finally {
-      window.clearTimeout(timer);
-      if (this.live(n)) this.busy = false;
-    }
+    return inventoryRefresh(this.inventoryInput());
   }
   private loadLayout() {
     this.storageLoaded = true;
