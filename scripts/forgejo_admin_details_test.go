@@ -63,6 +63,46 @@ func TestForgejoAdminDetailsOverridesMatchStock1509(t *testing.T) {
 	}
 }
 
+func TestForgejoAdminAuthEditParityRejectsMutatedLeaf(t *testing.T) {
+	const want = "d50ddd4916af1e27411d4915f37e941d868367eb53d1d939a0df0532c674a3b9"
+	entry := readForgejoTemplate(t, "admin", "auth", "edit.tmpl")
+	realReader := func(name string) string {
+		parts := strings.Split(name, "/")
+		parts[len(parts)-1] += ".tmpl"
+		return readForgejoTemplate(t, parts...)
+	}
+	good := expandAuthLeafInvocationsWithReader(t, entry, realReader)
+	ldap := strings.Split(realReader("admin/auth/edit_ldap"), "\n")
+	if ldap[3] == "" || !strings.Contains(good, ldap[3]) {
+		t.Fatal("parity expansion does not splice tracked leaf bodies")
+	}
+	mutated := expandAuthLeafInvocationsWithReader(t, entry, func(name string) string {
+		body := realReader(name)
+		if name != "admin/auth/edit_ldap" {
+			return body
+		}
+		lines := strings.Split(body, "\n")
+		lines[3] = "X" + lines[3][1:]
+		return strings.Join(lines, "\n")
+	})
+	if mutated == good {
+		t.Fatal("parity expansion ignores leaf content")
+	}
+	hash := func(source string) string {
+		restored := stripSodaPClasses(reverseFormPresentationDeltas(t, "admin/auth/edit.tmpl", source))
+		provenance := fmt.Sprintf("{{/* Adapted from Forgejo 15.0.9 templates/admin/%s, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: %s */}}\n", "auth/edit.tmpl", want)
+		restored = strings.TrimPrefix(restored, provenance)
+		restored = strings.Replace(restored, `class="admin-setting-content soda-admin-details soda-admin-details--auth-edit"`, `class="admin-setting-content"`, 1)
+		return fmt.Sprintf("%x", sha256.Sum256([]byte(restored)))
+	}
+	if got := hash(good); got != want {
+		t.Fatalf("parity pipeline replication drifted: got %s, want %s", got, want)
+	}
+	if got := hash(mutated); got == want {
+		t.Fatal("mutated leaf content still matches upstream parity")
+	}
+}
+
 func TestForgejoAdminDetailsKeepNativeActionsAndBranches(t *testing.T) {
 	tests := []struct {
 		name      string
