@@ -231,6 +231,7 @@
   "templates/repo/settings/lfs_pointers.tmpl": "frontend/forgejo/templates/repo/settings/lfs_pointers.tmpl",
   "templates/repo/settings/navbar.tmpl": "frontend/forgejo/templates/repo/settings/navbar.tmpl",
   "templates/repo/settings/options.tmpl": "frontend/forgejo/templates/repo/settings/options.tmpl",
+  "templates/repo/settings/options_repository.tmpl": "frontend/forgejo/templates/repo/settings/options_repository.tmpl",
   "templates/repo/settings/protected_branch.tmpl": "frontend/forgejo/templates/repo/settings/protected_branch.tmpl",
   "templates/repo/settings/runner_create.tmpl": "frontend/forgejo/templates/repo/settings/runner_create.tmpl",
   "templates/repo/settings/runner_details.tmpl": "frontend/forgejo/templates/repo/settings/runner_details.tmpl",

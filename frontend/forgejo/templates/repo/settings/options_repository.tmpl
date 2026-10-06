@@ -1,0 +1,69 @@
+{{/* Repository and avatar settings for repo/settings/options.tmpl. Entry retains layout, order and root context. */}}
+		<section class="soda-settings-section">
+		<h2 class="soda-p-heading">
+			{{ctx.Locale.Tr "repo.settings.basic_settings"}}
+		</h2>
+		<div class="soda-settings-section-body">
+			<form class="ui form soda-p-form" action="{{.Link}}" method="post">
+				{{template "base/disable_form_autofill"}}
+				<input type="hidden" name="action" value="update">
+				<div class="required field {{if .Err_RepoName}}error{{end}}">
+					<label>{{ctx.Locale.Tr "repo.repo_name"}}</label>
+					<input name="repo_name" value="{{.Repository.Name}}" data-repo-name="{{.Repository.Name}}" required>
+				</div>
+				<div class="inline field">
+					<label>{{ctx.Locale.Tr "repo.repo_size"}}</label>
+					<span {{if not (eq .Repository.Size 0)}} data-tooltip-content="{{.Repository.SizeDetailsString ctx.Locale}}"{{end}}>{{ctx.Locale.TrSize .Repository.Size}}</span>
+				</div>
+				<div class="inline field">
+					<label>{{ctx.Locale.Tr "repo.template"}}</label>
+					<div class="ui checkbox">
+						<input name="template" type="checkbox" {{if .Repository.IsTemplate}}checked{{end}}>
+						<label>{{ctx.Locale.Tr "repo.template_helper"}}</label>
+					</div>
+				</div>
+				{{if not .Repository.IsFork}}
+					<div class="inline field">
+						<label>{{ctx.Locale.Tr "repo.visibility"}}</label>
+						<div class="ui checkbox" {{if and (not .Repository.IsPrivate) (gt .Repository.NumStars 0)}}data-tooltip-content="{{ctx.Locale.Tr "repo.stars_remove_warning"}}"{{end}}>
+							{{if .IsAdmin}}
+								<input name="private" type="checkbox" {{if .Repository.IsPrivate}}checked{{end}}>
+							{{else}}
+								<input name="private" type="checkbox" {{if .Repository.IsPrivate}}checked{{end}}{{if and $.ForcePrivate .Repository.IsPrivate}} disabled{{end}}>
+								{{if and .Repository.IsPrivate $.ForcePrivate}}<input type="hidden" name="private" value="{{.Repository.IsPrivate}}">{{end}}
+							{{end}}
+							<label>{{ctx.Locale.Tr "repo.visibility_helper"}} {{if .Repository.NumForks}}<span class="text red">{{ctx.Locale.Tr "repo.visibility_fork_helper"}}</span>{{end}}</label>
+						</div>
+					</div>
+				{{end}}
+				<div class="field {{if .Err_Description}}error{{end}}">
+					<label for="description">{{ctx.Locale.Tr "repo.repo_desc"}}</label>
+					<textarea id="description" name="description" rows="2" maxlength="2048">{{.Repository.Description}}</textarea>
+				</div>
+				<div class="field {{if .Err_Website}}error{{end}}">
+					<label for="website">{{ctx.Locale.Tr "repo.settings.site"}}</label>
+					<input id="website" name="website" type="url" maxlength="1024" value="{{.Repository.Website}}">
+				</div>
+				<div class="field">
+					<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.update_settings"}}</button>
+				</div>
+			</form>
+		</div>
+		</section>
+
+		<section class="soda-settings-section">
+		<h2 class="soda-p-heading">{{ctx.Locale.Tr "settings.avatar"}}</h2>
+		<div class="soda-settings-section-body">
+			<form class="ui form soda-p-form" action="{{.Link}}/avatar" method="post" enctype="multipart/form-data">
+				<div class="inline field">
+					<label for="avatar">{{ctx.Locale.Tr "settings.choose_new_avatar"}}</label>
+					<input name="avatar" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
+					<br/><span class=help>{{ctx.Locale.Tr "avatar.constraints_hint" (ctx.Locale.TrSize .MaxAvatarFileSize) .MaxAvatarWidth .MaxAvatarHeight}}</span>
+				</div>
+				<div class="field button-sequence">
+					<button class="primary button">{{ctx.Locale.Tr "settings.update_avatar"}}</button>
+					<button class="danger button link-action" data-url="{{.Link}}/avatar/delete">{{ctx.Locale.Tr "settings.delete_current_avatar"}}</button>
+				</div>
+			</form>
+		</div>
+		</section>

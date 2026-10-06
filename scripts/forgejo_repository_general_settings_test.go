@@ -6,8 +6,42 @@ import (
 	"testing"
 )
 
+func readForgejoTemplateClosure(t *testing.T, parts ...string) string {
+	t.Helper()
+	page := readForgejoTemplate(t, parts...)
+	for name := range templateCalls(page) {
+		if !strings.HasPrefix(name, "repo/settings/options_") {
+			continue
+		}
+		leafParts := strings.Split(name, "/")
+		leafParts[len(leafParts)-1] += ".tmpl"
+		page += "\n" + readForgejoTemplate(t, leafParts...)
+	}
+	return page
+}
+
 func TestForgejoRepositoryGeneralSettingsUseOpenSections(t *testing.T) {
-	page := readForgejoTemplate(t, "repo", "settings", "options.tmpl")
+	entry := readForgejoTemplate(t, "repo", "settings", "options.tmpl")
+	names := []string{"options.tmpl"}
+	for name := range templateCalls(entry) {
+		if strings.HasPrefix(name, "repo/settings/options_") {
+			names = append(names, strings.TrimPrefix(name, "repo/settings/")+".tmpl")
+		}
+	}
+	for _, name := range names {
+		if _, err := template.New(name).Funcs(template.FuncMap{
+			"ctx":                 func() any { return nil },
+			"svg":                 func(...any) string { return "" },
+			"dict":                func(...any) any { return nil },
+			"FederationEnabled":   func() bool { return false },
+			"MirrorRemoteAddress": func(...any) any { return nil },
+			"DateUtils":           func(...any) any { return nil },
+			"ShortSha":            func(...any) string { return "" },
+		}).Parse(readForgejoTemplate(t, "repo", "settings", name)); err != nil {
+			t.Fatalf("parse %s: %v", name, err)
+		}
+	}
+	page := readForgejoTemplateClosure(t, "repo", "settings", "options.tmpl")
 
 	for _, required := range []string{
 		`"title" (ctx.Locale.Tr "repo.settings.options")`,
