@@ -330,6 +330,25 @@ fn ships_no_command_bin(cmd_dir: &str, name: &str) -> bool {
     !bins.is_empty() && !bins.iter().any(|bin| bin == name)
 }
 
+/// Packaging ownership: crates whose binaries RUST_TOOLS installs keep
+/// their established destinations; shared discovery must not also produce
+/// them as appliance commands. Kept in sync with
+/// `build_compile::RUST_TOOLS` by `toolsown_members_match_rust_tools`.
+const RUST_TOOLS_MEMBERS: &[&str] = &[
+    "soda-acceptance",
+    "soda-activate",
+    "soda-console-welcome",
+    "soda-forgejo-domain",
+    "soda-forgejo-migrate",
+    "soda-install",
+    "soda-pg-maintenance",
+    "soda-project-terminal",
+];
+
+fn is_tools_owned(name: &str) -> bool {
+    RUST_TOOLS_MEMBERS.contains(&name)
+}
+
 /// `build.SodaCommands`: sorted `cmd/soda-*` directories, tools excluded.
 pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
     let mut names = Vec::new();
@@ -350,6 +369,12 @@ pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
         if is_rust_command(&join(&[source, "cmd", &name]))
             && ships_no_command_bin(&join(&[source, "cmd", &name]), &name)
         {
+            continue;
+        }
+        // Packaging ownership: a RUST_TOOLS member crate keeps its
+        // established install destinations; skip it here (not error) so
+        // compile/link produce each binary exactly once.
+        if is_rust_command(&join(&[source, "cmd", &name])) && is_tools_owned(&name) {
             continue;
         }
         if !is_soda_command(&name) || name == "soda-artifacts" || name == "soda-acceptance" {
@@ -513,6 +538,53 @@ mod tests {
         fs::write(
             pg.join("Cargo.toml"),
             b"[package]\nname = \"soda-pg-maintenance\"\n[lib]\nname = \"soda_pg_maintenance\"\n[[bin]]\nname = \"soda-pg-backup\"\n[[bin]]\nname = \"soda-pg-restore\"\n[[bin]]\nname = \"soda-pg-init-roles\"\n",
+        )
+        .unwrap();
+        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
+        assert_eq!(
+            names,
+            vec!["soda-fakego".to_string(), "soda-identity".to_string()]
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn toolsown_members_match_rust_tools() {
+        // The discovery ownership list must name exactly the RUST_TOOLS
+        // member crates: port PRs extend the table, and discovery skips
+        // every member so each binary is produced exactly once.
+        let mut members: Vec<&str> = crate::build_compile::RUST_TOOLS
+            .iter()
+            .map(|(m, _, _)| *m)
+            .collect();
+        members.sort();
+        members.dedup();
+        let mut listed: Vec<&str> = RUST_TOOLS_MEMBERS.to_vec();
+        listed.sort();
+        assert_eq!(listed, members);
+    }
+
+    #[test]
+    fn toolsown_discovery_skips_tools_members() {
+        // A RUST_TOOLS member with a same-name binary (e.g. activate) is
+        // still skipped: RUST_TOOLS owns its established destinations. A
+        // same-name crate outside the table and Go commands still list.
+        let dir = std::env::temp_dir().join(format!("sri-toolsown-a-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
+        let owned = snapshot.join("cmd/soda-activate");
+        fs::create_dir_all(&owned).unwrap();
+        fs::write(
+            owned.join("Cargo.toml"),
+            b"[package]\nname = \"soda-activate\"\n[[bin]]\nname = \"soda-activate\"\n",
+        )
+        .unwrap();
+        let kept = snapshot.join("cmd/soda-identity");
+        fs::create_dir_all(&kept).unwrap();
+        fs::write(
+            kept.join("Cargo.toml"),
+            b"[package]\nname = \"soda-identity\"\n[[bin]]\nname = \"soda-identity\"\n",
         )
         .unwrap();
         let names = soda_commands(snapshot.to_str().unwrap()).unwrap();

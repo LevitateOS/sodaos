@@ -554,4 +554,81 @@ mod tests {
         }
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn toolsown_compile_preserves_member_destinations() {
+        // Moved member crates (activate/domain/migrate/console) must not be
+        // produced through cmd discovery; RUST_TOOLS ships each exactly once
+        // to its established destination.
+        let dir = std::env::temp_dir().join(format!("sri-toolsown-b-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
+        for member in [
+            "soda-activate",
+            "soda-forgejo-domain",
+            "soda-forgejo-migrate",
+            "soda-console-welcome",
+        ] {
+            let cmd = snapshot.join("cmd").join(member);
+            fs::create_dir_all(&cmd).unwrap();
+            fs::write(
+                cmd.join("Cargo.toml"),
+                format!("[package]\nname = \"{member}\"\n[[bin]]\nname = \"{member}\"\n"),
+            )
+            .unwrap();
+        }
+        fs::create_dir_all(dir.join("ctx/rootfs/usr/libexec/soda")).unwrap();
+        let context = dir.join("ctx").to_str().unwrap().to_string();
+        let recorder = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        for member in [
+            "soda-activate",
+            "soda-forgejo-domain",
+            "soda-forgejo-migrate",
+            "soda-console-welcome",
+        ] {
+            assert!(!recorder.rust.borrow().iter().any(|(c, _, _)| c == member));
+        }
+        let tools = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        compile_rust_tools(&tools, &context).unwrap();
+        for (member, bin, dest) in [
+            (
+                "soda-activate",
+                "soda-activate",
+                "rootfs/usr/bin/soda-activate",
+            ),
+            (
+                "soda-forgejo-domain",
+                "soda-forgejo-domain",
+                "rootfs/usr/bin/soda-forgejo-domain",
+            ),
+            (
+                "soda-forgejo-migrate",
+                "soda-forgejo-migrate",
+                "rootfs/usr/bin/soda-forgejo-migrate",
+            ),
+            (
+                "soda-console-welcome",
+                "soda-console-welcome",
+                "rootfs/usr/libexec/soda/soda-console-welcome",
+            ),
+        ] {
+            let shipped: Vec<_> = tools
+                .rust
+                .borrow()
+                .iter()
+                .filter(|(c, b, _)| c == &member && b == &bin)
+                .map(|(_, _, d)| d.clone())
+                .collect();
+            assert_eq!(shipped, vec![format!("{context}/{dest}")]);
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
