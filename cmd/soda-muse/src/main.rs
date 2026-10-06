@@ -1,25 +1,25 @@
 // soda-muse delegates a normal shell invocation over the launch-only socket.
 #[cfg(test)]
 mod config_tests;
-mod env;
 mod env_prepare;
+mod execution;
 mod home_cfg;
+mod launch;
 mod launch_json;
 #[cfg(test)]
 mod launch_tests;
 mod maintenance;
-mod session;
+mod paths;
 mod shell;
 #[cfg(test)]
 mod shell_tests;
-mod terminal;
 
 use env_prepare::copy_config;
+use execution::execute;
 use home_cfg::read_config;
+use launch::{launch_shell, seqpacket_connect};
 use maintenance::{account_for, check_runtime};
-use session::{launch_shell, seqpacket_connect};
 use shell::shell_request;
-use terminal::execute;
 
 const MUSE_LAUNCH_SOCKET: &str = "/run/soda-muse-interface/launch.sock";
 const MUSE_NATIVE: &str = "/usr/local/libexec/soda/muse";

@@ -1,4 +1,4 @@
-use super::session::{controls_loop, forward_signals, launch_shell};
+use super::launch::{controls_loop, forward_signals, launch_shell};
 use super::ShellRequest;
 
 #[test]

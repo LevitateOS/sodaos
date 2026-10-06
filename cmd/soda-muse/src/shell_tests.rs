@@ -1,8 +1,8 @@
-use super::env::{go_base, go_clean, go_join, go_quote_rune};
+use super::execution::muse_environment_with;
 use super::home_cfg::base64_encode;
 use super::launch_json::parse_launch_exit;
+use super::paths::{go_base, go_clean, go_join, go_quote_rune};
 use super::shell::{shell_request_json, validate_shell};
-use super::terminal::muse_environment_with;
 use super::ShellRequest;
 
 fn shell_fixture() -> ShellRequest {

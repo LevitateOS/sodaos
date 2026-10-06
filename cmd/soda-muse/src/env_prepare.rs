@@ -1,5 +1,4 @@
-use super::env::{go_base, go_join};
-use super::maintenance::path_error;
+use super::paths::{go_base, go_join, path_error};
 use std::fs;
 use std::io;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};

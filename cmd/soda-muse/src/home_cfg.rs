@@ -1,4 +1,4 @@
-use super::maintenance::path_error;
+use super::paths::path_error;
 use std::fs;
 use std::io;
 

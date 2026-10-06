@@ -1,5 +1,5 @@
-use super::env::go_strerror;
 use super::home_cfg::json_string;
+use super::paths::{go_strerror, path_error};
 use super::MUSE_NATIVE;
 use std::ffi::{CStr, CString};
 use std::fs;
@@ -35,10 +35,6 @@ pub(crate) fn account_for(actor: &str) -> Result<(), String> {
         }
     }
     Err(String::from("provisioned account missing"))
-}
-
-pub(crate) fn path_error(op: &str, path: &str, e: io::Error) -> String {
-    format!("{op} {path}: {}", go_strerror(e.raw_os_error()))
 }
 
 fn account_entry(directory: &str, name: &str, actor: &str) -> Result<bool, String> {

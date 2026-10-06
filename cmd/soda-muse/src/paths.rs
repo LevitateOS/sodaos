@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+use std::io;
 
 pub(crate) fn go_base(path: &str) -> &str {
     if path.is_empty() {
@@ -71,6 +72,10 @@ pub(crate) fn go_strerror(errno: Option<i32>) -> String {
         Some(c) => c.to_lowercase().collect::<String>() + chars.as_str(),
         None => text,
     }
+}
+
+pub(crate) fn path_error(op: &str, path: &str, e: io::Error) -> String {
+    format!("{op} {path}: {}", go_strerror(e.raw_os_error()))
 }
 
 // go_quote_rune mirrors strconv.QuoteRune for the invalid-hex-byte error.
