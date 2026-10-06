@@ -1,0 +1,188 @@
+package control
+
+import (
+	"context"
+	"errors"
+	"strconv"
+	"time"
+
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
+)
+
+// observeMergeEvidence binds the exact fresh evidence behind one merge
+// submit: the independent approval on the exact head, the persisted
+// ST11 pass under the current adopted definitions, and a fresh
+// check verdict on the merge bracket so regressed checks cannot ride
+// an older pass. Missing evidence waits for a later pass; rejected or
+// misidentified candidates fail. The bound intent is persisted before
+// any submit.
+func (c *Coordinator) observeMergeEvidence(ctx context.Context, m *factory.Merge, work factory.MergeWork, policy factory.RepositoryPolicy, revision int64, report *MergeReport) bool {
+	observation, err := c.Merges.ObserveMerge(ctx, work)
+	if err != nil {
+		var refused *factory.PublicationRefusal
+		if errors.As(err, &refused) {
+			c.finishMerge(ctx, *m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
+		} else {
+			c.mergeCallError(report, m.ID, err)
+		}
+		return false
+	}
+	if observation.NativeRev != revision {
+		mergeWait(report, m.ID, "native_inputs_changed")
+		return false
+	}
+	if observation.PRID != m.PRID || observation.PRNumber != m.PRNumber || observation.IssueID != m.IssueID ||
+		observation.PRAuthorID != m.PRAuthorID || observation.HeadRef != m.HeadRef || observation.BaseRef != m.BaseRef ||
+		observation.HeadOID != m.HeadOID || observation.BaseOID != m.BaseOID || observation.ReviewerID != m.ReviewerID || observation.ReviewID <= 0 {
+		mergeWait(report, m.ID, "observation_invalid")
+		return false
+	}
+	assessment, err := c.Store.CheckAssessment(ctx, m.Repository, m.PRNumber)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			mergeWait(report, m.ID, "check_evidence_missing")
+		} else {
+			mergeError(report, m.ID, "store_unavailable")
+		}
+		return false
+	}
+	work.AssessmentRevision, work.ReviewID = assessment.Revision, observation.ReviewID
+	if err := factory.VerifyMergeCheckEvidence(work, assessment, policy); err != nil {
+		// A failed verdict on the exact head is terminal: new code
+		// means a new publication cycle. Anything else waits for a
+		// fresh assessment on this head.
+		if assessment.Verdict == factory.CheckFailed && assessment.HeadOID == m.HeadOID && assessment.BaseOID == m.BaseOID {
+			c.finishMerge(ctx, *m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
+		} else {
+			mergeWait(report, m.ID, "check_evidence_stale")
+		}
+		return false
+	}
+	target := factory.CheckTarget{Repository: m.Repository, PRNumber: m.PRNumber, PRID: m.PRID, IssueID: m.IssueID, HeadRef: m.HeadRef, BaseRef: m.BaseRef, HeadOID: m.HeadOID, BaseOID: m.BaseOID}
+	adopted := factory.AdoptedChecks{Checks: append([]string(nil), policy.Checks...), PolicyRevision: policy.Revision, Digest: factory.ChecksDigest(policy.Checks)}
+	fresh, err := factory.VerifyChecks(target, adopted, policy, observation.Checks, time.Now().Unix())
+	if err != nil {
+		mergeError(report, m.ID, "check_evidence_invalid")
+		return false
+	}
+	switch fresh.Verdict {
+	case factory.CheckPass:
+	case factory.CheckPending:
+		mergeWait(report, m.ID, "check_evidence_pending")
+		return false
+	case factory.CheckRefused:
+		mergeWait(report, m.ID, "check_evidence_hidden")
+		return false
+	default:
+		c.finishMerge(ctx, *m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
+		return false
+	}
+	now := time.Now()
+	work.NativeRev, work.NotAfter = observation.NativeRev, now.Add(10*time.Minute).Unix()
+	intent := work.Intent()
+	op := &m.Operation
+	op.OperationID, op.Attempts, op.UpdatedUnix, op.Work = work.OperationID, 1, now.Unix(), &intent
+	m.NativeRev, m.ObservedUnix = observation.NativeRev, now.Unix()
+	return c.storeMerge(ctx, m, report)
+}
+
+// mergeAuthority validates Soda policy and accepted input at the native
+// revision that the later merge observation must match.
+func (c *Coordinator) mergeAuthority(ctx context.Context, m factory.Merge, report *MergeReport) (factory.RepositoryPolicy, int64, bool) {
+	var empty factory.RepositoryPolicy
+	effective, err := c.EffectiveAuthority(ctx, m.Repository)
+	if err != nil {
+		mergeError(report, m.ID, "store_unavailable")
+		return empty, 0, false
+	}
+	if !effective.Effective {
+		mergeWait(report, m.ID, "authority_ineffective")
+		return empty, 0, false
+	}
+	policy, err := c.Store.RepositoryPolicy(ctx, m.Repository)
+	if err != nil {
+		mergeError(report, m.ID, "store_unavailable")
+		return empty, 0, false
+	}
+	current := effective.Authority
+	// Capacity changes only bound future reservations, per the existing grant contract.
+	current.Capacity = m.Authority.Capacity
+	current.RequirementsID, err = c.Store.RequirementHead(ctx, m.ProjectID)
+	if err != nil {
+		mergeError(report, m.ID, "store_unavailable")
+		return empty, 0, false
+	}
+	current.ApprovalID, err = c.Store.ApprovalHead(ctx, m.ProjectID)
+	if err != nil {
+		mergeError(report, m.ID, "store_unavailable")
+		return empty, 0, false
+	}
+	if current != m.Authority || policy.TargetBranch != m.BaseRef || policy.Review.ActorID != m.ReviewerID {
+		mergeWait(report, m.ID, "authority_changed")
+		return empty, 0, false
+	}
+	status, err := c.AcceptanceStatus(ctx, m.Repository, strconv.FormatInt(m.Issue, 10))
+	if err != nil {
+		mergeWait(report, m.ID, "accepted_inputs_unavailable")
+		return empty, 0, false
+	}
+	if !status.Valid || status.Acceptance == nil || status.Acceptance.ID != m.Acceptance {
+		mergeWait(report, m.ID, "accepted_inputs_changed")
+		return empty, 0, false
+	}
+	return policy, status.Revision, true
+}
+
+func (c *Coordinator) mergeWork(m factory.Merge, policy factory.RepositoryPolicy) factory.MergeWork {
+	return factory.MergeWork{
+		MergeID: m.ID, PublicationID: m.PublicationID,
+		OperationID: factory.MergeOperationID(m.PublicationID, 1), AuthRevision: factory.MergeAuthRevision(m.AssignmentID, m.ID, m.Revision),
+		HeadRef: m.HeadRef, BaseRef: m.BaseRef, HeadOID: m.HeadOID, BaseOID: m.BaseOID,
+		Repository: m.Repository, Issue: m.Issue, PRNumber: m.PRNumber, PRID: m.PRID, IssueID: m.IssueID,
+		PRAuthorID: m.PRAuthorID, ReviewerID: m.ReviewerID, ActorID: policy.Merge.ActorID,
+	}
+}
+
+// completeMerge confirms the native bookkeeping behind a committed,
+// completed merge before finishing: the PR merged to the exact head,
+// the base tip carries it, and the issue closed. Confirmed completion
+// then reassesses dependants so an eligible one becomes runnable.
+func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, report *MergeReport) {
+	op := &m.Operation
+	if op.Completion != factory.OpCompletionComplete {
+		mergeWait(report, m.ID, "native_completion_pending")
+		return
+	}
+	if op.Work == nil {
+		c.finishMerge(ctx, *m, factory.MergeFenced, factory.NeedsHuman, factory.MergeReasonUnattributed, report)
+		return
+	}
+	work := op.Work.Apply(c.mergeWork(*m, factory.RepositoryPolicy{}))
+	confirmation, err := c.Merges.ObserveCompletion(ctx, work)
+	if err != nil {
+		var refused *factory.PublicationRefusal
+		if errors.As(err, &refused) {
+			c.finishMerge(ctx, *m, factory.MergeFenced, factory.NeedsHuman, factory.MergeReasonUnattributed, report)
+		} else {
+			c.mergeCallError(report, m.ID, err)
+		}
+		return
+	}
+	if confirmation.MergedCommit != m.HeadOID || confirmation.BaseTip != m.HeadOID || confirmation.MergerID != work.ActorID || !confirmation.IssueClosed || confirmation.MergedUnix <= 0 || confirmation.ClosedUnix <= 0 {
+		c.finishMerge(ctx, *m, factory.MergeFenced, factory.NeedsHuman, factory.MergeReasonUnattributed, report)
+		return
+	}
+	m.MergedCommit, m.MergedUnix, m.ClosedUnix = confirmation.MergedCommit, confirmation.MergedUnix, confirmation.ClosedUnix
+	c.finishMerge(ctx, *m, factory.MergeMerged, factory.Succeeded, factory.MergeReasonMerged, report)
+	// Best-effort dependant release: confirmed completion reassesses
+	// dependants, and queued work launches within current limits.
+	// Failures wait for the next trigger; the merge above already
+	// recorded.
+	_, _ = c.assessCascade(ctx, m.Repository, m.Issue, make(map[factory.DependenceRef]bool))
+	// Completion itself is new dependant input (the code-prereq
+	// completion record): release dependants even when the merged
+	// issue's own verdict is unchanged, mirroring run settlement.
+	c.assessDispatchDependants(ctx, m.Repository, m.Issue)
+	c.dispatchAfterIntake(ctx)
+}
