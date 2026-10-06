@@ -4,11 +4,10 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
 import {renderProjectStatus} from './sodaspaces-project-view.js';
-import {projectView} from '../tailnet/soda-tailnet-response.js';
 import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
-import {object, check, id, projectId, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
-import {creationProfile, osObservation} from './sodaspaces-project-response.js';
-import {savedKeysResponse, profileKeysResponse, keyPreviewResponse} from './sodaspaces-keys-response.js';
+import {object, check, id, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
+import {osObservation} from './sodaspaces-project-response.js';
+import {profileKeysResponse, keyPreviewResponse} from './sodaspaces-keys-response.js';
 import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
 import {renderJourney} from './sodaspaces-project-journey-view.js';
@@ -26,6 +25,8 @@ import {refresh as runRefresh} from './sodaspaces-project-refresh.js';
 import type {RefreshInput} from './sodaspaces-project-refresh.js';
 import {copyConnection} from './sodaspaces-project-connection.js';
 import type {ConnectionInput} from './sodaspaces-project-connection.js';
+import {mutate} from './sodaspaces-project-mutations.js';
+import type {MutationsInput} from './sodaspaces-project-mutations.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;
@@ -35,7 +36,6 @@ export interface ProjectContext {
   transport: PreparedExtensionMount;
   forgejoPrefix?: string;
 }
-const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
 function viewFromTabKey(key: string, current: View): View | undefined {
   const i = views.indexOf(current);
   if (key === 'Home') return views[0];
@@ -73,15 +73,6 @@ async function sodaErrorCode(response: Response): Promise<string | undefined> {
   } catch {
     /* Never display a response body. */
   }
-}
-
-function mutationObject(raw: unknown): Record<string, unknown> | null {
-  return raw === null ? null : object(raw);
-}
-
-function publicKeyToken(value: string | undefined) {
-  if (!value) return;
-  return value.trim().split(/\s+/).slice(0, 2).join(' ');
 }
 
 export class SodaProjectControls extends LitElement {
@@ -324,7 +315,8 @@ export class SodaProjectControls extends LitElement {
   }
   private createProject() {
     if (!this.canCreate || this.networkReview || !this.profiles.some((p) => p.id === this.selectedProfile)) return;
-    return this.mutate(
+    return mutate(
+      this.mutationsInput(),
       '/api/environments',
       {
         repository_id: this.binding?.repositoryId,
@@ -545,7 +537,8 @@ export class SodaProjectControls extends LitElement {
       this.detail.authority_unavailable
     )
       return;
-    return this.mutate(
+    return mutate(
+      this.mutationsInput(),
       '/api/environments/' + this.environment.id + '/join',
       {
         ssh_keys: this.presentation !== 'journey' && this.useSavedKeys ? 'saved' : 'none',
@@ -555,7 +548,8 @@ export class SodaProjectControls extends LitElement {
   }
   private removeSavedKey(event: Event, key: SavedKey) {
     this.command(event, () =>
-      this.mutate(
+      mutate(
+        this.mutationsInput(),
         '/api/me/development-keys/' + key.id,
         {},
         'Saved key removed. Existing project SSH access is unchanged until explicitly applied.',
@@ -764,198 +758,42 @@ export class SodaProjectControls extends LitElement {
       resetState: () => this.reset(),
     };
   }
-  private async mutate(path: string, body: Record<string, unknown>, message: string, method = 'POST') {
-    if (this.blocked || !this.binding) return;
-    const n = this.epoch;
-    this.busy = true;
-    this.outcomeNeedsAttention = false;
-    this.joinFailed = false;
-    this.outcome = 'Sending the explicit operation with the original page identity…';
-    let dispatched = false,
-      inspectCreation = false;
-    const controller = new AbortController(),
-      timeout = window.setTimeout(() => controller.abort(), 255000);
-    try {
-      dispatched = true;
-      inspectCreation = await this.dispatchMutation(n, path, body, message, method, controller);
-    } catch (error) {
-      inspectCreation = this.applyMutateError(path, error, dispatched);
-    } finally {
-      await this.finishMutation(n, timeout, inspectCreation);
-    }
-  }
-  private async dispatchMutation(
-    n: number,
-    path: string,
-    body: Record<string, unknown>,
-    message: string,
-    method: string,
-    controller: AbortController
-  ) {
-    this.mutationPending = true;
-    this.dispatchEvent(new CustomEvent('soda-project-operation', {bubbles: true}));
-    this.outcome = 'Request dispatched. Closing does not cancel or undo native work.';
-    const result = mutationObject(await this.api(path, method, body, controller.signal));
-    if (!this.active(n)) return false;
-    const next = this.checkMutationResult(path, method, body, result);
-    this.completeMutation(next || message);
-    this.busy = false;
-    await this.refresh();
-    return false;
-  }
-  private completeMutation(message: string) {
-    this.mutationPending = false;
-    this.dispatchEvent(new CustomEvent('soda-project-operation', {bubbles: true}));
-    this.outcome = message;
-    this.dispatchEvent(
-      new CustomEvent('soda-project-changed', {
-        bubbles: true,
-        detail: {
-          repositoryId: this.binding?.repositoryId,
-        },
-      })
-    );
-  }
-  private checkMutationResult(
-    path: string,
-    method: string,
-    body: Record<string, unknown>,
-    result: Record<string, unknown> | null
-  ): string | undefined {
-    if (path === '/api/environments') return this.checkCreateMutation(body, result);
-    if (path.endsWith('/join')) return this.checkJoinMutation(result);
-    if (path.endsWith('/lifecycle')) return this.checkLifecycleMutation(body, result);
-    if (path.endsWith('/tailnet')) return this.checkTailnetMutation(body, result);
-    if (path.endsWith('/access-keys')) return this.checkAccessKeysMutation(body, result);
-    if (method === 'DELETE') return this.checkDeleteMutation(result);
-    if (path === '/api/me/development-keys') return this.checkSaveKeyMutation(body, result);
-    return undefined;
-  }
-  private checkCreateMutation(
-    body: Record<string, unknown>,
-    result: Record<string, unknown> | null
-  ): string | undefined {
-    check(
-      result &&
-        projectId(result.id) &&
-        result.repository_id === this.binding?.repositoryId &&
-        result.provisioned === true &&
-        creationProfile(result.profile).id === body.profile_id
-    );
-    if (object(body.tailnet).enabled !== true) return undefined;
-    check(result.tailnet_outcome === 'queued' || result.tailnet_outcome === 'unconfirmed');
-    this.outcomeNeedsAttention = true;
-    if (result.tailnet_outcome === 'queued') return 'Project created. Network policy saved; enrollment queued.';
-    return 'Project created. Network setup unconfirmed; inspect Network and explicitly retry there. Do not recreate the project.';
-  }
-  private checkJoinMutation(result: Record<string, unknown> | null): string | undefined {
-    check(typeof result?.login === 'string' && /^[a-z][a-z0-9_-]{0,30}$/.test(result.login) && result.login !== 'root');
-    return undefined;
-  }
-  private checkLifecycleMutation(
-    body: Record<string, unknown>,
-    result: Record<string, unknown> | null
-  ): string | undefined {
-    check(
-      result &&
-        object(result.environment).id === this.environment?.id &&
-        object(result.environment).running === (body.action === 'start') &&
-        result.boot_enabled === (body.action === 'start')
-    );
-    return undefined;
-  }
-  private checkTailnetMutation(
-    body: Record<string, unknown>,
-    result: Record<string, unknown> | null
-  ): string | undefined {
-    const network = projectView(result, this.environment?.id || '');
-    check(network.saved && network.revision !== body.revision && network.enabled === (body.action !== 'disable'));
-    if (network.outcome === 'queued')
-      return 'Network policy saved; native work queued. Refresh observes the outcome without replay.';
-    return 'Network policy saved; native outcome unconfirmed. Observe before retrying; no connection or disconnection was assumed.';
-  }
-  private checkAccessKeysMutation(
-    body: Record<string, unknown>,
-    result: Record<string, unknown> | null
-  ): string | undefined {
-    check(
-      result?.applied === true &&
-        result.login === this.detail?.login &&
-        typeof result.revision === 'string' &&
-        /^[0-9a-f]{64}$/.test(result.revision) &&
-        JSON.stringify(result.installed_fingerprints) === JSON.stringify(body.saved_fingerprints)
-    );
-    return undefined;
-  }
-  private checkDeleteMutation(result: Record<string, unknown> | null): string | undefined {
-    check(result?.removed === true && result.existing_project_access_changed === false);
-    return undefined;
-  }
-  private checkSaveKeyMutation(
-    body: Record<string, unknown>,
-    result: Record<string, unknown> | null
-  ): string | undefined {
-    const keys = savedKeysResponse(result);
-    check(typeof body.public_key === 'string');
-    const publicKey = body.public_key;
-    check(keys.some((k) => publicKeyToken(k.public_key) === publicKeyToken(publicKey)));
-    return undefined;
-  }
-  private joinErrorMessage(code: string | undefined, uncertain: boolean) {
-    this.joinFailed = true;
-    this.joinNeedsCheck = true;
-    if (code === 'account_incomplete')
-      return 'Soda could not finish setting up your project account. Ask your Soda administrator to check the account setup before you try again.';
-    if (code === 'membership_not_saved')
-      return 'Your account was set up, but Soda could not save your access to this project. Ask your Soda administrator to check your project access.';
-    if (code === 'unsupported_linux_login')
-      return 'Your Forgejo username cannot be used for a project account. Ask your Soda administrator for help choosing a supported username.';
-    if (uncertain) return 'We couldn’t confirm whether you joined. Check join status before trying again.';
-    return 'Your request to join was declined. Check your project access or ask your Soda administrator for help.';
-  }
-  private mutateReason(code: string | undefined) {
-    if (code === 'profile_unavailable')
-      return 'Installed Project OS unavailable. No reservation was created; refresh before another explicit action.';
-    if (code === 'unsupported_linux_login')
-      return 'Your Forgejo username is not supported as a Linux login. No automatic rename is performed.';
-    if (code === 'invalid_public_key') return 'Provide one public SSH key without options or private key material.';
-    if (code === 'saved_keys_changed') return 'Saved keys changed. Review them again before Apply.';
-    if (code === 'owner_required') return 'Only the current human repository owner can create this environment.';
-    if (code === 'not_provisioned')
-      return 'Provisioning is incomplete. Ask the operator to inspect; do not recreate it.';
-  }
-  private mutateErrorMessage(path: string, e: SodaRequestError, uncertain: boolean) {
-    if (path.endsWith('/join')) return this.joinErrorMessage(e.code, uncertain);
-    const reason = this.mutateReason(e.code);
-    if (!uncertain && reason) return reason;
-    if (path === '/api/environments' && uncertain)
-      return 'Project creation could not be confirmed. Check the project status before trying again.';
-    if (uncertain)
-      return 'We couldn’t confirm that this change finished. Refresh status to check the result before trying again.';
-    return 'This change could not be applied. Refresh status and review your settings before trying again.';
-  }
-  private applyMutateError(path: string, error: unknown, dispatched: boolean) {
-    const e = error instanceof SodaRequestError ? error : new SodaRequestError(0);
-    const uncertain = dispatched && !rejected.has(e.status);
-    const inspectCreation = uncertain && path === '/api/environments';
-    if (inspectCreation) this.noteUnconfirmedCreation();
-    this.mutationPending = false;
-    this.outcomeNeedsAttention = true;
-    this.outcome = this.mutateErrorMessage(path, e, uncertain);
-    return inspectCreation;
-  }
-  private noteUnconfirmedCreation() {
-    this.canCreate = false;
-    this.dispatchEvent(
-      new CustomEvent('soda-project-changed', {bubbles: true, detail: {repositoryId: this.binding?.repositoryId}})
-    );
-  }
-  private async finishMutation(n: number, timeout: number, inspectCreation: boolean) {
-    window.clearTimeout(timeout);
-    this.mutationPending = false;
-    if (!this.active(n)) return;
-    this.busy = false;
-    if (inspectCreation) await this.refresh();
+  private mutationsInput(): MutationsInput {
+    return {
+      isBlocked: () => this.blocked,
+      hasBinding: () => !!this.binding,
+      readEpoch: () => this.epoch,
+      isActive: (n) => this.active(n),
+      readBindingRepository: () => this.binding?.repositoryId,
+      readEnvironmentId: () => this.environment?.id,
+      readDetailLogin: () => this.detail?.login,
+      api: (path, method, body, signal) => this.api(path, method, body, signal),
+      refreshAfter: () => this.refresh(),
+      announceOperation: () => this.dispatchEvent(new CustomEvent('soda-project-operation', {bubbles: true})),
+      announceChanged: (repositoryId) =>
+        this.dispatchEvent(new CustomEvent('soda-project-changed', {bubbles: true, detail: {repositoryId}})),
+      setBusy: (busy) => {
+        this.busy = busy;
+      },
+      setOutcomeNeedsAttention: (attention) => {
+        this.outcomeNeedsAttention = attention;
+      },
+      setJoinFailed: (failed) => {
+        this.joinFailed = failed;
+      },
+      setOutcome: (outcome) => {
+        this.outcome = outcome;
+      },
+      setMutationPending: (pending) => {
+        this.mutationPending = pending;
+      },
+      setJoinNeedsCheck: (needed) => {
+        this.joinNeedsCheck = needed;
+      },
+      setCanCreate: (canCreate) => {
+        this.canCreate = canCreate;
+      },
+    };
   }
   private networkChangeBlocked() {
     return (
@@ -974,7 +812,8 @@ export class SodaProjectControls extends LitElement {
     if (this.networkChangeBlocked()) return;
     if (action !== 'disable' && this.networkEnableBlocked(network!)) return;
     this.networkConfirmed = false;
-    return this.mutate(
+    return mutate(
+      this.mutationsInput(),
       '/api/environments/' + this.environment!.id + '/tailnet',
       {
         action,
@@ -1025,7 +864,8 @@ export class SodaProjectControls extends LitElement {
       this.outcome = 'Confirm the shared impact before Stop.';
       return;
     }
-    return this.mutate(
+    return mutate(
+      this.mutationsInput(),
       `/api/environments/${this.environment.id}/lifecycle`,
       {
         action: stop ? 'stop' : 'start',
@@ -1047,7 +887,8 @@ export class SodaProjectControls extends LitElement {
       return;
     }
     this.draft = '';
-    return this.mutate(
+    return mutate(
+      this.mutationsInput(),
       '/api/me/development-keys',
       {
         public_key: value,
@@ -1123,7 +964,8 @@ export class SodaProjectControls extends LitElement {
     const preview = this.keyPreview;
     this.keyPreview = undefined;
     this.emptyConfirmed = false;
-    return this.mutate(
+    return mutate(
+      this.mutationsInput(),
       `/api/environments/${this.environment.id}/access-keys`,
       {
         revision: preview.revision,
