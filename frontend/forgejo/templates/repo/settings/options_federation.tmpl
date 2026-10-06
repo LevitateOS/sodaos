@@ -1,0 +1,24 @@
+{{/* Gated federation form for repo/settings/options.tmpl. Entry retains layout, order and root context. */}}
+		{{if FederationEnabled}}
+			<section class="soda-settings-section">
+			<h2 class="soda-p-heading">
+				{{ctx.Locale.Tr "repo.settings.federation_settings"}}
+			</h2>
+			<div class="soda-settings-section-body">
+				<form class="ui form soda-p-form" method="post">
+					<input type="hidden" name="action" value="federation">
+					<div class="field {{if .Err_FollowingRepos}}error{{end}}">
+						<div class="ui info message soda-notice">
+							<p>{{ctx.Locale.Tr "repo.settings.federation_apapiurl"}}</p>
+							<p><b>{{.RepositoryAPActorID}}</b></p>
+						</div>
+						<label for="following_repos">{{ctx.Locale.Tr "repo.settings.federation_following_repos"}}</label>
+						<input id="following_repos" name="following_repos" value="{{.FollowingRepos}}">
+					</div>
+					<div class="field">
+						<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.update_settings"}}</button>
+					</div>
+				</form>
+			</div>
+			</section>
+		{{end}}
