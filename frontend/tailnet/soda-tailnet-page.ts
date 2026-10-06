@@ -9,6 +9,8 @@ import {renderHostSection} from './soda-tailnet-host-view.js';
 import type {HostViewInput} from './soda-tailnet-host-view.js';
 import {renderEnrollmentSection} from './soda-tailnet-enrollment-view.js';
 import type {EnrollmentViewInput} from './soda-tailnet-enrollment-view.js';
+import {renderPending, renderReconnect} from './soda-tailnet-confirmation-view.js';
+import type {ConfirmationViewInput} from './soda-tailnet-confirmation-view.js';
 
 class SodaTailnet extends LitElement {
   private transport: PreparedExtensionMount | null = null;
@@ -360,28 +362,15 @@ class SodaTailnet extends LitElement {
       warning: 'Save Off for future creation defaults. Existing project settings and connections do not change.',
     });
   }
-  private renderReconnect() {
-    if (!(this.blocked || !this.lifetime)) return '';
-    return html`<p>
-      Refresh this Forgejo page to restore operator authorization. Native CLI/console recovery remains available.
-    </p>`;
-  }
-  private renderPending() {
-    const pending = this.pending;
-    if (!pending) return '';
-    return html`<section
-      class="tailnet-notice"
-      role="region"
-      aria-labelledby="tailnet-confirm-title"
-      @keydown=${this.onConfirmKeydown}
-    >
-      <h2 id="tailnet-confirm-title">Confirm ${pending.label}</h2>
-      <p>${pending.warning}</p>
-      <div class="settings-actions">
-        <button type="button" data-confirm @click=${() => confirm(this.actionsInput())}>Confirm ${pending.label}</button
-        ><button type="button" @click=${() => cancel(this.actionsInput())}>Cancel</button>
-      </div>
-    </section>`;
+  private confirmationViewInput(): ConfirmationViewInput {
+    return {
+      isBlocked: () => this.blocked,
+      hasLifetime: () => !!this.lifetime,
+      readPending: () => this.pending,
+      onConfirmKeydown: (event) => this.onConfirmKeydown(event),
+      onConfirm: () => confirm(this.actionsInput()),
+      onCancel: () => cancel(this.actionsInput()),
+    };
   }
   private hostViewInput(): HostViewInput {
     return {
@@ -442,8 +431,9 @@ class SodaTailnet extends LitElement {
         </button>
       </div>
       <p role="status" aria-live="polite">${this.message}</p>
-      ${this.notice ? html`<p class="tailnet-notice" role="status">${this.notice}</p>` : ''} ${this.renderReconnect()}
-      ${this.renderPending()} ${this.renderAuthorized()}
+      ${this.notice ? html`<p class="tailnet-notice" role="status">${this.notice}</p>` : ''}
+      ${renderReconnect(this.confirmationViewInput())} ${renderPending(this.confirmationViewInput())}
+      ${this.renderAuthorized()}
     `;
   }
 }
