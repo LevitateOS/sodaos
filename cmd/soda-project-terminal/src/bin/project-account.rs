@@ -12,9 +12,10 @@
 //! under one directory and drops the root gate; with it set,
 //! `SODA_PROJECT_ACCOUNT_FAIL_SYNC=1` fails every fsync.
 
-mod account;
+#[path = "../project_account.rs"]
+mod project_account;
 
-use account::{parse_request, provision, Config, Response};
+use project_account::{parse_request, provision, Config, Response};
 use std::io::{Read as _, Write as _};
 use std::path::PathBuf;
 
@@ -43,7 +44,7 @@ fn read_request() -> Option<Vec<u8>> {
 /// separators, one trailing newline. The login charset (`[a-z0-9_-]+`)
 /// needs no JSON escaping.
 fn response_line(response: &Response) -> Vec<u8> {
-    debug_assert!(account::valid_login(&response.login) && response.login != "root");
+    debug_assert!(project_account::valid_login(&response.login) && response.login != "root");
     format!(
         "{{\"login\": \"{}\", \"identity\": {}}}\n",
         response.login, response.identity
