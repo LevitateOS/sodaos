@@ -22,7 +22,7 @@ func TestOSPythonSubjectRetired(t *testing.T) {
 func TestOSRustSuccessorOwnsObservationBehavior(t *testing.T) {
 	_, err := os.Stat(filepath.Join(RepoRoot, "internal/host/project/os.go"))
 	Check(t, os.IsNotExist(err), "Go OS successor resurrected; behavior lives in the Rust daemon")
-	successor := ReadFile(t, "rust/soda-host/src/project.rs")
+	successor := ReadFile(t, "rust/soda-host/src/project/mod.rs")
 	for _, want := range []string{
 		"pub fn parse_os_release",
 		"pub fn observe_os",
