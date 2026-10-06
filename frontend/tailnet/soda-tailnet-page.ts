@@ -1,38 +1,12 @@
 import {LitElement, html} from 'lit';
 import type {PreparedExtensionMount} from '../spaces/soda-extension.js';
-import type {Enrollment, Host, Settings} from './soda-tailnet-response.js';
+import type {Enrollment, Settings} from './soda-tailnet-response.js';
 import {refresh, request, resetEnrollment, resetHost} from './soda-tailnet-observation.js';
 import type {ObservationInput} from './soda-tailnet-observation.js';
 import {cancel, choose, confirm, hostAction, submitEnrollment, unknownOutcome} from './soda-tailnet-actions.js';
 import type {ActionsInput, Confirmation} from './soda-tailnet-actions.js';
-
-type ExitChoice = {peer: Host['peers'][number]; address: string};
-
-function advertisedExitPeer(peer: Host['peers'][number]) {
-  return peer.exit_node && peer.addresses.length > 0;
-}
-function exitPeerChoice(exitNode: string, peer: Host['peers'][number]): ExitChoice {
-  return {peer, address: peer.addresses.includes(exitNode) ? exitNode : peer.addresses[0] || ''};
-}
-function exitPeerOptions(host: Host, exitNode: string) {
-  const options: ExitChoice[] = [];
-  for (const peer of host.peers) {
-    if (advertisedExitPeer(peer)) options.push(exitPeerChoice(exitNode, peer));
-  }
-  return options;
-}
-function exitNodeMissing(host: Host) {
-  const selected = host.preferences.exit_node_id;
-  if (selected === '') return false;
-  return !host.peers.some((peer) => peer.id === selected);
-}
-function renderPeerItem(peer: Host['peers'][number]) {
-  return html`<li>
-    ${peer.dns_name || peer.id}:
-    ${peer.online ? 'online' : 'offline'}${peer.expired ? ', expired' : ''}${peer.exit_node ? ', exit node' : ''} ·
-    ${peer.addresses.join(', ')}
-  </li>`;
-}
+import {renderHostSection} from './soda-tailnet-host-view.js';
+import type {HostViewInput} from './soda-tailnet-host-view.js';
 
 class SodaTailnet extends LitElement {
   private transport: PreparedExtensionMount | null = null;
@@ -407,121 +381,28 @@ class SodaTailnet extends LitElement {
       </div>
     </section>`;
   }
-  private renderHostStatus(host: Host | null | undefined) {
-    if (this.stale) return html`<p>Appliance observations are stale. No usable endpoint is asserted.</p>`;
-    if (!host)
-      return html`<p>
-        Host observation unavailable, not disconnected. Verify the native daemon, reviewed version and helper
-        configuration through an approved private path.
-      </p>`;
-    return html`
-      <dl>
-        <dt>Native state</dt>
-        <dd>${host.state}${host.expired ? ' · expired' : ''}</dd>
-        <dt>Network</dt>
-        <dd>${host.tailnet || 'Not observed'}</dd>
-        <dt>Device</dt>
-        <dd>${host.dns_name || 'Not observed'}</dd>
-        <dt>Observed addresses (not verified reachable)</dt>
-        <dd>${host.addresses.join(', ') || 'None observed'}</dd>
-        <dt>MagicDNS</dt>
-        <dd>${host.magic_dns_enabled ? 'Enabled' : 'Disabled / not observed'}</dd>
-        <dt>Native health issues</dt>
-        <dd>${host.health_issues} — raw diagnostics are intentionally hidden.</dd>
-      </dl>
-      ${host.state === 'NeedsMachineAuth' ? html`<p>Device approval is required in Tailscale. Tailnet Lock signing is not automated; do not weaken Lock or copy signing keys.</p>` : ''}
-    `;
-  }
-  private renderAuthLink() {
-    if (!this.authURL) return '';
-    return html`<p>
-      <a data-authentication href=${this.authURL} target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
-        >Continue appliance sign-in at Tailscale</a
-      >. This is provider authentication, not Soda sign-in. Do not copy this link into logs or evidence.
-    </p>`;
-  }
-  private renderUnavailableExitOption(options: ExitChoice[]) {
-    if (!(this.exitNode && !options.some((choice) => choice.address === this.exitNode))) return '';
-    return html`<option value=${this.exitNode} selected>Previous selection (unavailable)</option>`;
-  }
-  private readonly renderExitOption = (choice: ExitChoice) => {
-    const {peer, address} = choice;
-    return html`<option
-      value=${address}
-      ?selected=${address === this.exitNode}
-      ?disabled=${!peer.online || peer.expired}
-    >
-      ${peer.dns_name || peer.id}${!peer.online || peer.expired ? ' (unavailable)' : ''}
-    </option>`;
-  };
-  private renderExitPreferences() {
-    const host = this.settings?.host;
-    if (!host) return '';
-    const options = exitPeerOptions(host, this.exitNode);
-    return html`
-      <fieldset ?disabled=${this.controlsDisabled()}>
-        <legend>Exit-node preferences</legend>
-        ${exitNodeMissing(host) ? html`<p role="alert">The selected native exit-node ID is missing from the peer observation. It has not been cleared. Select an available replacement or explicitly choose None.</p>` : ''}
-        <label
-          >Exit node<select aria-label="Exit node" .value=${this.exitNode} @change=${this.onExitNodeChange}>
-            <option value="" ?selected=${this.exitNode === ''}>None (clear only on Apply)</option>
-            ${this.renderUnavailableExitOption(options)} ${options.map(this.renderExitOption)}
-          </select></label
-        >
-        <label
-          ><input
-            type="checkbox"
-            .checked=${this.allowLAN}
-            ?disabled=${!this.exitNode}
-            @change=${this.onAllowLANChange}
-          />Allow local LAN while using exit node</label
-        >
-        <button type="button" @click=${this.onApplyExitNode}>Apply exit node</button>
-        <label
-          ><input type="checkbox" .checked=${this.advertise} @change=${this.onAdvertiseChange} />Advertise appliance as
-          an exit node</label
-        >
-        <button type="button" @click=${this.onApplyAdvertise}>Apply advertisement</button>
-        <p>
-          Provider approval is separate from advertisement and online status. Existing subnet routes are not edited.
-        </p>
-        <button type="button" @click=${this.discardHostDraft}>Discard host draft / use latest observation</button>
-        ${this.hostDirty ? html`<p>Unsaved host draft; its original revision is retained across refresh.</p>` : ''}
-      </fieldset>
-    `;
-  }
-  private renderPeerList(host: Host) {
-    if (this.stale) return '';
-    return html`<details>
-      <summary>Observed peers (${host.peers.length})</summary>
-      <ul>
-        ${host.peers.map(renderPeerItem)}
-      </ul>
-    </details>`;
-  }
-  private renderHostControls(host: Host) {
-    return html`
-      <fieldset ?disabled=${this.controlsDisabled()}>
-        <legend>Appliance connection</legend>
-        <div class="settings-actions">
-          <button type="button" @click=${this.onSignin}>
-            ${host.have_node_key ? 'Resume / reauthenticate' : 'Sign in appliance'}
-          </button>
-          <button type="button" @click=${this.onAuthentication}>Recover authentication link</button>
-          <button type="button" @click=${this.onLogout}>Disconnect appliance</button>
-          <button type="button" @click=${this.onRefreshForgejo}>Refresh Forgejo advertisement</button>
-        </div>
-      </fieldset>
-      ${this.renderAuthLink()} ${this.renderExitPreferences()} ${this.renderPeerList(host)}
-    `;
-  }
-  private renderHostSection(settings: Settings) {
-    const host = settings.host;
-    return html`<section aria-labelledby="tailnet-appliance">
-      <h2 id="tailnet-appliance">${this.dataset.applianceLabel || 'Appliance'}</h2>
-      <p>Persistent native connection. Host identity and ordinary SSH authentication are not shared with projects.</p>
-      ${this.renderHostStatus(host)} ${host ? this.renderHostControls(host) : ''}
-    </section>`;
+  private hostViewInput(): HostViewInput {
+    return {
+      isStale: () => this.stale,
+      readAuthURL: () => this.authURL,
+      readExitNode: () => this.exitNode,
+      readHost: () => this.settings?.host,
+      controlsDisabled: () => this.controlsDisabled(),
+      readAllowLAN: () => this.allowLAN,
+      readAdvertise: () => this.advertise,
+      isHostDirty: () => this.hostDirty,
+      readApplianceLabel: () => this.dataset.applianceLabel || 'Appliance',
+      onExitNodeChange: (event) => this.onExitNodeChange(event),
+      onAllowLANChange: (event) => this.onAllowLANChange(event),
+      onApplyExitNode: (event) => this.onApplyExitNode(event),
+      onAdvertiseChange: (event) => this.onAdvertiseChange(event),
+      onApplyAdvertise: (event) => this.onApplyAdvertise(event),
+      onDiscardHostDraft: () => this.discardHostDraft(),
+      onSignin: (event) => this.onSignin(event),
+      onAuthentication: (event) => this.onAuthentication(event),
+      onLogout: (event) => this.onLogout(event),
+      onRefreshForgejo: (event) => this.onRefreshForgejo(event),
+    };
   }
   private renderEnrollmentSummary(policy: Enrollment) {
     return html`
@@ -643,7 +524,9 @@ class SodaTailnet extends LitElement {
   private renderAuthorized() {
     const settings = this.settings;
     if (!settings || this.blocked) return '';
-    return html` ${this.renderHostSection(settings)} ${this.renderEnrollmentSection(settings.enrollment)} `;
+    return html`
+      ${renderHostSection(this.hostViewInput(), settings)} ${this.renderEnrollmentSection(settings.enrollment)}
+    `;
   }
   protected render() {
     return html`
