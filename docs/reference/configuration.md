@@ -15,7 +15,7 @@ factory credentials or run authority to a human project configuration.
 | `listen` | HTTP listen address for the dashboard process |
 | `forgejo_url` | Public Forgejo HTTPS origin |
 | `forgejo_internal_url` | Internal Forgejo API URL |
-| `database` | Path to Soda SQLite database |
+| `database_dsn_file` | Restricted secret file holding the PostgreSQL connection URL |
 | `host_socket` | Unix socket path for the privileged host helper |
 | `identity_socket` | Private identity broker administration socket |
 | `grant_key_file` | Path to the key that encrypts retained identity credentials in the Soda database |

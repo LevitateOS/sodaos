@@ -16,11 +16,11 @@ Notices: [Notices](../research/notices.md).
 
 | Interface | Owner / implementation boundary |
 | --- | --- |
-| `build-native.sh` / `build-iso.sh` / `soda-host-image` | Use `soda-build` (`rust/soda-release-tools`). |
+| `build-native.sh` / `build-iso.sh` / `soda-host-image` | Use `soda-build` (`lib/soda-release-tools`). |
 | `check-native.sh ARCH CANDIDATE_DIR` | Verifies a soda-build candidate artifacts directory; does not build. |
 | Containerfile `BASE_IMAGE` argument | The build pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
 | `soda-render-provisioning` (`rust/soda-stage-render`) | Public `appliance/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
-| `soda-artifacts` (`rust/soda-release-tools`), `soda-acceptance` (`rust/soda-acceptance`) | Separate native tool output, never appliance `cmd/`, rootfs or container payload. Candidates carry them for archive inspection and media-input conversion, not as installed programs. |
+| `soda-artifacts` (`lib/soda-release-tools`), `soda-acceptance` (`rust/soda-acceptance`) | Separate native tool output, never appliance `cmd/`, rootfs or container payload. Candidates carry them for archive inspection and media-input conversion, not as installed programs. |
 | Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; the read-only native-page journey and exported-payload checks passed at their documented local scope. |
 
 Reuse and licensing are recorded in [native support notices](../research/notices.md). The predecessor checkout remains separate and preserved; `scripts/test-vm.sh` is superseded by the `soda-test-vm` Rust port.
@@ -62,7 +62,7 @@ The disk installer verifies candidate media before writing, validates the explic
 
 ## Local host-content image candidate
 
-`soda-build` (`rust/soda-release-tools`) owns the shared candidate/media sequence under the
+`soda-build` (`lib/soda-release-tools`) owns the shared candidate/media sequence under the
 [release contract](../architecture/release.md).
 Explicit [development targets](release.md)
 stop this same producer at the requested boundary; they never qualify a release.
@@ -105,7 +105,7 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
 # This selects a distinct development host/ISO, not production qualification.
 ```
 
-`soda-candidate` (`rust/soda-release-tools`, [operator guide](../guides/soda-candidate.md)) wraps the same admitted controller: one overview screen
+`soda-candidate` (`lib/soda-release-tools`, [operator guide](../guides/soda-candidate.md)) wraps the same admitted controller: one overview screen
 shows every choice (mode, output with freshness status, controller, worker
 config, fixture URL, protected configs; arch stays pinned to the host),
 fields are edited by number with inline validation, and `go` starts only a
@@ -216,10 +216,10 @@ from local image inspection or ordinary build-cache reuse.
 
 The [release plan](../architecture/release.md)
 owns authority, protocol and custody. The `tools/soda-release` worker CLI was
-removed: delivery operations below live in `rust/soda-release-deliver` with no
+removed: delivery operations below live in `lib/soda-release-deliver` with no
 current operator entry point. Nothing there runs build code, installs a
 policy/image, imports Podman state or reboots. It uses the locked native
-skopeo from `rust/soda-release-deliver/tools.json` and the existing M1 OCI
+skopeo from `lib/soda-release-deliver/tools.json` and the existing M1 OCI
 verifier. No new Go cryptographic signing implementation or registry
 server is introduced. Run source checks/builds with the repository-pinned Go.
 

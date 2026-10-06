@@ -178,7 +178,7 @@ broker service cgroup, including enrollment children. Neither socket enters a
 project.
 
 `/etc/soda/identity.json` selects these paths, the host socket, a separate broker
-SQLite `database`, private base64 32-byte `key_file`, and `codex` fields `binary`,
+PostgreSQL `database`, private base64 32-byte `key_file`, and `codex` fields `binary`,
 `version`, `sha256`, `root`. Store broker state and private key under
 `/home/soda-identity`; keep the key mode `0600` and outside dashboard mounts.
 Both providers require a private tmpfs enrollment root. `codex.root` is a private tmpfs directory under `/run/soda-identity`. CLI credentials,

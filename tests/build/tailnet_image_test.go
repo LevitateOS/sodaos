@@ -11,7 +11,7 @@ import (
 func TestTailnetNoStoredPins(t *testing.T) {
 	_, err := os.Stat(filepath.Join(RepoRoot, "appliance/locks"))
 	Check(t, os.IsNotExist(err), "appliance/locks exists: %v", err)
-	build := ReadFile(t, "rust/soda-release-build/src/production.rs")
+	build := ReadFile(t, "lib/soda-release-build/src/production.rs")
 	Check(t, !strings.Contains(build, "locks/"), "production.rs references locks/")
 }
 
@@ -26,14 +26,14 @@ func TestTailnetRecipeFloatsOnBuildArgs(t *testing.T) {
 }
 
 func TestTailnetBuildWiresLiveInputsWithoutLock(t *testing.T) {
-	build := strings.ReplaceAll(ReadFile(t, "rust/soda-release-build/src/production.rs"), " ", "")
+	build := strings.ReplaceAll(ReadFile(t, "lib/soda-release-build/src/production.rs"), " ", "")
 	Check(t, strings.Contains(build, `"--build-arg=TAILSCALE_VERSION={}"`), "missing version arg")
 	Check(t, strings.Contains(build, `"--build-arg=ARCHIVE_SHA256={}"`), "missing sha arg")
 	Check(t, strings.Contains(build, `"appliance/tailnet.Containerfile"`), "missing Containerfile ref")
 }
 
 func TestTailnetObservedVersionsRecordedWithoutGate(t *testing.T) {
-	build := ReadFile(t, "rust/soda-release-build/src/production.rs")
+	build := ReadFile(t, "lib/soda-release-build/src/production.rs")
 	Check(t, !strings.Contains(build, "require_tailnet_release"), "gate present")
 	Check(t, strings.Contains(build, "live_tailnet_inputs"), "missing live_tailnet_inputs")
 }

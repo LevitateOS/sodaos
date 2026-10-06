@@ -1,5 +1,12 @@
 # Factory storage decision gate
 
+> **Superseded for the Soda store.** The owner retains PostgreSQL for the
+> Soda factory/product store. The SQLite gate, measurements and
+> single-writer proof below are preserved as historical evidence for the
+> retired backend only; they do not qualify the current PostgreSQL store.
+> The intake fail-closed contract (B3) is backend-independent and still
+> holds.
+
 This note records the storage-backend decision for the factory run/command
 ledger and the intake fail-closed contract. It closes review items A10
 (SQLite-vs-PostgreSQL gate), A11 (keep Soda on SQLite), N-ST1 (reservation

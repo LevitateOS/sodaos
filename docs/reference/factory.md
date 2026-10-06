@@ -95,6 +95,6 @@ direct PR or review submission path remains.
 
 ## Storage decision gate
 
-The ledger stays on SQLite and unconfigured intake stays fail-closed.
+The ledger stays on the retained PostgreSQL store and unconfigured intake stays fail-closed.
 Measurements, revisit criteria and the reservation-race analysis live in
 the [factory storage decision gate](../factory/decision-gate.md).
