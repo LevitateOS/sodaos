@@ -3,6 +3,34 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
+## Current library adoption and retained adapters
+
+The [library adoption allocation](../library-adoption.md#finding-allocation)
+supersedes pending extraction of the generic engines identified below. Existing
+completed concern modules remain useful locations for Soda adapters; historical
+source ranges and test maps remain provenance, not instructions to preserve an
+engine or every Go/Python parser quirk. The
+[execution packets](../library-adoption.md#execution-packets) own sequencing and
+physical writers; [readiness gates](../library-adoption.md#readiness-gates) own the
+small integration proofs before transport replacement.
+
+| Finding and existing surface | Current target responsibility |
+| --- | --- |
+| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): `daemon/{http,response}.rs`, `gmux_server.rs`, `iclient.rs`, `tcontrol_native.rs` | Adopt complete Hyper HTTP engines inside the existing processes. Retain systemd listener custody, each socket's actual authority, route admission, request/response limits, status/secrecy mapping and bounded synchronous backend adapters. Preserve the existing Go library-backed clients. |
+| [N6](../../../research/library-reuse-investigation.md#n6): `daemon/websocket.rs`, `dbackend.rs`, terminal attachment | Adopt tungstenite with one nonblocking protocol owner, bounded child-output queue and readiness wakeup. Retain route/Origin/query admission, session expiry, inflight/TerminalGate lifetime, child close/reap and shutdown. Handshake SHA-1/Base64 and handwritten frame state disappear with this engine. |
+| [N4](../../../research/library-reuse-investigation.md#n4), [N7](../../../research/library-reuse-investigation.md#n7): `tcontrol_provider.rs`, native/provider URL helpers | Use the selected blocking HTTPS engine and URL/form/percent primitives. Retain credential scope/lifetime, neutral errors, no uncertain replay and raw lexical admission; generic curl recipes and authority/escape algorithms are superseded. |
+| [N8](../../../research/library-reuse-investigation.md#n8), [N9](../../../research/library-reuse-investigation.md#n9): Tailnet address/time and terminal/Factory deadline codecs | Use std IP types and the selected time codec. Retain zone/mask, DNS/name and purpose-specific address policy, lease/deadline bounds, zero-time handling and original signed text; calendar/IP engines are superseded. |
+| [CF-01](../../../research/library-reuse-investigation.md#cf-01)–[CF-04](../../../research/library-reuse-investigation.md#cf-04): SHA, NIST, SSH and Base64 helpers | Adopt RustCrypto, ssh-key and explicit Base64 profiles. Retain admitted algorithms/options, uncompressed curve gates, canonical public-key output, raw-byte digest recipes and managed-key revision/ownership policy. Do not extract separate crypto/SSH engines. |
+| [N10](../../../research/library-reuse-investigation.md#n10), [N11](../../../research/library-reuse-investigation.md#n11): Muse packet/peer helpers and obsolete daemon peer adapter | Use typed descriptor/socket mechanics where they simplify the active owner. Retain exact stdio-FD admission, kernel peer/pidfd pinning, cgroup/account custody and cleanup. Delete the unused daemon peer duplicate; HTTP does not replace the Muse packet channel. |
+| [JSON01](../../../research/library-reuse-investigation.md#json01): host and maintenance JSON scanners/binders | Adopt serde/serde_json with explicit caller DTO/Visitor profiles. Keep ordered aliases, null/byte-field admission, caps and canonical raw-byte boundaries; generic scanner/string/number state machines are superseded. |
+
+Host HTTP relies on its root-owned filesystem/systemd socket admission; it does
+not currently apply a production peer-UID gate. Muse's packet service has its own
+kernel peer/pidfd checks. Keep these authority rules at their actual owners.
+Before host HTTP/WebSocket cutover, prove bounded backend work, upgrade read-ahead
+preservation into the std tungstenite stream and complete session/child cleanup.
+Typed syscall or randomness changes elsewhere are not a prerequisite.
+
 ## Current Forgejo Tailnet helper allocation
 
 [N07](../reviews/N07.md) and A's independent current source/caller challenge
@@ -407,7 +435,7 @@ Open detail: The Go project domain remains the established owner; this physical 
 
 ## rust/soda-host/src/json.rs
 
-Observed size: 1661 lines, including tests where embedded. Split the current host-local codec into value/public decode/output encoding, structural scanner, string token decoding, number scanning, typed field specifications/BoundMap access, and binding/type-error handling. The production code is 1,307 lines before tests. run_machine is one 276-line structural state machine with object/array/value branches; retain that algorithm together after removing unrelated lexical and binder code rather than creating one file per state. Separate existing strict/scanner/depth/UTF8 tests from binder/escaping/tolerant tests. Keep strict request policy distinct from tolerant Podman decoding and from lib/json.
+Historical source size: 1661 lines, including tests where embedded. The completed host-local split below records the value, scanner, string, number and binder owners. [JSON01](../../../research/library-reuse-investigation.md#json01) supersedes preservation or further extraction of those generic engines: the target is serde/serde_json with explicit strict-request and tolerant native-observation DTO/Visitor adapters. Keep caller-specific duplicate/null/ordered-alias/byte-array/depth policies and canonical output needs; historical scanner/error-text equivalence alone is not an admission requirement. Retain meaningful caller assertions and update obsolete parser oracles with the selected policy.
 
 Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
@@ -422,7 +450,7 @@ Disposition: retained at `lib/host/` under the decided language policy; pending 
 
 Evidence: 23-74,662-805,1242-1306: Value/Error, decode_strict/decode_tolerant, Value accessors and output/tolerant map encoding -> json.rs; 76-190,191-465: Parser structural methods and run_machine object/array/value stack handling -> json_scan.rs; extract quote_byte with lexical diagnostics if needed to keep this file bounded; 467-585: hex4/parse_string, including surrogate substitution -> json_string.rs; 586-660,806-815: parse_number/parse_go_int64/parse_go_uint32 -> json_number.rs; 817-953: Spec/Kind/Bound/BoundMap and field access -> json_specs.rs; 954-1241: type_error, byte binding, bind_value/match_spec/bind_struct/bind_root -> json_bind.rs; 1308-1554: strict shapes/duplicates/scanner/errors/depth matrices -> json_strict_tests.rs; 1555-1661: binder fixtures, surrogate/output escaping and tolerant semantics -> json_binding_tests.rs.
 
-Open detail: Scanner visibility/imports must be resolved inside this crate during implementation. Different duplicate-key and escaping contracts preclude an unverified blanket replacement with the shared minimal parser.
+Current target: remove scanner/string/number implementations after their last callers use the selected adapters. Completed module paths above are provenance; do not create a new shared minimal parser or keep a second engine to preserve historical diagnostics. The JSON01 profiles, not a blanket serde derive, preserve the actual distinct contracts.
 
 ## rust/soda-host/src/preparation.rs
 
@@ -488,7 +516,7 @@ Current package fact at f7: soda-host/Cargo.toml already defines both the soda_h
 
 ## rust/soda-host/src/ssh.rs
 
-Observed size: 1028 lines, including tests where embedded. Separate authorized_keys text/options scanning and public parse/marshal/fingerprint entrypoints from standard/Go base64 semantics, SSH binary/mpint primitives, non-certificate key material, and certificate field/tuple handling. Preserve supported algorithms, NIST on-curve checks, canonical signed-minimal mpints, sorted certificate tuples, and multiline trailing-data policy. The longest existing algorithm is parse_key_fields at about 97 lines and remains cohesive; no new key algorithm or dependency is proposed.
+Historical source size: 1028 lines, including tests where embedded. The completed SSH split below is superseded as an engine-preservation target by [CF-03](../../../research/library-reuse-investigation.md#cf-03), with [CF-02](../../../research/library-reuse-investigation.md#cf-02) curve admission and [CF-04](../../../research/library-reuse-investigation.md#cf-04) Base64 profiles. ssh-key owns public-key/certificate/mpint format parsing and encoding; RustCrypto owns NIST point validation. Retain a small host adapter for the actual algorithm/options policy, exact uncompressed curve gate, canonical managed-key output and fingerprints. Format parsing does not establish certificate trust or authorize new algorithms. Deliberately resolve malformed/noncanonical input admission at the caller; do not retain general SSH machinery solely for predecessor quirks.
 
 Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
@@ -498,6 +526,14 @@ Disposition: retained at `lib/host/` under the decided language policy; pending 
 - `lib/host/src/ssh/material.rs`
 - `lib/host/src/ssh/certificate.rs`
 - `lib/host/src/ssh/tests.rs`
+
+Current target: `ssh/base64.rs`, `ssh/mpint.rs`, `ssh/material.rs` and
+`ssh/certificate.rs` are existing custom-engine locations, not additional
+extraction tasks. Remove or reduce them to the selected admission/output
+adapters after caller transfer; keep account preview/apply and filesystem
+publication at their existing owners. SHA-256 compression disappears through
+[CF-01](../../../research/library-reuse-investigation.md#cf-01), while exact
+canonical bytes, lower-case presentation and revision recipes remain local.
 
 Evidence: 26-64,756-907: trim_ws, parse_public_key/parse_key_text/scan_options/parse_authorized_key and public marshal/fingerprint -> ssh.rs; 65-229: strict standard and Go-specific base64 decoders/encoders -> ssh_base64.rs; 231-412: read_string/read_u32/read_u64/put_string, Mpint parsing/comparison/marshalling -> ssh_mpint.rs; 436-471,489-594,698-755: ParsedKey/KeyMaterial, curve_for, ordinary key parsing/marshalling -> ssh_material.rs; 413-435,472-488,595-697: certificate algorithm names/material, parse_tuples/parse_cert/marshal_tuples -> ssh_certificate.rs; certificate arm of marshal_fields stays with certificate responsibility; 908-1028: base64, canonical/authorized-key and fingerprint fixtures -> ssh_tests.rs.
 
@@ -525,7 +561,7 @@ Evidence: 33-89,133-360: CompanionRecord decode/recipe/exec validation, proc nam
 
 ## rust/soda-host/src/tailnet_domain.rs
 
-Observed size: 1538 lines, including tests where embedded. Keep pure Tailnet DTO/error/ID definitions separate from RFC3339Nano validity, native status/preferences JSON binding with Go case folding, DNS/IP parsing/canonicalization, and project status/binding decisions. The 892-line production portion has clear existing seams. Split tests by has-node, project-status/native-binding, and address/DNS/time vectors; retain cohesive tables together rather than one file per case. None of these files gains runtime or SQL authority.
+Historical source size: 1538 lines, including tests where embedded. Completed DTO/status/native-observation concern modules remain. [N8](../../../research/library-reuse-investigation.md#n8) supersedes the IP grammar/printing engine; retain std IP types plus small DNS/zone/mask and Tailnet global-unicast policy. [N9](../../../research/library-reuse-investigation.md#n9) supersedes calendar arithmetic/RFC3339 parsing; retain the strict lexical/deadline and zero-time adapter. [JSON01](../../../research/library-reuse-investigation.md#json01) supplies native status/preferences DTO profiles. Keep project binding/status decisions pure, original signed text unchanged and existing concern tests around actual library-backed subjects; no runtime or SQL authority moves into these files.
 
 Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
@@ -571,7 +607,7 @@ Evidence: 23-67,386-549: ProjectRun/runtime declarations, actual readers, admit/
 
 ## rust/soda-muse-maintain/src/main.rs
 
-Observed size: 4075 lines, including tests where embedded. The file contains 2,892 lines before tests plus a 1,183-line embedded test module, spanning every maintenance phase. Preserve one ordered maintain operation: admit pinned public tool sources, bind exact project incarnation, optionally ensure system bus/stage tools, prepare public directory, then attach the restricted mount. Split current flags, host-config wire/validation, native tool files with their path/errno operations, existing config wire diagnostics, JSON lexical parser, release-payload read/decode/validation, network parsing, bounded command execution, project observation, archive/staging and interface mount/admission into concern files. Parser string decoding separates from scalar/structural scanner so neither lexical file must carry the unrelated release/host object bindings. Retain fixed scripts with their existing phase. Test files follow existing groups and shared TestDir/synthetic archive helpers move to test_support.rs only. Keep path/errno support with the real pinned-file operations in filesystem.rs (about 309 production lines); the existing Go quote renderer stays with config wire diagnostics rather than a tiny standalone module. These shared crate-private functions may be reused by current flags/network/interface callers without introducing a new package.
+Observed size: 4075 lines, including tests where embedded. The file contains 2,892 lines before tests plus a 1,183-line embedded test module, spanning every maintenance phase. Preserve one ordered maintain operation: admit pinned public tool sources, bind exact project incarnation, optionally ensure system bus/stage tools, prepare public directory, then attach the restricted mount. Retain the completed flags, host-config/release DTO, native-file, process, project, staging and interface-admission concern owners. Generic JSON scanners, SHA rounds, IP parsers and tar-header assembly follow JSON01, CF-01, N8 and CF-07 library adoption rather than further extraction. Retain fixed scripts with their existing phase. Test files follow existing groups and shared TestDir/synthetic archive helpers move to test_support.rs only. Keep root-owned pinned-tool FD admission, exact digest/declared-size reads, deterministic archive metadata, bounded child/pipe writes and incarnation rechecks at the real consumers. Shared mechanics use the selected filesystem/process adapters; the old Go path/errno/quote emulation is historical, not a reason for another package.
 
 - `cmd/soda-muse-maintain/src/main.rs`
 - `cmd/soda-muse-maintain/src/options.rs`
@@ -604,11 +640,11 @@ Observed size: 4075 lines, including tests where embedded. The file contains 2,8
 
 Evidence: 59-212: Options/default_tools/parse/usage/bool/project-ID flag policy -> options.rs; 66-91 and 268-279 -> main.rs run/maintain; 281-338: go_clean/go_base/go_dir and 366-513: path_error/go_errno/last_errno -> filesystem.rs with real pinned-file operations; 216-267: go_quoted/nonprint -> config_wire.rs with existing diagnostic formatting; 339-365: Config/load_config -> config.rs; 514-725: host decode/field slot/string setters with saved error semantics -> config_wire.rs; 1690-1790: current runtime validation order -> config_validation.rs; 726-792,904-1073,1074-1100: JsonParser basic methods, literal/number/skip scanning and UTF8 unit decoding -> json.rs; 793-903: parse_string/surrogate_tail -> json_string.rs; 1101-1230: apply_release_images, ReleasePayload/Image and confined payload file admission -> release.rs; 1231-1366,1481-1689: typed release parsing/image/string-list binding -> release_wire.rs; 1367-1480: payload/digest/architecture/reference validation -> release_validation.rs; 1791-1993: observed netip prefix/address/IPv4/IPv6 error-parity routines -> network.rs; 1994-2095: Tool FD ownership/load_tools/open_tool/trusted_tool/verify_native -> filesystem.rs; 2096-2238: hex/streaming Sha256 -> sha256.rs; 2239-2246,2347-2532: Observation, inspect/validate/decode/slot/wait/confirm project incarnation -> project.rs; 2247-2346: podman/podman_streamed/wait_output with O_CLOEXEC, drain and deadline precedence -> command.rs; 14-55,2533-2573: BUS/INSTALL/DESTINATIONS and ensure_system_bus/stage_tools -> stage.rs; 2574-2683: feed_archive/emit_archive/tar_header and existing deadline/CopyN/USTAR byte contract -> archive.rs; 22,2684-2841: prepare_interface/FdGuard/open_tree/mount_setattr/attach_project_mount; exact incarnation recheck before unshare/setns -> interface.rs; 2842-2892: public_socket_directory/validate_public_socket/validate_interface_directory -> interface_admission.rs; 2893-2937,3451-3498,3896-3946: existing TestDir and synthetic release/archive fixture helpers -> test_support.rs; keep release-specific helpers with release_tests if simpler; 2975-2991: quote vectors -> config_tests.rs; 3027-3041 and 2992-3026: path/errno vectors -> filesystem_tests.rs; 3042-3119: flags -> options_tests.rs; 3120-3245,3616-3665: config/error-order vectors -> config_tests.rs; 3246-3450: netip prefix/address matrix -> network_tests.rs; 3499-3615: payload admission/image conflict vectors -> release_tests.rs; 3666-3762: strict observation/isolation vectors -> project_tests.rs; 2938-2974,3763-3819: streaming SHA and root-owned pinned tool admission -> filesystem_tests.rs; 3820-3871: public launch socket/directory protection -> interface_tests.rs; 3872-3895,3947-4075: USTAR/install replacement/streaming/wait-output/short-read cases -> archive_tests.rs.
 
-Open detail: Host config uses duplicate-last-wins/null-no-op/trailing-data/error-priority behavior; release and observation decoders have stricter policies. These remain separate bindings over the existing scanner. Consolidation with other crates or replacing the parser requires further behavior comparison, outside this physical split plan.
+Current target: [JSON01](../../../research/library-reuse-investigation.md#json01) explicitly preserves distinct host-config/release/observation DTO admission; its selected Visitors replace the scanner. [CF-01](../../../research/library-reuse-investigation.md#cf-01), [N8](../../../research/library-reuse-investigation.md#n8) and [CF-07](../../../research/library-reuse-investigation.md#cf-07) replace hash, address and archive mechanics while retaining the tool-FD, size, metadata and deadline policies. The engine paths/ranges above remain historical allocation evidence, not pending extraction instructions.
 
 ## rust/soda-muse/src/main.rs
 
-Observed size: 1637 lines, including tests where embedded. Split 1,233 production lines along the existing launcher/helper responsibilities. Keep command/native-action selection in main; shell input/validation in shell; seqpacket+FD passing/signal/resize forwarding in launch; credential-view admission/native exec/environment in execution; account marker/passwd checks in account; config copy/read in config; pinned-version/private clean subprocess in runtime; Go path/errno/quoting semantics in paths. Exact request/exit output codec stays distinct from scalar JSON token scanning. Split the 401-line test module into shell/wire/paths, FD/signal transport, and config/account/native-dispatch tests. Preserve one launch-only socket and broker confirmation gates.
+Observed size: 1637 lines, including tests where embedded. Split 1,233 production lines along the existing launcher/helper responsibilities. Keep command/native-action selection in main; shell input/validation in shell; seqpacket+FD passing/signal/resize forwarding in launch; credential-view admission/native exec/environment in execution; account marker/passwd checks in account; config copy/read in config; pinned-version/private clean subprocess in runtime. Path and diagnostic emulation, scalar JSON scanning and Base64 algorithms are superseded by their selected library/std adapters; retain only actual path admission and request/exit DTO/output policy. Split the 401-line test module into shell/wire/paths, FD/signal transport, and config/account/native-dispatch tests. Preserve one launch-only socket and broker confirmation gates.
 
 - `cmd/soda-muse/src/main.rs`
 - `cmd/soda-muse/src/shell.rs`
@@ -625,3 +661,13 @@ Observed size: 1637 lines, including tests where embedded. Split 1,233 productio
 - `cmd/soda-muse/src/config_tests.rs`
 
 Evidence: 14-79: main/run/native_action/metadata_action -> main.rs; 80-187: ShellRequest, shell_request/validation and path/text/argument admission -> shell.rs; 242-405: seqpacket_connect/send_with_fds/launch_shell/signal controls -> launch.rs; 406-547: execute/await_admission/execution_state/private runtime directory and fixed environment -> execution.rs; 548-631,661-664: Go path/error/rune quoting -> paths.rs; 632-660,665-734: account_for/account_entry/account_node/lookup_user -> account.rs; 735-831: check_runtime/make_private_dir/run_pristine -> runtime.rs; 832-954: copy_config tree/filter/file and read_config settings/trust view -> config.rs; 188-241,955-1079: shell request serialization/base64/json_string/LaunchExit object decode -> launch_wire.rs; 1080-1233: parse_json_string/parse_json_integer/skip_json_value -> launch_json.rs; 1234-1403: ShellRequest fixture/wire/validation/exit/base64/path/quote/environment cases -> shell_tests.rs; 1469-1617: FD passing/exit and signal forwarding -> launch_tests.rs; 1404-1468,1618-1637: config copy/read/account safety/native action errors -> config_tests.rs.
+
+The completed Muse concern allocation above retains one packet/control owner.
+[JSON01](../../../research/library-reuse-investigation.md#json01) and
+[CF-04](../../../research/library-reuse-investigation.md#cf-04) supersede
+`launch_json.rs` and custom `launch_wire.rs` Base64 mechanics; `launch_wire`
+retains only the request/exit profile.
+[N10](../../../research/library-reuse-investigation.md#n10) supplies typed
+SCM_RIGHTS/descriptor mechanics while preserving exact stdio count, pinned peer
+identity, signal/resize forwarding and cleanup. The packet path remains separate
+from HTTP. Historical extraction does not require another transport state machine.

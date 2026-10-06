@@ -3,6 +3,15 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
+Pending work follows [library-adoption findings](../library-adoption.md#finding-allocation)
+and their [execution packets](../library-adoption.md#execution-packets). Historical
+source spans and completed C08/C09 structural work remain evidence, not new
+extraction tasks. Replace selected generic engines through the existing release
+owners; retain admission, descriptor custody, authenticated raw bytes,
+publication order and native tooling authority. Dependency/cache/toolchain and
+fixture checks precede large cutovers at the
+[readiness gates](../library-adoption.md#readiness-gates).
+
 ## internal/release/build/coreos_stream.go
 
 Observed size: 518 lines, including tests where embedded.
@@ -88,6 +97,12 @@ Evidence: rust/soda-asset-fetchers/src/muse.rs:68-120 load_release; rust/soda-as
 
 Observed size: 542 lines, including tests where embedded. Keep the 163-line Tea fetch/license staging path intact; extract its 377 lines of fixtures and integrity/exclusivity cases. No new fetcher framework is needed. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
 
+Library boundary: CF-08 retains the small bounded ELF architecture predicate
+and consolidates its duplicate mechanics with the explicit Tea admission profile.
+Do not replace this header check with a full object parser. The existing HTTP,
+tar/gzip and digest engines already use libraries; keep pinned license, integrity
+and exclusive-output policy with the fetcher.
+
 - `tools/release-assets/src/fetch/tea.rs`
 - `tools/release-assets/src/fetch/tea/tests.rs`
 
@@ -95,7 +110,7 @@ Evidence: rust/soda-asset-fetchers/src/tea.rs:75-162 upstream tag/checksum/ELF/l
 
 ## rust/soda-forgejo-locales/src/locales.rs
 
-Observed size: 568 lines, including tests where embedded. Keep the 319-line catalog parser/merge and locked-input operation intact after extracting tests. Its precise ConfigParser-like behavior and byte-preserving merge are already bounded; extra production modules would not clarify much. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 568 lines, including tests where embedded. Keep the 319-line catalog admission/merge and locked-input operation intact after extracting tests. CFG02 retains the bounded duplicate-name/section-set scanner and original-byte merge: ini_core would leave its multiline/trim grammar in another adapter. Narrow obsolete Python quirks only through an explicit catalog contract change. Keep tests with the real merge owner; do not introduce a generic INI framework.
 
 - `tools/release-assets/src/locales/merge.rs`
 - `tools/release-assets/src/locales/merge/tests.rs`
@@ -115,7 +130,7 @@ Evidence: rust/soda-forgejo-locales/tests/cli.rs:23-71 shared fixture and binary
 
 ## rust/soda-stage-render/src/provisioning.rs
 
-Observed size: 614 lines, including tests where embedded. Separate current Python-compatible JSON/document construction from private-input/host-public-key/output handling and render orchestration. Keep secret-file handling and exclusive destination admission. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 614 lines, including tests where embedded. Keep document admission, private-input/host-public-key/output custody and render orchestration distinct. JSON01 replaces custom Python-style JSON construction with serde/serde_json at the document owner. Keep secret-file handling, native ssh-keygen authority and exclusive destination admission; PROC02 retains bounded concurrent output drains and failure cleanup.
 
 - `tools/release-assets/src/render/provisioning/mod.rs`
 - `tools/release-assets/src/render/provisioning/document.rs`
@@ -141,12 +156,14 @@ Open detail: Source-root detection and payload/asset path strings must change to
 
 ## rust/soda-stage-render/src/terminal_logo.rs
 
-Observed size: 630 lines, including tests where embedded. Separate the existing restricted SVG/XML cursor from polygon/raster-to-text geometry and output/check orchestration. Preserve canonical emblem syntax and exact text output. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 630 lines, including tests where embedded. XML01 replaces the XML cursor with roxmltree 0.21.1 and the path tokenizer with svgtypes 0.16.1 PathParser. Keep emblem admission distinct from polygon sampling and terminal-text output/check orchestration. Preserve the canonical rendered text rather than the custom parser's incomplete XML/SVG lexical grammar.
 
 - `tools/release-assets/src/render/terminal_logo/mod.rs`
-- `tools/release-assets/src/render/terminal_logo/svg.rs`
-- `tools/release-assets/src/render/terminal_logo/geometry.rs`
+- `tools/release-assets/src/render/terminal_logo/svg.rs` — Namespace-aware element/path admission over roxmltree/svgtypes, with DTD/external-entity handling disabled and bounded input.
+- `tools/release-assets/src/render/terminal_logo/geometry.rs` — Existing admitted polygon sampling and ASCII/color rendering, without a path lexer or full SVG renderer.
 - `tools/release-assets/src/render/terminal_logo/tests.rs`
+
+Library boundary: Keep the explicit viewBox, two fills, evenodd rule and absolute M/L/H/V/Z command subset; reject groups/transforms and unsupported commands. Resolve element names by namespace, not prefix spelling. Admit valid upstream SVG number syntax deliberately at the fixture gate. This remains a restricted emblem renderer.
 
 Evidence: rust/soda-stage-render/src/terminal_logo.rs:21-119 path tokenization and polygon extraction; rust/soda-stage-render/src/terminal_logo.rs:121-176 evenodd raster and terminal coloring; rust/soda-stage-render/src/terminal_logo.rs:178-462 restricted SVG cursor/parser; rust/soda-stage-render/src/terminal_logo.rs:464-516 render_svg and canonical output/check; rust/soda-stage-render/src/terminal_logo.rs:519-630 tokenizer/geometry/SVG/output tests.
 
@@ -227,28 +244,28 @@ Open detail: Existing release-inputs reader validators are used here at 198-203,
 
 ## rust/soda-release-build/src/files.rs
 
-Observed size: 621 lines, including tests where embedded. Separate ordinary artifact inventory/output operations from the descriptor-relative directory owner and the strict bounded JSON read. Keep read_json_at, exact-byte digest and its trailing-data scanner together. Root metadata/inode comparison belongs with confined operations; never replace these checks with an unconstrained path read. Unit tests may be extracted as cfg(test) descendants while preserving their actual implementation inputs.
+Observed size: 621 lines, including tests where embedded. Keep artifact inventory/output, descriptor-relative custody and bounded JSON input distinct. JSON01 replaces the first-value/trailing-data scanner with serde/serde_json's complete-input check; FS01 uses rustix for typed confined-file mechanics. Preserve regular-file/inode admission, the 4 MiB bound and digest of the admitted original bytes before decoding.
 
 - `lib/soda-release-build/src/files.rs` — File inventory emit/decode, architecture/revision/digest admission, regular-file hash, fresh/private output admission, exclusive write/chmod and absolute-path helper.
 - `lib/soda-release-build/src/confined_files.rs` — Root/FileMeta, openat traversal, no-follow lstat/open, inode identity checks and hash_at; shared with OCI layout reads and strict JSON input.
-- `lib/soda-release-build/src/json_input.rs` — read_json/read_json_at with the 4 MiB bound, regular/inode check, exact-byte hash, strict binder and existing first-value/trailing-data classifier.
+- `lib/soda-release-build/src/json_input.rs` — Bounded read_json/read_json_at, exact-byte digest and strict input-policy visitor over serde; no custom lexical or trailing-data engine.
 - `lib/soda-release-build/src/files/tests.rs` — Existing validator/hash/directory/exclusive-write/JSON/root-escape cases; retain unit scope and real Root reads.
 
 Evidence: 18-83: File inventory and admission; 84-109: hash_file/hash_at;110-165: output admission/write/chmod;476-483: abs_path; 166-221: read_json/read_json_at;222-388: Root/FileMeta and descriptor-relative helper closure; 389-475: first_json_end/skip_ws/skip_string/skip_number/skip_literal/skip_value, used only to classify trailing input; 484-621: six existing unit cases; oci_layout.rs:5-6,45-54,116 onward consumes Root and FileMeta
 
-Open detail: Update current imports directly. Preserve duplicate/fold/null/unknown-field behavior from Strict and keep the JSON size, inode and exact-byte guarantees together.
+Open detail: Update current callers directly. JSON01 specifies duplicate/fold/null/unknown-field policy before decoding into a map can discard evidence. Preserve the JSON size, inode and raw-byte guarantees together; a library Value alone is insufficient for strict duplicate admission.
 
 ## rust/soda-release-build/src/json_go.rs
 
-Observed size: 451 lines, including tests where embedded. Split decoding/binding from byte emission at the existing Emit boundary. Keep the lenient Fields and strict Strict name/type handling together because they intentionally encode the same Go field semantics. Preserve ordered struct fields, sorted-map responsibility, HTML escaping and indent bytes; neither the generic JSON parser nor strictjson is automatically interchangeable.
+Observed size: 451 lines, including tests where embedded. JSON01 replaces the custom JSON grammar and recursive byte emitter with locked serde/serde_json. Keep narrow strict/lenient DTO profiles where actual callers need duplicate, folded-name, null and unknown-field rules. Preserve original authenticated input bytes and the explicitly required producer representation; do not recreate a general Go JSON API around serde.
 
-- `lib/soda-release-build/src/json_go.rs` — FieldError/Fields plus Strict binder and diagnostics, exact-or-folded last-wins lookup, null handling and unknown-field finish.
-- `lib/soda-release-build/src/json_emit.rs` — Emit values, sorted_object and marshal_indent/emit_value/emit_indent byte renderer.
+- `lib/soda-release-build/src/json_go.rs` — Temporary location for the narrow input-policy visitor while existing DTO callers migrate; retire generic Fields/Strict compatibility APIs when unnecessary.
+- `lib/soda-release-build/src/json_emit.rs` — Library-backed typed producer serialization only where required; retire the recursive Emit engine and obsolete foreign formatting emulation.
 - `lib/soda-release-build/src/json_go/tests.rs` — Existing marshal, unknown-field, folded/null and lenient-last-wins cases, kept unit-scoped and targeting the real decoder/emitter.
 
 Evidence: 14-122: FieldError/Fields lenient extraction;125-312: Strict/json_kind/type and unknown-field diagnostics; 315-389: Emit/sorted_object/marshal_indent/emit_indent/emit_value; 390-451: four existing unit cases; coreos.rs,coreos_stream.rs,files.rs,forgejo.rs,production.rs import these real semantics
 
-Open detail: The deliver crate jsonx and image crate jsonio also emulate Go JSON, but have different binders and emission APIs. This split alone does not establish safe consolidation.
+Open detail: Build json_go, deliver jsonx and image jsonio have different input profiles; JSON01 migrates each actual caller instead of assigning one global decoder. Required field/map ordering and signed producer bytes have focused fixtures. Obsolete byte/error parity does not justify another permanent serializer abstraction.
 
 ## rust/soda-release-build/src/oci.rs
 
@@ -264,7 +281,7 @@ Observed size: 1286 lines, including tests where embedded. Keep one OCI inspecti
 
 Evidence: 26-84: Image/Descriptor/Blob/LayerMember/LoadBlobs;85-294: archive/blob admission and read_oci_archive_entries; 295-548: read_oci_index/parse_oci_manifest/fetch_oci_blob/config/rootfs/attribution/inspect_oci_image;549-573: archive identity entrypoint; 574-782: requested_oci_paths/clean_layer_name/whiteout_target/record_* and scan_oci_layer; 783-952: layer_archive_indexes/HashReader/scan_layer_reader/scan_archive_layer/scan_oci_archive_layers/resolve_oci_members;953-1001: content inspection entrypoint; 1002-1286: shared OCI fixture and four current test groups; oci_layout.rs:5-6 reuses inspect_oci_image/read_oci_blob/read_oci_index/Blob/Image/LoadBlobs
 
-Open detail: deliver/src/oci.rs ports the same Go archive/content surface; identify one surviving Rust owner at caller cutover, comparing guarantees first. Do not present another permanent OCI package or widen helpers solely for tests.
+Open detail: REL02 consolidates the overlapping scanner into the existing acyclic build-to-deliver owner after comparing actual callers and fixing deliver's decompressed trailer-drain guarantee. Existing tar/flate2/sha2 libraries own format mechanics. Keep requested-path/regularity, whiteout/opaque/ancestor semantics, raw digest/size admission, conservative zstd refusal and bounded complete decoder drain; do not preserve two scanners or create another OCI package.
 
 ## rust/soda-release-build/src/production.rs
 
@@ -279,7 +296,7 @@ Observed size: 1179 lines, including tests where embedded. Split the existing Pr
 
 Evidence: 15-83: hooks/Production/state/validation;85-138: compile_rust/compile;167-204: pinned Bun/dependencies;805-838: soda_commands; 139-166,205-325: assets/asset_steps and current package/binary/path strings; 326-480,734-759,777-804: frozen/pulled/recorded inputs and recipe parsers;354-368: images public entrypoint; 481-714: build/export application image roles;715-749: Forgejo delegation and current result records;760-776: lexical_rel; 840-1179: fixture plus oracle_production_sequence/failure_stops/refusals/asset_destinations_refuse_early/compile_recipes/soda_commands/image_repo_parsing
 
-Open detail: The planned release-assets package must update -p names and locale/source paths here plus recorded oracle strings. settings helpers duplicate release-inputs reader settings and image/sys command discovery; compare real errors/order before reuse. The Rust Production currently has no in-tree Cargo production dependent.
+Open detail: Preserve completed package/caller changes. SYS01 replaces hand-parsed Cargo target discovery with cargo metadata --format-version 1 --no-deps over the admitted checkout and authoritative bin/required-features records. Shipping inventory and feature selection remain release policy; metadata is not a build, resolver-isolation proof or permission for network access. CF-08 consolidates only tiny bounded ELF predicates, retaining their distinct admission profiles.
 
 ## rust/soda-release-build/src/progress.rs
 
@@ -347,27 +364,30 @@ Open detail: Preserve crate::fetch::{discover,fetch_document,lock_state,save_sta
 
 ## rust/soda-release-deliver/src/jsonx.rs
 
-Observed size: 623 lines, including tests where embedded. Group decode and emission by their actual wire duties. This adapter deliberately preserves distinct strict and lenient Go semantics; do not substitute one parser or introduce a new JSON crate merely to shorten the file. Keep emitter implementations beside its private state.
+Observed size: 623 lines, including tests where embedded. JSON01 replaces custom decoding/binding and recursive emission with serde/serde_json, retaining explicit strict document and lenient build profiles. CF-04 replaces the independent byte codec with the selected base64 0.22.1 profile. Keep admission beside the consuming DTO rather than create another generic serializer package.
 
-- `lib/soda-release-deliver/src/jsonx/mod.rs` — Current JSON contract constants, DecodeError and exact standard-base64 byte encoding/decoding; existing decode/emit public exports.
-- `lib/soda-release-deliver/src/jsonx/decode.rs` — Recursive duplicate rejection, Binder/Soft with all their methods, strict/lenient parse, last-wins normalization and integer range checks.
-- `lib/soda-release-deliver/src/jsonx/emit.rs` — Emitter private buffer/indent state, Emit trait and every scalar/map/array/JsonValue implementation, marshal.
+- `lib/soda-release-deliver/src/jsonx/mod.rs` — Narrow input-policy and base64 library adapters while existing DTO callers migrate; no custom grammar or codec.
+The former `jsonx/decode.rs` and `jsonx/emit.rs` engine splits are superseded.
+Keep duplicate-before-map Visitor and strict/lenient/numeric policy only where
+actual callers need it; put typed serialization with its required producer.
 - `lib/soda-release-deliver/src/jsonx/tests.rs` — Current base64 vectors and strict object/type/duplicate/unknown-field assertions.
 
 Evidence: 1-18 MAX_STRICT_BYTES/DecodeError; 22-96 exact base64; 97-352 duplicate traversal, Binder/Soft, parse_strict/parse_lenient/dedupe_last_wins; 353-558 Emitter/Emit implementations; 559-573 numeric ranges/marshal; 574-623 tests.
 
-Open detail: Preserve crate::jsonx public names and field ordering/newline/base64 bytes. decode reads base64_decode from its parent; emit reads base64_encode/DecodeError only as already needed. No new package or generic serializer API. cfg(test) descendant tests retain private Binder/Emitter access where needed.
+Open detail: Migrate all actual callers atomically for each profile, then remove the corresponding custom engine. Field ordering/newline and byte encoding are requirements where the producer contract proves them; hashes/signatures of existing documents always use original admitted bytes. Requalify canonical padding/unused-bit and duplicate cases explicitly instead of retaining Binder/Emitter solely for private tests.
 
 ## rust/soda-release-deliver/src/model.rs
 
 Observed size: 1312 lines, including tests where embedded. The file already names distinct release-authority documents. Keep validation, decoding and emission with each actual type rather than create separate model/validator/codec layers. Channel highwater and its admission remain together; release serial admission stays with Release. Permit remains meaningful code in the public root.
 
 - `lib/soda-release-deliver/src/model/mod.rs` — Public model exports and the existing protected Permit type, validate/decode/Emit implementation.
-- `lib/soda-release-deliver/src/model/trust.rs` — Trust envelope/timing, PEM/DER P-256 shape, signer-role separation and fingerprinting, role/reference lookup, typed decode/emission.
+- `lib/soda-release-deliver/src/model/trust.rs` — Trust envelope/timing, library-backed P-256 PEM/SPKI/curve admission, signer-role separation and raw-DER fingerprinting, role/reference lookup, typed decode/emission.
 - `lib/soda-release-deliver/src/model/candidate.rs` — Candidate host/source/toolchain/content binding, asset/path rules, decode/emission and existing path_clean.
 - `lib/soda-release-deliver/src/model/release.rs` — MediaFile/MediaBinding and media admission, Release validation/provenance/evidence/reference/decode/emission, release serial admission and its exact helpers.
 - `lib/soda-release-deliver/src/model/channel.rs` — Channel/Seen/Highwater shapes and decode/emission/state validation; channel reference/identity/timing/progression helpers and admit_channel.
 - `lib/soda-release-deliver/src/model/tests.rs` — Current content/path and trust-reference unit tests plus their full_content fixture.
+
+Library boundary: CF-05 uses p256 with spki/der to validate the complete key and reject off-curve points; matching OID/length is insufficient. Keep role limits, reference lookup and minimum sequence as Soda authority, and fingerprint admitted raw DER. JSON01 supplies DTO codec profiles; it does not merge Permit, Channel highwater or Release serial authority.
 
 Evidence: 24-299 Trust and all PEM/DER/key-role helpers; 300-535 Candidate, exact content set, path_clean and code/asset binding; 536-615 media; 616-798 Release; 799-1021 Channel/Seen/Highwater; 1022-1125 channel admission; 1126-1179 release admission; 1180-1231 Permit; 1232-1312 tests.
 
@@ -380,6 +400,8 @@ Observed size: 614 lines, including tests where embedded. Separate trust-policy 
 - `lib/soda-release-deliver/src/native/mod.rs` — Runner/Native command execution, locked version check, private-file/write-json custody, verified copy and manifest check, existing focused native tests.
 - `lib/soda-release-deliver/src/native/policy.rs` — Requirement shape/emission, exact role policy construction/merge/conflict refusal, local policy and registry Sigstore configuration.
 - `lib/soda-release-deliver/src/native/sign.rs` — SecretFiles decode, protected permit/key admission, snapshot source, signed document admission, signature emission and round-trip verification.
+
+Library boundary: JSON01 delegates native policy emission to serde/serde_json. Keep pinned native signer/verifier tools, secret-file custody, role admission, copy uncertainty and fresh verification with this owner. Reuse does not introduce a signing service or transfer publication authority.
 
 Evidence: 18-69 Runner/Native/check_native; 71-106 private_file/write_json; 107-370 Requirement/policy/merge/registries; 371-434 verify source/copy/digest; 435-565 SecretFiles/sign closure; 566-614 version/private-file tests.
 
@@ -396,7 +418,7 @@ Observed size: 1109 lines, including tests where embedded. Split wire identity, 
 
 Evidence: 29-67 OciLayout/Blob/Descriptor/OciManifest/LayerMember; 68-421 exact index/manifest/config/blob/image inspection; 422-518 outer archive admission/read/index; 519-528 inspect_oci; 529-855 member path/whiteout/hash/layer resolution; 856-928 content orchestration/outer scan; 929-1080 layout input/Root/loader/image set; 1081-1109 current tests.
 
-Open detail: Keep crate::oci::{inspect_oci,inspect_oci_content,inspect_oci_layout,OciLayout}. Blob stays common only within this module; Descriptor/OciManifest/OciConfig stay schema-owned, LayerMember layer-owned, and sibling access is bounded to OCI (pub(super) where required). scan_oci_archive_layers delegates existing scan_archive_layer; do not create a public archive abstraction or extract helpers with no caller.
+Open detail: REL02 selects this existing surviving inspection owner only after the build/image/installer caller comparison. Fix bounded decompression through EOF/trailer before reuse. tar/flate2/sha2 remain format engines; LayerMember whiteout/ancestor/topmost selection remains Soda policy. Keep current public inspection entrypoints and bounded private helpers, without a new public archive abstraction.
 
 ## rust/soda-release-deliver/src/payload.rs
 
@@ -417,6 +439,8 @@ Observed size: 533 lines, including tests where embedded. Ledger state and chann
 - `lib/soda-release-deliver/src/publish/ledger.rs` — Ledger type/decode/validation/emission, phase rule and explicit private init_ledger.
 - `lib/soda-release-deliver/src/publish/channel.rs` — Protected channel history/offer admission, anonymous tag observation, prior-channel verification and tag promotion.
 
+Library boundary: JSON01 replaces ledger codec mechanics, and FS01/TMP01 replace typed file/temporary allocation mechanics. Keep lock custody, pending uncertainty, immutable upload, optional promotion, observation and durable completion in the same operation. REL01 delegates document.rs's new delivery-document tar production to tar Builder with explicit deterministic metadata. Existing authenticated archive bytes remain untouched during reading; new descriptor hashes bind newly emitted bytes. Historical Go checksum-field bytes are not an independent requirement.
+
 Evidence: 19-102 Ledger/init_ledger/phase; 103-219 upload/observe/admit/observe-only; 220-257 channel history/offer; 258-325 admit_signed/commit_immutable; 326-428 tag/prior-channel/promotion; 429-485 finalization/publish; 486-533 tests.
 
 Open detail: Preserve crate::publish::{Ledger,init_ledger,publish} and private helper order. Channel functions use the actual fetch::verify_releases and native::verify_copy, ledger uses the same fetch::lock_state/save_state, and no blind publication retry or new recovery machinery appears.
@@ -431,7 +455,7 @@ Observed size: 680 lines, including tests where embedded. Group oracle assertion
 
 Evidence: 24-83 shared retained golden readers; 84-313 model/channel/release/policy parity; 314-431 document/OCI fixture; 432-463 strict/load; 464-486 state/ledger; 487-588 candidate/qualification; 589-628 helpers; 629-680 ScriptRunner/fetch refusal.
 
-Open detail: Use Cargo's tests/oracle/main.rs integration-test discovery, with mod artifacts; mod fetch_state; as natural child modules and private helpers accessible through super. Keep tests/goldens/deliver.json; update include_str! to ../goldens/deliver.json. Preserve all assertions and observed fixture bytes; scripted fetch proves wiring/refusal, qualification JSON tests admission, neither establishes installed or live publication proof.
+Open detail: Preserve completed suite wiring and tests/goldens/deliver.json. Keep raw signed-byte, digest, highwater and publication/refusal observations. Update obsolete parser/error/format parity fixtures deliberately with each library profile; scripted fetch proves wiring/refusal and qualification JSON tests admission, neither establishes installed or live publication proof.
 
 ## rust/soda-release-image/src/build.rs
 
@@ -445,6 +469,8 @@ Observed size: 1446 lines, including tests where embedded. Separate source admis
 - `lib/soda-release-image/src/build_candidate.rs` — One current observation-build/package-hash/payload-seal/inventory/final-build/readback implementation, shared by callback/progress callers.
 - `lib/soda-release-image/src/build_runner/tests.rs` — Existing command environment/capture/failure case against the real execution function.
 - `lib/soda-release-image/src/build_context/tests.rs` — Existing prepared-assets/no-command assertion with its current panic-on-command fixture, preserving that specific boundary.
+
+Library boundary: SYS01 makes admitted Cargo metadata authoritative for declared bin targets, while release inventory selects what ships. PROC02 keeps std process execution with concurrent bounded drains, live cancellation, exact-unit stop/reap and descriptor ownership; these are lifecycle corrections, not another generic executor. CF-08 retains the small bounded ELF predicate.
 
 Evidence: 36-170: Cancel/SharedFile/Runner/LogCloser;171-204: ProductionInputs/build;205-378: source/input/output/snapshot/workspace admission; 379-490: freeze_base_image_config/prepare_build_host_context;491-521: prepare_build_production; 522-710: compile_soda_commands/record_tool_files/RUST_TOOLS/compile_rust_tools/compile_shipping_tools; 711-771 and1059-1121: same host-candidate sealing/build sequence with next callback versus Progress;772-864,976-1058: orchestration/finalization; 865-975: narrow RunnerProduction bootstrap for forgejo::extract_forgejo_snapshot;1122-1244: environment/tool resolution/run_build_command;1246-1264: link_prepared_assets; 1265-1326: real child command test;1327-1446: no-command prepared-assets test and specific stub
 
@@ -461,26 +487,28 @@ Observed size: 1204 lines, including tests where embedded. Separate upstream ass
 - `lib/soda-release-image/src/media_installer.rs` — Rootfs placement, coreos-installer ISO customization/verification, initrd readback/chunk verification and prepare_and_verify_media.
 - `lib/soda-release-image/src/media/tests.rs` — Existing public URL and buildroot selection tests against the actual owning functions.
 
+Library boundary: CF-09 uses flate2's multistream gzip decoder with a cap-plus-one read and complete EOF/trailer validation for live configuration. Keep public media URL policy, native assembler admission, exact inventory/digest binding, container cleanup and readback before sealing. The decoder does not replace the authenticated packaging sequence.
+
 Evidence: 20-174: callback aliases, MediaLock/MediaAuthority/Media and media_base_url;175-398: assembler preparation/identity; 399-439,533-639: sign_media_input/inventory/authenticate_packaging_inputs;440-532: MediaInputs and authority/candidate/compression admission; 640-740: owned-container cleanup/build/native assembly;741-819: MediaMeta/image/meta validation; 820-1035: setup_media_rootfs/verify_customized_iso/customize_installer_iso/verify_media_readback/prepare_and_verify_media; 1036-1153: seal_media/assemble_media;1154-1204: URL and assembler buildroot tests; build_media.rs consumes prepare_assembler/assemble_media
 
 Current detail at f7: the existing tools pipeline adapter supplies release-deliver signing/verification behind the image Production trait. Preserve that actual caller and its custody boundary during decomposition. This source wiring does not establish native packaging/signing success.
 
 ## rust/soda-release-image/src/model.rs
 
-Observed size: 1475 lines, including tests where embedded. Separate current artifact primitives/records, URL+IP admission, payload, candidate+Forgejo provenance, trust+permit+secret-file binding and admitted live CoreOS/Tailnet records. This documents the current mirrored concerns, not permission to preserve duplicate owners permanently. At the actual tools/image/build/deliver cutover, replace matching mirrored DTO/validator closures with their existing Rust owner after reconciling exact decoder, null/empty, map-order and error guarantees. Keep private trust DER/SPKI helpers with trust rather than a generic certificate package.
+Observed size: 1475 lines, including tests where embedded. Keep artifact records, URL/IP admission, payload, candidate/Forgejo provenance, trust/permit/secret-file authority and admitted live inputs distinct. JSON01 delegates codec mechanics, N7/N8 use url/std::net with purpose guards, and CF-05 uses p256/spki/der for complete key admission. At the existing tools/image/build/deliver cutover, reuse proven equivalent DTO/validator owners; completed structural extraction does not prove equivalence or justify new generic engines.
 
 - `lib/soda-release-image/src/model.rs` — Current format/source/schema and image-role constants plus shared digest/revision/architecture/repository/CoreOS identity primitives; schema remains derived from the real store owner.
-- `lib/soda-release-image/src/model/url.rs` — Current UrlParts/parser, HTTPS shape, loopback and IPv4/IPv6 helpers used by media URL admission and live-input validation.
+- `lib/soda-release-image/src/model/url.rs` — Purpose-specific HTTPS/media/loopback admission over url and std::net, preserving authenticated literal text without a URL/IP grammar port.
 - `lib/soda-release-image/src/model/images.rs` — Current Image/ProducedImage records and their JSON interface for foreign OCI/production operations.
 - `lib/soda-release-image/src/model/payload.rs` — Current PayloadImage/Payload parse/emit/load and exact identity/base/independent-image/no-upgrade admission closure.
 - `lib/soda-release-image/src/model/candidate.rs` — Current ForgejoToolchain/package provenance and Candidate parsing/emission/payload/source/host/content binding.
-- `lib/soda-release-image/src/model/trust.rs` — Current Trust role keys/timing/minimum-sequence admission, P-256 PEM/DER/SPKI checks, Permit and SecretFiles models.
+- `lib/soda-release-image/src/model/trust.rs` — Trust role/timing/minimum-sequence policy, library-validated P-256 key/raw-DER fingerprint, Permit and SecretFiles models; no custom DER/SPKI reader.
 - `lib/soda-release-image/src/model/live_inputs.rs` — Current CoreOSImage/ResolvedCoreOS/TailnetInputs/LiveInputs decoding, container selection and validators.
 - `lib/soda-release-image/src/model/tests.rs` — Existing primitive/URL/payload cases remain unit scoped; attach each case to its actual concerned module without exporting parser helpers for tests.
 
 Evidence: 12-104: current constants, identity/digest/architecture/repository gates;105-290: URL/IPv4/IPv6/loopback implementation; 291-365: Image/ProducedImage;366-608: PayloadImage/Payload JSON/load/identity/base/image/upgrade validation; 609-695: ForgejoToolchain/APK provenance;696-939: Candidate and exact payload/source/host/content binding; 940-1176: Trust and private PEM/DER/SPKI/role-key admission;1177-1244: Permit/SecretFiles; 1245-1427: admitted CoreOS/Tailnet inputs;1428-1475: three unit groups; actual consumers are build,complete,host,inspect,layout,payload_stage,prepare,record,media and foreign trait signatures
 
-Open detail: Reuse candidates are build::{oci::Image,production::ProducedImage,forgejo::ForgejoToolchain,coreos::CoreOSImage,coreos_stream::*} and deliver::{payload::Payload,model::{Candidate,Trust,Permit},native::SecretFiles}. Equivalence is not proven: image uses Vec upgrade_from and emits [] while deliver/payload.rs:81-85 preserves Option for nil→null; image ProducedImage contains manifest/config while build ProducedImage wraps full Image. Do not replace these via alias/FFI/RPC or create a new schema owner.
+Open detail: Existing build/deliver owners remain reuse candidates only after their actual shape/profile comparison. Image upgrade_from [] versus deliver nil-to-null and the different ProducedImage records remain real gates. CF-05 removes both custom SPKI readers with one admitted-key boundary: reject off-curve input without silently re-encoding fingerprint bytes. JSON01/N7/N8 do not authorize aliases, FFI/RPC, signed-literal normalization or another schema owner.
 
 ## rust/soda-release-image/src/prepare.rs
 
@@ -504,7 +532,7 @@ Observed size: 684 lines, including tests where embedded. Retain the frozen Go o
 
 Evidence: 1-23: frozen-output helpers;24-115: media public-base URL cases;116-218: quadlet/live Ignition byte cases; 219-236 and292-324: package/RPM admission;237-291: compression;325-392: media event bytes; 393-442: extension asset/failure reason;443-579: stage-only Production stub;580-612: stage layout refusals; 613-648: rootfs chunk verification;649-684: candidate-live-config frozen byte/refusal cases
 
-Open detail: The source contains frozen expected byte strings, not a runtime dependency on an old Go oracle. Preserve the exact proven cases while adjusting owner imports only as part of the real caller cutover.
+Open detail: The source contains frozen expected bytes, not a runtime Go dependency. Keep authenticated raw-byte/digest and actual rendering/refusal observations. Where a library adoption deliberately changes parser acceptance or newly produced formatting, update the agreed fixture rather than preserve the generic engine solely for historical parity.
 
 ## rust/soda-release-tools/src/artifacts.rs
 
@@ -512,6 +540,8 @@ Observed size: 506 lines, including tests where embedded. Production is 330 line
 
 - `lib/soda-release-tools/src/artifacts.rs` — One artifact command owner: flag admission, exact native tools/output/Butane execution and OCI/CoreOS boundary dispatch.
 - `lib/soda-release-tools/src/artifacts/tests.rs` — Existing unit tests with private destination/Butane/CLI/OCI/CoreOS inputs and refusal observations.
+
+Library boundary: CLI02 uses clap 4.6.7 builder parsing while this owner retains action/native-tool/output admission and order. FS01 uses typed rooted-file mechanics where needed; a new filesystem package or subprocess framework is still unjustified.
 
 Evidence: 55-89 flags; 90-161 executable lookup/private output admission; 162-235 Butane admission/execution/new-file completion; 236-302 CoreOS/OCI admission and current boundary errors; 303-330 action dispatch/main; 331-506 tests.
 
@@ -524,6 +554,8 @@ Observed size: 508 lines, including tests where embedded. The 371-line productio
 - `lib/soda-release-tools/src/build_cli.rs` — Existing soda-build flags/admission, source/VCS binding, environment/signals/progress, parent/worker branch and exit handling.
 - `lib/soda-release-tools/src/build_cli/tests.rs` — Current exact flags/worker dispatch, progress/source/environment boundary tests.
 
+Library boundary: CLI02 delegates flags/help/value parsing to clap 4.6.7. Keep the actual parent/worker branch, admitted source/environment and exit mapping here. D01-F4/PROC02 require live cancellation propagation and bounded drains; parser reuse does not establish those lifecycle guarantees.
+
 Evidence at f7: 1–173 flags and dispatch admission; 174–202 environment/signals/progress; 203–292 source revision and checkout binding; 293–314 artifact output and actual parent dispatch; 315–371 run/main; cfg(test)372 and complete module373–508. Tests remain descendants of the real controller entry.
 
 Open detail: Preserve crate::build_cli paths and the existing build.rs VCS stamp. Cargo manifest depth is still two directories below repository root after rust/soda-release-tools -> lib/soda-release-tools, so build.rs ../.. root lookup remains valid. Current parent dispatch calls the actual Rust worker and the worker-stage branch calls the real image pipeline; source wiring is present, while D01-F4 identifies missing ongoing controller-signal propagation and native qualification remains separate.
@@ -533,8 +565,10 @@ Open detail: Preserve crate::build_cli paths and the existing build.rs VCS stamp
 Observed size: 522 lines, including tests where embedded. Separate the actual answer/flag contract from executing an admitted candidate run. Keep Options plus all current validation together; keep fixture startup, controller wait, stop and filing order in the run owner.
 
 - `lib/soda-release-tools/src/candidate/mod.rs` — Checkout cleanliness/fresh-output preflight, monotonic origin, summary, terminal option resolution, controller/fixture lifecycle, failure/exit handling.
-- `lib/soda-release-tools/src/candidate/options.rs` — Options, flag specs/default/usage/native architecture, mode/arch/parse and answered path/media validation.
+- `lib/soda-release-tools/src/candidate/options.rs` — Typed Options/defaults over clap builder, plus actual mode/architecture/answered path/media admission; retire generic Go flag specs/parsing.
 - `lib/soda-release-tools/src/candidate/tests.rs` — Current base_options fixture and option/answer/preflight unit tests.
+
+Library boundary: CLI02 replaces the general flag engine with clap builder, preserving explicit boolean-value and positional-tail custody where documented commands require it. Keep checkout/fresh-output preflight, prompt callbacks and fixture/controller stop/join/copy order as candidate policy.
 
 Evidence: 14-203 Options/flag_specs/ARCH_DEFAULT/usage/native_arch/parse_options/valid_out_leaf/validate_*; 204-279 checkout/Git/fresh-out preflight; 280-327 monotonic/describe/resolve_options/ready_run; 328-405 ExitError/run_candidate/CandidateError/main; 406-522 tests.
 
@@ -548,20 +582,22 @@ Observed size: 686 lines, including tests where embedded. Event parsing/path tra
 - `lib/soda-release-tools/src/candidate_display/events.rs` — Controller Event and exact START/DONE/FAILED/CANCELLED/artifact parsing, duration fields and current sandbox-to-host artifact path translation.
 - `lib/soda-release-tools/src/candidate_display/tests.rs` — Current captured-writer event/parser/render/failure/panel/path/viewport cases, including private renderer state checks.
 
+Library boundary: PROC02/CLI02 retain the small Soda renderer/event protocol, uses std::io::IsTerminal and typed rustix terminal-width mechanics, and requires ticker RAII stop/join on relay failures. N9 replaces calendar/duration emulation with the selected time/std profiles; it does not split mutable renderer lifecycle into another UI API.
+
 Evidence: 11-103 Event/parse_event and all parser helpers/host_artifact_path; 104-271 renderer fields and first impl; 272-352 phase mutation/line rendering; 353-435 ticker/finish/why panel impl; 436-477 exit/time/truncate/terminal helpers; 478-686 tests.
 
 Open detail: Keep crate::candidate_display exports consumed by candidate_controller and candidate. tests stays a cfg(test) descendant of the root and retains direct private RendererInner/Phase access; Renderer is not made public beyond its current API. Preserve the event wire, lock order, first failed cause and existing ticker stop/join behavior. D01-F5 requires label normalization at the existing parser/phase boundary: padded START and DONE currently retain different leading spaces and fail to close one phase; historical parity assertions do not mandate retaining that defect.
 
 ## rust/soda-release-tools/src/candidate_fixture.rs
 
-Observed size: 403 lines, including tests where embedded. Production is 281 lines covering one existing local media pickup workflow. Extract the 122-line tests; keep the selected loopback-only fixture and its stop handle/file custody together. This is a development fixture, not a newly designed product server.
+Observed size: 403 lines, including tests where embedded. Keep the selected loopback-only development media pickup and stop-handle/file custody together. N5 replaces the complete hand-written HTTP engine with the same in-process Hyper boundary selected by N1; N7 supplies URL/percent adapters. This remains a candidate-process fixture, without a sidecar or product server redesign.
 
-- `lib/soda-release-tools/src/candidate_fixture.rs` — Existing development rootfs pickup defaults/URL loopback detection/listen/HTTP refusal/copy ownership and fresh destination rules.
+- `lib/soda-release-tools/src/candidate_fixture.rs` — Development rootfs/loopback admission, bounded Hyper serving, existing stop/join and fresh-destination copy custody.
 - `lib/soda-release-tools/src/candidate_fixture/tests.rs` — Current fixture URL/address matrices, HTTP/rootfs filing, busy-port behavior and occupied/missing output refusal tests.
 
 Evidence: 11-97 rootfs defaults/URL host/port/fixture predicates; 98-215 FixtureServer/serve_fixture/request/percent decode/response; 216-281 copy_built_rootfs/chown_name/copy_file; 282-403 tests.
 
-Open detail: Preserve current fixture_wanted and busy-port no-op semantics and candidate_controller caller paths. HTTP tests exercise the real existing serve_fixture/copy_file operations. No new listener, daemon, service or fallback is proposed.
+Open detail: Preserve fixture_wanted, busy-port no-op and actual candidate_controller paths. Library framing must retain request/body bounds, selected path/status policy, active-connection shutdown and stop/join deadlines. Tests exercise the real server/copy subject; source inclusion or another listener owner is not an acceptance substitute.
 
 ## rust/soda-release-tools/src/candidate_prompts.rs
 
@@ -570,6 +606,8 @@ Observed size: 656 lines, including tests where embedded. Separate the actual de
 - `lib/soda-release-tools/src/candidate_prompts/mod.rs` — Prompter fields and entire impl, private editing/line/choice/render/overview state, overview_rows/output status/path observations, real-terminal entry.
 - `lib/soda-release-tools/src/candidate_prompts/defaults.rs` — Existing constants/mode labels/default path/timestamp suggestion/controller arguments and default_overview answer initialization.
 - `lib/soda-release-tools/src/candidate_prompts/tests.rs` — Existing Shared capture/scripted prompt fixtures, controller args/defaults/answer edits/refusal/output suggestion assertions.
+
+Library boundary: N9 delegates calendar/timestamp formatting to time 0.3.55 with an explicit producer profile. Keep default-answer suggestions, controller argv and the whole private interactive Prompter together; a TUI framework or generic calendar parser is not a target.
 
 Evidence: 7-115 constants/mode/default_path/file_exists/suggest_out/utc_stamp/controller_args; 116-377 full Prompter impl and existing injected exists callback; 378-423 overview_rows/out_status/parent_dir_exists/path_absent; 424-442 default_overview; 443-451 terminal entry; 452-656 tests.
 
@@ -581,6 +619,8 @@ Observed size: 407 lines, including tests where embedded. Production is 318 line
 
 - `lib/soda-release-tools/src/progress.rs` — One BuildProgress timing/event/log owner with current private clock/phase/reason/finish state and all methods.
 - `lib/soda-release-tools/src/progress/tests.rs` — Current environment restoration/locking, fixed clock/captured output and phase/failure/origin assertions.
+
+Library boundary: N9 uses std monotonic timing and the chosen time profile for calendar output. Preserve the inherited cross-process timing-origin contract, injected clock and event wire rather than replace them with unrelated process-local Instants. This narrow progress lifecycle remains one Soda owner.
 
 Evidence: 12-47 monotonic/duration/failure/finish text; 48-318 BuildProgress with full impl, log/events/phase/next/end/finish; 319-407 existing environment/clock fixtures and tests.
 
@@ -595,6 +635,8 @@ Observed size: 1516 lines, including tests. Keep configuration custody, fresh ru
 - `lib/soda-release-tools/src/worker/runtime.rs` — Fresh attempt runtime claim/nonce/private mode/chown and exact direct-child release.
 - `lib/soda-release-tools/src/worker/execution.rs` — Whole existing execution boundary comments and identity/bind/env argv admission, paired concurrent pipe drains, systemd-run wait and exact-unit cancellation/kill/reap/cleanup errors.
 - `lib/soda-release-tools/src/worker/tests.rs` — Actual current config/runtime/request/name/result/argv/live-input/early-progress refusal tests and one existing fixture closure.
+
+Library boundary: JSON01 delegates WorkerConfig/result codec mechanics to serde/serde_json; RNG01/TMP01/FS01 use getrandom/tempfile/rustix without transferring runtime custody. PROC02 retains live controller cancellation, concurrent bounded drains, exact transient-unit stop/reap and cleanup uncertainty. Native systemd/container tooling remains the execution authority.
 
 Evidence at f7: constants15–20; WorkerConfig22–34; Worker35–46 and identity47–100; config101–328; runtime329–408; pure description/result409–599; execution comments600–606 and complete functions607–836; live-input/controller dispatch837–947; cfg(test)948 and complete tests949–1516. Extraction includes attributes and comments, not function-body fragments.
 
@@ -611,4 +653,4 @@ Observed size: 472 lines, including tests where embedded. Organize tests by the 
 
 Evidence: 1-60 TempDir/bin/run fixtures; 61-176 build CLI cases; 177-327 candidate cases; 328-434 artifact cases; 435-472 build deep refusal.
 
-Open detail: Use Cargo's tests/cli/main.rs automatic integration-test discovery with mod soda_build; mod soda_candidate; mod soda_artifacts; nested files call existing private root run/TempDir through super. Keep CARGO_BIN_EXE_soda-build/candidate/artifacts identities. Existing explicit pipeline-boundary refusal tests remain pending behavior evidence, not completed success-path proof.
+Open detail: Preserve completed suite discovery and CARGO_BIN_EXE_soda-build/candidate/artifacts identities. CLI02 updates obsolete foreign usage/flag/error goldens to the documented clap contract while retaining actual admission, boolean-value, positional-tail and branch/refusal observations. Existing pipeline-boundary refusal cases remain pending behavior evidence, not completed success-path proof.

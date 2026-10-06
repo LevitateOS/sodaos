@@ -3,6 +3,14 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
+[Library adoption](../library-adoption.md#finding-allocation) supersedes only
+pending generic-engine preservation. Retain the Go domain/Store/API/client
+owners and completed concern splits below. SQL01 removes PostgreSQL placeholder
+translation; JSON02 and the transport findings consolidate bounded mechanics
+around Go's existing standard libraries. Native authority, transaction/CAS,
+per-dial peer admission and operation binding remain Soda policy. Historical
+sizes and review evidence are unchanged.
+
 ## Current repository search predecessor
 
 At `f7e9cf9d`, P01's actual source/caller census and B's independent challenge
@@ -30,6 +38,13 @@ Observed size: 450 lines, including tests where embedded. Keep the same Go packa
 - `internal/forgejo/background_transport.go` — Bounded POST transport and exact operation lookup validation.
 
 Evidence: ServiceBackground at 35; NewServiceBackground at 49; admissionForCall at 299; bootstrap at 313; verifiedPeer at 430; checkBackgroundRecord at 241; checkBackgroundLookup at 251; post at 383.
+
+The pending split remains about admission and callback custody. Keep standard
+net/http and encoding/json under JSON02; do not wholesale replace the Soda
+wrapper with the SDK client, whose bootstrap-only peer check does not supply
+Soda's per-dial verification/rebind behavior. A bounded decoder must distinguish
+oversized input from EOF after a valid prefix. Follow the library chapter's
+caller-specific adapter and readiness gates instead of adding another codec.
 
 ## internal/forgejo/merge.go
 
@@ -84,6 +99,13 @@ process, schema authority or test framework. [I03](../reviews/I03.md) and
 record the full caller census and B's independent source challenge.
 This is a deferred correction plan; no source deletion or database change
 has been performed or authorized.
+
+SQL01 applies native PostgreSQL parameters to surviving Soda Store callers
+without moving their schema or transaction authority. Fixture/probe SQLite
+uses are a separate SQLITE01 consumer disposition: staged Forgejo fixture
+imports can register a driver in compiled binaries, and the lifecycle probe
+remains reachable. They are not evidence for SQLite product persistence or
+permission to remove modernc globally before their callers are handled.
 
 ## internal/store/factory_assignments.go
 

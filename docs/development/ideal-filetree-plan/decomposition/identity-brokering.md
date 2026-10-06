@@ -3,6 +3,13 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
+The [library-adoption allocation](../library-adoption.md#finding-allocation)
+supersedes pending generic-engine preservation and extraction below. Historical
+source sizes, line allocations and completed moves remain evidence; they are
+not requirements to keep the extracted engines. Follow the existing packet
+owners and [readiness gates](../library-adoption.md#readiness-gates), retaining
+one Controller/State and provider-specific custody.
+
 ## rust/identity-providers/src/codex.rs
 
 Observed size: 702 lines, including tests where embedded. Separate the existing pinned-provider/process/enrollment lifecycle from app-server request/reply dispatch and notification parsing. Keep Config admission, environment filtering, binary digest and version checks together in codex_config.rs. codex.rs retains Provider and Session ownership, process stop before credential reading, and private tmpfs cleanup. Move the embedded tests without changing their fixtures. All files stay in the same provider crate; no Soda grant policy moves into this provider.
@@ -13,6 +20,12 @@ Observed size: 702 lines, including tests where embedded. Separate the existing 
 - `cmd/soda-identity/src/providers/codex/tests.rs`
 
 Evidence: 21-157: Config/Provider, new/start/create_session and split_env -> codex.rs and codex_config.rs; 161-242,304-397: Inner/Session, snapshot/cancel, device enrollment, finish/account/credential_file/stop/close -> codex.rs; 180-190,243-302,400-500: Message, send/call/protocol_error/read_loop/notify -> codex_protocol.rs; 502-565: environment/filter_env/validate_config/check_binary/check_version -> codex_config.rs; 566-702: environment/config fixtures, managed enrollment, cancellation, disabled-device tests -> codex_tests.rs.
+
+Completed provider extraction remains complete. JSON01/PROC01/FS01/TMP01
+followups replace equal codec/capture/file/allocation mechanics only; pinned
+provider admission, protocol dispatch, stop-before-credential-read and private
+tmpfs custody remain with this provider. The native provider processes stay
+distinct; adoption does not merge their execution or enrollment policies.
 
 ## rust/identity-providers/src/muse.rs
 
@@ -25,17 +38,20 @@ Evidence: 22-163: Config/Provider/Inner/Session, native login process, finish an
 
 ## rust/soda-identity-compose/src/main.rs
 
-Observed size: 910 lines, including tests where embedded. Keep main as the explicit one-service registration sequence. Move existing flag decisions to options.rs; Compose override/up/ps/immutable-child selection to compose.rs; private tmpfs registration root, provisioned account marker and launch-socket registration to registration.rs; request/exit wire handling to launch_wire.rs; generic scalar/skip token routines to launch_json.rs. The production portion is 750 lines and tests 158. Preserve service opt-in, immutable Podman child attribution, launch-only socket access and current error/JSON behavior; do not add Compose orchestration features.
+Observed size: 910 lines, including tests where embedded. Keep main as the explicit one-service registration sequence. Retain the options, Compose child attribution, registration and launch-record owners already extracted. JSON01 replaces generic scalar/skip/string parsing and emission with serde-backed launch adapters; launch_json.rs is an engine retirement, not a future extraction target. RNG01/TMP01/FS01 supply randomness, allocation and rooted-file mechanics while registration retains its deliberate tmpfs/account traversal modes, immutable child binding, launch-only socket access and cleanup. Keep the small real option selector under CLI01. The historical production portion is 750 lines and tests 158; this adoption does not add Compose orchestration features.
 
 - `cmd/soda-identity-compose/src/main.rs`
 - `cmd/soda-identity-compose/src/options.rs`
 - `cmd/soda-identity-compose/src/compose.rs`
 - `cmd/soda-identity-compose/src/registration.rs`
 - `cmd/soda-identity-compose/src/launch_wire.rs`
-- `cmd/soda-identity-compose/src/launch_json.rs`
 - `cmd/soda-identity-compose/src/compose_tests.rs`
 
 Evidence at f7: 20–47 explicit sequence/load-options→main.rs; Options derive12 and struct13–18 plus complete flag/validation/usage49–165→options.rs; launch_compose245–287, write_override316–345 and child-attribution comments697/function698–750→compose.rs; root/random/mkdir166–244, account288–315 and complete registration626–694 (including its internal FD Guard/Drop)→registration.rs; string codec346–371, single NestedRegistration373–378, request/comment380–396 and exit-decode/comment397–469→launch_wire.rs; scalar/skip helpers471–624→launch_json.rs; cfg(test)751/module752 and all real cases753–909→compose_tests.rs, with original910 closing that test root. Keep one MUSE_LAUNCH_SOCKET9 in the common main owner, imported by compose and registration; TMPFS_MAGIC10 belongs registration. NestedRegistration and its fields use bounded parent-only imports for main/registration, with no duplicate DTO or public API. Tests import the actual moved subjects privately. [I09](../reviews/I09.md) records the independent defining-fit challenge and preserves canonical H03 parser corrections; Go-parity comments do not override the required wire semantics. No Compose, socket or test operation was run.
+
+The historical launch_json allocation above records the completed seam only.
+Its replacement follows JSON01's actual launch-record profile and coupled
+caller/test closure; foreign error wording is not an independent requirement.
 
 ## rust/soda-identity/src/control.rs
 
@@ -50,9 +66,14 @@ Observed size: 837 lines, including tests where embedded. The 837-line controlle
 
 Evidence: 13-85: provider/runtime traits, error mapping and Codex/Muse session adapters -> control.rs; 86-165,800-837: EnrollmentEntry/State/Controller, construction/lock/ownership, close/error join/random-ID/zeroize -> control.rs; 133-143,166-272: pending/start/read/cancel enrollment -> enrollment.rs; 273-298,705-739: grant listing/create plus connection/grant revoke -> grants.rs; retirement helpers remain called from retirement.rs; 298-501: lease list, acquire/admit/replay/reserve/get/close execution and reservation authorization -> acquisition.rs; 502-632: register/registration authority/execution binding/terminal attestation/release and return_lease -> registration.rs; 633-704,740-799: uncertain/end/finish/reconcile/sweep/reject/retire_connection -> retirement.rs.
 
+RNG01 replaces predictable entropy fallback with the admitted library and a
+fail-closed result. Controller locking, grant/lease decisions, zeroization and
+confirmed retirement remain here; a primitive replacement does not authorize
+another controller or weaken native execution fencing.
+
 ## rust/soda-identity/src/http.rs
 
-Observed size: 494 lines, including tests where embedded. Separate socket serving/shutdown/inflight ownership from bounded HTTP head/body framing and encoding, and from current admin/runtime route admission. Production is 464 lines and tests are 28. Keep runtime_allowed enforcement on the existing service socket path and POST/query/Origin checks intact; route files do not own broker custody or policy. Do not replace this with a new server framework.
+Observed size: 494 lines, including tests where embedded. Retain socket serving/shutdown/inflight and admin/runtime route ownership. N1 replaces generic HTTP parsing/framing/encoding through its admitted library adapter; http_wire.rs may retain only Soda admission glue after that cutover. Production was 464 lines and tests 28. Keep runtime_allowed enforcement on the existing service socket path and POST/query/Origin checks intact; route files do not own broker custody or policy. Prove the selected Unix transport, bounds and lifetime interface before protocol adoption, as specified in the library chapter.
 
 - `cmd/soda-identity/src/http.rs`
 - `cmd/soda-identity/src/http_wire.rs`
@@ -63,18 +84,16 @@ Evidence: 73-151: Server construction/serve/handle_connection, shutdown/inflight
 
 ## rust/soda-identity/src/pg.rs
 
-Observed size: 512 lines, including tests where embedded. Separate PostgreSQL DSN parsing/percent decoding, connection/transport/authentication and message receipt, and row decoding/query/simple-command result handling. Keep the current upstream postgres-protocol framing/SCRAM use and one Client connection/buffer. Production is 475 lines and tests 35; no new pooling/retry/TLS support is proposed. Authentication phases already have authenticate and authenticate_scram functions and need no extra state machine.
+Observed size: 512 lines, including tests where embedded. PG01 replaces the custom DSN, transport/authentication/message and row/query engines with the selected PostgreSQL driver. Keep only the small connection-policy/error adapter needed by Store; pg_dsn.rs and pg_query.rs retire with their actual callers instead of receiving further structural work. The historical production portion is 475 lines and tests 35. Complete SQL01 native-parameter cleanup before driver cutover; establish operation deadline/cancel/reconnect behavior before claiming bounded synchronous calls. A connect timeout and server statement timeout do not establish the existing transport inactivity behavior. Pooling, retries, an ORM and another database are outside this allocation.
 
 - `cmd/soda-identity/src/pg.rs`
-- `cmd/soda-identity/src/pg_dsn.rs`
-- `cmd/soda-identity/src/pg_query.rs`
 - `cmd/soda-identity/src/pg_tests.rs`
 
 Evidence: 19-125: Dsn parse/percent_decode -> pg_dsn.rs; 126-146,187-327,456-475: Stream/Client/connect/send/receive/authenticate/authenticate_scram and backend error -> pg.rs; 147-186,328-455: Row scalar/bytea conversions and query/simple/command_count -> pg_query.rs; 476-512: DSN forms and command-tag row counts -> pg_tests.rs.
 
 ## rust/soda-identity/src/store.rs
 
-Observed size: 798 lines, including tests where embedded. Split existing SQL locality by connection custody, grants, leases, execution records and audit events, retaining Store/Tx plus parameter binding/encoding/transaction primitives in store.rs. Schema bootstrap and grant-key admission belong together in store_schema.rs; preserve internal/store/schema.go as the existing authoritative schema and leave schema.rs a mechanically synchronized representation. Production is 772 lines and tests 24. Do not create separate databases, duplicate schema ownership, or alter transaction atomicity while moving methods.
+Observed size: 798 lines, including tests where embedded. Retain SQL locality by connection custody, grants, leases, execution records and audit events. SQL01 deletes question-mark rewriting in favor of native PostgreSQL parameters; PG01 supplies typed binding/row operations and a driver transaction guard covering the complete transaction. Store retains domain atomicity, authority and error/affected-row interpretation. Preserve internal/store/schema.go as the authoritative schema and schema.rs as its mechanically synchronized representation. The historical production portion is 772 lines and tests 24. Controller locking currently serializes the traced production paths; do not claim a demonstrated live interleaving solely from the weaker public Store transaction API. No separate database or schema authority is introduced.
 
 - `cmd/soda-identity/src/store.rs`
 - `cmd/soda-identity/src/store_schema.rs`
@@ -89,7 +108,7 @@ Evidence: 13-117,576-587,704-710,729-772: placeholder bind, Store/Tx query/trans
 
 ## rust/soda-identity/src/strict.rs
 
-Observed size: 402 lines, including tests where embedded. Keep the cohesive 314-line request codec: bounded UTF-8 object decode, decoded duplicate-key scanner, case remapping and known-field checking are one admission path. Extract the 86-line test module. The total only barely exceeds 400 because of tests; do not create multiple scanners or replace it with a different duplicate/case/null policy.
+Observed size: 402 lines, including tests where embedded. JSON01 replaces the lexical/recursive duplicate scanner with serde-backed admission and small record/profile adapters. strict.rs retains the request object/full-consumption, decoded-duplicate, unknown-field, alias/null, size and depth policy; do not erase duplicates or choose alias precedence through a Value map before enforcing the profile. The historical request codec was 314 lines and its test module had 86 lines. Keep real policy cases with the replacement subject; exact Go diagnostics and scanner offsets do not justify retaining another lexer.
 
 - `cmd/soda-identity/src/strict.rs`
 - `cmd/soda-identity/src/strict_tests.rs`
@@ -98,7 +117,7 @@ Evidence: 1-86: decode/remap_case/check_known_fields and declared strict request
 
 ## rust/soda-identity/src/wire.rs
 
-Observed size: 981 lines, including tests where embedded. Split the 833-line production wire mirror by existing record responsibility, keeping canonical field names/order/string integers/null semantics and provider Connection/Enrollment reuse. wire.rs owns Request/DeliveryWire and provider/constants; wire_time owns UnixTime/date formatting; wire_scalars owns current int/null/base64 serde routines; grant/acquisition and lease/binding/execution records each keep their validators/digest; wire_errors keeps the fixed failure taxonomy. The 147-line tests can remain a single exact-wire/time/digest module.
+Observed size: 981 lines, including tests where embedded. Retain the record responsibilities already extracted from the historical 833-line production mirror and 147-line tests: Request/DeliveryWire, shared provider types, grant/acquisition and lease/binding/execution validators/digests, and fixed error taxonomy. JSON01 retains small integer/null/bytes adapters for admitted records; selected Base64 and N9 time libraries replace generic codec/calendar engines in wire_scalars/wire_time after their actual profiles are fixed. Preserve field semantics and the acquisition-digest contract, rather than assuming every incidental Go formatting quirk is required. Library types do not create forwarding DTOs or duplicate provider definitions.
 
 - `cmd/soda-identity/src/wire.rs`
 - `cmd/soda-identity/src/wire_time.rs`

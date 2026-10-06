@@ -3,6 +3,15 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
+Pending work follows [library-adoption findings](../library-adoption.md#finding-allocation)
+and their [execution packets](../library-adoption.md#execution-packets). The
+historical source spans below remain evidence; completed structural extractions
+remain completed. Replace each selected generic engine at its actual caller
+boundary, retaining Soda admission, descriptor custody and operation ordering.
+Check dependency resolution, offline cache, artifact toolchains and raw-byte
+fixtures at the [readiness gates](../library-adoption.md#readiness-gates) before
+large cutovers; do not add a second compatibility implementation.
+
 ## rust/soda-activate/src/main.rs
 
 Observed size: 1374 lines, including tests where embedded. Make main a thin entry; use the already present CliArgs, Paths/Sys, origin/IP admission, activation operation and Forgejo environment rewrite boundaries. Group existing unit tests by those concerns. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
@@ -41,6 +50,13 @@ Evidence: rust/soda-candidate-setup/src/main.rs:399-470 worker/trust/config JSON
 
 Open detail: The long run_setup body currently interleaves local variables and ordered system mutations. Extract stage functions without a generic workflow/state machine; current privileged path is source-inspected, not executed here.
 
+Library boundary: JSON01 delegates worker/trust/config documents to locked
+serde/serde_json; RNG01, TMP01 and FS01 delegate randomness, temporary allocation
+and typed rooted-file mechanics to getrandom, tempfile and rustix. The setup
+stages retain lease ownership, fixture-only authority, private modes and the
+ordered privileged installation/cleanup sequence. These are library-backed
+stage helpers, not new generic engines to extract.
+
 ## rust/soda-candidate-setup/tests/cli.rs
 
 Observed size: 463 lines, including tests where embedded. Keep this coherent pre-mutation admission suite together after extracting existing fixture/fake-tool/lease helpers. It explicitly does not prove the later privileged setup flow.
@@ -52,7 +68,7 @@ Evidence: rust/soda-candidate-setup/tests/cli.rs:1-5 pre-mutation-only scope com
 
 ## rust/soda-console-welcome/src/main.rs
 
-Observed size: 790 lines, including tests where embedded. Separate operator observation/banner composition from its top-level config parser and display-origin validation. Keep read-only behavior and exactly the existing permissive Python-like JSON cases. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 790 lines, including tests where embedded. Keep operator observation/banner composition, configuration admission and display-origin policy distinct. JSON01 replaces the custom Python-like lexer with serde/serde_json at the config boundary. Retain read-only behavior and the actual display fields; incidental NaN/Infinity acceptance is a documented contract decision, not a reason to preserve another lexer. Keep tests as cfg(test) descendants of their owning module.
 
 - `cmd/soda-console-welcome/src/main.rs`
 - `cmd/soda-console-welcome/src/welcome.rs`
@@ -62,7 +78,7 @@ Observed size: 790 lines, including tests where embedded. Separate operator obse
 
 Evidence: rust/soda-console-welcome/src/main.rs:19-182 root gate, observed uplinks, banner and subprocess helpers; rust/soda-console-welcome/src/main.rs:184-240 render_config; rust/soda-console-welcome/src/main.rs:245-578 JsonParser and top-object extraction; rust/soda-console-welcome/src/main.rs:581-707 listen/origin validation; rust/soda-console-welcome/src/main.rs:713-733 duplicate-key/string/NaN/Infinity tests.
 
-Open detail: This parser accepts NaN and Infinity while other Rust JSON readers use different rules. Consolidating parsers or replacing its dependency-free implementation needs contract reconciliation, not a file move.
+Open detail: The config owner specifies duplicate fields, wrong types and missing display values under the JSON01 profile. The origin owner uses N7's url adapter with its own display-origin admission. Retire obsolete lexer/error-parity cases with the complete caller cutover; keep banner and refusal observations.
 
 ## rust/soda-forgejo-domain/src/main.rs
 
@@ -81,15 +97,20 @@ Observed size: 1021 lines, including tests where embedded. Separate the existing
 
 Evidence: rust/soda-forgejo-domain/src/main.rs:80-187 CLI, Paths and Sys; rust/soda-forgejo-domain/src/main.rs:237-493 INI interpolation, AppDataPath and marker mapping; rust/soda-forgejo-domain/src/main.rs:495-625 stop/inhibit/status/lift/start; rust/soda-forgejo-domain/src/main.rs:628-1021 fake system and configuration/control tests.
 
+Library boundary: CFG01 keeps parser selection blocked on the native Forgejo
+configuration contract. Qualify rust-ini against the admitted Forgejo version's
+effective APP_DATA_PATH/interpolation behavior before replacing the port. This
+is distinct from the narrow locale catalog scanner. Native writer quiescence,
+offline markers, inhibition and lift/start ordering remain domain policy.
+
 ## rust/soda-image-import/src/main.rs
 
-Observed size: 2172 lines, including tests where embedded. Separate already marked platform, hash, Go-compatible JSON binding, payload, OCI metadata/layout verification and Podman import sections. Keep whole-layout verification before any import and group the 872 test lines by current concern. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 2172 lines, including tests where embedded. Keep platform, payload, OCI metadata/layout verification and Podman import as the existing operation boundaries. CF-01 replaces the streaming SHA engine with sha2; JSON01 replaces lexer/binding mechanics with serde/serde_json and a narrow input-policy visitor. Keep whole-layout verification before any import and tests with their current subjects.
 
 - `cmd/soda-image-import/src/main.rs`
 - `cmd/soda-image-import/src/context.rs`
 - `cmd/soda-image-import/src/platform.rs`
-- `cmd/soda-image-import/src/sha256.rs`
-- `cmd/soda-image-import/src/json_binding.rs`
+- `cmd/soda-image-import/src/json_binding.rs` — Input-policy adapter over serde, without a second lexer.
 - `cmd/soda-image-import/src/payload.rs`
 - `cmd/soda-image-import/src/oci/mod.rs`
 - `cmd/soda-image-import/src/oci/metadata.rs`
@@ -105,7 +126,7 @@ Observed size: 2172 lines, including tests where embedded. Separate already mark
 
 Evidence: rust/soda-image-import/src/main.rs:49-120 entry admission and import cancellation context; rust/soda-image-import/src/main.rs:122-205 native platform and identifier shapes; rust/soda-image-import/src/main.rs:207-521 streaming SHA and JSON binding; rust/soda-image-import/src/main.rs:524-692 Payload decoding/validation/load; rust/soda-image-import/src/main.rs:693-1135 OCI metadata/layout/content inspection; rust/soda-image-import/src/main.rs:1136-1298 verified native import; rust/soda-image-import/src/main.rs:1301-2172 fixture, payload, layout and import tests.
 
-Open detail: This duplicates installer release/OCI verification with somewhat different result shapes. A shared release/OCI library would require a caller/type/error comparison beyond a filetree split; do not create it solely from visual similarity.
+Open detail: Retire the custom sha256 module after its callers use sha2. FS01 preserves bounded, no-follow, descriptor-relative layout/blob admission. REL02's surviving OCI inspection owner requires the documented caller/type/error comparison; do not infer equivalence from similar layouts. Digest checking still hashes the admitted original bytes before native import.
 
 ## rust/soda-install/src/candidate.rs
 
@@ -127,6 +148,11 @@ Observed size: 700 lines, including tests where embedded. Separate raw TTY read/
 - `cmd/soda-install/src/console/tests.rs`
 
 Evidence: rust/soda-install/src/console.rs:21-217 terminal IO, line/secret input and echo restoration; rust/soda-install/src/console.rs:219-391 nmtui and live-network interaction; rust/soda-install/src/console.rs:396-482 byte trimming and errno formatting; rust/soda-install/src/console.rs:485-593 existing shared test_support PTY helpers; rust/soda-install/src/console.rs:595-700 console and network tests.
+
+Library boundary: N10/FS01 use rustix for typed descriptor and terminal mechanics,
+with std I/O/process helpers. The console retains secret echo restoration,
+terminal custody and the native nmtui interaction. Existing PTY support is
+cfg(test) infrastructure, not a production library to preserve or extract anew.
 
 ## rust/soda-install/src/deliver.rs
 
@@ -166,6 +192,11 @@ Observed size: 791 lines, including tests where embedded. Separate descriptor-ow
 
 Evidence: rust/soda-install/src/enroll/keys.rs:40-145 descriptor, ownership, lock and key-stat helpers; rust/soda-install/src/enroll/keys.rs:149-308 existing-key append and exclusive creation; rust/soda-install/src/enroll/keys.rs:361-465 append_enrollment_key_with_writer and confirmations; rust/soda-install/src/enroll/keys.rs:467-491 safe directory and native root-home admission; rust/soda-install/src/enroll/keys.rs:494-791 preservation/race/partial-write tests.
 
+Library boundary: FS01 replaces raw FD/ABI mechanics with rustix/libc at the
+directory owner; CF-03 supplies the admitted canonical public key. Keep the
+same-inode/ownership checks, native-editor race protection, exclusive create,
+one-write uncertainty and confirmation transaction together.
+
 ## rust/soda-install/src/enroll/mod.rs
 
 Observed size: 519 lines, including tests where embedded. Leave the enrollment entry module small; separate generated native SSH/systemd configuration from socket peer/cgroup provenance. Move already shared test keys, temporary-directory helpers and environment lock into a test-only sibling. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
@@ -198,23 +229,20 @@ Evidence: rust/soda-install/src/inputs.rs:13-60 hostname/subnet/password admissi
 
 ## rust/soda-install/src/netip.rs
 
-Observed size: 836 lines, including tests where embedded. Separate existing address parse, byte-preserving address formatting/classification and prefix operations, with grouped oracle vectors. Keep one canonical Addr/Prefix representation and parent-private helper access. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 836 lines, including tests where embedded. N8 replaces the IPv4/IPv6 grammar and formatting engine with std::net::IpAddr. Retain one small adapter for admitted zones, prefix masking/containment and purpose-specific address selection. Do not further split the legacy grammar/error port into permanent target modules. Keep address/prefix policy tests with the adapter.
 
 - `cmd/soda-install/src/netip/mod.rs`
-- `cmd/soda-install/src/netip/address.rs`
-- `cmd/soda-install/src/netip/address_format.rs`
-- `cmd/soda-install/src/netip/prefix.rs`
 - `cmd/soda-install/src/netip/tests/mod.rs`
 - `cmd/soda-install/src/netip/tests/address.rs`
 - `cmd/soda-install/src/netip/tests/prefix.rs`
 
 Evidence: rust/soda-install/src/netip.rs:1-9 documented Go byte/error fidelity; rust/soda-install/src/netip.rs:69-331 IPv4/IPv6 byte parsing; rust/soda-install/src/netip.rs:333-462 address classification/string/mask helpers; rust/soda-install/src/netip.rs:463-543 Prefix parse/mask/contains; rust/soda-install/src/netip.rs:546-836 oracle address/prefix and error-text tests.
 
-Open detail: Std IpAddr replacement is not equivalent to the existing arbitrary byte-zone/error contract. Upstream replacement is a separate behavior decision, not presumed by relocation.
+Open detail: N8 explicitly narrows obsolete arbitrary byte-zone and Go error-text emulation. Retain documented zone/prefix requirements and the installer callers' admissibility rules; std classification alone does not decide which address may be selected for enrollment or setup. These acceptance decisions accompany the complete engine replacement.
 
 ## rust/soda-install/src/oci.rs
 
-Observed size: 1175 lines, including tests where embedded. Separate fd-relative layout/blob loading, index/manifest/config binding and image/rootfs/attribution inspection. Preserve hard versus soft JSON decoding distinctions. Move the existing shared OCI fixture into test-only support. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 1175 lines, including tests where embedded. Keep fd-relative layout/blob loading, index/manifest/config admission and image/rootfs/attribution inspection distinct. JSON01 delegates codec mechanics to serde/serde_json with explicit hard/soft input profiles; FS01 delegates typed descriptor mechanics to rustix. The existing OCI fixture stays test-only, and REL02 governs any proven inspector reuse.
 
 - `cmd/soda-install/src/oci/mod.rs`
 - `cmd/soda-install/src/oci/layout.rs`
@@ -241,30 +269,34 @@ Observed size: 1140 lines, including tests where embedded. Separate existing add
 
 Evidence: rust/soda-install/src/setup.rs:18-156 setup address decoding/origin selection; rust/soda-install/src/setup.rs:209-435 prompting, live-address recheck and setup/activation operation; rust/soda-install/src/setup.rs:472-600 installed origin/unit admission and client trust guidance; rust/soda-install/src/setup.rs:602-619 public CA fingerprint verification; rust/soda-install/src/setup.rs:623-1140 CA/configuration/rollback/secret-transcript tests.
 
+Library boundary: X50901 uses x509-cert plus the existing RustCrypto signature
+verifiers for the sole local-CA display caller. Keep the 16 KiB regular-file
+bound, one CERTIFICATE PEM, CA/self-signature admission and SHA256 fingerprint
+of the admitted raw DER. Dates, chain trust and principals are not newly implied
+by this display operation. The signature check consumes the original signed
+TBS bytes rather than a re-encoded certificate.
+
 ## rust/soda-install/src/sshkey.rs
 
-Observed size: 904 lines, including tests where embedded. Separate Base64 codec, existing SSH key/certificate wire parse/marshal and authorized_keys text/options policy. Preserve wire truncation and canonicalization rules; keep key representation singular. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 904 lines, including tests where embedded. CF-03 replaces the full key/certificate wire reader and serializer with ssh-key 0.6.7; CF-04 supplies named base64 0.22.1 profiles. Keep a small installer adapter and authorized_keys text/admission policy with one library key representation. The complete ordinary/certificate algorithm matrix is an acceptance gate, not separate hand-written wire modules to extract.
 
 - `cmd/soda-install/src/sshkey/mod.rs`
-- `cmd/soda-install/src/sshkey/base64.rs`
-- `cmd/soda-install/src/sshkey/wire.rs`
 - `cmd/soda-install/src/sshkey/authorized_keys.rs`
 - `cmd/soda-install/src/sshkey/tests.rs`
 
 Evidence: rust/soda-install/src/sshkey.rs:15-113 Go-compatible Base64 decode/encode; rust/soda-install/src/sshkey.rs:115-568 SSH wire integers, keys, certificates and marshaling; rust/soda-install/src/sshkey.rs:570-721 authorized_keys parsing, operator key policy and fingerprint; rust/soda-install/src/sshkey.rs:724-904 key vectors, unsupported types, canonicalization and codec tests.
 
-Open detail: Replacing wire/key readers with a library requires checking certificate/security-key/trailing-byte and error-taxonomy behavior already exercised here. This plan proposes module boundaries only.
+Open detail: Retire the historical base64 and wire leaves after the actual callers migrate. Retain the installer key allowlist, option/comment/newline and input-size policy; reject library Other explicitly. Use the existing RustCrypto PublicKey adapters for real ECDSA curve validation while retaining the uncompressed-point gate. Parsing a certificate does not authorize it or request Certificate::validate. Review canonical mpint/UTF8/trailing-data and padding changes through CF-03/04 fixtures, rather than retain a parallel Go-compatible parser.
 
 ## rust/soda-install/src/urlx.rs
 
-Observed size: 730 lines, including tests where embedded. Keep the coherent 373-line byte-preserving URL parser intact; extract its extensive oracle/error vectors as a descendant test module. Do not split its mutually dependent authority/unescape parser into arbitrary pieces. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 730 lines, including tests where embedded. N7 replaces manifest/origin URL parsing with url 2.5.8 and explicit raw lexical/admission guards. X50901 removes the obsolete URI-SAN parser caller. Retire the complete urlx port once both caller changes land; there is no desired generic URL-parser leaf here.
 
-- `cmd/soda-install/src/urlx.rs`
-- `cmd/soda-install/src/urlx/tests.rs`
+The historical urlx module and its exact foreign-error vectors are retirement scope. Keep manifest/origin policy fixtures with their actual caller.
 
 Evidence: rust/soda-install/src/urlx.rs:1-9 documented net/url byte/error semantics; rust/soda-install/src/urlx.rs:105-355 unescape, host/authority/scheme and parse; rust/soda-install/src/urlx.rs:356-370 hostname; rust/soda-install/src/urlx.rs:374-730 oracle URL and exact-error tests.
 
-Open detail: Standard or third-party URL parsing cannot be assumed equivalent to decoded non-UTF8 fields and the existing scheme-specific host rules.
+Open detail: WHATWG normalization does not authorize a host or rewrite signed URL literals. Preserve required HTTPS, userinfo/query/control/backslash/escape restrictions and the original authenticated text. Certificate URI representation belongs to the ASN.1/X509 library; do not route it through the web-URL adapter.
 
 ## rust/soda-install/src/wizard.rs
 
@@ -279,31 +311,20 @@ Evidence: rust/soda-install/src/wizard.rs:25-284 navigation and network/disk/hos
 
 ## rust/soda-install/src/x509.rs
 
-Observed size: 3624 lines, including tests where embedded. Use the explicit DER, algorithm/type, validity, name/constraint, extension, key, ParseCertificate and CheckSignatureFrom sections as private modules. Group the 1286 test lines by those same protocols and keep existing DER fixture builders test-only. Signature math continues to use the existing crypto crates; no new cryptographic implementation is proposed. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 3624 lines, including tests where embedded. X50901 replaces the complete parser with x509-cert 0.2.5's strict profile and a narrow local self-signed-CA adapter. CF-06 replaces the custom ECDSA signature DER reader with ecdsa::Signature::from_der; existing RustCrypto libraries continue to verify the admitted signature/key matrix. The prior DER/calendar/name/extension module split is historical extraction evidence, not a target generic parser hierarchy.
 
 - `cmd/soda-install/src/x509/mod.rs`
-- `cmd/soda-install/src/x509/der.rs`
-- `cmd/soda-install/src/x509/algorithms.rs`
-- `cmd/soda-install/src/x509/types.rs`
-- `cmd/soda-install/src/x509/time.rs`
-- `cmd/soda-install/src/x509/names.rs`
-- `cmd/soda-install/src/x509/name_constraints.rs`
-- `cmd/soda-install/src/x509/extensions.rs`
-- `cmd/soda-install/src/x509/public_key.rs`
-- `cmd/soda-install/src/x509/certificate.rs`
 - `cmd/soda-install/src/x509/verify.rs`
 - `cmd/soda-install/src/x509/tests/mod.rs`
 - `cmd/soda-install/src/x509/tests/fixtures.rs`
 - `cmd/soda-install/src/x509/tests/structure.rs`
 - `cmd/soda-install/src/x509/tests/public_key.rs`
 - `cmd/soda-install/src/x509/tests/algorithms.rs`
-- `cmd/soda-install/src/x509/tests/time.rs`
-- `cmd/soda-install/src/x509/tests/extensions.rs`
 - `cmd/soda-install/src/x509/tests/verify.rs`
 
 Evidence: rust/soda-install/src/x509.rs:1-27 scope, exact Go parser/error semantics, rejected x509-cert profile and existing crypto delegates; rust/soda-install/src/x509.rs:38-378 DER reader and tag/OID constants; rust/soda-install/src/x509.rs:388-506 algorithm enums/public key/certificate types; rust/soda-install/src/x509.rs:512-781 validity time and ASN1 name/algorithm parsing; rust/soda-install/src/x509.rs:783-1481 extension and name-constraint parsing; rust/soda-install/src/x509.rs:1488-1862 signature algorithm and public-key parsing; rust/soda-install/src/x509.rs:1870-2046 ParseCertificate sequence; rust/soda-install/src/x509.rs:2052-2336 CheckSignatureFrom and existing signature verification delegates; rust/soda-install/src/x509.rs:2339-3624 structural/key/time/extension/signature vectors and DER fixture builders.
 
-Open detail: The source explicitly documents why x509-cert did not match accepted serial/UTCTime behavior. Removing this port or narrowing certificate validation needs an owner decision and primary-source/caller validation. Moving modules must preserve parser error precedence and uses of netip/urlx; no public visibility should be added solely for tests.
+Open detail: Preserve raw admitted DER for the fingerprint and the exact signed TBS bytes for verification; do not hash or verify re-encoded data. Retain CA/self-signature policy and weak-signature refusal. X50901 explicitly narrows noncanonical DER, long serials, legacy UTC forms and trailing DER at the fixture gate; the display caller already collapses parser failures to one neutral error. It does not consult expiry, chains or the recorded unhandled-critical-extension list. Define the critical-extension admission decision in that gate, rather than add a new trust verifier. ASN.1 time, SAN/name/constraint parsing, netip/urlx dependencies and custom signature DER all retire with the complete owner cutover.
 
 ## rust/soda-rotate-lab-creds/src/main.rs
 
@@ -320,13 +341,13 @@ Evidence: rust/soda-rotate-lab-creds/src/main.rs:168-334 process capture and tru
 
 ## rust/soda-setup/src/main.rs
 
-Observed size: 1731 lines, including tests where embedded. Separate existing CLI/origin admission, Forgejo bootstrap HTTP, local JSON decoding/config emission, PostgreSQL/grant secrets and setup/revocation orchestration. Keep native ownership helpers local and group the 541 lines of existing tests by those concerns. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 1731 lines, including tests where embedded. Keep CLI/origin admission, Forgejo bootstrap transport, configuration DTOs, PostgreSQL/grant secret policy and setup/revocation orchestration distinct. JSON01 uses serde/serde_json for decoding/emission; N3 uses the resolved ureq 2.12.1 transport. RNG01 and CF-04 replace random/Base64 mechanics with getrandom and explicit base64 profiles. Keep native ownership and publication/rollback order local.
 
 - `cmd/soda-setup/src/main.rs`
 - `cmd/soda-setup/src/cli.rs`
 - `cmd/soda-setup/src/origin.rs`
 - `cmd/soda-setup/src/forgejo.rs`
-- `cmd/soda-setup/src/json.rs`
+- `cmd/soda-setup/src/json.rs` — Narrow input-policy adapter over serde, retired if the DTO owners make it unnecessary.
 - `cmd/soda-setup/src/config.rs`
 - `cmd/soda-setup/src/secrets.rs`
 - `cmd/soda-setup/src/setup.rs`
@@ -340,5 +361,4 @@ Observed size: 1731 lines, including tests where embedded. Separate existing CLI
 
 Evidence: rust/soda-setup/src/main.rs:79-246 entry and Go-style CLI parsing; rust/soda-setup/src/main.rs:247-333 origin and bootstrap credential admission; rust/soda-setup/src/main.rs:334-563 Forgejo user/token HTTP path; rust/soda-setup/src/main.rs:567-843 local JSON parse and string emission; rust/soda-setup/src/main.rs:845-905 dashboard config encoding; rust/soda-setup/src/main.rs:907-1067 randomness/encoding/PostgreSQL secret generation/reuse; rust/soda-setup/src/main.rs:1090-1187 setup publication/revocation and exclusive output; rust/soda-setup/src/main.rs:1190-1731 HTTP fixtures, secret/admission/encoding tests.
 
-Open detail: The local setup decoder, console parser and shared soda-json do not establish a single common acceptance/error contract. Keep local behavior until source/caller semantics are reconciled.
-
+Open detail: JSON01 keeps distinct caller profiles instead of one global acceptance configuration. N3 retains status/body bounds, deadline/error secrecy and bootstrap uncertainty outside ureq. CLI01 retains the small admitted selector instead of a foreign flag emulator. Preserve private token custody, exclusive outputs, native account ownership and revocation after uncertain setup effects; library adoption does not reorder those operations.

@@ -3,6 +3,19 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
+Pending generic-engine splits below yield to the existing packets' scoped
+[library adoption](../library-adoption.md#execution-packets). Completed moves,
+historical source counts and domain/support owners remain recorded. Prioritize
+the named correctness repairs and dependency admission before adoption; use
+existing focused checks rather than another qualification framework.
+
+CFG01 remains a precise configuration-selection gate: the native Forgejo
+effective server.APP_DATA_PATH, including supported INI inputs and environment
+precedence, must match without guessing. A Python ConfigParser oracle or the
+locale catalog's values-ignored tokenizer cannot establish that contract.
+Defer this parser selection only; it does not block unrelated JSON or CLI work.
+See [finding allocation and readiness](../library-adoption.md#readiness-gates).
+
 ## internal/acceptance/developer_access_test.go
 
 Observed size: 447 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
@@ -53,7 +66,7 @@ delivery rather than requiring a target compiler or installing another agent.
 
 ## rust/soda-acceptance/src/command.rs
 
-Observed size: 550 lines, including tests where embedded. Separate pinned SSH argument construction from redacted command execution and its distinct execution/evidence outcomes. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 550 lines, including tests where embedded. Retain pinned SSH argument construction and separate execution/evidence outcomes in the owners already extracted. PROC01 consolidates only equal std-backed bounded capture/drain mechanics; RED01 retains safe writer finalization. SSH pins, secret stdin, native cleanup and incomplete-pump custody stay with their callers. Keep cfg(test) tests private and attached to the real subject.
 
 - `tools/acceptance/src/command/mod.rs`
 - `tools/acceptance/src/command/ssh.rs`
@@ -71,9 +84,15 @@ Observed size: 503 lines, including tests where embedded. Keep the connected Cor
 
 Evidence: rust/soda-acceptance/src/coreos.rs:117-203 fetch_capped; rust/soda-acceptance/src/coreos.rs:261-284 resolve_stream_build; rust/soda-acceptance/src/coreos.rs:304-400 resolve_registry_digest and resolve_qemu; rust/soda-acceptance/src/coreos.rs:404-503 bounded-source and document tests.
 
+RED01's immediate caller repair closes both redacting writers after ended
+pump custody and propagates pump/close failures before consuming curl metadata.
+The unterminated write-out line currently remains pending. This repair is
+separate from later matcher adoption; native curl, HTTPS/redirect policy and
+CoreOS resolution authority remain with this operation.
+
 ## rust/soda-acceptance/src/driver.rs
 
-Observed size: 1047 lines, including tests where embedded. Separate option/duration parsing, private input collection, action dispatch and observation finalization; keep run as the entry orchestration. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 1047 lines, including tests where embedded. Retain private input collection, action dispatch, observation finalization and run in their extracted owners. CLI03 replaces the general flag/Go-duration engine with the admitted CLI/duration libraries and a small positive-timeout adapter. Preserve default/bounds, repeated files, bare/equals booleans, literal command tails and validation before evidence or side effects. Explicitly document the selected grammar/precision changes; parser overflow repair and real Phase deadlines precede a claim of bounded execution. Keep private cfg(test) descendants; dependency/toolchain admission follows the library chapter.
 
 - `tools/acceptance/src/driver/mod.rs`
 - `tools/acceptance/src/driver/options.rs`
@@ -86,7 +105,7 @@ Evidence: rust/soda-acceptance/src/driver.rs:62-392 parse_duration, parse_flags 
 
 ## rust/soda-acceptance/src/evidence.rs
 
-Observed size: 909 lines, including tests where embedded. Separate confined evidence creation/publication from streaming secret and URL redaction; keep the streaming state machine intact. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 909 lines, including tests where embedded. Retain confined evidence creation/publication and its outcome/custody state. RED01 replaces repeated literal-secret searching with the selected byte matcher and bounded overlap/batching adapter; N13 owns the URL sanitizer replacement. Fix writer finalization and bound transformed patterns, output, pending URL lines and tee buffers before matcher adoption. Preserve longest-at-earliest-position semantics, escaped variants, sticky errors, binary bytes, final fail-closed leak scans and exclusive publication. Keep real private cfg(test) policy checks; sequential placeholder-rewrite quirks do not require a second engine.
 
 - `tools/acceptance/src/evidence/mod.rs`
 - `tools/acceptance/src/evidence/store.rs`
@@ -97,7 +116,7 @@ Evidence: rust/soda-acceptance/src/evidence.rs:34-271 create_evidence and Eviden
 
 ## rust/soda-acceptance/src/files.rs
 
-Observed size: 696 lines, including tests where embedded. Keep descriptor-confined directory traversal as one OwnedDir implementation; separate private file/hash reads and temporary/exclusive destinations. Preserve descriptor identity and symlink rules. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 696 lines, including tests where embedded. FS01 replaces repeated raw FD/syscall mechanics with the admitted typed rooted-file adapter, retaining one OwnedDir policy owner. Fix same-FD private-input admission and cap+1 reads before TMP01 adopts temporary allocation convenience. Preserve descriptor identity, symlink/type/ownership/mode/link rules, explicit handoff and exact-object cleanup; library Drop alone does not establish native cleanup. Keep private cfg(test) cases with the real file subject.
 
 - `tools/acceptance/src/files/mod.rs`
 - `tools/acceptance/src/files/owned_directory.rs`
@@ -109,7 +128,7 @@ Evidence: rust/soda-acceptance/src/files.rs:111-370 OwnedDir and its fd-relative
 
 ## rust/soda-acceptance/src/host_probes.rs
 
-Observed size: 939 lines, including tests where embedded. Put the already distinct installed probe commands in their own modules; retain common failure, command and JSON emission helpers locally. These remain installed host observations, not the outside driver. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 939 lines, including tests where embedded. Retain the distinct installed probe commands and observation authority in their extracted modules. JSON01 replaces generic JSON emission; PROC01 consolidates equal bounded std process mechanics only. Keep private failure reporting and command-specific admission locally. These remain installed host observations, not another outside driver; retain private cfg(test) subjects and their proof limits.
 
 - `tools/acceptance/src/host_probes/mod.rs`
 - `tools/acceptance/src/host_probes/content.rs`
@@ -123,7 +142,7 @@ Evidence: rust/soda-acceptance/src/host_probes.rs:184-413 host_content and exten
 
 ## rust/soda-acceptance/src/jsonio.rs
 
-Observed size: 511 lines, including tests where embedded. Separate RFC3339 clock parsing/formatting from bounded JSON reads and exact JSON emission. Both are current behavior; no new serialization layer is proposed. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 511 lines, including tests where embedded. JSON01 replaces generic JSON parsing/emission through the acceptance record profile; N9 replaces calendar codecs with admitted time APIs and thin policy adapters. Retain actual bounded same-file reads, raw-byte hashes where consumed, record validation and current deterministic producer/consumer behavior. Historical exact-emission/date cases do not establish a requirement for every Go diagnostic or date quirk. Keep private cfg(test) cases attached to the replacement subject.
 
 - `tools/acceptance/src/jsonio.rs`
 - `tools/acceptance/src/timestamps.rs`
@@ -143,7 +162,7 @@ Evidence: rust/soda-acceptance/src/native_phase.rs:179-250 phase_request admissi
 
 ## rust/soda-acceptance/src/process.rs
 
-Observed size: 739 lines, including tests where embedded. Separate cancellable Phase context from child launch/pumps and the owned process-group wait/reap/stop lifecycle. Keep the leader-unreaped/PGID ownership sequence together. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 739 lines, including tests where embedded. Retain Phase cancellation/deadline policy and the owned process-group wait/reap/stop lifecycle in their extracted owners. PROC01 consolidates equal std-backed byte drain/capture mechanics, without another async/process framework. N14 immediately repairs Phase::child so a finite child deadline remains effective when its parent has no deadline; RED01 repairs writer-close/error handoff. Preserve leader-unreaped/PGID ownership, resistant-descendant cleanup and incomplete capture custody; keep real private cfg(test) scenarios.
 
 - `tools/acceptance/src/process/mod.rs`
 - `tools/acceptance/src/process/phase.rs`
@@ -155,7 +174,7 @@ Evidence: rust/soda-acceptance/src/process.rs:28-104 Phase and cancellation/dead
 
 ## rust/soda-acceptance/src/project_state.rs
 
-Observed size: 943 lines, including tests where embedded. Separate bounded command capture, filesystem-entry/traversal snapshots, account/Git state collection and the explicitly requested workload/database observations. Preserve one run_snapshot result shape and its existing gates. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 943 lines, including tests where embedded. Retain account/Git state collection and explicitly requested workload/database observations, with one run_snapshot shape and its existing gates. PROC01/FS01/JSON01 supply bounded capture, admitted filesystem and serialization mechanics to the extracted owners. SQLITE01 distinguishes actual fixture/probe consumers from product PostgreSQL persistence; it does not authorize blanket driver removal. Keep private cfg(test) cases and source/native evidence limits.
 
 - `tools/acceptance/src/project_state/mod.rs`
 - `tools/acceptance/src/project_state/command.rs`
@@ -168,7 +187,7 @@ Evidence: rust/soda-acceptance/src/project_state.rs:165-240 command capture and 
 
 ## rust/soda-acceptance/src/report.rs
 
-Observed size: 665 lines, including tests where embedded. Separate observation data/JSON conversion from retained-file hash verification and handoff rendering; keep incomplete/failed scope reporting. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 665 lines, including tests where embedded. Retain observation authority, retained-file hash verification, handoff admission and incomplete/failed scope reporting in their extracted owners. JSON01 replaces generic observation parsing/emission with a record adapter; RED01 retains final leak refusal and publication custody. Preserve actual hashed bytes and update coupled readers/writers/cases together. Keep private cfg(test) subjects rather than a second serialization engine.
 
 - `tools/acceptance/src/report/mod.rs`
 - `tools/acceptance/src/report/observation.rs`
@@ -192,6 +211,13 @@ Evidence: rust/soda-acceptance/src/trust.rs:31-217 base64/data URI/gzip and Igni
 
 Observed size: 944 lines, including tests where embedded. Separate VM configuration/preflight, verified base receipt, owned work/launch preparation and the VM readiness/restart/shutdown lifecycle. Keep failure ownership and retained-work reporting. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
 
+N14 repairs the retained std/serde QMP request-ID exchange in
+`tools/acceptance/src/qmp.rs` with one absolute deadline covering connect,
+buffered event processing and every read/write. Event storms and trickling
+peers cannot extend that deadline. This and the Phase::child repair precede
+bounded readiness/shutdown claims; no new QMP runtime is selected. The
+[L01 packet](../library-adoption.md#execution-packets) owns the acceptance scope.
+
 - `tools/acceptance/src/vm/mod.rs`
 - `tools/acceptance/src/vm/config.rs`
 - `tools/acceptance/src/vm/base.rs`
@@ -203,7 +229,7 @@ Evidence: rust/soda-acceptance/src/vm.rs:30-257 VmConfig/RemoteConfig decoding a
 
 ## rust/soda-factory/src/main.rs
 
-Observed size: 593 lines, including tests where embedded. The operator CLI has 351 lines of production code and no coordinator or database. Retain the existing argument parsing, command envelope, Unix HTTP send and bounded response reader together; extract the 240-line test module. This avoids creating a second factory runtime or unnecessary transport abstraction.
+Observed size: 593 lines, including tests where embedded. The operator CLI historically has 351 production lines and no coordinator or database. Retain its small real argument selector under CLI01; JSON01 and N2 replace generic envelope and Unix HTTP framing through admitted adapters with actual response bounds. Keep command admission and useful errors together, with the 240-line historical test allocation. No second factory runtime, database or CLI framework is selected for this small selector.
 
 - `cmd/soda-factory/src/main.rs`
 - `cmd/soda-factory/src/operator_tests.rs`
@@ -212,7 +238,7 @@ Evidence: 1-4: stated thin operator role and no database; 45-151: parse_args/dis
 
 ## rust/soda-test-vm/src/main.rs
 
-Observed size: 768 lines, including tests where embedded. Separate shell-status/exec/diagnostic helpers, current pidfile/liveness state, locked QEMU start, and SSH/tunnel/console actions. Keep the exact native/KVM gates and fixed management forwarding. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Observed size: 768 lines, including tests where embedded. Retain pidfile/liveness state, locked QEMU start and SSH/tunnel/console actions in the completed concern owners. PROC01 replaces raw exec/wait plumbing with standard APIs and deletes unused foreign-shell diagnostic emulation; PATH01 uses admitted native paths rather than a general Go path engine. CLI01 retains the small real verbs. Keep native/KVM gates, fixed management forwarding, status/argv contracts and private cfg(test) subjects; exact Bash text is not an independent operational requirement.
 
 - `tools/test-vm/src/main.rs`
 - `tools/test-vm/src/process.rs`
