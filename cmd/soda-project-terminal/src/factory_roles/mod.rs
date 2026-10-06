@@ -22,12 +22,19 @@ pub(crate) mod error;
 pub(crate) mod fsx;
 #[path = "inputs.rs"]
 pub(crate) mod ops_approve;
-#[path = "../../../../rust/soda-project-factory-roles/src/ops_inspect.rs"]
-pub(crate) mod ops_inspect;
-#[path = "../../../../rust/soda-project-factory-roles/src/ops_record.rs"]
-pub(crate) mod ops_record;
-#[path = "../../../../rust/soda-project-factory-roles/src/proc.rs"]
-pub(crate) mod proc;
+pub(crate) mod ops_inspect {
+    pub(crate) use super::execution::{do_hold, do_release, do_stop, group_alive};
+    pub(crate) use super::fsx::refuse_barred;
+    pub(crate) use super::records::{do_inspect, started_pgid};
+}
+pub(crate) mod ops_record {
+    pub(crate) use super::execution::do_start;
+    pub(crate) use super::records::do_record;
+}
+pub(crate) mod execution;
+pub(crate) mod proc {
+    pub(crate) use super::execution::spawn_detached;
+}
 pub(crate) mod records;
 #[path = "../../../../rust/soda-project-factory-roles/src/sha.rs"]
 pub(crate) mod sha;
