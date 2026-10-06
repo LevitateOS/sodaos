@@ -4,7 +4,7 @@ import {factoryAuthorityText, factoryControlText} from './sodaspaces-factory-res
 import {attentionReason} from './sodaspaces-attention.js';
 import type {LayoutEntry, PaneTree} from './sodaspaces-layout.js';
 import {paneFor, sameLocator} from './sodaspaces-layout.js';
-import {renderProjectNavigation} from './sodaspaces-workspace-view.js';
+import {renderProjectNavigation} from './sodaspaces-session-navigation-view.js';
 import type {Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 
 export interface NavReading {

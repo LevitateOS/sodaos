@@ -7,7 +7,8 @@ import {consolidatePanes, toggleMaximizedPane} from './sodaspaces-workspace-layo
 import type {NavReading} from './sodaspaces-workspace-navigation.js';
 import {rowAttention, rowName} from './sodaspaces-workspace-navigation.js';
 import type {PaneSession, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
-import {renderMenu, renderSessionTab} from './sodaspaces-workspace-view.js';
+import {renderMenu} from './sodaspaces-workspace-view.js';
+import {renderSessionTab} from './sodaspaces-session-navigation-view.js';
 
 export interface PaneChromeInput {
   readLayout: () => WorkspaceLayout;
