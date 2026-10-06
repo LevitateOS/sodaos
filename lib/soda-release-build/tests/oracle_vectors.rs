@@ -160,7 +160,7 @@ cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-
 STEP Compile project-account
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal
 STEP Compile project-factory-roles
-cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-factory-roles
+cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal
 STEP Build frontend assets
 bun scripts/build-forgejo.ts --out $ROOT/.artifacts/native/x86_64/forgejo-js
 STEP Fetch terminal assets

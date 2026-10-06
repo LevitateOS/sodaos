@@ -60,7 +60,7 @@ impl Production {
             &bindir.join("project-account").to_string_lossy(),
         )?;
         self.compile_rust(
-            "soda-project-factory-roles",
+            "soda-project-terminal",
             "project-factory-roles",
             &bindir.join("project-factory-roles").to_string_lossy(),
         )?;
