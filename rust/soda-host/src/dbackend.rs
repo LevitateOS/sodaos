@@ -1515,6 +1515,21 @@ fn pump_terminal(
         }
     };
     let attach = Arc::new(Mutex::new(attach));
+    // Detach the output reader under one brief lock: the outgoing loop
+    // below must not hold the shared attach mutex across blocking reads,
+    // or input, expiry and close starve while the child is quiet (H01-F3).
+    // Teardown still funnels through close(): it drops stdin and kills
+    // the child, and the resulting stdout EOF ends the detached read.
+    let reader = match attach.lock() {
+        Ok(mut guard) => guard.take_reader(),
+        Err(_) => None,
+    };
+    let Some(mut reader) = reader else {
+        if let Ok(mut guard) = attach.lock() {
+            guard.close();
+        }
+        return Ok(());
+    };
 
     // Expiry watcher: Go's ctx deadline cancels the socket and closes the
     // process; here the watcher closes the attach and read timeouts end
@@ -1581,15 +1596,10 @@ fn pump_terminal(
 
     // Outgoing: frames until `closed`/`metadata`, error, or expiry.
     loop {
-        let frame = {
-            let mut guard = match attach.lock() {
-                Ok(guard) => guard,
-                Err(_) => break,
-            };
-            match guard.output_frame() {
-                Ok(frame) => frame,
-                Err(_) => break,
-            }
+        // Lock-free: the reader was detached above (H01-F3).
+        let frame = match texec::NativeAttach::output_frame(&mut reader) {
+            Ok(frame) => frame,
+            Err(_) => break,
         };
         let done = frame.frame_type == "closed" || frame.frame_type == "metadata";
         if ws_write_text(&mut stream, frame.encode().as_bytes(), session_deadline).is_err() {
