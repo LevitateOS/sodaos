@@ -107,11 +107,16 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
         if name == "cargo" && args.first().map(String::as_str) == Some("build") {
             for (i, arg) in args.iter().enumerate() {
                 if arg == "-p" && i + 1 < args.len() {
-                    // Post-A01 fold, -p soda-project-terminal builds both
+                    // Post-A01 fold, -p soda-project-terminal builds three
                     // bins like cargo; every other package keeps one.
                     let bins: Vec<&str> = match args[i + 1].as_str() {
-                        "soda-project-terminal" => vec!["project-terminal", "project-account"],
-                        "soda-project-factory-roles" => vec!["project-factory-roles"],
+                        "soda-project-terminal" => {
+                            vec![
+                                "project-terminal",
+                                "project-account",
+                                "project-factory-roles",
+                            ]
+                        }
                         pkg => vec![pkg],
                     };
                     for bin in bins {
