@@ -57,10 +57,9 @@ fn inspect_forgejo(exec: &dyn Executor, deadline: Instant) -> Result<Vec<u8>, St
         })
 }
 
-/// Last matching object field (exact or ASCII case-insensitive). Go binds
-/// each incoming key in order with exact-or-fold matching, so the last
-/// matching key wins even across exact/fold forms; with distinct field
-/// names this reverse lookup is equivalent. Null counts as absent.
+/// Last matching object field (exact or ASCII case-insensitive) for
+/// object-valued intermediaries; null counts as absent. Scalar fields use
+/// the sequential binders below instead, like Go's struct decoding.
 fn field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
     fields
         .iter()
@@ -68,6 +67,40 @@ fn field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
         .find(|(k, _)| k == name || k.eq_ignore_ascii_case(name))
         .map(|(_, v)| v)
         .filter(|v| !v.is_null())
+}
+
+/// Sequential scalar binding like Go's struct decoding: every matching key
+/// (exact or ASCII case-insensitive) binds in document order, null is a
+/// no-op retaining the prior value, and any mistyped occurrence fails the
+/// decode — a later valid value never hides the initial type error.
+fn scalar_str(fields: &[(String, Value)], name: &str) -> Option<Option<String>> {
+    let mut out: Option<String> = None;
+    for (key, value) in fields {
+        if key != name && !key.eq_ignore_ascii_case(name) {
+            continue;
+        }
+        match value {
+            Value::Null => {}
+            Value::Str(s) => out = Some(s.clone()),
+            _ => return None,
+        }
+    }
+    Some(out)
+}
+
+fn scalar_bool(fields: &[(String, Value)], name: &str) -> Option<Option<bool>> {
+    let mut out: Option<bool> = None;
+    for (key, value) in fields {
+        if key != name && !key.eq_ignore_ascii_case(name) {
+            continue;
+        }
+        match value {
+            Value::Null => {}
+            Value::Bool(b) => out = Some(*b),
+            _ => return None,
+        }
+    }
+    Some(out)
 }
 
 fn published_state(data: &[u8], ip: &str) -> Result<(String, bool), String> {
@@ -121,16 +154,8 @@ fn binding_entries(value: &Value) -> Option<Vec<(String, String)>> {
     let mut out = Vec::new();
     for entry in entries {
         let fields = entry.as_object()?;
-        let host_ip = match field(fields, "HostIp") {
-            None => String::new(),
-            Some(Value::Str(s)) => s.clone(),
-            Some(_) => return None,
-        };
-        let host_port = match field(fields, "HostPort") {
-            None => String::new(),
-            Some(Value::Str(s)) => s.clone(),
-            Some(_) => return None,
-        };
+        let host_ip = scalar_str(fields, "HostIp")?.unwrap_or_default();
+        let host_port = scalar_str(fields, "HostPort")?.unwrap_or_default();
         out.push((host_ip, host_port));
     }
     Some(out)
@@ -169,11 +194,7 @@ fn ssh_domain_state(root: &[(String, Value)]) -> Option<(String, bool)> {
         None => false,
         Some(v) => {
             let state = v.as_object()?;
-            match field(state, "Running") {
-                None => false,
-                Some(Value::Bool(b)) => *b,
-                Some(_) => return None,
-            }
+            scalar_bool(state, "Running")?.unwrap_or(false)
         }
     };
     Some((domain, running))
@@ -571,6 +592,96 @@ mod tests {
         assert!(published_state(input.as_bytes(), "100.64.0.1")
             .unwrap_err()
             .starts_with("forgejo Git SSH is not bound to Tailnet IP"));
+    }
+
+    #[test]
+    fn sequential_alias_null_semantics() {
+        // Like Go's struct decoding: aliases bind in order, null retains the
+        // prior value, and any mistyped occurrence fails the whole decode.
+        let entry = |binding: &str| {
+            PUBLISHED.replacen(r#"{"HostIp":"100.64.0.1","HostPort":"2222"}"#, binding, 1)
+        };
+        // Frozen 19-002 case: a LAN IP followed by a null alias retains the
+        // LAN IP, so the Tailnet listener check refuses.
+        let err = published_state(
+            entry(r#"{"HostIp":"192.168.1.10","hostip":null,"HostPort":"2222"}"#).as_bytes(),
+            "100.64.0.1",
+        )
+        .unwrap_err();
+        assert!(
+            err.starts_with("forgejo Git SSH is not bound to Tailnet IP"),
+            "fail-open admission: {err}"
+        );
+        // Null before the valid value is a no-op; the later value binds.
+        assert_eq!(
+            published_state(
+                entry(r#"{"hostip":null,"HostIp":"100.64.0.1","HostPort":"2222"}"#).as_bytes(),
+                "100.64.0.1",
+            )
+            .unwrap(),
+            ("old".to_string(), true)
+        );
+        // A null port alias retains 2222; admission proceeds.
+        assert_eq!(
+            published_state(
+                entry(r#"{"HostIp":"100.64.0.1","HostPort":"2222","hostport":null}"#).as_bytes(),
+                "100.64.0.1",
+            )
+            .unwrap(),
+            ("old".to_string(), true)
+        );
+        // Null with no prior value stays absent, like Go's zero field.
+        assert_eq!(
+            published_state(
+                entry(r#"{"HostIp":null,"HostPort":"2222"}"#).as_bytes(),
+                "100.64.0.1",
+            )
+            .unwrap(),
+            ("old".to_string(), true)
+        );
+        // A mistyped occurrence fails even beside a valid alias value.
+        // (Exact duplicates collapse in decode_tolerant before this layer,
+        // so the earlier-mistype rule pins the observable alias forms.)
+        for binding in [
+            r#"{"hostip":5,"HostIp":"100.64.0.1","HostPort":"2222"}"#,
+            r#"{"hostip":[],"HostIp":"100.64.0.1","HostPort":"2222"}"#,
+            r#"{"HostIp":"100.64.0.1","hostip":7,"HostPort":"2222"}"#,
+            r#"{"HostIp":"100.64.0.1","HostPort":"2222","hostport":{}}"#,
+        ] {
+            assert_eq!(
+                published_state(entry(binding).as_bytes(), "100.64.0.1").unwrap_err(),
+                "cannot read native Forgejo network state",
+                "binding {binding:?}"
+            );
+        }
+        // Running follows the same sequential rule.
+        let running = |state: &str| PUBLISHED.replacen(r#""Running":true"#, state, 1);
+        assert_eq!(
+            published_state(
+                running(r#""Running":true,"running":null"#).as_bytes(),
+                "100.64.0.1"
+            )
+            .unwrap(),
+            ("old".to_string(), true)
+        );
+        assert_eq!(
+            published_state(
+                running(r#""running":null,"Running":false"#).as_bytes(),
+                "100.64.0.1"
+            )
+            .unwrap(),
+            ("old".to_string(), false)
+        );
+        for state in [
+            r#""running":5,"Running":true"#,
+            r#""Running":true,"running":"yes""#,
+        ] {
+            assert_eq!(
+                published_state(running(state).as_bytes(), "100.64.0.1").unwrap_err(),
+                "cannot read native Forgejo network state",
+                "state {state:?}"
+            );
+        }
     }
 
     #[test]
