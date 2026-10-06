@@ -1,5 +1,5 @@
 use super::env::go_strerror;
-use super::json_string;
+use super::home_cfg::json_string;
 use super::MUSE_NATIVE;
 use std::ffi::{CStr, CString};
 use std::fs;

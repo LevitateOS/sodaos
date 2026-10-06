@@ -1,5 +1,5 @@
 use super::env::{go_join, go_strerror};
-use super::json_string;
+use super::home_cfg::json_string;
 use super::ShellRequest;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
