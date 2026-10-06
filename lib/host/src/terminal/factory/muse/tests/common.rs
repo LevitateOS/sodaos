@@ -1,6 +1,6 @@
+use super::super::paths::factory_muse_run_paths;
 use crate::project::Executor;
-use crate::terminal::factory::tcodex::{self, FactoryRun};
-use crate::terminal::factory::tmuse::*;
+use crate::terminal::factory::run::{FactoryRun, FACTORY_HARNESS_MUSE, FACTORY_SCOPE_MUSE};
 use crate::terminal::{self, Binding, Lease, Service, KIND_FACTORY};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -118,7 +118,7 @@ pub(super) fn muse_run() -> FactoryRun {
         project: PID.to_string(),
         role: ROLE.to_string(),
         preparation: PREP.to_string(),
-        harness: tcodex::FACTORY_HARNESS_MUSE.to_string(),
+        harness: FACTORY_HARNESS_MUSE.to_string(),
         harness_vers: "1.4.2".to_string(),
         model: "muse-spark-1.3".to_string(),
         assignment: PIN.to_string(),
@@ -148,7 +148,7 @@ pub(super) fn muse_lease() -> Lease {
             login: ROLE.to_string(),
             uid: 1001,
             gid: 1001,
-            scope: tcodex::FACTORY_SCOPE_MUSE.to_string(),
+            scope: FACTORY_SCOPE_MUSE.to_string(),
             invocation_id: IID.to_string(),
             credential_root: muse_run_dir(),
             generation: 5,

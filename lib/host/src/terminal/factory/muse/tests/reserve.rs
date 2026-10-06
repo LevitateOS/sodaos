@@ -1,9 +1,10 @@
+use super::super::commands::muse_exec_argv;
 use super::common::{
     deadline, err, euid, inspect_json, make_service, muse_run, ok, reserve_harness, test_tmp,
     FakeExec, CID, COMMIT, IID, PIN, PREP, RID, ROLE,
 };
-use crate::terminal::factory::tcodex::{self, FactoryRun};
-use crate::terminal::factory::tmuse::*;
+use crate::terminal::factory::native::{factory_unit_name, factory_user_bus, reserve_run_argv};
+use crate::terminal::factory::run::{FactoryRun, FACTORY_HARNESS_CODEX, FACTORY_SCOPE_MUSE};
 use crate::terminal::ERR_DENIED;
 use crate::terminal::{Lease, Service, KIND_FACTORY};
 
@@ -72,7 +73,7 @@ fn reserve_denial_pins() {
     );
     // Wrong family takes the codex path, never muse.
     let codex = FactoryRun {
-        harness: tcodex::FACTORY_HARNESS_CODEX.to_string(),
+        harness: FACTORY_HARNESS_CODEX.to_string(),
         harness_vers: "0.153.4".to_string(),
         ..muse_run()
     };
@@ -105,7 +106,7 @@ fn reserve_denial_pins() {
 fn reserve_success_argv_sequence() {
     let (_dir, harness) = reserve_harness();
     let guest = "/usr/local/bin/muse-factory-1.4.2";
-    let unit = tcodex::factory_unit_name(RID).unwrap();
+    let unit = factory_unit_name(RID).unwrap();
     let exec = FakeExec::new(vec![
         ok(&inspect_json()),                                      // project container
         ok("1001\n"),                                             // id -u
@@ -132,7 +133,7 @@ fn reserve_success_argv_sequence() {
     assert_eq!(binding.project, CID);
     assert_eq!(binding.login, ROLE);
     assert_eq!((binding.uid, binding.gid), (1001, 1002));
-    assert_eq!(binding.scope, tcodex::FACTORY_SCOPE_MUSE);
+    assert_eq!(binding.scope, FACTORY_SCOPE_MUSE);
     assert_eq!(binding.invocation_id, IID);
     assert_eq!(binding.credential_root, p.run_dir);
     assert_eq!(binding.generation, 5);
@@ -140,14 +141,14 @@ fn reserve_success_argv_sequence() {
     let calls = svc.exec.calls();
     assert_eq!(calls.len(), 8);
     // systemd-run argv is byte-exact: header + podman payload.
-    let bus = tcodex::factory_user_bus(euid());
+    let bus = factory_user_bus(euid());
     let mut want_run = vec![
         "/usr/bin/env".to_string(),
         bus,
         "/usr/bin/systemd-run".to_string(),
         "--user".to_string(),
     ];
-    want_run.extend(tcodex::reserve_run_argv(&unit, 600));
+    want_run.extend(reserve_run_argv(&unit, 600));
     want_run.extend(muse_exec_argv(CID, &run, &p, guest));
     let got_run: Vec<String> = std::iter::once(calls[6].1.clone())
         .chain(calls[6].2.clone())
@@ -193,7 +194,7 @@ fn reserve_stage_missing_guest() {
     let (binding, _) = svc
         .factory_muse_reserve(&run, &lease, PIN, 600, deadline())
         .unwrap();
-    assert_eq!(binding.scope, tcodex::FACTORY_SCOPE_MUSE);
+    assert_eq!(binding.scope, FACTORY_SCOPE_MUSE);
     let calls = svc.exec.calls();
     assert_eq!(calls.len(), 10);
     assert_eq!(calls[6].2[1], "cp");

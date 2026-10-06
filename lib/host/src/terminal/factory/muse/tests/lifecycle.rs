@@ -1,5 +1,5 @@
 use super::common::{deadline, inspect_json, make_service, muse_lease, ok, FakeExec, IID, PID};
-use crate::terminal::factory::tcodex;
+use crate::terminal::factory::run::FACTORY_SCOPE_CODEX;
 use crate::terminal::{self, ERR_DENIED};
 
 #[test]
@@ -31,7 +31,7 @@ fn wait_output_live() {
     ))]));
     assert!(svc.factory_muse_live(&binding, deadline()));
     let mut dead = binding.clone();
-    dead.scope = tcodex::FACTORY_SCOPE_CODEX.to_string();
+    dead.scope = FACTORY_SCOPE_CODEX.to_string();
     let svc = make_service(FakeExec::new(vec![]));
     assert!(!svc.factory_muse_live(&dead, deadline()));
 }

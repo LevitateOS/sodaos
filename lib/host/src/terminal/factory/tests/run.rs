@@ -2,7 +2,11 @@ use super::super::codex::tests::{
     deadline, err, euid, factory_lease, factory_run, host_digest, inspect_json, make_service, ok,
     reserve_harness, FakeExec, CID, COMMIT, IID, PID, PIN, PREP, RID, ROLE,
 };
-use super::super::tcodex::*;
+use super::super::lifecycle::factory_retire;
+use super::super::native::{factory_unit_name, factory_user_bus, reserve_run_argv, shell_quote};
+use super::super::output::{MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW};
+use super::super::run::{FactoryRun, FACTORY_SCOPE_CODEX, MAX_FACTORY_PROMPT};
+use super::super::tcodex::{factory_codex_binding, reserve_exec_argv, start_gate_script};
 
 use crate::terminal::{self, Delivery, Lease, KIND_FACTORY};
 use crate::terminal::{ERR_DENIED, ERR_STALE, ERR_UNCERTAIN};

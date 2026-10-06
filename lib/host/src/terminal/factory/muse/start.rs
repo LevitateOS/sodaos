@@ -1,7 +1,7 @@
 use super::commands::muse_start_gate_script;
 use super::paths::factory_muse_binding;
 use crate::project::Executor;
-use crate::terminal::factory::tcodex::MAX_FACTORY_PROMPT;
+use crate::terminal::factory::run::MAX_FACTORY_PROMPT;
 use crate::terminal::{self, Lease, Service};
 use std::time::Instant;
 

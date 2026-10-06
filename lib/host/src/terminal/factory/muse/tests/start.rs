@@ -1,6 +1,7 @@
+use super::super::commands::muse_start_gate_script;
+use super::super::paths::factory_muse_binding;
 use super::common::{deadline, inspect_json, make_service, muse_lease, ok, FakeExec, CID};
-use crate::terminal::factory::tcodex;
-use crate::terminal::factory::tmuse::*;
+use crate::terminal::factory::native::shell_quote;
 use crate::terminal::{Lease, ERR_DENIED};
 
 #[test]
@@ -60,22 +61,22 @@ fn start_flows() {
     assert_eq!(calls[3].0, b"do work");
     assert!(calls[4].0.is_empty());
     assert!(
-        calls[1].2[6].contains(&tcodex::shell_quote(&p.credential)),
+        calls[1].2[6].contains(&shell_quote(&p.credential)),
         "{}",
         calls[1].2[6]
     );
     assert!(
-        calls[2].2[6].contains(&tcodex::shell_quote(&p.auth)),
+        calls[2].2[6].contains(&shell_quote(&p.auth)),
         "{}",
         calls[2].2[6]
     );
     assert!(
-        calls[3].2[6].contains(&tcodex::shell_quote(&p.prompt)),
+        calls[3].2[6].contains(&shell_quote(&p.prompt)),
         "{}",
         calls[3].2[6]
     );
     assert!(
-        calls[4].2[6].contains(&tcodex::shell_quote(&p.marker)),
+        calls[4].2[6].contains(&shell_quote(&p.marker)),
         "{}",
         calls[4].2[6]
     );

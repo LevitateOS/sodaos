@@ -1,4 +1,4 @@
-use super::tcodex::{self, shell_quote, sleep_until};
+use super::native::{factory_unit_name, factory_unit_name_or_denied, shell_quote, sleep_until};
 use crate::project::Executor;
 use crate::terminal::{self, Binding, Service, KIND_FACTORY};
 use std::time::{Duration, Instant};
@@ -121,13 +121,13 @@ impl<E: Executor> Service<E> {
         output: &str,
         deadline: Instant,
     ) -> Result<(i32, String), String> {
-        let unit = tcodex::factory_unit_name_or_denied(execution_id)?;
+        let unit = factory_unit_name_or_denied(execution_id)?;
         loop {
             let show = self.factory_unit_state(&unit, deadline)?;
             if !show.active {
                 break;
             }
-            if tcodex::sleep_until(Instant::now() + Duration::from_millis(500), deadline).is_err() {
+            if sleep_until(Instant::now() + Duration::from_millis(500), deadline).is_err() {
                 return Err("context deadline exceeded".to_string());
             }
         }
@@ -179,7 +179,7 @@ impl<E: Executor> Service<E> {
         if uid != binding.uid || gid != binding.gid {
             return Err(terminal::err_denied());
         }
-        let unit = tcodex::factory_unit_name_or_denied(execution_id)?;
+        let unit = factory_unit_name_or_denied(execution_id)?;
         let show = self
             .factory_unit_state(&unit, deadline)
             .map_err(|_| terminal::err_denied())?;
@@ -199,7 +199,7 @@ impl<E: Executor> Service<E> {
         run_dir: &str,
         deadline: Instant,
     ) -> Result<(), String> {
-        let unit = tcodex::factory_unit_name_or_denied(execution_id)?;
+        let unit = factory_unit_name_or_denied(execution_id)?;
         let before = self.factory_read_pid(container, pid_file, deadline);
         let _ = self.factory_systemctl(&["stop", &unit], deadline);
         self.factory_await_inactive(&unit, deadline)?;
@@ -229,7 +229,7 @@ impl<E: Executor> Service<E> {
         run_dir: &str,
         deadline: Instant,
     ) -> Result<(), String> {
-        let unit = tcodex::factory_unit_name_or_denied(execution_id)?;
+        let unit = factory_unit_name_or_denied(execution_id)?;
         let _ = self.factory_systemctl(&["stop", &unit], deadline);
         self.factory_await_inactive(&unit, deadline)?;
         let container = match self.factory_project_container(project, false, deadline) {
@@ -291,7 +291,7 @@ impl<E: Executor> Service<E> {
         {
             return false;
         }
-        let Some(unit) = tcodex::factory_unit_name(&binding.id) else {
+        let Some(unit) = factory_unit_name(&binding.id) else {
             return false;
         };
         match self.factory_unit_state(&unit, deadline) {

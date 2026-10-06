@@ -1,6 +1,6 @@
-use crate::terminal::factory::tcodex::{
-    self, valid_factory_role, valid_factory_run_id, valid_harness_version, valid_preparation_id,
-    FactoryRun,
+use crate::terminal::factory::run::{
+    valid_factory_role, valid_factory_run_id, valid_harness_version, valid_preparation_id,
+    FactoryRun, FACTORY_HARNESS_MUSE, FACTORY_SCOPE_MUSE,
 };
 use crate::terminal::{self, Lease};
 
@@ -46,7 +46,7 @@ pub fn factory_muse_run_paths(
 /// fixed paths. The guest pins the run's harness version.
 pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> {
     run.validate()?;
-    if run.harness != tcodex::FACTORY_HARNESS_MUSE {
+    if run.harness != FACTORY_HARNESS_MUSE {
         return Err(terminal::err_denied());
     }
     let (checkout, run_dir, home, muse_config) =
@@ -86,10 +86,10 @@ pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
         return Err(terminal::err_denied());
     }
     let (checkout, run_dir, home, muse_config) =
-        crate::terminal::factory::tfactory::checked_binding_paths(
+        crate::terminal::factory::binding::checked_binding_paths(
             lease,
             terminal::PROVIDER_MUSE,
-            tcodex::FACTORY_SCOPE_MUSE,
+            FACTORY_SCOPE_MUSE,
             factory_muse_run_paths,
         )?;
     Ok(FactoryMusePaths {

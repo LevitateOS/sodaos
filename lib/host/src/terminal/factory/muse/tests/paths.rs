@@ -1,6 +1,6 @@
+use super::super::paths::{factory_muse_binding, factory_muse_guest, factory_muse_paths};
 use super::common::{muse_lease, muse_run, muse_run_dir, PREP, RID, ROLE};
-use crate::terminal::factory::tcodex::{self, FactoryRun};
-use crate::terminal::factory::tmuse::*;
+use crate::terminal::factory::run::{FactoryRun, FACTORY_HARNESS_CODEX, FACTORY_SCOPE_CODEX};
 use crate::terminal::{Binding, ERR_DENIED};
 
 #[test]
@@ -24,7 +24,7 @@ fn paths_and_guest() {
     assert!(factory_muse_guest("bad vers!").is_none());
     // The codex family never takes muse paths.
     let codex = FactoryRun {
-        harness: tcodex::FACTORY_HARNESS_CODEX.to_string(),
+        harness: FACTORY_HARNESS_CODEX.to_string(),
         harness_vers: "0.153.4".to_string(),
         ..muse_run()
     };
@@ -37,7 +37,7 @@ fn binding_gates() {
     let p = factory_muse_binding(&lease).unwrap();
     assert_eq!(p.run_dir, muse_run_dir());
     for mutate in [
-        Box::new(|b: &mut Binding| b.scope = tcodex::FACTORY_SCOPE_CODEX.to_string())
+        Box::new(|b: &mut Binding| b.scope = FACTORY_SCOPE_CODEX.to_string())
             as Box<dyn Fn(&mut Binding)>,
         Box::new(|b: &mut Binding| b.kind = "terminal".to_string()),
         Box::new(|b: &mut Binding| b.id = "short".to_string()),

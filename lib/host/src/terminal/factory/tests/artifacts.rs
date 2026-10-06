@@ -1,7 +1,10 @@
+use super::super::artifacts::{
+    export_argv, takeover_destination, takeover_steps, ERR_FACTORY_EXPORT_BOUNDS,
+    ERR_FACTORY_EXPORT_CANDIDATE, MAX_FACTORY_EXPORT_BUNDLE,
+};
 use super::super::codex::tests::{
     deadline, err, inspect_json, make_service, ok, FakeExec, CID, COMMIT, PID, PREP, RID, ROLE,
 };
-use super::super::tcodex::*;
 
 use crate::terminal::{self, ERR_DENIED, ERR_STALE};
 

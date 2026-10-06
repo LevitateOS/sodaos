@@ -2,7 +2,10 @@ use super::commands::{muse_exec_argv, muse_setup_script};
 use super::paths::{factory_muse_guest, factory_muse_paths, FactoryMusePaths};
 use crate::project::Executor;
 use crate::sha256;
-use crate::terminal::factory::tcodex::{self, FactoryRun};
+use crate::terminal::factory::native::{
+    factory_unit_name_or_denied, harness_install_script, reserve_run_argv,
+};
+use crate::terminal::factory::run::{FactoryRun, FACTORY_SCOPE_MUSE};
 use crate::terminal::{self, Lease, Service, KIND_FACTORY};
 use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
@@ -58,8 +61,8 @@ impl<E: Executor> Service<E> {
         let (uid, gid) = self.factory_role_ids(&container, &run.role, deadline)?;
         self.factory_muse_setup(&container, run, &p, uid, gid, deadline)?;
         let guest = self.factory_muse_stage(&container, &run.harness_vers, deadline)?;
-        let unit = tcodex::factory_unit_name_or_denied(&run.id)?;
-        let mut args = tcodex::reserve_run_argv(&unit, max_secs);
+        let unit = factory_unit_name_or_denied(&run.id)?;
+        let mut args = reserve_run_argv(&unit, max_secs);
         args.extend(muse_exec_argv(&container, run, &p, &guest));
         if self.factory_systemd_run(&args, deadline).is_err() {
             return Err("factory unit start unconfirmed".to_string());
@@ -73,7 +76,7 @@ impl<E: Executor> Service<E> {
                     login: run.role.clone(),
                     uid,
                     gid,
-                    scope: tcodex::FACTORY_SCOPE_MUSE.to_string(),
+                    scope: FACTORY_SCOPE_MUSE.to_string(),
                     invocation_id: invocation,
                     credential_root: p.run_dir.clone(),
                     generation: lease.generation,
@@ -164,7 +167,7 @@ impl<E: Executor> Service<E> {
                     container.to_string(),
                     "/usr/bin/sh".to_string(),
                     "-c".to_string(),
-                    tcodex::harness_install_script(&guest),
+                    harness_install_script(&guest),
                 ];
                 match self.run_podman(&[], &install, deadline) {
                     Ok(out) => {

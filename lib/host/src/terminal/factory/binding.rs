@@ -1,5 +1,4 @@
-use super::run::FACTORY_SCOPE_MUSE;
-use super::tcodex;
+use super::run::{valid_preparation_id, FACTORY_SCOPE_MUSE};
 use crate::domain;
 use crate::project::Executor;
 use crate::terminal::{self, Delivery, Lease, Service, KIND_FACTORY};
@@ -34,8 +33,7 @@ pub fn checked_binding_paths(
     if !domain::valid_container_id(&b.project) {
         return Err(terminal::err_denied());
     }
-    if !terminal::valid_terminal_id(&b.invocation_id) || !tcodex::valid_preparation_id(&b.child_id)
-    {
+    if !terminal::valid_terminal_id(&b.invocation_id) || !valid_preparation_id(&b.child_id) {
         return Err(terminal::err_denied());
     }
     // Harness fields are not in the binding; paths need only role/prep/run.

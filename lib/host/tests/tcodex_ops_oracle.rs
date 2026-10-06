@@ -44,7 +44,12 @@
 //!   propagates `factory role is not resolvable` / `invalid role identity`.
 
 use soda_host::project::Executor;
-use soda_host::terminal::factory::tcodex::{self, FactoryUnitShow};
+use soda_host::terminal::factory::lifecycle::factory_retire;
+use soda_host::terminal::factory::native::{
+    factory_unit_name, parse_factory_unit_show, FactoryUnitShow,
+};
+use soda_host::terminal::factory::run::FACTORY_SCOPE_CODEX;
+use soda_host::terminal::factory::tcodex::{factory_codex_binding, factory_run_paths};
 use soda_host::terminal::{
     self, Binding, Delivery, Lease, Service, ERR_DENIED, ERR_UNCERTAIN, KIND_FACTORY,
     PROVIDER_CODEX, TERMINAL_INSPECT,
@@ -98,7 +103,7 @@ fn factory_lease() -> Lease {
             login: ROLE.to_string(),
             uid: 1001,
             gid: 1001,
-            scope: tcodex::FACTORY_SCOPE_CODEX.to_string(),
+            scope: FACTORY_SCOPE_CODEX.to_string(),
             invocation_id: IID.to_string(),
             credential_root: RUN_DIR.to_string(),
             generation: 5,
@@ -188,10 +193,10 @@ fn assert_podman(call: &RecordedCall, argv: &[&str]) {
 
 #[test]
 fn fixed_paths_match_go_layout() {
-    assert_eq!(tcodex::factory_unit_name(RID).as_deref(), Some(UNIT));
-    let (_, run_dir, _, _) = tcodex::factory_run_paths(ROLE, PREP, RID).unwrap();
+    assert_eq!(factory_unit_name(RID).as_deref(), Some(UNIT));
+    let (_, run_dir, _, _) = factory_run_paths(ROLE, PREP, RID).unwrap();
     assert_eq!(run_dir, RUN_DIR);
-    let p = tcodex::factory_codex_binding(&factory_lease()).unwrap();
+    let p = factory_codex_binding(&factory_lease()).unwrap();
     assert_eq!(p.pid_file, format!("{RUN_DIR}/supervisor.pid"));
     assert_eq!(
         p.auth,
@@ -352,7 +357,7 @@ fn validate_denies_each_gate() {
 #[test]
 fn stop_ok_argv_golden() {
     let lease = factory_lease();
-    let p = tcodex::factory_codex_binding(&lease).unwrap();
+    let p = factory_codex_binding(&lease).unwrap();
     let svc = make_service(FakeExec::new(vec![
         ok("4242 99999\n"),
         ok(""),
@@ -394,7 +399,7 @@ fn stop_ok_argv_golden() {
             CID,
             "/usr/bin/sh",
             "-c",
-            &tcodex::factory_retire(&p.run_dir),
+            &factory_retire(&p.run_dir),
         ]
     );
     assert_podman(&calls[5], &pid_argv);
@@ -557,49 +562,46 @@ fn finish_runs_capture_only_after_confirmed_stop() {
 fn unit_show_parse_oracle() {
     // Exact ActiveState match; InvocationID trimmed.
     assert_eq!(
-        tcodex::parse_factory_unit_show(b"ActiveState=active\nInvocationID=abc\n"),
+        parse_factory_unit_show(b"ActiveState=active\nInvocationID=abc\n"),
         FactoryUnitShow {
             active: true,
             invocation: "abc".to_string(),
         }
     );
     assert_eq!(
-        tcodex::parse_factory_unit_show(b"ActiveState=inactive\nInvocationID=\n"),
+        parse_factory_unit_show(b"ActiveState=inactive\nInvocationID=\n"),
         FactoryUnitShow::default()
     );
     // Last occurrence wins for both keys (Go loops without break).
-    assert!(tcodex::parse_factory_unit_show(b"ActiveState=inactive\nActiveState=active\n").active);
-    assert!(!tcodex::parse_factory_unit_show(b"ActiveState=active\nActiveState=inactive\n").active);
+    assert!(parse_factory_unit_show(b"ActiveState=inactive\nActiveState=active\n").active);
+    assert!(!parse_factory_unit_show(b"ActiveState=active\nActiveState=inactive\n").active);
     assert_eq!(
-        tcodex::parse_factory_unit_show(b"InvocationID=one\nInvocationID=two\n").invocation,
+        parse_factory_unit_show(b"InvocationID=one\nInvocationID=two\n").invocation,
         "two"
     );
     assert_eq!(
-        tcodex::parse_factory_unit_show(b"InvocationID=  spaced  \n").invocation,
+        parse_factory_unit_show(b"InvocationID=  spaced  \n").invocation,
         "spaced"
     );
     // Whole-body trim only: surrounding blank lines are fine.
     assert_eq!(
-        tcodex::parse_factory_unit_show(b"\nActiveState=active\nInvocationID=x\n\n"),
+        parse_factory_unit_show(b"\nActiveState=active\nInvocationID=x\n\n"),
         FactoryUnitShow {
             active: true,
             invocation: "x".to_string(),
         }
     );
     // Anything but exactly "active" is inactive.
-    assert!(!tcodex::parse_factory_unit_show(b"ActiveState=activating\n").active);
-    assert!(!tcodex::parse_factory_unit_show(b"ActiveState=\n").active);
+    assert!(!parse_factory_unit_show(b"ActiveState=activating\n").active);
+    assert!(!parse_factory_unit_show(b"ActiveState=\n").active);
     // Empty, blank, and garbage bodies parse to the zero value.
+    assert_eq!(parse_factory_unit_show(b""), FactoryUnitShow::default());
     assert_eq!(
-        tcodex::parse_factory_unit_show(b""),
+        parse_factory_unit_show(b"  \n\t\n"),
         FactoryUnitShow::default()
     );
     assert_eq!(
-        tcodex::parse_factory_unit_show(b"  \n\t\n"),
-        FactoryUnitShow::default()
-    );
-    assert_eq!(
-        tcodex::parse_factory_unit_show(b"MainPID=123\nLoadState=loaded\n"),
+        parse_factory_unit_show(b"MainPID=123\nLoadState=loaded\n"),
         FactoryUnitShow::default()
     );
 }

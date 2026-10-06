@@ -1,6 +1,7 @@
 use super::paths::{factory_muse_binding, factory_muse_paths, factory_muse_run_paths};
 use crate::project::Executor;
-use crate::terminal::factory::tcodex::{self, FactoryRun};
+use crate::terminal::factory::output::{check_output_range, FactoryOutputSlice};
+use crate::terminal::factory::run::{FactoryRun, FACTORY_SCOPE_MUSE};
 use crate::terminal::{self, Binding, Lease, Service};
 use std::time::Instant;
 
@@ -83,7 +84,7 @@ impl<E: Executor> Service<E> {
 
     /// `Service.FactoryCodexLive` shape for Muse runs.
     pub fn factory_muse_live(&self, binding: &Binding, deadline: Instant) -> bool {
-        self.factory_live_scoped(binding, tcodex::FACTORY_SCOPE_MUSE, deadline)
+        self.factory_live_scoped(binding, FACTORY_SCOPE_MUSE, deadline)
     }
 
     /// `Service.FactoryCodexOutput` shape for Muse runs.
@@ -94,12 +95,12 @@ impl<E: Executor> Service<E> {
         offset: i64,
         limit: i64,
         deadline: Instant,
-    ) -> Result<crate::terminal::factory::tfactory::FactoryOutputSlice, String> {
-        crate::terminal::factory::tfactory::check_output_range(offset, limit)?;
+    ) -> Result<FactoryOutputSlice, String> {
+        check_output_range(offset, limit)?;
         let stdout = self.factory_output_stdout(
             project_id,
             binding,
-            tcodex::FACTORY_SCOPE_MUSE,
+            FACTORY_SCOPE_MUSE,
             factory_muse_run_paths,
             deadline,
         )?;

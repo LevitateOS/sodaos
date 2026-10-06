@@ -1,5 +1,6 @@
+use super::super::commands::{factory_muse_supervisor, muse_setup_script, muse_start_gate_script};
+use super::super::paths::factory_muse_paths;
 use super::common::muse_run;
-use crate::terminal::factory::tmuse::*;
 
 #[test]
 fn supervisor_shape() {

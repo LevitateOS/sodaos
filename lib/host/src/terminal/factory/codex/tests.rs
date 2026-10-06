@@ -1,4 +1,18 @@
-use super::super::tcodex::*;
+use super::super::artifacts::{takeover_destination, takeover_source, FACTORY_EXPORT_SCRIPT};
+use super::super::lifecycle::factory_retire;
+use super::super::native::{
+    factory_role_id, factory_unit_name, parse_factory_unit_show, shell_quote, systemd_escape,
+    FactoryUnitShow,
+};
+use super::super::output::factory_output_size;
+use super::super::run::{
+    valid_commit, valid_digest, valid_factory_role, valid_factory_run_id, valid_harness_version,
+    valid_preparation_id, FactoryRun, FACTORY_HARNESS_CODEX, FACTORY_SCOPE_CODEX,
+};
+use super::super::tcodex::{
+    factory_codex_binding, factory_codex_guest, factory_codex_paths, factory_run_paths,
+    factory_supervisor,
+};
 
 use crate::project::Executor;
 use crate::sha256;

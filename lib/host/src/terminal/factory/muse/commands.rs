@@ -1,5 +1,6 @@
 use super::paths::FactoryMusePaths;
-use crate::terminal::factory::tcodex::{self, FactoryRun};
+use crate::terminal::factory::native::{shell_quote, systemd_escape};
+use crate::terminal::factory::run::FactoryRun;
 
 /// `factorySupervisor` shape for Muse runs: marker-gated fixed
 /// `muse exec` entrypoint. Stdout carries exactly the final answer
@@ -12,20 +13,20 @@ use crate::terminal::factory::tcodex::{self, FactoryRun};
 pub fn factory_muse_supervisor(p: &FactoryMusePaths, guest: &str, model: &str) -> String {
     let mut command = format!(
         "{} exec --provider meta --reasoning-effort low --workspace {} --trust-workspace --no-session-log --disable-approval --disable-sandbox",
-        tcodex::shell_quote(guest),
-        tcodex::shell_quote(&p.checkout),
+        shell_quote(guest),
+        shell_quote(&p.checkout),
     );
     if !model.is_empty() {
-        command.push_str(&format!(" --model {}", tcodex::shell_quote(model)));
+        command.push_str(&format!(" --model {}", shell_quote(model)));
     }
     command.push_str(&format!(
         " --prompt-file {} >{} 2>>{}",
-        tcodex::shell_quote(&p.prompt),
-        tcodex::shell_quote(&p.output),
-        tcodex::shell_quote(&p.stdout),
+        shell_quote(&p.prompt),
+        shell_quote(&p.output),
+        shell_quote(&p.stdout),
     ));
     let steps = [
-        format!("RUNDIR={}", tcodex::shell_quote(&p.run_dir)),
+        format!("RUNDIR={}", shell_quote(&p.run_dir)),
         ": >\"$RUNDIR/stdout.log\"; : >\"$RUNDIR/last-message.txt\"".to_string(),
         "exec 2>>\"$RUNDIR/stdout.log\"".to_string(),
         "STAT=$(cat /proc/$$/stat); REST=${STAT##*)}; set -- $REST; echo \"$$ ${20}\" >\"$RUNDIR/supervisor.pid\"".to_string(),
@@ -33,7 +34,7 @@ pub fn factory_muse_supervisor(p: &FactoryMusePaths, guest: &str, model: &str) -
         "i=0; while [ ! -f \"$RUNDIR/marker\" ]; do [ -f \"$RUNDIR/stop\" ] && fail 44; i=$((i+1)); [ \"$i\" -gt 600 ] && fail 42; sleep 1; done".to_string(),
         "mv \"$RUNDIR/marker\" \"$RUNDIR/started\" || fail 43".to_string(),
         "unset META_API_KEY".to_string(),
-        format!("[ -s {} ] || fail 45", tcodex::shell_quote(&p.auth)),
+        format!("[ -s {} ] || fail 45", shell_quote(&p.auth)),
         command,
         "CODE=$?; echo \"$CODE\" >\"$RUNDIR/exit\"; exit \"$CODE\"".to_string(),
     ];
@@ -44,14 +45,14 @@ pub fn factory_muse_supervisor(p: &FactoryMusePaths, guest: &str, model: &str) -
 pub fn muse_setup_script(p: &FactoryMusePaths, uid: i64, gid: i64) -> String {
     format!(
         "set -u\nmkdir -p -m 700 {} {}\nchown {uid}:{gid} {} {} {}\nchmod 700 {} {} {}\n",
-        tcodex::shell_quote(&p.home),
-        tcodex::shell_quote(&p.muse_config),
-        tcodex::shell_quote(&p.run_dir),
-        tcodex::shell_quote(&p.home),
-        tcodex::shell_quote(&p.muse_config),
-        tcodex::shell_quote(&p.run_dir),
-        tcodex::shell_quote(&p.home),
-        tcodex::shell_quote(&p.muse_config),
+        shell_quote(&p.home),
+        shell_quote(&p.muse_config),
+        shell_quote(&p.run_dir),
+        shell_quote(&p.home),
+        shell_quote(&p.muse_config),
+        shell_quote(&p.run_dir),
+        shell_quote(&p.home),
+        shell_quote(&p.muse_config),
     )
 }
 
@@ -60,10 +61,10 @@ pub fn muse_setup_script(p: &FactoryMusePaths, uid: i64, gid: i64) -> String {
 pub fn muse_start_gate_script(p: &FactoryMusePaths) -> String {
     format!(
         "test -s {} && test -s {} && {{ test -f {} || test -f {}; }}\n",
-        tcodex::shell_quote(&p.auth),
-        tcodex::shell_quote(&p.prompt),
-        tcodex::shell_quote(&p.marker),
-        tcodex::shell_quote(&p.started),
+        shell_quote(&p.auth),
+        shell_quote(&p.prompt),
+        shell_quote(&p.marker),
+        shell_quote(&p.started),
     )
 }
 
@@ -107,6 +108,6 @@ pub fn muse_exec_argv(
         "--wait".to_string(),
         "/usr/bin/sh".to_string(),
         "-c".to_string(),
-        tcodex::systemd_escape(&factory_muse_supervisor(p, guest, &run.model)),
+        systemd_escape(&factory_muse_supervisor(p, guest, &run.model)),
     ]
 }
