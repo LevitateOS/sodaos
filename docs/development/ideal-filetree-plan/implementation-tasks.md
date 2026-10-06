@@ -261,11 +261,12 @@ Lead C; [D06](reviews/D06.md), [H06](reviews/H06.md). Local driver/gate correcti
 
 These are the active-priority planning entries. Scope, callers, retained policy,
 prerequisites and acceptance live in [the chapter](library-adoption.md#execution-packets);
-the lane schedule supplies one physical writer and integration order. All remain
-unchecked. Each library conversion carries its affected build/offline qualification.
+the lane schedule supplies one physical writer and integration order. Checked entries
+are complete only at their stated scope. Each library conversion carries its
+affected build/offline qualification.
 
 - [ ] **L00** Coordinator: per-adoption dependency admission and early PG/transport boundary proofs. [Defined boundary](library-adoption.md#l00-admission-and-boundary-preparation).
-- [ ] **L01** C: repair acceptance deadlines and evidence completion/confidentiality. Phase::child and its bounded-parent/unbounded-parent regressions are committed in `9fda53fe`; QMP/CoreOS/VM/redaction/buffer completion remains open. [Defined boundary](library-adoption.md#l01-deadline-and-evidence-repair).
+- [x] **L01** C: repair acceptance deadlines and evidence completion/confidentiality. Phase fix `9fda53fe` preserved; CoreOS finalization `3873614f`, evidence/pump bounds and failure propagation `d80aec93`, QMP/VM ownership `4c87f5e9`. All 126 acceptance library tests and three binary compile checks pass. Local shell/socket evidence only; N13 library parser adoption remains in L11 and L16 matching stays separate. [Defined boundary](library-adoption.md#l01-deadline-and-evidence-repair).
 - [ ] **L02** C: on-curve trust-key admission and strict signature DER. [Defined boundary](library-adoption.md#l02-trust-key-and-signature-repair).
 - [ ] **L03** A: fail-closed entropy, mature hashes and curve validation. [Defined boundary](library-adoption.md#l03-hash-curve-and-randomness-owners).
 - [ ] **L04** C: explicit JSON/Base64 profiles and complete engine retirement. [Defined boundary](library-adoption.md#l04-json-and-base64-profiles).

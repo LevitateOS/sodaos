@@ -85,9 +85,12 @@ finalization. N14 keeps Phase/QMP as small std-backed policy; use a finite child
 deadline with an unbounded parent and one absolute exchange deadline including
 connect, buffered events, partial reads/writes and cancellation. RED01 first
 repairs writer completion: join pumps, propagate errors, close both writers,
-then inspect safe buffers. N13 removes slashless sensitive URL components with
-url 2.5.8 plus conservative malformed/binary handling. C is the sole physical
-writer for the shared evidence file.
+then inspect safe buffers. N13's immediate repair removes slashless sensitive
+URL components and conservatively omits ambiguous malformed/binary spans. Its
+planned url 2.5.8 parser replacement remains in L11's C-owned acceptance handoff.
+C is the sole physical writer for the shared evidence file. The
+[evidence guide](../native-support.md#evidence-records) owns resource limits and
+capture completion policy.
 
 Acceptance: parent/child deadline and cancellation direction; stalled/trickling
 QMP, buffered event storm and bounded VM cleanup; newline-free metadata;
@@ -95,12 +98,15 @@ sticky pump/close errors; split/malformed/non-UTF8 URLs; bounded expanded output
 and pending/tee buffers; no successful publication after incomplete evidence.
 This does not depend on L16 automaton adoption or a new QMP runtime.
 
-Execution reset: `9fda53fe` completes Phase::child with a failing-before/passing-after
-regression and three passing child-phase checks. This closes that repair only.
-QMP/redaction drafts are parked, uncommitted and unverified; CoreOS/VM capture
-finalization and evidence bounds remain open. Future work follows the
-[restart sequence and planned settings](implementation-lanes.md#restart-sequence-and-planned-settings).
-L16 remains a separate optional matcher change.
+Immediate repair complete: Phase::child remains at `9fda53fe`; CoreOS capture
+completion is `3873614f`, bounded redaction and capture failure propagation are
+`d80aec93`, and absolute QMP deadlines plus VM pump ownership are `4c87f5e9`.
+All 126 acceptance library tests pass, including local socket/shell regressions
+for the acceptance boundaries above; all three acceptance binaries compile with
+locked offline dependencies. Independent Luna medium review covered the changed
+secrecy, deadline and ownership paths. This is local source verification, without
+native QEMU or installed qualification. L11 parser adoption and L16's optional
+matcher change remain open; no dependency or manifest change was needed here.
 
 ### L02 Trust-key and signature repair
 
@@ -241,7 +247,8 @@ engine with its L01 completion repair; do not replace that lifecycle by analogy.
 ### L11 URL, IP and time adapters
 
 Scope: N7/N8/N9's complete caller tables, including host/guest/identity and C's
-installer/setup/acceptance tool handoffs. Reuse url 2.5.8 / percent-encoding
+installer/setup/acceptance tool handoffs. C also owns the N13 evidence URL parser
+replacement after L01's completed confidentiality repair. Reuse url 2.5.8 / percent-encoding
 2.3.2, std IP and time 0.3.55. Keep raw lexical/admission guards, zones/prefixes,
 strict wire timestamps, signed text and shared Linux monotonic origin.
 Acceptance: admitted URL/loopback/IP forms, rejected controls/credentials/escapes,
@@ -386,7 +393,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [N10](../../research/library-reuse-investigation.md#n10) | CONSOLIDATE | L12 | C |
 | [N11](../../research/library-reuse-investigation.md#n11) | DELETE | L18 | C |
 | [N12](../../research/library-reuse-investigation.md#n12) | RETAIN | L11 retained | A |
-| [N13](../../research/library-reuse-investigation.md#n13) | REPLACE | L01 | C |
+| [N13](../../research/library-reuse-investigation.md#n13) | REPLACE | L01 repair complete; L11 parser adoption | C |
 | [N14](../../research/library-reuse-investigation.md#n14) | RETAIN | L01 | C |
 | [CF-01](../../research/library-reuse-investigation.md#cf-01) | REPLACE | L03 | A |
 | [CF-02](../../research/library-reuse-investigation.md#cf-02) | REPLACE | L03 | A |

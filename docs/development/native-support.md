@@ -430,6 +430,23 @@ For candidate-bound host evidence, the host check compares installed content and
 
 Each new private evidence root has bounded, streaming-redacted captures. Structured values are sanitized before JSON encoding; `observation.pending.json` is retained and linked exclusively to `observation.json` only after successful write/close/leak checks. A finalization failure leaves no new final record. The record includes: owner, requested source, actual tool VCS state, client platform, selected target/topology/invocation, separate execution/evidence outcomes, public artifact references, file hashes and cleanup status. Add `--secret-file` for each known private value; SSH/bootstrap paths are not credential contents. Private Ignition values are collected before serial capture. Evidence records show invocation, exit and cleanup context. Generic `exec` source/target fields remain caller-declared unless the invoked owner check verifies them. Redirect queries are omitted. Exact-secret scanning is defense in depth, not proof against unknown secrets; capture selected facts only.
 
+Each capture limits input, expanded retained output, each pending buffer and its
+tee buffer to 16 MiB. Structured evidence also has a 16 MiB encoded-output limit,
+checked before allocation of the compact and indented serializations. Known-secret
+metadata admits at most 16,384 distinct raw/escaped patterns within a 16 MiB
+budget, with conservative allowance for escaping before copying inputs. Exceeding
+these limits is an evidence failure; structured output is never silently truncated.
+
+QMP uses one finite phase across connection, capability negotiation, writes and
+response matching, including buffered events. Command and VM capture pumps retain
+the operation phase; pipes held past that phase produce an incomplete-capture
+error. Finalization joins owned pumps, closes every redacting writer and checks
+their errors before using captured bytes. CoreOS metadata needs no trailing
+newline. Command capture failures remain separate evidence errors even when
+native execution reports an expected denial. Capture failures prevent a completed
+observation outcome; failed operations can still publish a failure record when
+that record's own write, close and leak checks succeed.
+
 ```sh
 /path/to/soda-acceptance report --arch x86_64 --revision FULL_COMMIT_SHA \
   --record /absolute/private/host-run/observation.json \
