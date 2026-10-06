@@ -6,7 +6,7 @@
 //! Name rule for the dir-fd APIs ([`open_child_dir`], [`open_at`]): `name`
 //! must be a single final component — empty, `"."`, `".."`, names containing
 //! `'/'`, and names with NUL bytes are rejected with `InvalidInput`. Callers
-//! walk multi-component paths one component at a time (see `fs::root_chain`).
+//! walk multi-component paths one component at a time.
 
 use std::ffi::CString;
 use std::os::unix::io::{AsRawFd, FromRawFd};

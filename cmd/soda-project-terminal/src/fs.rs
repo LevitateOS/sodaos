@@ -34,25 +34,6 @@ fn cvt(rc: libc::c_int) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Open `/`, then walk each `/`-separated component of `top` (empty segments
-/// skipped, so leading/trailing/doubled slashes are fine) via
-/// `open_child_dir`. The caller applies uid/mode checks to the result.
-///
-/// Retained for future locator callers (covered by `root_chain_matrix`);
-/// current call sites need per-level checks, which live in
-/// `term::checked_chain` and the keys directory walk.
-#[allow(dead_code)]
-pub fn root_chain(top: &str) -> std::io::Result<std::fs::File> {
-    let mut dir = sys::open_root()?;
-    for comp in top.split('/') {
-        if comp.is_empty() {
-            continue;
-        }
-        dir = sys::open_child_dir(&dir, comp)?;
-    }
-    Ok(dir)
-}
-
 fn s_isreg(mode: u32) -> bool {
     mode & libc::S_IFMT == libc::S_IFREG
 }

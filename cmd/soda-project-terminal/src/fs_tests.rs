@@ -18,26 +18,6 @@ fn am_root() -> bool {
     unsafe { libc::getuid() == 0 }
 }
 
-fn s_isdir(mode: u32) -> bool {
-    mode & libc::S_IFMT == libc::S_IFDIR
-}
-
-#[test]
-fn root_chain_matrix() {
-    // "/" and "" both yield the root dir itself.
-    for top in ["/", "", "usr", "/usr", "usr/", "/usr/bin/", "usr//bin"] {
-        let dir = root_chain(top).unwrap_or_else(|e| panic!("root_chain({top:?}): {e}"));
-        let (uid, mode) = fstat_uid_mode(&dir).unwrap();
-        assert_eq!(uid, 0);
-        assert!(s_isdir(mode));
-    }
-    assert!(root_chain("no-such-dir-soda-pt").is_err());
-    // Traversal components fail closed.
-    for top in ["..", "usr/../etc", ".", "usr/./bin"] {
-        assert!(root_chain(top).is_err(), "root_chain({top:?})");
-    }
-}
-
 fn fake_stat(mode: u32, uid: u32, nlink: u64) -> libc::stat {
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     st.st_mode = mode;
