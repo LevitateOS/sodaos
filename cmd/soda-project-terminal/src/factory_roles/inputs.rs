@@ -13,7 +13,7 @@ use soda_json::JsonValue;
 use std::os::unix::fs::DirBuilderExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::OpenOptionsExt;
-use std::os::unix::io::AsRawFd;
+use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::{Path, PathBuf};
 
 pub const MAX_APPROVED_FILES: usize = 8;
@@ -330,30 +330,124 @@ fn dir_is_empty(file: &std::fs::File) -> Option<bool> {
     Some(true)
 }
 
-/// Remove `name` from the retained parent when — and only when — the
-/// retained child is verifiably empty. Anything else (content, unreadable
-/// state, a failed removal) preserves whatever the pathname holds now;
-/// only an empty directory can ever go.
-fn remove_if_empty_owned(parent: &std::fs::File, child: &std::fs::File, name: &str) {
-    if dir_is_empty(child) != Some(true) {
-        return;
+/// NUL-free checkout name for descriptor-relative calls. Validated ids
+/// (`f` + 24 hex) can never contain NUL; anything else is refused rather
+/// than truncated or reinterpreted.
+fn checkout_cname(name: &str) -> Result<std::ffi::CString, Error> {
+    std::ffi::CString::new(name).map_err(|_| Error::fail("unsafe checkout name"))
+}
+
+/// Exclusive publication of the checkout name under the pinned parent.
+/// Any preexisting identity fails untouched with the established error.
+fn mkdirat_exclusive(parent: &std::fs::File, name: &str, mode: u32) -> Result<(), Error> {
+    let cname = checkout_cname(name)?;
+    if unsafe { libc::mkdirat(parent.as_raw_fd(), cname.as_ptr(), mode) } != 0 {
+        let err = std::io::Error::last_os_error();
+        if err.kind() == std::io::ErrorKind::AlreadyExists {
+            return fail("checkout path already exists");
+        }
+        return Err(Error::classify(err));
     }
-    let cname = match std::ffi::CString::new(name) {
-        Ok(cname) => cname,
-        Err(_) => return,
+    Ok(())
+}
+
+/// Bind the published name to a descriptor without following a trailing
+/// symlink and refusing non-directories. Close-on-exec matches `std` so
+/// git children never inherit the descriptor.
+fn openat_dir_no_follow(parent: &std::fs::File, name: &str) -> Result<std::fs::File, Error> {
+    let cname = checkout_cname(name)?;
+    let fd = unsafe {
+        libc::openat(
+            parent.as_raw_fd(),
+            cname.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+        )
     };
-    unsafe {
-        libc::unlinkat(parent.as_raw_fd(), cname.as_ptr(), libc::AT_REMOVEDIR);
+    if fd < 0 {
+        return Err(Error::classify(std::io::Error::last_os_error()));
+    }
+    Ok(unsafe { std::fs::File::from_raw_fd(fd) })
+}
+
+/// CODEX-P07-003b CORRECTION-05 admission gate: the bound descriptor must
+/// be this call's created directory — a directory, owned by the privileged
+/// creator, and empty. Exclusive mkdir proves the name was absent; only the
+/// creator makes creator-owned entries, so a swapped-in role directory is
+/// refused before any privileged mutation. A name↔descriptor comparison
+/// cannot help here: after a create→open swap the two agree by
+/// construction; creation ownership is the only proof.
+fn checkout_created(child: &std::fs::File, priv_uid: u32) -> bool {
+    let meta = match child.metadata() {
+        Ok(meta) => meta,
+        Err(_) => return false,
+    };
+    meta.is_dir() && meta.uid() == priv_uid && dir_is_empty(child) == Some(true)
+}
+
+/// Publication/cleanup gate: the published name must still resolve to the
+/// bound descriptor (same device+inode, a directory — never a link) and the
+/// directory must still be empty; nothing legitimate lands in it before
+/// handoff. Any replacement, removal, plant, or unreadable state fails and
+/// the caller preserves. Descriptor-relative calls keep the residual
+/// check→use sliver to adjacent syscalls under the pinned parent; a
+/// pathname lstat here would re-resolve the role-mutable parent chain.
+fn checkout_intact(parent: &std::fs::File, child: &std::fs::File, name: &str) -> bool {
+    let cname = match checkout_cname(name) {
+        Ok(cname) => cname,
+        Err(_) => return false,
+    };
+    let mut at_name: libc::stat = unsafe { std::mem::zeroed() };
+    if unsafe {
+        libc::fstatat(
+            parent.as_raw_fd(),
+            cname.as_ptr(),
+            &mut at_name,
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    } != 0
+    {
+        return false;
+    }
+    if at_name.st_mode & libc::S_IFMT != libc::S_IFDIR {
+        return false;
+    }
+    let mut at_child: libc::stat = unsafe { std::mem::zeroed() };
+    if unsafe { libc::fstat(child.as_raw_fd(), &mut at_child) } != 0 {
+        return false;
+    }
+    if at_name.st_dev != at_child.st_dev || at_name.st_ino != at_child.st_ino {
+        return false;
+    }
+    dir_is_empty(child) == Some(true)
+}
+
+/// Remove the gate-verified empty name. Returns false only when the removal
+/// itself voids the verified binding (gone or planted meanwhile): ownership
+/// is then unestablishable and the caller reports the missing precondition.
+/// Mechanical failures leave the binding intact, so the original error
+/// stands and the preserved directory waits for operator inspection.
+fn remove_verified_empty(parent: &std::fs::File, name: &str) -> bool {
+    let cname = match checkout_cname(name) {
+        Ok(cname) => cname,
+        Err(_) => return false,
+    };
+    if unsafe { libc::unlinkat(parent.as_raw_fd(), cname.as_ptr(), libc::AT_REMOVEDIR) } == 0 {
+        return true;
+    }
+    match std::io::Error::last_os_error().raw_os_error() {
+        Some(code) if code == libc::ENOENT || code == libc::ENOTEMPTY => false,
+        _ => true,
     }
 }
 
 /// Root-owned read-only snapshot, verified bundle, role-owned checkout,
 /// credential binding, then the request receipt. The clone always starts
 /// from an empty directory; any failure removes invocation-created state.
-/// Checkout creation is exclusive, so a preexisting path of any identity
-/// is refused untouched. Permission and cleanup steps bind the created
-/// directory's descriptor; replaced or uncertain state is preserved and
-/// reported as failure.
+/// Checkout creation is exclusive under a pinned parent descriptor, so a
+/// preexisting path of any identity is refused untouched. Permission,
+/// publication, and cleanup steps each verify the created directory's
+/// binding first; replaced or uncertain state is preserved and reported
+/// as an unestablished-ownership failure.
 pub fn write_snapshot(
     ctx: &crate::Ctx,
     directory: &Path,
@@ -373,25 +467,23 @@ pub fn write_snapshot(
     let checkout = account.dir.join("checkouts").join(&inputs.fields.id);
     // CODEX-P07-003: exclusive creation is the provenance record. Any
     // preexisting path — present before or planted during verification,
-    // of any identity — is refused untouched; only a directory this call
-    // created is ever removed, by the tail scope below.
-    match std::fs::create_dir(&checkout) {
-        Ok(()) => {}
-        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-            return fail("checkout path already exists");
-        }
-        Err(err) => return Err(Error::classify(err)),
-    }
-    // CODEX-P07-003b: bind the created directory's identity before any
-    // permission or removal step. The checkouts parent is role-owned, so
-    // the name can be swapped under us; pathname chmod/chown/removal
-    // would follow the swap. If stable ownership cannot be established,
-    // the checkout is preserved and failure is returned.
+    // of any identity — is refused untouched; removal below only ever
+    // targets a name verified bound to this call's created directory.
+    // CODEX-P07-003b CORRECTION-05: pin the parent descriptor first; the
+    // exclusive mkdir, the bind, every gate, and the removal are all
+    // descriptor-relative, so the role-mutable namespace cannot redirect
+    // any step across calls. If stable ownership cannot be established
+    // at any gate, the checkout is preserved and failure names the
+    // missing precondition instead of the untrustworthy tail state.
     let parent_path = checkout
         .parent()
         .ok_or_else(|| Error::io_msg("checkout has no parent"))?;
     let parent = open_dir_no_follow(parent_path)?;
-    let child = open_dir_no_follow(&checkout)?;
+    mkdirat_exclusive(&parent, &inputs.fields.id, 0o755)?;
+    let child = openat_dir_no_follow(&parent, &inputs.fields.id)?;
+    if !checkout_created(&child, ctx.priv_uid()) {
+        return fail("checkout ownership unestablished");
+    }
     let tail: Result<String, Error> = (|| {
         fchmod(&child, 0o755)?;
         fchown(&child, account.uid, account.gid)?;
@@ -405,10 +497,21 @@ pub fn write_snapshot(
         Ok(credential_path)
     })();
     match tail {
-        Ok(credential_path) => Ok((checkout, credential_path)),
+        Ok(credential_path) => {
+            if !checkout_intact(&parent, &child, &inputs.fields.id) {
+                return fail("checkout ownership unestablished");
+            }
+            Ok((checkout, credential_path))
+        }
         Err(err) => {
-            remove_if_empty_owned(&parent, &child, &inputs.fields.id);
-            Err(err)
+            if !checkout_intact(&parent, &child, &inputs.fields.id) {
+                return fail("checkout ownership unestablished");
+            }
+            if remove_verified_empty(&parent, &inputs.fields.id) {
+                Err(err)
+            } else {
+                fail("checkout ownership unestablished")
+            }
         }
     }
 }

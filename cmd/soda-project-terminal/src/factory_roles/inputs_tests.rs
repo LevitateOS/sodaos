@@ -599,10 +599,11 @@ fn approve_failure_preserves_checkout_swapped_during_cleanup() {
     assert!(survived, "racing swap cost foreign bytes");
 }
 
-/// CODEX-P07-003b characterization: the fd-binding primitives refuse
-/// non-directories and symlinks (never following a link, even to a real
-/// directory), report emptiness honestly, and remove only a verifiably
-/// empty owned directory. Green-post (the primitives are new surface).
+/// CODEX-P07-003b CORRECTION-05 characterization: the fd-binding
+/// primitives refuse non-directories and symlinks (never following a link,
+/// even to a real directory), publish exclusively, report emptiness
+/// honestly, and gate admission/publication/cleanup on creation ownership.
+/// Green-post (the gated surface is new).
 #[test]
 fn checkout_identity_primitives_refuse_and_preserve() {
     let root = std::env::temp_dir().join(format!("soda-p3b-{}", std::process::id()));
@@ -619,27 +620,74 @@ fn checkout_identity_primitives_refuse_and_preserve() {
     std::fs::create_dir(parent.join("realdir")).unwrap();
     std::os::unix::fs::symlink("realdir", parent.join("dirlink")).unwrap();
     assert!(open_dir_no_follow(&parent.join("dirlink")).is_err());
-    // Empty owned dir: bound, confirmed empty, removed fd-relatively.
-    std::fs::create_dir(parent.join("empty")).unwrap();
     let parent_fd = open_dir_no_follow(&parent).unwrap();
-    let empty_fd = open_dir_no_follow(&parent.join("empty")).unwrap();
+    // Descriptor-relative bind refuses links and non-directories too.
+    assert!(openat_dir_no_follow(&parent_fd, "file").is_err());
+    assert!(openat_dir_no_follow(&parent_fd, "dirlink").is_err());
+    assert!(openat_dir_no_follow(&parent_fd, "absent").is_err());
+    // Exclusive publication refuses any preexisting identity untouched.
+    mkdirat_exclusive(&parent_fd, "claimed", 0o755).unwrap();
+    let assert_exists = |result: Result<(), crate::error::Error>| match result {
+        Err(crate::error::Error::Fail(text)) => assert_eq!(text, "checkout path already exists"),
+        other => panic!("expected Fail(checkout path already exists), got {other:?}"),
+    };
+    assert_exists(mkdirat_exclusive(&parent_fd, "claimed", 0o755));
+    assert_exists(mkdirat_exclusive(&parent_fd, "file", 0o755));
+    assert_exists(mkdirat_exclusive(&parent_fd, "dangle", 0o755));
+    // Empty owned dir: created-gated, bound, confirmed intact, removed.
+    let child = openat_dir_no_follow(&parent_fd, "claimed").unwrap();
     let uid = unsafe { libc::geteuid() };
-    let gid = unsafe { libc::getegid() };
-    fchmod(&empty_fd, 0o755).unwrap();
-    fchown(&empty_fd, uid, gid).unwrap();
-    assert_eq!(dir_is_empty(&empty_fd), Some(true));
-    remove_if_empty_owned(&parent_fd, &empty_fd, "empty");
-    assert!(!parent.join("empty").exists());
-    // Non-empty dir: reported changed and preserved with its bytes.
-    std::fs::create_dir(parent.join("full")).unwrap();
+    assert!(checkout_created(&child, uid));
+    fchmod(&child, 0o755).unwrap();
+    fchown(&child, uid, unsafe { libc::getegid() }).unwrap();
+    assert_eq!(dir_is_empty(&child), Some(true));
+    assert!(checkout_intact(&parent_fd, &child, "claimed"));
+    assert!(remove_verified_empty(&parent_fd, "claimed"));
+    assert!(!parent.join("claimed").exists());
+    // Non-empty dir: reported changed, fails both gates, keeps its bytes.
+    mkdirat_exclusive(&parent_fd, "full", 0o755).unwrap();
+    let full_fd = openat_dir_no_follow(&parent_fd, "full").unwrap();
     std::fs::write(parent.join("full").join("marker.txt"), b"data").unwrap();
-    let full_fd = open_dir_no_follow(&parent.join("full")).unwrap();
     assert_eq!(dir_is_empty(&full_fd), Some(false));
-    remove_if_empty_owned(&parent_fd, &full_fd, "full");
+    assert!(!checkout_created(&full_fd, uid));
+    assert!(!checkout_intact(&parent_fd, &full_fd, "full"));
+    assert!(!remove_verified_empty(&parent_fd, "full"));
     assert_eq!(
         std::fs::read(parent.join("full").join("marker.txt")).unwrap(),
         b"data"
     );
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// CORRECTION-05 gates: a name bound to a different directory, a removed
+/// name, and a foreign-owned directory all fail intactness/creation, so
+/// publication and cleanup preserve. No race: fixtures hold both sides.
+#[test]
+fn checkout_gates_reject_replaced_removed_and_foreign_dirs() {
+    let root = std::env::temp_dir().join(format!("soda-p3b-g{}", std::process::id()));
+    std::fs::create_dir_all(root.join("parent")).unwrap();
+    let parent = root.join("parent");
+    let parent_fd = open_dir_no_follow(&parent).unwrap();
+    mkdirat_exclusive(&parent_fd, "ours", 0o755).unwrap();
+    mkdirat_exclusive(&parent_fd, "theirs", 0o755).unwrap();
+    let ours = openat_dir_no_follow(&parent_fd, "ours").unwrap();
+    // Replaced: our descriptor against their name is not intact.
+    assert!(!checkout_intact(&parent_fd, &ours, "theirs"));
+    // Removed: no name resolves, and removal reports voided ownership.
+    std::fs::remove_dir(parent.join("theirs")).unwrap();
+    assert!(!checkout_intact(&parent_fd, &ours, "theirs"));
+    assert!(!remove_verified_empty(&parent_fd, "theirs"));
+    // Foreign-owned: creator-ownership fails even when empty.
+    if unsafe { libc::geteuid() } != 0 {
+        eprintln!("SKIP foreign-uid gate: needs privilege to chown away");
+    } else {
+        std::fs::create_dir(parent.join("foreign")).unwrap();
+        let foreign = openat_dir_no_follow(&parent_fd, "foreign").unwrap();
+        fchown(&foreign, 65534, 65534).unwrap();
+        assert!(!checkout_created(&foreign, 0));
+    }
+    // Control: our own binding stays intact.
+    assert!(checkout_intact(&parent_fd, &ours, "ours"));
     std::fs::remove_dir_all(&root).ok();
 }
 
