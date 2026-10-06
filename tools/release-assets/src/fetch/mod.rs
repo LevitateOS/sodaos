@@ -1,8 +1,8 @@
-//! Build-time asset fetchers (lane R, PR30 asset-fetchers-rust).
+//! Pinned asset acquisition (ex `soda-asset-fetchers`).
 //!
 //! Ports `scripts/fetch-tea.py`, `scripts/fetch-terminal.py` and
-//! `tools/soda-fetch-muse` (on `internal/release/build` `FetchMuse`) to one
-//! crate with three binaries. Every success output (file layouts, modes,
+//! `tools/soda-fetch-muse` (on `internal/release/build` `FetchMuse`) to
+//! three binaries. Every success output (file layouts, modes,
 //! stdout lines) and every validation error message matches the owner byte
 //! for byte; only unpinned failure text (HTTP transport errors, usage
 //! errors, malformed-input details) differs.

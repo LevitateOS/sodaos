@@ -1,7 +1,7 @@
 // soda-fetch-muse stages the checksum-pinned native Muse executable for builds.
 use std::path::Path;
 
-use soda_asset_fetchers::{flag_token, muse};
+use soda_release_assets::fetch::{flag_token, muse};
 
 const USAGE: &str = "usage: soda-fetch-muse [--arch ARCH] [--manifest PATH] [--out PATH]";
 

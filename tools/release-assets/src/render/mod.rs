@@ -1,7 +1,7 @@
-//! Build-time staging and render tools (lane R, PR31 stage-render-rust).
+//! Build-time staging and render tools (ex `soda-stage-render`).
 //!
 //! Ports `scripts/stage.py`, `scripts/render-provisioning.py` and
-//! `scripts/render-terminal-logo.py` to one crate with three binaries.
+//! `scripts/render-terminal-logo.py` to three binaries.
 //! Every success output (staged file bytes, modes, stdout lines, rendered
 //! JSON documents, branding text) and every validation message matches the
 //! owning script; only the argparse envelope (usage preface, `prog: error:`

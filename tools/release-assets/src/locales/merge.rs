@@ -255,7 +255,7 @@ pub fn fetch_locked(url: &str, sha256: &str) -> Result<Vec<u8>, Error> {
         )));
     }
     let data = read_capped(&mut response.into_reader()).map_err(Error::runtime)?;
-    if data.len() as u64 > MAX_NATIVE || crate::sha256_hex(&data) != sha256 {
+    if data.len() as u64 > MAX_NATIVE || crate::locales::sha256_hex(&data) != sha256 {
         return Err(Error::usage("native catalog differs from locked bytes"));
     }
     Ok(data)
@@ -528,7 +528,7 @@ mod tests {
     #[test]
     fn locked_fetch_accepts_exact_bytes() {
         let body = b"[common]\nname = Native\n".to_vec();
-        let sha = crate::sha256_hex(&body);
+        let sha = crate::locales::sha256_hex(&body);
         assert_eq!(fetch_case(200, body.clone(), &sha).unwrap(), body);
     }
 
@@ -543,7 +543,7 @@ mod tests {
     fn locked_fetch_refuses_oversize_bodies() {
         let mut body = vec![b'x'; 1024 * 1024 + 1];
         body[..8].copy_from_slice(b"[common]");
-        let sha = crate::sha256_hex(&body);
+        let sha = crate::locales::sha256_hex(&body);
         let err = fetch_case(200, body, &sha).unwrap_err();
         assert!(matches!(err, Error::Usage(_)));
         assert_eq!(err.message(), "native catalog differs from locked bytes");
@@ -553,14 +553,14 @@ mod tests {
     fn locked_fetch_accepts_exactly_one_mib() {
         let mut body = vec![b'x'; 1024 * 1024];
         body[..8].copy_from_slice(b"[common]");
-        let sha = crate::sha256_hex(&body);
+        let sha = crate::locales::sha256_hex(&body);
         assert_eq!(fetch_case(200, body.clone(), &sha).unwrap(), body);
     }
 
     #[test]
     fn locked_fetch_refuses_error_status() {
         let body = b"[common]\nname = Native\n".to_vec();
-        let sha = crate::sha256_hex(&body);
+        let sha = crate::locales::sha256_hex(&body);
         let err = fetch_case(404, body, &sha).unwrap_err();
         assert!(matches!(err, Error::Runtime(_)));
         assert!(err.message().contains("404"), "{}", err.message());

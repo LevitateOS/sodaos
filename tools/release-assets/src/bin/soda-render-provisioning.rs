@@ -3,7 +3,7 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use soda_stage_render::{provisioning, source_root, split_flag};
+use soda_release_assets::render::{provisioning, source_root, split_flag};
 
 const PROG: &str = "soda-render-provisioning";
 const USAGE: &str = "usage: soda-render-provisioning --operator-key-file PATH --root-password-hash-file PATH [--hostname NAME | --appliance-hostname NAME] [--bootstrap {minimal,extensions}] [--ssh-host-key-file PATH] --out PATH";

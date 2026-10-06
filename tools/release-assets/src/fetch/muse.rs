@@ -125,7 +125,7 @@ fn current_digest(dest: &Path) -> Option<String> {
         return None;
     }
     let mut file = std::fs::File::open(dest).ok()?;
-    crate::sha256_hex_stream(&mut file).ok()
+    crate::fetch::sha256_hex_stream(&mut file).ok()
 }
 
 fn create_temp(dir: &Path) -> Result<(PathBuf, std::fs::File), String> {
@@ -188,7 +188,7 @@ fn stage(body: &mut dyn Read, artifact: &MuseArtifact, dest: &Path) -> Result<()
         if size != artifact.size as u64 || hex != artifact.sha256 {
             return Err("muse release checksum or size mismatch".to_string());
         }
-        crate::chmod(&temp_path, 0o755)?;
+        crate::fetch::chmod(&temp_path, 0o755)?;
         std::fs::rename(&temp_path, dest).map_err(|e| e.to_string())?;
         Ok(())
     })();
@@ -209,11 +209,11 @@ pub fn fetch_muse(
     }
     let (version, artifact) = load_release(manifest, arch)?;
     if current_digest(dest).as_deref() == Some(artifact.sha256.as_str()) {
-        return crate::chmod(dest, 0o755);
+        return crate::fetch::chmod(dest, 0o755);
     }
     let url = download_url(download_base, &version, &artifact.file);
-    let mut response =
-        crate::http_get(&url, USER_AGENT, TIMEOUT).map_err(|e| format!("download Muse: {e}"))?;
+    let mut response = crate::fetch::http_get(&url, USER_AGENT, TIMEOUT)
+        .map_err(|e| format!("download Muse: {e}"))?;
     if response.status != 200 {
         return Err("muse download failed".to_string());
     }
@@ -223,7 +223,7 @@ pub fn fetch_muse(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_server::{Server, TempDir};
+    use crate::fetch::test_server::{Server, TempDir};
     use std::collections::HashMap;
 
     const VERSION: &str = "1.4.0-R4161.1";
@@ -232,7 +232,7 @@ mod tests {
     fn manifest_text(payload: &[u8]) -> String {
         format!(
             r#"{{"version":"{VERSION}","artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{}","size":{}}}}}}}"#,
-            crate::sha256_hex(payload),
+            crate::fetch::sha256_hex(payload),
             payload.len(),
         )
     }
@@ -331,7 +331,7 @@ mod tests {
         let dest = fixture.scratch.path.join("bin/muse");
         std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
         std::fs::write(&dest, &fixture.payload).unwrap();
-        crate::chmod(&dest, 0o644).unwrap();
+        crate::fetch::chmod(&dest, 0o644).unwrap();
         fetch_muse(&fixture.manifest, "x86_64", &dest, &fixture.base).unwrap();
         #[cfg(unix)]
         assert_eq!(mode(&dest), 0o755);
@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn invalid_pins_are_refused_without_fetch() {
         let payload = b"verified native bytes".to_vec();
-        let good_sha = crate::sha256_hex(&payload);
+        let good_sha = crate::fetch::sha256_hex(&payload);
         let pins = [
             // Wrong file.
             format!(
@@ -445,7 +445,7 @@ mod tests {
     #[test]
     fn unknown_manifest_fields_are_decode_errors() {
         let payload = b"verified native bytes".to_vec();
-        let good_sha = crate::sha256_hex(&payload);
+        let good_sha = crate::fetch::sha256_hex(&payload);
         let texts = [
             format!(
                 r#"{{"version":"{VERSION}","artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{good_sha}","size":{}}}}},"extra":true}}"#,
@@ -484,7 +484,7 @@ mod tests {
         let text = format!(
             r#"{{"version":"1.4.0-R4161.1{}","artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{}","size":{}}}}}}}"#,
             "x".repeat(9000),
-            crate::sha256_hex(&payload),
+            crate::fetch::sha256_hex(&payload),
             payload.len(),
         );
         let fixture = Fixture::start(payload);

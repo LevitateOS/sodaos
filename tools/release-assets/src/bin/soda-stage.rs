@@ -3,7 +3,7 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use soda_stage_render::{source_root, split_flag, stage};
+use soda_release_assets::render::{source_root, split_flag, stage};
 
 const PROG: &str = "soda-stage";
 const USAGE: &str = "usage: soda-stage --arch x86_64 --host-context DIR --forgejo-context DIR";

@@ -2,7 +2,7 @@
 // runtime/CDN dependencies (ports scripts/fetch-terminal.py).
 use std::path::PathBuf;
 
-use soda_asset_fetchers::{flag_token, terminal};
+use soda_release_assets::fetch::{flag_token, terminal};
 
 const USAGE: &str = "usage: soda-fetch-terminal --out DIR";
 

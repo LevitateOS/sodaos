@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use soda_json::JsonValue;
 
-use crate::chmod;
+use crate::render::chmod;
 
 /// A script refusal (`parser.error`): the bin prints the message with the
 /// usage preface and exits 2. A failure (traceback class: IO, corrupt
@@ -417,7 +417,7 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
                 .and_then(|name| name.to_str())
                 .unwrap_or_default();
             match locked.get(file) {
-                Some(pinned) if crate::sha256_hex(&data) == *pinned => {}
+                Some(pinned) if crate::render::sha256_hex(&data) == *pinned => {}
                 Some(_) => {
                     return Err(StageError::refusal(
                         "terminal asset differs from locked upstream bytes",

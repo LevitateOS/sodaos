@@ -2,7 +2,7 @@
 // 32-column, 16-row ASCII mark (ports scripts/render-terminal-logo.py).
 use std::ffi::OsString;
 
-use soda_stage_render::{source_root, split_flag, terminal_logo};
+use soda_release_assets::render::{source_root, split_flag, terminal_logo};
 
 const PROG: &str = "soda-render-terminal-logo";
 const USAGE: &str = "usage: soda-render-terminal-logo [--check]";

@@ -1,0 +1,45 @@
+[package]
+name = "soda-release-assets"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "soda_release_assets"
+path = "src/lib.rs"
+
+[[bin]]
+name = "soda-fetch-muse"
+path = "src/bin/soda-fetch-muse.rs"
+
+[[bin]]
+name = "soda-fetch-tea"
+path = "src/bin/soda-fetch-tea.rs"
+
+[[bin]]
+name = "soda-fetch-terminal"
+path = "src/bin/soda-fetch-terminal.rs"
+
+[[bin]]
+name = "soda-forgejo-locales"
+path = "src/bin/soda-forgejo-locales.rs"
+
+[[bin]]
+name = "soda-stage"
+path = "src/bin/soda-stage.rs"
+
+[[bin]]
+name = "soda-render-provisioning"
+path = "src/bin/soda-render-provisioning.rs"
+
+[[bin]]
+name = "soda-render-terminal-logo"
+path = "src/bin/soda-render-terminal-logo.rs"
+
+[dependencies]
+soda-json = { path = "../../lib/json" }
+soda-build-tools = { path = "../../rust/soda-build-tools" }
+ureq = { version = "2", default-features = false, features = ["tls"] }
+flate2 = "1"
+tar = "0.4"
+sha2 = "0.10"
+base64 = "0.22"

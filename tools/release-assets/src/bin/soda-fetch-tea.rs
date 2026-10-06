@@ -2,7 +2,7 @@
 // project image (ports scripts/fetch-tea.py).
 use std::path::PathBuf;
 
-use soda_asset_fetchers::{flag_token, tea};
+use soda_release_assets::fetch::{flag_token, tea};
 
 const USAGE: &str = "usage: soda-fetch-tea --arch x86_64 [--out DIR]";
 

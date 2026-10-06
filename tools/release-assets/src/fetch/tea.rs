@@ -41,15 +41,15 @@ pub fn default_out(arch: &str) -> Result<PathBuf, String> {
 }
 
 fn download(url: &str, limit: u64) -> Result<Vec<u8>, String> {
-    let mut response =
-        crate::http_get(url, USER_AGENT, TIMEOUT).map_err(|e| format!("fetch {url}: {e}"))?;
+    let mut response = crate::fetch::http_get(url, USER_AGENT, TIMEOUT)
+        .map_err(|e| format!("fetch {url}: {e}"))?;
     if !(200..300).contains(&response.status) {
         return Err(format!(
             "fetch {url}: unexpected HTTP status {}",
             response.status
         ));
     }
-    crate::read_capped(&mut response.reader, limit)
+    crate::fetch::read_capped(&mut response.reader, limit)
 }
 
 /// `^v[0-9]+\.[0-9]+\.[0-9]+$` without a regex dependency.
@@ -130,7 +130,7 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
     let expected = checksums_for(sums_text, &filename)
         .ok_or_else(|| "Tea checksums omit the requested archive".to_string())?;
     let body = download(&format!("{base}/{filename}"), BINARY_LIMIT)?;
-    if body.len() as u64 > BINARY_LIMIT || crate::sha256_hex(&body) != expected {
+    if body.len() as u64 > BINARY_LIMIT || crate::fetch::sha256_hex(&body) != expected {
         return Err("Tea binary checksum mismatch".to_string());
     }
     if !valid_elf64(&body, 62) {
@@ -150,11 +150,11 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
         Err(e) => return Err(e.to_string()),
     }
     std::fs::write(&binary, &body).map_err(|e| e.to_string())?;
-    crate::chmod(&binary, 0o755)?;
+    crate::fetch::chmod(&binary, 0o755)?;
     let license_dir = out.join("licenses/tea");
     std::fs::create_dir_all(&license_dir).map_err(|e| e.to_string())?;
     std::fs::write(&license_file, &license).map_err(|e| e.to_string())?;
-    crate::chmod(&license_file, 0o644)?;
+    crate::fetch::chmod(&license_file, 0o644)?;
     Ok(format!(
         "Upstream Tea {version} ({arch}) staged at {}",
         out.display()
@@ -164,7 +164,7 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_server::{Server, TempDir};
+    use crate::fetch::test_server::{Server, TempDir};
     use std::collections::HashMap;
 
     const VERSION: &str = "0.99.1";
@@ -190,7 +190,7 @@ mod tests {
             let binary = elf_body(62);
             let license = b"fixture license\n".to_vec();
             let filename = format!("tea-{VERSION}-linux-amd64");
-            let sums = format!("{}  {filename}\n", crate::sha256_hex(&binary));
+            let sums = format!("{}  {filename}\n", crate::fetch::sha256_hex(&binary));
             routes.insert(
                 "/api/releases/latest".to_string(),
                 (200, format!(r#"{{"tag_name":"{TAG}"}}"#).into_bytes()),
@@ -306,7 +306,10 @@ mod tests {
         let binary = b"corrupt".to_vec();
         let mut raw: HashMap<String, (u16, Vec<u8>)> = HashMap::new();
         let good = elf_body(62);
-        let sums = format!("{}  tea-{VERSION}-linux-amd64\n", crate::sha256_hex(&good));
+        let sums = format!(
+            "{}  tea-{VERSION}-linux-amd64\n",
+            crate::fetch::sha256_hex(&good)
+        );
         raw.insert(
             "/api/releases/latest".to_string(),
             (200, format!(r#"{{"tag_name":"{TAG}"}}"#).into_bytes()),
@@ -345,7 +348,7 @@ mod tests {
         let mut raw: HashMap<String, (u16, Vec<u8>)> = HashMap::new();
         let sums = format!(
             "{}  tea-{VERSION}-linux-amd64\n",
-            crate::sha256_hex(&binary)
+            crate::fetch::sha256_hex(&binary)
         );
         raw.insert(
             "/api/releases/latest".to_string(),
@@ -407,7 +410,7 @@ mod tests {
         let mut raw: HashMap<String, (u16, Vec<u8>)> = HashMap::new();
         let sums = format!(
             "{}  tea-{VERSION}-linux-amd64\n",
-            crate::sha256_hex(&binary)
+            crate::fetch::sha256_hex(&binary)
         );
         raw.insert(
             "/api/releases/latest".to_string(),

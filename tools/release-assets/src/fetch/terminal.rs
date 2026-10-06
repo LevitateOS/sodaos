@@ -74,7 +74,7 @@ fn cached(out: &Path, files: &[Asset]) -> Result<bool, String> {
             return Ok(false);
         }
         let data = std::fs::read(&path).map_err(|e| e.to_string())?;
-        if crate::sha256_hex(&data) != asset.sha256 {
+        if crate::fetch::sha256_hex(&data) != asset.sha256 {
             return Ok(false);
         }
     }
@@ -129,7 +129,7 @@ fn extract(members: &[Member], asset: &Asset, out: &Path) -> Result<(), String> 
     if !member.is_file || member.size > MEMBER_LIMIT || asset.file.contains('/') {
         return Err("invalid terminal distribution member".to_string());
     }
-    if crate::sha256_hex(&member.data) != asset.sha256 {
+    if crate::fetch::sha256_hex(&member.data) != asset.sha256 {
         return Err("terminal asset integrity mismatch".to_string());
     }
     std::fs::write(out.join(&asset.file), &member.data).map_err(|e| e.to_string())
@@ -144,7 +144,7 @@ pub fn fetch(lock_path: &Path, out: &Path) -> Result<(), String> {
         if cached(out, &item.files)? {
             continue;
         }
-        let mut response = crate::http_get(&item.url, USER_AGENT, TIMEOUT)
+        let mut response = crate::fetch::http_get(&item.url, USER_AGENT, TIMEOUT)
             .map_err(|e| format!("fetch {}: {e}", item.url))?;
         if !(200..300).contains(&response.status) {
             return Err(format!(
@@ -152,9 +152,9 @@ pub fn fetch(lock_path: &Path, out: &Path) -> Result<(), String> {
                 item.url, response.status
             ));
         }
-        let body = crate::read_capped(&mut response.reader, ARCHIVE_LIMIT)?;
+        let body = crate::fetch::read_capped(&mut response.reader, ARCHIVE_LIMIT)?;
         if body.len() as u64 > ARCHIVE_LIMIT
-            || format!("sha512-{}", crate::sha512_base64(&body)) != item.integrity
+            || format!("sha512-{}", crate::fetch::sha512_base64(&body)) != item.integrity
         {
             return Err("terminal archive integrity mismatch".to_string());
         }
@@ -169,7 +169,7 @@ pub fn fetch(lock_path: &Path, out: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_server::{Server, TempDir};
+    use crate::fetch::test_server::{Server, TempDir};
     use std::collections::HashMap;
     use std::io::Write;
 
@@ -189,7 +189,7 @@ mod tests {
     }
 
     fn integrity(body: &[u8]) -> String {
-        format!("sha512-{}", crate::sha512_base64(body))
+        format!("sha512-{}", crate::fetch::sha512_base64(body))
     }
 
     fn write_lock(dir: &Path, text: &str) -> PathBuf {
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn exact_members_checksums_and_cached_bytes() {
         let body = tarball(&[("package/lib/xterm.mjs", b"synthetic")]);
-        let file_sha = crate::sha256_hex(b"synthetic");
+        let file_sha = crate::fetch::sha256_hex(b"synthetic");
         let mut routes = HashMap::new();
         routes.insert("/fixture.tgz".to_string(), (200, body.clone()));
         let server = Server::start(routes);
@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn integrity_failure_keeps_changed_cache_bytes() {
         let body = tarball(&[("package/lib/xterm.mjs", b"synthetic")]);
-        let file_sha = crate::sha256_hex(b"synthetic");
+        let file_sha = crate::fetch::sha256_hex(b"synthetic");
         let mut routes = HashMap::new();
         routes.insert("/fixture.tgz".to_string(), (200, b"bad archive".to_vec()));
         let server = Server::start(routes);
@@ -273,7 +273,7 @@ mod tests {
     #[test]
     fn invalid_members_are_refused() {
         let body = tarball(&[("package/lib/xterm.mjs", b"synthetic")]);
-        let good = crate::sha256_hex(b"synthetic");
+        let good = crate::fetch::sha256_hex(b"synthetic");
         let cases: Vec<(&str, &str, String)> = vec![
             // Missing member.
             ("package/lib/absent.mjs", "absent.mjs", good.clone()),

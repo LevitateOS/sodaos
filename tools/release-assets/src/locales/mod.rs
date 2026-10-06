@@ -1,6 +1,6 @@
-//! Locked Forgejo locale catalog builder (lane R, PR32 release-build-rust).
+//! Locked Forgejo locale catalog builder (ex `soda-forgejo-locales`).
 //!
-//! Ports `scripts/forgejo-locales.py` to one crate with one binary. Every
+//! Ports `scripts/forgejo-locales.py` to one binary. Every
 //! success output (the merged catalog bytes) and every validation message
 //! matches the owning script; only the argparse envelope (usage preface,
 //! `prog: error:` prefix) carries the new binary name, and unpinned
@@ -10,7 +10,7 @@
 //! Exit codes mirror the script: `0` on success, `2` on argument and lock
 //! refusals (`parser.error`), `1` on anything else (traceback equivalents).
 
-pub mod locales;
+pub mod merge;
 
 /// Tokenize one argv element: `--name=value` gives `("name", Some(value))`,
 /// `--name` gives `("name", None)`. Returns `None` for non-flag tokens

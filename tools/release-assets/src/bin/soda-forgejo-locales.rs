@@ -3,8 +3,8 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use soda_forgejo_locales::locales::{Error, Native, DEFAULT_ADDITIONS};
-use soda_forgejo_locales::split_flag;
+use soda_release_assets::locales::merge::{Error, Native, DEFAULT_ADDITIONS};
+use soda_release_assets::locales::split_flag;
 
 const PROG: &str = "soda-forgejo-locales";
 const USAGE: &str =
@@ -123,7 +123,7 @@ fn main() {
     let argv: Vec<OsString> = std::env::args_os().skip(1).collect();
     let parsed = parse(&argv);
     if let Err(error) =
-        soda_forgejo_locales::locales::run(&parsed.native, &parsed.additions, &parsed.out)
+        soda_release_assets::locales::merge::run(&parsed.native, &parsed.additions, &parsed.out)
     {
         fail(error);
     }
