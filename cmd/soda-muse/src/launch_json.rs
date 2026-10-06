@@ -1,78 +1,4 @@
-// parse_launch_exit mirrors Go json.Unmarshal into LaunchExit: missing
-// fields stay zero, unknown fields are ignored, malformed JSON rejects.
-pub(crate) fn parse_launch_exit(body: &[u8]) -> Result<(i64, String), ()> {
-    let text = std::str::from_utf8(body).map_err(|_| ())?;
-    let mut code: i64 = 0;
-    let mut error_text = String::new();
-    let mut i = 0;
-    let bytes = text.as_bytes();
-    let skip_ws = |i: &mut usize| {
-        while *i < bytes.len() && matches!(bytes[*i], b' ' | b'\t' | b'\n' | b'\r') {
-            *i += 1;
-        }
-    };
-    skip_ws(&mut i);
-    if i >= bytes.len() || bytes[i] != b'{' {
-        return Err(());
-    }
-    i += 1;
-    // Go rejects a trailing comma, so `}` is only valid here for `{}` or
-    // right after a value; after a comma a key is required.
-    let mut after_comma = false;
-    loop {
-        skip_ws(&mut i);
-        if i < bytes.len() && bytes[i] == b'}' {
-            if after_comma {
-                return Err(());
-            }
-            i += 1;
-            break;
-        }
-        if i >= bytes.len() || bytes[i] != b'"' {
-            return Err(());
-        }
-        let (key, next) = parse_json_string(text, i)?;
-        i = next;
-        skip_ws(&mut i);
-        if i >= bytes.len() || bytes[i] != b':' {
-            return Err(());
-        }
-        i += 1;
-        skip_ws(&mut i);
-        if key == "code" {
-            let (value, next) = parse_json_integer(text, i)?;
-            code = value;
-            i = next;
-        } else if key == "error" {
-            if i >= bytes.len() || bytes[i] != b'"' {
-                return Err(());
-            }
-            let (value, next) = parse_json_string(text, i)?;
-            error_text = value;
-            i = next;
-        } else {
-            i = skip_json_value(text, i)?;
-        }
-        skip_ws(&mut i);
-        if i < bytes.len() && bytes[i] == b',' {
-            i += 1;
-            after_comma = true;
-            continue;
-        }
-        if i < bytes.len() && bytes[i] == b'}' {
-            i += 1;
-            break;
-        }
-        return Err(());
-    }
-    skip_ws(&mut i);
-    if i != bytes.len() {
-        return Err(());
-    }
-    Ok((code, error_text))
-}
-
-fn parse_json_string(text: &str, start: usize) -> Result<(String, usize), ()> {
+pub(crate) fn parse_json_string(text: &str, start: usize) -> Result<(String, usize), ()> {
     let bytes = text.as_bytes();
     if start >= bytes.len() || bytes[start] != b'"' {
         return Err(());
@@ -135,7 +61,7 @@ fn parse_json_string(text: &str, start: usize) -> Result<(String, usize), ()> {
     Err(())
 }
 
-fn parse_json_integer(text: &str, start: usize) -> Result<(i64, usize), ()> {
+pub(crate) fn parse_json_integer(text: &str, start: usize) -> Result<(i64, usize), ()> {
     let bytes = text.as_bytes();
     let mut i = start;
     if i < bytes.len() && bytes[i] == b'-' {
@@ -158,7 +84,7 @@ fn parse_json_integer(text: &str, start: usize) -> Result<(i64, usize), ()> {
         .map(|v| (v, i))
 }
 
-fn skip_json_value(text: &str, start: usize) -> Result<usize, ()> {
+pub(crate) fn skip_json_value(text: &str, start: usize) -> Result<usize, ()> {
     let bytes = text.as_bytes();
     if start >= bytes.len() {
         return Err(());

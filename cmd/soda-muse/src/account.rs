@@ -1,4 +1,4 @@
-use super::home_cfg::json_string;
+use super::launch_wire::json_string;
 use super::paths::path_error;
 use std::ffi::{CStr, CString};
 use std::fs;

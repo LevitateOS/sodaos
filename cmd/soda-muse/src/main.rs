@@ -10,6 +10,7 @@ mod launch;
 mod launch_json;
 #[cfg(test)]
 mod launch_tests;
+mod launch_wire;
 mod maintenance;
 mod paths;
 mod runtime;

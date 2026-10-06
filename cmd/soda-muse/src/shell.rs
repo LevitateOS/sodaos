@@ -1,4 +1,3 @@
-use super::home_cfg::json_string;
 use super::paths::{go_join, go_strerror};
 use super::ShellRequest;
 use std::io;
@@ -97,60 +96,4 @@ fn launch_arguments_valid(args: &[String]) -> Result<(), ()> {
         return Err(());
     }
     Ok(())
-}
-
-// shell_request_json emits the exact Go LaunchRequest field order for a
-// shell: empty home/config_home/term omitted, argv always an array.
-pub(crate) fn shell_request_json(r: &ShellRequest) -> String {
-    let mut out = String::from("{");
-    let mut first = true;
-    let field = |out: &mut String, first: &mut bool, name: &str, value: &str| {
-        if !*first {
-            out.push(',');
-        }
-        *first = false;
-        out.push_str(&json_string(name));
-        out.push(':');
-        out.push_str(value);
-    };
-    if !r.home.is_empty() {
-        field(&mut out, &mut first, "home", &json_string(&r.home));
-    }
-    if !r.config_home.is_empty() {
-        field(
-            &mut out,
-            &mut first,
-            "config_home",
-            &json_string(&r.config_home),
-        );
-    }
-    if !r.term.is_empty() {
-        field(&mut out, &mut first, "term", &json_string(&r.term));
-    }
-    field(
-        &mut out,
-        &mut first,
-        "connection_id",
-        &json_string(&r.connection_id),
-    );
-    field(&mut out, &mut first, "cwd", &json_string(&r.cwd));
-    let mut args = String::from("[");
-    for (i, a) in r.args.iter().enumerate() {
-        if i > 0 {
-            args.push(',');
-        }
-        args.push_str(&json_string(a));
-    }
-    args.push(']');
-    field(&mut out, &mut first, "args", &args);
-    field(
-        &mut out,
-        &mut first,
-        "tty",
-        if r.tty { "true" } else { "false" },
-    );
-    field(&mut out, &mut first, "cols", &r.cols.to_string());
-    field(&mut out, &mut first, "rows", &r.rows.to_string());
-    out.push('}');
-    out
 }

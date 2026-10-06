@@ -1,6 +1,6 @@
 use super::account::account_node;
 use super::config::copy_config;
-use super::home_cfg::{base64_encode, json_string};
+use super::launch_wire::{base64_encode, json_string};
 use super::native_action;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
