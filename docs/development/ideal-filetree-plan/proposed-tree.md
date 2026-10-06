@@ -821,6 +821,7 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── implementation-lanes.md
 │   │   │   ├── implementation-tasks.md
 │   │   │   ├── integration.md
+│   │   │   ├── library-adoption.md
 │   │   │   ├── maintenance.md
 │   │   │   ├── package-ownership.md
 │   │   │   ├── placement.md
@@ -989,6 +990,8 @@ unchanged — it shows the post-cutover target, not current state):
 │   ├── research/
 │   │   ├── factory-capability-map.md
 │   │   ├── host-strategy.md
+│   │   ├── library-reuse-coverage.md
+│   │   ├── library-reuse-investigation.md
 │   │   ├── licensing.md
 │   │   ├── notices.md
 │   │   ├── onedev.md

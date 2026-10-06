@@ -76,6 +76,8 @@ command workflow. Spaces connects repository environments with human and factory
 | [Avatars](design/avatars.md) | Robot avatar rendering |
 | [Host strategy](research/host-strategy.md) | CoreOS host capability strategy |
 | [Factory capability map](research/factory-capability-map.md) | Source assessment of target requirements, existing capabilities, gaps and Soda/Fountain/upstream ownership |
+| [Library reuse investigation](research/library-reuse-investigation.md) | Completed generic-infrastructure assessment; selected work lives in the existing implementation plan |
+| [Library reuse coverage](research/library-reuse-coverage.md) | Scope, finding ownership and evidence limits for that investigation |
 | [Licensing](research/licensing.md) | License and attribution notes |
 | [Predecessor reuse](research/predecessor-reuse.md) | Selected reuse attribution |
 

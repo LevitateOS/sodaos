@@ -14,6 +14,17 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
+Current priority: [library adoption](library-adoption.md), selectively reconciled
+against source `72e4bb9015b6d6a622b45638104c74851a137473` and the recorded SDK
+pin. Further implementation dispatch is paused. Completed structural work and
+parked checkpoints remain preserved; pending generic-engine decomposition is
+superseded only where the chapter names a replacement. The current task list
+and lane schedule remain the execution plan, using built-in Codex subagents.
+This scoped update does not regenerate the complete tree, advance historical
+coverage counts or qualify behavior. The non-normative
+[investigation](../../research/library-reuse-investigation.md) supports the
+selected direction; product/trust owners remain authoritative.
+
 Last maintained: **2026-10-06**. The execution schedule now provides
 [parallel implementation lanes](implementation-lanes.md) and a
 [dependency-ordered task list](implementation-tasks.md), prepared against
@@ -29,7 +40,7 @@ baseline `d7e565aa1019753997a99fd430ba103d7a472b48`, corrected here to exclude
 11 positively evidenced obsolete proposed leaves. The plan folder layout is
 also reflected in the proposed tree. The five-file source delta and the
 documentation split are reconciled in the catalog and coverage ledger. Complete structural
-reconciliation of later changes remains pending. Post-integration status (run 20261005): task boxes record landed A00/A05/A06/A07.C(partial-acceptance), B01-B05, C01(partial)/C02.C/C08/C09 + CORRs + DELTA-C-001 work; package-ownership.md rows carry run-status notes. NOT YET reconciled: proposed-tree.md paths/counts, coverage/inventory/* + coverage/maps/* EXCEPT appliance-definitions.md + inventory/appliance.md (reconciled 3036bb47), slice cards + catalog refs, decomposition seam refs, root-count table recount. In-flight branch (A01) is observation only, excluded from merged coverage. The plan is NOT fully current; this paragraph is the explicit pending list. Pending source cutovers remain
+reconciliation of later changes remains pending. Post-integration status (run 20261005): task boxes record landed A00/A05/A06/A07.C(partial-acceptance), B01-B05, C01(partial)/C02.C/C08/C09 + CORRs + DELTA-C-001 work; package-ownership.md rows carry run-status notes. NOT YET reconciled: proposed-tree.md paths/counts, coverage/inventory/* + coverage/maps/* EXCEPT appliance-definitions.md + inventory/appliance.md (reconciled 3036bb47), slice cards + catalog refs, decomposition seam refs, root-count table recount. Parked checkpoint observations are separately assessed in the library-adoption chapter and excluded from merged coverage. The plan is NOT fully current; this paragraph is the explicit pending list. Pending source cutovers remain
 explicit; proposed paths are not landed code.
 
 The separately [pinned review input baseline](review-baseline.md) records source
@@ -120,6 +131,7 @@ single-file plan has been split without executing the proposed code refactor.
 | [Decomposition index](decomposition/README.md) | Historical oversized-file concern reviews, grouped by source component |
 | [Integration](integration.md) | Retained documents/data, wiring changes and review/implementation limits |
 | [Implementation lanes](implementation-lanes.md) | Three-worker scheduling, exclusive file ownership, shared integration and verification order |
+| [Library adoption](library-adoption.md) | Selected finding allocations, bounded adoption packets, prerequisites and parked-work dispositions |
 | [Implementation tasks](implementation-tasks.md) | 27 primary work packets covering all 80 slices, shared extraction and precise dependent gates |
 | [Slice catalog](slices/README.md) | All 80 candidate review slices in nine capability groups |
 | [Review input baseline](review-baseline.md) | Exact source commit, committed delta scope and byte identities of uncommitted guidance |
