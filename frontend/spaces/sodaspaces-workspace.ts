@@ -1,6 +1,5 @@
 import {LitElement, html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
-import {terminalObservation} from './sodaspaces-attention.js';
 import {
   renderMenu,
   renderRename,
@@ -12,11 +11,10 @@ import {
 } from './sodaspaces-workspace-view.js';
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
-import type {TerminalContext, TerminalLocator} from './sodaspaces-terminal.js';
+import type {TerminalContext} from './sodaspaces-terminal.js';
 import {
   emptyLayout,
   focusedPane,
-  paneFor,
   selectTab,
   hideTab,
   putEntry,
@@ -27,16 +25,7 @@ import {
   moveTab,
 } from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Pane, Area} from './sodaspaces-layout.js';
-import {
-  check,
-  id,
-  object,
-  terminalResponse,
-  terminalMetadata,
-  terminalID,
-  repositoryChoices,
-  projectId,
-} from './sodaspaces-api.js';
+import {check, id, object, terminalResponse, repositoryChoices, projectId} from './sodaspaces-api.js';
 import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
 import type {Creation, FactoryWatch, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 import {WorkspaceMeasurement} from './sodaspaces-workspace-measurement.js';
@@ -121,6 +110,8 @@ import {
 import type {LayoutInput, MinimumInput} from './sodaspaces-workspace-layout.js';
 import {openInDrawer} from './sodaspaces-workspace-drawer.js';
 import type {DrawerInput} from './sodaspaces-workspace-drawer.js';
+import {addSlot, displaySlots, visibleSlot} from './sodaspaces-workspace-terminal-hosts.js';
+import type {HostsInput} from './sodaspaces-workspace-terminal-hosts.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -1052,22 +1043,13 @@ export class SodaSpaces extends LitElement {
     if (!space.login || !space.environment.provisioned || space.observed?.running !== true)
       void this.showManagement(this.project, 'journey');
   }
-  private visibleSlot(slot: Slot) {
-    return (
-      this.activeSurface &&
-      document.visibilityState === 'visible' &&
-      this.view === 'terminal' &&
-      !slot.unavailable &&
-      !slot.host.hidden &&
-      !!slot.host.querySelector('.soda-terminal-screen:not([hidden])')
-    );
-  }
   markViewed(key?: string) {
     const n = this.epoch;
     void this.updateComplete.then(async () => {
       for (const slot of this.slots.filter((slot) => key === undefined || slot.key === key)) {
         await slot.terminal.ready;
-        if (!this.live(n) || !this.visibleSlot(slot) || !slot.host.querySelector('.is-connected')) continue;
+        if (!this.live(n) || !visibleSlot(this.hostsInput(), slot) || !slot.host.querySelector('.is-connected'))
+          continue;
         slot.readRequested = false;
         if (slot.unread) {
           slot.unread = false;
@@ -1484,7 +1466,7 @@ export class SodaSpaces extends LitElement {
     const entry = this.layout.entries.find((e) => e.key === area.pane.selected);
     const space = this.spaces.find((s) => s.environment.id === entry?.environmentId);
     if (!this.canRestorePane(entry, space, n, signal)) return;
-    const slot = await this.addSlot(space!, entry!);
+    const slot = await addSlot(this.hostsInput(), space!, entry!);
     if (slot && this.live(n)) {
       this.display();
       await slot.terminal.restore();
@@ -1567,115 +1549,55 @@ export class SodaSpaces extends LitElement {
     try {
       this.applyOpenLayout(entry, destination);
       const n = this.epoch,
-        slot = await this.addSlot(space, entry);
+        slot = await addSlot(this.hostsInput(), space, entry);
       await this.updateComplete;
       if (slot) await this.restoreOpenedSlot(slot, n, focus, invoker);
     } catch {
       if (!this.stale) this.status = 'The exact saved terminal could not be selected; no replacement was requested.';
     }
   }
-  private identity(space: Space): TerminalContext {
-    check(this.actor && this.binding);
+  private hostsInput(): HostsInput {
     return {
-      transport: this.binding.transport,
-      expectedUserId: this.actor.id,
-      repositoryId: space.environment.repository_id,
-      environmentId: space.environment.id,
-      login: space.login,
-      projectName: this.projectName(space),
+      binding: this.binding,
+      isStale: () => this.stale,
+      isDisposed: () => this.disposed,
+      readEpoch: () => this.epoch,
+      readView: () => this.view,
+      readSetupScreen: () => this.setupScreen,
+      readTabHeight: () => this.tabHeight,
+      readSurfaceVisible: () => this.surfaceVisible,
+      isActiveSurface: () => this.activeSurface,
+      readSlots: () => this.slots,
+      readLayout: () => this.layout,
+      readActor: () => this.actor,
+      readProjectionPanes: () => this.projection.panes,
+      readUpdateComplete: () => this.updateComplete,
+      readFactory: () => this.factory,
+      findMountLayer: () => this.querySelector('.soda-workspace-owners'),
+      concealed: () => this.closest('[hidden]') !== null,
+      live: (n) => this.live(n),
+      persist: () => this.persist(),
+      requestUpdate: () => this.requestUpdate(),
+      display: () => this.display(),
+      measure: () => this.measure(),
+      invalidate: () => this.invalidate(),
+      focusPane: (key) => focusPane(this.layoutInput(), key),
+      markViewed: (key) => this.markViewed(key),
+      locator: (slot) => this.locator(slot),
+      projectName: (space) => this.projectName(space),
+      confirmedEnd: (key) => this.confirmedEnd(key),
+      onTerminalCommand: (key, slot, binding, event) => this.onTerminalCommand(key, slot, binding, event),
+      setLayout: (layout) => {
+        this.layout = layout;
+      },
+      setStatus: (status) => {
+        this.status = status;
+      },
+      pushSlot: (slot) => {
+        this.slots.push(slot);
+      },
+      rectangle: (area) => this.rectangle(area),
     };
-  }
-  private onTerminalLocator(
-    key: string,
-    binding: TerminalContext,
-    terminal: Slot['terminal'],
-    slot: Slot,
-    event: Event
-  ) {
-    if (!(event instanceof CustomEvent) || this.disposed || this.stale) return;
-    const value: unknown = event.detail;
-    if (value === null) {
-      this.confirmedEnd(key);
-      return;
-    }
-    if (!terminalID(value)) return;
-    this.commitTerminalLocator(key, binding, terminal, slot, value);
-  }
-  private commitTerminalLocator(
-    key: string,
-    binding: TerminalContext,
-    terminal: Slot['terminal'],
-    slot: Slot,
-    value: string
-  ) {
-    const locator: TerminalLocator = {kind: 'existing', id: value};
-    try {
-      this.layout = putEntry(this.layout, {key, environmentId: binding.environmentId, locator});
-      this.persist();
-    } catch {
-      terminal.invalidate();
-      slot.unavailable = true;
-      this.status = 'Conflicting terminal identity was refused; the original locator was preserved.';
-    }
-  }
-  private observationAdmitted(key: string, slot: Slot, event: Event) {
-    return (
-      event instanceof CustomEvent &&
-      !this.stale &&
-      !this.disposed &&
-      !slot.unavailable &&
-      this.layout.entries.some((entry) => entry.key === key)
-    );
-  }
-  private staleObservation(slot: Slot, note: NonNullable<ReturnType<typeof terminalObservation>>) {
-    const locator = this.locator(slot);
-    if (note.generation < (slot.observation?.generation || 0)) return true;
-    return locator.kind === 'existing' && note.id !== locator.id;
-  }
-  private noteUnread(slot: Slot) {
-    if (this.visibleSlot(slot) || slot.unread) return;
-    slot.unread = true;
-    this.requestUpdate();
-  }
-  private applyTerminalObservation(key: string, slot: Slot, detail: unknown) {
-    const note = terminalObservation(detail);
-    if (!note || this.staleObservation(slot, note)) return;
-    if (note.kind === 'output') {
-      this.noteUnread(slot);
-      return;
-    }
-    slot.observation = note;
-    this.requestUpdate();
-    if (note.state === 'ready' && slot.readRequested) this.markViewed(key);
-  }
-  private onTerminalObservation(key: string, slot: Slot, event: Event) {
-    if (!this.observationAdmitted(key, slot, event)) return;
-    try {
-      this.applyTerminalObservation(key, slot, (event as CustomEvent).detail);
-    } catch {
-      /* Invalid/late observations cannot change a retained owner. */
-    }
-  }
-  private onTerminalMetadata(key: string, slot: Slot, terminal: Slot['terminal'], event: Event) {
-    if (
-      !(event instanceof CustomEvent) ||
-      this.disposed ||
-      this.stale ||
-      !this.layout.entries.some((e) => e.key === key)
-    )
-      return;
-    const locator = this.locator(slot);
-    if (locator.kind !== 'existing') return;
-    try {
-      const metadata = terminalMetadata(event.detail, slot.binding);
-      if (metadata.id !== locator.id) return;
-      slot.metadata = metadata;
-      slot.observedAt = Date.now();
-      terminal.setName(metadata.name);
-      this.requestUpdate();
-    } catch {
-      /* Invalid observation cannot change the binding. */
-    }
   }
   private commandAdmitted(slot: Slot, event: Event) {
     return event instanceof CustomEvent && !this.stale && !this.disposed && !slot.host.hidden && !slot.unavailable;
@@ -1695,98 +1617,8 @@ export class SodaSpaces extends LitElement {
     if (detail === 'rename') this.beginRename(key, slot);
     if (detail === 'project') void this.showManagement(binding.repositoryId);
   }
-  private geometrySize(detail: unknown) {
-    const value = object(detail);
-    if (typeof value.width !== 'number' || typeof value.height !== 'number') return;
-    if (!Number.isFinite(value.width) || !Number.isFinite(value.height)) return;
-    if (value.width <= 0 || value.height <= 0 || value.width > 10000 || value.height > 10000) return;
-    return {width: value.width as number, height: value.height as number};
-  }
-  private onTerminalGeometry(slot: Slot, event: Event) {
-    if (!(event instanceof CustomEvent) || this.stale || this.disposed) return;
-    const size = this.geometrySize(event.detail);
-    if (!size) return;
-    slot.minimum = size;
-    this.measure();
-    this.requestUpdate();
-  }
-  private onTerminalFocusIn(key: string) {
-    const pane = paneFor(this.layout.tree, key);
-    if (pane && this.layout.focused !== pane.key) focusPane(this.layoutInput(), pane.key);
-  }
-  private async addSlot(space: Space, entry: LayoutEntry, metadata?: TerminalMetadata): Promise<Slot | undefined> {
-    if (this.stale || this.disposed) return;
-    let existing = this.slots.find((s) => s.key === entry.key);
-    if (existing) return existing;
-    const n = this.epoch;
-    await this.updateComplete;
-    if (!this.live(n) || this.closest('[hidden]')) return;
-    existing = this.slots.find((s) => s.key === entry.key);
-    if (existing) return existing;
-    const layer = this.querySelector('.soda-workspace-owners');
-    check(layer);
-    const {key, locator} = entry,
-      binding = this.identity(space),
-      host = document.createElement('div');
-    host.className = 'soda-workspace-terminal';
-    host.id = 'soda-owner-' + key;
-    host.setAttribute('role', 'tabpanel');
-    layer.append(host);
-    const terminal = this.factory(host, binding, locator);
-    const slot: Slot = {
-      key,
-      binding,
-      metadata,
-      host,
-      terminal,
-      unavailable: false,
-      unread: false,
-      readRequested: false,
-      observedAt: metadata ? Date.now() : 0,
-      observation: undefined,
-    };
-    this.slots.push(slot);
-    if (metadata) terminal.setName(metadata.name);
-    host.addEventListener('soda-terminal-locator', (event) =>
-      this.onTerminalLocator(key, binding, terminal, slot, event)
-    );
-    host.addEventListener('soda-terminal-observation', (event) => this.onTerminalObservation(key, slot, event));
-    host.addEventListener('pointerdown', (event) => {
-      if (event.isTrusted) this.markViewed(key);
-    });
-    host.addEventListener('soda-terminal-metadata', (event) => this.onTerminalMetadata(key, slot, terminal, event));
-    host.addEventListener('soda-terminal-authority-lost', () => {
-      if (!this.disposed) this.invalidate();
-    });
-    host.addEventListener('soda-terminal-command', (event) => this.onTerminalCommand(key, slot, binding, event));
-    host.addEventListener('soda-terminal-geometry', (event) => this.onTerminalGeometry(slot, event));
-    host.addEventListener('focusin', () => this.onTerminalFocusIn(key));
-    this.display();
-    this.requestUpdate();
-    return slot;
-  }
-  private slotHidden(slot: Slot, area: Area | undefined) {
-    return this.stale || this.setupScreen || slot.unavailable || this.view !== 'terminal' || !area;
-  }
-  private applySlotGeometry(slot: Slot, area: Area) {
-    slot.host.style.cssText =
-      this.rectangle({...area, y: area.y + this.tabHeight, height: Math.max(0, area.height - this.tabHeight)}) +
-      `;--soda-terminal-height:${Math.max(0, area.height - this.tabHeight)}px`;
-    slot.host.setAttribute('aria-labelledby', 'soda-tab-' + slot.key);
-  }
-  private displaySlot(slot: Slot, area: Area | undefined) {
-    slot.host.hidden = this.slotHidden(slot, area);
-    if (area) this.applySlotGeometry(slot, area);
-    if (slot.host.hidden || !this.activeSurface) slot.readRequested = false;
-    slot.terminal.setVisible(this.surfaceVisible && !slot.host.hidden && !this.closest('[hidden]'));
-  }
   private display() {
-    const projection = this.projection;
-    for (const slot of this.slots)
-      this.displaySlot(
-        slot,
-        projection.panes.find((area) => area.pane.selected === slot.key)
-      );
+    displaySlots(this.hostsInput());
     for (const [id, project] of this.projects) project.host.hidden = this.view !== 'project' || id !== this.project;
     displayFactoryWatches({
       binding: this.binding,
@@ -1904,7 +1736,7 @@ export class SodaSpaces extends LitElement {
     this.layout = selectTab(putEntry(this.layout, entry), entry.key, draft.pane);
     this.view = 'terminal';
     this.creation = null;
-    const slot = await this.addSlot(space, entry);
+    const slot = await addSlot(this.hostsInput(), space, entry);
     if (!slot) return;
     slot.proposedName = draft.name;
     this.requestUpdate();
