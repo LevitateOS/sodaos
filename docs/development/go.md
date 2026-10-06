@@ -170,9 +170,9 @@ API is required by this placement.
 
 | Symptom | Open first | Then |
 | --- | --- | --- |
-| Image/candidate will not build | `rust/soda-release-build`, `rust/soda-release-tools` (`soda-build`) | `rust/soda-release-image` |
-| Media/assemble wrong | `rust/soda-release-image` | `installer` phases |
-| Sign/publish | `rust/soda-release-deliver` | explicit grant (no operator CLI) |
+| Image/candidate will not build | `lib/soda-release-build`, `lib/soda-release-tools` (`soda-build`) | `lib/soda-release-image` |
+| Media/assemble wrong | `lib/soda-release-image` | `installer` phases |
+| Sign/publish | `lib/soda-release-deliver` | explicit grant (no operator CLI) |
 
 
 ## `scripts/` Go tests

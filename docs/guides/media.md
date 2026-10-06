@@ -10,7 +10,7 @@ Build/install procedures: [Installation](installation.md).
 
 | Owner | Responsibility |
 | --- | --- |
-| `soda-candidate`, `soda-build` (`rust/soda-release-tools`) | Development candidate/media producer (no release qualification) |
+| `soda-candidate`, `soda-build` (`lib/soda-release-tools`) | Development candidate/media producer (no release qualification) |
 | Stable CoreOS stream (resolved live per build) | Upstream ISO metadata per architecture; observed values recorded, never pinned |
 | `rust/soda-install` | Interactive disk adapter and installed-host continuation |
 | `soda-render-provisioning` (`rust/soda-stage-render`) | Public bootstrap Butane/Ignition template |

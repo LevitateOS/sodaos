@@ -89,7 +89,7 @@ func TestPostgresProvisionUnitWiring(t *testing.T) {
 		"Requires=soda-pg-provision.service",
 		"After=soda-pg-provision.service",
 	)
-	prepare := readRuntimeFile(t, "rust/soda-release-image/src/prepare.rs")
+	prepare := readRuntimeFile(t, "lib/soda-release-image/src/prepare.rs")
 	requireContains(t, prepare, `"soda-pg-provision.service"`)
 }
 
@@ -142,7 +142,7 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 		"d /var/lib/soda/backups/postgres 0700 root root -",
 		"d /run/soda/postgres 0755 999 999 -",
 	)
-	prepare := readRuntimeFile(t, "rust/soda-release-image/src/prepare.rs")
+	prepare := readRuntimeFile(t, "lib/soda-release-image/src/prepare.rs")
 	requireContains(t, prepare,
 		`"soda-postgres.container"`,
 		`"soda.network"`,
@@ -161,7 +161,7 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 			t.Fatalf("prepare still stages the replaced shell source %s", removed)
 		}
 	}
-	layout := readRuntimeFile(t, "rust/soda-release-image/src/build.rs")
+	layout := readRuntimeFile(t, "lib/soda-release-image/src/build_compile.rs")
 	requireContains(t, layout,
 		`(
         "soda-pg-maintenance",

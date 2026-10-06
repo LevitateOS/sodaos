@@ -143,7 +143,7 @@ func TestConsoleHookKeepsNoninteractiveSSHQuiet(t *testing.T) {
 }
 
 func TestConsoleWelcomeInstallWiring(t *testing.T) {
-	prepare, err := os.ReadFile("../rust/soda-release-image/src/prepare.rs")
+	prepare, err := os.ReadFile("../lib/soda-release-image/src/prepare.rs")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestConsoleWelcomeInstallWiring(t *testing.T) {
 		t.Fatal("prepare still stages the replaced shell source")
 	}
 	// The Rust binary installs where the service and login hook expect it.
-	layout, err := os.ReadFile("../rust/soda-release-image/src/build.rs")
+	layout, err := os.ReadFile("../lib/soda-release-image/src/build_compile.rs")
 	if err != nil {
 		t.Fatal(err)
 	}
