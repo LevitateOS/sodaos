@@ -1,6 +1,6 @@
-use super::parse_json_integer;
-use super::parse_json_string;
-use super::skip_json_value;
+use super::launch_json::parse_json_integer;
+use super::launch_json::parse_json_string;
+use super::launch_json::skip_json_value;
 
 // json_string matches Go encoding/json string escaping, including its
 // HTML-safe <, >, & forms, so override bytes are identical for any input.
