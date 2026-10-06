@@ -2,12 +2,10 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use super::config::{config_json, trust_json, worker_json};
 use super::process::{capture, run, run_piped_stdin, run_stdout_null, Captured};
 use super::storage::{refuse_active_build, Storage};
-use super::{
-    config_json, is_file, stripped_string, trust_json, worker_json, write_staged, Exit, ADMITTED,
-    AUTHORITY, TOOLS,
-};
+use super::{is_file, stripped_string, write_staged, Exit, ADMITTED, AUTHORITY, TOOLS};
 
 /// `random_hex_passphrase` mirrors `head -c 32 /dev/urandom | od -An -tx1
 /// | tr -d ' \n'`: 64 lowercase hex characters, no trailing newline.
