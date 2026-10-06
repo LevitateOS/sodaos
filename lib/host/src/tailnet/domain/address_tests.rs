@@ -1,3 +1,5 @@
+use super::addresses::canonical_magic_dns_name;
+use super::native::fold_eq;
 use super::node_tests::{binding, prefs_doc, status_doc};
 use super::*;
 

@@ -80,37 +80,31 @@ pub fn valid_image_id(s: &str) -> bool {
 fn unavailable<T>() -> Result<T, String> {
     Err(ERR_UNAVAILABLE.to_string())
 }
-#[path = "tailnet/domain/time.rs"]
+
 mod time;
 
 pub use time::{go_escape, parse_rfc3339_nano};
 
-#[path = "tailnet/domain/native.rs"]
 mod native;
 
 use native::{
-    bind_bool_into, bind_string_into, decode_native_prefs, decode_native_status, fold_eq,
-    lower_char, native_object, NativeStatus, SelfPeer,
+    bind_bool_into, bind_string_into, decode_native_prefs, decode_native_status, lower_char,
+    native_object, NativeStatus, SelfPeer,
 };
 
-#[path = "tailnet/domain/addresses.rs"]
 mod addresses;
 
-use addresses::{canonical_magic_dns_name, resolve_project_peer};
+use addresses::resolve_project_peer;
 
-#[path = "tailnet/domain/status.rs"]
 mod status;
 
 pub use status::{project_has_node, project_status};
 
 #[cfg(test)]
-#[path = "tailnet/domain/node_tests.rs"]
 mod node_tests;
 
 #[cfg(test)]
-#[path = "tailnet/domain/status_tests.rs"]
 mod status_tests;
 
 #[cfg(test)]
-#[path = "tailnet/domain/address_tests.rs"]
 mod address_tests;
