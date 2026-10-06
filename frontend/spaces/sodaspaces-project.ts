@@ -6,7 +6,6 @@ import {LitElement, html} from 'lit';
 import {renderProjectStatus} from './sodaspaces-project-view.js';
 import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
 import {object, check, id, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
-import {osObservation} from './sodaspaces-project-response.js';
 import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
 import {renderJourney} from './sodaspaces-project-journey-view.js';
@@ -47,6 +46,8 @@ import {
   setUseSavedKeys,
 } from './sodaspaces-project-access.js';
 import type {AccessInput} from './sodaspaces-project-access.js';
+import {changeLifecycle, inspectOS, setStopConfirmed} from './sodaspaces-project-runtime.js';
+import type {RuntimeInput} from './sodaspaces-project-runtime.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;
@@ -378,7 +379,7 @@ export class SodaProjectControls extends LitElement {
       requestRefresh: (event) => this.command(event, () => this.refresh()),
       refreshNow: () => this.refresh(),
       requestJoin: (event) => this.command(event, () => joinEnvironment(this.accessInput())),
-      requestStart: (event) => this.command(event, () => this.changeLifecycle(false)),
+      requestStart: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), false)),
       requestCreate: (event) => this.command(event, () => this.createProject()),
       requestRepositoryChange: (event) => this.command(event, () => this.requestRepositoryChange()),
       clearNetworkReview: (event) => this.command(event, () => clearNetworkReview(this.networkInput())),
@@ -493,10 +494,10 @@ export class SodaProjectControls extends LitElement {
       requestRefresh: (event) => this.command(event, () => this.refresh()),
       requestCreate: (event) => this.command(event, () => this.createProject()),
       requestJoin: (event) => this.command(event, () => joinEnvironment(this.accessInput())),
-      requestStart: (event) => this.command(event, () => this.changeLifecycle(false)),
-      requestStop: (event) => this.command(event, () => this.changeLifecycle(true)),
-      setStopConfirmed: (checked) => this.onStopConfirmed(checked),
-      requestInspectOS: (event) => this.command(event, () => this.inspectOS()),
+      requestStart: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), false)),
+      requestStop: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), true)),
+      setStopConfirmed: (checked) => setStopConfirmed(this.runtimeInput(), checked),
+      requestInspectOS: (event) => this.command(event, () => inspectOS(this.runtimeInput())),
       reloadPage: (event) => this.onReloadPage(event),
       copyConnection: () => {
         void copyConnection(this.connectionInput());
@@ -523,8 +524,36 @@ export class SodaProjectControls extends LitElement {
       !this.disposed && event.currentTarget instanceof HTMLElement && !event.currentTarget.closest('[hidden], [inert]')
     );
   }
-  private onStopConfirmed(checked: boolean) {
-    this.stopConfirmed = checked;
+  private runtimeInput(): RuntimeInput {
+    return {
+      readEnvironment: () => this.environment,
+      isBlocked: () => this.blocked,
+      readEpoch: () => this.epoch,
+      isActive: (generation) => this.active(generation),
+      setBusy: (busy) => {
+        this.busy = busy;
+      },
+      setOutcome: (outcome) => {
+        this.outcome = outcome;
+      },
+      setObservedOS: (observation) => {
+        this.observedOS = observation;
+      },
+      setOsStatus: (status) => {
+        this.osStatus = status;
+      },
+      readStopConfirmed: () => this.stopConfirmed,
+      setStopConfirmed: (confirmed) => {
+        this.stopConfirmed = confirmed;
+      },
+      abortRead: () => {
+        this.readController?.abort();
+      },
+      takeReadController: () => (this.readController = new AbortController()),
+      invalidate: () => this.invalidate(),
+      api: (path, method, body, signal) => this.api(path, method, body, signal),
+      mutations: this.mutationsInput(),
+    };
   }
   private accessInput(): AccessInput {
     return {
@@ -817,62 +846,6 @@ export class SodaProjectControls extends LitElement {
         this.canCreate = canCreate;
       },
     };
-  }
-  private applyOSError(epoch: number, error: unknown) {
-    if (!this.active(epoch)) return;
-    if (this.authLost(error)) this.invalidate();
-    else this.osStatus = 'OS observation unavailable. Nothing was started or repaired.';
-  }
-  private authLost(error: unknown) {
-    return error instanceof SodaRequestError && (error.status === 401 || error.status === 403);
-  }
-  private async inspectOS() {
-    if (this.blocked || !this.environment) return;
-    const epoch = this.epoch,
-      target = this.environment.id;
-    this.busy = true;
-    this.observedOS = undefined;
-    this.osStatus = 'Reading current userspace…';
-    this.readController?.abort();
-    const controller = (this.readController = new AbortController()),
-      timeout = window.setTimeout(() => controller.abort(), 15000);
-    try {
-      const observation = osObservation(
-        await this.api('/api/environments/' + target + '/os', 'GET', undefined, controller.signal),
-        target
-      );
-      if (this.active(epoch)) {
-        this.observedOS = observation;
-        this.osStatus = 'Read completed. Creation metadata was not changed.';
-      }
-    } catch (error) {
-      this.applyOSError(epoch, error);
-    } finally {
-      window.clearTimeout(timeout);
-      if (this.active(epoch)) this.busy = false;
-    }
-  }
-  private changeLifecycle(stop: boolean) {
-    if (!this.environment) return;
-    if (stop && !this.stopConfirmed) {
-      this.outcome = 'Confirm the shared impact before Stop.';
-      return;
-    }
-    return mutate(
-      this.mutationsInput(),
-      `/api/environments/${this.environment.id}/lifecycle`,
-      {
-        action: stop ? 'stop' : 'start',
-        ...(stop
-          ? {
-              confirm_stop: true,
-            }
-          : {}),
-      },
-      stop
-        ? 'Stop confirmed; next-boot start disabled. Existing data was not recreated or deleted.'
-        : 'Start confirmed and next-boot start enabled. Refresh connection status while services initialize.'
-    );
   }
   dispose() {
     if (this.disposed) return;
