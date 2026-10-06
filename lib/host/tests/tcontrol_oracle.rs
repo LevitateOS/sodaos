@@ -35,7 +35,7 @@ mod tcontrol_native;
 mod tcontrol_policy;
 #[path = "../src/tcontrol_provider.rs"]
 mod tcontrol_provider;
-#[path = "../src/tcontrol_wire.rs"]
+#[path = "../src/tailnet/control/wire.rs"]
 mod tcontrol_wire;
 
 use std::path::PathBuf;

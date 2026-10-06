@@ -40,5 +40,6 @@ pub mod tcontrol_enroll;
 pub mod tcontrol_native;
 pub mod tcontrol_policy;
 pub mod tcontrol_provider;
+#[path = "tailnet/control/wire.rs"]
 pub mod tcontrol_wire;
 pub mod terminal;
