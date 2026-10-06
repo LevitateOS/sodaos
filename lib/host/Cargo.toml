@@ -11,6 +11,10 @@ path = "src/lib.rs"
 name = "soda-host"
 path = "src/main.rs"
 
+[[bin]]
+name = "soda-forgejo-tailnet"
+path = "../../cmd/soda-forgejo-tailnet/main.rs"
+
 [dependencies]
 libc = "0.2"
 soda-release-deliver = { path = "../../lib/soda-release-deliver" }
