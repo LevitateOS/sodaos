@@ -488,4 +488,70 @@ mod tests {
         assert_eq!(shipped, 1);
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn cr02_compile_skips_pg_identity_and_tools_ship_all_three() {
+        // CODEX-CR02-001: compile must never reference the bogus
+        // (soda-pg-maintenance, soda-pg-maintenance) identity — that binary
+        // does not exist. RUST_TOOLS retains the three real tuples and ships
+        // backup/restore/init-roles exactly once each.
+        let dir = std::env::temp_dir().join(format!("sri-cr02b-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
+        let pg = snapshot.join("cmd/soda-pg-maintenance");
+        fs::create_dir_all(&pg).unwrap();
+        fs::write(
+            pg.join("Cargo.toml"),
+            b"[package]\nname = \"soda-pg-maintenance\"\n[[bin]]\nname = \"soda-pg-backup\"\n[[bin]]\nname = \"soda-pg-restore\"\n[[bin]]\nname = \"soda-pg-init-roles\"\n",
+        )
+        .unwrap();
+        fs::create_dir_all(dir.join("ctx/rootfs/usr/libexec/soda")).unwrap();
+        let context = dir.join("ctx").to_str().unwrap().to_string();
+        let recorder = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        assert!(!recorder
+            .rust
+            .borrow()
+            .iter()
+            .any(|(c, b, _)| c == "soda-pg-maintenance" && b == "soda-pg-maintenance"));
+        assert!(!recorder
+            .go
+            .borrow()
+            .iter()
+            .any(|(_, p, _)| p == "./cmd/soda-pg-maintenance"));
+        // The three retained RUST_TOOLS tuples keep their exact destinations.
+        let mut tuples: Vec<(&str, &str)> = RUST_TOOLS
+            .iter()
+            .filter(|(m, _, _)| *m == "soda-pg-maintenance")
+            .map(|(_, b, d)| (*b, *d))
+            .collect();
+        tuples.sort();
+        assert_eq!(
+            tuples,
+            vec![
+                ("soda-pg-backup", "rootfs/usr/bin/soda-pg-backup"),
+                ("soda-pg-init-roles", "rootfs/usr/bin/soda-pg-init-roles"),
+                ("soda-pg-restore", "rootfs/usr/bin/soda-pg-restore"),
+            ]
+        );
+        let tools = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        compile_rust_tools(&tools, &context).unwrap();
+        for bin in ["soda-pg-backup", "soda-pg-restore", "soda-pg-init-roles"] {
+            let shipped = tools
+                .rust
+                .borrow()
+                .iter()
+                .filter(|(c, b, _)| c == "soda-pg-maintenance" && b == &bin)
+                .count();
+            assert_eq!(shipped, 1);
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

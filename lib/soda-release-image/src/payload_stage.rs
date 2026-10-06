@@ -386,7 +386,11 @@ mod tests {
         fs::create_dir_all(source.join("cmd/soda-fakego")).unwrap();
         let folded = source.join("cmd/soda-project-terminal");
         fs::create_dir_all(&folded).unwrap();
-        fs::write(folded.join("Cargo.toml"), b"[package]\n").unwrap();
+        fs::write(
+            folded.join("Cargo.toml"),
+            b"[package]\nname = \"soda-project-terminal\"\n[[bin]]\nname = \"project-terminal\"\n[[bin]]\nname = \"project-account\"\n",
+        )
+        .unwrap();
         let context = dir.join("ctx");
         let bindir = context.join("rootfs/usr/libexec/soda");
         fs::create_dir_all(&bindir).unwrap();
@@ -402,6 +406,42 @@ mod tests {
         .unwrap();
         assert!(native.join("bin/soda-fakego").is_file());
         assert!(!native.join("bin/soda-project-terminal").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cr02_staging_links_resolve_without_pg_identity() {
+        // CODEX-CR02-001: payload staging links only real commands. Context
+        // holds the three pg binaries (via RUST_TOOLS) but no
+        // soda-pg-maintenance binary; staging must succeed and must not
+        // link the bogus identity.
+        let dir = std::env::temp_dir().join(format!("sri-cr02c-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let source = dir.join("src");
+        fs::create_dir_all(source.join("cmd/soda-fakego")).unwrap();
+        let pg = source.join("cmd/soda-pg-maintenance");
+        fs::create_dir_all(&pg).unwrap();
+        fs::write(
+            pg.join("Cargo.toml"),
+            b"[package]\nname = \"soda-pg-maintenance\"\n[[bin]]\nname = \"soda-pg-backup\"\n[[bin]]\nname = \"soda-pg-restore\"\n[[bin]]\nname = \"soda-pg-init-roles\"\n",
+        )
+        .unwrap();
+        let context = dir.join("ctx");
+        let bindir = context.join("rootfs/usr/libexec/soda");
+        fs::create_dir_all(&bindir).unwrap();
+        fs::write(bindir.join("soda-fakego"), b"fake").unwrap();
+        fs::write(bindir.join("soda-pg-backup"), b"backup").unwrap();
+        fs::write(bindir.join("soda-pg-restore"), b"restore").unwrap();
+        fs::write(bindir.join("soda-pg-init-roles"), b"roles").unwrap();
+        let native = dir.join("native");
+        link_candidate_commands(
+            source.to_str().unwrap(),
+            context.to_str().unwrap(),
+            native.to_str().unwrap(),
+        )
+        .unwrap();
+        assert!(native.join("bin/soda-fakego").is_file());
+        assert!(!native.join("bin/soda-pg-maintenance").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 }

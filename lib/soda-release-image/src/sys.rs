@@ -279,6 +279,57 @@ pub fn is_rust_command(cmd_dir: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// CODEX-CR02-001: `[[bin]]` names declared by a Rust command manifest.
+/// Unreadable manifests yield no names so the caller keeps the previous
+/// classification; the real workspace build owns those failures.
+fn declared_bins(cmd_dir: &str) -> Vec<String> {
+    let text = fs::read_to_string(join(&[cmd_dir, "Cargo.toml"])).unwrap_or_default();
+    let mut names = Vec::new();
+    let mut in_bin = false;
+    for raw in text.lines() {
+        let line = raw.trim();
+        if line.starts_with('[') {
+            let head = line.split('#').next().unwrap_or("").trim();
+            in_bin = head == "[[bin]]";
+            continue;
+        }
+        if !in_bin {
+            continue;
+        }
+        let Some(rest) = line.strip_prefix("name") else {
+            continue;
+        };
+        let Some(value) = rest.trim_start().strip_prefix('=') else {
+            continue;
+        };
+        let mut value = value.trim();
+        if value.len() >= 2 {
+            let quote = value.as_bytes()[0];
+            if (quote == b'"' || quote == b'\'') && value.as_bytes()[value.len() - 1] == quote {
+                value = &value[1..value.len() - 1];
+            } else if quote == b'"' || quote == b'\'' {
+                // Trailing comment after the quoted name; take the quoted part.
+                let bytes = value.as_bytes();
+                if let Some(end) = bytes[1..].iter().position(|b| *b == quote) {
+                    value = &value[1..1 + end];
+                }
+            }
+        }
+        names.push(value.to_string());
+    }
+    names
+}
+
+/// CODEX-CR02-001: true when a Rust-owned cmd directory must not ship
+/// through the cmd identity — its manifest declares `[[bin]]` entries but
+/// none of them is the command's own directory name. Such a crate ships
+/// its real binaries through RUST_TOOLS tuples instead. Manifests with no
+/// `[[bin]]` section keep the previous classification.
+fn ships_no_command_bin(cmd_dir: &str, name: &str) -> bool {
+    let bins = declared_bins(cmd_dir);
+    !bins.is_empty() && !bins.iter().any(|bin| bin == name)
+}
+
 /// `build.SodaCommands`: sorted `cmd/soda-*` directories, tools excluded.
 pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
     let mut names = Vec::new();
@@ -290,13 +341,15 @@ pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
         .collect();
     dirs.sort();
     for name in dirs {
-        // CORR-C-004-AMEND-1 (CODEX-A01-CMD-1): post-A01 fold,
-        // cmd/soda-project-terminal carries a manifest, but its package ships
-        // project-terminal + project-account — never a soda-project-terminal
-        // binary. RUST_TOOLS + asset_steps already produce both; skip it here
-        // (not error) so compile/link never reference the bogus identity.
-        // Manifest-gated: only the folded Rust-owned crate skips.
-        if name == "soda-project-terminal" && is_rust_command(&join(&[source, "cmd", &name])) {
+        // CODEX-CR02-001 (subsumes CODEX-A01-CMD-1): a Rust-owned cmd
+        // directory ships as an appliance command only when its manifest
+        // declares a binary of its own directory name. Multi-binary/lib
+        // crates (soda-project-terminal, soda-pg-maintenance) ship their
+        // real binaries via RUST_TOOLS; skip them here (not error) so
+        // compile/link never reference the bogus identity.
+        if is_rust_command(&join(&[source, "cmd", &name]))
+            && ships_no_command_bin(&join(&[source, "cmd", &name]), &name)
+        {
             continue;
         }
         if !is_soda_command(&name) || name == "soda-artifacts" || name == "soda-acceptance" {
@@ -435,6 +488,38 @@ mod tests {
         .unwrap();
         let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
         assert_eq!(names, vec!["soda-fakego".to_string()]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cr02_discovery_skips_multibin_pg_crate() {
+        // CODEX-CR02-001: cmd/soda-pg-maintenance is Rust-owned but declares
+        // only backup/restore/init-roles bins — never a soda-pg-maintenance
+        // binary. Discovery must skip it (RUST_TOOLS owns those bins) while
+        // a same-name-bin crate and real Go commands still list.
+        let dir = std::env::temp_dir().join(format!("sri-cr02a-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
+        let identity = snapshot.join("cmd/soda-identity");
+        fs::create_dir_all(&identity).unwrap();
+        fs::write(
+            identity.join("Cargo.toml"),
+            b"[package]\nname = \"soda-identity\"\n[[bin]]\nname = \"soda-identity\"\n",
+        )
+        .unwrap();
+        let pg = snapshot.join("cmd/soda-pg-maintenance");
+        fs::create_dir_all(&pg).unwrap();
+        fs::write(
+            pg.join("Cargo.toml"),
+            b"[package]\nname = \"soda-pg-maintenance\"\n[lib]\nname = \"soda_pg_maintenance\"\n[[bin]]\nname = \"soda-pg-backup\"\n[[bin]]\nname = \"soda-pg-restore\"\n[[bin]]\nname = \"soda-pg-init-roles\"\n",
+        )
+        .unwrap();
+        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
+        assert_eq!(
+            names,
+            vec!["soda-fakego".to_string(), "soda-identity".to_string()]
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
