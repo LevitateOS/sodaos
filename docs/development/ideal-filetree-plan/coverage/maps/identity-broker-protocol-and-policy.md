@@ -283,7 +283,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 ## [cmd/soda-identity/src/runtime.rs](../../../../../cmd/soda-identity/src/runtime.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; one test span corrected.
+Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; one test span corrected. `read_chunked`/`read_line` retired by H01-F1 commit 859b8d4c (chunk decoder removed; `read_response` refuses chunked).
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
 
@@ -295,7 +295,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 94–99 | Callback trait/response transport; declarations/fields: `default_limit` |
 | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 100–102 | Native validate trait binding; declarations/fields: `validate` |
 | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 103–110 | Native completion trait binding; declarations/fields: `stop`, `finish` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 111–240 | Bounded HTTP callback body/chunk parser; declarations/fields: `read_response`, `read_chunked`, `read_line` |
+| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 111–183 | Bounded HTTP callback body/chunk parser; declarations/fields: `read_response` |
 | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 241–373, 383–390 | Host callback fixtures/assertions; declarations/fields: `tests`, `lease`, `stub`, `rand_suffix`, `delegates_both_kinds_to_host`, `finish_rejects_null_and_oversized_bodies`, `chunked_response_refused_without_decode` |
 | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 318–325 | Source assertion of Execution admission and lease fencing; declarations/fields: `refuses_unbound_lease_without_host_call` |
 
@@ -374,7 +374,7 @@ Re-audit @HEAD: pre-A05/A06 `wire.rs` split into `wire.rs` + 6 `wire_*` siblings
 | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 89–94 | Private credential delivery contract; declarations/fields: `DeliveryWire` |
 | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 91 | Private credential delivery contract; declaration/member DeliveryWire.lease; declarations/fields: `DeliveryWire.lease` |
 | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 93 | Private credential delivery contract; declaration/member DeliveryWire.credential; declarations/fields: `DeliveryWire.credential` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 96–98 | Wire/validation source vectors; declarations/fields: `tests`, `base64_matches_go_byte_form` |
+| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 96–98 | Wire/validation source vectors; declarations/fields: `tests` |
 
 ## [cmd/soda-identity/src/wire_errors.rs](../../../../../cmd/soda-identity/src/wire_errors.rs)
 
@@ -530,7 +530,7 @@ Re-audit @HEAD: split sibling; spans re-audited against current bytes.
 | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 3–21 | Source assertion of Encoding and parsing; declarations/fields: `go_time_vectors_round_trip` |
 | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 23–39 | Source assertion of Encoding and parsing; declaration/member timestamps_reject_malformed_input; declarations/fields: `timestamps_reject_malformed_input` |
 | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 41–66 | Source assertion of Execution admission and lease fencing; declarations/fields: `lease_wire_shape_matches_go` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 68–92 | Wire/validation source vectors; declarations/fields: `tests`, `base64_matches_go_byte_form` |
+| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 68–92 | Wire/validation source vectors; declarations/fields: `base64_matches_go_byte_form` |
 | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 94–113 | Wire/validation source vectors; declaration/member null_scalars_match_go_noop; declarations/fields: `null_scalars_match_go_noop` |
 | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 115–121 | Wire/validation source vectors; declaration/member provider_ids_match_go; declarations/fields: `provider_ids_match_go` |
 | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 123–145 | Wire/validation source vectors; declaration/member digest_matches_go_acquisition; declarations/fields: `digest_matches_go_acquisition` |
