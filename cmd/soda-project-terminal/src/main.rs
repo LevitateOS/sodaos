@@ -24,6 +24,7 @@ mod proto;
 mod pty;
 mod pyemit;
 mod sha;
+mod subscription_wire;
 mod svc;
 mod sys;
 mod term;
