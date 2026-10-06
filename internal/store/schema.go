@@ -158,17 +158,17 @@ END $$ LANGUAGE plpgsql`,
 // compatibility migrations; older versioned files are refused without mutation.
 func SchemaVersion() int { return schemaFormatVersion }
 
-func schemaPresent(ctx context.Context, t *tx) (bool, error) {
+func schemaPresent(ctx context.Context, t *sql.Tx) (bool, error) {
 	var hasVersion int
-	if err := t.queryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='schema_version'`).Scan(&hasVersion); err != nil {
+	if err := t.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='schema_version'`).Scan(&hasVersion); err != nil {
 		return false, err
 	}
 	return hasVersion != 0, nil
 }
 
-func refuseUnversionedDatabase(ctx context.Context, t *tx) error {
+func refuseUnversionedDatabase(ctx context.Context, t *sql.Tx) error {
 	var objects int
-	if err := t.queryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'`).Scan(&objects); err != nil {
+	if err := t.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'`).Scan(&objects); err != nil {
 		return err
 	}
 	if objects != 0 {
@@ -177,10 +177,10 @@ func refuseUnversionedDatabase(ctx context.Context, t *tx) error {
 	return nil
 }
 
-func storedSchemaVersion(ctx context.Context, t *tx) (int, error) {
+func storedSchemaVersion(ctx context.Context, t *sql.Tx) (int, error) {
 	var count int
 	var minimum, maximum sql.NullInt64
-	if err := t.queryRow(ctx, `SELECT count(*),min(version),max(version) FROM schema_version`).Scan(&count, &minimum, &maximum); err != nil {
+	if err := t.QueryRowContext(ctx, `SELECT count(*),min(version),max(version) FROM schema_version`).Scan(&count, &minimum, &maximum); err != nil {
 		return 0, err
 	}
 	if count != 1 || !minimum.Valid || minimum.Int64 < 1 || minimum.Int64 != maximum.Int64 {
@@ -189,7 +189,7 @@ func storedSchemaVersion(ctx context.Context, t *tx) (int, error) {
 	return int(minimum.Int64), nil
 }
 
-func verifyRequiredColumns(ctx context.Context, t *tx) error {
+func verifyRequiredColumns(ctx context.Context, t *sql.Tx) error {
 	for _, query := range []string{
 		`SELECT id,login,name FROM users LIMIT 0`,
 		`SELECT id,user_id,public,fingerprint FROM keys LIMIT 0`,
@@ -224,7 +224,7 @@ func verifyRequiredColumns(ctx context.Context, t *tx) error {
 		`SELECT seq,assignment,repository,issue,run,stage,revision,data FROM factory_publications LIMIT 0`,
 		`SELECT seq,publication,repository,issue,pr,stage,revision,data FROM factory_merges LIMIT 0`,
 	} {
-		rows, err := t.query(ctx, query)
+		rows, err := t.QueryContext(ctx, query)
 		if err != nil {
 			return errors.New("database schema is incomplete")
 		}
@@ -235,9 +235,9 @@ func verifyRequiredColumns(ctx context.Context, t *tx) error {
 	return nil
 }
 
-func verifyTrigger(ctx context.Context, t *tx, name, table string) error {
+func verifyTrigger(ctx context.Context, t *sql.Tx, name, table string) error {
 	var found int
-	if err := t.queryRow(ctx, `SELECT count(*) FROM information_schema.triggers WHERE trigger_name=? AND event_object_table=?`, name, table).Scan(&found); err != nil {
+	if err := t.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.triggers WHERE trigger_name=$1 AND event_object_table=$2`, name, table).Scan(&found); err != nil {
 		return err
 	}
 	if found != 1 {
@@ -246,19 +246,19 @@ func verifyTrigger(ctx context.Context, t *tx, name, table string) error {
 	return nil
 }
 
-func verifyImmutableCreationProfile(ctx context.Context, t *tx) error {
+func verifyImmutableCreationProfile(ctx context.Context, t *sql.Tx) error {
 	return verifyTrigger(ctx, t, "immutable_creation_profile", "projects")
 }
 
-func verifyImmutablePreparationRefs(ctx context.Context, t *tx) error {
+func verifyImmutablePreparationRefs(ctx context.Context, t *sql.Tx) error {
 	return verifyTrigger(ctx, t, "preparation_refs_immutable", "project_preparations")
 }
 
-func verifyImmutableExecutionIdentity(ctx context.Context, t *tx) error {
+func verifyImmutableExecutionIdentity(ctx context.Context, t *sql.Tx) error {
 	return verifyTrigger(ctx, t, "identity_execution_immutable", "identity_executions")
 }
 
-func loadSchemaVersion(ctx context.Context, t *tx) (int, error) {
+func loadSchemaVersion(ctx context.Context, t *sql.Tx) (int, error) {
 	present, err := schemaPresent(ctx, t)
 	if err != nil {
 		return 0, err
@@ -274,14 +274,14 @@ func initializeSchema(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	t := &tx{inner: inner}
+	t := inner
 	defer func() { _ = t.Rollback() }()
 	version, err := loadSchemaVersion(ctx, t)
 	if err != nil {
 		return err
 	}
 	if version == 0 {
-		// DDL carries no parameters; it bypasses placeholder binding.
+		// DDL carries no parameters.
 		for _, statement := range schemaStatements {
 			if _, err = inner.ExecContext(ctx, statement); err != nil {
 				return fmt.Errorf("create current database schema: %w", err)

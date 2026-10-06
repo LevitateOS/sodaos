@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -20,8 +21,8 @@ import (
 // transactional insert plus one credential-free audit event. Both Seed
 // helpers funnel through it; the seal binding stays owned by identityBinding
 // below and is reused, never redefined.
-func (s *Store) seedIdentityInsert(ctx context.Context, insert func(*tx) error, event identity.Event) error {
-	return s.identityAtomic(ctx, func(tx *tx) error {
+func (s *Store) seedIdentityInsert(ctx context.Context, insert func(*sql.Tx) error, event identity.Event) error {
+	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
 		if err := insert(tx); err != nil {
 			return err
 		}
@@ -42,8 +43,8 @@ func (s *Store) SeedIdentityConnection(ctx context.Context, c identity.Connectio
 	if err != nil {
 		return err
 	}
-	return s.seedIdentityInsert(ctx, func(tx *tx) error {
-		if _, err := tx.exec(ctx, `INSERT INTO identity_connections(id,owner_id,generation,state,data,credential) VALUES(?,?,?,?,?,?)`, c.ID, c.OwnerID, c.Generation, c.State, data, s.grants.seal(credential, identityBinding(c))); err != nil {
+	return s.seedIdentityInsert(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO identity_connections(id,owner_id,generation,state,data,credential) VALUES($1,$2,$3,$4,$5,$6)`, c.ID, c.OwnerID, c.Generation, c.State, data, s.grants.seal(credential, identityBinding(c))); err != nil {
 			return err
 		}
 		return nil
@@ -57,8 +58,8 @@ func (s *Store) SeedIdentityGrant(ctx context.Context, g identity.Grant) error {
 	if err != nil {
 		return err
 	}
-	return s.seedIdentityInsert(ctx, func(tx *tx) error {
-		if _, err := tx.exec(ctx, `INSERT INTO identity_grants(id,connection_id,user_id,project_id,revision,revoked,data) VALUES(?,?,?,?,?,?,?)`, g.ID, g.ConnectionID, g.UserID, g.ProjectID, g.Revision, g.Revoked, data); err != nil {
+	return s.seedIdentityInsert(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO identity_grants(id,connection_id,user_id,project_id,revision,revoked,data) VALUES($1,$2,$3,$4,$5,$6,$7)`, g.ID, g.ConnectionID, g.UserID, g.ProjectID, g.Revision, g.Revoked, data); err != nil {
 			return err
 		}
 		return nil
@@ -69,8 +70,8 @@ func identityBinding(c identity.Connection) string {
 	return fmt.Sprintf("soda/identity/%s/%d", c.ID, c.Generation)
 }
 
-func (s *Store) identityAtomic(ctx context.Context, operation func(*tx) error) error {
-	tx, err := s.begin(ctx)
+func (s *Store) identityAtomic(ctx context.Context, operation func(*sql.Tx) error) error {
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -81,10 +82,10 @@ func (s *Store) identityAtomic(ctx context.Context, operation func(*tx) error) e
 	return tx.Commit()
 }
 
-func appendIdentityEvent(ctx context.Context, tx *tx, event identity.Event) error {
+func appendIdentityEvent(ctx context.Context, tx *sql.Tx, event identity.Event) error {
 	if event.OwnerID == 0 {
 		var generation int64
-		if err := tx.queryRow(ctx, `SELECT owner_id,generation FROM identity_connections WHERE id=?`, event.ConnectionID).Scan(&event.OwnerID, &generation); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT owner_id,generation FROM identity_connections WHERE id=$1`, event.ConnectionID).Scan(&event.OwnerID, &generation); err != nil {
 			return err
 		}
 		if event.Generation == 0 {
@@ -99,6 +100,6 @@ func appendIdentityEvent(ctx context.Context, tx *tx, event identity.Event) erro
 	if err != nil {
 		return err
 	}
-	_, err = tx.exec(ctx, `INSERT INTO identity_events(owner_id,connection_id,data) VALUES(?,?,?)`, event.OwnerID, event.ConnectionID, data)
+	_, err = tx.ExecContext(ctx, `INSERT INTO identity_events(owner_id,connection_id,data) VALUES($1,$2,$3)`, event.OwnerID, event.ConnectionID, data)
 	return err
 }

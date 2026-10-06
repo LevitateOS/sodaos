@@ -22,8 +22,8 @@ func (s *Store) SaveLifecycleGrant(ctx context.Context, g project.LifecycleGrant
 	if err != nil {
 		return err
 	}
-	result, err := s.exec(ctx, `INSERT INTO project_lifecycle_grants(project_id,revision,data) VALUES(?,?,?)
-		ON CONFLICT(project_id) DO UPDATE SET revision=?,data=? WHERE project_lifecycle_grants.revision=?`,
+	result, err := s.db.ExecContext(ctx, `INSERT INTO project_lifecycle_grants(project_id,revision,data) VALUES($1,$2,$3)
+		ON CONFLICT(project_id) DO UPDATE SET revision=$4,data=$5 WHERE project_lifecycle_grants.revision=$6`,
 		g.Project, next.Revision, string(nextData), next.Revision, string(nextData), g.Revision)
 	if err != nil {
 		return fmt.Errorf("lifecycle grant save failed: %w", err)
@@ -42,7 +42,7 @@ func (s *Store) SaveLifecycleGrant(ctx context.Context, g project.LifecycleGrant
 func (s *Store) LifecycleGrant(ctx context.Context, projectID string) (project.LifecycleGrant, error) {
 	var g project.LifecycleGrant
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM project_lifecycle_grants WHERE project_id=?`, projectID).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM project_lifecycle_grants WHERE project_id=$1`, projectID).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &g)
 	}
@@ -61,8 +61,8 @@ func (s *Store) SaveMaintenanceHold(ctx context.Context, m project.MaintenanceHo
 	if err != nil {
 		return err
 	}
-	result, err := s.exec(ctx, `INSERT INTO project_maintenance(project_id,revision,hold,data) VALUES(?,?,?,?)
-		ON CONFLICT(project_id) DO UPDATE SET revision=?,hold=?,data=? WHERE project_maintenance.revision=?`,
+	result, err := s.db.ExecContext(ctx, `INSERT INTO project_maintenance(project_id,revision,hold,data) VALUES($1,$2,$3,$4)
+		ON CONFLICT(project_id) DO UPDATE SET revision=$5,hold=$6,data=$7 WHERE project_maintenance.revision=$8`,
 		m.Project, next.Revision, next.Hold, string(nextData), next.Revision, next.Hold, string(nextData), m.Revision)
 	if err != nil {
 		return fmt.Errorf("maintenance hold save failed: %w", err)
@@ -82,7 +82,7 @@ func (s *Store) SaveMaintenanceHold(ctx context.Context, m project.MaintenanceHo
 func (s *Store) MaintenanceHold(ctx context.Context, projectID string) (project.MaintenanceHold, error) {
 	var m project.MaintenanceHold
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM project_maintenance WHERE project_id=?`, projectID).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM project_maintenance WHERE project_id=$1`, projectID).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &m)
 	}
@@ -101,7 +101,7 @@ func (s *Store) AdmitPreparation(ctx context.Context, p project.StoredPreparatio
 		return project.StoredPreparation{}, false, err
 	}
 	prep := p.Preparation
-	result, err := s.exec(ctx, `INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES(?,?,?,?,?,?,?)
+	result, err := s.db.ExecContext(ctx, `INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,$4,$5,$6,$7)
 		ON CONFLICT(id) DO NOTHING`, prep.ID, prep.Project, prep.Role, prep.Revision, prep.Requirements.ID, prep.Approval.ID, string(data))
 	if err != nil {
 		return project.StoredPreparation{}, false, fmt.Errorf("preparation admission failed: %w", err)
@@ -136,7 +136,7 @@ func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparat
 	if err != nil {
 		return err
 	}
-	result, err := s.exec(ctx, `UPDATE project_preparations SET revision=?,data=? WHERE id=? AND revision=?`,
+	result, err := s.db.ExecContext(ctx, `UPDATE project_preparations SET revision=$1,data=$2 WHERE id=$3 AND revision=$4`,
 		next.Preparation.Revision, string(data), p.Preparation.ID, p.Preparation.Revision)
 	if err != nil {
 		return fmt.Errorf("preparation observation failed: %w", err)
@@ -155,7 +155,7 @@ func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparat
 func (s *Store) Preparation(ctx context.Context, id string) (project.StoredPreparation, error) {
 	var p project.StoredPreparation
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM project_preparations WHERE id=?`, id).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &p)
 	}
@@ -164,7 +164,7 @@ func (s *Store) Preparation(ctx context.Context, id string) (project.StoredPrepa
 
 // ProjectPreparations lists the durable preparation records for one project.
 func (s *Store) ProjectPreparations(ctx context.Context, projectID string) ([]project.StoredPreparation, error) {
-	rows, err := s.query(ctx, `SELECT data FROM project_preparations WHERE project_id=? ORDER BY id LIMIT 129`, projectID)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM project_preparations WHERE project_id=$1 ORDER BY id LIMIT 129`, projectID)
 	if err != nil {
 		return nil, err
 	}

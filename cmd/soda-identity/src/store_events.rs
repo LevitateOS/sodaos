@@ -8,7 +8,7 @@ impl Store {
             return Err(Error::denied("identity authority denied"));
         }
         let (rows, _) = self.query(
-            "SELECT id,data FROM identity_events WHERE owner_id=? AND connection_id=? ORDER BY id DESC LIMIT 200",
+            "SELECT id,data FROM identity_events WHERE owner_id=$1 AND connection_id=$2 ORDER BY id DESC LIMIT 200",
             &[Param::int(owner), Param::text(id)],
         )?;
         let mut out = Vec::with_capacity(rows.len());
@@ -27,7 +27,7 @@ impl<'a> Tx<'a> {
         let mut event = event.clone();
         if event.owner_id == 0 {
             let row = self.query_row(
-                "SELECT owner_id,generation FROM identity_connections WHERE id=?",
+                "SELECT owner_id,generation FROM identity_connections WHERE id=$1",
                 &[Param::text(&event.connection_id)],
             )?;
             event.owner_id = row.integer(0)?;
@@ -41,7 +41,7 @@ impl<'a> Tx<'a> {
         event.time = UnixTime::now();
         let data = serde_json::to_string(&event)?;
         self.exec(
-            "INSERT INTO identity_events(owner_id,connection_id,data) VALUES(?,?,?)",
+            "INSERT INTO identity_events(owner_id,connection_id,data) VALUES($1,$2,$3)",
             &[
                 Param::int(event.owner_id),
                 Param::text(&event.connection_id),

@@ -28,13 +28,13 @@ func (s *Store) RecordIssueAssessment(ctx context.Context, candidate factory.Iss
 	if err := candidate.Validate(); err != nil {
 		return factory.IssueControl{}, false, err
 	}
-	tx, err := s.begin(ctx)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return factory.IssueControl{}, false, err
 	}
 	defer func() { _ = tx.Rollback() }()
 	var raw []byte
-	err = tx.queryRow(ctx, `SELECT data FROM issue_controls WHERE repository=? AND issue=?`, candidate.Repository, candidate.Issue).Scan(&raw)
+	err = tx.QueryRowContext(ctx, `SELECT data FROM issue_controls WHERE repository=$1 AND issue=$2`, candidate.Repository, candidate.Issue).Scan(&raw)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return factory.IssueControl{}, false, err
 	}
@@ -58,7 +58,7 @@ func (s *Store) RecordIssueAssessment(ctx context.Context, candidate factory.Iss
 	if err != nil {
 		return factory.IssueControl{}, false, err
 	}
-	if _, err = tx.exec(ctx, `INSERT INTO issue_controls(repository,issue,revision,data) VALUES(?,?,?,?)
+	if _, err = tx.ExecContext(ctx, `INSERT INTO issue_controls(repository,issue,revision,data) VALUES($1,$2,$3,$4)
 		ON CONFLICT(repository,issue) DO UPDATE SET revision=excluded.revision, data=excluded.data`,
 		stored.Repository, stored.Issue, stored.Revision, string(data)); err != nil {
 		return factory.IssueControl{}, false, fmt.Errorf("readiness assessment failed: %w", err)
@@ -70,7 +70,7 @@ func (s *Store) RecordIssueAssessment(ctx context.Context, candidate factory.Iss
 func (s *Store) IssueControl(ctx context.Context, repository, issue int64) (factory.IssueControl, error) {
 	var control factory.IssueControl
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM issue_controls WHERE repository=? AND issue=?`, repository, issue).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM issue_controls WHERE repository=$1 AND issue=$2`, repository, issue).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &control)
 	}
@@ -84,7 +84,7 @@ func (s *Store) IssueControls(ctx context.Context, repository int64, limit int) 
 	if limit <= 0 || limit > MaxIssueControls {
 		return nil, errors.New("invalid issue control listing limit")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM issue_controls WHERE repository=? ORDER BY issue ASC LIMIT ?`, repository, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM issue_controls WHERE repository=$1 ORDER BY issue ASC LIMIT $2`, repository, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (s *Store) IssueControls(ctx context.Context, repository int64, limit int) 
 // them, so a seen ID suppresses duplicate intake work.
 func (s *Store) IntakeDeliverySeen(ctx context.Context, delivery string) (bool, error) {
 	var count int
-	if err := s.queryRow(ctx, `SELECT count(*) FROM intake_deliveries WHERE delivery=?`, delivery).Scan(&count); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM intake_deliveries WHERE delivery=$1`, delivery).Scan(&count); err != nil {
 		return false, err
 	}
 	return count != 0, nil
@@ -121,7 +121,7 @@ func (s *Store) RecordIntakeDelivery(ctx context.Context, delivery string, repos
 	if delivery == "" || len(delivery) > 128 || repository <= 0 || issue <= 0 || kind == "" || len(kind) > 64 {
 		return false, errors.New("invalid intake delivery")
 	}
-	result, err := s.exec(ctx, `INSERT INTO intake_deliveries(delivery,repository,issue,kind,received_at) VALUES(?,?,?,?,?)
+	result, err := s.db.ExecContext(ctx, `INSERT INTO intake_deliveries(delivery,repository,issue,kind,received_at) VALUES($1,$2,$3,$4,$5)
 		ON CONFLICT(delivery) DO NOTHING`, delivery, repository, issue, kind, now.Unix())
 	if err != nil {
 		return false, fmt.Errorf("intake delivery log failed: %w", err)
@@ -130,8 +130,8 @@ func (s *Store) RecordIntakeDelivery(ctx context.Context, delivery string, repos
 	if err != nil {
 		return false, err
 	}
-	if _, err = s.exec(ctx, `DELETE FROM intake_deliveries WHERE delivery NOT IN
-		(SELECT delivery FROM intake_deliveries ORDER BY received_at DESC, delivery DESC LIMIT ?)`, MaxIntakeDeliveries); err != nil {
+	if _, err = s.db.ExecContext(ctx, `DELETE FROM intake_deliveries WHERE delivery NOT IN
+		(SELECT delivery FROM intake_deliveries ORDER BY received_at DESC, delivery DESC LIMIT $1)`, MaxIntakeDeliveries); err != nil {
 		return false, fmt.Errorf("intake delivery prune failed: %w", err)
 	}
 	return affected == 0, nil
@@ -142,7 +142,7 @@ func (s *Store) RecordIntakeDelivery(ctx context.Context, delivery string, repos
 // graph stays canonical; this scans recorded heads only, so unaccepted
 // relations never appear here.
 func (s *Store) AcceptanceDependants(ctx context.Context, repository, issue int64) ([]factory.DependenceRef, error) {
-	rows, err := s.query(ctx, `SELECT repository, issue, decision FROM issue_acceptance_heads`)
+	rows, err := s.db.QueryContext(ctx, `SELECT repository, issue, decision FROM issue_acceptance_heads`)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (s *Store) AcceptanceDependants(ctx context.Context, repository, issue int6
 // repositories sweep fully the first time.
 func (s *Store) ReadinessSweepRevision(ctx context.Context, repository int64) (int64, error) {
 	var revision int64
-	err := s.queryRow(ctx, `SELECT revision FROM factory_readiness_sweeps WHERE repository=?`, repository).Scan(&revision)
+	err := s.db.QueryRowContext(ctx, `SELECT revision FROM factory_readiness_sweeps WHERE repository=$1`, repository).Scan(&revision)
 	return revision, err
 }
 
@@ -201,7 +201,7 @@ func (s *Store) SaveReadinessSweep(ctx context.Context, repository, revision int
 	if repository <= 0 || revision < 1 {
 		return errors.New("invalid readiness sweep state")
 	}
-	_, err := s.exec(ctx, `INSERT INTO factory_readiness_sweeps(repository,revision,swept_at) VALUES(?,?,?)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO factory_readiness_sweeps(repository,revision,swept_at) VALUES($1,$2,$3)
 		ON CONFLICT(repository) DO UPDATE SET revision=excluded.revision, swept_at=excluded.swept_at`,
 		repository, revision, now.Unix())
 	if err != nil {
@@ -213,7 +213,7 @@ func (s *Store) SaveReadinessSweep(ctx context.Context, repository, revision int
 // FactoryPolicies returns every recorded repository factory policy for
 // readiness sweeping. Callers filter enablement from the records.
 func (s *Store) FactoryPolicies(ctx context.Context) ([]factory.RepositoryPolicy, error) {
-	rows, err := s.query(ctx, `SELECT data FROM factory_policies ORDER BY repository ASC`)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_policies ORDER BY repository ASC`)
 	if err != nil {
 		return nil, err
 	}

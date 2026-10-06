@@ -33,7 +33,7 @@ func ReadSchemaVersion(ctx context.Context, dsn string) (int, error) {
 		return 0, err
 	}
 	defer func() { _ = inner.Rollback() }()
-	return loadSchemaVersion(ctx, &tx{inner: inner})
+	return loadSchemaVersion(ctx, inner)
 }
 
 // OpenObserve connects to an existing database without migrating. It refuses
@@ -49,7 +49,7 @@ func OpenObserve(ctx context.Context, dsn string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	version, err := loadSchemaVersion(ctx, &tx{inner: inner})
+	version, err := loadSchemaVersion(ctx, inner)
 	if err != nil {
 		_ = inner.Rollback()
 		db.Close()
@@ -74,7 +74,7 @@ func (s *Store) IntegrityCheck(ctx context.Context) error {
 		return errors.New("soda database integrity failed")
 	}
 	defer func() { _ = inner.Rollback() }()
-	t := &tx{inner: inner}
+	t := inner
 	version, err := loadSchemaVersion(ctx, t)
 	if err != nil || version != SchemaVersion() {
 		return errors.New("soda database integrity failed")

@@ -16,7 +16,7 @@ const MaxHeldReservations = 1024
 func (s *Store) Reservation(ctx context.Context, assignmentID string) (factory.Reservation, error) {
 	var r factory.Reservation
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM factory_reservations WHERE assignment=?`, assignmentID).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_reservations WHERE assignment=$1`, assignmentID).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &r)
 	}
@@ -28,7 +28,7 @@ func (s *Store) HeldReservations(ctx context.Context, limit int) ([]factory.Rese
 	if limit <= 0 || limit > MaxHeldReservations {
 		return nil, errors.New("invalid held reservation listing limit")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM factory_reservations WHERE state='held' ORDER BY seq LIMIT ?`, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_reservations WHERE state='held' ORDER BY seq LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -55,9 +55,9 @@ func (s *Store) transitionReservation(ctx context.Context, assignmentID, state s
 	if state != factory.ReservationConsumed && state != factory.ReservationReleased {
 		return errors.New("invalid reservation transition")
 	}
-	result, err := s.exec(ctx, `UPDATE factory_reservations
-		SET state=?, data=jsonb_set(jsonb_set(data,'{state}',to_jsonb(?::text)),'{revision}',to_jsonb((data->>'revision')::bigint+1))
-		WHERE assignment=? AND state='held'`, state, state, assignmentID)
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_reservations
+		SET state=$1, data=jsonb_set(jsonb_set(data,'{state}',to_jsonb($2::text)),'{revision}',to_jsonb((data->>'revision')::bigint+1))
+		WHERE assignment=$3 AND state='held'`, state, state, assignmentID)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (s *Store) ReholdReservation(ctx context.Context, r factory.Reservation) er
 	if err != nil {
 		return err
 	}
-	result, err := s.exec(ctx, `UPDATE factory_reservations SET state='held',data=? WHERE assignment=? AND state='released'`,
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_reservations SET state='held',data=$1 WHERE assignment=$2 AND state='released'`,
 		string(data), r.AssignmentID)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (s *Store) RecordRunUsage(ctx context.Context, u factory.Usage) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.exec(ctx, `INSERT INTO factory_usage(run,repository,connection,minutes,data) VALUES(?,?,?,?,?)
+	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_usage(run,repository,connection,minutes,data) VALUES($1,$2,$3,$4,$5)
 		ON CONFLICT(run) DO NOTHING`, u.RunID, u.Repository, u.Connection, u.Minutes, string(data))
 	return err
 }
@@ -133,7 +133,7 @@ func (s *Store) RecordRunUsage(ctx context.Context, u factory.Usage) error {
 func (s *Store) RunUsage(ctx context.Context, runID string) (factory.Usage, error) {
 	var u factory.Usage
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM factory_usage WHERE run=?`, runID).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_usage WHERE run=$1`, runID).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &u)
 	}
@@ -143,7 +143,7 @@ func (s *Store) RunUsage(ctx context.Context, runID string) (factory.Usage, erro
 // UsageTotal sums confirmed consumption for one repository connection.
 func (s *Store) UsageTotal(ctx context.Context, repository int64, connection string) (int, error) {
 	var total int
-	err := s.queryRow(ctx, `SELECT COALESCE(SUM(minutes),0) FROM factory_usage WHERE repository=? AND connection=?`,
+	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(minutes),0) FROM factory_usage WHERE repository=$1 AND connection=$2`,
 		repository, connection).Scan(&total)
 	return total, err
 }

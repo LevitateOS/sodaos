@@ -32,7 +32,7 @@ func (s *Store) RecordPublication(ctx context.Context, p factory.Publication) er
 	if err != nil {
 		return err
 	}
-	if _, err = s.exec(ctx, `INSERT INTO factory_publications(assignment,repository,issue,run,stage,revision,data) VALUES(?,?,?,?,?,?,?)`,
+	if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_publications(assignment,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`,
 		p.AssignmentID, p.Repository, p.Issue, p.Run, p.Stage, p.Revision, string(data)); err != nil {
 		return fmt.Errorf("publication record failed: %w", err)
 	}
@@ -43,7 +43,7 @@ func (s *Store) RecordPublication(ctx context.Context, p factory.Publication) er
 func (s *Store) PublicationByAssignment(ctx context.Context, assignmentID string) (factory.Publication, error) {
 	var p factory.Publication
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM factory_publications WHERE assignment=?`, assignmentID).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1`, assignmentID).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &p)
 	}
@@ -78,20 +78,20 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	}
 	// Gate inspection and registration share one statement: a withdrawal
 	// either sees this operation or closes the gate before it can register.
-	result, err := s.exec(ctx, `UPDATE factory_publications SET stage=?,revision=?,data=?
-		WHERE assignment=? AND revision=?
-		AND (NOT ? OR (
-		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=? AND NOT open)
-		 AND EXISTS(SELECT 1 FROM issue_acceptance_heads WHERE repository=? AND issue=? AND decision=?)
-		 AND NOT EXISTS(SELECT 1 FROM issue_acceptance_withdrawals WHERE repository=? AND issue=? AND decision=?)
-		 AND EXISTS(SELECT 1 FROM factory_policies WHERE repository=? AND revision=?)
-		 AND EXISTS(SELECT 1 FROM factory_operator_grants WHERE repository=? AND revision=?)
-		 AND EXISTS(SELECT 1 FROM project_environment_grants WHERE repository=? AND revision=?)
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_publications SET stage=$1,revision=$2,data=$3
+		WHERE assignment=$4 AND revision=$5
+		AND (NOT $6 OR (
+		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=$7 AND NOT open)
+		 AND EXISTS(SELECT 1 FROM issue_acceptance_heads WHERE repository=$8 AND issue=$9 AND decision=$10)
+		 AND NOT EXISTS(SELECT 1 FROM issue_acceptance_withdrawals WHERE repository=$11 AND issue=$12 AND decision=$13)
+		 AND EXISTS(SELECT 1 FROM factory_policies WHERE repository=$14 AND revision=$15)
+		 AND EXISTS(SELECT 1 FROM factory_operator_grants WHERE repository=$16 AND revision=$17)
+		 AND EXISTS(SELECT 1 FROM project_environment_grants WHERE repository=$18 AND revision=$19)
 		 AND EXISTS(SELECT 1 FROM factory_sponsorships s JOIN factory_assignments a
-		   ON a.id=? AND s.connection=a.data->>'connection'
-		   WHERE s.repository=? AND s.revision=?)
-		 AND EXISTS(SELECT 1 FROM project_requirement_heads WHERE project_id=? AND decision=?)
-		 AND EXISTS(SELECT 1 FROM project_approval_heads WHERE project_id=? AND decision=?)
+		   ON a.id=$20 AND s.connection=a.data->>'connection'
+		   WHERE s.repository=$21 AND s.revision=$22)
+		 AND EXISTS(SELECT 1 FROM project_requirement_heads WHERE project_id=$23 AND decision=$24)
+		 AND EXISTS(SELECT 1 FROM project_approval_heads WHERE project_id=$25 AND decision=$26)
 		))`,
 		p.Stage, p.Revision, string(data), p.AssignmentID, p.Revision-1, registering,
 		p.Repository, p.Repository, p.Issue, p.Acceptance, p.Repository, p.Issue, p.Acceptance,
@@ -178,8 +178,8 @@ func (s *Store) OutstandingPublications(ctx context.Context, repository int64, l
 	if limit <= 0 || limit > storePublicationLimit {
 		return nil, errors.New("invalid publication listing limit")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM factory_publications
-		WHERE repository=? AND stage IN ('open','fenced') ORDER BY seq LIMIT ?`, repository, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_publications
+		WHERE repository=$1 AND stage IN ('open','fenced') ORDER BY seq LIMIT $2`, repository, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -206,8 +206,8 @@ func (s *Store) OpenPublications(ctx context.Context, limit int) ([]factory.Publ
 	if limit <= 0 || limit > storePublicationLimit {
 		return nil, errors.New("invalid publication listing limit")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM factory_publications
-		WHERE stage IN ('open','fenced') ORDER BY seq LIMIT ?`, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_publications
+		WHERE stage IN ('open','fenced') ORDER BY seq LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -235,14 +235,14 @@ func (s *Store) PublishableAssignments(ctx context.Context, limit int) ([]factor
 	if limit <= 0 || limit > storePublishableLimit {
 		return nil, errors.New("invalid publishable listing limit")
 	}
-	rows, err := s.query(ctx, `SELECT a.data FROM factory_assignments a
+	rows, err := s.db.QueryContext(ctx, `SELECT a.data FROM factory_assignments a
 		LEFT JOIN factory_publications p ON p.assignment=a.id
 		WHERE a.stage='finished' AND p.assignment IS NULL
 		AND a.data->>'role'='soda-coder'
 		AND a.data->>'outcome'='succeeded'
 		AND (a.data#>>'{result,reported}')::boolean
 		AND a.data#>>'{result,status}'='completed'
-		ORDER BY a.seq LIMIT ?`, limit)
+		ORDER BY a.seq LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}

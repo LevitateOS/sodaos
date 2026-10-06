@@ -15,7 +15,7 @@ const storeAssignedLimit = 1024
 func (s *Store) Assignment(ctx context.Context, id string) (factory.Assignment, error) {
 	var a factory.Assignment
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM factory_assignments WHERE id=?`, id).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &a)
 	}
@@ -27,7 +27,7 @@ func (s *Store) Assignment(ctx context.Context, id string) (factory.Assignment, 
 func (s *Store) AssignmentByRun(ctx context.Context, runID string) (factory.Assignment, error) {
 	var a factory.Assignment
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM factory_assignments WHERE run=?`, runID).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE run=$1`, runID).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &a)
 	}
@@ -37,7 +37,7 @@ func (s *Store) AssignmentByRun(ctx context.Context, runID string) (factory.Assi
 // IssueAssignments lists every recorded assignment for one native issue,
 // oldest first.
 func (s *Store) IssueAssignments(ctx context.Context, repository, issue int64) ([]factory.Assignment, error) {
-	rows, err := s.query(ctx, `SELECT data FROM factory_assignments WHERE repository=? AND issue=? ORDER BY seq LIMIT ?`,
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2 ORDER BY seq LIMIT $3`,
 		repository, issue, factory.MaxDispatchAttempts+8)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if err != nil {
 		return err
 	}
-	result, err := s.exec(ctx, `UPDATE factory_assignments SET stage='finished',data=? WHERE id=? AND revision=? AND stage='assigned'`,
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1 WHERE id=$2 AND revision=$3 AND stage='assigned'`,
 		string(data), a.ID, a.Revision)
 	if err != nil {
 		return err
@@ -94,7 +94,7 @@ func (s *Store) AssignedAssignments(ctx context.Context, limit int) ([]factory.A
 	if limit <= 0 || limit > storeAssignedLimit {
 		return nil, errors.New("invalid assigned assignment listing limit")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM factory_assignments WHERE stage='assigned' ORDER BY seq LIMIT ?`, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_assignments WHERE stage='assigned' ORDER BY seq LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}

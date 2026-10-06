@@ -59,7 +59,7 @@ impl Store {
         })?;
         let sealed = grants.seal(KEY_BINDING.as_bytes(), KEY_BINDING);
         self.exec(
-            "INSERT INTO grant_key_check(id,ciphertext) VALUES(1,?) ON CONFLICT(id) DO NOTHING",
+            "INSERT INTO grant_key_check(id,ciphertext) VALUES(1,$1) ON CONFLICT(id) DO NOTHING",
             &[Param::bytea(&sealed)],
         )?;
         self.check_grant_key()
@@ -69,7 +69,7 @@ impl Store {
         self.transaction(|tx| {
             let version = tx.load_schema_version()?;
             if version == 0 {
-                // DDL carries no parameters; it bypasses placeholder binding.
+                // DDL carries no parameters.
                 for statement in schema::STATEMENTS {
                     tx.store.simple(statement).map_err(|e| {
                         Error::internal(format!("create current database schema: {e}"))
@@ -139,7 +139,7 @@ impl<'a> Tx<'a> {
 
     pub(crate) fn verify_trigger(&self, name: &str, table: &str) -> Result<(), Error> {
         let row = self.query_row(
-            "SELECT count(*) FROM information_schema.triggers WHERE trigger_name=? AND event_object_table=?",
+            "SELECT count(*) FROM information_schema.triggers WHERE trigger_name=$1 AND event_object_table=$2",
             &[Param::text(name), Param::text(table)],
         )?;
         if row.integer(0)? != 1 {

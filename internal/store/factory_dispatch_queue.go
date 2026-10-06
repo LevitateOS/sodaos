@@ -20,9 +20,9 @@ func (s *Store) QueuedControls(ctx context.Context, limit int) ([]factory.IssueC
 	if limit <= 0 || limit > MaxQueuedDispatch {
 		return nil, errors.New("invalid queued control listing limit")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM issue_controls
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM issue_controls
 		WHERE data->>'readiness'='queued'
-		ORDER BY (data->>'first_seen_unix')::bigint ASC, repository ASC, issue ASC LIMIT ?`, limit)
+		ORDER BY (data->>'first_seen_unix')::bigint ASC, repository ASC, issue ASC LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (s *Store) QueuedControls(ctx context.Context, limit int) ([]factory.IssueC
 // human and fixture runs that still occupy appliance and repository slots.
 // Attributed runs count through their held reservations instead, never twice.
 func (s *Store) ActiveRunCounts(ctx context.Context) (int, map[string]int, error) {
-	rows, err := s.query(ctx, `SELECT data->>'project_id' FROM factory_runs
+	rows, err := s.db.QueryContext(ctx, `SELECT data->>'project_id' FROM factory_runs
 		WHERE active AND id NOT IN (SELECT run FROM factory_assignments WHERE run!='') LIMIT 1001`)
 	if err != nil {
 		return 0, nil, err

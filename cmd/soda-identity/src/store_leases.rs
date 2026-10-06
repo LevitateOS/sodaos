@@ -13,7 +13,7 @@ impl Store {
 
     pub fn lease(&self, id: &str) -> Result<Lease, Error> {
         let row = self.query_row(
-            "SELECT data FROM identity_leases WHERE id=?",
+            "SELECT data FROM identity_leases WHERE id=$1",
             &[Param::text(id)],
         )?;
         Ok(serde_json::from_str(row.text(0)?)?)
@@ -26,7 +26,7 @@ impl Store {
         let data = serde_json::to_string(lease)?;
         self.transaction(|tx| {
             let count = tx.exec(
-                "INSERT INTO identity_leases(id,connection_id,data) SELECT ?,id,? FROM identity_connections WHERE id=? AND generation=? AND state='ready' AND data->>'provider_id'=? AND (?='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=?)) AND (?='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=? AND connection_id=? AND user_id=? AND project_id=? AND revision=? AND revoked=FALSE))",
+                "INSERT INTO identity_leases(id,connection_id,data) SELECT $1,id,$2 FROM identity_connections WHERE id=$3 AND generation=$4 AND state='ready' AND data->>'provider_id'=$5 AND ($6='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=$7)) AND ($8='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=$9 AND connection_id=$10 AND user_id=$11 AND project_id=$12 AND revision=$13 AND revoked=FALSE))",
                 &[
                     Param::text(&lease.id),
                     Param::text(&data),
@@ -54,7 +54,7 @@ impl Store {
         let data = serde_json::to_string(lease)?;
         self.transaction(|tx| {
             let count = tx.exec(
-                "UPDATE identity_leases SET data=? WHERE id=? AND (data->'binding') IS NULL",
+                "UPDATE identity_leases SET data=$1 WHERE id=$2 AND (data->'binding') IS NULL",
                 &[Param::text(&data), Param::text(&lease.id)],
             )?;
             changed(count)?;
@@ -70,7 +70,7 @@ impl Store {
         self.transaction(|tx| {
             tx.maintain_credential(lease, credential)?;
             let count = tx.exec(
-                "DELETE FROM identity_leases WHERE id=? AND connection_id=? AND (data->>'generation')::bigint=?",
+                "DELETE FROM identity_leases WHERE id=$1 AND connection_id=$2 AND (data->>'generation')::bigint=$3",
                 &[Param::text(&lease.id), Param::text(&lease.connection_id), Param::int(lease.generation)],
             )?;
             changed(count)?;
@@ -81,11 +81,14 @@ impl Store {
     pub fn forget_lease(&self, id: &str) -> Result<(), Error> {
         self.transaction(|tx| {
             let row = tx.query_row(
-                "SELECT data FROM identity_leases WHERE id=?",
+                "SELECT data FROM identity_leases WHERE id=$1",
                 &[Param::text(id)],
             )?;
             let lease: Lease = serde_json::from_str(row.text(0)?)?;
-            tx.exec("DELETE FROM identity_leases WHERE id=?", &[Param::text(id)])?;
+            tx.exec(
+                "DELETE FROM identity_leases WHERE id=$1",
+                &[Param::text(id)],
+            )?;
             tx.append_event(&lease_event(&lease, "reconciled"))
         })
     }
@@ -99,7 +102,7 @@ impl<'a> Tx<'a> {
     ) -> Result<(), Error> {
         use crate::wire::CODEX;
         let found = self.query(
-            "SELECT data FROM identity_connections WHERE id=? AND generation=? AND state='ready'",
+            "SELECT data FROM identity_connections WHERE id=$1 AND generation=$2 AND state='ready'",
             &[
                 Param::text(&lease.connection_id),
                 Param::int(lease.generation),
@@ -120,7 +123,7 @@ impl<'a> Tx<'a> {
             &identity_binding(&connection.id, connection.generation),
         );
         let count = self.exec(
-            "UPDATE identity_connections SET generation=?,data=?,credential=? WHERE id=? AND generation=?",
+            "UPDATE identity_connections SET generation=$1,data=$2,credential=$3 WHERE id=$4 AND generation=$5",
             &[
                 Param::int(connection.generation),
                 Param::text(&data),

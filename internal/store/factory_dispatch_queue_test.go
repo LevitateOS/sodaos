@@ -124,8 +124,8 @@ func TestQueuedControlsOldestFirst(t *testing.T) {
 		{8, 2, now.Add(-2 * time.Hour).Unix()},
 		{7, 3, now.Add(-2 * time.Hour).Unix()},
 	} {
-		if _, err := db.exec(ctx, `UPDATE issue_controls
-			SET data=jsonb_set(data,'{first_seen_unix}',to_jsonb(?::bigint)) WHERE repository=? AND issue=?`,
+		if _, err := db.db.ExecContext(ctx, `UPDATE issue_controls
+			SET data=jsonb_set(data,'{first_seen_unix}',to_jsonb($1::bigint)) WHERE repository=$2 AND issue=$3`,
 			stamp.seen, stamp.repository, stamp.issue); err != nil {
 			t.Fatal(err)
 		}

@@ -12,14 +12,14 @@ func TestOpenCreatesOnlyTheCurrentSchema(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()
 	var version, count int
-	if err := s.queryRow(ctx, `SELECT count(*),max(version) FROM schema_version`).Scan(&count, &version); err != nil || count != 1 || version != SchemaVersion() {
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*),max(version) FROM schema_version`).Scan(&count, &version); err != nil || count != 1 || version != SchemaVersion() {
 		t.Fatalf("schema version: count=%d version=%d err=%v", count, version, err)
 	}
 	var retired int
-	if err := s.queryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('sessions','oauth','session_grants','login_contexts')`).Scan(&retired); err != nil || retired != 0 {
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('sessions','oauth','session_grants','login_contexts')`).Scan(&retired); err != nil || retired != 0 {
 		t.Fatalf("retired browser auth tables: count=%d err=%v", retired, err)
 	}
-	if _, err := s.exec(ctx, `INSERT INTO keys(user_id,public,fingerprint) VALUES(999,'x','y')`); err == nil {
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO keys(user_id,public,fingerprint) VALUES(999,'x','y')`); err == nil {
 		t.Fatal("foreign key enforcement lost")
 	}
 }

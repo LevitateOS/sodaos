@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,8 +28,8 @@ func (s *Store) saveRevisionedGrant(ctx context.Context, table, key string, id a
 	if err != nil {
 		return err
 	}
-	result, err := s.exec(ctx, `INSERT INTO `+table+`(`+key+`,revision,data) VALUES(?,?,?)
-		ON CONFLICT(`+key+`) DO UPDATE SET revision=?,data=? WHERE `+table+`.revision=?`,
+	result, err := s.db.ExecContext(ctx, `INSERT INTO `+table+`(`+key+`,revision,data) VALUES($1,$2,$3)
+		ON CONFLICT(`+key+`) DO UPDATE SET revision=$4,data=$5 WHERE `+table+`.revision=$6`,
 		id, revision+1, string(nextData), revision+1, string(nextData), revision)
 	if err != nil {
 		return fmt.Errorf("%s save failed: %w", what, err)
@@ -45,7 +46,7 @@ func (s *Store) saveRevisionedGrant(ctx context.Context, table, key string, id a
 
 func (s *Store) loadGrant(ctx context.Context, table, key string, id any, out any) error {
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM `+table+` WHERE `+key+`=?`, id).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM `+table+` WHERE `+key+`=$1`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, out)
 	}
@@ -111,8 +112,8 @@ func (s *Store) SaveSponsorship(ctx context.Context, sp factory.Sponsorship) err
 	if err != nil {
 		return err
 	}
-	result, err := s.exec(ctx, `INSERT INTO factory_sponsorships(repository,connection,revision,data) VALUES(?,?,?,?)
-		ON CONFLICT(repository,connection) DO UPDATE SET revision=?,data=? WHERE factory_sponsorships.revision=?`,
+	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_sponsorships(repository,connection,revision,data) VALUES($1,$2,$3,$4)
+		ON CONFLICT(repository,connection) DO UPDATE SET revision=$5,data=$6 WHERE factory_sponsorships.revision=$7`,
 		sp.Repository, sp.Connection, next.Revision, string(nextData), next.Revision, string(nextData), sp.Revision)
 	if err != nil {
 		return fmt.Errorf("sponsorship save failed: %w", err)
@@ -131,7 +132,7 @@ func (s *Store) SaveSponsorship(ctx context.Context, sp factory.Sponsorship) err
 func (s *Store) Sponsorship(ctx context.Context, repository int64, connection string) (factory.Sponsorship, error) {
 	var sp factory.Sponsorship
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM factory_sponsorships WHERE repository=? AND connection=?`, repository, connection).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_sponsorships WHERE repository=$1 AND connection=$2`, repository, connection).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &sp)
 	}
@@ -140,7 +141,7 @@ func (s *Store) Sponsorship(ctx context.Context, repository int64, connection st
 
 // Sponsorships lists the recorded connection sponsorships for a repository.
 func (s *Store) Sponsorships(ctx context.Context, repository int64) ([]factory.Sponsorship, error) {
-	rows, err := s.query(ctx, `SELECT data FROM factory_sponsorships WHERE repository=? ORDER BY connection LIMIT 33`, repository)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_sponsorships WHERE repository=$1 ORDER BY connection LIMIT 33`, repository)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (s *Store) DispatchState(ctx context.Context, repository int64) (bool, int6
 	var revision int64
 	var data []byte
 	var withdrawal factory.Withdrawal
-	err := s.queryRow(ctx, `SELECT open,revision,data FROM factory_dispatch WHERE repository=?`, repository).Scan(&open, &revision, &data)
+	err := s.db.QueryRowContext(ctx, `SELECT open,revision,data FROM factory_dispatch WHERE repository=$1`, repository).Scan(&open, &revision, &data)
 	if errors.Is(err, ErrNotFound) {
 		return true, 0, factory.Withdrawal{}, nil
 	}
@@ -184,7 +185,7 @@ func (s *Store) RegisterDispatch(ctx context.Context, d factory.DispatchRegistra
 	if err := d.Validate(); err != nil {
 		return err
 	}
-	tx, err := s.begin(ctx)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -198,9 +199,9 @@ func (s *Store) RegisterDispatch(ctx context.Context, d factory.DispatchRegistra
 // registerDispatchTx records one outstanding dispatch under the open gate
 // inside the caller's transaction. The dispatch packet shares it so a
 // refused packet leaves no orphan registration behind.
-func registerDispatchTx(ctx context.Context, t *tx, d factory.DispatchRegistration) error {
+func registerDispatchTx(ctx context.Context, t *sql.Tx, d factory.DispatchRegistration) error {
 	var open bool
-	err := t.queryRow(ctx, `SELECT open FROM factory_dispatch WHERE repository=? FOR UPDATE`, d.Repository).Scan(&open)
+	err := t.QueryRowContext(ctx, `SELECT open FROM factory_dispatch WHERE repository=$1 FOR UPDATE`, d.Repository).Scan(&open)
 	if err != nil {
 		if !errors.Is(err, ErrNotFound) {
 			return err
@@ -215,7 +216,7 @@ func registerDispatchTx(ctx context.Context, t *tx, d factory.DispatchRegistrati
 	if err != nil {
 		return err
 	}
-	result, err := t.exec(ctx, `INSERT INTO factory_dispatch_regs(id,repository,revision,data) VALUES(?,?,?,?) ON CONFLICT(id) DO NOTHING`,
+	result, err := t.ExecContext(ctx, `INSERT INTO factory_dispatch_regs(id,repository,revision,data) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING`,
 		d.ID, d.Repository, d.Revision, string(data))
 	if err != nil {
 		return fmt.Errorf("dispatch registration failed: %w", err)
@@ -229,7 +230,7 @@ func registerDispatchTx(ctx context.Context, t *tx, d factory.DispatchRegistrati
 	}
 	var existing factory.DispatchRegistration
 	var raw []byte
-	if err = t.queryRow(ctx, `SELECT data FROM factory_dispatch_regs WHERE id=?`, d.ID).Scan(&raw); err != nil {
+	if err = t.QueryRowContext(ctx, `SELECT data FROM factory_dispatch_regs WHERE id=$1`, d.ID).Scan(&raw); err != nil {
 		return err
 	}
 	if err = json.Unmarshal(raw, &existing); err != nil {
@@ -255,7 +256,7 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 	if !open {
 		return recorded, nil
 	}
-	rows, err := s.query(ctx, `SELECT id FROM factory_dispatch_regs WHERE repository=? ORDER BY seq LIMIT ?`, repository, factory.MaxCapturedDispatch+1)
+	rows, err := s.db.QueryContext(ctx, `SELECT id FROM factory_dispatch_regs WHERE repository=$1 ORDER BY seq LIMIT $2`, repository, factory.MaxCapturedDispatch+1)
 	if err != nil {
 		return factory.Withdrawal{}, err
 	}
@@ -282,8 +283,8 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 	if err != nil {
 		return factory.Withdrawal{}, err
 	}
-	result, err := s.exec(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data) VALUES(?,?,FALSE,?)
-		ON CONFLICT(repository) DO UPDATE SET revision=?,open=FALSE,data=? WHERE factory_dispatch.revision=? AND factory_dispatch.open`,
+	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data) VALUES($1,$2,FALSE,$3)
+		ON CONFLICT(repository) DO UPDATE SET revision=$4,open=FALSE,data=$5 WHERE factory_dispatch.revision=$6 AND factory_dispatch.open`,
 		repository, withdrawal.Revision, string(data), withdrawal.Revision, string(data), revision)
 	if err != nil {
 		return factory.Withdrawal{}, fmt.Errorf("dispatch withdrawal failed: %w", err)
@@ -305,7 +306,7 @@ func (s *Store) ReopenDispatch(ctx context.Context, repository, expectedRevision
 	if repository <= 0 || expectedRevision < 0 {
 		return errors.New("invalid dispatch reopen")
 	}
-	result, err := s.exec(ctx, `UPDATE factory_dispatch SET revision=revision+1,open=TRUE WHERE repository=? AND revision=? AND NOT open`,
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_dispatch SET revision=revision+1,open=TRUE WHERE repository=$1 AND revision=$2 AND NOT open`,
 		repository, expectedRevision)
 	if err != nil {
 		return fmt.Errorf("dispatch reopen failed: %w", err)

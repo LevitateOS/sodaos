@@ -24,7 +24,7 @@ impl Store {
         );
         self.transaction(|tx| {
             tx.exec(
-                "INSERT INTO identity_connections(id,owner_id,generation,state,data,credential) VALUES(?,?,?,?,?,?)",
+                "INSERT INTO identity_connections(id,owner_id,generation,state,data,credential) VALUES($1,$2,$3,$4,$5,$6)",
                 &[
                     Param::text(&connection.id),
                     Param::int(connection.owner_id),
@@ -53,7 +53,7 @@ impl Store {
 
     pub fn connection(&self, id: &str) -> Result<Connection, Error> {
         let row = self.query_row(
-            "SELECT data FROM identity_connections WHERE id=?",
+            "SELECT data FROM identity_connections WHERE id=$1",
             &[Param::text(id)],
         )?;
         Ok(serde_json::from_str(row.text(0)?)?)
@@ -61,7 +61,7 @@ impl Store {
 
     pub fn credential(&self, connection: &Connection) -> Result<Vec<u8>, Error> {
         let row = self.query_row(
-            "SELECT credential FROM identity_connections WHERE id=? AND generation=? AND state='ready'",
+            "SELECT credential FROM identity_connections WHERE id=$1 AND generation=$2 AND state='ready'",
             &[Param::text(&connection.id), Param::int(connection.generation)],
         )?;
         self.grants()?.open(
@@ -72,7 +72,7 @@ impl Store {
 
     pub fn connections(&self, owner: i64) -> Result<Vec<Connection>, Error> {
         let (rows, _) = self.query(
-            "SELECT data FROM identity_connections WHERE owner_id=? ORDER BY id",
+            "SELECT data FROM identity_connections WHERE owner_id=$1 ORDER BY id",
             &[Param::int(owner)],
         )?;
         rows.iter()
@@ -82,7 +82,7 @@ impl Store {
 
     pub fn available(&self, actor: i64, project: &str) -> Result<Vec<Connection>, Error> {
         let (rows, _) = self.query(
-            "SELECT c.data FROM identity_connections c WHERE c.state='ready' AND (c.owner_id=? OR EXISTS(SELECT 1 FROM identity_grants g WHERE g.connection_id=c.id AND g.user_id=? AND g.project_id=? AND NOT g.revoked)) ORDER BY c.id",
+            "SELECT c.data FROM identity_connections c WHERE c.state='ready' AND (c.owner_id=$1 OR EXISTS(SELECT 1 FROM identity_grants g WHERE g.connection_id=c.id AND g.user_id=$2 AND g.project_id=$3 AND NOT g.revoked)) ORDER BY c.id",
             &[Param::int(actor), Param::int(actor), Param::text(project)],
         )?;
         let mut out = Vec::with_capacity(rows.len());
@@ -103,7 +103,7 @@ impl Store {
         let data = serde_json::to_string(&updated)?;
         self.transaction(|tx| {
             let count = tx.exec(
-                "UPDATE identity_connections SET state=?,data=?,credential=CASE WHEN ?='revoked' THEN '\\x'::bytea ELSE credential END WHERE id=? AND generation=?",
+                "UPDATE identity_connections SET state=$1,data=$2,credential=CASE WHEN $3='revoked' THEN '\\x'::bytea ELSE credential END WHERE id=$4 AND generation=$5",
                 &[
                     Param::text(state),
                     Param::text(&data),

@@ -2,9 +2,11 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/levitateos/sodaos/internal/factory"
@@ -83,7 +85,7 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 	if err != nil {
 		return err
 	}
-	tx, err := s.begin(ctx)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -91,18 +93,18 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 	if err = registerDispatchTx(ctx, tx, d); err != nil {
 		return err
 	}
-	if _, err = tx.exec(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES(?,?,?,?,?,?,?)`,
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`,
 		a.ID, a.Repository, a.Issue, a.Run, a.Stage, a.Revision, string(adata)); err != nil {
 		return dispatchPacketError(err)
 	}
-	if _, err = tx.exec(ctx, `INSERT INTO factory_reservations(assignment,repository,connection,state,data) VALUES(?,?,?,?,?)`,
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_reservations(assignment,repository,connection,state,data) VALUES($1,$2,$3,$4,$5)`,
 		r.AssignmentID, r.Repository, r.Connection, r.State, string(rdata)); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
 	}
-	if _, err = tx.exec(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES(?,TRUE,FALSE,?)`, run.ID, string(rundata)); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES($1,TRUE,FALSE,$2)`, run.ID, string(rundata)); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
 	}
-	if _, err = tx.exec(ctx, `INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES(?,?,?,?)`,
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES($1,$2,$3,$4)`,
 		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
 	}
@@ -119,30 +121,30 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 // it and refuses exactly when the pre-packet state plus this admission
 // would exceed a limit. Count reads are capped just past each limit,
 // which decides exact admission without scanning settled history.
-func checkAdmissionTx(ctx context.Context, t *tx, repository int64, connection, projectID string) error {
+func checkAdmissionTx(ctx context.Context, t *sql.Tx, repository int64, connection, projectID string) error {
 	var cdata, pdata, gdata, sdata []byte
-	if err := t.queryRow(ctx, `SELECT data FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&cdata); err != nil {
+	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&cdata); err != nil {
 		return admissionChanged(err)
 	}
 	var capacity factory.Capacity
 	if err := json.Unmarshal(cdata, &capacity); err != nil {
 		return err
 	}
-	if err := t.queryRow(ctx, `SELECT data FROM factory_policies WHERE repository=? FOR UPDATE`, repository).Scan(&pdata); err != nil {
+	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_policies WHERE repository=$1 FOR UPDATE`, repository).Scan(&pdata); err != nil {
 		return admissionChanged(err)
 	}
 	var policy factory.RepositoryPolicy
 	if err := json.Unmarshal(pdata, &policy); err != nil {
 		return err
 	}
-	if err := t.queryRow(ctx, `SELECT data FROM factory_operator_grants WHERE repository=? FOR UPDATE`, repository).Scan(&gdata); err != nil {
+	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_operator_grants WHERE repository=$1 FOR UPDATE`, repository).Scan(&gdata); err != nil {
 		return admissionChanged(err)
 	}
 	var grant factory.OperatorGrant
 	if err := json.Unmarshal(gdata, &grant); err != nil {
 		return err
 	}
-	if err := t.queryRow(ctx, `SELECT data FROM factory_sponsorships WHERE repository=? AND connection=? FOR UPDATE`, repository, connection).Scan(&sdata); err != nil {
+	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_sponsorships WHERE repository=$1 AND connection=$2 FOR UPDATE`, repository, connection).Scan(&sdata); err != nil {
 		return admissionChanged(err)
 	}
 	var sponsorship factory.Sponsorship
@@ -164,18 +166,18 @@ func checkAdmissionTx(ctx context.Context, t *tx, repository int64, connection, 
 	if grant.MaxConcurrent < repoLimit {
 		repoLimit = grant.MaxConcurrent
 	}
-	heldRepo, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=?`, repoLimit+1, repository)
+	heldRepo, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1`, repoLimit+1, repository)
 	if err != nil {
 		return err
 	}
-	unattributedProject, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_runs WHERE active AND id NOT IN (SELECT run FROM factory_assignments WHERE run!='') AND data->>'project_id'=?`, repoLimit+1, projectID)
+	unattributedProject, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_runs WHERE active AND id NOT IN (SELECT run FROM factory_assignments WHERE run!='') AND data->>'project_id'=$1`, repoLimit+1, projectID)
 	if err != nil {
 		return err
 	}
 	if heldRepo+unattributedProject > repoLimit {
 		return ErrRepositoryFull
 	}
-	slots, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=? AND connection=?`, sponsorship.MaxConcurrent+1, repository, connection)
+	slots, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`, sponsorship.MaxConcurrent+1, repository, connection)
 	if err != nil {
 		return err
 	}
@@ -183,13 +185,13 @@ func checkAdmissionTx(ctx context.Context, t *tx, repository int64, connection, 
 		return ErrSponsorshipFull
 	}
 	var planned int
-	err = t.queryRow(ctx, `SELECT coalesce(sum((data->>'planned_minutes')::bigint),0)::bigint FROM factory_reservations WHERE state='held' AND repository=? AND connection=?`,
+	err = t.QueryRowContext(ctx, `SELECT coalesce(sum((data->>'planned_minutes')::bigint),0)::bigint FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`,
 		repository, connection).Scan(&planned)
 	if err != nil {
 		return err
 	}
 	var used int
-	err = t.queryRow(ctx, `SELECT COALESCE(SUM(minutes),0) FROM factory_usage WHERE repository=? AND connection=?`,
+	err = t.QueryRowContext(ctx, `SELECT COALESCE(SUM(minutes),0) FROM factory_usage WHERE repository=$1 AND connection=$2`,
 		repository, connection).Scan(&used)
 	if err != nil {
 		return err
@@ -214,10 +216,11 @@ func admissionChanged(err error) error {
 // returns the exact count below the limit and the limit itself above
 // it. Admission compares against limits far below any table size, so
 // the capped count decides exact admission with bounded work.
-func cappedCountTx(ctx context.Context, t *tx, query string, limit int, args ...any) (int, error) {
+func cappedCountTx(ctx context.Context, t *sql.Tx, query string, limit int, args ...any) (int, error) {
 	var n int
 	params := append(append([]any{}, args...), limit)
-	err := t.queryRow(ctx, `SELECT count(*) FROM (`+query+` LIMIT ?) t`, params...).Scan(&n)
+	limitParameter := "$" + strconv.Itoa(len(params))
+	err := t.QueryRowContext(ctx, `SELECT count(*) FROM (`+query+` LIMIT `+limitParameter+`) t`, params...).Scan(&n)
 	return n, err
 }
 

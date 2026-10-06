@@ -103,7 +103,7 @@ func TestPreparationRefsAreImmutable(t *testing.T) {
 	if _, _, err := s.AdmitPreparation(ctx, prepTestPreparation()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.exec(ctx, `UPDATE project_preparations SET requirements='d99999999999999999999999' WHERE id=?`, prepTestID); err == nil {
+	if _, err := s.db.ExecContext(ctx, `UPDATE project_preparations SET requirements='d99999999999999999999999' WHERE id=$1`, prepTestID); err == nil {
 		t.Fatal("requirement reference mutation accepted")
 	}
 	current, err := s.Preparation(ctx, prepTestID)

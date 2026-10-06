@@ -24,7 +24,7 @@ func (s *Store) RecordTakeover(ctx context.Context, r factory.TakeoverRecord) (f
 	if err != nil {
 		return factory.TakeoverRecord{}, err
 	}
-	result, err := s.exec(ctx, `INSERT INTO factory_takeovers(run,member,project,data) VALUES(?,?,?,?) ON CONFLICT(run,member) DO NOTHING`,
+	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_takeovers(run,member,project,data) VALUES($1,$2,$3,$4) ON CONFLICT(run,member) DO NOTHING`,
 		r.Run, r.Member, r.Project, string(data))
 	if err != nil {
 		return factory.TakeoverRecord{}, fmt.Errorf("takeover record failed: %w", err)
@@ -50,7 +50,7 @@ func (s *Store) RecordTakeover(ctx context.Context, r factory.TakeoverRecord) (f
 func (s *Store) Takeover(ctx context.Context, run, member string) (factory.TakeoverRecord, error) {
 	var record factory.TakeoverRecord
 	var data []byte
-	err := s.queryRow(ctx, `SELECT data FROM factory_takeovers WHERE run=? AND member=?`, run, member).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_takeovers WHERE run=$1 AND member=$2`, run, member).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &record)
 	}

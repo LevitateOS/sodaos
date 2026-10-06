@@ -7,7 +7,7 @@ impl Store {
         let data = serde_json::to_string(grant)?;
         self.transaction(|tx| {
             tx.exec(
-                "INSERT INTO identity_grants(id,connection_id,user_id,project_id,revision,revoked,data) VALUES(?,?,?,?,?,?,?)",
+                "INSERT INTO identity_grants(id,connection_id,user_id,project_id,revision,revoked,data) VALUES($1,$2,$3,$4,$5,$6,$7)",
                 &[
                     Param::text(&grant.id),
                     Param::text(&grant.connection_id),
@@ -37,7 +37,7 @@ impl Store {
 
     pub fn grant(&self, id: &str) -> Result<Grant, Error> {
         let row = self.query_row(
-            "SELECT data FROM identity_grants WHERE id=?",
+            "SELECT data FROM identity_grants WHERE id=$1",
             &[Param::text(id)],
         )?;
         Ok(serde_json::from_str(row.text(0)?)?)
@@ -45,7 +45,7 @@ impl Store {
 
     pub fn grants_for(&self, id: &str) -> Result<Vec<Grant>, Error> {
         let (rows, _) = self.query(
-            "SELECT data FROM identity_grants WHERE connection_id=? ORDER BY id",
+            "SELECT data FROM identity_grants WHERE connection_id=$1 ORDER BY id",
             &[Param::text(id)],
         )?;
         rows.iter()
@@ -61,7 +61,7 @@ impl Store {
         let previous = updated.revision - 1;
         self.transaction(|tx| {
             let count = tx.exec(
-                "UPDATE identity_grants SET revoked=TRUE,revision=?,data=? WHERE id=? AND revision=?",
+                "UPDATE identity_grants SET revoked=TRUE,revision=$1,data=$2 WHERE id=$3 AND revision=$4",
                 &[Param::int(updated.revision), Param::text(&data), Param::text(&grant.id), Param::int(previous)],
             )?;
             changed(count)?;

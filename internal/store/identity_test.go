@@ -18,7 +18,7 @@ func TestIdentityConnectionRoundTripAndValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	var raw []byte
-	if err := s.queryRow(ctx, `SELECT data FROM identity_connections WHERE id=?`, c.ID).Scan(&raw); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM identity_connections WHERE id=$1`, c.ID).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
 	var got identity.Connection
@@ -29,7 +29,7 @@ func TestIdentityConnectionRoundTripAndValidation(t *testing.T) {
 		t.Fatal("saved connection unreadable")
 	}
 	var encrypted []byte
-	if err := s.queryRow(ctx, `SELECT credential FROM identity_connections WHERE id=?`, c.ID).Scan(&encrypted); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT credential FROM identity_connections WHERE id=$1`, c.ID).Scan(&encrypted); err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(encrypted, []byte("synthetic-secret")) {
@@ -69,7 +69,7 @@ func TestIdentityGrantRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	var raw []byte
-	if err := s.queryRow(ctx, `SELECT data FROM identity_grants WHERE id=?`, g.ID).Scan(&raw); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM identity_grants WHERE id=$1`, g.ID).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
 	var got identity.Grant
@@ -92,17 +92,17 @@ func TestIdentityAuditTrailIsImmutableAndCredentialFree(t *testing.T) {
 		t.Fatal(err)
 	}
 	var actions string
-	if err := s.queryRow(ctx, `SELECT string_agg(data->>'action', ',' ORDER BY id) FROM identity_events WHERE connection_id=?`, c.ID).Scan(&actions); err != nil || actions != "connected,grant_created" {
+	if err := s.db.QueryRowContext(ctx, `SELECT string_agg(data->>'action', ',' ORDER BY id) FROM identity_events WHERE connection_id=$1`, c.ID).Scan(&actions); err != nil || actions != "connected,grant_created" {
 		t.Fatal("audit trail incomplete", actions, err)
 	}
-	if _, err := s.exec(ctx, `UPDATE identity_events SET data='{}'`); err == nil {
+	if _, err := s.db.ExecContext(ctx, `UPDATE identity_events SET data='{}'`); err == nil {
 		t.Fatal("audit mutated")
 	}
-	if _, err := s.exec(ctx, `DELETE FROM identity_events`); err == nil {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM identity_events`); err == nil {
 		t.Fatal("audit deleted")
 	}
 	var leaked int
-	if err := s.queryRow(ctx, `SELECT count(*) FROM identity_events WHERE strpos(data::text,'synthetic-secret')>0`).Scan(&leaked); err != nil || leaked != 0 {
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM identity_events WHERE strpos(data::text,'synthetic-secret')>0`).Scan(&leaked); err != nil || leaked != 0 {
 		t.Fatal("credentials entered audit", err)
 	}
 }
@@ -124,7 +124,7 @@ func TestIdentityAuditFailureRollsBackSave(t *testing.T) {
 		t.Fatal("unaudited grant committed")
 	}
 	var raw []byte
-	if err := s.queryRow(ctx, `SELECT data FROM identity_grants WHERE id=?`, "grant-1").Scan(&raw); err != ErrNotFound {
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM identity_grants WHERE id=$1`, "grant-1").Scan(&raw); err != ErrNotFound {
 		t.Fatal("audit failure left committed grant", err)
 	}
 }

@@ -203,6 +203,10 @@ library root. Own them with Forgejo UI docs; do not treat them as `internal/`.
 4. **Layer duties stay layered.** HTTP admits; privileged packages execute;
    domain packages own meaning; `store` owns rows.
 5. **No SQL escape hatch.** Do not export `*sql.DB` or generic `Exec`/`Query`.
+6. **Native parameters.** Product PostgreSQL statements use `$1…$n` in argument
+   order, directly through the existing database or transaction. Keep values
+   parameterized and admitted dynamic identifiers local to `store`. The external
+   Forgejo SQLite seed fixture retains SQLite placeholders.
 
 ## Definition of done (any Go change)
 

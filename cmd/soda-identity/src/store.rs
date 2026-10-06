@@ -1,7 +1,5 @@
-// Identity store surface over PostgreSQL, mirroring
-// internal/store/{identity,identity_events,grants,schema}.go: the same
-// statements (with the same `?` placeholder binding), the same row JSON,
-// the same AES-GCM credential custody and the same schema bootstrap.
+// Identity store surface over PostgreSQL with native PostgreSQL parameters.
+// It retains the same row JSON, AES-GCM credential custody and schema bootstrap.
 
 use crate::crypto::GrantCipher;
 use crate::pg::{Client as PgClient, Dsn, Row};
@@ -10,40 +8,6 @@ use std::sync::Mutex;
 
 pub(crate) fn identity_binding(connection_id: &str, generation: i64) -> String {
     format!("soda/identity/{connection_id}/{generation}")
-}
-
-// bind rewrites ? placeholders to PostgreSQL $n parameters, skipping
-// single-quoted literals, exactly like the Go store.
-fn bind(query: &str) -> String {
-    let bytes = query.as_bytes();
-    let mut out = String::with_capacity(query.len() + 8);
-    let mut n = 0u32;
-    let mut quoted = false;
-    let mut i = 0;
-    while i < bytes.len() {
-        let c = bytes[i];
-        if c == b'\'' {
-            if quoted && i + 1 < bytes.len() && bytes[i + 1] == b'\'' {
-                out.push_str("''");
-                i += 2;
-                continue;
-            }
-            quoted = !quoted;
-            out.push('\'');
-            i += 1;
-            continue;
-        }
-        if c == b'?' && !quoted {
-            n += 1;
-            out.push('$');
-            out.push_str(&n.to_string());
-            i += 1;
-            continue;
-        }
-        out.push(c as char);
-        i += 1;
-    }
-    out
 }
 
 pub struct Store {
@@ -79,7 +43,7 @@ impl Store {
     pub(crate) fn query(&self, sql: &str, params: &[Param]) -> Result<(Vec<Row>, u64), Error> {
         let encoded: Vec<Option<Vec<u8>>> = params.iter().map(|p| p.encode()).collect();
         let refs: Vec<Option<&[u8]>> = encoded.iter().map(|o| o.as_deref()).collect();
-        self.client.lock().unwrap().query(&bind(sql), &refs)
+        self.client.lock().unwrap().query(sql, &refs)
     }
 
     pub(crate) fn exec(&self, sql: &str, params: &[Param]) -> Result<u64, Error> {

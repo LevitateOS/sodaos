@@ -21,7 +21,7 @@ func (s *Store) FactoryUnsettledRuns(ctx context.Context, limit int) ([]factory.
 	if limit < 1 || limit > 1000 {
 		return nil, errors.New("invalid unsettled run list bound")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM factory_runs WHERE NOT settled ORDER BY seq ASC LIMIT ?`, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_runs WHERE NOT settled ORDER BY seq ASC LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +48,8 @@ func (s *Store) ProjectFactoryRuns(ctx context.Context, projectID string, limit 
 	if projectID == "" || limit < 1 || limit > 1000 {
 		return nil, errors.New("invalid project run list bound")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM factory_runs
-		WHERE data->>'project_id'=? ORDER BY seq DESC LIMIT ?`, projectID, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_runs
+		WHERE data->>'project_id'=$1 ORDER BY seq DESC LIMIT $2`, projectID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +76,8 @@ func (s *Store) ProjectUnsettledRuns(ctx context.Context, projectID string, limi
 	if projectID == "" || limit < 1 || limit > 1000 {
 		return nil, errors.New("invalid project unsettled run list bound")
 	}
-	rows, err := s.query(ctx, `SELECT data FROM factory_runs
-		WHERE NOT settled AND data->>'project_id'=? ORDER BY seq ASC LIMIT ?`, projectID, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_runs
+		WHERE NOT settled AND data->>'project_id'=$1 ORDER BY seq ASC LIMIT $2`, projectID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +112,9 @@ func (s *Store) SpaceProjectsAfter(ctx context.Context, after string, limit int)
 	var rows *sql.Rows
 	var err error
 	if after == "" {
-		rows, err = s.query(ctx, `SELECT `+columns+` FROM projects ORDER BY id LIMIT ?`, limit)
+		rows, err = s.db.QueryContext(ctx, `SELECT `+columns+` FROM projects ORDER BY id LIMIT $1`, limit)
 	} else {
-		rows, err = s.query(ctx, `SELECT `+columns+` FROM projects WHERE id>? ORDER BY id LIMIT ?`, after, limit)
+		rows, err = s.db.QueryContext(ctx, `SELECT `+columns+` FROM projects WHERE id>$1 ORDER BY id LIMIT $2`, after, limit)
 	}
 	if err != nil {
 		return nil, err
@@ -142,16 +142,16 @@ func (s *Store) QueuedControlsAfter(ctx context.Context, limit int, firstSeen, r
 	}
 	query := `SELECT data FROM issue_controls
 		WHERE data->>'readiness'='queued'
-		ORDER BY (data->>'first_seen_unix')::bigint ASC, repository ASC, issue ASC LIMIT ?`
+		ORDER BY (data->>'first_seen_unix')::bigint ASC, repository ASC, issue ASC LIMIT $1`
 	var rows *sql.Rows
 	var err error
 	if !hasCursor {
-		rows, err = s.query(ctx, query, limit)
+		rows, err = s.db.QueryContext(ctx, query, limit)
 	} else {
-		rows, err = s.query(ctx, `SELECT data FROM issue_controls
+		rows, err = s.db.QueryContext(ctx, `SELECT data FROM issue_controls
 			WHERE data->>'readiness'='queued'
-			AND ((data->>'first_seen_unix')::bigint, repository, issue) > (?,?,?)
-			ORDER BY (data->>'first_seen_unix')::bigint ASC, repository ASC, issue ASC LIMIT ?`,
+			AND ((data->>'first_seen_unix')::bigint, repository, issue) > ($1,$2,$3)
+			ORDER BY (data->>'first_seen_unix')::bigint ASC, repository ASC, issue ASC LIMIT $4`,
 			firstSeen, repository, issue, limit)
 	}
 	if err != nil {

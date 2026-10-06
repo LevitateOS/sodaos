@@ -30,13 +30,13 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, run
 	if run.Outcome != "" || run.Reconciled {
 		return factory.Assignment{}, errors.New("retry packet carries a fresh run")
 	}
-	tx, err := s.begin(ctx)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return factory.Assignment{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
 	var raw []byte
-	if err = tx.queryRow(ctx, `SELECT data FROM factory_assignments WHERE id=? FOR UPDATE`, a.ID).Scan(&raw); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ID).Scan(&raw); err != nil {
 		return factory.Assignment{}, err
 	}
 	var current factory.Assignment
@@ -66,7 +66,7 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, run
 	if err != nil {
 		return factory.Assignment{}, err
 	}
-	if _, err = tx.exec(ctx, `UPDATE factory_assignments SET run=?,revision=?,data=? WHERE id=? AND stage='assigned'`,
+	if _, err = tx.ExecContext(ctx, `UPDATE factory_assignments SET run=$1,revision=$2,data=$3 WHERE id=$4 AND stage='assigned'`,
 		next.Run, next.Revision, string(data), a.ID); err != nil {
 		return factory.Assignment{}, err
 	}
@@ -74,16 +74,16 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, run
 	if err != nil {
 		return factory.Assignment{}, err
 	}
-	if _, err = tx.exec(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES(?,TRUE,FALSE,?)`, run.ID, string(rundata)); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES($1,TRUE,FALSE,$2)`, run.ID, string(rundata)); err != nil {
 		return factory.Assignment{}, fmt.Errorf("retry packet failed: %w", err)
 	}
-	if _, err = tx.exec(ctx, `INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES(?,?,?,?)`,
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES($1,$2,$3,$4)`,
 		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
 		return factory.Assignment{}, fmt.Errorf("retry packet failed: %w", err)
 	}
 	var reservation factory.Reservation
 	var rdata []byte
-	if err = tx.queryRow(ctx, `SELECT data FROM factory_reservations WHERE assignment=? FOR UPDATE`, a.ID).Scan(&rdata); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_reservations WHERE assignment=$1 FOR UPDATE`, a.ID).Scan(&rdata); err != nil {
 		return factory.Assignment{}, err
 	}
 	if err = json.Unmarshal(rdata, &reservation); err != nil {
@@ -100,7 +100,7 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, run
 		if err != nil {
 			return factory.Assignment{}, err
 		}
-		if _, err = tx.exec(ctx, `UPDATE factory_reservations SET state='held',data=? WHERE assignment=? AND state='released'`,
+		if _, err = tx.ExecContext(ctx, `UPDATE factory_reservations SET state='held',data=$1 WHERE assignment=$2 AND state='released'`,
 			string(rehold), a.ID); err != nil {
 			return factory.Assignment{}, fmt.Errorf("retry packet failed: %w", err)
 		}
