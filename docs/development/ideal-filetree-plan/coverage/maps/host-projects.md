@@ -3,11 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `cd111721` (A00): account.rs + project.rs verified byte-identical moves to `*/mod.rs`; intervals kept.
+
 <a id="coverage-7417f4912a73"></a>
 
 <a id="rustsoda-hostsrcaccountrs-1"></a>
 
-## [rust/soda-host/src/account.rs](../../../../../rust/soda-host/src/account.rs)
+## [rust/soda-host/src/account/mod.rs](../../../../../rust/soda-host/src/account/mod.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -172,7 +174,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-hostsrcprojectrs-1"></a>
 
-## [rust/soda-host/src/project.rs](../../../../../rust/soda-host/src/project.rs)
+## [rust/soda-host/src/project/mod.rs](../../../../../rust/soda-host/src/project/mod.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

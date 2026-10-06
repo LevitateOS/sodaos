@@ -3,9 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `cd111721` (A00): tcodex/tfactory/tmuse moved to `terminal/factory/*.rs` with import-rebind drift — intervals STALE, bannered.
+
 <a id="coverage-60a9454258b1"></a>
 
-## [rust/soda-host/src/tcodex.rs](../../../../../rust/soda-host/src/tcodex.rs)
+## [rust/soda-host/src/terminal/factory/tcodex.rs](../../../../../rust/soda-host/src/terminal/factory/tcodex.rs)
+
+> R02 STALE: intervals below reference the audited `rust/soda-host/src/tcodex.rs` blob; the moved file differs (import rebinds / drift) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -184,7 +188,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-ec73e0d18b70"></a>
 
-## [rust/soda-host/src/tfactory.rs](../../../../../rust/soda-host/src/tfactory.rs)
+## [rust/soda-host/src/terminal/factory/tfactory.rs](../../../../../rust/soda-host/src/terminal/factory/tfactory.rs)
+
+> R02 STALE: intervals below reference the audited `rust/soda-host/src/tfactory.rs` blob; the moved file differs (import rebinds / drift) — pending re-audit.
 
 
 
@@ -198,7 +204,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="coverage-15bd15f9cf85"></a>
 
-## [rust/soda-host/src/tmuse.rs](../../../../../rust/soda-host/src/tmuse.rs)
+## [rust/soda-host/src/terminal/factory/tmuse.rs](../../../../../rust/soda-host/src/terminal/factory/tmuse.rs)
+
+> R02 STALE: intervals below reference the audited `rust/soda-host/src/tmuse.rs` blob; the moved file differs (import rebinds / drift) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

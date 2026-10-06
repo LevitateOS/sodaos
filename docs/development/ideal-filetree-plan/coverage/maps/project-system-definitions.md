@@ -3,9 +3,13 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `cd111721` (C09): Containerfile rebound with +8 bytes drift — STALE, bannered; project-init verified byte-identical, intervals kept.
+
 <a id="coverage-c74a47de5bc0"></a>
 
-## [project-os/Containerfile](../../../../../project-os/Containerfile)
+## [system/project/Containerfile](../../../../../system/project/Containerfile)
+
+> R02 STALE: intervals below reference the audited `project-os/Containerfile` blob; the moved file differs (import rebinds / drift) — pending re-audit.
 
 Native Project image/config responsibility; no image build, activation or live readiness proof performed.
 
@@ -26,7 +30,7 @@ Native Project image/config responsibility; no image build, activation or live r
 
 <a id="coverage-a619746c8031"></a>
 
-## [project-os/rootfs/usr/libexec/soda/project-init](../../../../../project-os/rootfs/usr/libexec/soda/project-init)
+## [system/project/rootfs/usr/libexec/soda/project-init](../../../../../system/project/rootfs/usr/libexec/soda/project-init)
 
 Native Project image/config responsibility; no image build, activation or live readiness proof performed.
 

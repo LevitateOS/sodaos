@@ -4,6 +4,11 @@
 
 ## Coverage inventory: scripts
 
+R02 @HEAD `cd111721` (C09): `scripts/ops/soda-rootfs-server.service`→
+`tools/soda-rootfs-server/` (+13 bytes drift); `scripts/selinux/
+soda-build-worker.te`→`system/host/selinux/` byte-identical. All other
+rows existence-verified (bulk sweep, 0 GONE).
+
 | Current tracked path | Kind / lifecycle | Slice mapping |
 | --- | --- | --- |
 | [scripts/build-forgejo-preview.ts](../../../../../scripts/build-forgejo-preview.ts) | source / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
@@ -72,7 +77,7 @@
 | [scripts/forgejo_shared_projects_test.go](../../../../../scripts/forgejo_shared_projects_test.go) | test / active | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) |
 | [scripts/forgejo_soda_settings_test.go](../../../../../scripts/forgejo_soda_settings_test.go) | test / active | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) |
 | [scripts/forgejo_status_test.go](../../../../../scripts/forgejo_status_test.go) | test / active | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) |
-| [scripts/ops/soda-rootfs-server.service](../../../../../scripts/ops/soda-rootfs-server.service) | configuration / active | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) |
+| [tools/soda-rootfs-server/soda-rootfs-server.service](../../../../../tools/soda-rootfs-server/soda-rootfs-server.service) | configuration / active | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) |
 | [scripts/pg_backup_test.go](../../../../../scripts/pg_backup_test.go) | test / active | [O05](../../slices/operator-administration.md#o05-database-backup-and-retention), [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure), [O06](../../slices/operator-administration.md#o06-database-restore), [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) — [interval map](../maps/developer-scripts.md#coverage-d983c2bc981e) |
 | [scripts/pg_runtime_test.go](../../../../../scripts/pg_runtime_test.go) | test / active | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning), [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure), [O05](../../slices/operator-administration.md#o05-database-backup-and-retention), [D03](../../slices/release-and-installation.md#d03-candidate-production) — [interval map](../maps/developer-scripts.md#coverage-11c762b0da49) |
 | [scripts/preview-spaces.ts](../../../../../scripts/preview-spaces.ts) | source / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure), [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment), [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) — [interval map](../maps/developer-scripts.md#coverage-b4808466efce) |
@@ -80,7 +85,7 @@
 | [scripts/render_forgejo_branding_test.go](../../../../../scripts/render_forgejo_branding_test.go) | test / active | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) |
 | [scripts/render_forgejo_native_test.go](../../../../../scripts/render_forgejo_native_test.go) | test / active | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) |
 | [scripts/screenshot.ts](../../../../../scripts/screenshot.ts) | source / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure), [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) — [interval map](../maps/developer-scripts.md#coverage-daa5e4e83890) |
-| [scripts/selinux/soda-build-worker.te](../../../../../scripts/selinux/soda-build-worker.te) | configuration / active | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) |
+| [system/host/selinux/soda-build-worker.te](../../../../../system/host/selinux/soda-build-worker.te) | configuration / active | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) |
 | [scripts/sodaspaces_templates_test.go](../../../../../scripts/sodaspaces_templates_test.go) | test / active | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation), [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) — [interval map](../maps/developer-scripts.md#coverage-8b6923c976fa) |
 | [scripts/system_formats_test.go](../../../../../scripts/system_formats_test.go) | test / active | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives), [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure), [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) — [interval map](../maps/developer-scripts.md#coverage-6da9e7c7704f) |
 | [scripts/terminal_branding_test.go](../../../../../scripts/terminal_branding_test.go) | test / active | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) |

@@ -7,6 +7,8 @@ Current private-test extraction at f7: shared fixtures2660–2754 exclude the ne
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `cd111721` (A00 1ae4249b): texec.rs moved whole to `terminal/mod.rs` (+2 import lines since) — intervals STALE, bannered.
+
 The current audit refines the catalog: texec private-terminal request admission
 and StreamTable are obsolete predecessor duties; current gmux admission and
 TerminalGate retain live ownership. [S05](../../reviews/S05.md) records the
@@ -15,7 +17,9 @@ remain historical; exact retirement uses the current source selectors there.
 
 <a id="coverage-7d03172d524c"></a>
 
-## [rust/soda-host/src/texec.rs](../../../../../rust/soda-host/src/texec.rs)
+## [rust/soda-host/src/terminal/mod.rs](../../../../../rust/soda-host/src/terminal/mod.rs)
+
+> R02 STALE: intervals below reference the audited `rust/soda-host/src/texec.rs` blob; the moved file differs (import rebinds / drift) — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

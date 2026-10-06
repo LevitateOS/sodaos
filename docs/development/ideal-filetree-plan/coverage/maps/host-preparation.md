@@ -5,11 +5,13 @@ Current P06/P12 target note: host LauncherEvidence/base64 helper321–332→prep
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
+R02 @HEAD `cd111721` (A00): preparation.rs + prepare.rs verified byte-identical moves to `*/mod.rs`; intervals kept.
+
 <a id="coverage-bebecbb8e821"></a>
 
 <a id="rustsoda-hostsrcpreparationrs-1"></a>
 
-## [rust/soda-host/src/preparation.rs](../../../../../rust/soda-host/src/preparation.rs)
+## [rust/soda-host/src/preparation/mod.rs](../../../../../rust/soda-host/src/preparation/mod.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
@@ -167,7 +169,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-hostsrcpreparers-1"></a>
 
-## [rust/soda-host/src/prepare.rs](../../../../../rust/soda-host/src/prepare.rs)
+## [rust/soda-host/src/prepare/mod.rs](../../../../../rust/soda-host/src/prepare/mod.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
