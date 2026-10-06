@@ -24,14 +24,36 @@ schedule assigns work; it does not override their requirements or evidence limit
 
 ## Capacity and lanes
 
-Use built-in Codex subagents: **up to three workers and one coordinator**,
-within the four concurrent slots. Default new subagents to **GPT-6 Luna with low
-reasoning**, as requested by the owner; choose stronger settings only for a
-specific unresolved problem that warrants their cost. Give each a bounded
-self-contained assignment. Rotate implementation, challenge and verification
-through these slots; reuse sufficient evidence and stop reviews once their
-question is answered. Existing tmux implementation checkpoints stay parked; this
-planning round does not restart workers, create worktrees or schedule timers.
+Use built-in Codex subagents, with **two workers by default and a coordinator**.
+A third worker uses the fourth slot only for an independent ready assignment
+with disjoint files. Rotate implementation and review through these slots;
+additional concurrency is not a reason to duplicate investigation or reviews.
+Existing tmux checkpoints remain parked. Work stays in the canonical checkout.
+
+Choose the model and reasoning level **before dispatch**, using the table below.
+These are economical defaults for this repository's bounded assignments, not
+claims that one model is sufficient for every problem. Official
+[OpenAI model guidance](https://developers.openai.com/api/docs/guides/model-selection)
+describes Luna as the efficient option for scoped work; the settings here are
+our engineering allocation based on the known defects and boundary risks.
+
+| Assignment | Subagent model | Reasoning | Scope and stopping point |
+| --- | --- | --- | --- |
+| Inventory/diff checks, plan upkeep, last-caller census, ordinary dependency wiring | GPT-6 Luna | low | Exact paths/question; stop with the verified result or named missing fact |
+| Narrow caller edits and regressions after the contract is settled | GPT-6 Luna | low | One defining owner plus actual callers/tests; stop after affected checks |
+| Absolute deadlines, streaming secrecy, transaction exclusion, HTTP upgrade/pump lifetime or rooted-file custody | GPT-6 Luna | medium | One demonstrated failure or boundary proof; stop at a passing proof or concrete limitation |
+| Independent review of a routine packet | GPT-6 Luna | low | Changed defining units, acceptance and performed checks only |
+| Independent review of secrecy, trust, cancellation or concurrency | GPT-6 Luna | medium | Challenge those invariants and actual regression subjects; no whole-repository reread |
+| Escalation after a reproducible unresolved technical failure | GPT-6.1 Sol | medium | One reduced reproducer/question only; return the answer to the Luna worker |
+
+Escalation is conditional, not a scheduled expensive pass. First reduce the
+failure and identify whether it is an implementation error, missing evidence or
+an upstream limitation. Escalate only if one scoped Luna retry leaves the same
+reproducer unresolved, or conflicting concrete evidence prevents the boundary
+decision. Increasing reasoning or model size cannot supply absent native evidence.
+There is no default high/extra-high review, full-history fork or repeated model
+comparison. Give each worker a self-contained brief with finding IDs, exact
+files, retained policy, prerequisites, tests and the chosen setting.
 
 | Lane | Primary packet queue | Responsibility |
 | --- | --- | --- |
@@ -110,66 +132,60 @@ hunk editing of a shared file as a substitute for ownership.
   installed, provider and retained delivery evidence distinct. Signing, uploading,
   merging and publishing are separate operations, not automatic refactor steps.
 
-## Start order and critical dependencies
+## Restart sequence and planned settings
 
-The selected order follows the [adoption packets](library-adoption.md#execution-packets),
-not the old dispatch of already completed broker/Store/release moves. These are
-future priorities; no source task has been dispatched by this reconciliation.
+The existing [task list](implementation-tasks.md) remains the queue, and the
+[adoption chapter](library-adoption.md#execution-packets) remains the packet
+contract. This sequence resets future dispatch. Completed investigation,
+planning and structural work are reused at their recorded scope.
 
-1. **R00 and L00 per adoption.** Establish the selected exact files and physical
-   writer. Start the small PG deadline/transaction and Hyper Unix/upgrade proofs
-   early alongside existing-dependency repairs. A failed proof holds only that
-   cutover; do not build large adapters or run release qualification around an
-   unresolved native boundary.
-2. **Immediate repairs, disjoint files first.** C leads L01 Phase/QMP deadlines,
-   URL redaction and CoreOS writer finalization, and L02 strict SPKI/signature
-   admission. A leads L03 fail-closed randomness and hash/curve replacements.
-   C's L12 same-FD bounds/cancellation and L13 archive EOF/budget repairs can
-   fill free slots on reserved files. A lead is not an extra worker: assign one
-   actual writer or an explicit whole-file handoff for each simultaneous change.
-3. **Prepare profiles and database cutover.** C leads caller-specific L04
-   JSON/Base64 profiles, routing A/B callers to their physical owners. B's L07
-   native SQL parameters can run alongside A's L08 driver proof; L08 cutover
-   requires both L07 and LA-G2. Completed broker/provider/schema moves are not
-   reopened. The canonical Go schema and Rust drift assertion remain a B/A join.
-4. **Transport adoption.** A's L09 clients move against existing peers before
-   ordinary identity and host HTTP. The host upgrade/read-ahead/WS pump is one
-   coupled change after its LA-G3 proof. C's candidate fixture can follow the
-   needed shared adapter independently. C's L10 setup HTTPS and A's provider
-   handoff can proceed independently; unrelated JSON or syscall migrations do
-   not gate them. Keep each shared host module and its real tests under one writer.
-5. **Caller-specific format and resource changes.** L05 SSH consumes only its
-   L03/L04 curve/hash/Base64 outputs. L06 CA consumes L02 and the relevant L04
-   PEM profile plus Caddy/extension evidence, with no SSH dependency. L11
-   URL/IP/time adapters can interleave by caller. L12 rooted/bounded custody
-   precedes temporary convenience. L16 matcher adoption follows L01 completion
-   and its actual L12 secret-input custody, not the reverse.
-6. **Independent release and cleanup units.** C's L13 archive/XML/OCI work and
-   L14 CLI/Cargo-target discovery interleave on disjoint owners, with coordinator
-   manifest/cache joins at R01. B's L15 SDK admission waits only on its exact
-   external-scope gate. L17 CFG01 stays held on native effective-config evidence;
-   retained locale duties proceed independently. L18 removals follow current
-   last-caller proof and named A/B handoffs; no whole pipeline retirement is a
-   prerequisite for orphaned testoci deletion.
-7. **Integrate and qualify the actual changed subjects.** R01/R02 reconcile
-   callers, deletion and retained policy; R03/R04 follow applicable cheap gates.
-   Remaining domain/presentation M/C/V tasks retain their existing dependencies
-   and can use free slots. Select the longest ready chain rather than imposing
-   a global codec, lane or wave barrier.
+The Phase::child repair is committed as `9fda53fe`, with its regression proven
+failing before the fix and three child-phase checks passing afterward. QMP and
+redaction drafts are uncommitted and unverified; they remain parked for review.
+CoreOS and VM capture repairs are still open. No worker resumes implementation
+as part of this planning reset.
 
-| Shared adoption surface | Exclusive physical writer / recipient |
-| --- | --- |
-| Host/identity HTTP, upgrade pump, SSH, PG Store/Tx and guest callers | A; C sends candidate/factory/setup changes, B sends canonical schema changes |
-| Acceptance evidence redaction and pump-finalization file (L01/L16) | C; one writer across both stages |
-| Setup/installer CA and publication; release archive/CLI/OCI/Cargo target code | C; hand host ELF/provider/FD changes to A and Go callers to B |
-| Shared JSON policy and release/acceptance callers | C; A owns host/identity/guest callers, B Go admission |
-| Go SQL/testoci and external SDK admission | B; A receives Rust SQL changes; sibling SDK requires LA-G6 |
-| Every dependency declaration, workspace/bin/test selector and lock | Coordinator; workers submit exact requests and pause shared-file edits |
+| Step | Existing packet/lead | Executor setting | Required output before dependent work |
+| --- | --- | --- | --- |
+| 0. Establish restart state | R00 / Coordinator | Luna low for bounded checks | Record actual revision, completed Phase repair, unfinished draft files and exact custody; reuse the 53-finding investigation and reconciled plans |
+| 1. Finish deadlines and evidence | L01 / C; exclusive writer per defining file | Luna medium for QMP/redaction; Luna low for CoreOS close/error joins; Luna medium for VM pump lifetime | Demonstrate absolute timeout/cancellation, final curl metadata, safe split/malformed URLs, bounded expansion/pending capture and refusal of successful evidence after pump/close failure |
+| 2. Repair immediate trust and entropy defects | L02 / C; L03 / A | Luna low for typed primitive fixes; Luna medium review of trust/fail-closed behavior | Reject off-curve/lenient signature input; eliminate successful predictable entropy fallback; preserve raw digest/TBS and role authority |
+| 3. Prove costly replacement boundaries early | L00 / Coordinator, A driver/transport writers; L07 / B | Luna medium for PG/Hyper proofs; Luna low for native SQL caller edits | Demonstrate driver deadline/cancel/discard and whole transaction custody; prove Unix HTTP backend/shutdown and upgrade read-ahead; finish native $n parameters before L08 cutover |
+| 4. Replace common engines by caller profile | L03 / A; L04 / C | Luna medium to settle duplicate/alias/encoding profiles, then Luna low for mechanical caller transfer | Real producer/refusal fixtures, original signed bytes and bounded inputs; remove each old engine with its last callers |
+| 5. Adopt PostgreSQL and Unix HTTP/WS | L08/L09 / A, named B/C handoffs | Luna medium | PG requires L07 and LA-G2; ordinary clients precede servers, coupled upgrade/pump follows LA-G3; complete cancellation/flush/close/reap and affected offline graph |
+| 6. Adopt SSH and local CA formats | L05 / A; L06 / C | Luna medium | SSH consumes required L03/L04 outputs; CA consumes L02/relevant PEM profile and Caddy/critical-extension evidence, with no SSH prerequisite |
+| 7. Replace independent external/network adapters | L10 / C; L11 / A | Luna low for settled caller adapters; Luna medium only for unresolved admission/deadline semantics | Setup/provider HTTP and URL/IP/time preserve each caller's credentials, raw literals, bounds and unavailable/uncertain outcomes |
+| 8. Consolidate file/FD/process mechanics | L12 / C, A/B physical writers | Luna medium for custody/cancellation; Luna low for settled repetitive plumbing | Same-FD bounds before temp convenience; root confinement, descriptor ownership, bounded capture and cleanup errors remain exercised |
+| 9. Replace release format and CLI emulators | L13/L14 / C | Luna low after declared format/CLI profiles; Luna medium for EOF/budget or cross-crate ownership uncertainty | Complete decoded trailer/EOF and budgets before reuse; retain deterministic new output, original signed bytes, command tails and exact shipping inventory |
+| 10. Close bounded external/configuration questions | L15 / B; L17 / C | Luna low for pinned census/corpus collection; Luna medium for demonstrated semantic mismatch | SDK exact source/scope and native effective-config evidence; missing corpus holds CFG01 only, retained locale work remains independent |
+| 11. Remove dead machinery and assess parked seams | L18 / C with A/B handoffs; R02 | Luna low | Current last-caller proof and actual test/build owners; useful A/C seams assessed against replacement adapters; no replay of already integrated B27 work |
+| 12. Consider optional matcher adoption | L16 / C | Luna medium | Separate change after L01 and its bounded secret-input custody; no Aho-Corasick change is required to complete step 1 |
+| 13. Qualify the integrated changed subjects | R03/R04 / Coordinator | Luna low for commands/receipts; Luna medium for unresolved consequential results | Applicable source/build checks first, native qualification only for a ready selected candidate and its authorized operations; evidence states its actual scope |
 
-The literal paths recorded at R00 override broad directory examples only through
-an explicit custody handoff. The parked A/B/C checkpoint assessment remains in
-[one register](library-adoption.md#parked-checkpoints); useful seams are reassessed
-with their replacement owner, never integrated wholesale to clear a queue.
+Numbers express priority and required outputs, not global wave barriers. Step 3
+can overlap ready step 2 repairs. Independent parts of steps 7–11 can fill
+available slots; orphaned deletion does not wait for a full pipeline cutover.
+The relevant L00 admission applies before every new dependency cutover. Optional
+step 12 does not hold unrelated qualification or closure of the immediate repairs.
+
+For step 1, retain the committed Phase result, then review the parked QMP and
+redaction drafts against the actual acceptance before using them. QMP must use
+one budget across connect, negotiation, partial writes/reads and buffered event
+matching. CoreOS must finish pump ownership, propagate failures, eagerly close
+both redactors and check final flushes before reading buffers. VM output closure
+must follow owned pump completion. Test split/slashless/malformed/binary URLs,
+unterminated metadata and resource exhaustion against the real callers.
+
+Every coherent packet gets one independent review at the chosen level. Routine
+checks need no additional reasoning agent. Commit passing bounded changes early
+and often through the coordinator, staging explicit paths; never bundle another
+worker's unverified draft. Update task state in place after integration, keeping
+completed moves, correctness repairs and unperformed native checks distinct.
+
+The exclusive writers and [parked checkpoint assessment](library-adoption.md#parked-checkpoints)
+still apply. Manifests/locks and shared roots stay with the coordinator; record
+literal files and cross-owner recipients before dispatch. Do not use concurrent
+hunk editing or create extra queues to work around a held file.
 
 ## Verification and wall-time rules
 

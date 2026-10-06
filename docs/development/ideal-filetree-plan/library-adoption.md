@@ -95,6 +95,13 @@ sticky pump/close errors; split/malformed/non-UTF8 URLs; bounded expanded output
 and pending/tee buffers; no successful publication after incomplete evidence.
 This does not depend on L16 automaton adoption or a new QMP runtime.
 
+Execution reset: `9fda53fe` completes Phase::child with a failing-before/passing-after
+regression and three passing child-phase checks. This closes that repair only.
+QMP/redaction drafts are parked, uncommitted and unverified; CoreOS/VM capture
+finalization and evidence bounds remain open. Future work follows the
+[restart sequence and planned settings](implementation-lanes.md#restart-sequence-and-planned-settings).
+L16 remains a separate optional matcher change.
+
 ### L02 Trust-key and signature repair
 
 Scope: release-image and release-deliver SPKI intake, installer
