@@ -36,7 +36,6 @@ pub(crate) mod proc {
     pub(crate) use super::execution::spawn_detached;
 }
 pub(crate) mod records;
-#[path = "../../../../rust/soda-project-factory-roles/src/sha.rs"]
 pub(crate) mod sha;
 #[cfg(test)]
 #[path = "tests.rs"]
