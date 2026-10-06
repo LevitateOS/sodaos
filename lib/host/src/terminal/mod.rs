@@ -4899,7 +4899,10 @@ mod tests {
 
     /// Spawn a real quiet child owned by a test `NativeAttach` (reader
     /// detached, stdin open): the task-owned `Some(child)` close path.
-    fn attach_with_child(argv: &[&str]) -> (NativeAttach, u32) {
+    /// Also returns the PID plus its `/proc` starttime identity, captured
+    /// while the child is known alive, so the reap assertion can tell our
+    /// entry from a recycled PID.
+    fn attach_with_child(argv: &[&str]) -> (NativeAttach, u32, u64) {
         use std::os::unix::io::FromRawFd;
         let mut child = std::process::Command::new(argv[0])
             .args(&argv[1..])
@@ -4909,6 +4912,7 @@ mod tests {
             .spawn()
             .unwrap();
         let pid = child.id();
+        let (_, starttime) = proc_stat(pid).expect("spawned child must have a /proc entry");
         let stdin = child.stdin.take().unwrap();
         // Same ownership transfer as `attach`: exactly-once raw fds.
         let fd = stdin.as_raw_fd();
@@ -4922,24 +4926,53 @@ mod tests {
                 closed: false,
             },
             pid,
+            starttime,
         )
     }
 
-    /// True once the PID is reaped and gone (a zombie still answers the
-    /// null signal, so this distinguishes reaped from merely killed).
-    fn pid_reaped(pid: u32) -> bool {
-        let gone = unsafe { libc::kill(pid as libc::pid_t, 0) } != 0;
-        gone && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+    /// `/proc/<pid>/stat` (state, starttime), or `None` once the PID is
+    /// reaped and gone. Starttime (field 22) identifies the process
+    /// across PID recycling: a zombie holds its PID, so a live entry
+    /// with a different starttime proves our child was reaped.
+    fn proc_stat(pid: u32) -> Option<(char, u64)> {
+        let text = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        let close = text.rfind(')')?;
+        let mut fields = text[close + 2..].split_whitespace();
+        let state = fields.next()?.chars().next()?;
+        let starttime: u64 = fields.nth(18)?.parse().ok()?;
+        Some((state, starttime))
+    }
+
+    /// Assert the child was reaped (STEER-A-007-1: no timing-dependent
+    /// null-signal check — a recycled PID also answers it, and our own
+    /// dying child is still alive in the instant after kill). Every
+    /// branch is decided by starttime identity, not timing: gone, or an
+    /// entry with a foreign starttime, proves reap; only our own entry
+    /// persisting to the deadline fails.
+    fn assert_pid_reaped(pid: u32, our_start: u64) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            match proc_stat(pid) {
+                None => return,
+                Some((_, start)) if start != our_start => return,
+                Some((state, _)) => {
+                    if Instant::now() >= deadline {
+                        panic!("pid {pid} still ours (state {state}): child unreaped");
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+        }
     }
 
     #[test]
     fn close_reaps_eof_exited_child() {
         // CODEX-H01-REAP-1: `cat` exits on the stdin EOF that `close`
         // causes by dropping stdin; the exit must be reaped.
-        let (mut attach, pid) = attach_with_child(&["cat"]);
+        let (mut attach, pid, starttime) = attach_with_child(&["cat"]);
         attach.close();
         assert!(attach.child.is_none());
-        assert!(pid_reaped(pid));
+        assert_pid_reaped(pid, starttime);
         // Once-only close stays idempotent.
         attach.close();
     }
@@ -4948,12 +4981,12 @@ mod tests {
     fn close_reaps_killed_child() {
         // CODEX-H01-REAP-1: `sleep` ignores stdin EOF, so `close` must
         // kill after the 3s grace and then reap the forced termination.
-        let (mut attach, pid) = attach_with_child(&["sleep", "30"]);
+        let (mut attach, pid, starttime) = attach_with_child(&["sleep", "30"]);
         let start = Instant::now();
         attach.close();
         assert!(start.elapsed() >= Duration::from_secs(3), "grace skipped");
         assert!(attach.child.is_none());
-        assert!(pid_reaped(pid));
+        assert_pid_reaped(pid, starttime);
         attach.close();
     }
 }
