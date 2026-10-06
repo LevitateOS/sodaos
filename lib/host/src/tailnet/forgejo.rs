@@ -52,8 +52,10 @@ fn inspect_forgejo(exec: &dyn Executor, deadline: Instant) -> Result<Vec<u8>, St
         })
 }
 
-/// Last matching object field (exact or ASCII case-insensitive), mirroring
-/// Go struct unmarshal; null counts as absent.
+/// Last matching object field (exact or ASCII case-insensitive). Go binds
+/// each incoming key in order with exact-or-fold matching, so the last
+/// matching key wins even across exact/fold forms; with distinct field
+/// names this reverse lookup is equivalent. Null counts as absent.
 fn field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
     fields
         .iter()
@@ -83,8 +85,10 @@ fn published_state(data: &[u8], ip: &str) -> Result<(String, bool), String> {
     Ok((domain, running))
 }
 
-/// (HostIp, HostPort) pairs for `22/tcp`; mistyped structure fails like
-/// Go's unmarshal error, absent values stay empty.
+/// (HostIp, HostPort) pairs for `22/tcp`. Every map value is validated
+/// like Go's whole-struct unmarshal, so a malformed `80/tcp` refuses even
+/// beside a valid `22/tcp`; the last exact `22/tcp` key wins like Go's map
+/// binding, absent values stay empty.
 fn port_bindings(root: &[(String, Value)]) -> Option<Vec<(String, String)>> {
     let host_config = match field(root, "HostConfig") {
         None => return Some(Vec::new()),
@@ -94,10 +98,20 @@ fn port_bindings(root: &[(String, Value)]) -> Option<Vec<(String, String)>> {
         None => return Some(Vec::new()),
         Some(v) => v.as_object()?,
     };
-    let entries = match map.iter().rev().find(|(k, _)| k == "22/tcp") {
-        None => return Some(Vec::new()),
-        Some((_, Value::Null)) => return Some(Vec::new()),
-        Some((_, v)) => v.as_array()?,
+    let mut out = Vec::new();
+    for (key, value) in map {
+        let pairs = binding_entries(value)?;
+        if key == "22/tcp" {
+            out = pairs;
+        }
+    }
+    Some(out)
+}
+
+fn binding_entries(value: &Value) -> Option<Vec<(String, String)>> {
+    let entries = match value {
+        Value::Null => return Some(Vec::new()),
+        v => v.as_array()?,
     };
     let mut out = Vec::new();
     for entry in entries {
@@ -128,11 +142,20 @@ fn ssh_domain_state(root: &[(String, Value)]) -> Option<(String, bool)> {
     if let Some(config) = field(root, "Config") {
         let fields = config.as_object()?;
         if let Some(env_value) = field(fields, "Env") {
+            // Every item is typed like Go's unmarshal, but the first key
+            // match still wins even when later items follow.
+            let mut found = false;
             for value in env_value.as_array()? {
-                let line = value.as_str()?;
-                if let Some(stripped) = line.strip_prefix(SSH_DOMAIN_KEY) {
-                    domain = stripped.to_string();
-                    break;
+                let line = match value {
+                    Value::Null => continue,
+                    Value::Str(s) => s,
+                    _ => return None,
+                };
+                if !found {
+                    if let Some(stripped) = line.strip_prefix(SSH_DOMAIN_KEY) {
+                        domain = stripped.to_string();
+                        found = true;
+                    }
                 }
             }
         }
@@ -403,6 +426,106 @@ mod tests {
                 "input {input:?}"
             );
         }
+    }
+
+    #[test]
+    fn inspection_validates_every_port_binding() {
+        let ssh = r#""22/tcp":[{"HostIp":"100.64.0.1","HostPort":"2222"}]"#;
+        // A malformed sibling refuses even beside a valid 22/tcp, like Go's
+        // whole-struct unmarshal.
+        for extra in [
+            r#""80/tcp":{}"#,
+            r#""80/tcp":[5]"#,
+            r#""80/tcp":[{"HostIp":1,"HostPort":"80"}]"#,
+            r#""80/tcp":[{"HostIp":"0.0.0.0","HostPort":80}]"#,
+            r#""80/tcp":[{"HostIp":["0.0.0.0"],"HostPort":"80"}]"#,
+        ] {
+            let input = PUBLISHED.replacen(ssh, &format!("{ssh},{extra}"), 1);
+            assert_eq!(
+                published_state(input.as_bytes(), "100.64.0.1").unwrap_err(),
+                "cannot read native Forgejo network state",
+                "extra {extra:?}"
+            );
+        }
+        // Well-typed and null siblings pass through to admission.
+        for extra in [
+            r#""80/tcp":[{"HostIp":"0.0.0.0","HostPort":"80"}]"#,
+            r#""80/tcp":[]"#,
+            r#""80/tcp":null"#,
+        ] {
+            let input = PUBLISHED.replacen(ssh, &format!("{ssh},{extra}"), 1);
+            let (domain, running) = published_state(input.as_bytes(), "100.64.0.1").unwrap();
+            assert_eq!((domain.as_str(), running), ("old", true));
+        }
+    }
+
+    #[test]
+    fn inspection_validates_every_env_item() {
+        let bound = |env: &str| {
+            let body = "[{\"Config\": {\"Env\": ".to_string()
+                + env
+                + "}, \"State\": {\"Running\": true}, \"HostConfig\": {\"PortBindings\": {\"22/tcp\": [{\"HostIp\": \"100.64.0.1\", \"HostPort\": \"2222\"}]}}}]";
+            published_state(body.as_bytes(), "100.64.0.1")
+        };
+        // A later mistyped item refuses even after a valid SSH_DOMAIN.
+        assert_eq!(
+            bound(r#"["FORGEJO__server__SSH_DOMAIN=first",7]"#).unwrap_err(),
+            "cannot read native Forgejo network state"
+        );
+        assert_eq!(
+            bound(r#"["FORGEJO__server__SSH_DOMAIN=first",{}]"#).unwrap_err(),
+            "cannot read native Forgejo network state"
+        );
+        // Null items decode to empty like Go and never match the key.
+        assert_eq!(
+            bound(r#"["A=1",null,"FORGEJO__server__SSH_DOMAIN=late"]"#).unwrap(),
+            ("late".to_string(), true)
+        );
+        // The first key match wins even with an empty value.
+        assert_eq!(
+            bound(r#"["FORGEJO__server__SSH_DOMAIN=","FORGEJO__server__SSH_DOMAIN=late"]"#)
+                .unwrap(),
+            (String::new(), true)
+        );
+    }
+
+    #[test]
+    fn duplicate_and_case_merge() {
+        // Duplicate 22/tcp keys: last wins like Go's map binding.
+        let unbound = r#""22/tcp":[{"HostIp":"192.168.1.10","HostPort":"2222"}]"#;
+        let bound = r#""22/tcp":[{"HostIp":"100.64.0.1","HostPort":"2222"}]"#;
+        for (first, second, admitted) in [(unbound, bound, true), (bound, unbound, false)] {
+            let input = format!(
+                r#"[{{"Config":{{"Env":[]}},"State":{{"Running":true}},"HostConfig":{{"PortBindings":{{{first},{second}}}}}}}]"#
+            );
+            if admitted {
+                assert_eq!(
+                    published_state(input.as_bytes(), "100.64.0.1").unwrap(),
+                    (String::new(), true)
+                );
+            } else {
+                assert!(published_state(input.as_bytes(), "100.64.0.1")
+                    .unwrap_err()
+                    .starts_with("forgejo Git SSH is not bound to Tailnet IP"));
+            }
+        }
+        // Duplicate entry fields: last wins, exact or folded.
+        let input = r#"[{"Config":{"Env":[]},"State":{"Running":true},"HostConfig":{"PortBindings":{"22/tcp":[{"HostIp":"192.168.1.10","hostip":"100.64.0.1","HostPort":"2222"}]}}}]"#;
+        assert_eq!(
+            published_state(input.as_bytes(), "100.64.0.1").unwrap(),
+            (String::new(), true)
+        );
+        // Case-variant field names bind like Go's fold match.
+        let input = r#"[{"config":{"env":["FORGEJO__server__SSH_DOMAIN=fold"]},"state":{"running":true},"hostconfig":{"portbindings":{"22/tcp":[{"hostip":"100.64.0.1","hostport":"2222"}]}}}]"#;
+        assert_eq!(
+            published_state(input.as_bytes(), "100.64.0.1").unwrap(),
+            ("fold".to_string(), true)
+        );
+        // Map keys stay exact: a folded port key is not 22/tcp.
+        let input = r#"[{"Config":{"Env":[]},"State":{"Running":true},"HostConfig":{"PortBindings":{"22/TCP":[{"HostIp":"100.64.0.1","HostPort":"2222"}]}}}]"#;
+        assert!(published_state(input.as_bytes(), "100.64.0.1")
+            .unwrap_err()
+            .starts_with("forgejo Git SSH is not bound to Tailnet IP"));
     }
 
     #[test]
