@@ -83,7 +83,6 @@ pub struct Control<E: Executor = NativeExec> {
     pub(crate) provider_stub: Option<Box<provider::ProviderTransport>>,
 }
 
-#[path = "tailnet/control/project.rs"]
 mod project;
 
 impl<E: Executor> Control<E> {

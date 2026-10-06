@@ -34,6 +34,7 @@ pub mod tailnet_domain;
 pub mod tailnet_files;
 #[path = "tailnet/runtime/mod.rs"]
 pub mod tailnet_runtime;
+#[path = "tailnet/control/mod.rs"]
 pub mod tcontrol;
 #[path = "tailnet/control/enrollment.rs"]
 pub mod tcontrol_enroll;

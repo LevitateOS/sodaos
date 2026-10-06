@@ -25,7 +25,7 @@ mod tailnet_domain {
     pub use soda_host::tailnet_domain::*;
 }
 
-#[path = "../src/tcontrol.rs"]
+#[path = "../src/tailnet/control/mod.rs"]
 mod tcontrol;
 #[path = "../src/tailnet/control/enrollment.rs"]
 mod tcontrol_enroll;
