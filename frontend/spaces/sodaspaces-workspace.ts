@@ -18,13 +18,11 @@ import {
   selectTab,
   hideTab,
   putEntry,
-  forgetEntry,
   sameLocator,
   layoutLimit,
   panes,
-  moveTab,
 } from './sodaspaces-layout.js';
-import type {WorkspaceLayout, LayoutEntry, Pane, Area} from './sodaspaces-layout.js';
+import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
 import {check, id, object, terminalResponse, repositoryChoices, projectId} from './sodaspaces-api.js';
 import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
 import type {Creation, FactoryWatch, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
@@ -112,6 +110,13 @@ import {openInDrawer} from './sodaspaces-workspace-drawer.js';
 import type {DrawerInput} from './sodaspaces-workspace-drawer.js';
 import {addSlot, displaySlots, visibleSlot} from './sodaspaces-workspace-terminal-hosts.js';
 import type {HostsInput} from './sodaspaces-workspace-terminal-hosts.js';
+import {
+  confirmedEnd,
+  openSaved as openSavedTerminal,
+  restoreLocators,
+  slotName,
+} from './sodaspaces-workspace-terminals.js';
+import type {TerminalsInput} from './sodaspaces-workspace-terminals.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -1133,7 +1138,7 @@ export class SodaSpaces extends LitElement {
         void this.openSaved(entry);
       },
       tabKey: (event, key, keys) => this.tabKey(event, key, keys),
-      slotName: (slot) => this.slotName(slot),
+      slotName: (slot) => slotName(this.terminalsInput(), slot),
       projectName: (space) => this.projectName(space),
       rectangle: (area) => this.rectangle(area),
       showSessions: (pane) => this.showSessions(pane),
@@ -1389,14 +1394,14 @@ export class SodaSpaces extends LitElement {
       },
       invalidate: () => this.invalidate(),
       loadLayout: () => loadLayout(this.layoutInput()),
-      restoreLocators: (n, signal) => this.restoreLocators(n, signal),
+      restoreLocators: (n, signal) => restoreLocators(this.terminalsInput(), n, signal),
       display: () => this.display(),
       showManagement: (repositoryId, mode) => {
         void this.showManagement(repositoryId, mode);
       },
       projectRunnable: (space) => this.projectRunnable(space),
       locator: (slot) => this.locator(slot),
-      confirmedEnd: (key) => this.confirmedEnd(key),
+      confirmedEnd: (key) => confirmedEnd(this.terminalsInput(), key),
       refreshJourneyProject: () => {
         void this.projects.get(this.project)?.api.refresh();
       },
@@ -1451,110 +1456,53 @@ export class SodaSpaces extends LitElement {
       repositoryPrefix: () => this.repositoryPrefix(),
     };
   }
-  private canRestorePane(entry: LayoutEntry | undefined, space: Space | undefined, n: number, signal: AbortSignal) {
-    return (
-      !!entry &&
-      !!space &&
-      !space.authority_unavailable &&
-      space.execution_allowed &&
-      !!space.login &&
-      this.live(n) &&
-      !signal.aborted
-    );
-  }
-  private async restoreSelectedPane(n: number, signal: AbortSignal, area: {pane: Pane}) {
-    const entry = this.layout.entries.find((e) => e.key === area.pane.selected);
-    const space = this.spaces.find((s) => s.environment.id === entry?.environmentId);
-    if (!this.canRestorePane(entry, space, n, signal)) return;
-    const slot = await addSlot(this.hostsInput(), space!, entry!);
-    if (slot && this.live(n)) {
-      this.display();
-      await slot.terminal.restore();
-    }
-  }
-  private async restoreLocators(n: number, signal: AbortSignal) {
-    await this.updateComplete;
-    this.measure();
-    await this.updateComplete;
-    for (const area of this.projection.panes) await this.restoreSelectedPane(n, signal, area);
-    this.persist();
-  }
-  private slotName(slot: Slot) {
-    const locator = this.locator(slot);
-    return (
-      slot.metadata?.name ||
-      slot.proposedName ||
-      'Terminal ' + (locator.kind === 'existing' ? locator.id.slice(0, 8) : locator.kind)
-    );
-  }
-  private confirmedEnd(key: string) {
-    const slot = this.slots.find((s) => s.key === key),
-      entry = this.layout.entries.find((e) => e.key === key);
-    if (entry)
-      this.spaces = this.spaces.map((space) =>
-        space.environment.id !== entry.environmentId
-          ? space
-          : {
-              ...space,
-              terminals: space.terminals.filter(
-                (metadata) => !(entry.locator.kind === 'existing' && metadata.id === entry.locator.id)
-              ),
-            }
-      );
-    this.layout = forgetEntry(this.layout, key);
-    this.slots = this.slots.filter((s) => s.key !== key);
-    this.maximized = undefined;
-    this.persist();
-    this.display();
-    this.status = 'Native cleanup confirmed for that exact terminal.';
-    queueMicrotask(() => {
-      slot?.terminal.dispose();
-      slot?.host.remove();
-    });
-  }
-  private openSavedBlocked() {
-    return this.stale || this.disposed || !this.available || !this.activeSurface;
-  }
-  private openSavedSpace(entry: LayoutEntry) {
-    const space = this.spaces.find((s) => s.environment.id === entry.environmentId);
-    if (!space || space.authority_unavailable || !space.execution_allowed || !space.login) return;
-    return space;
-  }
-  private applyOpenLayout(entry: LayoutEntry, destination?: string) {
-    this.closeMenus();
-    this.layout = destination ? moveTab(this.layout, entry.key, destination) : selectTab(this.layout, entry.key);
-    this.view = 'terminal';
-    this.choosingPane = undefined;
-    if (this.maximized) this.maximized = this.layout.focused;
-    this.persist();
-  }
-  private shouldFocusOpened(slot: Slot, focus: boolean, n: number, invoker: Element | null) {
-    return (
-      focus && this.live(n) && this.activeSurface && this.selected === slot.key && document.activeElement === invoker
-    );
-  }
-  private async restoreOpenedSlot(slot: Slot, n: number, focus: boolean, invoker: Element | null) {
-    if (!this.live(n) || slot.unavailable) return;
-    this.display();
-    slot.readRequested = true;
-    if (this.locator(slot).kind !== 'new') await slot.terminal.restore();
-    this.markViewed(slot.key);
-    if (this.shouldFocusOpened(slot, focus, n, invoker)) slot.terminal.focus();
+  private terminalsInput(): TerminalsInput {
+    return {
+      isStale: () => this.stale,
+      isDisposed: () => this.disposed,
+      isAvailable: () => this.available,
+      isActiveSurface: () => this.activeSurface,
+      readEpoch: () => this.epoch,
+      readSelected: () => this.selected,
+      readSpaces: () => this.spaces,
+      readLayout: () => this.layout,
+      readSlots: () => this.slots,
+      readMaximized: () => this.maximized,
+      readProjectionPanes: () => this.projection.panes,
+      readUpdateComplete: () => this.updateComplete,
+      live: (n) => this.live(n),
+      closeMenus: () => this.closeMenus(),
+      persist: () => this.persist(),
+      display: () => this.display(),
+      measure: () => this.measure(),
+      markViewed: (key) => this.markViewed(key),
+      locator: (slot) => this.locator(slot),
+      addSlot: (space, entry) => addSlot(this.hostsInput(), space, entry),
+      setSpaces: (spaces) => {
+        this.spaces = spaces;
+      },
+      setLayout: (layout) => {
+        this.layout = layout;
+      },
+      setSlots: (slots) => {
+        this.slots = slots;
+      },
+      setMaximized: (key) => {
+        this.maximized = key;
+      },
+      setStatus: (status) => {
+        this.status = status;
+      },
+      setView: (view) => {
+        this.view = view;
+      },
+      setChoosingPane: (pane) => {
+        this.choosingPane = pane;
+      },
+    };
   }
   private async openSaved(entry: LayoutEntry, destination?: string, focus = true) {
-    const invoker = document.activeElement;
-    if (this.openSavedBlocked()) return;
-    const space = this.openSavedSpace(entry);
-    if (!space) return;
-    try {
-      this.applyOpenLayout(entry, destination);
-      const n = this.epoch,
-        slot = await addSlot(this.hostsInput(), space, entry);
-      await this.updateComplete;
-      if (slot) await this.restoreOpenedSlot(slot, n, focus, invoker);
-    } catch {
-      if (!this.stale) this.status = 'The exact saved terminal could not be selected; no replacement was requested.';
-    }
+    return openSavedTerminal(this.terminalsInput(), entry, destination, focus);
   }
   private hostsInput(): HostsInput {
     return {
@@ -1585,7 +1533,7 @@ export class SodaSpaces extends LitElement {
       markViewed: (key) => this.markViewed(key),
       locator: (slot) => this.locator(slot),
       projectName: (space) => this.projectName(space),
-      confirmedEnd: (key) => this.confirmedEnd(key),
+      confirmedEnd: (key) => confirmedEnd(this.terminalsInput(), key),
       onTerminalCommand: (key, slot, binding, event) => this.onTerminalCommand(key, slot, binding, event),
       setLayout: (layout) => {
         this.layout = layout;
@@ -1791,7 +1739,7 @@ export class SodaSpaces extends LitElement {
     try {
       const entry = this.existingOrNewEntry(space, metadata);
       if (metadata.state === 'ended') {
-        this.confirmedEnd(entry.key);
+        confirmedEnd(this.terminalsInput(), entry.key);
         return;
       }
       await this.openSaved(entry, destination);
