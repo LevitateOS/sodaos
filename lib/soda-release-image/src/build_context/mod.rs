@@ -145,3 +145,6 @@ pub fn link_prepared_assets(production: &dyn Production) -> Result<(), Error> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
