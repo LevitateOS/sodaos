@@ -38,7 +38,7 @@ type rolesEnv struct {
 
 func rolesBinary(t *testing.T) string {
 	t.Helper()
-	return CargoBinary(t, "soda-project-factory-roles", "project-factory-roles")
+	return CargoBinary(t, "soda-project-terminal", "project-factory-roles")
 }
 
 func rolesSetup(t *testing.T) rolesEnv {
