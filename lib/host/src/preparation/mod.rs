@@ -4,11 +4,25 @@
 //! validation and wire shapes only; the store-side grant decisions and
 //! durable records stay in Go).
 
-use std::collections::HashMap;
-
 use crate::domain;
 use crate::json::{self, BoundMap, Kind, Spec, Value};
-use crate::sha256;
+
+mod candidate;
+mod decisions;
+mod setup;
+mod state;
+
+pub use self::candidate::FactoryCandidate;
+pub use self::decisions::{AdminApproval, RequirementAcceptance};
+pub use self::setup::{setup_digest_of, ApprovedSetup};
+pub use self::state::{
+    HoldState, PrepareHold, PrepareInspect, PrepareState, PrepareStop, ResolvedTool,
+};
+
+pub(crate) use self::state::{HOLD_STATE_SPECS, RESOLVED_TOOL_SPECS};
+
+use self::decisions::{ADMIN_APPROVAL_SPECS, REQUIREMENT_ACCEPTANCE_SPECS};
+use self::setup::APPROVED_SETUP_SPECS;
 
 pub const ROLE_CODER: &str = "soda-coder";
 pub const ROLE_REVIEWER: &str = "soda-reviewer";
@@ -99,111 +113,6 @@ pub fn valid_tool_name(name: &str) -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RequirementAcceptance {
-    pub id: String,
-    pub revision: i64,
-    pub approver: i64,
-    pub source_commit: String,
-    pub digest: String,
-}
-
-const REQUIREMENT_ACCEPTANCE_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "approver",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "source_commit",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "digest",
-        kind: Kind::Str,
-    },
-];
-
-impl RequirementAcceptance {
-    pub fn validate(&self) -> Result<(), String> {
-        if !valid_decision_id(&self.id)
-            || self.revision < 0
-            || self.approver <= 0
-            || !valid_commit(&self.source_commit)
-            || !valid_digest(&self.digest)
-        {
-            return Err("invalid requirement acceptance reference".to_string());
-        }
-        Ok(())
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        RequirementAcceptance {
-            id: m.take_string("id"),
-            revision: m.take_i64("revision"),
-            approver: m.take_i64("approver"),
-            source_commit: m.take_string("source_commit"),
-            digest: m.take_string("digest"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AdminApproval {
-    pub id: String,
-    pub revision: i64,
-    pub approver: i64,
-    pub effects_digest: String,
-}
-
-const ADMIN_APPROVAL_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "approver",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "effects_digest",
-        kind: Kind::Str,
-    },
-];
-
-impl AdminApproval {
-    pub fn validate(&self) -> Result<(), String> {
-        if !valid_decision_id(&self.id)
-            || self.revision < 0
-            || self.approver <= 0
-            || !valid_digest(&self.effects_digest)
-        {
-            return Err("invalid privileged-effect approval reference".to_string());
-        }
-        Ok(())
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        AdminApproval {
-            id: m.take_string("id"),
-            revision: m.take_i64("revision"),
-            approver: m.take_i64("approver"),
-            effects_digest: m.take_string("effects_digest"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Preparation {
     pub id: String,
     pub project: String,
@@ -217,7 +126,7 @@ pub struct Preparation {
     pub credential: String,
 }
 
-const PREPARATION_SPECS: &[Spec] = &[
+pub(crate) const PREPARATION_SPECS: &[Spec] = &[
     Spec {
         name: "id",
         kind: Kind::Str,
@@ -313,80 +222,6 @@ impl Preparation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ApprovedSetup {
-    pub files: HashMap<String, Vec<u8>>,
-    pub bundle: Vec<u8>,
-}
-
-const APPROVED_SETUP_SPECS: &[Spec] = &[
-    Spec {
-        name: "files",
-        kind: Kind::BytesMap,
-    },
-    Spec {
-        name: "bundle",
-        kind: Kind::Bytes,
-    },
-];
-
-impl ApprovedSetup {
-    pub fn validate(&self) -> Result<(), String> {
-        if self.files.is_empty() || self.files.len() > MAX_APPROVED_FILES {
-            return Err("invalid approved file set".to_string());
-        }
-        if !self.files.contains_key(FACTORY_SETUP_ENTRY) {
-            return Err("approved setup entrypoint is required".to_string());
-        }
-        if !self.files.contains_key(FACTORY_CHECK_ENTRY) {
-            return Err("approved check entrypoint is required".to_string());
-        }
-        // Go iterates the map in random order; sort so multi-fault reports
-        // are deterministic (single faults agree either way).
-        let mut names: Vec<&String> = self.files.keys().collect();
-        names.sort();
-        let mut total = 0usize;
-        for name in names {
-            let contents = &self.files[name];
-            if !valid_approved_name(name) {
-                return Err("invalid approved file name".to_string());
-            }
-            if contents.is_empty() || contents.len() > MAX_APPROVED_FILE_SIZE {
-                return Err("invalid approved file size".to_string());
-            }
-            total += contents.len();
-        }
-        if total > MAX_APPROVED_TOTAL {
-            return Err("approved inputs exceed the bounded size".to_string());
-        }
-        if self.bundle.is_empty() || self.bundle.len() > MAX_SOURCE_BUNDLE {
-            return Err("invalid source bundle size".to_string());
-        }
-        Ok(())
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        ApprovedSetup {
-            files: m.take_bytes_map("files"),
-            bundle: m.take_bytes("bundle"),
-        }
-    }
-}
-
-/// `SetupDigestOf`: sha256 over each file name, a zero byte, then contents,
-/// names sorted; lowercase hex.
-pub fn setup_digest_of(files: &HashMap<String, Vec<u8>>) -> String {
-    let mut names: Vec<&String> = files.keys().collect();
-    names.sort();
-    let mut input = Vec::new();
-    for name in names {
-        input.extend_from_slice(name.as_bytes());
-        input.push(0);
-        input.extend_from_slice(&files[name]);
-    }
-    sha256::hex_lower(&sha256::digest(&input))
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Prepare {
     pub preparation: Preparation,
     pub setup: ApprovedSetup,
@@ -434,328 +269,10 @@ impl Prepare {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedTool {
-    pub name: String,
-    pub path: String,
-    pub version: String,
-}
-
-pub(crate) const RESOLVED_TOOL_SPECS: &[Spec] = &[
-    Spec {
-        name: "name",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "path",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "version",
-        kind: Kind::Str,
-    },
-];
-
-impl ResolvedTool {
-    pub fn from_map(m: &BoundMap) -> Self {
-        ResolvedTool {
-            name: m.take_string("name"),
-            path: m.take_string("path"),
-            version: m.take_string("version"),
-        }
-    }
-
-    pub fn encode_into(&self, out: &mut String) {
-        out.push_str("{\"name\":");
-        out.push_str(&json::quote(&self.name));
-        out.push_str(",\"path\":");
-        out.push_str(&json::quote(&self.path));
-        out.push_str(",\"version\":");
-        out.push_str(&json::quote(&self.version));
-        out.push('}');
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct PrepareState {
-    pub id: String,
-    pub project: String,
-    pub role: String,
-    pub phase: String,
-    pub container: String,
-    pub source_commit: String,
-    pub setup_digest: String,
-    pub tools: Vec<ResolvedTool>,
-    pub missing: String,
-    pub setup_exit: Option<i64>,
-    pub check_exit: Option<i64>,
-    pub output: String,
-    pub ready: bool,
-    pub stopped: bool,
-    pub retirement: String,
-}
-
-impl PrepareState {
-    /// `encoding/json` struct order with `omitempty` honored.
-    pub fn encode(&self) -> String {
-        let mut out = String::from("{\"id\":");
-        out.push_str(&json::quote(&self.id));
-        out.push_str(",\"project\":");
-        out.push_str(&json::quote(&self.project));
-        out.push_str(",\"role\":");
-        out.push_str(&json::quote(&self.role));
-        out.push_str(",\"phase\":");
-        out.push_str(&json::quote(&self.phase));
-        out.push_str(",\"container\":");
-        out.push_str(&json::quote(&self.container));
-        out.push_str(",\"source_commit\":");
-        out.push_str(&json::quote(&self.source_commit));
-        out.push_str(",\"setup_digest\":");
-        out.push_str(&json::quote(&self.setup_digest));
-        if !self.tools.is_empty() {
-            out.push_str(",\"tools\":[");
-            for (i, tool) in self.tools.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                tool.encode_into(&mut out);
-            }
-            out.push(']');
-        }
-        if !self.missing.is_empty() {
-            out.push_str(",\"missing\":");
-            out.push_str(&json::quote(&self.missing));
-        }
-        if let Some(exit) = self.setup_exit {
-            out.push_str(",\"setup_exit\":");
-            out.push_str(&exit.to_string());
-        }
-        if let Some(exit) = self.check_exit {
-            out.push_str(",\"check_exit\":");
-            out.push_str(&exit.to_string());
-        }
-        if !self.output.is_empty() {
-            out.push_str(",\"output\":");
-            out.push_str(&json::quote(&self.output));
-        }
-        out.push_str(",\"ready\":");
-        out.push_str(if self.ready { "true" } else { "false" });
-        out.push_str(",\"stopped\":");
-        out.push_str(if self.stopped { "true" } else { "false" });
-        if !self.retirement.is_empty() {
-            out.push_str(",\"retirement\":");
-            out.push_str(&json::quote(&self.retirement));
-        }
-        out.push('}');
-        out
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PrepareInspect {
-    pub project: String,
-    pub id: String,
-}
-
-const PREPARE_INSPECT_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-];
-
-impl PrepareInspect {
-    pub fn validate(&self) -> Result<(), String> {
-        if !domain::valid_id(&self.project) || !valid_preparation_id(&self.id) {
-            return Err("invalid preparation address".to_string());
-        }
-        Ok(())
-    }
-
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m =
-            json::bind_root(v, "PrepareInspect", PREPARE_INSPECT_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        PrepareInspect {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PrepareStop {
-    pub project: String,
-    pub id: String,
-}
-
-impl PrepareStop {
-    pub fn validate(&self) -> Result<(), String> {
-        if !domain::valid_id(&self.project) || !valid_preparation_id(&self.id) {
-            return Err("invalid preparation address".to_string());
-        }
-        Ok(())
-    }
-
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "PrepareStop", PREPARE_INSPECT_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        PrepareStop {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct HoldState {
-    pub active: bool,
-    pub revision: i64,
-}
-
-impl HoldState {
-    pub fn encode(&self) -> String {
-        format!(
-            "{{\"active\":{},\"revision\":{}}}",
-            if self.active { "true" } else { "false" },
-            self.revision
-        )
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        HoldState {
-            active: m.take_bool("active"),
-            revision: m.take_i64("revision"),
-        }
-    }
-}
-
-pub(crate) const HOLD_STATE_SPECS: &[Spec] = &[
-    Spec {
-        name: "active",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-];
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PrepareHold {
-    pub project: String,
-    pub hold: bool,
-    pub revision: i64,
-}
-
-const PREPARE_HOLD_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "hold",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-];
-
-impl PrepareHold {
-    pub fn validate(&self) -> Result<(), String> {
-        if !domain::valid_id(&self.project) || self.revision < 0 {
-            return Err("invalid maintenance hold".to_string());
-        }
-        Ok(())
-    }
-
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "PrepareHold", PREPARE_HOLD_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        PrepareHold {
-            project: m.take_string("project"),
-            hold: m.take_bool("hold"),
-            revision: m.take_i64("revision"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FactoryCandidate {
-    pub preparation: Preparation,
-    pub source_preparation: String,
-    pub bundle: Vec<u8>,
-}
-
-const FACTORY_CANDIDATE_SPECS: &[Spec] = &[
-    Spec {
-        name: "preparation",
-        kind: Kind::Object {
-            go_type: "project.Preparation",
-            struct_name: "Preparation",
-            specs: PREPARATION_SPECS,
-        },
-    },
-    Spec {
-        name: "source_preparation",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "bundle",
-        kind: Kind::Bytes,
-    },
-];
-
-impl FactoryCandidate {
-    pub fn validate(&self) -> Result<(), String> {
-        self.preparation.validate()?;
-        if self.preparation.role != ROLE_REVIEWER {
-            return Err("only review receives a fresh candidate preparation".to_string());
-        }
-        if !valid_preparation_id(&self.source_preparation)
-            || self.source_preparation == self.preparation.id
-        {
-            return Err("candidate preparation requires a fresh identity".to_string());
-        }
-        if self.bundle.is_empty() || self.bundle.len() > MAX_SOURCE_BUNDLE {
-            return Err("candidate source bundle exceeds preparation bounds".to_string());
-        }
-        Ok(())
-    }
-
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "FactoryCandidate", FACTORY_CANDIDATE_SPECS, false)
-            .map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        FactoryCandidate {
-            preparation: Preparation::from_map(&m.take_map("preparation")),
-            source_preparation: m.take_string("source_preparation"),
-            bundle: m.take_bytes("bundle"),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     const DIGEST: &str = "32c794ef2201b76b757bfba2c23bba06dcc5a8c6121f6fabc99115ef12043ced";
     const COMMIT: &str = "0123456789abcdef0123456789abcdef01234567";
