@@ -3,11 +3,11 @@ import {repeat} from 'lit/directives/repeat.js';
 import {
   renderMenu,
   renderRename,
-  renderRepositoryPicker,
   renderWelcome,
   renderWelcomeSteps,
   renderWorkspaceIntro,
 } from './sodaspaces-workspace-view.js';
+import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext} from './sodaspaces-terminal.js';
