@@ -130,6 +130,31 @@ fn execute(
     status_only: bool,
     capture_grace: Option<Duration>,
 ) -> Result<Vec<u8>, String> {
+    execute_with_waiter(
+        stdin,
+        cmd,
+        args,
+        deadline,
+        status_only,
+        capture_grace,
+        wait_exit,
+    )
+}
+
+/// Shared runner with an injectable exit probe. Exclusive-waiter design:
+/// this loop is the only waiter (production probes never reap; reaps
+/// happen only on the three exclusive paths below), the default
+/// disposition reaps nothing early, and no waitpid(-1) stealing exists
+/// anywhere. Test waiters must preserve these assumptions.
+fn execute_with_waiter(
+    stdin: &[u8],
+    cmd: &str,
+    args: &[&str],
+    deadline: Instant,
+    status_only: bool,
+    capture_grace: Option<Duration>,
+    waiter: impl Fn(libc::pid_t) -> Result<bool, std::io::Error>,
+) -> Result<Vec<u8>, String> {
     use std::os::unix::io::AsRawFd;
     use std::os::unix::process::CommandExt;
     use std::process::Stdio;
@@ -200,7 +225,7 @@ fn execute(
             None => Transfer::Done(Vec::new()),
         });
         loop {
-            match wait_exit(pid) {
+            match waiter(pid) {
                 // Exited but UN-REAPED: the zombie pins the PID/PGID
                 // against reuse until capture and group retirement
                 // settle below; the single reap follows the joins.
@@ -236,18 +261,36 @@ fn execute(
                     std::thread::sleep(Duration::from_millis(5));
                 }
                 Err(e) => {
-                    // Wait failure leaves no reaped child to track;
-                    // join the bounded transfers and fail without
-                    // signaling anything (never orphan, never detach).
+                    if e.raw_os_error() == Some(libc::ECHILD) {
+                        // Ownership lost: the numeric PID/PGID is unpinned
+                        // and may already be reused — never signal it.
+                        // Join the bounded transfers (slow but signal-free;
+                        // a live child cannot be hurried), then report the
+                        // wait failure as uncertainty, never as cleanup.
+                        let _ = writer.join();
+                        let _ = out_drain.join();
+                        let _ = err_drain.join();
+                        return Err(wait_text(cmd, status_only, &e));
+                    }
+                    // Sole-owner unreaped custody intact (only this loop
+                    // waits; production probes never reap): run the bounded
+                    // cleanup first so nothing is abandoned, then report
+                    // the wait failure. The cleanup outcome stays
+                    // best-effort by design; a killed status here would
+                    // misdescribe the run.
+                    let _ = cleanup_child(&mut child);
                     let _ = writer.join();
                     let _ = out_drain.join();
                     let _ = err_drain.join();
-                    return Err(format!("{cmd} failed: {e}"));
+                    return Err(wait_text(cmd, status_only, &e));
                 }
             }
         }
         // Capture phase: the leader is a pinned zombie. Joins are bounded
-        // by the caller deadline, so they always return.
+        // by the caller deadline, so they always return. Limit: a panicked
+        // pump returns early below, skipping group retirement and the
+        // single reap (zombie and group survive to process exit); the
+        // never-orphan claims cover the joined paths only, not unwinds.
         let wrote = writer
             .join()
             .map_err(|_| format!("{cmd} failed: stdin writer panicked"))?;
@@ -273,13 +316,7 @@ fn execute(
             }
         };
         // Single reap now that capture settled; the exit status decides.
-        let status = child.wait().map_err(|e| {
-            if status_only {
-                format!("wait {cmd}: {e}")
-            } else {
-                format!("{cmd} failed: {e}")
-            }
-        })?;
+        let status = child.wait().map_err(|e| wait_text(cmd, status_only, &e))?;
         Ok((status, stdout, stderr))
     })?;
     let (status, stdout, stderr): (std::process::ExitStatus, Vec<u8>, Vec<u8>) = outcome;
@@ -313,6 +350,16 @@ fn completion_text(cmd: &str, status_only: bool) -> String {
     refusal_text(cmd, status_only)
 }
 
+/// Wait-failure text: reports the wait error itself, never a cleanup
+/// claim and never a status the run did not observe.
+fn wait_text(cmd: &str, status_only: bool, e: &std::io::Error) -> String {
+    if status_only {
+        format!("wait {cmd}: {e}")
+    } else {
+        format!("{cmd} failed: {e}")
+    }
+}
+
 /// Bounded transfer outcome: Done carries the complete bytes (unit for
 /// stdin); Incomplete means the caller deadline passed or a pipe error
 /// struck with the transfer unfinished — never usable as success.
@@ -323,7 +370,9 @@ enum Transfer<T> {
 
 /// Bounded cleanup outcome. Clean carries the reaped status; Uncertain
 /// preserves caller uncertainty (reap missed the grace, or group
-/// retirement unverified) instead of claiming a completed kill.
+/// retirement unverified) instead of claiming a completed kill. An
+/// Uncertain outcome may leave a live, unreaped child; callers must
+/// assume nothing about its fate.
 enum Cleanup {
     Clean(std::process::ExitStatus),
     Uncertain,
@@ -334,8 +383,10 @@ enum Cleanup {
 /// letting cleanup run open-ended.
 const CLEANUP_GRACE: Duration = Duration::from_secs(1);
 
-/// Retire the owned group: true when no member can remain (kill delivered
-/// or the group already gone); false preserves uncertainty.
+/// Retire the owned group: true when the termination was requested of
+/// a live group, or the group was already gone (ESRCH). A delivered
+/// SIGKILL is a request, not proof every descendant vanished; false
+/// preserves uncertainty.
 fn retire_group(pgid: libc::pid_t) -> bool {
     if unsafe { libc::killpg(pgid, libc::SIGKILL) } == 0 {
         return true;
@@ -674,5 +725,138 @@ mod tests {
             dt < Duration::from_millis(500),
             "retries reset the budget: {dt:?}"
         );
+    }
+
+    struct Fixture {
+        dir: std::path::PathBuf,
+    }
+
+    static FIXTURE_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+    impl Fixture {
+        fn fresh() -> Fixture {
+            let id = FIXTURE_SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let dir = std::env::temp_dir().join(format!("executor-{}-{id}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Fixture { dir }
+        }
+
+        fn script(&self, name: &str, body: &str) -> String {
+            use std::os::unix::fs::PermissionsExt;
+            let path = self.dir.join(name);
+            std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+            path.to_string_lossy().into_owned()
+        }
+
+        fn path(&self, name: &str) -> String {
+            self.dir.join(name).to_string_lossy().into_owned()
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    #[test]
+    fn echild_never_signals_unpinned_group() {
+        // Simulated ownership loss with a real owned child: the waiter
+        // reports ECHILD while the leader and a heartbeat grandchild
+        // live on. Nothing may be signaled (the numeric PGID is
+        // unpinned); the beats prove survival past our bounded failure.
+        let fixture = Fixture::fresh();
+        let beat = fixture.path("beat");
+        let script = fixture.script(
+            "live.sh",
+            &format!(
+                "(for i in $(seq 1 30); do echo x >> \"{beat}\"; sleep 0.05; done) &\nsleep 3"
+            ),
+        );
+        for (status_only, want) in [
+            (
+                false,
+                format!("{script} failed: No child processes (os error 10)"),
+            ),
+            (
+                true,
+                format!("wait {script}: No child processes (os error 10)"),
+            ),
+        ] {
+            let deadline = Instant::now() + Duration::from_secs(1);
+            let start = Instant::now();
+            let err = execute_with_waiter(&[], &script, &[], deadline, status_only, None, |_| {
+                Err(std::io::Error::from_raw_os_error(libc::ECHILD))
+            })
+            .unwrap_err();
+            assert_eq!(err, want);
+            assert!(start.elapsed() >= Duration::from_millis(500), "too fast");
+            assert!(start.elapsed() < Duration::from_secs(10), "wedged");
+            let at_return = std::fs::read(&beat).unwrap().len();
+            std::thread::sleep(Duration::from_millis(1500));
+            assert!(
+                std::fs::read(&beat).unwrap().len() > at_return,
+                "group was signaled despite ECHILD"
+            );
+        }
+        // Finite fixture: the loops exit alone; nothing leaks.
+        std::thread::sleep(Duration::from_millis(1000));
+        let end = std::fs::read(&beat).unwrap().len();
+        std::thread::sleep(Duration::from_millis(500));
+        assert_eq!(
+            std::fs::read(&beat).unwrap().len(),
+            end,
+            "fixture never settled"
+        );
+    }
+
+    #[test]
+    fn intact_custody_wait_error_cleans_up() {
+        // Simulated non-ECHILD wait failure with sole-owner custody
+        // intact: the owned child and group are cleaned up promptly
+        // (not abandoned), and the wait failure is reported.
+        let fixture = Fixture::fresh();
+        let beat = fixture.path("beat");
+        let script = fixture.script(
+            "live.sh",
+            &format!(
+                "(for i in $(seq 1 30); do echo x >> \"{beat}\"; sleep 0.05; done) &\nsleep 3"
+            ),
+        );
+        for (status_only, want) in [
+            (
+                false,
+                format!("{script} failed: Invalid argument (os error 22)"),
+            ),
+            (
+                true,
+                format!("wait {script}: Invalid argument (os error 22)"),
+            ),
+        ] {
+            let deadline = Instant::now() + Duration::from_secs(1);
+            let start = Instant::now();
+            let err = execute_with_waiter(&[], &script, &[], deadline, status_only, None, |_| {
+                Err(std::io::Error::from_raw_os_error(libc::EINVAL))
+            })
+            .unwrap_err();
+            assert_eq!(err, want);
+            // Cleanup-first fails fast; abandoning would wait the deadline.
+            assert!(
+                start.elapsed() < Duration::from_millis(500),
+                "not cleaned up"
+            );
+            // The group died with the cleanup: beats freeze at any count
+            // (a live loop would write within the window).
+            std::thread::sleep(Duration::from_millis(300));
+            let frozen = std::fs::read(&beat).unwrap_or_default().len();
+            std::thread::sleep(Duration::from_millis(500));
+            assert_eq!(
+                std::fs::read(&beat).unwrap_or_default().len(),
+                frozen,
+                "group survived intact-custody cleanup"
+            );
+        }
     }
 }
