@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {creationProfile} from '../../frontend/spaces/sodaspaces-api';
+import {creationProfile} from '../../frontend/spaces/sodaspaces-project-response';
 
 const profile = {
   id: 'rocky-headless',

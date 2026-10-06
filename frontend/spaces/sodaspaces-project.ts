@@ -14,27 +14,17 @@ import {
   object,
   check,
   id,
-  creationProfile,
-  osObservation,
   projectId,
   fingerprint,
-  environmentResponse,
-  detailResponse,
   savedKeysResponse,
   profileKeysResponse,
   keyPreviewResponse,
   SodaRequestError,
   readSodaJSON,
 } from './sodaspaces-api.js';
-import type {
-  OSObservation,
-  CreationProfile,
-  Environment,
-  Detail,
-  KeyPreview,
-  SavedKey,
-  ProfileKeys,
-} from './sodaspaces-api.js';
+import {creationProfile, osObservation, environmentResponse, detailResponse} from './sodaspaces-project-response.js';
+import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-api.js';
+import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;

@@ -1,6 +1,6 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
-import type {CreationProfile, Environment, OSObservation} from './sodaspaces-api.js';
+import type {CreationProfile, Environment, OSObservation} from './sodaspaces-project-response.js';
 
 function onProjectOSChange(event: Event, blocked: boolean, select: (id: string) => void) {
   if (event.target instanceof HTMLSelectElement && !blocked) select(event.target.value);
