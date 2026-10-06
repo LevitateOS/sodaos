@@ -4,6 +4,15 @@
 
 Structural reconciliation baseline: `d7e565aa1019753997a99fd430ba103d7a472b48`, with **1705 tracked paths** at that commit. Latest slice coverage is recorded separately at `0d8d3b8e` in the [coverage index](coverage/README.md). The table and full structural counts below remain historical; latest upkeep reconciles the five source/test changes after `26d420f2` and the documentation split without claiming a new full structural review.
 
+The selective library-adoption reconciliation uses source
+`72e4bb9015b6d6a622b45638104c74851a137473`. The
+[library chapter](library-adoption.md#finding-allocation) overrides pending
+generic-engine allocation directions selected there, while completed structural
+work stays complete at its recorded scope. Historical counts and source spans
+below are not refreshed by this change. Package boundaries continue to describe
+application duties and thin library adapters; library adoption does not create
+new services or a general helpers crate.
+
 Initial full structural review: `899e9bf3b9b57883df42cbb520329679b3b8186d`. Latest reconciliation scope: six landed port PRs (tests to Go #29/#31, release tools #30, release image #32, release deliver #33, release build #34) plus the decided language policy. Keep this initial review separate from later merge checkpoints.
 
 At audit source `f7e9cf9d`, the workspace has 32 Cargo members, including
@@ -74,11 +83,11 @@ The following recommendations are design proposals for the owner to assess.
 | `tools/soda-build/worker_linux.go` | `lib/soda-release-tools` (`worker.rs`, landed #30) | The Rust worker ports the tool-side worker and is the single worker owner. Retire the Go file at the release cutover. Preserve both admitted worker identities, trusted executable checks, mount/environment rules, root dispatch and exact systemd unit cleanup..* **[run 20261005:** crate path rust/->lib/ LANDED (C08); Go file still retires at cutover.] |
 | `internal/acceptance/worker_linux*` | Retire at the release cutover (no production caller left) | Its only production caller is the retired Go tool. Do not move it into the deleted tool as previously proposed. |
 | `internal/release/{build,deliver,image}` (all Go) | Retire at the decided release cutover; `lib/soda-release-{build,deliver,image,tools}` (landed #30/#32/#33/#34) are the owners | The earlier Go-internal consolidation (parent `payload.go`/`identity.go`/`json.go`) is void: the decided language policy keeps the pipeline in Rust, so the Go side is deleted, not reshaped. Keep construction in build, orchestration in image and trust/signing/publication in deliver, now as Rust crates..* **[run 20261005:** lib/ crate paths LANDED (C08); Go deletion still at cutover.] |
-| `internal/testoci` | Retire with the Go release tests at the release cutover | All actual consumers are Go release tests, which retire with the Go pipeline. Fixture duty moves to the Rust oracle suites. |
+| `internal/testoci` | Delete without replacement under L18/DEAD01 | At the investigation pin this orphaned fixture package has no imports/callers. Recheck references and delete; no Go pipeline retirement prerequisite. Keep testify and other dependencies with live consumers. |
 | `rust/identity-providers` + `rust/soda-identity` | One `cmd/soda-identity` Cargo package, with private `providers/codex`, `providers/muse` and existing provider types/helpers | The provider crate has exactly one direct production dependent. Consolidate package ownership while retaining provider protocol, broker policy, storage and wire modules. Fold its manifest/dependencies into the broker; remove the old package boundary and aliases..* **[run 20261005:** LANDED (A05+A06: cmd/soda-identity + providers/codex+muse; predecessors retired).] |
 | `rust/soda-asset-fetchers` + `rust/soda-stage-render` + `rust/soda-forgejo-locales` | One `tools/release-assets` Cargo package with `fetch/`, `render/`, `locales/` modules and the existing seven binaries | These are build-input operations under the existing release producer. Keep separate CLI entrypoints and test support namespaces. Existing transport/hash helpers can be reused after matching their caller behavior. This merges three manifests and library roots rather than adding another facade crate. | **[run 20261005:** LANDED (C09: tools/release-assets + 7 bins; 3 predecessors retired).]
-| `rust/soda-host` | Retain at `lib/host`; one package also owns the moved `cmd/soda-host/main.rs` | Current source already owns the Rust daemon and native adapters; its manifest and release compile path select that binary. The proposed move preserves this one package/service and the surviving Go client/wire surface. No Go daemon or retired executor is a target. | **[run 20261005:** PARTIAL — A00 in-place roots LANDED; wholesale lib/host move in A01 branch (unmerged).]
-| `rust/soda-project-account` + `rust/soda-project-factory-roles` | Existing `cmd/soda-project-terminal` package; `src/bin/project-account.rs`, `src/bin/project-factory-roles.rs`, `src/account.rs` and `src/factory_roles/` | Both native ports already compile into Project tools via release-build `production.rs:222-236` and install through Project Containerfile lines 40-44. Consolidate their package roots/dependencies and update these actual compile selectors; preserve binary names, installed paths and real compiled-helper tests. P03/P06 and shared owners challenge the exact split. | **[run 20261005:** IN-FLIGHT on A01 branch (terminal wholesale + account fold, unmerged).]
+| `rust/soda-host` | Retain at `lib/host`; one package also owns the moved `cmd/soda-host/main.rs` | Current source already owns the Rust daemon and native adapters; its manifest and release compile path select that binary. The proposed move preserves this one package/service and the surviving Go client/wire surface. No Go daemon or retired executor is a target. | **[run 20261005:** A00 in-place roots LANDED.] **[adoption reconciliation:** the crate is canonical at lib/host, with its binary still at lib/host/src/main.rs. The desired cmd/soda-host entrypoint placement remains a separate pending structural duty; parked A is assessed separately.]
+| `rust/soda-project-account` + `rust/soda-project-factory-roles` | Existing `cmd/soda-project-terminal` package; `src/bin/project-account.rs`, `src/bin/project-factory-roles.rs`, `src/account.rs` and `src/factory_roles/` | Both native ports already compile into Project tools via release-build `production.rs:222-236` and install through Project Containerfile lines 40-44. Consolidate their package roots/dependencies and update these actual compile selectors; preserve binary names, installed paths and real compiled-helper tests. P03/P06 and shared owners challenge the exact split. | **[adoption reconciliation:** package fold and installed executable identities are canonical at the investigation pin; preserve completed placement and distinguish parked later seams.]
 
 Publication evidence: `internal/forgejo/publish.go:37-58` and
 `internal/host/publish/operation.go:19-35`. Process/worker evidence:
@@ -90,18 +99,12 @@ Publication evidence: `internal/forgejo/publish.go:37-58` and
 `internal/release/doc.go:1-16`. Asset ownership is visible in
 `internal/release/build/production.go:178-210` and the three Cargo manifests.
 
-Provider consolidation includes an actual binary/library seam:
-`rust/soda-identity/src/main.rs:245-278` currently constructs providers through
-the external crate, while the binary imports the soda_identity library. **[run 20261005:** LANDED at cmd/soda-identity; entrypoint kept in main.rs (no service.rs) per coordinator ruling, review-accepted.]
-The proposed `main.rs` keeps the existing entrypoint; `service.rs` moves the
-existing service initialization, settings, provider construction and listener
-closure into that library. Keep provider implementation modules private there
-and choose the minimum entry facade for the existing invocation. Do not copy
-the modules into both binary and library or publish the provider internals to
-make the import compile. Provider code's current crate-root helper imports and
-TestDir references must rebind to its providers owner. Connection/Enrollment
-keep their one existing definition, shared with wire; removing the old crate
-name does not mean cloning those records.
+Provider consolidation is complete at `cmd/soda-identity`; the entrypoint stays
+in `main.rs`, as recorded by the completed A05/A06 work. The former proposed
+`service.rs` extraction is not a new pending task. Keep provider implementations
+private, one definition of Connection/Enrollment, and actual library imports in
+binary/tests. Library adoption replaces generic provider hashing/transport and
+PG mechanics without duplicating modules or publishing private internals.
 
 The merged release-assets library root owns fetch, render and locales modules.
 Replace current `-p` selections and old library imports in the existing
@@ -151,14 +154,35 @@ them into a package-local test file would break fixtures in other packages.
 Any retirement must preserve the real cross-package fixture/broker boundary;
 it does not justify a second production broker store or schema.
 
-`lib/json` has twelve direct current Cargo dependents (up from eight; all four landed release crates use it) and earns shared ownership.
-Its duplicate-last-wins value parser is not equivalent to strict broker
-admission, Go structured binding or Python-compatible terminal emission.
-Consolidate exact encoding or hashing primitives where contracts match; retain
-caller-specific policy. The existing lock contains SHA implementations used by
-other live crates, so retained callers can reuse a mature implementation rather
-than maintain custom algorithm copies. A shared primitive is no reason to create
-a credential, hashing, database or JSON process.
+`lib/json` has twelve direct current Cargo dependents at the investigation pin.
+That caller count does not justify keeping its custom syntax engine. Under L04,
+Serde owns syntax/binding/emission; shared profile policy stays here only where
+actual callers need the same contract. Retain strict broker admission, Go binding
+and terminal emission differences at their existing owners. Do not introduce a
+universal permissive facade or preserve lexer modules merely because they were
+previously allocated. Signed raw bytes remain raw.
+
+### Selected engine and adapter ownership
+
+The [packet definitions](library-adoption.md#execution-packets) supply exact
+callers, selected libraries, prerequisites and acceptance. Physical writers stay
+in the lane schedule; this table describes remaining responsibilities.
+
+| Selected machinery | Remaining application owner and adapter duty |
+| --- | --- |
+| Host/identity Unix HTTP and WebSocket engines (N1/N2/N5/N6) | Existing A-owned listener/route/admission/backend and single bounded upgrade/pump adapters around Hyper/Tokio/tungstenite; C owns candidate fixture lifecycle |
+| Identity PG wire/DSN/query translators (PG01/SQL01) | A-owned Store/Tx policy around postgres; B owns native Go SQL/schema and A maintains its Rust mirror |
+| Hash, curve, SSH and Base64 engines (CF-01–04/RNG01) | Existing callers retain fingerprint recipes, algorithm/encoding admission and fail-closed entropy; library engines replace private algorithm/format modules |
+| Installer X509/DER/calendar/URL engines (X50901/CF-05/06) | C-owned bounded local-CA custody, original TBS/fingerprint and explicit CA/critical-extension/signature policy around typed libraries |
+| JSON grammars/emitters (JSON01) | Existing profile adapters and domain validation; no shared replacement parser process |
+| Generic file/FD/process mechanics (L12) | Existing C operator/release and A host/guest adapters retain authority, same-FD bounds, cancellation and cleanup; no broad framework |
+| Archive/OCI/XML/CLI/Cargo emulators (L13/L14) | Existing C-owned format/renderer/command/shipping policy; delivery owns shared OCI scanning with an acyclic build dependency |
+| Evidence matching/deadlines (RED01/N13/N14) | C-owned evidence publication and bounded overlap adapter; small Phase/QMP lifecycle policy remains |
+| Native effective configuration (CFG01) | C owns evidence and effective-key policy; parser cutover remains blocked on the actual Forgejo corpus |
+
+KEEP01, N12, JSON02, CFG02, CLI01 and SQLITE01 retain their narrow application
+contracts. Consolidating primitives does not reopen completed provider/package
+moves, duplicate domain records or create credential/database/codec services.
 
 ## Existing execution topology
 

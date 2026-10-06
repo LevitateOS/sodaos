@@ -72,6 +72,11 @@ wakeup, queued writes and close/reap. Use the smallest affected subject, not a
 new framework or full release run. A failed proof holds that cutover and revises
 its adapter before large migration. R03/R04 still own integrated/native checks.
 
+Acceptance/output: record the selected compiler/dependency/features/license/cache
+closure and affected locked offline build, plus actual boundary-proof results and
+limits against the implementation revision. Admit or hold that exact cutover;
+no unrelated adoption inherits a global preparation gate.
+
 ### L01 Deadline and evidence repair
 
 Scope/callers: acceptance `process/phase.rs`, `qmp.rs`, VM lifecycle,
@@ -92,7 +97,7 @@ This does not depend on L16 automaton adoption or a new QMP runtime.
 
 ### L02 Trust-key and signature repair
 
-Scope: image-import and release-deliver SPKI intake, installer
+Scope: release-image and release-deliver SPKI intake, installer
 `x509/verify.rs` signature decoding and their trust/CA callers. CF-05 selects
 existing p256 0.13.2 with spki/der; CF-06 selects ecdsa 0.16.9 typed DER
 signatures. Complete both trust-key intake owners and all supported signature
@@ -141,6 +146,8 @@ Scope: host `ssh/`, installer `sshkey/authorized_keys.rs` and wire helpers,
 through account/key-revision/enrollment callers. A leads host; C owns installer.
 Select ssh-key 0.6.7 plus L03/L04 curve/hash/encoding decisions. Keep separate
 algorithm/options/line/count/size policies and canonical fingerprint inputs.
+Reject ssh-key KeyData::Other; preserve the current Ed25519 length-only policy.
+Parsing is not NIST point validation or a new Ed25519 torsion policy.
 
 Acceptance: all eight raw/eight certificate families with product-specific
 allowlists, no options, malformed mpints/points/encodings, revision application
@@ -170,6 +177,11 @@ Convert to native $n parameters, retain parameter order, transaction intent and
 affected-row authority, then delete both translators. Use existing real query
 subjects; exclude external Forgejo SQLite fixtures. No ORM or SQL parser.
 This can run alongside L08 driver preparation.
+
+Acceptance: the actual Go/Rust query subjects bind native $n with parameter order,
+NULL/value types, affected-row decisions and transaction behavior preserved.
+Remove both translators and recheck their caller/reference closure; fixture
+SQLite behavior is outside this conversion.
 
 ### L08 PostgreSQL driver
 
@@ -235,7 +247,7 @@ follows L06. N12's small purpose predicates remain retained.
 Scope: FS01/TMP01/PATH01/PROC01/PROC02/FFI01/WALK01/N10 defining/caller tables,
 including installer publication, private provisioning/evidence inputs, host/guest
 FDs and existing release process runners. C leads operator/release changes;
-A owns host/guest and B Go callers. Use existing rustix 1.1.5/libc 0.2.190,
+A owns host/guest and B Go callers. Use selected rustix 1.1.5, existing libc 0.2.190,
 std process/path, tempfile 3.27.0 and walkdir 2.5.0 where the actual contract fits.
 
 Same-FD bounded read and confinement precede tempfile convenience. Preserve
@@ -317,6 +329,11 @@ No guessed data path or expanded configuration engine. CFG02's byte-preserving
 locale set admission remains retained; its original-byte/cap/hash/collision
 policy is a different responsibility and needs no library cutover.
 
+Acceptance/output: retain corpus inputs and native effective-key results, then
+confirm or revise the selected dependency and small adapter against them, with
+absent/relative paths refused. If evidence is unavailable, keep CFG01 blocked;
+CFG02 admission and unrelated tasks remain independently ready.
+
 ### L18 Dead machinery removal
 
 Scope: N11 daemon peer wrapper (A), TMP02 migrate temporary (C), DEAD01 orphaned
@@ -389,7 +406,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [WALK01](../../research/library-reuse-investigation.md#walk01) | REPLACE | L12 | C |
 | [CFG01](../../research/library-reuse-investigation.md#cfg01) | BLOCKED | L17 blocked | C |
 | [SQLITE01](../../research/library-reuse-investigation.md#sqlite01) | RETAIN | Existing Store/probe duties retained | B |
-| [RED01](../../research/library-reuse-investigation.md#red01) | REPLACE | L01 repair; L16 adoption | C |
+| [RED01](../../research/library-reuse-investigation.md#red01) | REPLACE | L16 (L01 repair prerequisite) | C |
 | [CLI03](../../research/library-reuse-investigation.md#cli03) | REPLACE | L14 | C |
 | [REL01](../../research/library-reuse-investigation.md#rel01) | REPLACE | L13 | C |
 | [REL02](../../research/library-reuse-investigation.md#rel02) | CONSOLIDATE | L13 | C |
@@ -406,7 +423,8 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 
 ## Parked checkpoints
 
-Canonical source remains the investigation pin above. Parked A
+Canonical application source remains the investigation pin above; planning
+commits change documentation only. Parked A
 `fe23ec933fb0880bee07d2dc0b5b4fea3f9880e9`, B
 `a62614a32feb827a06275263a0304570443fbccc`, and C
 `b3c9e23b2b6b8c7a8e3b5cdb93af00321888fae8` retain their branches/work and command
@@ -416,9 +434,9 @@ not as merged coverage or replacement qualification.
 
 | Checkpoint | Useful retained scope | Superseded or held scope | Planning disposition |
 | --- | --- | --- | --- |
-| A | Tailnet control/project caller/test seams and genuine guest lifecycle duties remain relevant | HTTP/response/WS/SHA1/Base64/dead-peer reinlining, private-predicate resurrection, terminal factory forwarding and source-copy test wiring conflict with adoption/direct ownership | Preserve branch; do not integrate wholesale. Reassess the useful subset with L09/L11 and its exact lifecycle owner |
+| A | Eight checkpoint-only A34 commits move Tailnet control/project caller/test seams; these application policy seams remain useful | The snapshot predates later canonical consolidation: its two-dot comparison also exposes older protocol, predicate, forwarding and test wiring, not additional A34 work to carry forward | Preserve branch; assess the A34 delta from merge-base `f253b96d` against current L09/L11 adapters. Do not restore stale snapshot bodies |
 | B | B27 admission/routes/HTTP/WS/peer/test extraction is already patch-equivalent in canonical history | Two-dot differences also include canonical's later host-native consolidation; they do not establish unmerged B27 work | Preserve checkpoint; do not replay already integrated extraction. Its generic bodies now have L09/L18 follow-ups |
-| C | Muse argument/caller/cleanup seams retain meaningful state/authority and cleanup-order duties | Repeated daemon engine reinlining and gmux_smoke source-path copies are superseded and weaken actual-library subject wiring | Preserve branch; evaluate only the useful Muse scope under L12 and existing duties, independently of protocol replacement |
+| C | Four C41 commits change seven Muse paths (286 insertions/273 deletions); argument/caller/cleanup seams retain meaningful state/authority and cleanup-order duties | Its 17-path two-dot comparison includes pre-B27 daemon/test wiring because canonical advanced after divergence; those differences are not C-authored reinlining work | Preserve branch; evaluate the seven-path C41 delta from merge-base `bb6be3a3` under L12 and existing duties. Preserve current canonical protocol/test wiring |
 
 These are source/diff and caller assessments, not approval to merge or proof of
 replacement/native behavior. Recheck selected commits against the actual

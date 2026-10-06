@@ -1,16 +1,20 @@
 # Parallel implementation schedule
 
-This is the execution schedule for the existing desired tree and the 80-slice
-audit, not a new architecture. The [task list](implementation-tasks.md) contains
-27 primary work packets plus the shared extraction packet A00. Implementation
-is deferred. Creating this schedule does not authorize source changes, tests,
-builds, Git operations, deployment, provider calls or publication.
+This remains the execution schedule for the existing task list and 80-slice
+audit. The [task list](implementation-tasks.md) retains its 27 primary packets
+and A00, with L00–L18 adoption subpackets defined in the
+[library-adoption chapter](library-adoption.md). Completed structural entries
+remain completed at their recorded scope; pending generic-engine splits selected
+for replacement are superseded. Implementation remains deferred. The current
+instruction authorizes planning and reviewed documentation commits only.
 
 Prepared on **2026-10-06** against clean checkout
 `de65ff684c29cf9510134d01917ec4e5a7afdcc3`. Its committed delta from the audit
 source `f7e9cf9d` changes documentation only; unchanged source assessments are
 reused at their recorded scope. Historical structural reconciliation is still
-pending. Refresh the affected source and guidance before dispatching a packet.
+pending. The selective adoption reconciliation uses source
+`72e4bb9015b6d6a622b45638104c74851a137473`; it does not advance those historical
+baselines. Refresh affected source and guidance before a later authorized dispatch.
 
 The retained [tree](proposed-tree.md), [placement](placement.md),
 [ownership](package-ownership.md), [review records](reviews/README.md) and
@@ -20,10 +24,14 @@ schedule assigns work; it does not override their requirements or evidence limit
 
 ## Capacity and lanes
 
-Use **three GPT-6.1 Sol implementation workers and one coordinator/integrator**,
-within the four available concurrent slots. Reuse reviewer knowledge where
-helpful. Rotate implementation, challenge and verification through these slots;
-do not assume extra simultaneous reviewers or launch all 80 slices separately.
+Use built-in Codex subagents: **up to three workers and one coordinator**,
+within the four concurrent slots. Default new subagents to **GPT-6 Luna with low
+reasoning**, as requested by the owner; choose stronger settings only for a
+specific unresolved problem that warrants their cost. Give each a bounded
+self-contained assignment. Rotate implementation, challenge and verification
+through these slots; reuse sufficient evidence and stop reviews once their
+question is answered. Existing tmux implementation checkpoints stay parked; this
+planning round does not restart workers, create worktrees or schedule timers.
 
 | Lane | Primary packet queue | Responsibility |
 | --- | --- | --- |
@@ -71,13 +79,17 @@ hunk editing of a shared file as a substitute for ownership.
 
 - [ ] **R00 — Dispatch preparation.** Refresh affected source/guidance and the
   selected findings' readiness. Record the scoped implementation/operational
-  instruction, one lead, literal source/target file list, recipients, dependency
-  results and actual smallest verification. Dependencies apply to the relevant
+  instruction, selected L packet and finding IDs, one lead, literal source/target
+  file list, recipients, dependency results and actual smallest verification.
+  Check the packet-specific LA gate before its cutover; do not turn a blocked
+  library or native proof into a whole-plan hold. Dependencies apply to the relevant
   M/C/V subtask's required boundary output, not completion of an entire packet.
   Existing normal-mode restrictions
   still apply; this planning command authorizes only these documents.
 - [ ] **R01 — Integrate each coherent packet.** Complete module/import/manifest,
   compiler, payload, source-check and caller joins in the same reviewable change.
+  Commit bounded coherent batches early and often when commits are authorized;
+  the coordinator stages explicit paths and keeps other workers’ changes out.
   Keep M (behavior-preserving changes), C (named correctness corrections) and V
   (verification) distinguishable. Preserve binary/service identities and direct
   defining owners; replace obsolete callers without compatibility facades.
@@ -100,32 +112,64 @@ hunk editing of a shared file as a substitute for ownership.
 
 ## Start order and critical dependencies
 
-These are future scheduling priorities, not started tasks or elapsed estimates.
-The measured dependency chain and file availability should control reassignment.
+The selected order follows the [adoption packets](library-adoption.md#execution-packets),
+not the old dispatch of already completed broker/Store/release moves. These are
+future priorities; no source task has been dispatched by this reconciliation.
 
-1. After R00, start **A05 broker core**, **B01 authority/Store**, and **C08 release
-   producer** in parallel, reserving their disjoint files. Run C01's bounded JSON
-   correction before dependent malformed-input verification; promote C02 native
-   drain/attachment checks and A07 PTY/relay checks before costly native runs.
-   This is an overlapping queue, not a requirement that each lead edit four
-   packets simultaneously.
-2. Integrate A00 per monolith when its same-file corrections and defining seams
-   are settled. Release extracted files to A01–A04/A06–A08, C03/C04 and native
-   B03/B04 handoffs. Independent C06 maintenance and C07 enrollment work can fill
-   free slots; neither waits for the entire host refactor.
-3. B01/B02 plus actual Project/broker authority handoffs feed **B03 dispatch**;
-   B03 registration/settlement and B07 adapter readiness feed **B04 review loop**;
-   fresh assessment plus native reachability evidence feed **B05 completion**.
-   B06 transport and B08 presentation can proceed independently on reserved files.
-4. **C08 producer → C09 inputs/media/assets and C10 delivery → C11 qualification
-   drivers → R03/R04** is the release integration chain. Pure primitive tests,
-   operator commands, C09 independent input/asset work and browser checks can
-   run earlier; only their actual compiler/staging joins wait for C08 readiness.
-   C10 equivalence gates
-   block duplicate retirement only, not unrelated delivery corrections.
-5. When a worker waits for evidence or a shared file, select another ready M/C
-   subtask. A block on SDK reachability, Muse invocation applicability or optional
-   Tailnet semantics must not stall unrelated packets.
+1. **R00 and L00 per adoption.** Establish the selected exact files and physical
+   writer. Start the small PG deadline/transaction and Hyper Unix/upgrade proofs
+   early alongside existing-dependency repairs. A failed proof holds only that
+   cutover; do not build large adapters or run release qualification around an
+   unresolved native boundary.
+2. **Immediate repairs, disjoint files first.** C leads L01 Phase/QMP deadlines,
+   URL redaction and CoreOS writer finalization, and L02 strict SPKI/signature
+   admission. A leads L03 fail-closed randomness and hash/curve replacements.
+   C's L12 same-FD bounds/cancellation and L13 archive EOF/budget repairs can
+   fill free slots on reserved files. A lead is not an extra worker: assign one
+   actual writer or an explicit whole-file handoff for each simultaneous change.
+3. **Prepare profiles and database cutover.** C leads caller-specific L04
+   JSON/Base64 profiles, routing A/B callers to their physical owners. B's L07
+   native SQL parameters can run alongside A's L08 driver proof; L08 cutover
+   requires both L07 and LA-G2. Completed broker/provider/schema moves are not
+   reopened. The canonical Go schema and Rust drift assertion remain a B/A join.
+4. **Transport adoption.** A's L09 clients move against existing peers before
+   ordinary identity and host HTTP. The host upgrade/read-ahead/WS pump is one
+   coupled change after its LA-G3 proof. C's candidate fixture can follow the
+   needed shared adapter independently. C's L10 setup HTTPS and A's provider
+   handoff can proceed independently; unrelated JSON or syscall migrations do
+   not gate them. Keep each shared host module and its real tests under one writer.
+5. **Caller-specific format and resource changes.** L05 SSH consumes only its
+   L03/L04 curve/hash/Base64 outputs. L06 CA consumes L02 and the relevant L04
+   PEM profile plus Caddy/extension evidence, with no SSH dependency. L11
+   URL/IP/time adapters can interleave by caller. L12 rooted/bounded custody
+   precedes temporary convenience. L16 matcher adoption follows L01 completion
+   and its actual L12 secret-input custody, not the reverse.
+6. **Independent release and cleanup units.** C's L13 archive/XML/OCI work and
+   L14 CLI/Cargo-target discovery interleave on disjoint owners, with coordinator
+   manifest/cache joins at R01. B's L15 SDK admission waits only on its exact
+   external-scope gate. L17 CFG01 stays held on native effective-config evidence;
+   retained locale duties proceed independently. L18 removals follow current
+   last-caller proof and named A/B handoffs; no whole pipeline retirement is a
+   prerequisite for orphaned testoci deletion.
+7. **Integrate and qualify the actual changed subjects.** R01/R02 reconcile
+   callers, deletion and retained policy; R03/R04 follow applicable cheap gates.
+   Remaining domain/presentation M/C/V tasks retain their existing dependencies
+   and can use free slots. Select the longest ready chain rather than imposing
+   a global codec, lane or wave barrier.
+
+| Shared adoption surface | Exclusive physical writer / recipient |
+| --- | --- |
+| Host/identity HTTP, upgrade pump, SSH, PG Store/Tx and guest callers | A; C sends candidate/factory/setup changes, B sends canonical schema changes |
+| Acceptance evidence redaction and pump-finalization file (L01/L16) | C; one writer across both stages |
+| Setup/installer CA and publication; release archive/CLI/OCI/Cargo target code | C; hand host ELF/provider/FD changes to A and Go callers to B |
+| Shared JSON policy and release/acceptance callers | C; A owns host/identity/guest callers, B Go admission |
+| Go SQL/testoci and external SDK admission | B; A receives Rust SQL changes; sibling SDK requires LA-G6 |
+| Every dependency declaration, workspace/bin/test selector and lock | Coordinator; workers submit exact requests and pause shared-file edits |
+
+The literal paths recorded at R00 override broad directory examples only through
+an explicit custody handoff. The parked A/B/C checkpoint assessment remains in
+[one register](library-adoption.md#parked-checkpoints); useful seams are reassessed
+with their replacement owner, never integrated wholesale to clear a queue.
 
 ## Verification and wall-time rules
 
@@ -155,8 +199,9 @@ sidecar, broad compatibility mechanism or replacement service to execute this pl
   and the remaining dependency chain. Evidence waits and operational availability
   remain visible rather than becoming invented delivery estimates.
 
-Use the [task blockers](implementation-tasks.md#gates-and-readiness) as precise
-dependent holds. No unknown owner/producer/parser decision is filled in by a
+Use the [task blockers](implementation-tasks.md#gates-and-readiness) and
+[LA gates](library-adoption.md#readiness-gates) as precise dependent holds.
+No unknown owner/producer/parser decision is filled in by a
 mechanical move. Independently challenge consequential fixes with A→B, B→C,
 C→A; exchange the actual revision, changed defining units, requirement/finding,
 real test subject, performed evidence and limits. The coordinator resolves
@@ -168,7 +213,9 @@ After each integrated change, refresh affected task dependencies and evidence.
 After every separately authorized merge, follow [maintenance](maintenance.md):
 reconcile the resulting source, desired tree, review freshness, coverage and this
 queue together. Mark M/C/V separately; a completed move does not resolve an open
-defect, and a passing unit test does not complete native qualification. Remove
-superseded tasks in place. These two scheduling documents are H06 planning
+defect, and a passing unit test does not complete native qualification. Mark
+superseded pending splits in place and link their replacement L packet; preserve
+completed entries and their historical evidence. These two scheduling documents
+are H06 planning
 additions outside the older pinned inventories until a later baseline includes
 them; they do not advance the audit or historical structural evidence.

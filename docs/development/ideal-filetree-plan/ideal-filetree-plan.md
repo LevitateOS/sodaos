@@ -100,8 +100,9 @@ The pinned audit source has **32 Cargo packages** under `rust/`, including the
 landed Project account and factory-role helper crates. The proposed tree has
 **27 packages**: merge the three release-asset packages into one, fold identity
 providers into the broker, and fold the two Project helpers into the existing
-Project-terminal package. The helper consolidation is still a proposed package
-change; their Rust ports and compiled build inputs already exist. The Rust host
+Project-terminal package. The helper package fold is canonical at the investigation pin; preserve its
+completed placement and installed executable identities. Remaining behavioral
+findings stay separate from that completed consolidation. The Rust host
 already has its daemon binary and release compile wiring in source. Its proposed
 entrypoint move to `cmd/soda-host` stays in the same `soda-host` package and
 service. The four

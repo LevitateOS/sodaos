@@ -11,8 +11,31 @@ Shared HTTP/test support and native assertion destinations also intentionally
 consolidate existing concerns. Each shared leaf has one implementation owner;
 duplicate file leaves or competing Rust module roots are not intended.
 
-R02 reconciliation @HEAD `216cad1b` (landed-scope check; tree text below
-unchanged — it shows the post-cutover target, not current state):
+Selective adoption update at source `72e4bb9015b6d6a622b45638104c74851a137473`:
+this remains the desired application tree, with superseded generic-engine leaves
+removed below. Retained names describe application policy or library adapters,
+not a requirement to recreate their old implementation. The
+[library chapter](library-adoption.md#execution-packets) controls exact boundaries
+and gated deletion. Full inventory/count regeneration waits for implementation;
+the earlier exact-match/delta counts below are historical observations.
+
+| Retained target family | Application responsibility after adoption |
+| --- | --- |
+| Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and postgres typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
+| Host `daemon/{http,response,websocket}`, `json/{bind,specs}`, `ssh/material` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
+| Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar grammar is retired after L06 gates |
+| `lib/json`, release `json*`, Compose/Muse/guest wire | Only demonstrated shared or caller-specific Serde admission/emission profiles; no replacement generic lexer or emitter |
+| Release/build/import OCI adapters | Delivery owns low-level scanning; callers retain admitted content/layout/descriptor policy and original blob custody |
+| Release/terminal/acceptance process, file and evidence modules | Existing authority, bounded input/output, cancellation, cleanup and narrow library adapters; no new framework |
+
+Hash/codec engines disappear into selected library calls and existing fingerprint
+recipes. Tests of retained policy remain; grammar-only equivalence tests are
+replaced with actual admitted/rejected producer/caller profiles, not copied as
+new library modules. The coordinator updates dependency/bin/test selectors with
+the affected implementation, rather than treating this tree as source evidence.
+
+Historical R02 reconciliation @HEAD `216cad1b` (landed-scope check of the
+then-proposed tree; the selective target changes above do not refresh this evidence):
 
 - EXACT MATCH (every HEAD file proposed, 0 missing): `lib/json` (2),
   `lib/soda-release-build` (21), `lib/soda-release-image` (33),
@@ -330,7 +353,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   │   ├── mod.rs
 │   │   │   │   │   └── tests.rs
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── sha256.rs
 │   │   │   │   └── types.rs
 │   │   │   ├── acquisition.rs
 │   │   │   ├── control.rs
@@ -340,18 +362,14 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── http.rs
 │   │   │   ├── http_routes.rs
 │   │   │   ├── http_tests.rs
-│   │   │   ├── http_wire.rs
 │   │   │   ├── lib.rs
 │   │   │   ├── main.rs
 │   │   │   ├── pg.rs
-│   │   │   ├── pg_dsn.rs
-│   │   │   ├── pg_query.rs
 │   │   │   ├── pg_tests.rs
 │   │   │   ├── registration.rs
 │   │   │   ├── retirement.rs
 │   │   │   ├── runtime.rs
 │   │   │   ├── schema.rs
-│   │   │   ├── service.rs
 │   │   │   ├── store.rs
 │   │   │   ├── store_connections.rs
 │   │   │   ├── store_events.rs
@@ -380,7 +398,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   ├── src/
 │   │   │   ├── compose.rs
 │   │   │   ├── compose_tests.rs
-│   │   │   ├── launch_json.rs
 │   │   │   ├── launch_wire.rs
 │   │   │   ├── main.rs
 │   │   │   ├── options.rs
@@ -405,8 +422,7 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── json_binding.rs
 │   │   │   ├── main.rs
 │   │   │   ├── payload.rs
-│   │   │   ├── platform.rs
-│   │   │   └── sha256.rs
+│   │   │   └── platform.rs
 │   │   └── Cargo.toml
 │   ├── soda-install/
 │   │   ├── src/
@@ -448,10 +464,7 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   │   ├── address.rs
 │   │   │   │   │   ├── mod.rs
 │   │   │   │   │   └── prefix.rs
-│   │   │   │   ├── address.rs
-│   │   │   │   ├── address_format.rs
-│   │   │   │   ├── mod.rs
-│   │   │   │   └── prefix.rs
+│   │   │   │   └── mod.rs
 │   │   │   ├── oci/
 │   │   │   │   ├── inspection.rs
 │   │   │   │   ├── layout.rs
@@ -472,11 +485,7 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   └── mod.rs
 │   │   │   ├── sshkey/
 │   │   │   │   ├── authorized_keys.rs
-│   │   │   │   ├── base64.rs
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── tests.rs
-│   │   │   │   └── wire.rs
-│   │   │   ├── urlx/
 │   │   │   │   └── tests.rs
 │   │   │   ├── wizard/
 │   │   │   │   ├── mod.rs
@@ -486,23 +495,12 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── x509/
 │   │   │   │   ├── tests/
 │   │   │   │   │   ├── algorithms.rs
-│   │   │   │   │   ├── extensions.rs
 │   │   │   │   │   ├── fixtures.rs
 │   │   │   │   │   ├── mod.rs
 │   │   │   │   │   ├── public_key.rs
 │   │   │   │   │   ├── structure.rs
-│   │   │   │   │   ├── time.rs
 │   │   │   │   │   └── verify.rs
-│   │   │   │   ├── algorithms.rs
-│   │   │   │   ├── certificate.rs
-│   │   │   │   ├── der.rs
-│   │   │   │   ├── extensions.rs
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── name_constraints.rs
-│   │   │   │   ├── names.rs
-│   │   │   │   ├── public_key.rs
-│   │   │   │   ├── time.rs
-│   │   │   │   ├── types.rs
 │   │   │   │   └── verify.rs
 │   │   │   ├── buildx.rs
 │   │   │   ├── candidate.rs
@@ -511,16 +509,13 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── disks.rs
 │   │   │   ├── errors.rs
 │   │   │   ├── execute.rs
-│   │   │   ├── fmtx.rs
 │   │   │   ├── hostadmit.rs
 │   │   │   ├── inputs.rs
 │   │   │   ├── jsongo.rs
 │   │   │   ├── main.rs
-│   │   │   ├── pathx.rs
 │   │   │   ├── pemx.rs
 │   │   │   ├── run.rs
-│   │   │   ├── signal.rs
-│   │   │   └── urlx.rs
+│   │   │   └── signal.rs
 │   │   └── Cargo.toml
 │   ├── soda-muse/
 │   │   ├── src/
@@ -529,7 +524,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── config_tests.rs
 │   │   │   ├── execution.rs
 │   │   │   ├── launch.rs
-│   │   │   ├── launch_json.rs
 │   │   │   ├── launch_tests.rs
 │   │   │   ├── launch_wire.rs
 │   │   │   ├── main.rs
@@ -553,7 +547,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── interface_admission.rs
 │   │   │   ├── interface_tests.rs
 │   │   │   ├── json.rs
-│   │   │   ├── json_string.rs
 │   │   │   ├── main.rs
 │   │   │   ├── network.rs
 │   │   │   ├── network_tests.rs
@@ -565,7 +558,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── release_tests.rs
 │   │   │   ├── release_validation.rs
 │   │   │   ├── release_wire.rs
-│   │   │   ├── sha256.rs
 │   │   │   ├── stage.rs
 │   │   │   └── test_support.rs
 │   │   └── Cargo.toml
@@ -594,13 +586,11 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   ├── mod.rs
 │   │   │   │   ├── records.rs
 │   │   │   │   ├── records_tests.rs
-│   │   │   │   ├── sha.rs
 │   │   │   │   ├── sha_tests.rs
 │   │   │   │   ├── tests.rs
 │   │   │   │   ├── validate.rs
 │   │   │   │   └── validate_tests.rs
 │   │   │   ├── account.rs
-│   │   │   ├── b64.rs
 │   │   │   ├── broker.rs
 │   │   │   ├── broker_tests.rs
 │   │   │   ├── cgroup.rs
@@ -620,8 +610,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── pty_process.rs
 │   │   │   ├── pty_relay.rs
 │   │   │   ├── pty_tests.rs
-│   │   │   ├── pyemit.rs
-│   │   │   ├── sha.rs
 │   │   │   ├── socket.rs
 │   │   │   ├── subscription_cgroup.rs
 │   │   │   ├── subscription_credentials.rs
@@ -1864,7 +1852,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   ├── config.rs
 │   │   │   │   ├── http.rs
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── peer.rs
 │   │   │   │   ├── response.rs
 │   │   │   │   ├── routes.rs
 │   │   │   │   └── websocket.rs
@@ -1905,11 +1892,8 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   ├── bind.rs
 │   │   │   │   ├── binding_tests.rs
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── number.rs
-│   │   │   │   ├── scan.rs
 │   │   │   │   ├── specs.rs
-│   │   │   │   ├── strict_tests.rs
-│   │   │   │   └── string.rs
+│   │   │   │   └── strict_tests.rs
 │   │   │   ├── muse/
 │   │   │   │   ├── tests/
 │   │   │   │   │   ├── caller.rs
@@ -1964,11 +1948,8 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   ├── profile.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── ssh/
-│   │   │   │   ├── base64.rs
-│   │   │   │   ├── certificate.rs
 │   │   │   │   ├── material.rs
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── mpint.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── tailnet/
 │   │   │   │   ├── companion/
@@ -2079,9 +2060,7 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   ├── request.rs
 │   │   │   │   └── target.rs
 │   │   │   ├── lib.rs
-│   │   │   ├── net.rs
-│   │   │   ├── nist.rs
-│   │   │   └── sha256.rs
+│   │   │   └── net.rs
 │   │   ├── tests/
 │   │   │   ├── common/
 │   │   │   │   ├── backend.rs
@@ -2166,9 +2145,7 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── json_go/
 │   │   │   │   └── tests.rs
 │   │   │   ├── oci/
-│   │   │   │   ├── archive.rs
 │   │   │   │   ├── content.rs
-│   │   │   │   ├── layers.rs
 │   │   │   │   ├── manifest.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── production/
@@ -2226,8 +2203,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   │   ├── tests.rs
 │   │   │   │   └── verification.rs
 │   │   │   ├── jsonx/
-│   │   │   │   ├── decode.rs
-│   │   │   │   ├── emit.rs
 │   │   │   │   ├── mod.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── model/
@@ -2373,7 +2348,6 @@ unchanged — it shows the post-cutover target, not current state):
 │       │   ├── candidate_hints.rs
 │       │   ├── digest.rs
 │       │   ├── exitcode.rs
-│       │   ├── goflag.rs
 │       │   ├── lib.rs
 │       │   └── progress.rs
 │       ├── tests/
@@ -2797,7 +2771,6 @@ unchanged — it shows the post-cutover target, not current state):
 │   │   │   ├── provisioning.rs
 │   │   │   ├── qmp.rs
 │   │   │   ├── remote.rs
-│   │   │   ├── sha256.rs
 │   │   │   └── timestamps.rs
 │   │   ├── Cargo.toml
 │   │   └── build.rs

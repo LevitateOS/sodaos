@@ -1,7 +1,7 @@
 # Implementation task list
 
 Execute through the [parallel schedule and file ownership rules](implementation-lanes.md).
-All checkboxes are **deferred**, not implementation authorization. M is a
+Unchecked entries are **deferred**, not implementation authorization; checked entries preserve their recorded completed scope. M is a
 behavior-preserving move/split/consolidation, C a named correctness correction,
 and V verification of the real implementation. A gated C stays blocked while
 independent M/V planning can continue. Dependencies below are correctness or
@@ -17,6 +17,15 @@ owners; the current review allocations specify their exact leaves. Do not
 implement just the named examples or repeat another packet's shared-file edits.
 Current source is post-integration canonical (run 20261005; implementation STARTED — see ticked boxes), superseding the clean `de65ff68` planning snapshot. The `f7e9cf9d` source audit and `d7e565aa`/`0d8d3b8e` structural baselines remain the preserved historical identities. All 80 slices have one primary packet
 below; shared duties route through their physical writer in the lane schedule.
+
+Current dispatch priority is [library adoption](library-adoption.md) at source
+`72e4bb9015b6d6a622b45638104c74851a137473`. Implementation remains paused; this
+reconciliation changes planning only. L00–L18 below are bounded subpackets of
+these existing owners, not new slices. Their scope, finding allocation and
+acceptance are defined once in the chapter. Completed M/C/V entries remain
+unchanged; replacement or fresh behavioral verification remains unchecked.
+Pending splits of generic engines named below are superseded. Unrelated
+lifecycle/domain corrections and their Q gates remain open.
 
 ## A — Projects, identity and Spaces
 
@@ -49,7 +58,7 @@ Lead A; [P05](reviews/P05.md), [P08](reviews/P08.md), [P09](reviews/P09.md), [P1
 
 Lead A; [P06](reviews/P06.md), [P07](reviews/P07.md). Shared guest-package ownership with A07; no simultaneous module-root edits.
 
-- [ ] **A03.M** Fold current `rust/soda-project-factory-roles` into `cmd/soda-project-terminal/src/factory_roles/` and its existing `project-factory-roles` binary; retain the compiled-helper oracle and install/hash selectors.
+- [ ] **A03.M** Retain current guest role custody, checkout supervision, executable/install/hash selectors and actual compiled-helper subjects; reconcile any remaining package-fold duty against current source. Further custom SHA/JSON codec extraction is superseded by L03/L04, without changing child or checkout authority.
 - [ ] **A03.C** Correct P07-F1/F2 exact child retirement on capture failure and preservation of preexisting checkout state at the recorded real supervision/caller owners.
 - [ ] **A03.V** Use actual compiled role-helper subjects for capture/cleanup and checkout failure, with exact requested binary selection; no Python predecessor recreation.
 
@@ -57,7 +66,7 @@ Lead A; [P06](reviews/P06.md), [P07](reviews/P07.md). Shared guest-package owner
 
 Lead A; [P10](reviews/P10.md), [P11](reviews/P11.md). C owns system/Containerfile/compiler joins and the Muse-maintain command/stage implementation; A owns host tool-observation counterparts.
 
-- [ ] **A04.M** Retain mise/profile/systemd/OCI/workload substrates; move Project definitions to `system/project` and reviewed native tool observation/`cmd/soda-muse-maintain/src/stage.rs` concerns without new services.
+- [ ] **A04.M** Retain mise/profile/systemd/OCI/workload substrates and selected Project definitions; preserve native tool observation and Muse staging authority. Manual archive-header extraction is superseded by L13/CF-07; stream/FD/deadline/child custody remains in the current maintenance owner.
 - [ ] **A04.V** Preserve actual script subjects, read-only readiness, ordered bus/tool staging and volume lifetime. Rebind existing source assertions with their true implementation owners.
 
 ### A05 Broker custody and execution state
@@ -81,9 +90,9 @@ Lead A; [I09](reviews/I09.md), [S04](reviews/S04.md), [S05](reviews/S05.md). A00
 Compose/Muse-maintain command changes route to C; reserve their current module
 roots once across their P/I/H duties, while A owns host/guest changes.
 
-- [ ] **A07.M** Define shared run/native/binding/lifecycle/output/artifact units directly under `lib/host/src/terminal/factory/`; preserve distinct Codex/Muse launch/custody owners and the existing Service. Split actual guest terminal/PTY, attachment/pump and Compose/maintenance caller duties without new processes.
+- [ ] **A07.M** Define remaining run/binding/lifecycle/output/artifact duties directly under existing host/guest owners; preserve distinct Codex/Muse launch and custody. Pending manual HTTP/WS frame/handshake/pump decomposition is superseded by L09. Guest/Compose JSON, encoding and randomness use L03/L04/L12 through the physical owners; no new processes or forwarding facades.
 - [x] **A07.C** [run 20261005: LANDED 865f0e2f (H01-F3) + 9d5a9281 (S04-F1/S05-F1); H01-F3 reap repair LANDED (6edf58b7+31bf88cf, integrated d4597974) + kill-then-wait source-verified; native transport pumping unproven (helpers lack output reader), provider/native qualification separate] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
-- [ ] **A07.V** Exercise real PTY/relay/pump subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement before expensive native runs.
+- [ ] **A07.V** Exercise actual PTY/relay/attachment and replacement transport subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement. L09 upgrade/read-ahead/wakeup/close ownership must be proven before its cutover and expensive native runs.
 
 ### A08 Spaces browser inventory and viewer
 
@@ -139,7 +148,7 @@ Lead B; [F11](reviews/F11.md), [F12](reviews/F12.md). B02/B04/B07 fresh candidat
 
 Lead B; [G01](reviews/G01.md), [G02](reviews/G02.md), [G03](reviews/G03.md), [G09](reviews/G09.md). Q5 exact external SDK/source correspondence.
 
-- [ ] **B06.M** Split actual auth/extension/background admission, transport/snapshot/issue/pull reads and preferences within existing dashboard/extension processes.
+- [ ] **B06.M** Retain actual auth/extension/background admission, transport/snapshot/issue/pull reads and preferences within existing dashboard/extension processes. L15 consolidates faulty SDK input bounds; meaningful per-dial peer/admission transport stays. No Go HTTP/JSON engine replacement or cross-checkout mutation follows from planning.
 - [ ] **B06.C** Correct G01-F1 declared/admin scope mismatch only after exact SDK propagation evidence is retained. Cache-refresh/association/redaction hypotheses remain investigation tasks, not presumed fixes.
 - [ ] **B06.V** Verify existing real Go authority/transport/preference subjects and exact dependency correspondence; no adjacent-checkout substitution or new request authority.
 
@@ -165,25 +174,25 @@ Lead B; [G08](reviews/G08.md). Physical writer C; C09/H05/H06 payload/build/stag
 
 Lead C; [H03](reviews/H03.md), [H04](reviews/H04.md). Starts independently; A/B implement callers in their owned files; Q6 gates policy/equivalence changes.
 
-- [ ] **C01.M** [run 20261005: PARTIAL — json->lib/json done; 36 config fixtures Q4-deferred spec-only] Move shared Rust JSON to `lib/json`, retain Go strict binding and caller-specific filesystem/configuration owners; split actual private tests and all 36 config fixtures without new helper packages.
-- [ ] **C01.C** [run 20261005: PARTIAL — H03-F1 done; other parser findings/root_chain open] Correct H03-F1 bounded surrogate panic and other established parser/error findings at their real callers. Correct confinement only after the record's allowed-link/admissibility gate; retire only proven-unused `root_chain` units.
+- [ ] **C01.M** [run 20261005: PARTIAL — json->lib/json done; 36 config fixtures Q4-deferred spec-only] Preserve that landed move and fixture evidence. Pending Rust lexer/parser/binder/emitter splits are superseded by L04/JSON01 and explicit profile adapters. Retain Go strict binding and caller-specific file/config policy; L12 rooted custody precedes temporary convenience, and L17 holds only the effective-config decision.
+- [ ] **C01.C** [run 20261005: PARTIAL — H03-F1 done; other parser findings/root_chain open] Preserve the completed panic correction. Remaining generic parser findings are addressed by L04 engine/profile replacement; L12 preserves confinement under its allowed-link/admissibility gate. Retire root_chain only with current reference evidence; historical parser equivalence is not an adoption requirement.
 - [x] **C01.V** [run 20261005: DONE, 5/5 json (truncated/duplicate/garbage subjects)] Exercise real malformed/truncated input and file/error subjects. Preserve distinct duplicate/null/case policies rather than treating all parsers as equivalent.
 
 ### C02 Private IPC and PostgreSQL persistence
 
 Lead C; [H01](reviews/H01.md), [H02](reviews/H02.md). A owns Rust host/broker; B owns Go clients/Store/schema. Prioritize bounded runtime assumptions early.
 
-- [ ] **C02.M** Rebind actual daemon/client/wire and transport fixture subjects; retain exclusive broker State/Store transaction custody, PostgreSQL, canonical Go DDL and existing Rust mirror.
+- [ ] **C02.M** Pending custom framing/driver extraction is superseded by L09 complete HTTP/WS adoption and L07 native SQL followed by L08 complete PostgreSQL driver. Retain actual route/peer/credential policy, exclusive broker State/transaction custody, PostgreSQL and canonical Go DDL/Rust mirror. Physical A/B handoffs remain explicit.
 - [x] **C02.C** [run 20261005: DONE (H01-Q2/Q9 disposition closed, H01-F1/F2/F3 routed to A, H02-F1 docs)] Close H01-Q2 framing disposition (Q9), then route bounded H01-F1 correction or evidenced decoder retirement in current Rust broker `runtime.rs` to A05/A; B owns its Go callers. Route H01-F2 pipe drain and H01-F3 attachment mutex correction to A. Correct H02-F1 stale SQLite guidance without selecting a different database or reusing old concurrency proof.
-- [ ] **C02.V** Exercise the real frame/pipe/pump and existing disposable PostgreSQL subjects. Readiness of host output/input/expiry precedes expensive native qualification; no new service or store.
+- [ ] **C02.V** Verify replacement framing/pipe/pump and driver subjects: absolute budgets, actual listener authority, upgrade read-ahead, one WS owner/close/reap, full transaction exclusion and PG operation cancellation/reconnect. L00 small boundary proofs precede cutover; integrated/native qualification stays distinct from completed C02.C.
 
 ### C03 Host and Project network observations
 
 Lead C; [N02](reviews/N02.md), [N03](reviews/N03.md). A physical host writer; C02 HTTP/private IPC fit.
 
-- [ ] **C03.M** Move actual controls/domain/fixtures to `lib/host/src/tailnet`, retain Go status/DTO/client and browser authority, and preserve bounded connection observation including unverified routing.
-- [ ] **C03.C** Correct N03-F1 LocalAPI transfer framing at the existing native client, preserving current response bounds/deadlines/unavailable results.
-- [ ] **C03.V** Test actual chunked/length-framed producers and native client subjects; successful parsing does not prove route availability.
+- [ ] **C03.M** Retain host Tailnet controls/domain/fixtures and Go status/DTO/client/browser authority. Pending LocalAPI framing, custom IP and calendar extraction is superseded by L09/N2 and L10/L11 library adapters; preserve unavailable/unconfirmed routing and provider execution policy.
+- [ ] **C03.C** Replace the N03-F1 LocalAPI transfer engine through L09/N2 rather than extending the custom chunk decoder. Preserve bounded responses, endpoint status/deadline/no-replay contracts and unavailable outcomes; provider curl recipes follow L10/N4 separately.
+- [ ] **C03.V** Exercise current peers and complete-driver response fixtures for chunked/length/EOF framing, truncation, caps and deadline/cancellation. L11 covers purpose-specific URL/IP/time admission; successful parsing does not prove route availability.
 
 ### C04 Project Tailnet and Forgejo helper port
 
@@ -196,8 +205,8 @@ Lead C; [N04](reviews/N04.md), [N05](reviews/N05.md), [N06](reviews/N06.md), [N0
 
 Lead C; [N01](reviews/N01.md), [O02](reviews/O02.md), [O03](reviews/O03.md). C01 parser/shared secret fit and C06 maintenance helpers; one setup writer.
 
-- [ ] **C05.M** Split reviewed activation/setup/console/config/trust concerns under `cmd/` and `system/host`, retaining ordered origin/config/secret publication and section-exact credential maintenance.
-- [ ] **C05.C** Correct established successful-short-write findings and misleading unused-temp guidance at their existing owners; retain single revocation and current failure reporting.
+- [ ] **C05.M** Retain ordered activation/setup/origin/secret publication and section-exact credential maintenance. Pending generic HTTP, JSON, URL/IP/time, formatting and CA-parser splits are superseded by L10/L04/L11/L14/L06; effective Forgejo configuration follows L17 only after its native corpus. Keep actual wizard/service/file policy within existing commands.
+- [ ] **C05.C** Correct established short-write/publication/cleanup findings through existing owners and L12. Delete the unused migrate temporary via L18/TMP02, preserving credential scrub/mode behavior; retain single revocation and honest failure reporting.
 - [ ] **C05.V** Exercise actual setup publication/error subjects with private inputs, complete writes and correct cleanup precedence; no new onboarding authority.
 
 ### C06 PostgreSQL initialization, backup and restore
@@ -212,7 +221,7 @@ Lead C; [O01](reviews/O01.md), [O05](reviews/O05.md), [O06](reviews/O06.md). Can
 
 Lead C; [O04](reviews/O04.md), [O07](reviews/O07.md). Existing installer/private fixture ownership also intersects C05/C10.
 
-- [ ] **C07.M** Split actual recovery/enrollment/window/session/key/cleanup concerns within existing commands and temporary SSH lifetime.
+- [ ] **C07.M** Retain recovery/enrollment/window/session/cleanup and temporary SSH lifetime. Pending SSH/mpint/Base64/X509 grammar decomposition is superseded by L05/L06 and their profile gates. L12 owns file/temp mechanics; L17 blocks only unresolved effective-configuration parsing, not ready enrollment corrections.
 - [ ] **C07.C** Preserve unknown-marker failure before lift/start mutation; correct O07-F1 complete enrollment writes and O07-F2 ongoing selected-address binding at their existing owners.
 - [ ] **C07.V** Exercise actual publication/address/window/cleanup and marker subjects; root/Cockpit authority and native authentication proof remain distinct.
 
@@ -236,17 +245,44 @@ Lead C; [D02](reviews/D02.md), [D04](reviews/D04.md), [H05](reviews/H05.md). C08
 
 Lead C; [D05](reviews/D05.md), [D07](reviews/D07.md), [D08](reviews/D08.md), [D09](reviews/D09.md), [D10](reviews/D10.md), [D11](reviews/D11.md). C01/C09 and exact Q6/Q7 equivalence/native gates.
 
-- [ ] **C10.M** Split selected release verification/admission/signing/publication/distribution and native installer/import owners. Reuse recorded pure release-deliver payload/content and release-build OCI owners only after caller-specific equivalence; preserve quartet and public/native lifetimes.
-- [ ] **C10.C** Correct recorded decoded gzip EOF validation and exported-finalize publication/history composition at the real current APIs. Do not resolve unknown console EOF policy or delete non-equivalent mirrors by assumption.
+- [ ] **C10.M** Retain release trust/admission/signing/publication/distribution and native installer/import policy. Generic JSON/Base64/DER/tar/gzip and duplicate OCI scanner splits are superseded by L02/L04/L13. Consolidate low-level OCI scanning into the existing delivery owner only after trailer/budget/equivalence checks; preserve the four crates and public/native lifetimes.
+- [ ] **C10.C** Correct decoded gzip EOF/trailer and bounded member/aggregate handling through L13 before consolidation. Preserve the recorded exported-finalize publication/history correction at its real API and Q7 gates. Unknown console EOF or native equivalence stays explicit; library defaults do not decide it.
 - [ ] **C10.V** Exercise actual trust/null/duplicate/error/confinement/compression/result subjects and selected import/install lifecycle. Signing, publication and distribution effects are separately selected operations.
 
 ### C11 Verification infrastructure and developer tooling
 
 Lead C; [D06](reviews/D06.md), [H06](reviews/H06.md). Local driver/gate corrections can start early; C08/C10 candidate binding precedes native qualification.
 
-- [ ] **C11.M** Rebind actual Rust/Go/Bun drivers, fixtures, source gates, hooks and remaining tools with their real subjects. Retain active no-Python policy/gate and live `PrivateFile`; retire only evidenced obsolete assertions/tooling/generated tracked artifacts via R02.
-- [ ] **C11.C** Correct recorded timeout/platform/redaction/hash-field/transient-PID/SSH-pin and retired-page assumptions plus analyzer failure classification. Reconcile the current Go lifecycle observer's stale SQLite assumptions under PostgreSQL rather than treating it as a pending Python port.
-- [ ] **C11.V** Validate actual driver/analyzer failure paths and stage/installed bindings. A source-only proof never becomes installed qualification; one owner runs any selected matching-native candidate journey through R04.
+- [ ] **C11.M** Retain actual Rust/Go/Bun drivers, fixture and source/stage/installed subjects. Pending evidence matcher, custom JSON/time/hash, CLI/duration and process emulator extraction is superseded by L01/L03/L04/L11/L12/L14/L16. Preserve active no-Python policy and live private-file custody; L18 removes only evidenced dead tooling.
+- [ ] **C11.C** Prioritize L01 child/QMP deadlines, completed writer/error custody and slashless URL confidentiality; L12 covers actual read/output/cleanup bounds. Later L14/L16 adopt CLI/matching engines. Preserve recorded analyzer/SSH-pin/platform/hash-field corrections. Assess reachable SQLite-native fixture/probe consumers separately; do not schedule a Python port or globally remove their dependency.
+- [ ] **C11.V** Verify the selected driver/evidence/parser/process failures and actual stage/installed bindings after each bounded replacement. No-newline output, split secrets, absolute deadlines and fail-closed finalization precede trusting these observations. Source/build/installed evidence remains separate; R04 alone owns a selected native journey.
+
+## Selected library-adoption subpackets
+
+These are the active-priority planning entries. Scope, callers, retained policy,
+prerequisites and acceptance live in [the chapter](library-adoption.md#execution-packets);
+the lane schedule supplies one physical writer and integration order. All remain
+unchecked. Each library conversion carries its affected build/offline qualification.
+
+- [ ] **L00** Coordinator: per-adoption dependency admission and early PG/transport boundary proofs. [Defined boundary](library-adoption.md#l00-admission-and-boundary-preparation).
+- [ ] **L01** C: repair acceptance deadlines and evidence completion/confidentiality. [Defined boundary](library-adoption.md#l01-deadline-and-evidence-repair).
+- [ ] **L02** C: on-curve trust-key admission and strict signature DER. [Defined boundary](library-adoption.md#l02-trust-key-and-signature-repair).
+- [ ] **L03** A: fail-closed entropy, mature hashes and curve validation. [Defined boundary](library-adoption.md#l03-hash-curve-and-randomness-owners).
+- [ ] **L04** C: explicit JSON/Base64 profiles and complete engine retirement. [Defined boundary](library-adoption.md#l04-json-and-base64-profiles).
+- [ ] **L05** A: complete SSH format ownership with separate product policy. [Defined boundary](library-adoption.md#l05-ssh-formats).
+- [ ] **L06** C: local CA parser with raw DER/TBS and pinned Caddy gate. [Defined boundary](library-adoption.md#l06-local-ca-parsing).
+- [ ] **L07** B: native PostgreSQL parameters and translator deletion. [Defined boundary](library-adoption.md#l07-native-sql-parameters).
+- [ ] **L08** A: complete typed PG driver after deadline/transaction proof. [Defined boundary](library-adoption.md#l08-postgresql-driver).
+- [ ] **L09** A: complete Unix HTTP/WS engines and in-process fixture lifecycle. [Defined boundary](library-adoption.md#l09-unix-http-and-websocket-engines).
+- [ ] **L10** C: setup HTTPS and provider HTTP library adapters. [Defined boundary](library-adoption.md#l10-external-http-adapters).
+- [ ] **L11** A: URL/IP/time grammar with purpose-specific admission. [Defined boundary](library-adoption.md#l11-url-ip-and-time-adapters).
+- [ ] **L12** C: rooted file/FD, bounded process and temporary ownership. [Defined boundary](library-adoption.md#l12-file-fd-and-process-ownership).
+- [ ] **L13** C: bounded archives, existing OCI scanner and XML/SVG formats. [Defined boundary](library-adoption.md#l13-archive-and-release-formats).
+- [ ] **L14** C: large CLI/duration emulation and Cargo target scanner replacement. [Defined boundary](library-adoption.md#l14-cli-and-target-discovery).
+- [ ] **L15** B: SDK cap+one input admission; retain credential transport. [Defined boundary](library-adoption.md#l15-sdk-input-admission).
+- [ ] **L16** C: bounded library-backed evidence matching after immediate repairs. [Defined boundary](library-adoption.md#l16-evidence-matching).
+- [ ] **L17** C: native effective-config corpus gate; retain locale scanner. [Defined boundary](library-adoption.md#l17-configuration-evidence).
+- [ ] **L18** C: referenced dead-code retirement with A/B physical handoffs. [Defined boundary](library-adoption.md#l18-dead-machinery-removal).
 
 ## Gates and readiness
 
@@ -265,7 +301,11 @@ different from a missing correction specification or native equivalence proof.
 | Q6 | Caller-specific parser admissibility, link/confinement/case/null/error/compression policies and pure-helper equivalence; console diagnostic EOF remains explicit. | C01/C10 dependent correction/copy retirement only |
 | Q7 | Actual authenticated media installer-version correspondence and distribution attribution requirements. | C09/C10 dependent media/distribution action only |
 | Q8 | Exact outstanding effect/receipt, accounting, registration/recovery, fresh-attempt and finite-loop correction specifications in F01/F03/F07–F10. Source defect identification does not fill in transaction/allowance design. | Corresponding B01/B03/B04 C steps; settled mechanical allocations can proceed |
-| Q9 | H01-Q2 retain-correct chunk support versus retirement of unused decoding; current producer framing and retained transport contract must decide the bounded disposition. | C02.C H01-F1 only; no broad HTTP compatibility project |
+| Q9 | Custom chunk-decoder retention/extraction is superseded by L09 complete framing. Actual endpoint bounds, status, deadline and no-replay policy remain acceptance requirements; completed C02.C evidence is historical. | L09 relevant caller/server cutover with LA-G3; no hand-maintained framing engine |
+
+Library cutover gates LA-G1–LA-G6 are defined once in
+[library adoption](library-adoption.md#readiness-gates). They hold only their
+named boundary; old domain Q gates are not global adoption barriers.
 
 ## Coverage and completion
 
