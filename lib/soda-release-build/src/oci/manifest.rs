@@ -6,7 +6,7 @@ use super::{
     LAYER_TAR_GZIP, LAYER_TAR_ZSTD, MANIFEST_MEDIA_TYPE,
 };
 use crate::files::is_digest;
-use crate::json_go::Fields;
+use crate::json_go::{FieldError, Fields};
 use crate::Error;
 use soda_json::JsonValue;
 use std::collections::HashMap;
@@ -33,7 +33,9 @@ pub(crate) fn read_oci_index(entries: &HashMap<String, Blob>) -> Result<Vec<Desc
     let schema = index
         .int("schemaVersion")
         .map_err(|_| Error::msg("valid OCI index required"))?;
-    let media = index.media_type();
+    let media = index
+        .media_type()
+        .map_err(|_| Error::msg("valid OCI index required"))?;
     if schema != 2 || (!media.is_empty() && media != INDEX_MEDIA_TYPE) {
         return Err(Error::msg("valid OCI index required"));
     }
@@ -48,12 +50,12 @@ pub(crate) fn read_oci_index(entries: &HashMap<String, Blob>) -> Result<Vec<Desc
 }
 
 trait MediaType {
-    fn media_type(&self) -> String;
+    fn media_type(&self) -> Result<String, FieldError>;
 }
 
 impl MediaType for Fields<'_> {
-    fn media_type(&self) -> String {
-        self.string("mediaType").unwrap_or_default()
+    fn media_type(&self) -> Result<String, FieldError> {
+        self.string("mediaType")
     }
 }
 
@@ -69,7 +71,9 @@ pub(super) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifest, Error> {
     let schema = fields
         .int("schemaVersion")
         .map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    let media = fields.media_type();
+    let media = fields
+        .media_type()
+        .map_err(|_| Error::msg("invalid OCI image manifest"))?;
     let config = fields
         .object("config")
         .map_err(|_| Error::msg("invalid OCI image manifest"))?

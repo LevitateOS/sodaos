@@ -1,8 +1,10 @@
 use super::content::{resolve_oci_members, scan_archive_layer, scan_oci_archive_layers};
 use super::layers::{scan_oci_layer, LayerMember};
+use super::manifest::{parse_oci_manifest, read_oci_index};
 use super::*;
 use crate::sha256_hex;
 use crate::test_support::{fixture_oci_bytes, FIXTURE_REVISION};
+use std::collections::HashMap;
 use std::io::Write;
 
 /// Hand-crafted ustar entry for names `tar::Builder` refuses (`..`).
@@ -236,4 +238,115 @@ fn oracle_gzip_and_zstd_layers() {
         ..Descriptor::default()
     };
     assert!(scan_archive_layer(&mut &corrupt[..], &desc, &wanted).is_err());
+}
+
+const MEDIA_TYPE_DIGEST: &str =
+    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+fn index_entries(media_fragment: &str) -> HashMap<String, Blob> {
+    let layout = Blob {
+        hash: String::new(),
+        size: 0,
+        data: Some(br#"{"imageLayoutVersion":"1.0.0"}"#.to_vec()),
+    };
+    let index = format!(
+        r#"{{"schemaVersion":2,"mediaType":{media_fragment},"manifests":[{{"digest":"{MEDIA_TYPE_DIGEST}","size":1,"mediaType":"{MANIFEST_MEDIA_TYPE}"}}]}}"#
+    );
+    HashMap::from([
+        ("oci-layout".to_string(), layout),
+        (
+            "index.json".to_string(),
+            Blob {
+                hash: String::new(),
+                size: 0,
+                data: Some(index.into_bytes()),
+            },
+        ),
+    ])
+}
+
+fn manifest_doc(media_fragment: &str) -> Vec<u8> {
+    format!(
+        r#"{{"schemaVersion":2,"mediaType":{media_fragment},"config":{{"digest":"{MEDIA_TYPE_DIGEST}","size":1,"mediaType":"{CONFIG_MEDIA_TYPE}"}},"layers":[]}}"#
+    )
+    .into_bytes()
+}
+
+#[test]
+fn index_gate_refuses_wrong_type_outer_media_type() {
+    for fragment in ["7", "{}", "[]", "true"] {
+        assert_eq!(
+            read_oci_index(&index_entries(fragment))
+                .unwrap_err()
+                .message(),
+            "valid OCI index required",
+            "outer mediaType {fragment} must refuse"
+        );
+    }
+}
+
+#[test]
+fn manifest_gate_refuses_wrong_type_outer_media_type() {
+    for fragment in ["7", "{}", "[]", "true"] {
+        assert_eq!(
+            parse_oci_manifest(&manifest_doc(fragment))
+                .err()
+                .expect("must refuse")
+                .message(),
+            "invalid OCI image manifest",
+            "outer mediaType {fragment} must refuse"
+        );
+    }
+}
+
+#[test]
+fn outer_media_type_absence_keeps_lenient_behavior() {
+    let entries = HashMap::from([
+        (
+            "oci-layout".to_string(),
+            Blob {
+                hash: String::new(),
+                size: 0,
+                data: Some(br#"{"imageLayoutVersion":"1.0.0"}"#.to_vec()),
+            },
+        ),
+        (
+            "index.json".to_string(),
+            Blob {
+                hash: String::new(),
+                size: 0,
+                data: Some(
+                    format!(
+                        r#"{{"schemaVersion":2,"manifests":[{{"digest":"{MEDIA_TYPE_DIGEST}","size":1,"mediaType":"{MANIFEST_MEDIA_TYPE}"}}]}}"#
+                    )
+                    .into_bytes(),
+                ),
+            },
+        ),
+    ]);
+    assert!(read_oci_index(&entries).is_ok());
+    let doc = format!(
+        r#"{{"schemaVersion":2,"config":{{"digest":"{MEDIA_TYPE_DIGEST}","size":1,"mediaType":"{CONFIG_MEDIA_TYPE}"}},"layers":[]}}"#
+    );
+    assert!(parse_oci_manifest(doc.as_bytes()).is_ok());
+    for fragment in [
+        "null",
+        r#""""#,
+        "\"application/vnd.oci.image.index.v1+json\"",
+    ] {
+        assert!(
+            read_oci_index(&index_entries(fragment)).is_ok(),
+            "index mediaType {fragment} must stay accepted"
+        );
+    }
+    for fragment in [
+        "null",
+        r#""""#,
+        "\"application/vnd.oci.image.manifest.v1+json\"",
+    ] {
+        assert!(
+            parse_oci_manifest(&manifest_doc(fragment)).is_ok(),
+            "manifest mediaType {fragment} must stay accepted"
+        );
+    }
 }
