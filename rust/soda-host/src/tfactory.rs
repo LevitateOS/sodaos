@@ -13,7 +13,7 @@
 use crate::domain;
 use crate::project::Executor;
 use crate::tcodex;
-use crate::texec::{self, Binding, Lease, Service, KIND_FACTORY};
+use crate::terminal::{self, Binding, Lease, Service, KIND_FACTORY};
 use std::time::{Duration, Instant};
 
 /// Family-neutral alias for the shared output-slice record.
@@ -30,7 +30,7 @@ pub fn check_output_range(offset: i64, limit: i64) -> Result<(), String> {
     if !(0..=tcodex::MAX_FACTORY_OUTPUT_OFFSET).contains(&offset)
         || !(1..=tcodex::MAX_FACTORY_OUTPUT_READ).contains(&limit)
     {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     Ok(())
 }
@@ -48,24 +48,25 @@ pub fn checked_binding_paths(
     run_paths: RunPathsFn,
 ) -> Result<(String, String, String, String), String> {
     let Some(b) = &lease.binding else {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     };
     if lease.provider_id != provider || lease.kind != KIND_FACTORY {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
-    if b.kind != KIND_FACTORY || b.scope != scope || !texec::valid_terminal_id(&b.id) {
-        return Err(texec::err_denied());
+    if b.kind != KIND_FACTORY || b.scope != scope || !terminal::valid_terminal_id(&b.id) {
+        return Err(terminal::err_denied());
     }
     if !domain::valid_container_id(&b.project) {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
-    if !texec::valid_terminal_id(&b.invocation_id) || !tcodex::valid_preparation_id(&b.child_id) {
-        return Err(texec::err_denied());
+    if !terminal::valid_terminal_id(&b.invocation_id) || !tcodex::valid_preparation_id(&b.child_id)
+    {
+        return Err(terminal::err_denied());
     }
     // Harness fields are not in the binding; paths need only role/prep/run.
-    let paths = run_paths(&b.login, &b.child_id, &b.id).ok_or_else(texec::err_denied)?;
-    if paths.0.is_empty() || texec::clean_path(&b.credential_root) != paths.1 {
-        return Err(texec::err_denied());
+    let paths = run_paths(&b.login, &b.child_id, &b.id).ok_or_else(terminal::err_denied)?;
+    if paths.0.is_empty() || terminal::clean_path(&b.credential_root) != paths.1 {
+        return Err(terminal::err_denied());
     }
     Ok(paths)
 }
@@ -101,7 +102,7 @@ impl<E: Executor> Service<E> {
             format!("{run_dir}/exit"),
         ];
         if let Ok(out) = self.run_podman(&[], &cat, deadline) {
-            if let Some(code) = texec::parse_go_int(String::from_utf8_lossy(&out).trim()) {
+            if let Some(code) = terminal::parse_go_int(String::from_utf8_lossy(&out).trim()) {
                 if (0..=255).contains(&code) {
                     exit = code as i32;
                 }
@@ -134,18 +135,18 @@ impl<E: Executor> Service<E> {
     ) -> Result<(), String> {
         let container = self.factory_project_container(project_id, true, deadline)?;
         if container != binding.project {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let (uid, gid) = self.factory_role_ids(&container, &binding.login, deadline)?;
         if uid != binding.uid || gid != binding.gid {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let unit = tcodex::factory_unit_name_or_denied(execution_id)?;
         let show = self
             .factory_unit_state(&unit, deadline)
-            .map_err(|_| texec::err_denied())?;
+            .map_err(|_| terminal::err_denied())?;
         if !show.active || show.invocation != binding.invocation_id {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(())
     }
@@ -174,7 +175,7 @@ impl<E: Executor> Service<E> {
         if !after.is_empty() && after != before {
             self.factory_retire(container, run_dir, deadline)?;
             if self.factory_read_pid(container, pid_file, deadline) != after {
-                return Err(texec::err_uncertain());
+                return Err(terminal::err_uncertain());
             }
         }
         Ok(())
@@ -197,7 +198,7 @@ impl<E: Executor> Service<E> {
             Ok(container) => container,
             Err(_) => match self.factory_container_exists(&format!("soda-{project}"), deadline) {
                 Ok(false) => return Ok(()),
-                Ok(true) => return Err(texec::err_uncertain()),
+                Ok(true) => return Err(terminal::err_uncertain()),
                 Err(err) => return Err(err),
             },
         };
@@ -207,7 +208,7 @@ impl<E: Executor> Service<E> {
         if !after.is_empty() && after != before {
             self.factory_retire(&container, run_dir, deadline)?;
             if self.factory_read_pid(&container, pid_file, deadline) != after {
-                return Err(texec::err_uncertain());
+                return Err(terminal::err_uncertain());
             }
         }
         Ok(())
@@ -232,8 +233,8 @@ impl<E: Executor> Service<E> {
             path.to_string(),
         ];
         match self.run_podman(&[], &argv, deadline) {
-            Ok(out) if texec::credential_valid(&out) => Ok(out),
-            _ => Err(texec::err_uncertain()),
+            Ok(out) if terminal::credential_valid(&out) => Ok(out),
+            _ => Err(terminal::err_uncertain()),
         }
     }
 
@@ -247,8 +248,8 @@ impl<E: Executor> Service<E> {
     ) -> bool {
         if binding.kind != KIND_FACTORY
             || binding.scope != scope
-            || !texec::valid_terminal_id(&binding.id)
-            || !texec::valid_terminal_id(&binding.invocation_id)
+            || !terminal::valid_terminal_id(&binding.id)
+            || !terminal::valid_terminal_id(&binding.invocation_id)
         {
             return false;
         }
@@ -273,27 +274,27 @@ impl<E: Executor> Service<E> {
     ) -> Result<String, String> {
         if binding.kind != KIND_FACTORY
             || binding.scope != scope
-            || !texec::valid_terminal_id(&binding.id)
+            || !terminal::valid_terminal_id(&binding.id)
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if !domain::valid_container_id(&binding.project)
             || !tcodex::valid_factory_role(&binding.login)
-            || !texec::valid_terminal_id(&binding.invocation_id)
+            || !terminal::valid_terminal_id(&binding.invocation_id)
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if !tcodex::valid_preparation_id(&binding.child_id) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let (checkout, run_dir, _, _) = run_paths(&binding.login, &binding.child_id, &binding.id)
-            .ok_or_else(texec::err_denied)?;
-        if checkout.is_empty() || texec::clean_path(&binding.credential_root) != run_dir {
-            return Err(texec::err_denied());
+            .ok_or_else(terminal::err_denied)?;
+        if checkout.is_empty() || terminal::clean_path(&binding.credential_root) != run_dir {
+            return Err(terminal::err_denied());
         }
         let container = self.factory_project_container(project_id, true, deadline)?;
         if container != binding.project {
-            return Err(texec::err_stale());
+            return Err(terminal::err_stale());
         }
         Ok(format!("{run_dir}/stdout.log"))
     }

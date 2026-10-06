@@ -26,7 +26,7 @@ use std::time::Instant;
 
 use crate::json::{self, Kind, Spec, Value};
 use crate::muse::MuseConnection;
-use crate::texec::{parse_string_i64, AcquireRequest, Binding, Delivery, Lease};
+use crate::terminal::{parse_string_i64, AcquireRequest, Binding, Delivery, Lease};
 
 /// `decodeResponse` limit: `512<<10`, probed with one byte of slack.
 pub const RESPONSE_LIMIT: usize = 512 * 1024;
@@ -203,11 +203,11 @@ fn map_error(body: &[u8]) -> String {
         .unwrap_or("")
         .trim_matches(|c: char| c.is_ascii_whitespace());
     match code {
-        "denied" => crate::texec::ERR_DENIED.to_string(),
+        "denied" => crate::terminal::ERR_DENIED.to_string(),
         "busy" => ERR_BUSY.to_string(),
-        "stale" => format!("{} (stale)", crate::texec::ERR_STALE),
-        "reauth" => crate::texec::ERR_UNCERTAIN.to_string(),
-        "missing" => format!("{} (not found)", crate::texec::ERR_NOT_FOUND),
+        "stale" => format!("{} (stale)", crate::terminal::ERR_STALE),
+        "reauth" => crate::terminal::ERR_UNCERTAIN.to_string(),
+        "missing" => format!("{} (not found)", crate::terminal::ERR_NOT_FOUND),
         _ => "identity operation failed".to_string(),
     }
 }

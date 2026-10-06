@@ -36,6 +36,6 @@ pub mod tcontrol_native;
 pub mod tcontrol_policy;
 pub mod tcontrol_provider;
 pub mod tcontrol_wire;
-pub mod texec;
+pub mod terminal;
 pub mod tfactory;
 pub mod tmuse;

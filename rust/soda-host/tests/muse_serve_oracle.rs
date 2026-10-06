@@ -38,9 +38,9 @@ mod sha256;
 #[path = "../src/ssh.rs"]
 #[allow(dead_code)]
 mod ssh;
-#[path = "../src/texec.rs"]
+#[path = "../src/terminal/mod.rs"]
 #[allow(dead_code)]
-mod texec;
+mod terminal;
 
 use muse::{
     muse_arguments, muse_command_argv, LaunchExit, LaunchRequest, MuseCaller, MuseHooks,
@@ -54,7 +54,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use texec::{AcquireRequest, Binding, Delivery, Lease};
+use terminal::{AcquireRequest, Binding, Delivery, Lease};
 
 // ---------- fixtures ----------
 
@@ -178,22 +178,22 @@ fn runtime(exec: FakeExec) -> MuseRuntime<FakeExec, FakeHooks> {
 
 fn lease_fixture() -> Lease {
     Lease {
-        provider_id: texec::PROVIDER_MUSE.to_string(),
+        provider_id: terminal::PROVIDER_MUSE.to_string(),
         id: "lease-m".to_string(),
         connection_id: "conn-1".to_string(),
         generation: 4,
         actor_id: 7,
         project_id: PID.to_string(),
         execution_id: TID.to_string(),
-        kind: texec::KIND_TERMINAL.to_string(),
+        kind: terminal::KIND_TERMINAL.to_string(),
         binding: Some(Binding {
-            kind: texec::KIND_TERMINAL.to_string(),
+            kind: terminal::KIND_TERMINAL.to_string(),
             id: TID.to_string(),
             project: CID.to_string(),
             login: "dev".to_string(),
             uid: 1000,
             gid: 1000,
-            scope: texec::SCOPE_MUSE_PROJECT.to_string(),
+            scope: terminal::SCOPE_MUSE_PROJECT.to_string(),
             invocation_id: IID.to_string(),
             credential_root: format!("/run/soda-muse/{TID}"),
             generation: 4,
@@ -378,7 +378,7 @@ fn start_rejects_invalid_request_without_touching_exec() {
     };
     assert_eq!(
         rt.start(&dead_peer(), &req, deadline()).unwrap_err(),
-        texec::ERR_DENIED
+        terminal::ERR_DENIED
     );
     assert!(rt.exec.calls().is_empty());
 }
@@ -389,7 +389,7 @@ fn start_denies_dead_peer_without_touching_exec() {
     assert_eq!(
         rt.start(&dead_peer(), &valid_launch_request(), deadline())
             .unwrap_err(),
-        texec::ERR_DENIED
+        terminal::ERR_DENIED
     );
     assert!(rt.exec.calls().is_empty());
 }
@@ -404,7 +404,7 @@ fn start_denies_live_peer_outside_any_project() {
     assert_eq!(
         rt.start(&peer, &valid_launch_request(), deadline())
             .unwrap_err(),
-        texec::ERR_DENIED
+        terminal::ERR_DENIED
     );
     close_fd(pipe[0]);
     close_fd(pipe[1]);
@@ -429,7 +429,7 @@ fn muse_validate_stale_on_invocation_mismatch() {
     let rt = runtime(FakeExec::new(vec![ok(&format!("{}\n", "b".repeat(32)))]));
     assert_eq!(
         rt.muse("validate", &delivery, deadline()).unwrap_err(),
-        texec::ERR_STALE
+        terminal::ERR_STALE
     );
     assert_eq!(rt.exec.calls().len(), 1);
 }
@@ -457,7 +457,7 @@ fn muse_start_action_denied_like_go() {
     let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n"))]));
     assert_eq!(
         rt.muse("start", &delivery, deadline()).unwrap_err(),
-        texec::ERR_DENIED
+        terminal::ERR_DENIED
     );
     assert_eq!(rt.exec.calls().len(), 1);
 }
@@ -468,7 +468,7 @@ fn muse_finish_action_denied_like_go() {
     let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n"))]));
     assert_eq!(
         rt.muse("finish", &delivery, deadline()).unwrap_err(),
-        texec::ERR_DENIED
+        terminal::ERR_DENIED
     );
     assert_eq!(rt.exec.calls().len(), 1);
 }
@@ -479,7 +479,7 @@ fn muse_unknown_action_denied_after_invocation_check() {
     let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n"))]));
     assert_eq!(
         rt.muse("launch", &delivery, deadline()).unwrap_err(),
-        texec::ERR_DENIED
+        terminal::ERR_DENIED
     );
     assert_eq!(rt.exec.calls().len(), 1);
 }
@@ -490,7 +490,7 @@ fn muse_malformed_delivery_never_calls_out() {
     assert_eq!(
         rt.muse("validate", &Delivery::default(), deadline())
             .unwrap_err(),
-        texec::ERR_DENIED
+        terminal::ERR_DENIED
     );
     let mut other = lease_fixture();
     other.binding.as_mut().unwrap().scope = "other".to_string();
@@ -504,7 +504,7 @@ fn muse_malformed_delivery_never_calls_out() {
             deadline()
         )
         .unwrap_err(),
-        texec::ERR_DENIED
+        terminal::ERR_DENIED
     );
     assert!(rt.exec.calls().is_empty());
 }

@@ -20,7 +20,7 @@ use crate::tcodex::{
     self, valid_factory_role, valid_factory_run_id, valid_harness_version, valid_preparation_id,
     FactoryRun, MAX_FACTORY_PROMPT,
 };
-use crate::texec::{self, Binding, Lease, Service, KIND_FACTORY};
+use crate::terminal::{self, Binding, Lease, Service, KIND_FACTORY};
 use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
 
@@ -67,12 +67,12 @@ pub fn factory_muse_run_paths(
 pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> {
     run.validate()?;
     if run.harness != tcodex::FACTORY_HARNESS_MUSE {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     let (checkout, run_dir, home, muse_config) =
         factory_muse_run_paths(&run.role, &run.preparation, &run.id)
-            .ok_or_else(texec::err_denied)?;
-    let guest = factory_muse_guest(&run.harness_vers).ok_or_else(texec::err_denied)?;
+            .ok_or_else(terminal::err_denied)?;
+    let guest = factory_muse_guest(&run.harness_vers).ok_or_else(terminal::err_denied)?;
     Ok(FactoryMusePaths {
         checkout,
         run_dir: run_dir.clone(),
@@ -97,17 +97,17 @@ pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> 
 /// (factory role, generation) wraps the shared `tfactory` checks.
 pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
     let Some(b) = &lease.binding else {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     };
     if !valid_factory_role(&b.login) {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     if b.uid <= 0 || b.gid <= 0 || b.generation != lease.generation || b.generation <= 0 {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     let (checkout, run_dir, home, muse_config) = crate::tfactory::checked_binding_paths(
         lease,
-        texec::PROVIDER_MUSE,
+        terminal::PROVIDER_MUSE,
         tcodex::FACTORY_SCOPE_MUSE,
         factory_muse_run_paths,
     )?;
@@ -280,19 +280,19 @@ impl<E: Executor> Service<E> {
         pin_sha256: &str,
         max_secs: i64,
         deadline: Instant,
-    ) -> Result<(crate::texec::Binding, FactoryMusePaths), String> {
+    ) -> Result<(crate::terminal::Binding, FactoryMusePaths), String> {
         let p = factory_muse_paths(run)?;
         if lease.kind != KIND_FACTORY || lease.execution_id != run.id || lease.generation <= 0 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if pin_sha256.is_empty()
             || pin_sha256 != self.muse_harness_sha256
             || !self.muse_harness.starts_with('/')
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if !(60..=3 * 3600).contains(&max_secs) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         self.verify_muse_harness()?;
         let container = self.factory_project_container(&run.project, true, deadline)?;
@@ -307,7 +307,7 @@ impl<E: Executor> Service<E> {
         }
         match self.factory_active_invocation(&unit, Duration::from_secs(10), deadline) {
             Ok(invocation) => Ok((
-                crate::texec::Binding {
+                crate::terminal::Binding {
                     kind: KIND_FACTORY.to_string(),
                     id: run.id.clone(),
                     project: container,
@@ -379,7 +379,7 @@ impl<E: Executor> Service<E> {
         version: &str,
         deadline: Instant,
     ) -> Result<String, String> {
-        let guest = factory_muse_guest(version).ok_or_else(texec::err_denied)?;
+        let guest = factory_muse_guest(version).ok_or_else(terminal::err_denied)?;
         let probe = vec![
             "--remote=false".to_string(),
             "exec".to_string(),
@@ -389,7 +389,7 @@ impl<E: Executor> Service<E> {
         ];
         match self.run_podman(&[], &probe, deadline) {
             Err(_) => {
-                let host_bin = texec::clean_path(&format!("{}/bin/muse", self.muse_harness));
+                let host_bin = terminal::clean_path(&format!("{}/bin/muse", self.muse_harness));
                 let cp = vec![
                     "--remote=false".to_string(),
                     "cp".to_string(),
@@ -442,16 +442,16 @@ impl<E: Executor> Service<E> {
         deadline: Instant,
     ) -> Result<(), String> {
         let p = factory_muse_binding(lease)?;
-        if !texec::credential_valid(credential) {
-            return Err(texec::err_denied());
+        if !terminal::credential_valid(credential) {
+            return Err(terminal::err_denied());
         }
         if prompt.is_empty() || prompt.len() > MAX_FACTORY_PROMPT {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
-        let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
+        let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
         let container = self.factory_project_container(&lease.project_id, true, deadline)?;
         if container != binding.project {
-            return Err(texec::err_stale());
+            return Err(terminal::err_stale());
         }
         self.factory_stage_file(&container, binding, &p.credential, credential, deadline)?;
         self.factory_stage_file(&container, binding, &p.auth, credential, deadline)?;
@@ -495,14 +495,14 @@ impl<E: Executor> Service<E> {
     /// `Service.FactoryCodexValidate` shape for Muse runs.
     pub fn factory_muse_validate(&self, lease: &Lease, deadline: Instant) -> Result<(), String> {
         factory_muse_binding(lease)?;
-        let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
+        let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
         self.factory_attest_live(&lease.project_id, binding, &lease.execution_id, deadline)
     }
 
     /// `Service.FactoryCodexStop` shape for Muse runs. Idempotent.
     pub fn factory_muse_stop(&self, lease: &Lease, deadline: Instant) -> Result<(), String> {
         let p = factory_muse_binding(lease)?;
-        let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
+        let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
         self.factory_stop_confirmed(
             &binding.project,
             &lease.execution_id,
@@ -576,7 +576,7 @@ impl<E: Executor> Service<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::texec::ERR_DENIED;
+    use crate::terminal::ERR_DENIED;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
 
@@ -707,7 +707,7 @@ mod tests {
 
     fn muse_lease() -> Lease {
         Lease {
-            provider_id: texec::PROVIDER_MUSE.to_string(),
+            provider_id: terminal::PROVIDER_MUSE.to_string(),
             id: "lease-f".to_string(),
             connection_id: "conn".to_string(),
             generation: 5,
@@ -1095,7 +1095,7 @@ mod tests {
         assert_eq!(
             svc.factory_muse_start(&lease, cred, b"prompt", deadline())
                 .unwrap_err(),
-            crate::texec::ERR_STALE
+            crate::terminal::ERR_STALE
         );
         // Success stages the verbatim bytes twice (echo copy + CLI
         // lookup), then prompt, marker, then the gate.
@@ -1203,7 +1203,7 @@ mod tests {
         // Muse borrows: the broker forgets on return and never calls
         // finish (same denial as the interactive muse runtime).
         let lease = muse_lease();
-        let delivery = texec::Delivery {
+        let delivery = terminal::Delivery {
             lease,
             credential: Some(b"{}".to_vec()),
         };

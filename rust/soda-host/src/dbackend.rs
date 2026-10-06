@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::gmux_backend::{BackendError, ExecBackend, TerminalSession};
-use crate::{domain, json, pfactory, project, tcodex, tcontrol, texec};
+use crate::{domain, json, pfactory, project, tcodex, tcontrol, terminal};
 
 /// False: every lane module is integrated, no scaffold remains.
 pub const HAS_SCAFFOLDS: bool = false;
@@ -146,7 +146,7 @@ type Factory = pfactory::Factory<project::Native, TerminalSeam, BrokerSeam>;
 /// degrades factory routes to 503 instead of refusing startup.
 pub struct DaemonBackend {
     project: project::Runtime<project::Native>,
-    terminal: texec::Service<project::Native>,
+    terminal: terminal::Service<project::Native>,
     factory: OnceLock<Result<Factory, String>>,
     broker: crate::iclient::BrokerClient,
     tailnet: tcontrol::Control<project::Native>,
@@ -168,7 +168,7 @@ impl DaemonBackend {
                 exec: project::Native,
                 config: cfg.project.clone(),
             },
-            terminal: texec::Service {
+            terminal: terminal::Service {
                 exec: project::Native,
                 codex_harness: cfg.codex_harness.clone(),
                 codex_harness_sha256: cfg.codex_harness_sha256.clone(),
@@ -264,8 +264,8 @@ impl DaemonBackend {
 // via the shared parser. A single conversion site per direction keeps the
 // twins from drifting (the pending restructure unifies them).
 
-fn cv_lease_to_texec(l: &pfactory::Lease) -> texec::Lease {
-    texec::Lease {
+fn cv_lease_to_texec(l: &pfactory::Lease) -> terminal::Lease {
+    terminal::Lease {
         repository_id: l.repository_id,
         provider_id: l.provider_id.clone(),
         id: l.id.clone(),
@@ -277,15 +277,15 @@ fn cv_lease_to_texec(l: &pfactory::Lease) -> texec::Lease {
         kind: l.kind.clone(),
         role: l.role.clone(),
         deadline_raw: l.deadline.clone(),
-        deadline: texec::parse_rfc3339(&l.deadline),
+        deadline: terminal::parse_rfc3339(&l.deadline),
         grant_id: l.grant_id.clone(),
         grant_revision: l.grant_revision,
         binding: l.binding.as_ref().map(cv_binding_to_texec),
     }
 }
 
-fn cv_binding_to_texec(b: &pfactory::Binding) -> texec::Binding {
-    texec::Binding {
+fn cv_binding_to_texec(b: &pfactory::Binding) -> terminal::Binding {
+    terminal::Binding {
         child_id: b.child_id.clone(),
         uid: b.uid,
         gid: b.gid,
@@ -300,7 +300,7 @@ fn cv_binding_to_texec(b: &pfactory::Binding) -> texec::Binding {
     }
 }
 
-fn cv_binding_to_pfactory(b: &texec::Binding) -> pfactory::Binding {
+fn cv_binding_to_pfactory(b: &terminal::Binding) -> pfactory::Binding {
     pfactory::Binding {
         child_id: b.child_id.clone(),
         uid: b.uid,
@@ -333,9 +333,9 @@ fn cv_run_to_tcodex(r: &pfactory::FactoryRun) -> crate::tcodex::FactoryRun {
     }
 }
 
-fn cv_acquire_to_texec(r: &pfactory::AcquireRequest) -> texec::AcquireRequest {
-    let (secs, nanos) = texec::parse_rfc3339(&r.deadline).unwrap_or((0, 0));
-    texec::AcquireRequest {
+fn cv_acquire_to_texec(r: &pfactory::AcquireRequest) -> terminal::AcquireRequest {
+    let (secs, nanos) = terminal::parse_rfc3339(&r.deadline).unwrap_or((0, 0));
+    terminal::AcquireRequest {
         repository_id: 0,
         provider_id: r.provider_id.clone(),
         execution_id: r.execution_id.clone(),
@@ -349,7 +349,7 @@ fn cv_acquire_to_texec(r: &pfactory::AcquireRequest) -> texec::AcquireRequest {
     }
 }
 
-fn cv_lease_to_pfactory(l: &texec::Lease) -> pfactory::Lease {
+fn cv_lease_to_pfactory(l: &terminal::Lease) -> pfactory::Lease {
     pfactory::Lease {
         repository_id: l.repository_id,
         provider_id: l.provider_id.clone(),
@@ -575,7 +575,7 @@ impl pfactory::FactoryTerminal for TerminalSeam {
 /// A lease takes the muse path when its binding carries the factory-muse
 /// scope. Anything else (including unbound) stays on the codex path,
 /// which denies what it does not recognize.
-fn muse_scoped_lease(lease: &texec::Lease) -> bool {
+fn muse_scoped_lease(lease: &terminal::Lease) -> bool {
     lease
         .binding
         .as_ref()
@@ -586,8 +586,8 @@ impl TerminalSeam {
     /// The seam owns no service state: it rebuilds the value service (pure
     /// configuration + the shared executor shape) per call. Service methods
     /// take `&self` and hold no interior state, so this is free.
-    fn service(&self) -> texec::Service<project::Native> {
-        texec::Service {
+    fn service(&self) -> terminal::Service<project::Native> {
+        terminal::Service {
             exec: project::Native,
             codex_harness: self.harness.clone(),
             codex_harness_sha256: self.harness_sha256.clone(),
@@ -677,17 +677,17 @@ impl pfactory::FactoryBroker for BrokerSeam {
 impl crate::muse::MuseHooks for HooksSeam {
     fn acquire(
         &self,
-        req: &texec::AcquireRequest,
+        req: &terminal::AcquireRequest,
         deadline: Instant,
-    ) -> Result<texec::Lease, String> {
+    ) -> Result<terminal::Lease, String> {
         self.broker.acquire(req, deadline)
     }
     fn attach(
         &self,
         lease_id: &str,
-        binding: &texec::Binding,
+        binding: &terminal::Binding,
         deadline: Instant,
-    ) -> Result<texec::Delivery, String> {
+    ) -> Result<terminal::Delivery, String> {
         self.broker.register(lease_id, binding, deadline)
     }
     fn end(&self, actor: i64, lease_id: &str, deadline: Instant) -> Result<(), String> {
@@ -714,20 +714,20 @@ impl crate::muse::MuseHooks for HooksSeam {
     }
 }
 
-impl texec::IdentityBroker for DaemonBackend {
+impl terminal::IdentityBroker for DaemonBackend {
     fn acquire(
         &self,
-        req: &texec::AcquireRequest,
+        req: &terminal::AcquireRequest,
         deadline: Instant,
-    ) -> Result<texec::Lease, String> {
+    ) -> Result<terminal::Lease, String> {
         self.broker.acquire(req, deadline)
     }
     fn register(
         &self,
         lease_id: &str,
-        binding: &texec::Binding,
+        binding: &terminal::Binding,
         deadline: Instant,
-    ) -> Result<texec::Delivery, String> {
+    ) -> Result<terminal::Delivery, String> {
         self.broker.register(lease_id, binding, deadline)
     }
     fn reconcile_lease(&self, lease_id: &str) -> Result<(), String> {
@@ -969,8 +969,8 @@ impl ExecBackend for DaemonBackend {
     fn identity_launch(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         // The mux maps every non-501 identity error to 409, like Go's
         // `identityHandler`.
-        let input = texec::TerminalStart::decode(body).map_err(internal)?;
-        let lease = texec::identity_launch(
+        let input = terminal::TerminalStart::decode(body).map_err(internal)?;
+        let lease = terminal::identity_launch(
             self,
             &self.terminal,
             &input,
@@ -982,8 +982,8 @@ impl ExecBackend for DaemonBackend {
     }
 
     fn identity_action(&self, action: &str, body: &[u8]) -> Result<Vec<u8>, BackendError> {
-        let delivery = texec::Delivery::decode(body).map_err(internal)?;
-        if delivery.lease.kind == texec::KIND_FACTORY {
+        let delivery = terminal::Delivery::decode(body).map_err(internal)?;
+        if delivery.lease.kind == terminal::KIND_FACTORY {
             // Broker validate/stop/finish callbacks for supervised runs.
             let out = self
                 .terminal
@@ -991,7 +991,7 @@ impl ExecBackend for DaemonBackend {
                 .map_err(internal)?;
             return Ok(out.encode().into_bytes());
         }
-        let muse_scoped = delivery.lease.provider_id == texec::PROVIDER_MUSE
+        let muse_scoped = delivery.lease.provider_id == terminal::PROVIDER_MUSE
             && delivery
                 .lease
                 .binding
@@ -1442,8 +1442,8 @@ fn ws_write_frame(
         .map_err(|_| "terminal transport ended".to_string())
 }
 
-fn closed_frame(reason: &str) -> texec::TerminalFrame {
-    texec::TerminalFrame {
+fn closed_frame(reason: &str) -> terminal::TerminalFrame {
+    terminal::TerminalFrame {
         frame_type: "closed".to_string(),
         data: String::new(),
         cols: 0,
@@ -1458,7 +1458,7 @@ fn closed_frame(reason: &str) -> texec::TerminalFrame {
 /// expiry deadline, launch (inspect 10s, managed end, native attach),
 /// then the bidirectional pump. Mirrors `Handler`/`pumpIO` in service.go.
 fn pump_terminal(
-    service: &texec::Service<project::Native>,
+    service: &terminal::Service<project::Native>,
     backend: &DaemonBackend,
     mut stream: UnixStream,
 ) -> Result<(), String> {
@@ -1470,13 +1470,13 @@ fn pump_terminal(
         WsIn::Text(body) if body.len() <= TERMINAL_REQUEST_LIMIT => body,
         _ => return Ok(()),
     };
-    let request = match texec::TerminalRequest::decode(&request_bytes).ok() {
-        Some(request) if request.valid(texec::now_unix()) => request,
+    let request = match terminal::TerminalRequest::decode(&request_bytes).ok() {
+        Some(request) if request.valid(terminal::now_unix()) => request,
         _ => return Ok(()),
     };
     // Expiry deadline from the request (Go: 12h ctx capped by Expires).
     let expiry = Instant::now()
-        + Duration::from_secs(request.expires.saturating_sub(texec::now_unix()).max(0) as u64);
+        + Duration::from_secs(request.expires.saturating_sub(terminal::now_unix()).max(0) as u64);
     let session_deadline = (Instant::now() + Duration::from_secs(12 * 3600)).min(expiry);
 
     // Launch: inspect (10s), managed end, native attach.
@@ -1506,7 +1506,7 @@ fn pump_terminal(
         let _ = ws_write_text(&mut stream, frame.encode().as_bytes(), session_deadline);
         return Ok(());
     }
-    let attach = match texec::NativeAttach::attach(&container, &request) {
+    let attach = match terminal::NativeAttach::attach(&container, &request) {
         Ok(attach) => attach,
         Err(_) => {
             let frame = closed_frame("launch_failed");
@@ -1567,7 +1567,7 @@ fn pump_terminal(
                     return;
                 }
             };
-        let frame = texec::TerminalFrame::decode(&message);
+        let frame = terminal::TerminalFrame::decode(&message);
         let valid = frame.as_ref().is_ok_and(|f| f.input_valid());
         match frame {
             Ok(frame) if valid => {
@@ -1597,7 +1597,7 @@ fn pump_terminal(
     // Outgoing: frames until `closed`/`metadata`, error, or expiry.
     loop {
         // Lock-free: the reader was detached above (H01-F3).
-        let frame = match texec::NativeAttach::output_frame(&mut reader) {
+        let frame = match terminal::NativeAttach::output_frame(&mut reader) {
             Ok(frame) => frame,
             Err(_) => break,
         };

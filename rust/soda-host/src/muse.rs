@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 use crate::domain;
 use crate::json::{self, Kind, Spec, Value};
 use crate::project::Executor;
-use crate::texec::{self, AcquireRequest, Binding, Delivery, Lease};
+use crate::terminal::{self, AcquireRequest, Binding, Delivery, Lease};
 
 // ---------- launch wire types (internal/identity/launch.go) ----------
 
@@ -216,24 +216,24 @@ impl LaunchRequest {
             || !launch_absolute_path(&self.config_home, true)
             || !launch_absolute_path(&self.home, true)
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if !launch_text(&self.term, 128) || self.connection_id.len() > 128 || self.args.len() > 256
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if self.tty && (self.cols == 0 || self.rows == 0) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if !launch_arguments_valid(&self.args) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(())
     }
 
     fn registration_valid(&self) -> Result<(), String> {
         let Some(register) = &self.register else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         if !self.cwd.is_empty()
             || !self.args.is_empty()
@@ -242,7 +242,7 @@ impl LaunchRequest {
             || register.actor_id <= 0
             || !register.muse
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(())
     }
@@ -260,7 +260,7 @@ impl LaunchRequest {
             None => None,
             Some(nested) => {
                 let actor_id = if nested.contains("actor_id") {
-                    texec::parse_string_i64(&nested.take_string("actor_id"))
+                    terminal::parse_string_i64(&nested.take_string("actor_id"))
                         .ok_or_else(|| "invalid actor_id".to_string())?
                 } else {
                     0
@@ -385,11 +385,11 @@ fn muse_provider_arguments(args: &[String]) -> Vec<String> {
 pub fn muse_arguments(args: &[String]) -> Result<Vec<String>, String> {
     for arg in args {
         if muse_auth_override(arg) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
     }
     match muse_positional(args) {
-        "auth" | "login" | "logout" => Err(texec::err_denied()),
+        "auth" | "login" | "logout" => Err(terminal::err_denied()),
         _ => Ok(muse_provider_arguments(args)),
     }
 }
@@ -408,11 +408,11 @@ pub struct MuseConnection {
 /// any ready Muse connection authorizes.
 pub fn muse_connection_authorized(connections: &[MuseConnection]) -> Result<(), String> {
     for connection in connections {
-        if connection.provider_id == texec::PROVIDER_MUSE && connection.state == "ready" {
+        if connection.provider_id == terminal::PROVIDER_MUSE && connection.state == "ready" {
             return Ok(());
         }
     }
-    Err(texec::err_denied())
+    Err(terminal::err_denied())
 }
 
 /// `identity.SelectMuseConnection`: the single ready Muse connection,
@@ -423,7 +423,7 @@ pub fn select_muse_connection(
 ) -> Result<String, String> {
     let mut matches = Vec::new();
     for connection in connections {
-        if connection.provider_id != texec::PROVIDER_MUSE || connection.state != "ready" {
+        if connection.provider_id != terminal::PROVIDER_MUSE || connection.state != "ready" {
             continue;
         }
         if !selected.is_empty() && connection.id != selected {
@@ -437,10 +437,10 @@ pub fn select_muse_connection(
     if matches.len() > 1 {
         return Err(format!(
             "choose an authorized {} connection with {MUSE_CONNECTION_SETTING}",
-            texec::PROVIDER_MUSE
+            terminal::PROVIDER_MUSE
         ));
     }
-    Err(texec::err_denied())
+    Err(terminal::err_denied())
 }
 
 // ---------- runtime types ----------
@@ -558,7 +558,7 @@ pub fn muse_project_cgroup(value: &str) -> Result<String, String> {
             }
         }
     }
-    Err(texec::err_denied())
+    Err(terminal::err_denied())
 }
 
 /// `museMappedUID`: inside-UID for a host UID from a uid/gid map.
@@ -569,9 +569,9 @@ pub fn muse_mapped_uid(data: &str, uid: u32) -> Result<i64, String> {
             continue;
         }
         let (Some(inside), Some(outside), Some(count)) = (
-            texec::parse_go_uint(p[0], 32),
-            texec::parse_go_uint(p[1], 32),
-            texec::parse_go_uint(p[2], 32),
+            terminal::parse_go_uint(p[0], 32),
+            terminal::parse_go_uint(p[1], 32),
+            terminal::parse_go_uint(p[2], 32),
         ) else {
             continue;
         };
@@ -579,7 +579,7 @@ pub fn muse_mapped_uid(data: &str, uid: u32) -> Result<i64, String> {
             return Ok((inside + u64::from(uid) - outside) as i64);
         }
     }
-    Err(texec::err_denied())
+    Err(terminal::err_denied())
 }
 
 /// `musePasswdValid`: seven-field passwd row for the mapped UID.
@@ -629,31 +629,31 @@ pub fn muse_account_modes(body: &str) -> bool {
 pub fn muse_registration_valid(input: &NestedRegistration) -> bool {
     domain::valid_container_id(&input.child_id)
         && input.actor_id > 0
-        && texec::valid_terminal_id(&input.registration_id)
+        && terminal::valid_terminal_id(&input.registration_id)
         && input.muse
 }
 
 /// `museChildPID`: running nested-child PID from its inspect output.
 pub fn muse_child_pid(body: &[u8], failed: bool, id: &str) -> Result<i32, String> {
     if failed || body.len() > 4096 {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
-    let v = json::decode_strict(body).map_err(|_| texec::err_denied())?;
+    let v = json::decode_strict(body).map_err(|_| terminal::err_denied())?;
     let Some(fields) = v.as_object() else {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     };
     let get = |name: &str| fields.iter().find(|(k, _)| k == name).map(|(_, v)| v);
     let (Some(Value::Str(got)), Some(pid), Some(Value::Bool(running))) =
         (get("id"), get("pid"), get("running"))
     else {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     };
     let pid = match pid {
-        Value::Number(lit) => texec::parse_go_int(lit).unwrap_or(0),
+        Value::Number(lit) => terminal::parse_go_int(lit).unwrap_or(0),
         _ => 0,
     };
     if got != id || !running || pid <= 0 || pid > i32::MAX as i64 {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     Ok(pid as i32)
 }
@@ -667,11 +667,11 @@ pub fn muse_readonly_mount(
     destination: &str,
 ) -> Result<(), String> {
     if failed || body.len() > 32768 {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
-    let v = json::decode_tolerant(body).map_err(|_| texec::err_denied())?;
+    let v = json::decode_tolerant(body).map_err(|_| terminal::err_denied())?;
     let Some(mounts) = v.as_array() else {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     };
     for mount in mounts {
         let Some(fields) = mount.as_object() else {
@@ -687,7 +687,7 @@ pub fn muse_readonly_mount(
             _ => {}
         }
     }
-    Err(texec::err_denied())
+    Err(terminal::err_denied())
 }
 
 /// `museELF`: 64-bit little-endian ELF for the host architecture.
@@ -697,7 +697,7 @@ pub fn muse_elf(header: &[u8], arch: &str) -> Result<(), String> {
         || header[4] != 2
         || header[5] != 1
     {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     let machine = u16::from_le_bytes([header[18], header[19]]);
     if arch == "amd64" && machine == 62 {
@@ -706,7 +706,7 @@ pub fn muse_elf(header: &[u8], arch: &str) -> Result<(), String> {
     if arch == "arm64" && machine == 183 {
         return Ok(());
     }
-    Err(texec::err_denied())
+    Err(terminal::err_denied())
 }
 
 /// Host `GOARCH` spelled the Go way.
@@ -739,7 +739,7 @@ pub fn muse_signal(sig: i64) -> bool {
 /// `museProjectCredentialRoot`: exact `/run/soda-muse/` execution path.
 pub fn muse_project_credential_root(binding: &Binding) -> bool {
     if !domain::valid_container_id(&binding.project)
-        || texec::clean_path(&binding.credential_root) != binding.credential_root
+        || terminal::clean_path(&binding.credential_root) != binding.credential_root
         || !binding.credential_root.starts_with("/run/soda-muse/")
     {
         return false;
@@ -752,7 +752,7 @@ pub fn muse_project_credential_root(binding: &Binding) -> bool {
     }
     parts.len() == 3
         && parts[0] == "nested"
-        && texec::valid_terminal_id(parts[1])
+        && terminal::valid_terminal_id(parts[1])
         && parts[2] == binding.id
 }
 
@@ -761,10 +761,10 @@ pub fn muse_delivery_valid(delivery: &Delivery) -> bool {
     let Some(binding) = &delivery.lease.binding else {
         return false;
     };
-    delivery.lease.provider_id == texec::PROVIDER_MUSE
-        && texec::valid_terminal_id(&delivery.lease.execution_id)
+    delivery.lease.provider_id == terminal::PROVIDER_MUSE
+        && terminal::valid_terminal_id(&delivery.lease.execution_id)
         && binding.id == delivery.lease.execution_id
-        && texec::valid_terminal_id(&binding.invocation_id)
+        && terminal::valid_terminal_id(&binding.invocation_id)
 }
 
 /// `museHostEnvironment`: operator environment minus the META key.
@@ -1008,14 +1008,14 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         );
         let mut out = MuseCaller::default();
         let Ok(body) = body else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         if body.len() > 4096 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
-        let v = json::decode_strict(&body).map_err(|_| texec::err_denied())?;
+        let v = json::decode_strict(&body).map_err(|_| terminal::err_denied())?;
         let m = json::bind_root(&v, "museInspection", MUSE_INSPECTION_SPECS, false)
-            .map_err(|_| texec::err_denied())?;
+            .map_err(|_| terminal::err_denied())?;
         let raw_pid = m.take_i64("pid");
         let inspection = MuseInspection {
             id: m.take_string("id"),
@@ -1031,7 +1031,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             || !domain::valid_id(&inspection.project)
             || inspection.privileged
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         out.container = container.to_string();
         out.project = inspection.project;
@@ -1051,7 +1051,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         caller.project = inspected.project;
         caller.project_pid = inspected.project_pid;
         // Re-verify through the terminal isolation gate.
-        let svc = texec::Service {
+        let svc = terminal::Service {
             exec: &self.exec,
             codex_harness: String::new(),
             codex_harness_sha256: String::new(),
@@ -1062,15 +1062,15 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         };
         match svc.project_container(&caller.project, true, deadline) {
             Ok(verified) if verified == caller.container => {}
-            _ => return Err(texec::err_denied()),
+            _ => return Err(terminal::err_denied()),
         }
         let project_ns = std::fs::read_link(format!("/proc/{}/ns/pid", caller.project_pid))
-            .map_err(|_| texec::err_denied())?;
+            .map_err(|_| terminal::err_denied())?;
         if caller.namespace != project_ns.to_string_lossy().into_owned() {
             return self.registered_caller(caller, peer, deadline);
         }
         if !muse_peer_alive(peer) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(caller)
     }
@@ -1078,17 +1078,17 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     fn kernel_caller(&self, peer: &MusePeer) -> Result<MuseCaller, String> {
         let mut caller = MuseCaller::default();
         if !muse_peer_alive(peer) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let proc = format!("/proc/{}", peer.pid);
-        let cg =
-            std::fs::read_to_string(format!("{proc}/cgroup")).map_err(|_| texec::err_denied())?;
+        let cg = std::fs::read_to_string(format!("{proc}/cgroup"))
+            .map_err(|_| terminal::err_denied())?;
         caller.container = muse_project_cgroup(&cg)?;
-        let mappings =
-            std::fs::read_to_string(format!("{proc}/uid_map")).map_err(|_| texec::err_denied())?;
+        let mappings = std::fs::read_to_string(format!("{proc}/uid_map"))
+            .map_err(|_| terminal::err_denied())?;
         caller.uid = muse_mapped_uid(&mappings, peer.uid)?;
         caller.namespace = std::fs::read_link(format!("{proc}/ns/pid"))
-            .map_err(|_| texec::err_denied())?
+            .map_err(|_| terminal::err_denied())?
             .to_string_lossy()
             .into_owned();
         Ok(caller)
@@ -1102,10 +1102,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     ) -> Result<MuseCaller, String> {
         let registered = self.nested.lock().unwrap().get(&caller.namespace).cloned();
         let Some(registered) = registered else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         if registered.parent != caller.container || registered.project != caller.project {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         self.validate_nested(&registered, deadline)?;
         caller.actor = registered.actor;
@@ -1114,7 +1114,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         caller.nested_pid = registered.pid;
         caller.muse_allowed = registered.muse;
         if !muse_peer_alive(peer) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(caller)
     }
@@ -1123,7 +1123,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     pub fn resolve(&self, peer: &MusePeer, deadline: Instant) -> Result<MuseCaller, String> {
         match self.resolve_inner(peer, deadline) {
             Ok(caller) => Ok(caller),
-            Err(_) => Err(texec::err_denied()),
+            Err(_) => Err(terminal::err_denied()),
         }
     }
 
@@ -1131,18 +1131,18 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         let caller = self.resolve_project(peer, deadline)?;
         if !caller.child.is_empty() {
             if !caller.muse_allowed {
-                return Err(texec::err_denied());
+                return Err(terminal::err_denied());
             }
             return self.nested_caller(caller, peer, deadline);
         }
         if caller.uid == 0 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let caller = self.project_account(caller, deadline)?;
         let mut caller = caller;
         caller.actor = self.project_actor(&caller, deadline)?;
         if !self.authorized_caller(&caller, peer, deadline) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(caller)
     }
@@ -1159,10 +1159,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             deadline,
         );
         let Ok(body) = body else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         if body.len() > 4096 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let account: Vec<String> = String::from_utf8_lossy(&body)
             .trim()
@@ -1170,11 +1170,11 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             .map(|s| s.to_string())
             .collect();
         if !muse_passwd_valid(&account, caller.uid) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         caller.login = account[0].clone();
         caller.home = account[5].clone();
-        caller.gid = texec::parse_go_int(&account[3]).ok_or_else(texec::err_denied)?;
+        caller.gid = terminal::parse_go_int(&account[3]).ok_or_else(terminal::err_denied)?;
         Ok(caller)
     }
 
@@ -1195,21 +1195,21 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             deadline,
         );
         let Ok(body) = body else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         if !muse_account_modes(&String::from_utf8_lossy(&body)) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let body = self.guest_refs(&caller.container, &[], &["/usr/bin/cat", &marker], deadline);
         let Ok(body) = body else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         if body.len() > 64 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
-        match texec::parse_go_int(String::from_utf8_lossy(&body).trim()) {
+        match terminal::parse_go_int(String::from_utf8_lossy(&body).trim()) {
             Some(actor) if actor > 0 => Ok(actor),
-            _ => Err(texec::err_denied()),
+            _ => Err(terminal::err_denied()),
         }
     }
 
@@ -1228,16 +1228,16 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         deadline: Instant,
     ) -> Result<(), String> {
         if !muse_registration_valid(input) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let caller = self.resolve_project(peer, deadline)?;
         if !self.registration_authority(&caller, input.actor_id, deadline) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let record = self.registered_child(&caller, input, deadline)?;
         self.validate_nested(&record, deadline)?;
         if !muse_peer_alive(peer) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         self.nested
             .lock()
@@ -1299,10 +1299,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 &["/usr/bin/readlink", &format!("/proc/{pid}/ns/pid")],
                 deadline,
             )
-            .map_err(|_| texec::err_denied())?;
+            .map_err(|_| terminal::err_denied())?;
         let ns = String::from_utf8_lossy(&body).trim().to_string();
         if !ns.starts_with("pid:[") || ns == caller.namespace {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(MuseNested {
             parent: caller.container.clone(),
@@ -1331,11 +1331,11 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             deadline,
         );
         let Ok(body) = body else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         if String::from_utf8_lossy(&body).trim() != format!("{} {} true", record.child, record.pid)
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         self.nested_namespace(record, deadline)?;
         let body = self.guest_refs(
@@ -1364,7 +1364,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             )
             .is_err()
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(())
     }
@@ -1377,9 +1377,9 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 &["/usr/bin/readlink", &format!("/proc/{}/ns/pid", record.pid)],
                 deadline,
             )
-            .map_err(|_| texec::err_denied())?;
+            .map_err(|_| terminal::err_denied())?;
         if String::from_utf8_lossy(&body).trim() != record.namespace {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let body = self
             .guest_refs(
@@ -1392,11 +1392,11 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 ],
                 deadline,
             )
-            .map_err(|_| texec::err_denied())?;
+            .map_err(|_| terminal::err_denied())?;
         let text = String::from_utf8_lossy(&body);
         let names: Vec<&str> = text.split_whitespace().collect();
         if names.len() != 2 || names[0] != names[1] {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(())
     }
@@ -1416,14 +1416,14 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             deadline,
         );
         let Ok(body) = body else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         if body.len() > 4096 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
-        let v = json::decode_tolerant(&body).map_err(|_| texec::err_denied())?;
+        let v = json::decode_tolerant(&body).map_err(|_| terminal::err_denied())?;
         let Some(fields) = v.as_object() else {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         };
         let get = |name: &str| {
             fields
@@ -1435,7 +1435,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         };
         let username = get("Username");
         if !domain::valid_login(&username) || username == "root" {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok((username, get("HomeDir")))
     }
@@ -1450,10 +1450,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         caller.login = username;
         caller.home = home;
         let mappings = std::fs::read_to_string(format!("/proc/{}/gid_map", peer.pid))
-            .map_err(|_| texec::err_denied())?;
+            .map_err(|_| terminal::err_denied())?;
         caller.gid = muse_mapped_uid(&mappings, peer.gid)?;
         if !self.authorized_caller(&caller, peer, deadline) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         Ok(caller)
     }
@@ -1467,7 +1467,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         deadline: Instant,
     ) -> Result<(), String> {
         if !domain::valid_container_id(&self.binary_sha256) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let mut prefix = Vec::new();
         if !child.is_empty() {
@@ -1485,12 +1485,12 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         ]);
         let hash = match self.guest(container, &[], &hash_argv, deadline) {
             Ok(hash) => hash,
-            Err(_) => return Err(texec::err_denied()),
+            Err(_) => return Err(terminal::err_denied()),
         };
         let text = String::from_utf8_lossy(&hash);
         let fields: Vec<&str> = text.split_whitespace().collect();
         if fields.len() != 2 || fields[0] != self.binary_sha256 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let mut head_argv = prefix.clone();
         head_argv.extend([
@@ -1500,10 +1500,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         ]);
         let header = self
             .guest(container, &[], &head_argv, deadline)
-            .map_err(|_| texec::err_denied())?;
+            .map_err(|_| terminal::err_denied())?;
         muse_elf(&header, host_go_arch())?;
         if self.binary_version.is_empty() {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let mut check_argv = prefix;
         check_argv.extend([
@@ -1529,7 +1529,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         let budget = deadline.min(Instant::now() + Duration::from_secs(30));
         let mut request = request.clone();
         if request.validate().is_err() {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         request.args = muse_arguments(&request.args)?;
         let caller = self.resolve(peer, budget)?;
@@ -1538,7 +1538,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if !muse_peer_alive(peer) {
             let cleanup = Instant::now() + Duration::from_secs(30);
             let _ = self.hooks.end(caller.actor, &execution.lease.id, cleanup);
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if let Err(err) = self.stage(&caller, &execution.path, &request.config_home, budget) {
             let cleanup = Instant::now() + Duration::from_secs(30);
@@ -1567,16 +1567,16 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             &request.connection_id,
             deadline,
         )?;
-        let id = texec::rand_id().map_err(|_| texec::err_denied())?;
+        let id = terminal::rand_id().map_err(|_| terminal::err_denied())?;
         let lease = self.hooks.acquire(
             &AcquireRequest {
                 execution_id: id.clone(),
                 actor_id: caller.actor,
                 connection_id: connection,
                 project_id: caller.project.clone(),
-                kind: texec::KIND_TERMINAL.to_string(),
-                provider_id: texec::PROVIDER_MUSE.to_string(),
-                deadline_secs: texec::now_unix() + 12 * 3600,
+                kind: terminal::KIND_TERMINAL.to_string(),
+                provider_id: terminal::PROVIDER_MUSE.to_string(),
+                deadline_secs: terminal::now_unix() + 12 * 3600,
                 ..Default::default()
             },
             deadline,
@@ -1588,7 +1588,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             format!("/run/soda-muse/nested/{}/{id}", caller.registration)
         };
         let binding = Binding {
-            kind: texec::KIND_TERMINAL.to_string(),
+            kind: terminal::KIND_TERMINAL.to_string(),
             id: id.clone(),
             project: caller.container.clone(),
             child_id: caller.child.clone(),
@@ -1626,15 +1626,15 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             budget,
         )?;
         execution.binding.invocation_id = String::from_utf8_lossy(&body).trim().to_string();
-        if !texec::valid_terminal_id(&execution.binding.invocation_id) {
-            return Err(texec::err_denied());
+        if !terminal::valid_terminal_id(&execution.binding.invocation_id) {
+            return Err(terminal::err_denied());
         }
         let mut delivery = self
             .hooks
             .attach(&execution.lease.id, &execution.binding, budget)?;
         let mut credential = delivery.credential.take().unwrap_or_default();
-        if !texec::credential_valid(&credential) {
-            return Err(texec::err_denied());
+        if !terminal::credential_valid(&credential) {
+            return Err(terminal::err_denied());
         }
         let target = format!("{}/auth.json", execution.path);
         let dd = [
@@ -1667,7 +1667,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     ) -> Result<(), String> {
         if control.signal != 0 {
             if control.cols != 0 || control.rows != 0 || !muse_signal(control.signal) {
-                return Err(texec::err_denied());
+                return Err(terminal::err_denied());
             }
             return self
                 .guest_refs(
@@ -1685,7 +1685,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 .map(|_| ());
         }
         if !execution.request.tty {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         muse_resize(stdin_fd, control)?;
         if let Some(pid) = child_pid {
@@ -1889,7 +1889,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             deadline,
         )?;
         if body.len() > 3 << 20 {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let mut view = decode_config_view(&body)?;
         for name in ["settings.json", "trust.json"] {
@@ -1944,9 +1944,9 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         );
         let body = self
             .guest(&container, &[], &unit_active_argv(&unit), deadline)
-            .map_err(|_| texec::err_uncertain())?;
+            .map_err(|_| terminal::err_uncertain())?;
         if String::from_utf8_lossy(&body).trim() != "inactive" {
-            return Err(texec::err_uncertain());
+            return Err(terminal::err_uncertain());
         }
         if stop_result.is_err() {
             self.guest_refs(
@@ -1960,7 +1960,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 ],
                 deadline,
             )
-            .map_err(|_| texec::err_uncertain())?;
+            .map_err(|_| terminal::err_uncertain())?;
         }
         self.retire_execution_files(binding, deadline)?;
         if return_custody {
@@ -1976,11 +1976,11 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         deadline: Instant,
     ) -> Result<(), String> {
         if binding.validate().is_err()
-            || !texec::valid_terminal_id(&binding.id)
+            || !terminal::valid_terminal_id(&binding.id)
             || !domain::valid_container_id(&binding.project)
             || !domain::valid_login(&binding.login)
         {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let body = self
             .guest(
@@ -1989,9 +1989,9 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 &unit_active_argv(&format!("soda-muse-{}.service", binding.id)),
                 deadline,
             )
-            .map_err(|_| texec::err_stale())?;
+            .map_err(|_| terminal::err_stale())?;
         if String::from_utf8_lossy(&body).trim() != "active" {
-            return Err(texec::err_stale());
+            return Err(terminal::err_stale());
         }
         Ok(())
     }
@@ -2010,7 +2010,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 return Err("context deadline exceeded".to_string());
             }
             if now >= end {
-                return Err(texec::err_denied());
+                return Err(terminal::err_denied());
             }
             if sleep_until(now + Duration::from_millis(50), deadline).is_err() {
                 return Err("context deadline exceeded".to_string());
@@ -2026,16 +2026,16 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         deadline: Instant,
     ) -> Result<Delivery, String> {
         if !muse_delivery_valid(delivery) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         let binding = delivery
             .lease
             .binding
             .as_ref()
-            .ok_or_else(texec::err_denied)?;
+            .ok_or_else(terminal::err_denied)?;
         match binding.scope.as_str() {
             "muse-project" => self.project_operation(action, delivery, deadline)?,
-            _ => return Err(texec::err_denied()),
+            _ => return Err(terminal::err_denied()),
         }
         Ok(delivery.clone())
     }
@@ -2050,10 +2050,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             .lease
             .binding
             .as_ref()
-            .ok_or_else(texec::err_denied)?;
+            .ok_or_else(terminal::err_denied)?;
         let unit = format!("soda-muse-{}.service", binding.id);
         if !muse_project_credential_root(binding) {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         if let Ok(body) = self.guest(
             &binding.project,
@@ -2063,14 +2063,14 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         ) {
             let current = String::from_utf8_lossy(&body).trim().to_string();
             if !current.is_empty() && current != binding.invocation_id {
-                return Err(texec::err_stale());
+                return Err(terminal::err_stale());
             }
         }
         if action == "validate" {
             return self.validate_muse_binding(binding, deadline);
         }
         if action != "stop" {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         self.stop_execution(
             binding,
@@ -2091,7 +2091,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     ) -> Result<(), String> {
         let container = state_container(binding)?;
         if container.is_empty() {
-            return Err(texec::err_denied());
+            return Err(terminal::err_denied());
         }
         match self.invoke_state(
             binding,
@@ -2103,8 +2103,8 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             deadline,
         ) {
             Ok(_) => {}
-            Err(err) if texec::exit_code_of(&err) == Some(1) => return Ok(()),
-            Err(_) => return Err(texec::err_uncertain()),
+            Err(err) if terminal::exit_code_of(&err) == Some(1) => return Ok(()),
+            Err(_) => return Err(terminal::err_uncertain()),
         }
         let state = format!("/tmp/soda-muse-state-{}", binding.id);
         let owner = format!("--user={}:{}", binding.uid, binding.gid);
@@ -2122,7 +2122,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             ],
             deadline,
         )
-        .map_err(|_| texec::err_uncertain())?;
+        .map_err(|_| terminal::err_uncertain())?;
         self.invoke_state(
             binding,
             &[
@@ -2137,7 +2137,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             deadline,
         )
         .map(|_| ())
-        .map_err(|_| texec::err_uncertain())
+        .map_err(|_| terminal::err_uncertain())
     }
 
     fn invoke_state(
@@ -2178,8 +2178,8 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             &["/usr/bin/mountpoint", "--quiet", path],
             deadline,
         ) {
-            Err(err) if texec::exit_code_of(&err) == Some(32) => Ok(()),
-            _ => Err(texec::err_uncertain()),
+            Err(err) if terminal::exit_code_of(&err) == Some(32) => Ok(()),
+            _ => Err(terminal::err_uncertain()),
         }
     }
 
@@ -2201,14 +2201,14 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             deadline,
         )
         .map(|_| ())
-        .map_err(|_| texec::err_uncertain())
+        .map_err(|_| terminal::err_uncertain())
     }
 }
 
 /// `museResize`: PTY resize over the stdin fd.
 pub fn muse_resize(stdin_fd: RawFd, control: &LaunchControl) -> Result<(), String> {
     if control.signal != 0 || control.cols == 0 || control.rows == 0 {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     let ws = libc::winsize {
         ws_row: control.rows,
@@ -2219,22 +2219,22 @@ pub fn muse_resize(stdin_fd: RawFd, control: &LaunchControl) -> Result<(), Strin
     // SAFETY: ioctl with a valid winsize pointer.
     let result = unsafe { libc::ioctl(stdin_fd, libc::TIOCSWINSZ, &ws) };
     if result < 0 {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     Ok(())
 }
 
 /// `stateContainer`: execution state owner (child for nested runs).
 pub fn state_container(binding: &Binding) -> Result<String, String> {
-    if !texec::valid_terminal_id(&binding.id) || binding.uid < 0 || binding.gid < 0 {
-        return Err(texec::err_denied());
+    if !terminal::valid_terminal_id(&binding.id) || binding.uid < 0 || binding.gid < 0 {
+        return Err(terminal::err_denied());
     }
     let mut container = binding.project.clone();
     if binding.scope == "muse-project" && !binding.child_id.is_empty() {
         container = binding.child_id.clone();
     }
     if !domain::valid_container_id(&container) {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     }
     Ok(container)
 }
@@ -2832,34 +2832,34 @@ fn spawn_execution(
 /// (`encoding/json` into `map[string][]byte`: base64 strings or numeric
 /// arrays, like [`Kind::Bytes`](crate::json::Kind::Bytes)).
 pub fn decode_config_view(body: &[u8]) -> Result<HashMap<String, Vec<u8>>, String> {
-    let v = json::decode_tolerant(body).map_err(|_| texec::err_denied())?;
+    let v = json::decode_tolerant(body).map_err(|_| terminal::err_denied())?;
     let Some(fields) = v.as_object() else {
-        return Err(texec::err_denied());
+        return Err(terminal::err_denied());
     };
     let mut out = HashMap::with_capacity(fields.len());
     for (key, value) in fields {
         let bytes = match value {
             Value::Null => Vec::new(),
             Value::Str(s) => {
-                crate::ssh::b64_decode_go(s.as_bytes()).map_err(|_| texec::err_denied())?
+                crate::ssh::b64_decode_go(s.as_bytes()).map_err(|_| terminal::err_denied())?
             }
             Value::Array(items) => {
                 let mut bytes = Vec::with_capacity(items.len());
                 for item in items {
                     match item {
                         Value::Number(lit) => {
-                            let n: i64 = lit.parse().map_err(|_| texec::err_denied())?;
+                            let n: i64 = lit.parse().map_err(|_| terminal::err_denied())?;
                             if !(0..=255).contains(&n) {
-                                return Err(texec::err_denied());
+                                return Err(terminal::err_denied());
                             }
                             bytes.push(n as u8);
                         }
-                        _ => return Err(texec::err_denied()),
+                        _ => return Err(terminal::err_denied()),
                     }
                 }
                 bytes
             }
-            _ => return Err(texec::err_denied()),
+            _ => return Err(terminal::err_denied()),
         };
         out.insert(key.clone(), bytes);
     }
@@ -3040,22 +3040,22 @@ mod tests {
 
     fn lease_fixture() -> Lease {
         Lease {
-            provider_id: texec::PROVIDER_MUSE.to_string(),
+            provider_id: terminal::PROVIDER_MUSE.to_string(),
             id: "lease-m".to_string(),
             connection_id: "conn-1".to_string(),
             generation: 4,
             actor_id: 7,
             project_id: PID.to_string(),
             execution_id: TID.to_string(),
-            kind: texec::KIND_TERMINAL.to_string(),
+            kind: terminal::KIND_TERMINAL.to_string(),
             binding: Some(Binding {
-                kind: texec::KIND_TERMINAL.to_string(),
+                kind: terminal::KIND_TERMINAL.to_string(),
                 id: TID.to_string(),
                 project: CID.to_string(),
                 login: "dev".to_string(),
                 uid: 1000,
                 gid: 1000,
-                scope: texec::SCOPE_MUSE_PROJECT.to_string(),
+                scope: terminal::SCOPE_MUSE_PROJECT.to_string(),
                 invocation_id: IID.to_string(),
                 credential_root: format!("/run/soda-muse/{TID}"),
                 generation: 4,
@@ -3312,7 +3312,7 @@ mod tests {
         ] {
             assert_eq!(
                 muse_arguments(&args(&denied)).unwrap_err(),
-                texec::ERR_DENIED,
+                terminal::ERR_DENIED,
                 "{denied:?}"
             );
         }
@@ -3347,11 +3347,11 @@ mod tests {
         );
         assert_eq!(
             muse_connection_authorized(&[reauth, codex]).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         assert_eq!(
             muse_connection_authorized(&[]).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         assert_eq!(
             select_muse_connection(std::slice::from_ref(&ready), "").unwrap(),
@@ -3372,11 +3372,11 @@ mod tests {
         );
         assert_eq!(
             select_muse_connection(&two, "absent").unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         assert_eq!(
             select_muse_connection(&[], "").unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
     }
 
@@ -3742,14 +3742,20 @@ mod tests {
             let rt = runtime(FakeExec::new(vec![ok(&body)]));
             assert_eq!(
                 rt.inspect(CID, deadline()).unwrap_err(),
-                texec::ERR_DENIED,
+                terminal::ERR_DENIED,
                 "{body}"
             );
         }
         let rt = runtime(FakeExec::new(vec![err("boom")]));
-        assert_eq!(rt.inspect(CID, deadline()).unwrap_err(), texec::ERR_DENIED);
+        assert_eq!(
+            rt.inspect(CID, deadline()).unwrap_err(),
+            terminal::ERR_DENIED
+        );
         let rt = runtime(FakeExec::new(vec![Ok(vec![b'x'; 4097])]));
-        assert_eq!(rt.inspect(CID, deadline()).unwrap_err(), texec::ERR_DENIED);
+        assert_eq!(
+            rt.inspect(CID, deadline()).unwrap_err(),
+            terminal::ERR_DENIED
+        );
     }
 
     #[test]
@@ -3775,17 +3781,17 @@ mod tests {
         )]));
         assert_eq!(
             rt.actor_account(CID, 7, deadline()).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         let rt = runtime(FakeExec::new(vec![ok("nope")]));
         assert_eq!(
             rt.actor_account(CID, 7, deadline()).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         let rt = runtime(FakeExec::new(vec![err("boom")]));
         assert_eq!(
             rt.actor_account(CID, 7, deadline()).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
     }
 
@@ -3808,7 +3814,7 @@ mod tests {
         assert_eq!(execution.lease.id, "lease-new");
         assert_eq!(execution.binding.generation, 4);
         assert_eq!(execution.binding.project, CID);
-        assert_eq!(execution.binding.scope, texec::SCOPE_MUSE_PROJECT);
+        assert_eq!(execution.binding.scope, terminal::SCOPE_MUSE_PROJECT);
         assert_eq!(execution.binding.credential_root, execution.path);
         assert!(execution.path.starts_with("/run/soda-muse/"));
         assert_eq!(
@@ -3825,7 +3831,7 @@ mod tests {
             assert_eq!(acquires[0].connection_id, "conn-1");
             assert_eq!(acquires[0].project_id, PID);
             assert_eq!(acquires[0].kind, "terminal");
-            assert!((acquires[0].deadline_secs - (texec::now_unix() + 12 * 3600)).abs() <= 5);
+            assert!((acquires[0].deadline_secs - (terminal::now_unix() + 12 * 3600)).abs() <= 5);
         }
         assert_eq!(
             rt.hooks.selects.lock().unwrap()[0],
@@ -3841,11 +3847,11 @@ mod tests {
             .starts_with(&format!("/run/soda-muse/nested/{IID}/")));
         assert_eq!(execution.binding.child_id, CID);
         // Select failure propagates.
-        *rt.hooks.select_out.lock().unwrap() = Err(texec::ERR_DENIED.to_string());
+        *rt.hooks.select_out.lock().unwrap() = Err(terminal::ERR_DENIED.to_string());
         assert_eq!(
             rt.reserve_execution(&caller(), &request, deadline())
                 .unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
     }
 
@@ -4037,7 +4043,7 @@ mod tests {
         assert_eq!(
             rt.deliver_execution(&mut execution, deadline())
                 .unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         assert!(rt.hooks.attaches.lock().unwrap().is_empty());
         // Invalid credential denies after attach.
@@ -4051,7 +4057,7 @@ mod tests {
         assert_eq!(
             rt.deliver_execution(&mut execution, deadline())
                 .unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         // dd failure propagates raw.
         let mut execution = execution.clone();
@@ -4139,7 +4145,7 @@ mod tests {
         assert_eq!(
             rt.stop_execution(&binding, 7, "lease-m", true, deadline())
                 .unwrap_err(),
-            texec::ERR_UNCERTAIN
+            terminal::ERR_UNCERTAIN
         );
         // Failed stop with a gone cgroup still retires.
         let rt = runtime(FakeExec::new(vec![
@@ -4165,7 +4171,7 @@ mod tests {
         assert_eq!(
             rt.stop_execution(&binding, 7, "lease-m", false, deadline())
                 .unwrap_err(),
-            texec::ERR_UNCERTAIN
+            terminal::ERR_UNCERTAIN
         );
         // Removed container skips the rm/test pair.
         let rt = runtime(FakeExec::new(vec![
@@ -4189,7 +4195,7 @@ mod tests {
         assert_eq!(
             rt.stop_execution(&binding, 7, "lease-m", false, deadline())
                 .unwrap_err(),
-            texec::ERR_UNCERTAIN
+            terminal::ERR_UNCERTAIN
         );
         // Nested bindings skip the tmpfs unmount and wrap state podman.
         let mut nested = binding.clone();
@@ -4269,7 +4275,7 @@ mod tests {
         assert_eq!(
             rt.stop_execution(&binding, 7, "lease-m", false, deadline())
                 .unwrap_err(),
-            texec::ERR_UNCERTAIN
+            terminal::ERR_UNCERTAIN
         );
         assert_eq!(rt.exec.calls().len(), 8);
     }
@@ -4283,18 +4289,18 @@ mod tests {
         let rt = runtime(FakeExec::new(vec![ok("inactive\n")]));
         assert_eq!(
             rt.validate_muse_binding(&binding, deadline()).unwrap_err(),
-            texec::ERR_STALE
+            terminal::ERR_STALE
         );
         let rt = runtime(FakeExec::new(vec![err("boom")]));
         assert_eq!(
             rt.validate_muse_binding(&binding, deadline()).unwrap_err(),
-            texec::ERR_STALE
+            terminal::ERR_STALE
         );
         let rt = runtime(FakeExec::new(vec![]));
         assert_eq!(
             rt.validate_muse_binding(&Binding::default(), deadline())
                 .unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         assert!(rt.exec.calls().is_empty());
         // Ops dispatch.
@@ -4326,7 +4332,7 @@ mod tests {
         assert_eq!(
             rt.muse_operation("validate", &delivery, deadline())
                 .unwrap_err(),
-            texec::ERR_STALE
+            terminal::ERR_STALE
         );
         // Empty observation is tolerated (unit may be gone).
         let rt = runtime(FakeExec::new(vec![ok("\n"), ok("active\n")]));
@@ -4336,7 +4342,7 @@ mod tests {
         assert_eq!(
             rt.muse_operation("launch", &delivery, deadline())
                 .unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         assert_eq!(rt.exec.calls().len(), 1);
         // Malformed deliveries never call out.
@@ -4344,7 +4350,7 @@ mod tests {
         assert_eq!(
             rt.muse_operation("validate", &Delivery::default(), deadline())
                 .unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         let mut other = lease.clone();
         other.binding.as_mut().unwrap().scope = "other".to_string();
@@ -4358,7 +4364,7 @@ mod tests {
                 deadline()
             )
             .unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         assert!(rt.exec.calls().is_empty());
     }
@@ -4604,7 +4610,7 @@ mod tests {
         );
         assert_eq!(
             rt.verify_guest_binary(CID, "", deadline()).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         // Digest mismatch denies.
         let rt = runtime(FakeExec::new(vec![ok(&format!(
@@ -4613,7 +4619,7 @@ mod tests {
         ))]));
         assert_eq!(
             rt.verify_guest_binary(CID, "", deadline()).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         // Bad ELF header denies.
         let rt = runtime(FakeExec::new(vec![
@@ -4622,7 +4628,7 @@ mod tests {
         ]));
         assert_eq!(
             rt.verify_guest_binary(CID, "", deadline()).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         // Empty version denies after the header check.
         let rt = MuseRuntime::new(
@@ -4636,7 +4642,7 @@ mod tests {
         );
         assert_eq!(
             rt.verify_guest_binary(CID, "", deadline()).unwrap_err(),
-            texec::ERR_DENIED
+            terminal::ERR_DENIED
         );
         // Version-handshake failure propagates raw.
         let rt = runtime(FakeExec::new(vec![
