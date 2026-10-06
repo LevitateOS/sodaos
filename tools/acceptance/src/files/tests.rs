@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
 use super::*;
 
@@ -171,47 +171,48 @@ fn fresh_directory_and_destination_gates() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-fn open_fd_count() -> usize {
-    std::fs::read_dir("/proc/self/fd").unwrap().count()
+/// Count this process's descriptors currently pointing at `dir` itself,
+/// identified by device + inode. `fs::metadata` follows each
+/// `/proc/self/fd` entry to its target; other tests' descriptors point at
+/// their own fixtures and never match.
+fn fixture_dir_fds(dir: &std::path::Path) -> usize {
+    let want = std::fs::metadata(dir).unwrap();
+    std::fs::read_dir("/proc/self/fd")
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| std::fs::metadata(entry.path()).ok())
+        .filter(|meta| meta.dev() == want.dev() && meta.ino() == want.ino())
+        .count()
 }
 
 #[test]
 fn walk_lstat_error_closes_stream() {
     let dir = temp_dir("soda-files-walk-leak");
-    let before = open_fd_count();
-    for _ in 0..8 {
-        for i in 0..16 {
-            std::fs::write(dir.join(format!("f{i:02}")), b"x").unwrap();
-        }
-        // Fresh handle per round: a consumed directory offset is shared
-        // with later duplicates of the same handle.
-        let root = OwnedDir::open(dir.to_str().unwrap()).unwrap();
-        let mut visits = 0u32;
-        // The first visit deletes every entry; names already buffered by
-        // readdir then fail lstat with ENOENT, exercising the error path.
-        // A leaked stream would leave one fd behind per walk.
-        let err = root
-            .walk_files(&mut |_rel: &str, _regular: bool| {
-                visits += 1;
-                if visits == 1 {
-                    for i in 0..16 {
-                        let _ = std::fs::remove_file(dir.join(format!("f{i:02}")));
-                    }
+    let root = OwnedDir::open(dir.to_str().unwrap()).unwrap();
+    for i in 0..16 {
+        std::fs::write(dir.join(format!("f{i:02}")), b"x").unwrap();
+    }
+    let mut visits = 0u32;
+    // The first visit deletes every entry; names already buffered by
+    // readdir then fail lstat with ENOENT, exercising the error path.
+    let err = root
+        .walk_files(&mut |_rel: &str, _regular: bool| {
+            visits += 1;
+            if visits == 1 {
+                for i in 0..16 {
+                    let _ = std::fs::remove_file(dir.join(format!("f{i:02}")));
                 }
-                Ok(())
-            })
-            .unwrap_err();
-        assert_eq!(err.io_kind(), Some(std::io::ErrorKind::NotFound));
-    }
-    // Other test threads may briefly hold fds; a real leak never drains.
-    for _ in 0..50 {
-        if open_fd_count() <= before {
-            std::fs::remove_dir_all(&dir).unwrap();
-            return;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(1));
-    }
-    panic!("walk leaked directory streams");
+            }
+            Ok(())
+        })
+        .unwrap_err();
+    assert_eq!(err.io_kind(), Some(std::io::ErrorKind::NotFound));
+    assert_eq!(visits, 1);
+    // The walk's stream is gone; dropping the handle must leave no
+    // descriptor behind that still points at this fixture.
+    drop(root);
+    assert_eq!(fixture_dir_fds(&dir), 0);
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 fn walk_all(root: &OwnedDir) -> Vec<(String, bool)> {
