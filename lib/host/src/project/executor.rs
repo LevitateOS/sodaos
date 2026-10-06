@@ -106,6 +106,17 @@ impl Executor for NativeStatusOnly {
         execute(stdin, cmd, args, deadline, true, None)
     }
 
+    fn run_with_capture_grace(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        grace: Duration,
+    ) -> Result<Vec<u8>, String> {
+        execute(stdin, cmd, args, deadline, true, Some(grace))
+    }
+
     fn is_host_native(&self) -> bool {
         true
     }

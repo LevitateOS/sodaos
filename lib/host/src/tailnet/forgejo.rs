@@ -1226,18 +1226,51 @@ mod tests {
             before,
             "held group survived the grace"
         );
-        // Capture that settles inside the grace still completes exactly.
-        let quick = stub_cli(&env, "quick.sh", "echo done");
-        assert_eq!(
-            tcontrol_native::run_command(
-                &Native,
-                &quick,
-                &[],
-                Instant::now() + Duration::from_secs(30)
-            )
-            .unwrap(),
-            b"done\n"
+        // The status-only wrapper honors the same selected grace with
+        // stderr suppressed: subprocess detail never surfaces.
+        let beat = env.path("beat-only");
+        let script = stub_cli(
+            &env,
+            "secret.sh",
+            &format!(
+                "(while true; do echo x >> \"{beat}\"; sleep 0.05; done) &\necho SECRET=never-log >&2\necho done\nexit 0"
+            ),
         );
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let start = Instant::now();
+        let err =
+            tcontrol_native::run_command(&NativeStatusOnly, &script, &[], deadline).unwrap_err();
+        assert_eq!(err, "tailnet outcome is unconfirmed");
+        assert!(!err.contains("SECRET"), "stderr leaked: {err}");
+        assert!(start.elapsed() >= Duration::from_millis(500), "too fast");
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "used full deadline"
+        );
+        std::thread::sleep(Duration::from_millis(300));
+        let before = std::fs::read(&beat).unwrap().len();
+        assert!(before > 0, "holder never ran");
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(
+            std::fs::read(&beat).unwrap().len(),
+            before,
+            "held group survived the grace"
+        );
+        // Capture that settles inside the grace still completes exactly
+        // for both wrappers.
+        let quick = stub_cli(&env, "quick.sh", "echo done");
+        for exec in [&Native as &dyn Executor, &NativeStatusOnly as &dyn Executor] {
+            assert_eq!(
+                tcontrol_native::run_command(
+                    exec,
+                    &quick,
+                    &[],
+                    Instant::now() + Duration::from_secs(30)
+                )
+                .unwrap(),
+                b"done\n"
+            );
+        }
     }
 
     #[test]
