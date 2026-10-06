@@ -324,3 +324,123 @@ fn metadata_hardening_refuses_links_and_aliases() {
     std::os::unix::fs::symlink("/etc/hostname", &log_link).unwrap();
     assert!(read_log(&ctx, &log_link).is_err());
 }
+
+fn own_child_pids() -> Vec<i32> {
+    let tid = unsafe { libc::gettid() };
+    let path = format!("/proc/self/task/{tid}/children");
+    std::fs::read_to_string(&path)
+        .unwrap_or_default()
+        .split_whitespace()
+        .filter_map(|pid| pid.parse().ok())
+        .collect()
+}
+
+fn proc_comm(pid: i32) -> Option<String> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    let end = stat.rfind(')')?;
+    let start = stat[..end].rfind('(')?;
+    Some(stat[start + 1..end].to_string())
+}
+
+/// P07-F1: a log-I/O failure must reap the role child (never leak a
+/// live/unreaped child) and report unconfirmed (Err, never a receipt).
+/// `yes` never exits on its own, so a leaked child is always observable;
+/// closing the pipe reader makes it die promptly once reaped.
+#[test]
+fn log_io_failure_reaps_child_and_reports_unconfirmed() {
+    assert!(
+        std::fs::metadata("/usr/bin/yes").is_ok(),
+        "P07-F1 regression needs /usr/bin/yes"
+    );
+    let dir = std::env::temp_dir().join(format!("soda-f1-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let logpath = dir.join("no-such-dir").join("setup.log");
+    let argv = vec!["/usr/bin/yes".to_string()];
+    let uid = unsafe { libc::geteuid() };
+    let gid = unsafe { libc::getegid() };
+    let outcome = run_as_role(&argv, &[], &dir, &logpath, uid, gid);
+    assert!(
+        outcome.is_err(),
+        "log I/O failure must report unconfirmed, got {outcome:?}"
+    );
+    // Allow exec latency, then scan own children for the role child.
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let mut leaked = Vec::new();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(700);
+    while leaked.is_empty() && std::time::Instant::now() < deadline {
+        for pid in own_child_pids() {
+            if proc_comm(pid).as_deref() == Some("yes") {
+                leaked.push(pid);
+            }
+        }
+        if leaked.is_empty() {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    }
+    for pid in &leaked {
+        unsafe {
+            libc::kill(*pid, libc::SIGKILL);
+        }
+    }
+    for pid in &leaked {
+        unsafe {
+            libc::waitpid(*pid, std::ptr::null_mut(), 0);
+        }
+    }
+    std::fs::remove_dir_all(&dir).ok();
+    assert!(
+        leaked.is_empty(),
+        "log I/O failure leaked role children: {leaked:?}"
+    );
+}
+
+fn proc_startup() -> Option<(u32, i32, String)> {
+    let meta = std::fs::symlink_metadata("/proc/1").ok()?;
+    let uid = std::os::unix::fs::MetadataExt::uid(&meta);
+    let stat = std::fs::read_to_string("/proc/1/stat").ok()?;
+    let end = stat.rfind(')')?;
+    let rest = stat[end + 2..].to_string();
+    let mut fields = rest.split_whitespace();
+    let state = fields.next()?.to_string();
+    let _ppid = fields.next()?;
+    let pgid: i32 = fields.next()?.parse().ok()?;
+    Some((uid, pgid, state))
+}
+
+/// P07-F1 receipt side: a launch-error receipt with a live but foreign
+/// (unsignallable-by-us) group must report uncertain, never confirmed.
+/// Skips honestly when the environment cannot fabricate that premise.
+#[test]
+fn stop_launch_error_with_live_foreign_group_is_uncertain() {
+    let me = unsafe { libc::geteuid() };
+    let (uid1, pgid1, state1) = match proc_startup() {
+        Some(v) => v,
+        None => {
+            eprintln!("SKIP: cannot read /proc/1 startup facts");
+            return;
+        }
+    };
+    if uid1 == me || state1 == "Z" || !group_alive(pgid1, Path::new("/proc")) {
+        eprintln!("SKIP: no live foreign supervisor group to observe");
+        return;
+    }
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    crate::ops_approve::do_approve(&ctx, &approve_default(PID)).unwrap();
+    crate::ops_record::do_record(&ctx, &record_value(PID, "", None)).unwrap();
+    let directory = ctx.preparations.join(PID);
+    let started = format!("{{\"pid\": 1, \"pgid\": {pgid1}}}");
+    crate::fsx::write_new(&directory.join("started.json"), started.as_bytes(), 0o644).unwrap();
+    crate::fsx::write_new(
+        &directory.join("finished.json"),
+        b"{\"setup_exit\": 127, \"check_exit\": null, \"launch_error\": true}",
+        0o644,
+    )
+    .unwrap();
+    let stopped = do_stop(&ctx, &op_value("stop", Some(PID))).unwrap();
+    assert_eq!(
+        stopped.get("retirement").and_then(|v| v.as_str()),
+        Some("uncertain")
+    );
+}

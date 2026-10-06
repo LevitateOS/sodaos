@@ -174,7 +174,18 @@ pub fn run_as_role(
     unsafe {
         libc::close(writer);
     }
-    let mut log = File::create(logpath).map_err(Error::classify)?;
+    // P07-F1: log-I/O failures must still close owned descriptors and
+    // retire/reap the role child before reporting unconfirmed.
+    let mut log = match File::create(logpath) {
+        Ok(log) => log,
+        Err(err) => {
+            unsafe {
+                libc::close(reader);
+            }
+            wait_child(pid);
+            return Err(Error::classify(err));
+        }
+    };
     let mut kept = 0usize;
     loop {
         let mut chunk = [0u8; 65536];
@@ -187,6 +198,7 @@ pub fn run_as_role(
             unsafe {
                 libc::close(reader);
             }
+            wait_child(pid);
             return Err(Error::io_msg("log pipe failed"));
         }
         if got == 0 {
@@ -194,14 +206,26 @@ pub fn run_as_role(
         }
         if kept < crate::LOG_CAP {
             let take = (got as usize).min(crate::LOG_CAP - kept);
-            log.write_all(&chunk[..take])
-                .map_err(|err| Error::io("write", &err))?;
+            if let Err(err) = log.write_all(&chunk[..take]) {
+                drop(log);
+                unsafe {
+                    libc::close(reader);
+                }
+                wait_child(pid);
+                return Err(Error::io("write", &err));
+            }
             kept += take;
         }
     }
     if kept >= crate::LOG_CAP {
-        log.write_all(b"\n[output truncated]\n")
-            .map_err(|err| Error::io("write", &err))?;
+        if let Err(err) = log.write_all(b"\n[output truncated]\n") {
+            drop(log);
+            unsafe {
+                libc::close(reader);
+            }
+            wait_child(pid);
+            return Err(Error::io("write", &err));
+        }
     }
     drop(log);
     unsafe {
@@ -572,7 +596,16 @@ pub fn do_stop(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
             ("known", JsonValue::Bool(false)),
         ])),
         Some(request) => {
-            if fsx::lexists(&directory.join("finished.json")) {
+            // P07-F1: a launch-error (or unreadable) receipt never
+            // independently establishes retirement; verify the group.
+            let finished_clean = match fsx::read_json(ctx, &directory.join("finished.json"), 1024) {
+                Ok(finished) => {
+                    finished.get("launch_error").and_then(|v| v.as_bool()) != Some(true)
+                }
+                Err(Error::Missing) => false,
+                Err(_) => false,
+            };
+            if finished_clean {
                 return Ok(obj(vec![
                     ("stopped", str_value(&pid)),
                     ("retirement", str_value("confirmed")),
