@@ -28,15 +28,16 @@ pub fn run(exec: &dyn Executor) -> Result<(), String> {
         return Err(String::from("host operator required"));
     }
     let deadline = Instant::now() + Duration::from_secs(DEADLINE_SECS);
-    let endpoint = tcontrol_native::cli_endpoint(exec, TAILSCALE_CLI, deadline)?;
+    // CLI diagnostics stay status-only like Go's exec shapes: the shared
+    // runner with the status-only error policy, never subprocess stderr.
+    let status_exec = NativeStatusOnly;
+    let endpoint = tcontrol_native::cli_endpoint(&status_exec, TAILSCALE_CLI, deadline)?;
     // Do not advertise a Tailnet address while the native port only binds a LAN IP.
     // Raw inspection may contain credentials; never print it or include it in errors.
     let live = inspect_forgejo(exec, deadline)?;
     let (domain, running) = published_state(&live, &endpoint.ipv4)?;
     let changed = update_ssh_domain(FORGEJO_ENV, &endpoint.identity)?;
-    // Restart diagnostics stay status-only like Go's Run: the shared
-    // runner with the status-only error policy, never subprocess stderr.
-    let status_exec = NativeStatusOnly;
+    // The restart shares the status-only runner (Go's Run shape).
     restart_forgejo_if_needed(
         &status_exec,
         changed,
@@ -851,6 +852,74 @@ mod tests {
         assert_eq!(
             exec.run(&[], "/bin/sleep", &["60"], deadline).unwrap_err(),
             "signal: killed"
+        );
+    }
+
+    fn stub_cli(env: &TestEnv, name: &str, body: &str) -> String {
+        use std::os::unix::fs::PermissionsExt;
+        let script = env.path(name);
+        std::fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        script
+    }
+
+    #[test]
+    fn endpoint_cli_reports_real_status() {
+        let env = TestEnv::fresh("cli-status");
+        let cli = stub_cli(&env, "tailscale", "echo SECRET=never-log >&2\nexit 3");
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let err = tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap_err();
+        assert_eq!(
+            err,
+            format!(
+                "unavailable: tailscale status is unavailable: {cli} status --json: exit status 3"
+            )
+        );
+        assert!(!err.contains("SECRET"), "stderr leaked: {err}");
+    }
+
+    #[test]
+    fn endpoint_cli_parses_real_output() {
+        let env = TestEnv::fresh("cli-parse");
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        for (doc, identity) in [
+            (
+                r#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["100.88.77.66"]},"CurrentTailnet":{"MagicDNSEnabled":true}}"#,
+                "atlas.example.ts.net",
+            ),
+            (
+                r#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["100.88.77.66"]}}"#,
+                "100.88.77.66",
+            ),
+        ] {
+            let cli = stub_cli(&env, "tailscale", &format!("printf '%s' '{doc}'"));
+            let endpoint = tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap();
+            assert_eq!(endpoint.identity, identity);
+            assert_eq!(endpoint.ipv4, "100.88.77.66");
+        }
+    }
+
+    #[test]
+    fn endpoint_cli_ignores_stdout_on_failure() {
+        // Like Go's Status: a failing CLI is an error even when stdout
+        // holds parseable JSON; the output is never parsed.
+        let env = TestEnv::fresh("cli-failout");
+        let cli = stub_cli(
+            &env,
+            "tailscale",
+            r#"printf '%s' '{"BackendState":"Running","Self":{"TailscaleIPs":["100.88.77.66"]}}'
+echo noise >&2
+exit 1"#,
+        );
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        assert_eq!(
+            tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap_err(),
+            format!(
+                "unavailable: tailscale status is unavailable: {cli} status --json: exit status 1"
+            )
         );
     }
 
