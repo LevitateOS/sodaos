@@ -3,15 +3,12 @@ mod account;
 mod config;
 #[cfg(test)]
 mod config_tests;
-mod env_prepare;
 mod execution;
-mod home_cfg;
 mod launch;
 mod launch_json;
 #[cfg(test)]
 mod launch_tests;
 mod launch_wire;
-mod maintenance;
 mod paths;
 mod runtime;
 mod shell;
