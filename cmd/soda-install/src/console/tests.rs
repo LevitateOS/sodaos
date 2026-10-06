@@ -1,6 +1,8 @@
 use super::test_support::*;
 use super::*;
 use crate::command::FnRunner;
+use crate::errors::Error;
+use crate::signal::Ctx;
 use std::io::Write;
 
 #[test]
