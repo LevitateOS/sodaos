@@ -64,7 +64,7 @@ pub fn stage_extension_package(
     let mut pairs = [("extension.json", 0o644), ("run", 0o755)];
     pairs.sort();
     for (name, mode) in pairs {
-        let data = fs::read(sys::join(&[source, "appliance/soda-extension", name]))?;
+        let data = fs::read(sys::join(&[source, "system/containers/extension", name]))?;
         sys::write_new(&sys::join(&[&package_dir, name]), &data, mode)?;
     }
     fs::hard_link(
@@ -334,5 +334,43 @@ mod tests {
         let image = payload.image("forgejo");
         assert_eq!(image.reference, "ghcr.io/e/sodaos-forgejo@sha256:manifest");
         assert_eq!(image.config, "sha256:config");
+    }
+
+    #[test]
+    fn extension_package_reads_new_layout() {
+        // CORR-C-005: extension inputs live under system/containers/extension/.
+        let dir = std::env::temp_dir().join(format!("sri-ext-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let source = dir.join("src");
+        let ext = source.join("system/containers/extension");
+        fs::create_dir_all(&ext).unwrap();
+        fs::write(ext.join("extension.json"), b"{}").unwrap();
+        fs::write(ext.join("run"), b"#!/bin/sh\n").unwrap();
+        fs::write(ext.join("Containerfile"), b"FROM x\n").unwrap();
+        let context = dir.join("ctx");
+        let backend = context.join("rootfs/usr/libexec/soda/soda-extension");
+        fs::create_dir_all(backend.parent().unwrap()).unwrap();
+        fs::write(&backend, b"backend").unwrap();
+        let native = dir.join("native");
+        let assets = native.join("soda-extension-assets");
+        fs::create_dir_all(assets.join("assets")).unwrap();
+        fs::write(assets.join("files.json"), b"[\"a.bin\"]").unwrap();
+        fs::write(assets.join("assets/a.bin"), b"asset").unwrap();
+        let out = dir.join("out");
+        fs::create_dir_all(&out).unwrap();
+        stage_extension_package(
+            source.to_str().unwrap(),
+            context.to_str().unwrap(),
+            out.to_str().unwrap(),
+            native.to_str().unwrap(),
+        )
+        .unwrap();
+        let package = out.join("extension-context/extension");
+        assert!(package.join("extension.json").is_file());
+        assert!(package.join("run").is_file());
+        assert!(package.join("backend").is_file());
+        assert!(package.join("assets/a.bin").is_file());
+        assert!(out.join("extension-context/Containerfile").is_file());
+        let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -29,6 +29,7 @@ const ADMITTED: &str = "/usr/local/lib/soda/soda-build";
 const PINNED_GO: &str = "/usr/local/lib/soda/pinned-go";
 const WRAPPER: &str = "/usr/sbin/soda-candidate";
 const TOOLS: &str = "/var/lib/soda-candidate-tools";
+const WORKER_POLICY_SRC: &str = "system/host/selinux/soda-build-worker.te";
 const AUTHORITY: &str = "/var/lib/soda-candidate-authority";
 const LEGACY_HOME: &str = "/var/lib/soda-candidate-home";
 const LEGACY_RUN: &str = "/var/lib/soda-candidate-run";
@@ -1119,13 +1120,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     let worker_pp = format!("{bindir}/soda-build-worker.pp");
     run(
         "checkmodule",
-        &[
-            "-M",
-            "-m",
-            "-o",
-            &worker_mod,
-            "scripts/selinux/soda-build-worker.te",
-        ],
+        &["-M", "-m", "-o", &worker_mod, WORKER_POLICY_SRC],
     )?;
     run("semodule_package", &["-o", &worker_pp, "-m", &worker_mod])?;
     refuse_active_build()?;
@@ -1612,5 +1607,13 @@ mod tests {
             ]
         );
         assert!(!argv.iter().any(|a| a.contains("tools/soda-")));
+    }
+
+    #[test]
+    fn worker_policy_input_resolves_in_checkout() {
+        // CORR-C-005: the checkmodule input must resolve at its selected location.
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let root = manifest.ancestors().nth(2).unwrap();
+        assert!(root.join(WORKER_POLICY_SRC).is_file());
     }
 }
