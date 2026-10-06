@@ -5,12 +5,22 @@
 //! Staged bytes, modes, refusals and the printed stage path match the
 //! script; only the argparse envelope carries the new binary name.
 
-use std::collections::HashMap;
+mod branding;
+mod files;
+mod payload;
+
+#[cfg(test)]
+mod tests;
+
 use std::path::{Path, PathBuf};
 
-use soda_json::JsonValue;
+use branding::favicon_bytes;
+use files::{copy, copy_tree, is_real_dir, mkdir_fresh, mkdir_leaf, normalize_tree, read_text};
+use payload::{locked_terminal_assets, payload_entries, payload_source};
 
-use crate::render::chmod;
+use crate::render::{chmod, sha256_hex};
+
+pub use files::check_platform;
 
 /// A script refusal (`parser.error`): the bin prints the message with the
 /// usage preface and exits 2. A failure (traceback class: IO, corrupt
@@ -27,234 +37,6 @@ impl StageError {
 
     fn failure(message: String) -> StageError {
         StageError::Failure(message)
-    }
-}
-
-/// Native-Linux gate, like the script's `platform` check. The architecture
-/// is the compile-time target: a native binary only runs where it was
-/// built for, so this is the runtime check's honest equivalent.
-pub fn check_platform(arch: &str) -> Result<(), String> {
-    if std::env::consts::OS != "linux" || std::env::consts::ARCH != arch {
-        return Err("matching native Linux required".to_string());
-    }
-    Ok(())
-}
-
-fn is_real_dir(path: &Path) -> bool {
-    if !path.is_absolute() || !path.is_dir() {
-        return false;
-    }
-    match std::fs::canonicalize(path) {
-        Ok(real) => real == path,
-        Err(_) => false,
-    }
-}
-
-fn copy(root: &Path, src: &Path, dest: &str, mode: Option<u32>) -> Result<PathBuf, StageError> {
-    let target = root.join(dest.trim_start_matches('/'));
-    let fresh: Vec<PathBuf> = target
-        .ancestors()
-        .skip(1)
-        .filter(|parent| !parent.exists())
-        .map(|parent| parent.to_path_buf())
-        .collect();
-    if let Some(parent) = target.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            StageError::failure(format!("cannot prepare {}: {e}", parent.display()))
-        })?;
-    }
-    for parent in target.ancestors().skip(1) {
-        if parent == root {
-            break;
-        }
-        if fresh.iter().any(|known| known == parent) {
-            chmod(parent, 0o755).map_err(StageError::failure)?;
-        }
-    }
-    if std::fs::symlink_metadata(&target).is_ok() {
-        return Err(StageError::refusal("occupied staging file refused"));
-    }
-    std::fs::copy(src, &target)
-        .map_err(|e| StageError::failure(format!("cannot copy {}: {e}", src.display())))?;
-    if let Some(mode) = mode {
-        chmod(&target, mode).map_err(StageError::failure)?;
-    }
-    Ok(target)
-}
-
-/// Like `shutil.copytree` without `dirs_exist_ok`: the destination must not
-/// exist, symlinks are materialized, and directory modes are left for the
-/// caller's normalization pass.
-fn copy_tree(src: &Path, dst: &Path) -> Result<(), StageError> {
-    if std::fs::symlink_metadata(dst).is_ok() {
-        return Err(StageError::failure(format!(
-            "cannot copy tree to occupied {}",
-            dst.display()
-        )));
-    }
-    std::fs::create_dir_all(dst)
-        .map_err(|e| StageError::failure(format!("cannot prepare {}: {e}", dst.display())))?;
-    let entries = std::fs::read_dir(src)
-        .map_err(|e| StageError::failure(format!("cannot list {}: {e}", src.display())))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| StageError::failure(e.to_string()))?;
-        let from = entry.path();
-        let to = dst.join(entry.file_name());
-        let file_type = entry
-            .file_type()
-            .map_err(|e| StageError::failure(e.to_string()))?;
-        if file_type.is_dir() || (file_type.is_symlink() && from.is_dir()) {
-            copy_tree(&from, &to)?;
-        } else {
-            std::fs::copy(&from, &to)
-                .map_err(|e| StageError::failure(format!("cannot copy {}: {e}", from.display())))?;
-        }
-    }
-    Ok(())
-}
-
-/// Like the script's `rglob` mode passes: directories become 0755, files
-/// 0644. Symlinked directories are not descended into; setting a symlink's
-/// own mode follows the link, like `os.chmod`.
-fn normalize_tree(root: &Path) -> Result<(), StageError> {
-    let entries = std::fs::read_dir(root)
-        .map_err(|e| StageError::failure(format!("cannot list {}: {e}", root.display())))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| StageError::failure(e.to_string()))?;
-        let path = entry.path();
-        let file_type = entry
-            .file_type()
-            .map_err(|e| StageError::failure(e.to_string()))?;
-        if file_type.is_dir() {
-            chmod(&path, 0o755).map_err(StageError::failure)?;
-            normalize_tree(&path)?;
-        } else {
-            chmod(&path, 0o644).map_err(StageError::failure)?;
-        }
-    }
-    Ok(())
-}
-
-/// Like bare `Path.mkdir()`: the parent must exist and the leaf must be
-/// fresh.
-fn mkdir_leaf(path: &Path) -> Result<(), StageError> {
-    std::fs::create_dir(path)
-        .map_err(|e| StageError::failure(format!("cannot create {}: {e}", path.display())))
-}
-
-/// Like `Path.mkdir(parents=True)` without `exist_ok`: missing ancestors
-/// are created, but the leaf itself must be fresh.
-fn mkdir_fresh(path: &Path) -> Result<(), StageError> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            StageError::failure(format!("cannot prepare {}: {e}", parent.display()))
-        })?;
-    }
-    std::fs::create_dir(path)
-        .map_err(|e| StageError::failure(format!("cannot create {}: {e}", path.display())))
-}
-
-fn read_text(path: &Path) -> Result<String, StageError> {
-    std::fs::read_to_string(path)
-        .map_err(|e| StageError::failure(format!("cannot read {}: {e}", path.display())))
-}
-
-fn payload_entries(source: &Path) -> Result<Vec<(String, String)>, StageError> {
-    let path = source.join("assets/branding/forgejo/forgejo-payload.json");
-    let text = read_text(&path)?;
-    let value = JsonValue::parse(&text)
-        .map_err(|_| StageError::failure(format!("cannot parse {}", path.display())))?;
-    match value {
-        JsonValue::Object(entries) => {
-            let mut out = Vec::with_capacity(entries.len());
-            for (dest, origin) in entries {
-                match origin.as_str() {
-                    Some(origin) => out.push((dest, origin.to_string())),
-                    None => {
-                        return Err(StageError::failure(format!(
-                            "cannot parse {}",
-                            path.display()
-                        )))
-                    }
-                }
-            }
-            Ok(out)
-        }
-        _ => Err(StageError::failure(format!(
-            "cannot parse {}",
-            path.display()
-        ))),
-    }
-}
-
-fn locked_terminal_assets(source: &Path) -> Result<HashMap<String, String>, StageError> {
-    let path = source.join("appliance/terminal-assets.lock.json");
-    let text = read_text(&path)?;
-    let value = JsonValue::parse(&text)
-        .map_err(|_| StageError::failure(format!("cannot parse {}", path.display())))?;
-    let mut locked = HashMap::new();
-    let items = match &value {
-        JsonValue::Array(items) => items,
-        _ => {
-            return Err(StageError::failure(format!(
-                "cannot parse {}",
-                path.display()
-            )))
-        }
-    };
-    for item in items {
-        let files = match item.get("files") {
-            Some(JsonValue::Array(files)) => files,
-            _ => {
-                return Err(StageError::failure(format!(
-                    "cannot parse {}",
-                    path.display()
-                )))
-            }
-        };
-        for asset in files {
-            let (Some(file), Some(sha)) = (
-                asset.get("file").and_then(|v| v.as_str()),
-                asset.get("sha256").and_then(|v| v.as_str()),
-            ) else {
-                return Err(StageError::failure(format!(
-                    "cannot parse {}",
-                    path.display()
-                )));
-            };
-            locked.insert(file.to_string(), sha.to_string());
-        }
-    }
-    Ok(locked)
-}
-
-fn favicon_bytes(frames: &[(u8, Vec<u8>)]) -> Vec<u8> {
-    let mut ico = Vec::new();
-    ico.extend_from_slice(&0u16.to_le_bytes());
-    ico.extend_from_slice(&1u16.to_le_bytes());
-    ico.extend_from_slice(&(frames.len() as u16).to_le_bytes());
-    let mut offset = 6 + 16 * frames.len() as u32;
-    for (size, data) in frames {
-        ico.push(*size);
-        ico.push(*size);
-        ico.push(0);
-        ico.push(0);
-        ico.extend_from_slice(&1u16.to_le_bytes());
-        ico.extend_from_slice(&32u16.to_le_bytes());
-        ico.extend_from_slice(&(data.len() as u32).to_le_bytes());
-        ico.extend_from_slice(&offset.to_le_bytes());
-        offset += data.len() as u32;
-    }
-    for (_, data) in frames {
-        ico.extend_from_slice(data);
-    }
-    ico
-}
-
-fn payload_source(source: &Path, build: &Path, origin: &str) -> PathBuf {
-    match origin.strip_prefix("@build/") {
-        Some(rest) => build.join(rest),
-        None => source.join(origin),
     }
 }
 
@@ -417,7 +199,7 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
                 .and_then(|name| name.to_str())
                 .unwrap_or_default();
             match locked.get(file) {
-                Some(pinned) if crate::render::sha256_hex(&data) == *pinned => {}
+                Some(pinned) if sha256_hex(&data) == *pinned => {}
                 Some(_) => {
                     return Err(StageError::refusal(
                         "terminal asset differs from locked upstream bytes",
@@ -477,6 +259,3 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
     )?;
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;
