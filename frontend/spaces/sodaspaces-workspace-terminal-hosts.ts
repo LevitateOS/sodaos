@@ -1,6 +1,8 @@
 import {terminalObservation} from './sodaspaces-attention.js';
-import {check, object, terminalID, terminalMetadata} from './sodaspaces-api.js';
-import type {Space, TerminalMetadata} from './sodaspaces-api.js';
+import {check, object} from './sodaspaces-api.js';
+import {terminalID, terminalMetadata} from './sodaspaces-terminal-response.js';
+import type {Space} from './sodaspaces-api.js';
+import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
 import type {Area, LayoutEntry, PaneArea, WorkspaceLayout} from './sodaspaces-layout.js';
 import {paneFor, putEntry} from './sodaspaces-layout.js';
 import type {TerminalContext, TerminalLocator} from './sodaspaces-terminal.js';

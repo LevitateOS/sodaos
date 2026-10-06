@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {lstat} from 'node:fs/promises';
 import type {Page, WebSocket} from 'playwright';
 import {object} from './sodaspaces-input';
-import {terminalID} from '../../frontend/spaces/sodaspaces-api';
+import {terminalID} from '../../frontend/spaces/sodaspaces-terminal-response';
 import type {MatrixInput, MatrixProject} from './sodaspaces-matrix-input';
 import type {MatrixFacts, MatrixSession} from './sodaspaces-workspace-journey';
 export async function restrictedText(file: string, limit: number) {

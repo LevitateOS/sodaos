@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   spacesResponse,
-  terminalResponse,
   repositoryChoices,
   factoryAuthorityText,
   factoryControlText,
   factoryCommandId,
   factoryRunText,
 } from '../../frontend/spaces/sodaspaces-api';
+import {terminalResponse} from '../../frontend/spaces/sodaspaces-terminal-response';
 import type {FactoryRun} from '../../frontend/spaces/sodaspaces-api';
 const binding = {
   expectedUserId: '1',

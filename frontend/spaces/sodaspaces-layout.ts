@@ -1,4 +1,5 @@
-import {check, object, projectId, terminalID} from './sodaspaces-api.js';
+import {check, object, projectId} from './sodaspaces-api.js';
+import {terminalID} from './sodaspaces-terminal-response.js';
 import type {TerminalLocator} from './sodaspaces-terminal.js';
 
 // Presentation locators, never native authority. Live handles/bindings stay in SodaSpaces.

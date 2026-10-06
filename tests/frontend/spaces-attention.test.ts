@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {attentionReason, terminalObservation} from '../../frontend/spaces/sodaspaces-attention';
-import type {TerminalMetadata} from '../../frontend/spaces/sodaspaces-api';
+import type {TerminalMetadata} from '../../frontend/spaces/sodaspaces-terminal-response';
 const now = 1000000;
 const metadata: TerminalMetadata = {
   id: 'a'.repeat(32),

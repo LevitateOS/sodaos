@@ -1,10 +1,11 @@
 import {LitElement} from 'lit';
 import {renderTerminal} from './sodaspaces-terminal-view.js';
 import type {ConnectionState, TerminalObservation} from './sodaspaces-attention.js';
-import {object, readSodaJSON, terminalID, terminalResponse, id as identifier} from './sodaspaces-api.js';
+import {object, readSodaJSON, id as identifier} from './sodaspaces-api.js';
+import {terminalID, terminalResponse} from './sodaspaces-terminal-response.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
-import type {TerminalMetadata} from './sodaspaces-api.js';
+import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 export type TerminalView = Pick<
   Terminal,

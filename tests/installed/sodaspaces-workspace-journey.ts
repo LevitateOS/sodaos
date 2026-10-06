@@ -5,7 +5,8 @@ import type {Page, WebSocket} from 'playwright';
 import {object} from './sodaspaces-input';
 import type {MatrixInput, MatrixProject} from './sodaspaces-matrix-input';
 import {newManagedTerminal, prepareManagedTerminal, terminalMenu} from './sodaspaces-controls';
-import {terminalID, projectId} from '../../frontend/spaces/sodaspaces-api';
+import {projectId} from '../../frontend/spaces/sodaspaces-api';
+import {terminalID} from '../../frontend/spaces/sodaspaces-terminal-response';
 const spacesPage = '/-/extensions/pages/soda/spaces';
 const spacesAPI = spacesPage + '/api';
 

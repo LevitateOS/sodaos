@@ -1,5 +1,6 @@
-import {object, terminalID} from './sodaspaces-api.js';
-import type {TerminalMetadata} from './sodaspaces-api.js';
+import {object} from './sodaspaces-api.js';
+import {terminalID} from './sodaspaces-terminal-response.js';
+import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
 
 export type ConnectionState =
   | 'opening'

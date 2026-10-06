@@ -1,4 +1,5 @@
-import type {Space, TerminalMetadata} from './sodaspaces-api.js';
+import type {Space} from './sodaspaces-api.js';
+import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
 import type {TerminalObservation} from './sodaspaces-attention.js';
 import type {mountFactoryWatch} from './sodaspaces-factory.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
