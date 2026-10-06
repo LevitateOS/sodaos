@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use super::*;
 
 fn full_content() -> BTreeMap<String, String> {
