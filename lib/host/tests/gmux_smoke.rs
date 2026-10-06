@@ -1,28 +1,20 @@
 // Smoke tests for the PR26 daemon-mux skeleton.
 //
-// The gmux modules are NOT wired into lib.rs yet (the integrator owns that
-// per GMUX_PATCHES.md), so this harness includes them directly. If these
-// includes compile, the modules compile; if these tests pass, admission
-// matches daemon.go and every route dispatches.
-#[path = "../src/gmux_admission.rs"]
-mod gmux_admission;
-#[path = "../src/gmux_backend.rs"]
-mod gmux_backend;
-#[path = "../src/gmux_routes.rs"]
-mod gmux_routes;
-#[path = "../src/gmux_server.rs"]
-mod gmux_server;
-
-use gmux_admission::{
+// The gmux modules are wired into lib.rs; this harness exercises the actual
+// library owners. If these tests pass, admission matches daemon.go and
+// every route dispatches.
+use soda_host::gmux_admission::{
     body_limit_for, is_admitted_mutation_path, valid_identity_request, valid_terminal_request,
     validate_native_request, validate_tailnet_request, AdmissionGate, RequestHead, TerminalGate,
     ADMITTED_MUTATION_PATHS, BODY_LIMIT_DEFAULT, BODY_LIMIT_IDENTITY, BODY_LIMIT_LARGE,
     IDENTITY_ACTIONS, NATIVE_CLEAN_PATHS, TAILNET_ACTIONS, TERMINAL_FRAME_LIMIT,
     TERMINAL_REQUEST_LIMIT, TERMINAL_STREAM_CAP,
 };
-use gmux_backend::{BackendError, ExecBackend, StubBackend, TerminalSession};
-use gmux_routes::{dispatch, websocket_accept_key, DaemonConfig, RouteOutcome, ROUTE_TABLE};
-use gmux_server::{systemd_listener, Server};
+use soda_host::gmux_backend::{BackendError, ExecBackend, StubBackend, TerminalSession};
+use soda_host::gmux_routes::{
+    dispatch, websocket_accept_key, DaemonConfig, RouteOutcome, ROUTE_TABLE,
+};
+use soda_host::gmux_server::{systemd_listener, Server};
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -406,7 +398,7 @@ fn terminal_gate_caps_and_releases() {
 #[cfg(target_os = "linux")]
 fn peer_credentials_attest_self() {
     let (a, b) = UnixStream::pair().unwrap();
-    let cred = gmux_admission::peer_cred(&a).unwrap();
+    let cred = soda_host::gmux_admission::peer_cred(&a).unwrap();
     assert_eq!(cred.pid, std::process::id() as i32);
     assert_eq!(cred.uid, unsafe { libc::geteuid() });
     assert_eq!(cred.gid, unsafe { libc::getegid() });
@@ -418,10 +410,10 @@ fn peer_credentials_attest_self() {
 fn muse_peer_carries_pidfd_pin() {
     use std::os::unix::io::AsRawFd;
     let (a, _b) = UnixStream::pair().unwrap();
-    let peer = gmux_admission::muse_peer(a.as_raw_fd()).unwrap();
+    let peer = soda_host::gmux_admission::muse_peer(a.as_raw_fd()).unwrap();
     assert_eq!(peer.pid, std::process::id() as i32);
     assert!(peer.pidfd >= 0, "pidfd must be pinned");
-    gmux_admission::close_pidfd(&peer);
+    soda_host::gmux_admission::close_pidfd(&peer);
 }
 
 // -- routes: table completeness --
