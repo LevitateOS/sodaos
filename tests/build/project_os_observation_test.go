@@ -2,7 +2,7 @@
 // (internal/host/project/project_os.py) was retired from the tree, so the
 // Python test itself fails at import. The behavior moved first to Go
 // parseOSRelease / Runtime.ObserveOS, then at executor cutover to the Rust
-// `soda-host` daemon (rust/soda-host/src/project.rs, oracle-covered).
+// `soda-host` daemon (lib/host/src/project/mod.rs, oracle-covered).
 // These guards pin that retirement so a resurrected subject or a moved
 // successor fails loudly instead of silently dropping coverage.
 package build
@@ -22,7 +22,7 @@ func TestOSPythonSubjectRetired(t *testing.T) {
 func TestOSRustSuccessorOwnsObservationBehavior(t *testing.T) {
 	_, err := os.Stat(filepath.Join(RepoRoot, "internal/host/project/os.go"))
 	Check(t, os.IsNotExist(err), "Go OS successor resurrected; behavior lives in the Rust daemon")
-	successor := ReadFile(t, "rust/soda-host/src/project/mod.rs")
+	successor := ReadFile(t, "lib/host/src/project/os.rs")
 	for _, want := range []string{
 		"pub fn parse_os_release",
 		"pub fn observe_os",

@@ -3,7 +3,7 @@
 // (the PTY/tmux/systemd protocol it tested no longer exists), so the Python
 // test itself fails at import. Terminal behavior moved first to the Go
 // internal/host/terminal package, then at executor cutover to the Rust
-// `soda-host` daemon (rust/soda-host/src/texec.rs, oracle-covered); the
+// `soda-host` daemon (lib/host/src/terminal/mod.rs, oracle-covered); the
 // frame wire surface stayed in Go as internal/host/terminal.go. These
 // guards pin that retirement so a resurrected subject or a moved successor
 // fails loudly instead of silently dropping coverage.
@@ -27,7 +27,7 @@ func TestTerminalPythonSubjectRetired(t *testing.T) {
 func TestTerminalRustSuccessorOwnsTerminalBehavior(t *testing.T) {
 	_, err := os.Stat(filepath.Join(RepoRoot, "internal/host/terminal"))
 	Check(t, os.IsNotExist(err), "Go terminal executor resurrected; behavior lives in the Rust daemon")
-	executor := ReadFile(t, "rust/soda-host/src/terminal/mod.rs")
+	executor := ReadFile(t, "lib/host/src/terminal/mod.rs")
 	for _, want := range []string{
 		"`AttachNative`",
 		"pub fn attach(container: &str",
