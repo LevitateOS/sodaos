@@ -1,8 +1,8 @@
 use super::process::{capture, ls_nonempty, run, run_stdout_null, Captured};
+use super::selinux::{fcontext_add_or_modify, selinux_has_type};
 use super::storage::{migrate_candidate_home, refuse_active_build, Storage};
 use super::{
-    command_v, fail, fcontext_add_or_modify, selinux_has_type, stripped, Exit, AUTHORITY,
-    LEGACY_RUN, PINNED_GO, TOOLS, WORKER_USER,
+    command_v, fail, stripped, Exit, AUTHORITY, LEGACY_RUN, PINNED_GO, TOOLS, WORKER_USER,
 };
 
 /// Worker-tool outputs the remaining stages still need.
