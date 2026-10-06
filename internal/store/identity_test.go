@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -16,9 +17,16 @@ func TestIdentityConnectionRoundTripAndValidation(t *testing.T) {
 	if err := s.SeedIdentityConnection(ctx, c, credential); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.IdentityConnection(ctx, c.ID)
-	if err != nil || got.ID != c.ID || got.Generation != 1 || got.State != identity.Ready {
-		t.Fatal("saved connection unreadable", err)
+	var raw []byte
+	if err := s.queryRow(ctx, `SELECT data FROM identity_connections WHERE id=?`, c.ID).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var got identity.Connection
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != c.ID || got.Generation != 1 || got.State != identity.Ready {
+		t.Fatal("saved connection unreadable")
 	}
 	var encrypted []byte
 	if err := s.queryRow(ctx, `SELECT credential FROM identity_connections WHERE id=?`, c.ID).Scan(&encrypted); err != nil {
@@ -29,6 +37,7 @@ func TestIdentityConnectionRoundTripAndValidation(t *testing.T) {
 	}
 	wrong := c
 	wrong.Generation++
+	var err error
 	if _, err = s.grants.open(encrypted, identityBinding(wrong)); err == nil {
 		t.Fatal("ciphertext not bound to connection generation")
 	}
@@ -59,9 +68,16 @@ func TestIdentityGrantRoundTrip(t *testing.T) {
 	if err := s.SeedIdentityGrant(ctx, g); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.IdentityGrant(ctx, g.ID)
-	if err != nil || got.ConnectionID != c.ID || got.UserID != 2 {
-		t.Fatal("saved grant unreadable", err)
+	var raw []byte
+	if err := s.queryRow(ctx, `SELECT data FROM identity_grants WHERE id=?`, g.ID).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var got identity.Grant
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ConnectionID != c.ID || got.UserID != 2 {
+		t.Fatal("saved grant unreadable")
 	}
 }
 
@@ -107,7 +123,8 @@ func TestIdentityAuditFailureRollsBackSave(t *testing.T) {
 	if err := s.SeedIdentityGrant(ctx, identity.Grant{ID: "grant-1", ConnectionID: c.ID, UserID: 2, ProjectID: "project"}); err == nil {
 		t.Fatal("unaudited grant committed")
 	}
-	if _, err := s.IdentityGrant(ctx, "grant-1"); err != ErrNotFound {
+	var raw []byte
+	if err := s.queryRow(ctx, `SELECT data FROM identity_grants WHERE id=?`, "grant-1").Scan(&raw); err != ErrNotFound {
 		t.Fatal("audit failure left committed grant", err)
 	}
 }
