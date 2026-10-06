@@ -30,6 +30,7 @@ mod pty_process;
 mod pty_relay;
 mod pyemit;
 mod sha;
+mod socket;
 mod subscription_cgroup;
 mod subscription_credentials;
 mod subscription_prepare;
