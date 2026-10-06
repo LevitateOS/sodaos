@@ -24,13 +24,11 @@ pub use self::wire::{
     MUSE_LAUNCH_SOCKET,
 };
 
-mod args;
+mod arguments;
 
-pub use self::args::muse_arguments;
-
-mod connection;
-
-pub use self::connection::{muse_connection_authorized, select_muse_connection, MuseConnection};
+pub use self::arguments::{
+    muse_arguments, muse_connection_authorized, select_muse_connection, MuseConnection,
+};
 
 mod runtime_types;
 
