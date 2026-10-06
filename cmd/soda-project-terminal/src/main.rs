@@ -25,6 +25,7 @@ mod keys;
 mod proto;
 mod pty;
 mod pty_process;
+mod pty_relay;
 mod pyemit;
 mod sha;
 mod subscription_cgroup;

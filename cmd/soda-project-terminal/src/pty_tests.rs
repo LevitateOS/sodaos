@@ -1,7 +1,11 @@
 use super::*;
 use crate::account::user_environment;
+use crate::proto::ControlFrame;
 use crate::pty_process::{
     child_exited, cstring, end_child, env_entries, set_size, tmux_attach_argv,
+};
+use crate::pty_relay::{
+    apply_control_frame, ingest_control_bytes, read_pty_output, session_should_stop,
 };
 
 fn login() -> Account {
