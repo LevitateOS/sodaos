@@ -1,8 +1,7 @@
 import {LitElement} from 'lit';
 import {renderTerminal} from './sodaspaces-terminal-view.js';
-import type {ConnectionState, TerminalObservation} from './sodaspaces-attention.js';
-import {object, readSodaJSON, id as identifier} from './sodaspaces-api.js';
-import {terminalID, terminalResponse} from './sodaspaces-terminal-response.js';
+import {id as identifier} from './sodaspaces-api.js';
+import {terminalID} from './sodaspaces-terminal-response.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
 import type {PreparedExtensionMount} from './soda-extension.js';
@@ -10,6 +9,8 @@ import {connect} from './sodaspaces-terminal-attachment.js';
 import type {AttachmentInput} from './sodaspaces-terminal-attachment.js';
 import {awaitScreen, clearScreen, openTerminal, resize, screenReady} from './sodaspaces-terminal-screen.js';
 import type {ScreenInput} from './sodaspaces-terminal-screen.js';
+import {detach, endTerminal, json, live, publish} from './sodaspaces-terminal-actions.js';
+import type {ActionsInput} from './sodaspaces-terminal-actions.js';
 export type TerminalView = Pick<
   Terminal,
   | 'cols'
@@ -223,7 +224,7 @@ export class SodaTerminal extends LitElement {
   }
   private endConfirmedTerminal() {
     // Admission must see the exact confirmed ID before the dialog is cleared.
-    if (this.confirming === this.sessionID && !this.closest('[hidden], [inert]')) void this.endTerminal();
+    if (this.confirming === this.sessionID && !this.closest('[hidden], [inert]')) void endTerminal(this.actionsInput());
     this.confirming = undefined;
   }
   private closeMenu() {
@@ -275,53 +276,82 @@ export class SodaTerminal extends LitElement {
       })
     );
   }
-  private live(generation: number) {
-    return !this.disposed && this.state !== 'stale' && this.generation === generation;
-  }
-  private publish(kind: TerminalObservation['kind'], state: ConnectionState) {
-    if (this.disposed) return;
-    const detail: TerminalObservation = {
-      kind,
-      state,
-      generation: this.generation,
-      id: this.sessionID || null,
-    };
-    this.dispatchEvent(
-      new CustomEvent<TerminalObservation>('soda-terminal-observation', {
-        bubbles: true,
-        detail,
-      })
+  invalidate() {
+    detach(
+      this.actionsInput(),
+      'Page context changed. No action was replayed; reconnect through a fresh authorized page.',
+      true
     );
   }
-  private abortActionIfStale(stale: boolean) {
-    if (!stale) return;
-    this.actionRequest?.abort();
-    this.actionRequest = undefined;
-    this.actionBusy = false;
-  }
-  private closeSocket() {
-    const old = this.socket;
-    this.socket = undefined;
-    if (old && old.readyState < 2) old.close();
-  }
-  private detach(message: string, stale = false, reason: ConnectionState = 'connection-lost') {
-    ++this.generation;
-    this.state = stale ? 'stale' : 'closed';
-    this.notice = true;
-    this.confirming = undefined;
-    window.clearTimeout(this.timer);
-    this.request?.abort();
-    this.request = undefined;
-    this.abortActionIfStale(stale);
-    this.observer?.disconnect();
-    this.observer = undefined;
-    this.closeSocket();
-    clearScreen(this.screenInput());
-    this.message = message;
-    this.publish('state', reason);
-  }
-  invalidate() {
-    this.detach('Page context changed. No action was replayed; reconnect through a fresh authorized page.', true);
+  private actionsInput(): ActionsInput {
+    return {
+      readBinding: () => this.binding,
+      readDisposed: () => this.disposed,
+      readState: () => this.state,
+      setState: (state) => {
+        this.state = state;
+      },
+      readGeneration: () => this.generation,
+      bumpGeneration: () => {
+        ++this.generation;
+      },
+      readSessionID: () => this.sessionID,
+      setSessionID: (id) => {
+        this.sessionID = id;
+      },
+      setMessage: (message) => {
+        this.message = message;
+      },
+      setNotice: (notice) => {
+        this.notice = notice;
+      },
+      setConfirming: (confirming) => {
+        this.confirming = confirming;
+      },
+      readActionBusy: () => this.actionBusy,
+      setActionBusy: (busy) => {
+        this.actionBusy = busy;
+      },
+      readActionRequest: () => this.actionRequest,
+      takeActionRequest: () => (this.actionRequest = new AbortController()),
+      clearActionRequest: () => {
+        this.actionRequest = undefined;
+      },
+      clearTimer: () => {
+        window.clearTimeout(this.timer);
+      },
+      abortRequest: () => {
+        this.request?.abort();
+        this.request = undefined;
+      },
+      disconnectObserver: () => {
+        this.observer?.disconnect();
+        this.observer = undefined;
+      },
+      readSocket: () => this.socket,
+      clearSocket: () => {
+        this.socket = undefined;
+      },
+      clearScreen: () => {
+        clearScreen(this.screenInput());
+      },
+      remember: (value) => this.remember(value),
+      dispatchObservation: (detail) => {
+        this.dispatchEvent(
+          new CustomEvent('soda-terminal-observation', {
+            bubbles: true,
+            detail,
+          })
+        );
+      },
+      dispatchAuthorityLost: () => {
+        this.dispatchEvent(
+          new CustomEvent('soda-terminal-authority-lost', {
+            bubbles: true,
+          })
+        );
+      },
+    };
   }
   private screenInput(): ScreenInput {
     return {
@@ -367,8 +397,8 @@ export class SodaTerminal extends LitElement {
         this.observer = observer;
       },
       updateComplete: () => this.updateComplete,
-      isLive: (generation) => this.live(generation),
-      detach: (message, stale, reason) => this.detach(message, stale, reason),
+      isLive: (generation) => live(this.actionsInput(), generation),
+      detach: (message, stale, reason) => detach(this.actionsInput(), message, stale, reason),
       hostStyles: () => getComputedStyle(this),
     };
   }
@@ -396,9 +426,9 @@ export class SodaTerminal extends LitElement {
       readCreateName: () => this.createName,
       setName: (name) => this.setName(name),
       remember: (value) => this.remember(value),
-      publish: (kind, state) => this.publish(kind, state),
-      isLive: (generation) => this.live(generation),
-      detach: (message, stale, reason) => this.detach(message, stale, reason),
+      publish: (kind, state) => publish(this.actionsInput(), kind, state),
+      isLive: (generation) => live(this.actionsInput(), generation),
+      detach: (message, stale, reason) => detach(this.actionsInput(), message, stale, reason),
       dispatchMetadata: (metadata) => {
         this.dispatchEvent(
           new CustomEvent('soda-terminal-metadata', {
@@ -407,7 +437,7 @@ export class SodaTerminal extends LitElement {
           })
         );
       },
-      json: (path, body, signal) => this.json(path, body, signal),
+      json: (path, body, signal) => json(this.actionsInput(), path, body, signal),
       readTerminal: () => this.terminal,
       readSocket: () => this.socket,
       setSocket: (socket) => {
@@ -434,81 +464,6 @@ export class SodaTerminal extends LitElement {
         this.timer = timer;
       },
     };
-  }
-  private async json(path: string, body: Record<string, unknown> | null, signal: AbortSignal) {
-    if (!this.binding) throw Error('Missing terminal binding');
-    const headers: Record<string, string> = {};
-    if (body) {
-      headers['Content-Type'] = 'application/json';
-    }
-    const response = await this.binding.transport.request(path.slice('/api/'.length), {
-      method: body ? 'POST' : 'GET',
-      headers,
-      ...(body
-        ? {
-            body: JSON.stringify(body),
-          }
-        : {}),
-      signal,
-    });
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) this.authorityLost();
-      throw Error('Soda request refused');
-    }
-    return object(await readSodaJSON(response));
-  }
-  private authorityLost() {
-    if (!this.disposed)
-      this.dispatchEvent(
-        new CustomEvent('soda-terminal-authority-lost', {
-          bubbles: true,
-        })
-      );
-  }
-  private actionCurrent(control: AbortController, target: string) {
-    return !this.disposed && this.state !== 'stale' && this.actionRequest === control && this.sessionID === target;
-  }
-  private confirmNativeEnd(result: Record<string, unknown>, target: string) {
-    const observed = terminalResponse(result, this.binding!);
-    if (observed && (observed.id !== target || observed.state !== 'ended')) throw Error('outcome');
-  }
-  private endUnconfirmed() {
-    this.notice = true;
-    this.message = 'End was not confirmed. Inspect this exact terminal; no retry or replacement was made.';
-    this.publish('state', 'unconfirmed');
-  }
-  private finishAction(control: AbortController, timeout: number) {
-    window.clearTimeout(timeout);
-    if (this.actionRequest === control) {
-      this.actionRequest = undefined;
-      this.actionBusy = false;
-    }
-  }
-  private endBlocked() {
-    return this.disposed || this.state === 'stale' || !this.sessionID || !this.binding || this.actionBusy;
-  }
-  private async endTerminal() {
-    if (this.endBlocked()) return;
-    const target = this.sessionID!,
-      control = (this.actionRequest = new AbortController());
-    this.actionBusy = true;
-    const timeout = window.setTimeout(() => control.abort(), 30000);
-    try {
-      const result = await this.json(
-        `/api/environments/${this.binding!.environmentId}/terminal-sessions/${target}`,
-        {action: 'end'},
-        control.signal
-      );
-      if (!this.actionCurrent(control, target)) return;
-      this.confirmNativeEnd(result, target);
-      this.detach('Native cleanup confirmed. Files and independent services remain.', false, 'ended');
-      this.sessionID = undefined;
-      this.remember(null);
-    } catch {
-      if (this.actionCurrent(control, target)) this.endUnconfirmed();
-    } finally {
-      this.finishAction(control, timeout);
-    }
   }
   setVisible(visible: boolean) {
     this.viewVisible = visible;
@@ -537,11 +492,11 @@ export class SodaTerminal extends LitElement {
     if (this.sessionID) return connect(this.attachmentInput(), true);
   }
   disconnect() {
-    this.detach('Detached. Native work is not ended by disconnection.');
+    detach(this.actionsInput(), 'Detached. Native work is not ended by disconnection.');
   }
   dispose() {
     if (this.disposed) return;
-    this.detach('Detached.', true);
+    detach(this.actionsInput(), 'Detached.', true);
     this.disposed = true;
     this.lifetime.abort();
     this.remove();
