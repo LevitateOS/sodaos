@@ -30,11 +30,11 @@ func testVMBinary(t *testing.T) string {
 
 func stageBinary(t *testing.T) string {
 	t.Helper()
-	return CargoBinary(t, "soda-stage-render", "soda-stage", "--bin", "soda-stage")
+	return CargoBinary(t, "soda-release-assets", "soda-stage", "--bin", "soda-stage")
 }
 
 func TestSodaspacesSpacesEntryIsPackagedByTheExtension(t *testing.T) {
-	extension := ReadJSON(t, "appliance/soda-extension/extension.json").(map[string]any)
+	extension := ReadJSON(t, "system/containers/extension/extension.json").(map[string]any)
 	manifest := payloadFiles(t)
 	var spaces map[string]any
 	for _, entry := range extension["pages"].([]any) {
@@ -135,6 +135,8 @@ func TestSodaspacesActualStageRecipeWithSyntheticBuildInputs(t *testing.T) {
 	chmodTree(t, filepath.Join(checkout, "assets"))
 	copyTree(t, filepath.Join(RepoRoot, "appliance"), filepath.Join(checkout, "appliance"))
 	copyTree(t, filepath.Join(RepoRoot, "frontend"), filepath.Join(checkout, "frontend"))
+	copyTree(t, filepath.Join(RepoRoot, "system", "host", "config"), filepath.Join(checkout, "system/host/config"))
+	copyTree(t, filepath.Join(RepoRoot, "system", "licenses"), filepath.Join(checkout, "system/licenses"))
 	// The branding payload manifest rides along inside the copied assets/.
 	payloadSrc, err := os.ReadFile(filepath.Join(RepoRoot, "assets/branding/forgejo/forgejo-payload.json"))
 	Require(t, err == nil, "read payload: %v", err)
@@ -160,7 +162,10 @@ func TestSodaspacesActualStageRecipeWithSyntheticBuildInputs(t *testing.T) {
 	Require(t, os.Mkdir(filepath.Join(build, "forgejo-locales"), 0o755) == nil, "mkdir locales")
 	WriteFile(t, filepath.Join(build, "forgejo-locales/locale_en-US.ini"), []byte("synthetic full-catalog output; not native proof"), 0o644)
 	Require(t, os.Mkdir(filepath.Join(build, "terminal-assets"), 0o755) == nil, "mkdir terminal-assets")
-	lockPath := filepath.Join(checkout, "appliance/terminal-assets.lock.json")
+	lockSrc, err := os.ReadFile(filepath.Join(RepoRoot, "tools/release-assets/terminal-assets.lock.json"))
+	Require(t, err == nil, "read lock: %v", err)
+	lockPath := filepath.Join(checkout, "tools/release-assets/terminal-assets.lock.json")
+	WriteFile(t, lockPath, lockSrc, 0o644)
 	lockData, err := os.ReadFile(lockPath)
 	Require(t, err == nil, "read lock: %v", err)
 	var lock []map[string]any

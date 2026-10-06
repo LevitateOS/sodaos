@@ -57,8 +57,12 @@ fn valid_escapes(s: &str) -> bool {
 }
 
 pub fn https_url(raw: &str) -> bool {
-    if raw.len() < 8 || !raw[..8].eq_ignore_ascii_case("https://") {
-        return false;
+    // Byte-safe prefix check (D02-F1): `get(..8)` refuses short inputs and
+    // `eq_ignore_ascii_case` only matches ASCII bytes, so byte 8 is always
+    // a character boundary below. Admissibility is unchanged.
+    match raw.as_bytes().get(..8) {
+        Some(prefix) if prefix.eq_ignore_ascii_case(b"https://") => {}
+        _ => return false,
     }
     let rest = &raw[8..];
     if rest.is_empty() || raw.contains('#') || rest.contains('?') {
@@ -128,5 +132,18 @@ mod tests {
     fn scheme_matches_go_case_folding() {
         // Go lowercases the parsed scheme before the comparison.
         assert!(https_url("HTTPS://example.test/base"));
+    }
+
+    #[test]
+    fn multibyte_prefix_never_panics() {
+        // D02-F1: 7 ASCII bytes + a multibyte char pass the byte-length
+        // guard while byte 8 lands mid-char; the predicate must refuse,
+        // not panic.
+        assert!(!https_url("https:/éxample.test/"));
+        assert!(!https_url("https:/é"));
+        assert!(!https_url("http://é/"));
+        // Admissibility unchanged past a valid prefix: unicode hosts keep
+        // the verdict the downstream checks already gave them.
+        assert!(https_url("https://éxample.test/"));
     }
 }

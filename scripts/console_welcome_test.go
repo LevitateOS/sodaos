@@ -135,7 +135,7 @@ func TestConsoleDoesNotRenderNonOperatorOrUnsafeOrigins(t *testing.T) {
 }
 
 func TestConsoleHookKeepsNoninteractiveSSHQuiet(t *testing.T) {
-	cmd := exec.Command("sh", "-c", ". ../appliance/config/console-welcome.sh")
+	cmd := exec.Command("sh", "-c", ". ../system/host/config/console-welcome.sh")
 	out, err := cmd.CombinedOutput()
 	if err != nil || len(out) != 0 {
 		t.Fatal("noninteractive output", err, string(out))

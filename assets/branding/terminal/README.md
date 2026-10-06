@@ -12,7 +12,7 @@ The grid assumes ordinary terminal cells roughly twice as tall as they are wide.
 - `motd.txt`: equivalent plain ASCII plus the product name, with no escape codes
   or fastfetch placeholders.
 
-Regenerate with `cargo run -p soda-stage-render --bin soda-render-terminal-logo --` (append `--check` to verify instead).
+Regenerate with `cargo run -p soda-release-assets --bin soda-render-terminal-logo --` (append `--check` to verify instead).
 The generator reads the actual canonical SVG, including its even-odd core cutout.
 
 Preview from the repository root:

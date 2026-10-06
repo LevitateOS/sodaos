@@ -56,7 +56,7 @@ func TestForgejoFooterKeepsLiveFeatures(t *testing.T) {
 }
 
 func TestSodaspacesRequestLoggingOmitsQueries(t *testing.T) {
-	body, err := os.ReadFile("../appliance/config/forgejo.env")
+	body, err := os.ReadFile("../system/host/config/forgejo.env")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -164,24 +164,24 @@ cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-
 STEP Build frontend assets
 bun scripts/build-forgejo.ts --out $ROOT/.artifacts/native/x86_64/forgejo-js
 STEP Fetch terminal assets
-cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-terminal -- --out $ROOT/.artifacts/native/x86_64/terminal-assets
+cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out $ROOT/.artifacts/native/x86_64/terminal-assets
 STEP Build Soda extension browser assets
 bun scripts/build-soda-extension.ts --out $ROOT/.artifacts/native/x86_64/soda-extension-assets --terminal-assets $ROOT/.artifacts/native/x86_64/terminal-assets
 STEP Prepare Forgejo translations
-cargo run --release --locked -p soda-forgejo-locales --bin soda-forgejo-locales -- --lock appliance/forgejo/locale.lock.json --out $ROOT/.artifacts/native/x86_64/forgejo-locales/locale_en-US.ini
+cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock appliance/forgejo/locale.lock.json --out $ROOT/.artifacts/native/x86_64/forgejo-locales/locale_en-US.ini
 STEP Fetch upstream Muse binary
-cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-muse -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools/bin/muse-native
+cargo run --release --locked -p soda-release-assets --bin soda-fetch-muse -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools/bin/muse-native
 STEP Fetch upstream Tea binary
-cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-tea -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools
+cargo run --release --locked -p soda-release-assets --bin soda-fetch-tea -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools
 STEP Stage appliance files
-cargo run --release --locked -p soda-stage-render --bin soda-stage -- --arch x86_64 --host-context $ROOT/.artifacts/native/x86_64/context --forgejo-context $ROOT/.artifacts/native/x86_64/forgejo-context
+cargo run --release --locked -p soda-release-assets --bin soda-stage -- --arch x86_64 --host-context $ROOT/.artifacts/native/x86_64/context --forgejo-context $ROOT/.artifacts/native/x86_64/forgejo-context
 STEP Select frozen Rocky base
 STEP Build image: dashboard
-podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/dashboard.iid --file appliance/dashboard.Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
+podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/dashboard.iid --file system/containers/dashboard/Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
 STEP Export and verify image: dashboard
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/dashboard.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 STEP Build image: project-os
-podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/project-os.iid --file project-os/Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
+podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/project-os.iid --file system/project/Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
 STEP Export and verify image: project-os
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/project-os.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 STEP Select frozen Forgejo
@@ -198,7 +198,7 @@ STEP Export and verify image: proxy
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/proxy.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 STEP Select frozen Tailnet base
 STEP Build image: tailnet
-podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/tailnet.iid --file appliance/tailnet.Containerfile --build-arg=TAILSCALE_VERSION=1.98.2 --build-arg=TARGETARCH=amd64 --build-arg=ARCHIVE_SHA256=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee .
+podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/tailnet.iid --file system/containers/tailnet/Containerfile --build-arg=TAILSCALE_VERSION=1.98.2 --build-arg=TARGETARCH=amd64 --build-arg=ARCHIVE_SHA256=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee .
 STEP Export and verify image: tailnet
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/tailnet.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 "###;

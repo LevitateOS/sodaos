@@ -236,7 +236,7 @@ contains sensitive password hashes.
 
 Read the owning guide before changing its contracts, not this entire list.
 Architecture owns product/security boundaries; feature guides own their details.
-Service/image source in `appliance/services/` and `project-os/` establishes topology.
+Service/image source in `system/host/services/` and `system/project/` establishes topology.
 
 | Area | Guide |
 | --- | --- |

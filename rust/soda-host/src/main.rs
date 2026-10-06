@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(staged.exit_code(), 78);
         assert_eq!(MainError::Other("daemon exited".to_string()).exit_code(), 1);
         // The companion unit must not restart the explicit-retry signal.
-        let unit = std::fs::read_to_string("../../appliance/services/soda-tailnet@.service")
+        let unit = std::fs::read_to_string("../../system/host/services/soda-tailnet@.service")
             .expect("companion unit file");
         assert!(unit.contains("RestartPreventExitStatus=78\n"), "{unit}");
         assert!(unit.contains("Restart=on-failure\n"), "{unit}");

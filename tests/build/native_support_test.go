@@ -12,7 +12,7 @@ import (
 
 func renderBinary(t *testing.T) string {
 	t.Helper()
-	return CargoBinary(t, "soda-stage-render", "soda-render-provisioning", "--bin", "soda-render-provisioning")
+	return CargoBinary(t, "soda-release-assets", "soda-render-provisioning", "--bin", "soda-render-provisioning")
 }
 
 type provisionFixture struct {
@@ -142,7 +142,7 @@ func TestProvisioningHostKeyContentsNeverBecomeProcessArguments(t *testing.T) {
 }
 
 func TestProvisioningPublicBootstrapHasNoIdentityOrAutomaticReboot(t *testing.T) {
-	raw := ReadFile(t, "appliance/provisioning/base.json")
+	raw := ReadFile(t, "system/host/provisioning/base.json")
 	var data map[string]any
 	Require(t, json.Unmarshal([]byte(raw), &data) == nil, "parse base.json")
 	_, present := data["passwd"]
@@ -153,7 +153,7 @@ func TestProvisioningPublicBootstrapHasNoIdentityOrAutomaticReboot(t *testing.T)
 }
 
 func TestProvisioningInstalledConsoleWelcomeRunsBeforeLogin(t *testing.T) {
-	raw := ReadJSON(t, "appliance/provisioning/candidate.json").(map[string]any)
+	raw := ReadJSON(t, "system/host/provisioning/candidate.json").(map[string]any)
 	units := raw["systemd"].(map[string]any)["units"].([]any)
 	found := false
 	for _, entry := range units {
@@ -163,13 +163,13 @@ func TestProvisioningInstalledConsoleWelcomeRunsBeforeLogin(t *testing.T) {
 		}
 	}
 	Check(t, found, "console service not enabled")
-	body := ReadFile(t, "appliance/services/soda-console.service")
+	body := ReadFile(t, "system/host/services/soda-console.service")
 	Check(t, strings.Contains(body, "Before=getty@tty1.service"), "missing Before")
 	Check(t, strings.Contains(body, "50-soda.issue"), "missing issue")
 }
 
 func TestProvisioningInstalledSystemDefaultsToPasswordSSH(t *testing.T) {
-	raw := ReadFile(t, "appliance/provisioning/candidate.json")
+	raw := ReadFile(t, "system/host/provisioning/candidate.json")
 	var data map[string]any
 	Require(t, json.Unmarshal([]byte(raw), &data) == nil, "parse candidate.json")
 	files := data["storage"].(map[string]any)["files"].([]any)
@@ -215,11 +215,11 @@ func TestOutsideSupportToolsAreNotApplianceCommands(t *testing.T) {
 }
 
 func TestOutsideBootBindsBrowserServicesWithoutQuadletEnable(t *testing.T) {
-	unit := ReadFile(t, "appliance/services/soda-console.service")
+	unit := ReadFile(t, "system/host/services/soda-console.service")
 	Check(t, strings.Contains(unit, "Wants=forgejo.service soda-dashboard.service soda-proxy.service"), "missing Wants")
 	Check(t, !strings.Contains(unit, "enable --now"), "enable present")
 	for _, name := range []string{"soda-dashboard.container", "soda-proxy.container"} {
-		container := ReadFile(t, "appliance/services/"+name)
+		container := ReadFile(t, "system/host/services/"+name)
 		Check(t, strings.Contains(container, "ConditionPathExists=/etc/soda/activated"), "%s missing condition", name)
 	}
 }

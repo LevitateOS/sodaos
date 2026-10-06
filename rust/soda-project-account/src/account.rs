@@ -1,5 +1,5 @@
 //! Bounded project account setup (Rust port of
-//! `project-os/rootfs/usr/libexec/soda/project-account`).
+//! `system/project/rootfs/usr/libexec/soda/project-account`).
 //!
 //! [`provision`] mirrors the Python statement for statement: root gate,
 //! exact request shape, login/key validation, lock-then-observe ordering,

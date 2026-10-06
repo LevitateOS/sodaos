@@ -1,37 +1,37 @@
 {
   "installed_paths": [
-    "project-os/rootfs/usr/libexec/soda/project-init"
+    "system/project/rootfs/usr/libexec/soda/project-init"
   ],
   "units": [
     {
-      "file": "appliance/services/soda-host.socket",
+      "file": "system/host/services/soda-host.socket",
       "lines": [
         "ListenStream=/run/soda/host.sock"
       ]
     },
     {
-      "file": "appliance/services/soda-host.service",
+      "file": "system/host/services/soda-host.service",
       "lines": [
         "ExecStart=/usr/local/libexec/soda/soda-host",
         "Requires=soda-host.socket"
       ]
     },
     {
-      "file": "appliance/services/soda-identity.socket",
+      "file": "system/host/services/soda-identity.socket",
       "lines": [
         "ListenStream=/run/soda/identity/admin.sock",
         "FileDescriptorName=admin"
       ]
     },
     {
-      "file": "appliance/services/soda-identity-runtime.socket",
+      "file": "system/host/services/soda-identity-runtime.socket",
       "lines": [
         "ListenStream=/run/soda/identity/runtime.sock",
         "FileDescriptorName=runtime"
       ]
     },
     {
-      "file": "appliance/services/soda-identity.service",
+      "file": "system/host/services/soda-identity.service",
       "lines": [
         "ExecStart=/usr/local/libexec/soda/soda-identity",
         "Requires=soda-host.socket soda-identity.socket soda-identity-runtime.socket",
@@ -39,20 +39,20 @@
       ]
     },
     {
-      "file": "appliance/services/soda-tailnet@.service",
+      "file": "system/host/services/soda-tailnet@.service",
       "lines": [
         "ExecStart=/usr/local/libexec/soda/soda-host --tailnet-action=run --project=%i",
         "ExecStop=/usr/local/libexec/soda/soda-host --tailnet-action=stop --project=%i"
       ]
     },
     {
-      "file": "appliance/services/soda-project@.service",
+      "file": "system/host/services/soda-project@.service",
       "lines": [
         "ExecStartPost=/usr/local/libexec/soda/soda-muse-maintain --bind-only --project %i"
       ]
     },
     {
-      "file": "appliance/services/soda-pg-provision.service",
+      "file": "system/host/services/soda-pg-provision.service",
       "lines": [
         "ExecStart=/usr/bin/soda-setup --provision-db-only"
       ]

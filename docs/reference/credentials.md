@@ -52,7 +52,7 @@ are separate explicit actions, never automatic migrations.
 - Config load: `internal/config`
 - Native browser authority: `internal/web/auth`
 - Provider credentials and grants: `internal/identity`, `internal/store`
-- Setup/activate scripts and units under `appliance/` and `scripts/`
+- Setup/activate scripts and units under `system/` and `scripts/`
 
 ## Identity Broker
 

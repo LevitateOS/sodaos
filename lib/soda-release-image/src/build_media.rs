@@ -149,7 +149,7 @@ pub fn prepare_media_inputs(
             "--security-opt=label=disable".to_string(),
             format!(
                 "--volume={}:{}",
-                sys::join(&[source, "appliance/provisioning/candidate.json"]),
+                sys::join(&[source, "system/host/provisioning/candidate.json"]),
                 "/input.json:ro"
             ),
             tools.butane.clone(),

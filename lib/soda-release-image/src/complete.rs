@@ -123,11 +123,11 @@ pub fn write_factory_defaults(root: &str) -> Result<(), Error> {
 pub fn configure_complete_systemd(source: &str, root: &str) -> Result<(), Error> {
     let mut pairs = [
         (
-            "appliance/host-image/soda-image-import.service",
+            "system/host/image/soda-image-import.service",
             "usr/lib/systemd/system/soda-image-import.service",
         ),
         (
-            "appliance/host-image/retained-images.conf",
+            "system/host/image/retained-images.conf",
             "usr/lib/systemd/system/soda-host.service.d/10-images.conf",
         ),
     ];
@@ -138,7 +138,7 @@ pub fn configure_complete_systemd(source: &str, root: &str) -> Result<(), Error>
     }
     let dropin = fs::read(sys::join(&[
         source,
-        "appliance/host-image/retained-images.conf",
+        "system/host/image/retained-images.conf",
     ]))?;
     // Keep the project unit's exact-fragment/drop-in admission contract unchanged:
     // put this dependency directly in its generated vendor fragment, not a drop-in.

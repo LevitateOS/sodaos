@@ -95,7 +95,7 @@ func caddyBinary(t *testing.T) string {
 func adaptCaddy(t *testing.T, binary string, env []string, extra ...string) map[string]any {
 	t.Helper()
 	args := append([]string{"adapt"}, extra...)
-	args = append(args, "--config", filepath.Join(RepoRoot, "appliance/config/proxy.Caddyfile"))
+	args = append(args, "--config", filepath.Join(RepoRoot, "system/host/config/proxy.Caddyfile"))
 	result := Run(t, RunOpt{Env: env}, binary, args...)
 	Require(t, result.Code == 0, "caddy adapt failed: %s", result.Stderr)
 	var config map[string]any

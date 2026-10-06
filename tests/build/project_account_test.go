@@ -335,7 +335,7 @@ func TestAccountStdinContractBounds(t *testing.T) {
 
 func TestAccountNativePasswordSSHPolicyIsNotRelaxed(t *testing.T) {
 	var matches []string
-	err := filepath.WalkDir(filepath.Join(RepoRoot, "project-os/rootfs/etc/ssh"),
+	err := filepath.WalkDir(filepath.Join(RepoRoot, "system/project/rootfs/etc/ssh"),
 		func(path string, entry os.DirEntry, err error) error {
 			if err == nil && !entry.IsDir() && strings.HasSuffix(entry.Name(), ".conf") {
 				matches = append(matches, path)

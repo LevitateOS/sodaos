@@ -20,7 +20,7 @@ bun run build:forgejo
 bun run test:lit
 ```
 
-`appliance/soda-extension/extension.json` declares the Spaces, Runners and Tailnet
+`system/containers/extension/extension.json` declares the Spaces, Runners and Tailnet
 page entries and Workspace panel entry. `scripts/build-soda-extension.ts` bundles
 their module graphs, builds their CSS and packages the locked xterm assets and
 notices. Extension components load those package assets through the mount context's

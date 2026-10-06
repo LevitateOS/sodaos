@@ -17,7 +17,7 @@ upstream update procedure belongs to the
 Original Soda robot v1 artwork is Apache-2.0, with provenance in
 [`internal/avatar/README.md`](../../internal/avatar/README.md). The renderer uses no
 Bottts artwork. Exact DiceBear/core-schema/validator/text dependency license texts
-are retained in [`avatar-dependencies.txt`](../../appliance/licenses/avatar-dependencies.txt)
+are retained in [`avatar-dependencies.txt`](../../system/licenses/avatar-dependencies.txt)
 and copied into new native bundles; this is not broader distribution clearance.
 
 - Forgejo's overall GPL-3.0-or-later and its per-file/template terms remain applicable
@@ -85,7 +85,7 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
   source together; historical bundles/evidence still need their original notices.
 
 The full Forgejo presentation inventory includes the selected 15.0.9 GPL text
-(`appliance/licenses/forgejo-LICENSE`), Soda LICENSE/NOTICE, all three bundled font
+(`system/licenses/forgejo-LICENSE`), Soda LICENSE/NOTICE, all three bundled font
 family licenses, and the locked source metadata for the complete merged English
 catalog. Fountain's exact source input is retained separately by the candidate
 producer because the presentation inventory is not corresponding source. Neither
@@ -101,7 +101,7 @@ been newly packaged or installed by moving these notes.
 
 The Lit scaffold stages the exact BSD-3-Clause text from its resolved npm package
 as `public/assets/soda/forgejo/lit.LICENSE`, retained in
-[`appliance/licenses/lit-LICENSE`](../../appliance/licenses/lit-LICENSE). The bundled
+[`system/licenses/lit-LICENSE`](../../system/licenses/lit-LICENSE). The bundled
 core (`lit`, `lit-element`, `lit-html`, `@lit/reactive-element`) shares that license
 text and copyright; dependency identities remain in the root Bun lockfile. This
 adds the browser runtime's notice, not a wider distribution-clearance claim.
@@ -112,7 +112,7 @@ The native terminal source adds `github.com/coder/websocket`, pinned with real m
 checksums in `go.mod`/`go.sum`. Its v1.8.15 `LICENSE.txt` is ISC, not MIT; the verbatim
 copyright/permission/warranty text is included in root `NOTICE`, which the existing
 bundle already carries. Xterm 6.0.0 and fit 0.11.0 are now pinned in
-`appliance/terminal-assets.lock.json` with real archive/file integrity. The native
+`tools/release-assets/terminal-assets.lock.json` with real archive/file integrity. The native
 build fetches their exact ES-module/CSS distributions and stages both verbatim MIT
 notices beside them; no CDN or runtime download is used. This records dependency
 notices, not complete binary/runtime license closure or deployment.

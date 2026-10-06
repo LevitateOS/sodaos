@@ -94,13 +94,13 @@ func TestForgejoMigrateSkipsMissingConfig(t *testing.T) {
 }
 
 func TestForgejoMigrateUnitWiring(t *testing.T) {
-	unit := readRuntimeFile(t, "appliance/services/soda-forgejo-migrate.service")
+	unit := readRuntimeFile(t, "system/host/services/soda-forgejo-migrate.service")
 	requireContains(t, unit,
 		"Before=forgejo.service",
 		"ConditionPathExists=/var/lib/soda/forgejo/gitea/conf/app.ini",
 		"ExecStart=/usr/bin/soda-forgejo-migrate",
 	)
-	container := readRuntimeFile(t, "appliance/services/forgejo.container")
+	container := readRuntimeFile(t, "system/host/services/forgejo.container")
 	requireContains(t, container,
 		"Requires=soda-forgejo-migrate.service",
 		"After=soda-forgejo-migrate.service",

@@ -39,7 +39,7 @@ This choice follows the actual startup/store wiring in
 [`cmd/soda-dashboard`](../../cmd/soda-dashboard/main.go), the separate ledger in
 [`factory/control`](../../internal/factory/control/config.go), existing
 [`host` lease delivery](../../internal/host/identity.go), and the current
-[backend image](../../appliance/dashboard.Containerfile). Three fresh Jev
+[backend image](../../system/containers/dashboard/Containerfile). Three fresh Jev
 consultations supported backend placement and host delivery; that advice does
 not prove either implementation. The [planning evidence](../development/factory-implementation-plan.md#interface-definition)
 records their scope and source revisions.

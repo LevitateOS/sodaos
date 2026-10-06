@@ -89,14 +89,14 @@ func TestForgejoPayloadExactSourcesTemplateClosureAndNotices(t *testing.T) {
 	_, present := files["public/assets/soda/forgejo/forgejo-LICENSE"]
 	Check(t, present, "forgejo LICENSE missing")
 	Check(t, files["public/assets/soda/forgejo/lit.js"] == "@build/forgejo-js/lit.js", "lit.js origin changed")
-	Check(t, files["public/assets/soda/forgejo/lit.LICENSE"] == "appliance/licenses/lit-LICENSE", "lit license origin changed")
+	Check(t, files["public/assets/soda/forgejo/lit.LICENSE"] == "system/licenses/lit-LICENSE", "lit license origin changed")
 	_, present = files["options/locale/locale_en-US.ini"]
 	Check(t, present, "en-US locale missing")
 }
 
 func extensionPages(t *testing.T) []any {
 	t.Helper()
-	raw, ok := ReadJSON(t, "appliance/soda-extension/extension.json").(map[string]any)
+	raw, ok := ReadJSON(t, "system/containers/extension/extension.json").(map[string]any)
 	Require(t, ok, "extension.json is not an object")
 	pages, ok := raw["pages"].([]any)
 	Require(t, ok, "extension pages is not a list")

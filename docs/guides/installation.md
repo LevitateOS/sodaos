@@ -74,6 +74,6 @@ facts.
 ## Operator services
 
 Stock Cockpit listens on all interfaces with the operator credential. Tailscaled and project units follow
-the appliance service definitions under `appliance/services/`. Local CI execution is
+the appliance service definitions under `system/host/services/`. Local CI execution is
 unavailable. Preserve credentials,
 project state, backups and failed evidence unless cleanup is explicitly approved.

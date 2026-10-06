@@ -320,7 +320,7 @@ pub fn live_inputs_paths(
 // pulls verify content downstream. Live inputs stay controller-resolved
 // even though the worker policy admits one narrow exception: P2 stages
 // pinned, checksummed inputs over HTTPS from inside the worker (see
-// scripts/selinux/soda-build-worker.te), so the worker is no longer
+// system/host/selinux/soda-build-worker.te), so the worker is no longer
 // fully denied outbound HTTPS. Keep this comment and the policy rule in
 // sync; if P2 moves to the controller, remove the http_port_t grant.
 pub fn resolve_live_inputs(c: &WorkerConfig, r: &mut Request) -> Result<(), String> {

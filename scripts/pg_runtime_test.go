@@ -29,7 +29,7 @@ func requireContains(t *testing.T, body string, wants ...string) {
 }
 
 func TestPostgresUnitTopology(t *testing.T) {
-	body := readRuntimeFile(t, "appliance/services/soda-postgres.container")
+	body := readRuntimeFile(t, "system/host/services/soda-postgres.container")
 	requireContains(t, body,
 		"Image=docker.io/library/postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675",
 		"ContainerName=soda-postgres",
@@ -59,7 +59,7 @@ func TestPostgresUnitTopology(t *testing.T) {
 }
 
 func TestForgejoUnitPostgresWiring(t *testing.T) {
-	body := readRuntimeFile(t, "appliance/services/forgejo.container")
+	body := readRuntimeFile(t, "system/host/services/forgejo.container")
 	requireContains(t, body,
 		"Requires=soda-postgres-init.service",
 		"After=soda-postgres-init.service",
@@ -77,14 +77,14 @@ func TestForgejoUnitPostgresWiring(t *testing.T) {
 }
 
 func TestPostgresProvisionUnitWiring(t *testing.T) {
-	body := readRuntimeFile(t, "appliance/services/soda-pg-provision.service")
+	body := readRuntimeFile(t, "system/host/services/soda-pg-provision.service")
 	requireContains(t, body,
 		"ConditionPathExists=/etc/soda/installed",
 		"ConditionPathExists=!/etc/soda/postgres/super.passwd",
 		"ExecStart=/usr/bin/soda-setup --provision-db-only",
 		"WantedBy=multi-user.target",
 	)
-	database := readRuntimeFile(t, "appliance/services/soda-postgres.container")
+	database := readRuntimeFile(t, "system/host/services/soda-postgres.container")
 	requireContains(t, database,
 		"Requires=soda-pg-provision.service",
 		"After=soda-pg-provision.service",
@@ -94,7 +94,7 @@ func TestPostgresProvisionUnitWiring(t *testing.T) {
 }
 
 func TestDashboardUnitDatabaseWiring(t *testing.T) {
-	body := readRuntimeFile(t, "appliance/services/soda-dashboard.container")
+	body := readRuntimeFile(t, "system/host/services/soda-dashboard.container")
 	requireContains(t, body,
 		"Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,Z",
 		"Volume=/run/soda/postgres:/run/soda/postgres:ro,z",
@@ -102,7 +102,7 @@ func TestDashboardUnitDatabaseWiring(t *testing.T) {
 }
 
 func TestPostgresBackupScheduleAndStaging(t *testing.T) {
-	init := readRuntimeFile(t, "appliance/services/soda-postgres-init.service")
+	init := readRuntimeFile(t, "system/host/services/soda-postgres-init.service")
 	requireContains(t, init,
 		"Requires=soda-postgres.service",
 		"After=soda-postgres.service",
@@ -122,21 +122,21 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 		"CREATE ROLE",
 		"CREATE DATABASE",
 	)
-	service := readRuntimeFile(t, "appliance/services/soda-postgres-backup.service")
+	service := readRuntimeFile(t, "system/host/services/soda-postgres-backup.service")
 	requireContains(t, service,
 		"After=soda-postgres-init.service",
 		"Type=oneshot",
 		"ExecStart=/usr/bin/soda-pg-backup",
 		"UMask=0077",
 	)
-	timer := readRuntimeFile(t, "appliance/services/soda-postgres-backup.timer")
+	timer := readRuntimeFile(t, "system/host/services/soda-postgres-backup.timer")
 	requireContains(t, timer,
 		"OnCalendar=",
 		"Persistent=true",
 		"Unit=soda-postgres-backup.service",
 		"WantedBy=timers.target",
 	)
-	tmpfiles := readRuntimeFile(t, "appliance/config/soda.tmpfiles")
+	tmpfiles := readRuntimeFile(t, "system/host/config/soda.tmpfiles")
 	requireContains(t, tmpfiles,
 		"d /var/lib/soda/postgres 0700 999 999 -",
 		"d /var/lib/soda/backups/postgres 0700 root root -",
@@ -185,7 +185,7 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 }
 
 func TestFixtureMatchesProductImage(t *testing.T) {
-	unit := readRuntimeFile(t, "appliance/services/soda-postgres.container")
+	unit := readRuntimeFile(t, "system/host/services/soda-postgres.container")
 	var pinned string
 	for line := range strings.Lines(unit) {
 		if ref, ok := strings.CutPrefix(line, "Image="); ok {

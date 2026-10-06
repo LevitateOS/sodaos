@@ -38,7 +38,10 @@ pub fn stage_candidate_forgejo(
     production.assets(context, &forgejo_context)?;
     production.next("Verify immutable Forgejo presentation")?;
     payload.presentation_sha256 = complete::stage_presentation(&forgejo_context, context)?;
-    let recipe = fs::read(sys::join(&[source, "appliance/forgejo.Containerfile"]))?;
+    let recipe = fs::read(sys::join(&[
+        source,
+        "system/containers/forgejo/Containerfile",
+    ]))?;
     sys::write_new(
         &sys::join(&[forgejo_context.as_str(), "Containerfile"]),
         &recipe,
@@ -72,7 +75,7 @@ pub fn stage_extension_package(
     extension::stage_extension_assets(native, &package_dir)?;
     let recipe = fs::read(sys::join(&[
         source,
-        "appliance/soda-extension.Containerfile",
+        "system/containers/extension/Containerfile",
     ]))?;
     sys::write_new(&sys::join(&[&root, "Containerfile"]), &recipe, 0o644)
 }

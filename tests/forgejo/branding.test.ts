@@ -61,7 +61,12 @@ test('Forgejo delivers no decorative robot artwork and retains the new identity'
     assert(source.includes('fill="#df001b"'));
     assert.equal((source.match(/fill-rule="evenodd"/g) || []).length, 2);
   }
-  const staging = await readFile(new URL('rust/soda-stage-render/src/stage.rs', root), 'utf8');
+  const stageDir = new URL('tools/release-assets/src/render/stage/', root);
+  const staging = (
+    await Promise.all(
+      ['mod.rs', 'files.rs', 'payload.rs', 'branding.rs'].map((name) => readFile(new URL(name, stageDir), 'utf8'))
+    )
+  ).join('\n');
   assert(staging.includes('for name in ["logo.svg", "favicon.svg"]'));
   assert(staging.includes('source.join("assets/branding/source/soda-symbol-brutalist.svg"),'));
   assert(staging.includes('images.join(name)'));

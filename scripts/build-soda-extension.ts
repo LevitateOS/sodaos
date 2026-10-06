@@ -39,7 +39,7 @@ async function checkStylesUsedByEntries() {
 }
 
 async function checkManifestEntries() {
-  const manifest = JSON.parse(await readFile(source('appliance/soda-extension/extension.json'), 'utf8')) as {
+  const manifest = JSON.parse(await readFile(source('system/containers/extension/extension.json'), 'utf8')) as {
     pages: Array<{entry: string}>;
     panels: Array<{entry: string}>;
   };
@@ -104,7 +104,7 @@ async function buildStyles(assets: string) {
 }
 
 async function copyLockedTerminal(assets: string, terminal: string) {
-  const lock = JSON.parse(await readFile(source('appliance/terminal-assets.lock.json'), 'utf8')) as Array<{
+  const lock = JSON.parse(await readFile(source('tools/release-assets/terminal-assets.lock.json'), 'utf8')) as Array<{
     files: Array<{file: string; sha256: string}>;
   }>;
   const destination = resolve(assets, 'soda-terminal');
@@ -134,7 +134,7 @@ async function copyNotices(assets: string) {
     await copyFile(source(`assets/branding/fonts/${family}/LICENSE`), resolve(notices, 'fonts', `${family}.LICENSE`));
   }
   await copyFile(source('assets/branding/fonts/sources.json'), resolve(notices, 'font-sources.json'));
-  await copyFile(source('appliance/licenses/lit-LICENSE'), resolve(notices, 'lit.LICENSE'));
+  await copyFile(source('system/licenses/lit-LICENSE'), resolve(notices, 'lit.LICENSE'));
 }
 
 async function filesUnder(path: string, prefix = ''): Promise<string[]> {

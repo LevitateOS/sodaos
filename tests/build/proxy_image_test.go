@@ -9,7 +9,7 @@ import (
 
 func TestProxyImageIsDigestPinned(t *testing.T) {
 	var images []string
-	for _, line := range strings.Split(ReadFile(t, "appliance/services/soda-proxy.container"), "\n") {
+	for _, line := range strings.Split(ReadFile(t, "system/host/services/soda-proxy.container"), "\n") {
 		if strings.HasPrefix(line, "Image=") {
 			images = append(images, strings.TrimSpace(strings.SplitN(line, "=", 2)[1]))
 		}

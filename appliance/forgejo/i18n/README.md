@@ -12,7 +12,7 @@ For the authorized local preview, extract the exact existing image's English INI
 with `forgejo embedded view options/locale/locale_en-US.ini`, then run:
 
 ```sh
-cargo run --release --locked -p soda-forgejo-locales --bin soda-forgejo-locales -- \
+cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- \
   --native .artifacts/forgejo-presentation/upstream/locale_en-US.ini \
   --out .artifacts/personal-settings/locales/locale_en-US.ini
 ```
