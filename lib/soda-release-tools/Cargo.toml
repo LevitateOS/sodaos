@@ -26,6 +26,10 @@ path = "src/bin/soda-artifacts.rs"
 name = "soda-candidate-check"
 path = "src/bin/soda-candidate-check.rs"
 
+[[test]]
+name = "cli"
+path = "tests/cli/main.rs"
+
 [dependencies]
 soda-json = { path = "../json" }
 soda-release-build = { path = "../soda-release-build" }
