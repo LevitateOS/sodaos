@@ -39,8 +39,7 @@ pub use self::runtime_types::{
 mod validate;
 
 pub use self::validate::{
-    host_go_arch, muse_account_modes, muse_account_node, muse_child_pid, muse_delivery_valid,
-    muse_elf, muse_host_environment, muse_mapped_uid, muse_passwd_valid, muse_project_cgroup,
+    host_go_arch, muse_child_pid, muse_delivery_valid, muse_elf, muse_host_environment,
     muse_project_credential_root, muse_readonly_mount, muse_registration_valid, muse_signal,
     MUSE_CHILD_INSPECT, MUSE_INSPECT,
 };
@@ -77,7 +76,12 @@ mod request;
 
 pub use self::request::{muse_descriptors_valid, muse_request_from_fd, MuseRequest};
 
-mod resolve;
+mod caller;
+
+pub use self::caller::{
+    muse_account_modes, muse_account_node, muse_mapped_uid, muse_passwd_valid, muse_project_cgroup,
+};
+
 mod socket;
 mod spawn;
 

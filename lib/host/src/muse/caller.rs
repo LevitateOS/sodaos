@@ -1,9 +1,10 @@
+//! Caller authority resolution: kernel/project/account/registered
+//! caller methods plus the cgroup/account pure helpers.
+
 use std::time::Instant;
 
-use super::{
-    muse_account_modes, muse_mapped_uid, muse_passwd_valid, muse_peer_alive, muse_project_cgroup,
-    MuseCaller, MuseHooks, MusePeer, MuseRuntime,
-};
+use super::{muse_peer_alive, MuseCaller, MuseHooks, MusePeer, MuseRuntime};
+use crate::domain;
 use crate::project::Executor;
 use crate::terminal;
 
@@ -192,4 +193,84 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             .is_ok()
             && muse_peer_alive(peer)
     }
+}
+
+/// `museProjectCgroup`: the complete OCI scope component from
+/// `/proc/<pid>/cgroup`, never a substring guess.
+pub fn muse_project_cgroup(value: &str) -> Result<String, String> {
+    for part in value.trim().split('/') {
+        if let Some(id) = part
+            .strip_prefix("libpod-")
+            .and_then(|s| s.strip_suffix(".scope"))
+        {
+            if domain::valid_container_id(id) {
+                return Ok(id.to_string());
+            }
+        }
+    }
+    Err(terminal::err_denied())
+}
+
+/// `museMappedUID`: inside-UID for a host UID from a uid/gid map.
+pub fn muse_mapped_uid(data: &str, uid: u32) -> Result<i64, String> {
+    for line in data.split('\n') {
+        let p: Vec<&str> = line.split_whitespace().collect();
+        if p.len() != 3 {
+            continue;
+        }
+        let (Some(inside), Some(outside), Some(count)) = (
+            terminal::parse_go_uint(p[0], 32),
+            terminal::parse_go_uint(p[1], 32),
+            terminal::parse_go_uint(p[2], 32),
+        ) else {
+            continue;
+        };
+        if outside > 0 && u64::from(uid) >= outside && u64::from(uid) < outside + count {
+            return Ok((inside + u64::from(uid) - outside) as i64);
+        }
+    }
+    Err(terminal::err_denied())
+}
+
+/// `musePasswdValid`: seven-field passwd row for the mapped UID.
+pub fn muse_passwd_valid(account: &[String], uid: i64) -> bool {
+    if account.len() != 7 {
+        return false;
+    }
+    domain::valid_login(&account[0])
+        && account[0] != "root"
+        && account[2] == uid.to_string()
+        && account[5].starts_with('/')
+}
+
+/// `museAccountNode`: one root-owned account-path node.
+pub fn muse_account_node(line: &str, marker: bool) -> bool {
+    let parts: Vec<&str> = line.splitn(4, ':').collect();
+    if parts.len() != 4 || parts[0] != "0" || parts[1] != "0" {
+        return false;
+    }
+    let Ok(mode) = u32::from_str_radix(parts[2], 8) else {
+        return false;
+    };
+    if mode & 0o022 != 0 {
+        return false;
+    }
+    if marker {
+        return parts[3] == "regular file" && mode == 0o600;
+    }
+    parts[3] == "directory"
+}
+
+/// `museAccountModes`: five account-path nodes, marker last.
+pub fn muse_account_modes(body: &str) -> bool {
+    let lines: Vec<&str> = body.trim().split('\n').collect();
+    if lines.len() != 5 {
+        return false;
+    }
+    for (i, line) in lines.iter().enumerate() {
+        if !muse_account_node(line, i == 4) {
+            return false;
+        }
+    }
+    true
 }
