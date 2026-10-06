@@ -4,8 +4,8 @@ use std::time::Instant;
 
 use super::command::podman;
 use super::filesystem::{go_errno, last_errno};
+use super::interface_admission::public_socket_directory;
 use super::project::{confirm_project, Observation};
-use super::public_socket_directory;
 
 const INTERFACE_SCRIPT: &str = "set -eu; test ! -L /run; test -d /run; test ! -L /run/soda-muse-interface; if test -e /run/soda-muse-interface; then test -d /run/soda-muse-interface; fi; mkdir -p /run/soda-muse-interface";
 

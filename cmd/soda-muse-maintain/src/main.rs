@@ -1,7 +1,4 @@
 // soda-muse-maintain installs public Muse tools and restores a live project interface.
-use std::fs;
-use std::os::unix::fs::FileTypeExt;
-use std::os::unix::fs::MetadataExt;
 use std::time::{Duration, Instant};
 
 mod archive;
@@ -11,6 +8,7 @@ mod config_validation;
 mod config_wire;
 mod filesystem;
 mod interface;
+mod interface_admission;
 mod json;
 mod json_string;
 mod network;
@@ -23,7 +21,7 @@ mod sha256;
 mod stage;
 
 use config::{load_config, Config};
-use filesystem::{go_base, go_dir, load_tools};
+use filesystem::load_tools;
 use interface::{attach_interface, prepare_interface};
 use options::{parse, Options};
 use project::wait_project;
@@ -75,57 +73,6 @@ fn maintain(o: &Options, c: &Config) -> Result<(), String> {
     attach_interface(&target, &c.muse_socket, deadline)
 }
 
-fn public_socket_directory(socket: &str) -> Result<String, String> {
-    if !socket.starts_with('/') || go_base(socket) != "launch.sock" {
-        return Err(String::from("explicit public launch socket required"));
-    }
-    let root = go_dir(socket);
-    let only = String::from("launch directory must contain only the public socket");
-    let entries = fs::read_dir(&root).map_err(|_| only.clone())?;
-    let mut names: Vec<String> = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(|_| only.clone())?;
-        names.push(entry.file_name().to_string_lossy().into_owned());
-    }
-    names.sort();
-    if names.len() != 1 || names[0] != "launch.sock" {
-        return Err(only);
-    }
-    validate_public_socket(socket)?;
-    validate_interface_directory(&root)?;
-    Ok(root)
-}
-
-fn validate_public_socket(socket: &str) -> Result<(), String> {
-    let info = fs::symlink_metadata(socket)
-        .map_err(|_| String::from("public launch socket is unavailable"))?;
-    if !info.file_type().is_socket() {
-        return Err(String::from("public launch socket is unavailable"));
-    }
-    if info.uid() != 0 || info.mode() & 0o777 != 0o666 {
-        return Err(String::from(
-            "public launch socket must be root-owned and public",
-        ));
-    }
-    Ok(())
-}
-
-fn validate_interface_directory(root: &str) -> Result<(), String> {
-    let info = fs::symlink_metadata(root)
-        .map_err(|_| String::from("public launch directory must be a protected directory"))?;
-    if !info.is_dir() || info.mode() & 0o777 & 0o022 != 0 {
-        return Err(String::from(
-            "public launch directory must be a protected directory",
-        ));
-    }
-    if info.uid() != 0 || info.mode() & 0o777 & 0o055 != 0o055 {
-        return Err(String::from(
-            "public launch directory must be root-owned and accessible",
-        ));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::archive::{emit_archive, feed_archive, tar_header};
@@ -137,6 +84,7 @@ mod tests {
         go_base, go_clean, go_dir, go_errno, load_tools, open_tool, verify_native, Tool,
     };
     use super::interface::FdGuard;
+    use super::interface_admission::public_socket_directory;
     use super::network::parse_prefix;
     use super::options::{default_tools, parse, usage_text};
     use super::project::{decode_observation, validate_observation, Observation};
@@ -145,8 +93,9 @@ mod tests {
     use super::stage::INSTALL_SCRIPT;
     use super::*;
     use std::ffi::CString;
+    use std::fs;
     use std::io::Write as _;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::os::unix::io::RawFd;
     use std::process::{Command, Stdio};
     use std::sync::atomic::{AtomicU64, Ordering};
