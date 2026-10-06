@@ -32,22 +32,7 @@ Embedded source SHA-256: d50ddd4916af1e27411d4915f37e941d868367eb53d1d939a0df053
 
 				<!-- PAM -->
 				{{if .Source.IsPAM}}
-					{{$cfg:=.Source.Cfg}}
-					<div class="required field">
-						<label for="pam_service_name">{{ctx.Locale.Tr "admin.auths.pam_service_name"}}</label>
-						<input id="pam_service_name" name="pam_service_name" value="{{$cfg.ServiceName}}" required>
-					</div>
-					<div class="field">
-						<label for="pam_email_domain">{{ctx.Locale.Tr "admin.auths.pam_email_domain"}}</label>
-						<input id="pam_email_domain" name="pam_email_domain" value="{{$cfg.EmailDomain}}">
-					</div>
-					<div class="optional field">
-						<div class="ui checkbox">
-							<label for="skip_local_two_fa"><strong>{{ctx.Locale.Tr "admin.auths.skip_local_two_fa"}}</strong></label>
-							<input id="skip_local_two_fa" name="skip_local_two_fa" type="checkbox" {{if $cfg.SkipLocalTwoFA}}checked{{end}}>
-							<p class="help">{{ctx.Locale.Tr "admin.auths.skip_local_two_fa_helper"}}</p>
-						</div>
-					</div>
+					{{template "admin/auth/edit_pam" (dict "ctxData" . "cfg" .Source.Cfg)}}
 				{{end}}
 
 				<!-- OAuth2 -->
