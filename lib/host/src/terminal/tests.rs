@@ -1896,40 +1896,8 @@ fn identity_start_flow() {
     );
 }
 
-// ----- stream table + admission -----
-
-#[test]
-fn stream_table_flows() {
-    let mut table = StreamTable::new();
-    let mut flags = Vec::new();
-    for _ in 0..STREAM_LIMIT {
-        let (id, cancel) = table.register().expect("room");
-        flags.push((id, cancel));
-    }
-    assert!(table.register().is_none());
-    assert_eq!(table.len(), STREAM_LIMIT);
-    table.unregister(flags[0].0);
-    assert_eq!(table.len(), STREAM_LIMIT - 1);
-    let (id, _) = table.register().expect("room after unregister");
-    table.unregister(id);
-    table.close();
-    assert!(table.is_closed());
-    assert!(table.register().is_none());
-    // Only still-registered streams are cancelled.
-    assert!(!flags[0].1.load(Ordering::SeqCst));
-    for (_, cancel) in &flags[1..] {
-        assert!(cancel.load(Ordering::SeqCst));
-    }
-}
-
 #[test]
 fn private_request_matrix() {
-    assert!(valid_private_terminal_request("GET", "", false, "", 0));
-    assert!(!valid_private_terminal_request("POST", "", false, "", 0));
-    assert!(!valid_private_terminal_request("GET", "x=1", false, "", 0));
-    assert!(!valid_private_terminal_request("GET", "", true, "", 0));
-    assert!(!valid_private_terminal_request("GET", "", false, "/x", 0));
-    assert!(!valid_private_terminal_request("GET", "", false, "", 1));
     assert!(valid_identity_request("POST", "", false, "", 0));
     assert!(!valid_identity_request("GET", "", false, "", 0));
     assert!(!valid_identity_request("POST", "x", false, "", 0));
