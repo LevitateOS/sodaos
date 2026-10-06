@@ -11,6 +11,21 @@ use super::owned_process::{reaper_main, Process};
 use super::{Phase, SharedWriter};
 use crate::command::CommandSpec;
 use crate::error::Error;
+use crate::evidence::RedactingWriter;
+
+/// Byte sink for pump threads. Redacting writers keep their exact
+/// failure strings; raw sinks never fail (they bound instead).
+pub(super) trait PumpSink {
+    fn pump_write(&mut self, bytes: &[u8]) -> Result<(), String>;
+}
+
+impl PumpSink for RedactingWriter {
+    fn pump_write(&mut self, bytes: &[u8]) -> Result<(), String> {
+        self.write_bytes(bytes)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+}
 
 /// Start an owned process, like `StartProcess`. Stdout/stderr pump into the
 /// shared redacting writers; stdin is inherited, null, or pumped bytes.
@@ -21,23 +36,23 @@ pub fn start_process(
     err: SharedWriter,
 ) -> Result<Arc<Process>, Error> {
     phase.check()?;
-    start_process_inner(spec, out, err)
+    start_inner(spec, out, err)
 }
 
 #[cfg(target_os = "linux")]
-fn start_process_inner(
+pub(super) fn start_inner<S: PumpSink + Send + 'static>(
     spec: &CommandSpec,
-    out: SharedWriter,
-    err: SharedWriter,
+    out: Arc<Mutex<S>>,
+    err: Arc<Mutex<S>>,
 ) -> Result<Arc<Process>, Error> {
-    start_process_linux(spec, out, err)
+    start_inner_linux(spec, out, err)
 }
 
 #[cfg(not(target_os = "linux"))]
-fn start_process_inner(
+pub(super) fn start_inner<S>(
     _spec: &CommandSpec,
-    _out: SharedWriter,
-    _err: SharedWriter,
+    _out: Arc<Mutex<S>>,
+    _err: Arc<Mutex<S>>,
 ) -> Result<Arc<Process>, Error> {
     Err(Error::msg(
         "safe owned process execution requires Linux non-reaping wait support",
@@ -45,10 +60,10 @@ fn start_process_inner(
 }
 
 #[cfg(target_os = "linux")]
-fn start_process_linux(
+fn start_inner_linux<S: PumpSink + Send + 'static>(
     spec: &CommandSpec,
-    out: SharedWriter,
-    err: SharedWriter,
+    out: Arc<Mutex<S>>,
+    err: Arc<Mutex<S>>,
 ) -> Result<Arc<Process>, Error> {
     use crate::command::StdinSpec;
 
@@ -112,9 +127,9 @@ pub(super) fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 #[cfg(target_os = "linux")]
-fn spawn_pump(
+fn spawn_pump<S: PumpSink + Send + 'static>(
     stream: Option<impl Read + Send + 'static>,
-    writer: SharedWriter,
+    writer: Arc<Mutex<S>>,
     pump_error: Arc<Mutex<Option<String>>>,
 ) -> JoinHandle<()> {
     std::thread::spawn(move || {
@@ -127,8 +142,8 @@ fn spawn_pump(
             match stream.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
-                    if let Err(e) = lock(&writer).write_bytes(&buf[..n]) {
-                        *lock(&pump_error) = Some(e.to_string());
+                    if let Err(message) = lock(&writer).pump_write(&buf[..n]) {
+                        *lock(&pump_error) = Some(message);
                         break;
                     }
                 }
