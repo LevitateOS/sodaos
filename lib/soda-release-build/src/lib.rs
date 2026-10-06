@@ -28,6 +28,10 @@ pub mod json_input;
 pub mod oci;
 pub mod oci_layout;
 pub mod production;
+pub mod production_assets;
+pub mod production_compile;
+pub mod production_images;
+pub mod production_inputs;
 
 #[cfg(test)]
 pub(crate) mod test_support;
