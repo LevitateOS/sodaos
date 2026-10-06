@@ -44,78 +44,127 @@ impl Executor for Native {
         args: &[&str],
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
-        use std::io::Write;
-        use std::process::Stdio;
-        let mut child = std::process::Command::new(cmd)
-            .args(args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("{cmd} failed: {e}"))?;
-        let mut input = child.stdin.take();
-        let mut out_pipe = child.stdout.take();
-        let mut err_pipe = child.stderr.take();
-        let outcome = std::thread::scope(|scope| {
-            let writer = scope.spawn(|| {
-                if let Some(mut w) = input.take() {
-                    let _ = w.write_all(stdin);
-                }
-            });
-            // Drain stdout/stderr concurrently: a child emitting beyond
-            // pipe capacity would otherwise block forever while the poll
-            // loop below waits for exit (H01-F2).
-            let out_drain = scope.spawn(|| {
-                use std::io::Read;
-                let mut buf = Vec::new();
-                if let Some(mut o) = out_pipe.take() {
-                    let _ = o.read_to_end(&mut buf);
-                }
-                buf
-            });
-            let err_drain = scope.spawn(|| {
-                use std::io::Read;
-                let mut buf = Vec::new();
-                if let Some(mut e) = err_pipe.take() {
-                    let _ = e.read_to_end(&mut buf);
-                }
-                buf
-            });
-            let status = loop {
-                match child.try_wait().map_err(|e| format!("{cmd} failed: {e}"))? {
-                    Some(status) => break status,
-                    None => {
-                        if Instant::now() >= deadline {
-                            let _ = child.kill();
-                            let _ = child.wait();
-                            let _ = writer.join();
-                            return Err(format!("{cmd} failed: deadline exceeded"));
-                        }
-                        std::thread::sleep(Duration::from_millis(5));
-                    }
-                }
-            };
-            writer
-                .join()
-                .map_err(|_| format!("{cmd} failed: stdin writer panicked"))?;
-            let stdout = out_drain.join().unwrap_or_default();
-            let stderr = err_drain.join().unwrap_or_default();
-            Ok((status, stdout, stderr))
-        })?;
-        let (status, stdout, stderr): (std::process::ExitStatus, Vec<u8>, Vec<u8>) = outcome;
-        if status.success() {
-            return Ok(stdout);
-        }
-        Err(format!(
-            "{cmd} failed: {}: {}",
-            exit_text(status),
-            String::from_utf8_lossy(&stderr)
-        ))
+        execute(stdin, cmd, args, deadline, false)
     }
 
     fn is_host_native(&self) -> bool {
         true
     }
+}
+
+/// Native process execution reporting status-only failures (Go `Run`
+/// shape: `exit status N` / `signal: name`), for CLI diagnostics that
+/// must not emit subprocess stderr. Shares Native's launch, concurrent
+/// drain, and deadline kill/wait lifecycle; only the error format differs.
+pub struct NativeStatusOnly;
+
+impl Executor for NativeStatusOnly {
+    fn run(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+    ) -> Result<Vec<u8>, String> {
+        execute(stdin, cmd, args, deadline, true)
+    }
+
+    fn is_host_native(&self) -> bool {
+        true
+    }
+}
+
+fn execute(
+    stdin: &[u8],
+    cmd: &str,
+    args: &[&str],
+    deadline: Instant,
+    status_only: bool,
+) -> Result<Vec<u8>, String> {
+    use std::io::Write;
+    use std::process::Stdio;
+    let mut child = std::process::Command::new(cmd)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            if status_only {
+                format!("fork/exec {cmd}: {e}")
+            } else {
+                format!("{cmd} failed: {e}")
+            }
+        })?;
+    let mut input = child.stdin.take();
+    let mut out_pipe = child.stdout.take();
+    let mut err_pipe = child.stderr.take();
+    let outcome = std::thread::scope(|scope| {
+        let writer = scope.spawn(|| {
+            if let Some(mut w) = input.take() {
+                let _ = w.write_all(stdin);
+            }
+        });
+        // Drain stdout/stderr concurrently: a child emitting beyond
+        // pipe capacity would otherwise block forever while the poll
+        // loop below waits for exit (H01-F2).
+        let out_drain = scope.spawn(|| {
+            use std::io::Read;
+            let mut buf = Vec::new();
+            if let Some(mut o) = out_pipe.take() {
+                let _ = o.read_to_end(&mut buf);
+            }
+            buf
+        });
+        let err_drain = scope.spawn(|| {
+            use std::io::Read;
+            let mut buf = Vec::new();
+            if let Some(mut e) = err_pipe.take() {
+                let _ = e.read_to_end(&mut buf);
+            }
+            buf
+        });
+        let status = loop {
+            match child.try_wait().map_err(|e| format!("{cmd} failed: {e}"))? {
+                Some(status) => break status,
+                None => {
+                    if Instant::now() >= deadline {
+                        let _ = child.kill();
+                        let waited = child.wait();
+                        let _ = writer.join();
+                        if status_only {
+                            // Go's deadline kill surfaces the wait
+                            // status, not a deadline message.
+                            return match waited {
+                                Ok(status) => Err(exit_text(status)),
+                                Err(e) => Err(format!("wait {cmd}: {e}")),
+                            };
+                        }
+                        return Err(format!("{cmd} failed: deadline exceeded"));
+                    }
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
+        };
+        writer
+            .join()
+            .map_err(|_| format!("{cmd} failed: stdin writer panicked"))?;
+        let stdout = out_drain.join().unwrap_or_default();
+        let stderr = err_drain.join().unwrap_or_default();
+        Ok((status, stdout, stderr))
+    })?;
+    let (status, stdout, stderr): (std::process::ExitStatus, Vec<u8>, Vec<u8>) = outcome;
+    if status.success() {
+        return Ok(stdout);
+    }
+    if status_only {
+        return Err(exit_text(status));
+    }
+    Err(format!(
+        "{cmd} failed: {}: {}",
+        exit_text(status),
+        String::from_utf8_lossy(&stderr)
+    ))
 }
 
 #[cfg(unix)]

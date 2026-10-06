@@ -5,12 +5,13 @@
 //! Included by the thin `soda-forgejo-tailnet` bin; not part of the
 //! `soda_host` library API, so only `soda_host::` paths are used here.
 
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::io::{IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use soda_host::json::{decode_tolerant, Value};
-use soda_host::project::Executor;
+use soda_host::project::{Executor, NativeStatusOnly};
 use soda_host::tcontrol_native;
 
 const DEADLINE_SECS: u64 = 90;
@@ -33,8 +34,11 @@ pub fn run(exec: &dyn Executor) -> Result<(), String> {
     let live = inspect_forgejo(exec, deadline)?;
     let (domain, running) = published_state(&live, &endpoint.ipv4)?;
     let changed = update_ssh_domain(FORGEJO_ENV, &endpoint.identity)?;
+    // Restart diagnostics stay status-only like Go's Run: the shared
+    // runner with the status-only error policy, never subprocess stderr.
+    let status_exec = NativeStatusOnly;
     restart_forgejo_if_needed(
-        exec,
+        &status_exec,
         changed,
         &domain,
         &endpoint.identity,
@@ -265,7 +269,7 @@ fn write_forgejo_env(path: &str, updated: &[u8]) -> Result<(), String> {
             }
         }
     }
-    let mut file = match file {
+    let file = match file {
         Some(f) => f,
         None if last_err.is_empty() => {
             return Err(format!(
@@ -275,18 +279,18 @@ fn write_forgejo_env(path: &str, updated: &[u8]) -> Result<(), String> {
         }
         None => return Err(last_err),
     };
-    // Rust File has no checked close; write_all surfaces the write errors
-    // Go reports from WriteString, and a missing rename target fails below.
-    let staged: Result<(), String> = (|| {
-        file.set_permissions(std::fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("chmod {}: {e}", temp_path.display()))?;
-        use std::io::Write;
-        file.write_all(updated)
-            .map_err(|e| format!("write {}: {e}", temp_path.display()))?;
-        Ok(())
-    })();
-    drop(file);
+    // Owned-descriptor staging with a checked close, mirroring Go's
+    // explicit close check that File's Drop cannot report. The fd closes
+    // exactly once on every path below; rename runs only after a
+    // successful chmod, write, and close.
+    let fd = file.into_raw_fd();
+    let staged = stage_forgejo_env(fd, &temp_path, updated);
+    let closed = close_owned(fd).map_err(|e| format!("close {}: {e}", temp_path.display()));
     if let Err(e) = staged {
+        let _ = std::fs::remove_file(&temp_path);
+        return Err(e);
+    }
+    if let Err(e) = closed {
         let _ = std::fs::remove_file(&temp_path);
         return Err(e);
     }
@@ -295,6 +299,46 @@ fn write_forgejo_env(path: &str, updated: &[u8]) -> Result<(), String> {
         return Err(format!("rename {} {path}: {e}", temp_path.display()));
     }
     Ok(())
+}
+
+/// chmod + full write on an owned staged descriptor; the caller owns the
+/// checked close. First error wins, like Go's staged checks.
+fn stage_forgejo_env(fd: RawFd, temp: &std::path::Path, updated: &[u8]) -> Result<(), String> {
+    if unsafe { libc::fchmod(fd, 0o600) } != 0 {
+        return Err(format!(
+            "chmod {}: {}",
+            temp.display(),
+            std::io::Error::last_os_error()
+        ));
+    }
+    let mut written = 0;
+    while written < updated.len() {
+        let n = unsafe {
+            libc::write(
+                fd,
+                updated[written..].as_ptr() as *const libc::c_void,
+                updated.len() - written,
+            )
+        };
+        if n < 0 {
+            let e = std::io::Error::last_os_error();
+            if e.kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(format!("write {}: {e}", temp.display()));
+        }
+        written += n as usize;
+    }
+    Ok(())
+}
+
+/// Checked close for an owned descriptor.
+fn close_owned(fd: RawFd) -> Result<(), std::io::Error> {
+    if unsafe { libc::close(fd) } == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
 }
 
 fn restart_forgejo_if_needed(
@@ -687,6 +731,16 @@ mod tests {
     }
 
     #[test]
+    fn checked_close_reports_errors() {
+        // A second close of the same owned descriptor deterministically
+        // fails, proving close errors surface instead of dropping.
+        let file = std::fs::File::open("/dev/null").unwrap();
+        let fd = file.into_raw_fd();
+        close_owned(fd).unwrap();
+        assert!(close_owned(fd).is_err());
+    }
+
+    #[test]
     fn restart_conditions_and_argv() {
         let deadline = Instant::now() + Duration::from_secs(90);
         let expected = vec![(
@@ -715,6 +769,88 @@ mod tests {
         assert_eq!(
             restart_forgejo_if_needed(&mock, true, "id", "id", true, deadline).unwrap_err(),
             "native Forgejo configuration saved, restart failed: exit status 1"
+        );
+    }
+
+    #[test]
+    fn status_only_reports_real_status() {
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        // Real exit code, status-only like Go's Run.
+        assert_eq!(
+            exec.run(&[], "/bin/sh", &["-c", "exit 3"], deadline)
+                .unwrap_err(),
+            "exit status 3"
+        );
+        // Subprocess stderr never surfaces, even on failure.
+        assert_eq!(
+            exec.run(
+                &[],
+                "/bin/sh",
+                &["-c", "echo SECRET=never-log >&2; exit 3"],
+                deadline
+            )
+            .unwrap_err(),
+            "exit status 3"
+        );
+        assert!(exec.run(&[], "/bin/true", &[], deadline).is_ok());
+    }
+
+    #[test]
+    fn status_only_reports_real_signal() {
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        assert_eq!(
+            exec.run(&[], "/bin/sh", &["-c", "kill -TERM $$"], deadline)
+                .unwrap_err(),
+            "signal: terminated"
+        );
+    }
+
+    #[test]
+    fn status_only_argv_passthrough() {
+        use std::os::unix::fs::PermissionsExt;
+        let env = TestEnv::fresh("argv");
+        let script = env.path("record.sh");
+        let record = env.path("argv.bin");
+        std::fs::write(
+            &script,
+            format!("#!/bin/sh\nprintf \"%s\\0\" \"$@\" > \"{record}\"\n"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        exec.run(&[], &script, &["restart", "forgejo.service"], deadline)
+            .unwrap();
+        assert_eq!(
+            std::fs::read(&record).unwrap(),
+            b"restart\0forgejo.service\0"
+        );
+    }
+
+    #[test]
+    fn status_only_spawn_failure() {
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let err = exec
+            .run(&[], "/nonexistent-forgejo-helper", &[], deadline)
+            .unwrap_err();
+        assert!(
+            err.starts_with("fork/exec /nonexistent-forgejo-helper: "),
+            "unexpected spawn diagnostic: {err}"
+        );
+    }
+
+    #[test]
+    fn status_only_deadline_kills() {
+        let exec = NativeStatusOnly;
+        // An already-expired deadline kills deterministically: sleep cannot
+        // exit before the first poll observes the expiry.
+        let deadline = Instant::now();
+        assert_eq!(
+            exec.run(&[], "/bin/sleep", &["60"], deadline).unwrap_err(),
+            "signal: killed"
         );
     }
 
