@@ -119,19 +119,10 @@ import {
   toggleSidebar,
 } from './sodaspaces-workspace-layout.js';
 import type {LayoutInput, MinimumInput} from './sodaspaces-workspace-layout.js';
+import {openInDrawer} from './sodaspaces-workspace-drawer.js';
+import type {DrawerInput} from './sodaspaces-workspace-drawer.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
-
-function drawerRepositoryPart(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    value.length > 0 &&
-    value.length <= 255 &&
-    value !== '.' &&
-    value !== '..' &&
-    !/[\/\\\p{Cc}]/u.test(value)
-  );
-}
 
 // Both surfaces share this owner. Pane chrome is keyed separately; live terminal
 // hosts never leave their flat parent. Rendering cannot create/attach/Return.
@@ -802,12 +793,12 @@ export class SodaSpaces extends LitElement {
   }
   private renderToolbarMenu() {
     if (this.workspaceIntro) return '';
-    const openInDrawer = renderOpenInDrawerOption(
+    const openInDrawerOption = renderOpenInDrawerOption(
       this.binding?.kind,
       workspaceBlocked(this.stale, this.available),
       this.openingDrawer,
       this.selected,
-      () => this.openInDrawer()
+      () => openInDrawer(this.drawerInput())
     );
     const toggleSidebarOption = renderToggleSidebarOption(this.binding?.kind, () => toggleSidebar(this.layoutInput()));
     const nativeMgmt = renderNativeManagementOption(
@@ -822,7 +813,7 @@ export class SodaSpaces extends LitElement {
         <button class="ui button" ?disabled=${this.busy || this.stale} @click=${this.onRefreshClick}>
           Refresh Spaces
         </button>
-        ${openInDrawer} ${toggleSidebarOption} ${nativeMgmt}
+        ${openInDrawerOption} ${toggleSidebarOption} ${nativeMgmt}
       `
     );
   }
@@ -1455,64 +1446,28 @@ export class SodaSpaces extends LitElement {
   private persist() {
     return layoutPersist(this.layoutInput());
   }
-  private drawerOpenBlocked() {
-    return this.binding?.kind !== 'page' || this.openingDrawer || !this.available || !this.activeSurface;
-  }
-  private drawerEntry() {
-    const entry = this.layout.entries.find((entry) => entry.key === this.selected);
-    const space = this.spaces.find((space) => space.environment.id === entry?.environmentId);
-    if (
-      !entry ||
-      entry.locator.kind !== 'existing' ||
-      !space ||
-      space.authority_unavailable ||
-      !space.execution_allowed ||
-      !space.login
-    )
-      return;
-    return {entry, space};
-  }
-  private drawerStillCurrent(n: number, request: AbortController, entry: LayoutEntry) {
-    return this.live(n) && !request.signal.aborted && this.selected === entry.key;
-  }
-  private assignDrawer(owner: string, name: string) {
-    window.location.assign(this.repositoryPrefix() + '/' + encodeURIComponent(owner) + '/' + encodeURIComponent(name));
-  }
-  private async openDrawerNavigation(entry: LayoutEntry, space: Space, n: number, request: AbortController) {
-    const response = object(
-      await this.api('/api/environments?repository_id=' + space.environment.repository_id, undefined, request.signal)
-    );
-    if (!this.drawerStillCurrent(n, request, entry)) return;
-    const repository = object(response.repository);
-    check(
-      repository.id === space.environment.repository_id &&
-        drawerRepositoryPart(repository.owner) &&
-        drawerRepositoryPart(repository.name)
-    );
-    if (!this.persist()) {
-      this.status = 'Save the workspace before opening it in the drawer; restoration is unavailable.';
-      return;
-    }
-    this.assignDrawer(repository.owner, repository.name);
-  }
-  private async openInDrawer() {
-    if (this.drawerOpenBlocked()) return;
-    const selected = this.drawerEntry();
-    if (!selected) return;
-    const n = this.epoch,
-      request = new AbortController();
-    const timer = window.setTimeout(() => request.abort(), 15000);
-    this.openingDrawer = true;
-    this.closeMenus();
-    try {
-      await this.openDrawerNavigation(selected.entry, selected.space, n, request);
-    } catch {
-      if (this.live(n))
-        this.status = 'Could not open the repository drawer. Your terminal remains here; refresh and try again.';
-    } finally {
-      window.clearTimeout(timer);
-      this.openingDrawer = false;
-    }
+  private drawerInput(): DrawerInput {
+    return {
+      binding: this.binding,
+      isAvailable: () => this.available,
+      isActiveSurface: () => this.activeSurface,
+      readOpeningDrawer: () => this.openingDrawer,
+      setOpeningDrawer: (opening) => {
+        this.openingDrawer = opening;
+      },
+      readEntries: () => this.layout.entries,
+      readSelected: () => this.selected,
+      readSpaces: () => this.spaces,
+      readEpoch: () => this.epoch,
+      live: (n) => this.live(n),
+      closeMenus: () => this.closeMenus(),
+      setStatus: (status) => {
+        this.status = status;
+      },
+      api: (path, signal) => this.api(path, undefined, signal),
+      persist: () => this.persist(),
+      repositoryPrefix: () => this.repositoryPrefix(),
+    };
   }
   private canRestorePane(entry: LayoutEntry | undefined, space: Space | undefined, n: number, signal: AbortSignal) {
     return (
