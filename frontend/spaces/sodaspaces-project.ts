@@ -1,4 +1,3 @@
-import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 import './soda-identity.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
@@ -15,6 +14,8 @@ import {creationProfile, osObservation, environmentResponse, detailResponse} fro
 import {savedKeysResponse, profileKeysResponse, keyPreviewResponse} from './sodaspaces-keys-response.js';
 import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
+import {renderJourney} from './sodaspaces-project-journey-view.js';
+import type {JourneyViewInput} from './sodaspaces-project-journey-view.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;
@@ -404,240 +405,40 @@ export class SodaProjectControls extends LitElement {
       return {enabled: true, revision: this.networkOptions.revision, binding: this.networkOptions.binding};
     return {enabled: false};
   }
-  private journeyBlocked() {
-    return this.stale || (!this.environment && !this.canCreate);
-  }
-  private journeyJoinReady() {
-    return (
-      !this.stale &&
-      !!this.detail?.environment.provisioned &&
-      this.detail.execution_allowed &&
-      this.running &&
-      !this.detail.login &&
-      !this.detail.authority_unavailable &&
-      !this.detail.native_unavailable
-    );
-  }
-  private renderJourney() {
-    if (this.journeyBlocked()) return this.renderJourneyUnavailable();
-    if (this.journeyJoinReady()) return this.joinFailed ? this.renderJourneyJoinFailed() : this.renderJourneyJoin();
-    if (this.environment) return this.renderJourneyExisting();
-    return this.renderJourneyConfigure();
-  }
-  private journeyUnavailableHeading() {
-    if (this.stale) return 'Project access changed';
-    if (this.busy) return 'Checking project';
-    return 'Project status unavailable';
-  }
-  private journeyUnavailableDescription() {
-    if (this.stale) return html`Reload Spaces to check your current access.`;
-    if (this.busy) return html`Checking your account and project.`;
-    return html`Current project access or runtime state could not be confirmed.`;
-  }
-  private journeyUnavailableAction() {
-    if (this.busy) return html``;
-    if (this.stale)
-      return html`<button class="ui primary button" @click=${() => location.reload()}>Reload Spaces</button>`;
-    return html`<button class="ui primary button" @click=${() => this.refresh()}>Refresh status</button>`;
-  }
-  private renderJourneyUnavailable() {
-    return html`<section
-      data-project-controls
-      class="soda-spaces-controls soda-project-journey soda-ready-project"
-      aria-busy=${this.busyAttr}
-    >
-      ${renderWorkspaceIntro({
-        kind: this.busy ? 'loading' : 'unavailable',
-        heading: this.journeyUnavailableHeading(),
-        description: this.journeyUnavailableDescription(),
-        action: this.journeyUnavailableAction(),
-        helper: html`No operation is repeated when you refresh.`,
-        feedback: html`<p role="status">${this.outcomeNeedsAttention ? this.outcome : ''}</p>`,
-      })}
-    </section>`;
-  }
-  private joinFailedHelper() {
-    if (this.joinNeedsCheck) return html`Checking status won’t try to join again.`;
-    return html`You haven’t joined this project yet.`;
-  }
-  private joinFailedFeedback() {
-    if (!this.joinNeedsCheck && !this.busy)
-      return html`<button
-        class="ui button soda-quiet-action"
-        @click=${(e: Event) => this.command(e, () => this.joinEnvironment())}
-      >
-        Try joining again
-      </button>`;
-    return html``;
-  }
-  private renderJourneyJoinFailed() {
-    return html`<section
-      data-project-controls
-      class="soda-spaces-controls soda-project-journey soda-ready-project"
-      aria-busy=${this.busyAttr}
-    >
-      ${renderWorkspaceIntro({
-        kind: 'unavailable',
-        heading: 'Couldn’t join project',
-        description: html`<span role="status">${this.outcome}</span>`,
-        action: html`<button
-          class="ui primary button"
-          ?disabled=${this.blocked}
-          @click=${(e: Event) => this.command(e, () => this.refresh())}
-        >
-          ${this.busy ? 'Checking join status…' : 'Check join status'}
-        </button>`,
-        helper: this.joinFailedHelper(),
-        feedback: this.joinFailedFeedback(),
-      })}
-    </section>`;
-  }
-  private joinAction() {
-    const label = this.mutationPending ? 'Joining project…' : 'Join project';
-    return html`<button
-      class="ui primary button"
-      ?disabled=${this.blocked}
-      @click=${(e: Event) => this.command(e, () => this.joinEnvironment())}
-    >
-      ${label}
-    </button>`;
-  }
-  private joinFeedback() {
-    const tone = this.mutationPending ? 'pending' : 'warning';
-    const text = this.mutationPending
-      ? 'Setting up your project account…'
-      : this.outcomeNeedsAttention
-        ? this.outcome
-        : '';
-    return html`<div class="soda-intro-feedback soda-feedback" data-tone=${tone} role="status">${text}</div>
-      ${this.joinRefreshAction()}`;
-  }
-  private joinRefreshAction() {
-    if (!this.outcomeNeedsAttention || this.busy) return html``;
-    return html`<button
-      class="ui button soda-quiet-action"
-      ?disabled=${this.blocked}
-      @click=${(e: Event) => this.command(e, () => this.refresh())}
-    >
-      Refresh status
-    </button>`;
-  }
-  private renderJourneyJoin() {
-    return html`<section
-      data-project-controls
-      data-repository-id=${this.binding?.repositoryId || ''}
-      data-environment-id=${this.environment?.id || ''}
-      class="soda-spaces-controls soda-project-journey soda-ready-project"
-      aria-busy=${this.busyAttr}
-    >
-      ${renderWorkspaceIntro({
-        kind: 'project',
-        heading: 'Project created',
-        description: html`Join ${this.repositoryName} to set up your personal account<span
-            >in this persistent human project.</span
-          >`,
-        action: this.joinAction(),
-        helper: html`Then you can open your first browser terminal.`,
-        feedback: this.joinFeedback(),
-      })}
-    </section>`;
-  }
-  private journeyRuntimeUnavailable() {
-    return !this.detail || this.detail.authority_unavailable || this.detail.native_unavailable || !this.detail.observed;
-  }
-  private executionDenied() {
-    return !!this.detail && !this.detail.authority_unavailable && !this.detail.execution_allowed;
-  }
-  private journeyExistingKind(accountReady: boolean, stopped: boolean) {
-    if (this.busy) return 'loading' as const;
-    if (accountReady) return 'terminal' as const;
-    if (stopped) return 'stopped' as const;
-    return 'unavailable' as const;
-  }
-  private journeyExistingHeading(accountReady: boolean, incomplete: boolean, stopped: boolean) {
-    if (accountReady) return 'Your account is ready';
-    if (this.executionDenied()) return 'Repository write access required';
-    if (incomplete) return 'Project needs inspection';
-    if (stopped) return 'Project not ready';
-    return 'Project status unavailable';
-  }
-  private journeyExistingDescription(accountReady: boolean, incomplete: boolean, stopped: boolean) {
-    if (accountReady) return html`Your project account is ready for a browser terminal.`;
-    if (this.executionDenied())
-      return html`You can inspect this project. Joining and terminal access require repository write permission.`;
-    if (incomplete) return html`Project setup is incomplete. Ask the operator to inspect this project.`;
-    if (stopped) return html`This project is stopped. Start it before joining or opening a terminal.`;
-    return html`Current project access or runtime state could not be confirmed.`;
-  }
-  private journeyStartButton(stopped: boolean) {
-    if (!stopped || !this.lifecycle) return html``;
-    const label = this.mutationPending ? 'Starting project…' : 'Start project';
-    return html`<button
-      class="ui primary button"
-      ?disabled=${this.blocked}
-      @click=${(e: Event) => this.command(e, () => this.changeLifecycle(false))}
-    >
-      ${label}
-    </button>`;
-  }
-  private journeyExistingAction(stopped: boolean) {
-    const refreshClass = stopped && this.lifecycle ? 'ui button soda-quiet-action' : 'ui primary button';
-    const refreshLabel = this.busy && !this.mutationPending ? 'Checking status…' : 'Refresh status';
-    return html`${this.journeyStartButton(stopped)}<button
-        class=${refreshClass}
-        ?disabled=${this.blocked}
-        @click=${(e: Event) => this.command(e, () => this.refresh())}
-      >
-        ${refreshLabel}
-      </button>`;
-  }
-  private journeyExistingHelper(incomplete: boolean, stopped: boolean) {
-    if (incomplete) return html`Do not recreate a reserved project.`;
-    if (stopped && !this.lifecycle) return html`A project administrator must start this project.`;
-    return html`Refreshing checks the existing project without repeating an operation.`;
-  }
-  private journeyExistingFlags() {
-    const unavailable = this.journeyRuntimeUnavailable();
+  private journeyViewInput(): JourneyViewInput {
     return {
-      incomplete: this.journeyIncomplete(),
-      stopped: this.journeyStopped(unavailable),
-      accountReady: this.journeyAccountReady(unavailable),
+      isStale: () => this.stale,
+      isBusy: () => this.busy,
+      isBlocked: () => this.blocked,
+      readBusyAttr: () => this.busyAttr,
+      readEnvironment: () => this.environment,
+      readDetail: () => this.detail,
+      canCreate: () => this.canCreate,
+      isRunning: () => this.running,
+      hasJoinFailed: () => this.joinFailed,
+      needsJoinCheck: () => this.joinNeedsCheck,
+      isMutationPending: () => this.mutationPending,
+      needsOutcomeAttention: () => this.outcomeNeedsAttention,
+      readOutcome: () => this.outcome,
+      readStatus: () => this.status,
+      readRepositoryName: () => this.repositoryName,
+      readBindingRepository: () => this.binding?.repositoryId || '',
+      hasLifecycle: () => !!this.lifecycle,
+      readProfiles: () => this.profiles,
+      readSelectedProfile: () => this.selectedProfile,
+      readNetworkOptions: () => this.networkOptions,
+      isNetworkEnabled: () => this.networkEnabled,
+      needsNetworkReview: () => this.networkReview,
+      requestRefresh: (event) => this.command(event, () => this.refresh()),
+      refreshNow: () => this.refresh(),
+      requestJoin: (event) => this.command(event, () => this.joinEnvironment()),
+      requestStart: (event) => this.command(event, () => this.changeLifecycle(false)),
+      requestCreate: (event) => this.command(event, () => this.createProject()),
+      requestRepositoryChange: (event) => this.command(event, () => this.requestRepositoryChange()),
+      clearNetworkReview: (event) => this.command(event, () => this.onClearNetworkReview()),
+      selectProfile: (value) => this.onSelectProfile(value),
+      setJourneyNetworkEnabled: (enabled) => this.onJourneyNetworkEnabled(enabled),
     };
-  }
-  private journeyIncomplete() {
-    return !!this.detail && !this.detail.environment.provisioned;
-  }
-  private journeyStopped(unavailable: boolean) {
-    if (unavailable) return false;
-    return this.detail?.observed?.running === false;
-  }
-  private journeyAccountReady(unavailable: boolean) {
-    if (unavailable || !this.running) return false;
-    return !!this.detail?.login && this.detail.execution_allowed;
-  }
-  private renderJourneyExisting() {
-    const flags = this.journeyExistingFlags();
-    return html`<section
-      data-project-controls
-      data-repository-id=${this.binding?.repositoryId || ''}
-      data-environment-id=${this.environment?.id || ''}
-      class="soda-spaces-controls soda-project-journey soda-ready-project"
-      aria-busy=${this.busyAttr}
-    >
-      ${renderWorkspaceIntro({
-        kind: this.journeyExistingKind(flags.accountReady, flags.stopped),
-        heading: this.journeyExistingHeading(flags.accountReady, flags.incomplete, flags.stopped),
-        description: this.journeyExistingDescription(flags.accountReady, flags.incomplete, flags.stopped),
-        action: this.journeyExistingAction(flags.stopped),
-        helper: this.journeyExistingHelper(flags.incomplete, flags.stopped),
-        feedback: html`<div class="soda-intro-feedback soda-feedback" data-tone="warning" role="status">
-          ${this.outcomeNeedsAttention ? this.outcome : ''}
-        </div>`,
-      })}
-    </section>`;
-  }
-  private configureReady() {
-    return this.canCreate && !this.busy && !this.stale && !this.outcome && !this.networkReview;
   }
   private requestRepositoryChange() {
     this.dispatchEvent(new CustomEvent('soda-project-change-repository', {bubbles: true}));
@@ -654,108 +455,6 @@ export class SodaProjectControls extends LitElement {
   }
   private onClearNetworkReview() {
     this.networkEnabled = this.networkReview = false;
-  }
-  private renderConfigureNetwork() {
-    if (!this.networkOptions?.available) return html``;
-    return renderNetworkSelection(
-      this.networkOptions,
-      this.networkEnabled,
-      this.blocked,
-      (enabled) => this.onJourneyNetworkEnabled(enabled),
-      'Enable project Tailnet'
-    );
-  }
-  private renderNetworkReviewNotice() {
-    if (!this.networkReview) return html``;
-    return html`<p role="alert">Network availability changed. Review the option before creating.</p>
-      <button
-        class="ui button"
-        ?disabled=${this.blocked}
-        @click=${(e: Event) => this.command(e, () => this.onClearNetworkReview())}
-      >
-        Use without Tailnet
-      </button>`;
-  }
-  private renderStaleReloadNote() {
-    if (!this.stale) return html``;
-    return html`<p>Access changed. Reload Spaces to reconnect; no operation will be repeated.</p>`;
-  }
-  private createDisabled() {
-    return this.blocked || !this.canCreate || this.networkReview;
-  }
-  private configureStatusHidden() {
-    return this.configureReady() || this.mutationPending;
-  }
-  private pendingTone(pending: boolean) {
-    return pending ? 'pending' : 'warning';
-  }
-  private renderCreateAction() {
-    const label = this.mutationPending ? 'Creating project…' : 'Create project';
-    return html`<button
-      class="ui primary button"
-      ?disabled=${this.createDisabled()}
-      @click=${(e: Event) => this.command(e, () => this.createProject())}
-    >
-      ${label}
-    </button>`;
-  }
-  private renderConfigureFeedback() {
-    return html`<p
-        class="soda-feedback"
-        data-tone=${this.pendingTone(this.busy)}
-        role="status"
-        ?hidden=${this.configureStatusHidden()}
-      >
-        ${this.status}
-      </p>
-      <p class="soda-feedback" data-tone=${this.pendingTone(this.mutationPending)} role="status">
-        ${this.mutationPending ? 'Creating your project…' : this.outcome}
-      </p>
-      <button
-        class="ui button soda-quiet-action"
-        ?hidden=${this.configureReady() || this.busy}
-        ?disabled=${this.blocked}
-        @click=${(e: Event) => this.command(e, () => this.refresh())}
-      >
-        Refresh status
-      </button>`;
-  }
-  private renderJourneyConfigure() {
-    return html`<section
-      data-project-controls
-      data-repository-id=${this.binding?.repositoryId || ''}
-      data-environment-id=""
-      class="soda-spaces-controls soda-project-journey"
-      aria-busy=${this.busyAttr}
-    >
-      <header class="soda-setup-step-heading">
-        <p class="soda-setup-eyebrow">New project</p>
-        <h2 tabindex="-1">Configure project</h2>
-        <p>Choose the system for your project.</p>
-      </header>
-      <div class="soda-configuration-fields">
-        <div class="soda-configuration-repository">
-          <p>Repository</p>
-          <div class="soda-config-repository">
-            <span class="soda-journey-icon soda-repository-icon" aria-hidden="true"></span
-            ><span class="soda-config-repository-name"
-              >${this.repositoryName || 'Loading repository…'}<small>Forgejo</small></span
-            ><button
-              class="ui button soda-quiet-action"
-              aria-label="Change repository"
-              ?disabled=${this.blocked}
-              @click=${(e: Event) => this.command(e, () => this.requestRepositoryChange())}
-            >
-              Change
-            </button>
-          </div>
-        </div>
-        ${renderProjectOS(this.profiles, this.selectedProfile, undefined, this.blocked, (value) => this.onSelectProfile(value), 'configure')}
-        ${this.renderConfigureNetwork()} ${this.renderNetworkReviewNotice()}
-      </div>
-      <div class="soda-setup-actions">${this.renderCreateAction()}</div>
-      ${this.renderConfigureFeedback()} ${this.renderStaleReloadNote()}
-    </section>`;
   }
   private shouldRenderJourney() {
     return this.presentation === 'journey';
@@ -780,7 +479,7 @@ export class SodaProjectControls extends LitElement {
     return this.environment?.id || '';
   }
   protected render() {
-    if (this.shouldRenderJourney()) return html`${this.renderJourney()}${this.renderIdentity()}`;
+    if (this.shouldRenderJourney()) return html`${renderJourney(this.journeyViewInput())}${this.renderIdentity()}`;
     return html`<section
       data-project-controls
       data-repository-id=${this.boundRepositoryId()}
