@@ -1,5 +1,6 @@
 use super::binding::RunPathsFn;
-use super::tcodex::{self, shell_quote};
+use super::native::shell_quote;
+use super::run::{valid_factory_role, valid_preparation_id};
 use crate::domain;
 use crate::project::Executor;
 use crate::terminal::{self, Binding, Service, KIND_FACTORY};
@@ -23,13 +24,13 @@ pub struct FactoryCodexOutputSlice {
 }
 
 /// Family-neutral alias for the shared output-slice record.
-pub type FactoryOutputSlice = tcodex::FactoryCodexOutputSlice;
+pub type FactoryOutputSlice = FactoryCodexOutputSlice;
 
 /// Shared output-cursor gate: adapters run this before binding
 /// attestation so a bad cursor never shells out.
 pub fn check_output_range(offset: i64, limit: i64) -> Result<(), String> {
-    if !(0..=tcodex::MAX_FACTORY_OUTPUT_OFFSET).contains(&offset)
-        || !(1..=tcodex::MAX_FACTORY_OUTPUT_READ).contains(&limit)
+    if !(0..=MAX_FACTORY_OUTPUT_OFFSET).contains(&offset)
+        || !(1..=MAX_FACTORY_OUTPUT_READ).contains(&limit)
     {
         return Err(terminal::err_denied());
     }
@@ -73,12 +74,12 @@ impl<E: Executor> Service<E> {
             return Err(terminal::err_denied());
         }
         if !domain::valid_container_id(&binding.project)
-            || !tcodex::valid_factory_role(&binding.login)
+            || !valid_factory_role(&binding.login)
             || !terminal::valid_terminal_id(&binding.invocation_id)
         {
             return Err(terminal::err_denied());
         }
-        if !tcodex::valid_preparation_id(&binding.child_id) {
+        if !valid_preparation_id(&binding.child_id) {
             return Err(terminal::err_denied());
         }
         let (checkout, run_dir, _, _) = run_paths(&binding.login, &binding.child_id, &binding.id)
@@ -116,7 +117,7 @@ impl<E: Executor> Service<E> {
             stdout.to_string(),
         ];
         if let Ok(out) = self.run_podman(&[], &stat, deadline) {
-            if let Some(size) = tcodex::factory_output_size(&out) {
+            if let Some(size) = factory_output_size(&out) {
                 total = size;
             }
         }
@@ -129,8 +130,8 @@ impl<E: Executor> Service<E> {
             });
         }
         let (mut start, mut truncated) = (offset, false);
-        if start == 0 && total > tcodex::MAX_FACTORY_OUTPUT_WINDOW {
-            start = total - tcodex::MAX_FACTORY_OUTPUT_WINDOW;
+        if start == 0 && total > MAX_FACTORY_OUTPUT_WINDOW {
+            start = total - MAX_FACTORY_OUTPUT_WINDOW;
             truncated = true;
         }
         if start >= total {
@@ -147,7 +148,7 @@ impl<E: Executor> Service<E> {
             project.to_string(),
             "/usr/bin/sh".to_string(),
             "-c".to_string(),
-            tcodex::output_read_command(stdout, start, limit),
+            output_read_command(stdout, start, limit),
         ];
         let mut out = match self.run_podman(&[], &read, deadline) {
             Ok(out) => out,
