@@ -3,12 +3,9 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
-import {renderEnvironment, renderProjectOS, renderOSObservation} from './sodaspaces-environment-view.js';
-import {renderConnection, renderKeys, renderForgejoKeys, renderProjectStatus} from './sodaspaces-project-view.js';
-import {renderNetwork, renderNetworkSelection} from './sodaspaces-network.js';
+import {renderProjectStatus} from './sodaspaces-project-view.js';
 import {projectOptions, projectView} from '../tailnet/soda-tailnet-response.js';
 import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
-import type {TemplateResult} from 'lit';
 import {object, check, id, projectId, fingerprint, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
 import {creationProfile, osObservation, environmentResponse, detailResponse} from './sodaspaces-project-response.js';
 import {savedKeysResponse, profileKeysResponse, keyPreviewResponse} from './sodaspaces-keys-response.js';
@@ -16,6 +13,15 @@ import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
 import {renderJourney} from './sodaspaces-project-journey-view.js';
 import type {JourneyViewInput} from './sodaspaces-project-journey-view.js';
+import {
+  renderAccessView,
+  renderEnvironmentView,
+  renderNetworkView,
+  renderRepositoryContext,
+  renderViewTabs,
+} from './sodaspaces-project-settings-view.js';
+import type {Lifecycle, SettingsViewInput, View} from './sodaspaces-project-settings-view.js';
+import {views} from './sodaspaces-project-settings-view.js';
 export interface ProjectContext {
   expectedUserId: string;
   actorLogin?: string;
@@ -26,12 +32,6 @@ export interface ProjectContext {
   forgejoPrefix?: string;
 }
 const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
-const views = ['environment', 'access', 'network'] as const;
-type View = (typeof views)[number];
-type Lifecycle = {
-  running: boolean;
-  boot: boolean;
-};
 type RefreshPrior = {
   profile: string;
   network: ProjectOptions | undefined;
@@ -96,58 +96,9 @@ function admitProjectLogin(login: string) {
   check(/^[a-z][a-z0-9_-]{0,30}$/.test(login) && login !== 'root');
 }
 
-function viewTabLabel(view: View, presentation: string): string {
-  if (view === 'environment' && presentation === 'settings') return 'Overview';
-  return (view[0]?.toUpperCase() || '') + view.slice(1);
-}
-
 function publicKeyToken(value: string | undefined) {
   if (!value) return;
   return value.trim().split(/\s+/).slice(0, 2).join(' ');
-}
-
-// Stateless presentation: the concrete project owner admits every command and
-// retains the original target, confirmation and asynchronous request lifetime.
-function renderLifecycle(
-  lifecycle: Lifecycle | undefined,
-  blocked: boolean,
-  confirmed: boolean,
-  start: (event: MouseEvent) => void,
-  stop: (event: MouseEvent) => void,
-  confirm: (checked: boolean) => void
-): TemplateResult {
-  const stopped = !lifecycle?.running && !lifecycle?.boot;
-  return html`
-    <fieldset ?hidden=${!lifecycle}>
-      <legend>Shared environment</legend>
-      <p>${lifecycleCaption(lifecycle)}</p>
-      <button
-        type="button"
-        class="ui primary button"
-        ?hidden=${!!lifecycle?.running && lifecycle.boot}
-        ?disabled=${blocked}
-        @click=${start}
-      >
-        Start
-      </button>
-      <button type="button" class="ui button danger" ?hidden=${stopped} ?disabled=${blocked} @click=${stop}>
-        Stop
-      </button>
-      <label ?hidden=${stopped}>
-        <input type="checkbox" .checked=${confirmed} @change=${(event: Event) => confirmLifecycle(event, confirm)} />
-        I understand Stop interrupts everyone’s SSH, terminals and workloads, and disables next-boot start.
-      </label>
-    </fieldset>
-  `;
-}
-
-function confirmLifecycle(event: Event, confirm: (checked: boolean) => void) {
-  if (event.target instanceof HTMLInputElement) confirm(event.target.checked);
-}
-
-function lifecycleCaption(lifecycle: Lifecycle | undefined): string {
-  if (!lifecycle) return '';
-  return `Running: ${lifecycle.running ? 'yes' : 'no'}; starts on host boot: ${lifecycle.boot ? 'yes' : 'no'}. Start restores boot start; Stop disables it.`;
 }
 
 export class SodaProjectControls extends LitElement {
@@ -487,8 +438,9 @@ export class SodaProjectControls extends LitElement {
       class="soda-spaces-controls"
       aria-busy=${this.sectionAriaBusy()}
     >
-      ${this.renderRepositoryContext()} ${this.renderViewTabs()} ${this.renderEnvironmentView()}
-      ${this.renderAccessView()} ${this.renderNetworkView()}
+      ${renderRepositoryContext(this.settingsViewInput())} ${renderViewTabs(this.settingsViewInput())}
+      ${renderEnvironmentView(this.settingsViewInput())} ${renderAccessView(this.settingsViewInput())}
+      ${renderNetworkView(this.settingsViewInput())}
       ${renderProjectStatus(this.repository, this.sessionCaption(), this.projectAccountCaption(), this.status, this.outcome)}
       ${this.renderIdentity()}
     </section>`;
@@ -510,58 +462,73 @@ export class SodaProjectControls extends LitElement {
   private identityPresentationReady() {
     return !this.stale && !this.disposed && this.presentation !== 'standard';
   }
-  private renderRepositoryContext() {
-    if (!this.binding?.settings || !this.repositoryURL) return html``;
-    return html`<div class="soda-repository-context">
-      <h2>${this.repository}</h2>
-      <nav aria-label="Repository destinations">
-        <a href=${this.repositoryURL + '/settings'}>Native repository settings</a> ·
-        <a href=${this.repositoryURL + '#sodaspaces'}>Open repository and workspace drawer</a>
-      </nav>
-      <p>
-        Project OS selection affects only creation. Existing roots cannot change distribution or interface here. Create,
-        Join and Start remain separate explicit actions.
-      </p>
-    </div>`;
-  }
-  private renderViewTabs() {
-    return html`<div class="soda-spaces-tabs" role="tablist" aria-label="Workspace views">
-      ${views.map(
-        (view) => html` <button
-          type="button"
-          class="ui basic button"
-          data-view=${view}
-          role="tab"
-          aria-controls=${'soda-project-' + this.binding?.repositoryId + '-' + view}
-          aria-selected=${this.selected === view ? 'true' : 'false'}
-          tabindex=${this.selected === view ? 0 : -1}
-          @click=${() => this.select(view)}
-          @keydown=${(e: KeyboardEvent) => this.tabKey(e, view)}
-        >
-          ${viewTabLabel(view, this.presentation)}
-        </button>`
-      )}
-    </div>`;
-  }
-  private renderCreateNetworkSelection() {
-    if (!this.canCreate) return html``;
-    return renderNetworkSelection(this.networkOptions, this.networkEnabled, this.blocked, (enabled) =>
-      this.onCreateNetworkEnabled(enabled)
-    );
-  }
-  private networkSummaryText() {
-    if (!this.network) return 'not observed';
-    return (this.network.enabled ? 'managed' : 'Off') + ' · ' + this.network.state;
-  }
-  private renderNetworkSummary() {
-    if (!this.environment) return html``;
-    return html`<p data-project-network-summary>Tailnet: ${this.networkSummaryText()}</p>`;
-  }
-  private renderObservedOS() {
-    if (!this.environment) return html``;
-    return renderOSObservation(this.observedOS, this.osStatus, this.blocked, (event) =>
-      this.command(event, () => this.inspectOS())
-    );
+  private settingsViewInput(): SettingsViewInput {
+    return {
+      readBindingSettings: () => !!this.binding?.settings,
+      readBindingPage: () => !!this.binding?.page,
+      readBindingRepository: () => this.binding?.repositoryId || '',
+      readRepository: () => this.repository,
+      readRepositoryURL: () => this.repositoryURL,
+      readSelected: () => this.selected,
+      readPresentation: () => this.presentation,
+      canCreate: () => this.canCreate,
+      isBusy: () => this.busy,
+      isStale: () => this.stale,
+      isBlocked: () => this.blocked,
+      isRunning: () => this.running,
+      readEnvironment: () => this.environment,
+      readDetail: () => this.detail,
+      readDetailEnvironment: () => this.detail?.environment || this.environment,
+      readDetailLogin: () => this.detail?.login,
+      readExecutionAllowed: () => this.detail?.execution_allowed === true,
+      readEnvironmentAdmin: () => !!this.detail?.environment_administrator,
+      readSavedKeys: () => this.saved,
+      readProfileKeys: () => this.profileKeys,
+      readKeyPreview: () => this.keyPreview,
+      readUseSavedKeys: () => this.useSavedKeys,
+      readDraft: () => this.draft,
+      readEmptyConfirmed: () => this.emptyConfirmed,
+      readStopConfirmed: () => this.stopConfirmed,
+      readLifecycle: () => this.lifecycle,
+      readConnection: () => this.connection,
+      readProfiles: () => this.profiles,
+      readSelectedProfile: () => this.selectedProfile,
+      readNetwork: () => this.network,
+      readNetworkOptions: () => this.networkOptions,
+      isNetworkEnabled: () => this.networkEnabled,
+      readNetworkNotice: () => this.networkNotice,
+      readNetworkConfirmed: () => this.networkConfirmed,
+      readObservedOS: () => this.observedOS,
+      readOsStatus: () => this.osStatus,
+      selectView: (view) => this.select(view),
+      tabKey: (event, view) => this.tabKey(event, view),
+      setCreateNetworkEnabled: (enabled) => this.onCreateNetworkEnabled(enabled),
+      selectProfile: (value) => this.onSelectProfile(value),
+      setUseSavedKeys: (checked) => this.onUseSavedKeys(checked),
+      requestRefresh: (event) => this.command(event, () => this.refresh()),
+      requestCreate: (event) => this.command(event, () => this.createProject()),
+      requestJoin: (event) => this.command(event, () => this.joinEnvironment()),
+      requestStart: (event) => this.command(event, () => this.changeLifecycle(false)),
+      requestStop: (event) => this.command(event, () => this.changeLifecycle(true)),
+      setStopConfirmed: (checked) => this.onStopConfirmed(checked),
+      requestInspectOS: (event) => this.command(event, () => this.inspectOS()),
+      reloadPage: (event) => this.onReloadPage(event),
+      copyConnection: () => {
+        void this.copyConnection();
+      },
+      removeSavedKey: (event, key) => this.removeSavedKey(event, key),
+      setDraft: (value) => this.onDraft(value),
+      requestSaveKey: (event) => this.command(event, () => this.saveKey()),
+      requestReviewKeys: (event) => this.command(event, () => this.reviewKeys()),
+      setConfirmEmpty: (checked) => this.onConfirmEmpty(checked),
+      requestApplyKeys: (event) => this.command(event, () => this.applyKeys()),
+      reviewProfileKeysPage: (page) => {
+        void this.reviewProfileKeys(page);
+      },
+      selectForgejoKey: (key) => this.selectForgejoKey(key),
+      setNetworkConfirmed: (confirmed) => this.onNetworkConfirmed(confirmed),
+      changeProjectNetwork: (event, action) => this.command(event, () => this.changeNetwork(action)),
+    };
   }
   private onUseSavedKeys(checked: boolean) {
     this.useSavedKeys = checked;
@@ -586,132 +553,6 @@ export class SodaProjectControls extends LitElement {
   private onNetworkConfirmed(confirmed: boolean) {
     this.networkConfirmed = confirmed;
   }
-  private renderEnvironmentView() {
-    return html`<section
-      id=${'soda-project-' + this.binding?.repositoryId + '-environment'}
-      class="soda-spaces-view"
-      role="tabpanel"
-      aria-label="Environment"
-      ?hidden=${this.selected !== 'environment'}
-    >
-      ${renderProjectOS(this.profiles, this.selectedProfile, this.detail?.environment || this.environment, this.blocked, (value) => this.onSelectProfile(value))}
-      ${this.renderCreateNetworkSelection()} ${this.renderNetworkSummary()} ${this.renderObservedOS()}
-      ${renderEnvironment(
-        {
-          busy: this.busy,
-          stale: this.stale,
-          blocked: this.blocked,
-          canCreate: this.canCreate,
-          canJoin: this.canJoin,
-          sshKeys: this.saved?.map((key) => key.fingerprint) || [],
-          useSavedKeys: this.useSavedKeys,
-        },
-        {
-          selectSSH: (checked) => this.onUseSavedKeys(checked),
-          refresh: (event) => this.command(event, () => this.refresh()),
-          reload: (event) => this.onReloadPage(event),
-          create: (event) => this.command(event, () => this.createProject()),
-          join: (event) => this.command(event, () => this.joinEnvironment()),
-        },
-        renderLifecycle(
-          this.lifecycle,
-          this.blocked,
-          this.stopConfirmed,
-          (event) => this.command(event, () => this.changeLifecycle(false)),
-          (event) => this.command(event, () => this.changeLifecycle(true)),
-          (checked) => this.onStopConfirmed(checked)
-        )
-      )}
-    </section>`;
-  }
-  private renderAccessView() {
-    return html`<section
-      id=${'soda-project-' + this.binding?.repositoryId + '-access'}
-      class="soda-spaces-view"
-      role="tabpanel"
-      aria-label="Access"
-      ?hidden=${this.selected !== 'access'}
-    >
-      ${renderConnection(this.connection, this.binding?.repositoryId || '', !!this.binding?.page, this.blocked, () => {
-        void this.copyConnection();
-      })}
-      ${renderKeys(
-        {
-          saved: this.saved,
-          preview: this.keyPreview,
-          joined: !!this.detail?.login,
-          executionAllowed: this.detail?.execution_allowed === true,
-          running: this.running,
-          blocked: this.blocked,
-          draft: this.draft,
-          emptyConfirmed: this.emptyConfirmed,
-        },
-        {
-          remove: (event, key) =>
-            this.command(event, () =>
-              this.mutate(
-                '/api/me/development-keys/' + key.id,
-                {},
-                'Saved key removed. Existing project SSH access is unchanged until explicitly applied.',
-                'DELETE'
-              )
-            ),
-          draft: (value) => this.onDraft(value),
-          save: (event) => this.command(event, () => this.saveKey()),
-          review: (event) => this.command(event, () => this.reviewKeys()),
-          confirmEmpty: (checked) => this.onConfirmEmpty(checked),
-          apply: (event) => this.command(event, () => this.applyKeys()),
-        }
-      )}
-      ${this.renderForgejoKeyReview()}
-    </section>`;
-  }
-  private renderForgejoKeyReview() {
-    if (!this.saved) return html``;
-    return renderForgejoKeys(
-      this.profileKeys,
-      this.blocked,
-      (page) => {
-        void this.reviewProfileKeys(page);
-      },
-      (key) => this.selectForgejoKey(key)
-    );
-  }
-  private renderTailnetSSH() {
-    if (this.network?.state !== 'connected' || !this.connection || !this.detail?.login) return html``;
-    return html`<fieldset>
-      <legend>Own-account Tailnet SSH</legend>
-      <input
-        readonly
-        aria-label="Tailnet SSH command"
-        .value=${'ssh ' + this.detail.login + '@' + this.network.addresses[0]}
-      />
-      <p>
-        Ed25519 host-key fingerprint: ${this.connection.fingerprint}. Same project account and host key as LAN SSH; no
-        Tailscale SSH or automatic authentication.
-      </p>
-    </fieldset>`;
-  }
-  private renderNetworkView() {
-    return html`<section
-      id=${'soda-project-' + this.binding?.repositoryId + '-network'}
-      class="soda-spaces-view"
-      role="tabpanel"
-      aria-label="Network"
-      ?hidden=${this.selected !== 'network'}
-    >
-      ${renderNetwork(
-        this.network,
-        this.networkNotice,
-        !!this.detail?.environment_administrator,
-        this.blocked,
-        this.networkConfirmed,
-        (confirmed) => this.onNetworkConfirmed(confirmed),
-        (event, action) => this.command(event, () => this.changeNetwork(action))
-      )}
-      ${this.renderTailnetSSH()}
-    </section>`;
-  }
   private joinEnvironment() {
     if (
       !this.environment ||
@@ -727,6 +568,16 @@ export class SodaProjectControls extends LitElement {
         ssh_keys: this.presentation !== 'journey' && this.useSavedKeys ? 'saved' : 'none',
       },
       'Native join confirmed. Your browser terminal uses this account, not SSH. Later SSH-key changes require a separate explicit Apply.'
+    );
+  }
+  private removeSavedKey(event: Event, key: SavedKey) {
+    this.command(event, () =>
+      this.mutate(
+        '/api/me/development-keys/' + key.id,
+        {},
+        'Saved key removed. Existing project SSH access is unchanged until explicitly applied.',
+        'DELETE'
+      )
     );
   }
   private selectForgejoKey(key: string) {
