@@ -13,5 +13,5 @@ path = "src/main.rs"
 
 [dependencies]
 libc = "0.2"
-soda-release-deliver = { path = "../soda-release-deliver" }
-soda-release-build = { path = "../soda-release-build" }
+soda-release-deliver = { path = "../../lib/soda-release-deliver" }
+soda-release-build = { path = "../../lib/soda-release-build" }

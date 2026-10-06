@@ -20,5 +20,5 @@ name = "soda-render-terminal-logo"
 path = "src/bin/soda-render-terminal-logo.rs"
 
 [dependencies]
-soda-json = { path = "../soda-json" }
+soda-json = { path = "../../lib/json" }
 sha2 = "0.10"

@@ -27,7 +27,7 @@ name = "soda-candidate-check"
 path = "src/bin/soda-candidate-check.rs"
 
 [dependencies]
-soda-json = { path = "../soda-json" }
+soda-json = { path = "../json" }
 soda-release-build = { path = "../soda-release-build" }
 soda-release-deliver = { path = "../soda-release-deliver" }
 soda-release-image = { path = "../soda-release-image" }

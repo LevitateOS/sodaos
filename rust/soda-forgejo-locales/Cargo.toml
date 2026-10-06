@@ -12,6 +12,6 @@ name = "soda-forgejo-locales"
 path = "src/bin/soda-forgejo-locales.rs"
 
 [dependencies]
-soda-json = { path = "../soda-json" }
+soda-json = { path = "../../lib/json" }
 ureq = { version = "2", default-features = false, features = ["tls"] }
 sha2 = "0.10"

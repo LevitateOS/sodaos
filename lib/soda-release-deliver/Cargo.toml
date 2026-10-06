@@ -11,12 +11,12 @@ name = "soda_release_deliver"
 path = "src/lib.rs"
 
 [dependencies]
-soda-json = { path = "../soda-json" }
-soda-build-tools = { path = "../soda-build-tools" }
+soda-json = { path = "../json" }
+soda-build-tools = { path = "../../rust/soda-build-tools" }
 sha2 = "0.10"
 tar = "0.4"
 flate2 = "1"
 libc = "=0.2.190"
 
 [dev-dependencies]
-soda-json = { path = "../soda-json" }
+soda-json = { path = "../json" }

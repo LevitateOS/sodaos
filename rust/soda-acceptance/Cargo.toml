@@ -23,7 +23,7 @@ name = "soda-host-probes"
 path = "src/bin/soda-host-probes.rs"
 
 [dependencies]
-soda-json = { path = "../soda-json" }
+soda-json = { path = "../../lib/json" }
 soda-build-tools = { path = "../soda-build-tools" }
 libc = "0.2"
 flate2 = "1"

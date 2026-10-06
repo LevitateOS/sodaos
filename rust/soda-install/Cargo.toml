@@ -8,7 +8,7 @@ name = "soda-install"
 path = "src/main.rs"
 
 [dependencies]
-soda-json = { path = "../soda-json" }
+soda-json = { path = "../../lib/json" }
 libc = "=0.2.190"
 sha2 = { version = "0.10", features = ["oid"] }
 elliptic-curve = "0.13"

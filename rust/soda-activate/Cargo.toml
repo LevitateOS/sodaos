@@ -8,4 +8,4 @@ name = "soda-activate"
 path = "src/main.rs"
 
 [dependencies]
-soda-json = { path = "../soda-json" }
+soda-json = { path = "../../lib/json" }

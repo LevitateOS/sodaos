@@ -20,7 +20,7 @@ name = "soda-fetch-muse"
 path = "src/bin/soda-fetch-muse.rs"
 
 [dependencies]
-soda-json = { path = "../soda-json" }
+soda-json = { path = "../../lib/json" }
 soda-build-tools = { path = "../soda-build-tools" }
 ureq = { version = "2", default-features = false, features = ["tls"] }
 flate2 = "1"

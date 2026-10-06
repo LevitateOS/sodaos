@@ -223,7 +223,7 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `bun run check:source` | Broad Go, TypeScript and browser source checks, including the zero-Python gate. |
 | `bash scripts/check-native.sh ARCH CANDIDATE_DIR` | Verify a soda-build candidate artifacts directory; does not build, install or publish. |
 
-Native candidate production uses `soda-build` from `rust/soda-release-tools`;
+Native candidate production uses `soda-build` from `lib/soda-release-tools`;
 follow the [native support guide](docs/development/native-support.md) for its
 admitted inputs and effects.
 
