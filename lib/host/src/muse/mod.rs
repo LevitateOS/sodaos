@@ -51,6 +51,7 @@ pub use self::argv::{muse_command_argv, unit_active_argv, unit_invocation_argv};
 
 // ---------- runtime ----------
 
+mod cleanup;
 mod codec;
 
 pub use self::codec::{muse_command_exit, split_json_object};
