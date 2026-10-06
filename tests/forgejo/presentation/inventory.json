@@ -89,9 +89,32 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9449c2e43fbd22dbee16b71428a11f5e19a0431e96dfd883a7d6e2960c428935",
+      "beforeRoleHash": "af9fbb22fd93a1fd13d0eeb5799e4ecf69c322425fe790f9d336f990165628fb",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/auth/edit_ldap.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [
+        "admin/auth/edit.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [],
+      "states": [
+        "populated",
+        "error",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "8474f9050499ee3095698f66dba7d14d10c9bef60c4ddad42b73cd2448420349",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
     },
     {
       "template": "admin/auth/list.tmpl",
