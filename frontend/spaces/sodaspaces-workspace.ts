@@ -3,7 +3,6 @@ import {repeat} from 'lit/directives/repeat.js';
 import {
   renderMenu,
   renderRename,
-  renderCreation,
   renderRepositoryPicker,
   renderWelcome,
   renderWelcomeSteps,
@@ -112,11 +111,12 @@ import {addSlot, displaySlots, visibleSlot} from './sodaspaces-workspace-termina
 import type {HostsInput} from './sodaspaces-workspace-terminal-hosts.js';
 import {
   confirmedEnd,
+  creationForm,
   openSaved as openSavedTerminal,
   restoreLocators,
   slotName,
 } from './sodaspaces-workspace-terminals.js';
-import type {TerminalsInput} from './sodaspaces-workspace-terminals.js';
+import type {CreationFormInput, TerminalsInput} from './sodaspaces-workspace-terminals.js';
 type TerminalFactory = typeof mountTerminal;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
 
@@ -614,7 +614,7 @@ export class SodaSpaces extends LitElement {
   }
   private renderCreationDialog() {
     if (!this.creation) return '';
-    return this.creationForm(this.creation);
+    return creationForm(this.creationInput(), this.creation);
   }
   private renderNavigation() {
     return html`<nav
@@ -1145,58 +1145,23 @@ export class SodaSpaces extends LitElement {
       newTerminal: (pane) => this.newTerminal(pane),
     };
   }
-  private creationEligible(space: Space | undefined) {
-    return (
-      !!space?.login &&
-      space.environment.provisioned &&
-      !space.authority_unavailable &&
-      space.execution_allowed &&
-      space.observed?.running === true
-    );
-  }
-  private creationExplanation(space: Space | undefined) {
-    if (this.creationEligible(space)) return '';
-    if (!space?.login) return 'Join required.';
-    if (space.authority_unavailable) return 'Status unavailable.';
-    if (!space.execution_allowed) return 'Repository write access required.';
-    return 'Environment stopped.';
-  }
-  private creationContext(space: Space | undefined) {
-    return `${space?.login || 'Join required'} @ ${space ? this.projectName(space) : 'Select a project'}`;
-  }
-  private creationDisabled(draft: Creation, eligible: boolean) {
-    return this.creating || this.stale || !this.available || !eligible || !validName(draft.name);
-  }
-  private onCreationEnvironment(environmentId: string) {
-    if (this.creation) this.creation = {...this.creation, environmentId};
-  }
-  private onCreationName(name: string) {
-    if (this.creation) this.creation = {...this.creation, name};
-  }
-  private cancelCreation() {
-    this.creation = null;
-    this.restoreFocus();
-  }
-  private creationForm(draft: Creation) {
-    const space = this.spaces.find((s) => s.environment.id === draft.environmentId);
-    const eligible = this.creationEligible(space);
-    return renderCreation(
-      {
-        environmentId: draft.environmentId,
-        name: draft.name,
-        projects: this.spaces.map((item) => ({id: item.environment.id, name: this.projectName(item)})),
-        context: this.creationContext(space),
-        explanation: this.creationExplanation(space),
-        busy: this.creating,
-        disabled: this.creationDisabled(draft, !!eligible),
+  private creationInput(): CreationFormInput {
+    return {
+      readCreating: () => this.creating,
+      isStale: () => this.stale,
+      isAvailable: () => this.available,
+      readSpaces: () => this.spaces,
+      readCreation: () => this.creation,
+      setCreation: (creation) => {
+        this.creation = creation;
       },
-      (environmentId) => this.onCreationEnvironment(environmentId),
-      (name) => this.onCreationName(name),
-      () => this.cancelCreation(),
-      () => {
+      projectName: (space) => this.projectName(space),
+      isValidName: (name) => validName(name),
+      restoreFocus: () => this.restoreFocus(),
+      createTerminal: () => {
         void this.createTerminal();
-      }
-    );
+      },
+    };
   }
   private closeMenus() {
     closeWorkspaceMenus(this);

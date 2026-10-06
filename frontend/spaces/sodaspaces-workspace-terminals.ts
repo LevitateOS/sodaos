@@ -2,7 +2,8 @@ import type {Space} from './sodaspaces-api.js';
 import type {LayoutEntry, PaneArea, WorkspaceLayout} from './sodaspaces-layout.js';
 import {forgetEntry, moveTab, selectTab} from './sodaspaces-layout.js';
 import type {TerminalLocator} from './sodaspaces-terminal.js';
-import type {Slot} from './sodaspaces-workspace-types.js';
+import type {Creation, Slot} from './sodaspaces-workspace-types.js';
+import {renderCreation} from './sodaspaces-workspace-view.js';
 
 export interface TerminalsInput {
   isStale: () => boolean;
@@ -175,4 +176,80 @@ export async function openSaved(input: TerminalsInput, entry: LayoutEntry, desti
     if (!input.isStale())
       input.setStatus('The exact saved terminal could not be selected; no replacement was requested.');
   }
+}
+
+export interface CreationFormInput {
+  readCreating: () => boolean;
+  isStale: () => boolean;
+  isAvailable: () => boolean;
+  readSpaces: () => Space[];
+  readCreation: () => Creation | null;
+  setCreation: (creation: Creation | null) => void;
+  projectName: (space: Space) => string;
+  isValidName: (name: string) => boolean;
+  restoreFocus: () => void;
+  createTerminal: () => void;
+}
+
+export function creationEligible(space: Space | undefined) {
+  return (
+    !!space?.login &&
+    space.environment.provisioned &&
+    !space.authority_unavailable &&
+    space.execution_allowed &&
+    space.observed?.running === true
+  );
+}
+
+export function creationExplanation(space: Space | undefined) {
+  if (creationEligible(space)) return '';
+  if (!space?.login) return 'Join required.';
+  if (space.authority_unavailable) return 'Status unavailable.';
+  if (!space.execution_allowed) return 'Repository write access required.';
+  return 'Environment stopped.';
+}
+
+export function creationContext(input: CreationFormInput, space: Space | undefined) {
+  return `${space?.login || 'Join required'} @ ${space ? input.projectName(space) : 'Select a project'}`;
+}
+
+export function creationDisabled(input: CreationFormInput, draft: Creation, eligible: boolean) {
+  return input.readCreating() || input.isStale() || !input.isAvailable() || !eligible || !input.isValidName(draft.name);
+}
+
+export function onCreationEnvironment(input: CreationFormInput, environmentId: string) {
+  const creation = input.readCreation();
+  if (creation) input.setCreation({...creation, environmentId});
+}
+
+export function onCreationName(input: CreationFormInput, name: string) {
+  const creation = input.readCreation();
+  if (creation) input.setCreation({...creation, name});
+}
+
+export function cancelCreation(input: CreationFormInput) {
+  input.setCreation(null);
+  input.restoreFocus();
+}
+
+export function creationForm(input: CreationFormInput, draft: Creation) {
+  const space = input.readSpaces().find((s) => s.environment.id === draft.environmentId);
+  const eligible = creationEligible(space);
+  return renderCreation(
+    {
+      environmentId: draft.environmentId,
+      name: draft.name,
+      projects: input.readSpaces().map((item) => ({id: item.environment.id, name: input.projectName(item)})),
+      context: creationContext(input, space),
+      explanation: creationExplanation(space),
+      busy: input.readCreating(),
+      disabled: creationDisabled(input, draft, !!eligible),
+    },
+    (environmentId) => onCreationEnvironment(input, environmentId),
+    (name) => onCreationName(input, name),
+    () => cancelCreation(input),
+    () => {
+      input.createTerminal();
+    }
+  );
 }
