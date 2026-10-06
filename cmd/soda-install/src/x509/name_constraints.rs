@@ -1,5 +1,5 @@
 use super::der::{Reader, CTX0_CONS, CTX1_CONS, TAG_SEQ};
-use super::Extension;
+use super::extensions::Extension;
 
 use crate::fmtx::{go_quote_into, hex_lower};
 use crate::netip;
