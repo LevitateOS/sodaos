@@ -37,7 +37,7 @@ path = "src/bin/soda-render-terminal-logo.rs"
 
 [dependencies]
 soda-json = { path = "../../lib/json" }
-soda-build-tools = { path = "../../rust/soda-build-tools" }
+soda-build-tools = { path = "../../lib/release-inputs" }
 ureq = { version = "2", default-features = false, features = ["tls"] }
 flate2 = "1"
 tar = "0.4"

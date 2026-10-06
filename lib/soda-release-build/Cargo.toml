@@ -12,7 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 soda-json = { path = "../json" }
-soda-build-tools = { path = "../../rust/soda-build-tools" }
+soda-build-tools = { path = "../release-inputs" }
 libc = "0.2"
 sha2 = "0.10"
 flate2 = "1"
