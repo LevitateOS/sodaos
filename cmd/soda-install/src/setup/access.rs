@@ -1,5 +1,5 @@
 use super::address::private_setup_origin;
-use super::local_ca_fingerprint;
+use super::local_ca::local_ca_fingerprint;
 
 use crate::command::Runner;
 use crate::console::Console;
