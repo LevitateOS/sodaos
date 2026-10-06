@@ -98,6 +98,18 @@ fn launch_exit_parsing_matches_go_unmarshal() {
 }
 
 #[test]
+fn launch_exit_rejects_malformed_unicode_boundary() {
+    // H03-F4: a \u window ending inside a multibyte char must reject
+    // through the established Err path, not panic the decoder.
+    assert!(parse_launch_exit("{\"error\":\"\\u€é\"}".as_bytes()).is_err());
+    // Valid escapes still decode.
+    assert_eq!(
+        parse_launch_exit(b"{\"error\":\"A\\u0041\"}").unwrap(),
+        (0, String::from("AA"))
+    );
+}
+
+#[test]
 fn base64_matches_standard_vectors() {
     for (raw, want) in [
         ("", ""),
