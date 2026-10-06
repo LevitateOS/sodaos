@@ -116,9 +116,9 @@ Lead B; [F05](reviews/F05.md), [F06](reviews/F06.md). B01 for shared Store leave
 
 Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 boundary outputs; serialize current grants/dispatch/Store packet files before leaf handoff.
 
-- [ ] **B03.M** Split actual Go dispatch/occupancy/recovery/packet/queue/settlement and tests; send Rust host run/receipt/launch/finish/stop and neutral model changes to A. Preserve same dashboard/host topology.
+- [x] **B03.M** [run 20261005: DONE, integrated 1e2de63e (dispatch/assignment/store/lifecycle splits pure; Rust changes as specs to A)] Split actual Go dispatch/occupancy/recovery/packet/queue/settlement and tests; send Rust host run/receipt/launch/finish/stop and neutral model changes to A. Preserve same dashboard/host topology.
 - [ ] **B03.C** Correct F07-F1 authority tuple freshness, F07-F2 recorded prompt context, F08-F1 registration/withdraw capture ordering, F08-F2 fresh retry attempt and F08-F3 stop-owned settlement. Resolve exact grant/quiescence/transaction specifications first; Q3 blocks undecided simultaneous provider-family selection.
-- [ ] **B03.V** Exercise actual authority/registration/withdraw/retry/stop races with existing real Store and coordinator subjects; preserve historical attribution and usage.
+- [x] **B03.V** [run 20261005: DONE on disposable PG (11 pkgs, -race 4/4, raw logs archived, 0F/0S)] Exercise actual authority/registration/withdraw/retry/stop races with existing real Store and coordinator subjects; preserve historical attribution and usage.
 
 ### B04 Publication, review and correction loop
 
