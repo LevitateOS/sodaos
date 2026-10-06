@@ -76,7 +76,6 @@ export interface SetupReading {
   view: 'terminal' | 'sessions' | 'project';
   managementMode: 'standard' | 'journey' | 'settings';
   setupReturn: SetupReturn | undefined;
-  hasSelectedSpace: boolean;
   firstSpace: Space | undefined;
   onBegin: () => void;
   onRefresh: () => void;
@@ -98,6 +97,7 @@ export interface SetupActions {
   currentRepositoryRequest(): AbortController | undefined;
   admitRepositoryRequest(request: AbortController | undefined): void;
   currentRepositoryQuery(): string;
+  hasSelectedSpace(): boolean;
   isStale(): boolean;
   isActiveSurface(): boolean;
   selectProject(space: Space): void;
@@ -267,7 +267,7 @@ export function cancelSetup(reading: SetupReading, actions: SetupActions) {
     actions.setManagementMode(reading.setupReturn.mode);
   }
   actions.setSetupReturn(undefined);
-  if (!reading.hasSelectedSpace && reading.firstSpace) actions.selectProject(reading.firstSpace);
+  if (!actions.hasSelectedSpace() && reading.firstSpace) actions.selectProject(reading.firstSpace);
   actions.restoreFocus();
 }
 

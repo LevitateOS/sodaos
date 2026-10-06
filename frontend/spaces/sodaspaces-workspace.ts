@@ -893,7 +893,6 @@ export class SodaSpaces extends LitElement {
       view: this.view,
       managementMode: this.managementMode,
       setupReturn: this.setupReturn,
-      hasSelectedSpace: !!this.selectedSpace,
       firstSpace: this.spaces[0],
       onBegin: this.onBeginSetup,
       onRefresh: this.onRefreshClick,
@@ -940,6 +939,7 @@ export class SodaSpaces extends LitElement {
         this.repositoryRequest = request;
       },
       currentRepositoryQuery: () => this.repositoryQuery,
+      hasSelectedSpace: () => !!this.selectedSpace,
       isStale: () => this.stale,
       isActiveSurface: () => this.activeSurface,
       selectProject: (space) => this.selectProject(space),
