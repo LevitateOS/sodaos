@@ -1,15 +1,13 @@
 import {LitElement, html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
-import {renderMenu, renderWelcome, renderWelcomeSteps, renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
+import {renderMenu, renderWelcomeSteps} from './sodaspaces-workspace-view.js';
 import {renderRename} from './sodaspaces-terminal-dialog-view.js';
-import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext} from './sodaspaces-terminal.js';
 import {emptyLayout, focusedPane, hideTab} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
 import {check, id, object, projectId} from './sodaspaces-api.js';
-import {repositoryChoices} from './sodaspaces-repository-response.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import type {Creation, FactoryWatch, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
@@ -47,15 +45,8 @@ import {
   sessionsButtonHidden,
   sessionsButtonLabel,
 } from './sodaspaces-workspace-toolbar-view.js';
-import {
-  repositorySearchPath,
-  searchAdmitted,
-  setupIntroAction,
-  setupIntroDescription,
-  setupIntroHeading,
-  setupIntroHelper,
-  setupIntroKind,
-} from './sodaspaces-workspace-setup.js';
+import {beginSetup, cancelSetup, changeRepository, focusSetupPanel, renderSetup} from './sodaspaces-workspace-setup.js';
+import type {SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
 import {attentionRows, filteredSpaces, projectRows, rows} from './sodaspaces-workspace-navigation.js';
 import {displayFactoryWatches, factorySection} from './sodaspaces-workspace-factory.js';
 import {paneChrome} from './sodaspaces-workspace-pane-view.js';
@@ -414,7 +405,7 @@ export class SodaSpaces extends LitElement {
     if (!this.disposed && this.projectEventFromHost(e)) this.requestUpdate();
   }
   private onProjectChangeRepository(e: Event) {
-    if (this.projectEventFromHost(e)) this.changeRepository();
+    if (this.projectEventFromHost(e)) changeRepository(this.setupReading(), this.setupActions(), this);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -480,11 +471,14 @@ export class SodaSpaces extends LitElement {
     this.attentionOnly = true;
   };
   private readonly onRefreshClick = () => this.refresh();
-  private readonly onBeginSetup = () => this.beginSetup();
+  private readonly onBeginSetup = () => beginSetup(this.setupReading(), this.setupActions(), this);
   private readonly onShowSessions = () => this.showSessions();
   private readonly onNewTerminal = () => newTerminal(this.newTerminalInput(), this.layout.focused);
-  private readonly onCancelSetup = () => this.cancelSetup();
-  private readonly onSetupBack = () => (this.setup === 'configure' ? this.changeRepository() : this.cancelSetup());
+  private readonly onCancelSetup = () => cancelSetup(this.setupReading(), this.setupActions());
+  private readonly onSetupBack = () =>
+    this.setup === 'configure'
+      ? changeRepository(this.setupReading(), this.setupActions(), this)
+      : cancelSetup(this.setupReading(), this.setupActions());
   private readonly onCapturePointer = (e: PointerEvent) => this.capture(e);
   private readonly onResizeSidebar = (e: PointerEvent) => resizeSidebar(this.layoutInput(), e);
   private readonly onReleasePointer = (e: PointerEvent) => this.releasePointer(e);
@@ -755,7 +749,8 @@ export class SodaSpaces extends LitElement {
     const bodyClass = workspaceBodyClass(this.view);
     const bodyStyle = workspaceBodyStyle(this.setupScreen, this.compact, this.layout.sidebar, this.view);
     return html`<div class="soda-workspace-frame">
-      ${topbar} ${this.setupScreen ? this.renderSetup() : ''}
+      ${topbar}
+      ${this.setupScreen ? renderSetup(this.setupReading(), this.setupActions(), this, () => this.setupReading()) : ''}
       <div ?hidden=${bodyHidden} class=${bodyClass} style=${bodyStyle}>
         ${this.renderNavigation()}
         <div
@@ -877,190 +872,84 @@ export class SodaSpaces extends LitElement {
   private repositoryPrefix() {
     return this.binding?.forgejoPrefix || '';
   }
-  private clearRepositorySearch() {
-    this.repositoryQuery = this.repositoryError = '';
-    this.repositoryChoice = '';
-    this.repositoryResult = undefined;
-    this.repositoryCursors = [''];
-    this.repositoryRequest?.abort();
-    this.repositoryRequest = undefined;
-    this.repositoryBusy = false;
+  private setupReading(): SetupReading {
+    return {
+      setup: this.setup,
+      welcomeScreen: this.welcomeScreen,
+      busy: this.busy,
+      reconnectRequired: this.reconnectRequired,
+      stale: this.stale,
+      connectURL: this.connectURL,
+      available: this.available,
+      canRestore: this.canRestore,
+      activeSurface: this.activeSurface,
+      repositoryQuery: this.repositoryQuery,
+      repositoryChoice: this.repositoryChoice,
+      repositoryResult: this.repositoryResult,
+      repositoryError: this.repositoryError,
+      repositoryBusy: this.repositoryBusy,
+      forgejoPrefix: this.repositoryPrefix(),
+      project: this.project,
+      view: this.view,
+      managementMode: this.managementMode,
+      setupReturn: this.setupReturn,
+      hasSelectedSpace: !!this.selectedSpace,
+      firstSpace: this.spaces[0],
+      onBegin: this.onBeginSetup,
+      onRefresh: this.onRefreshClick,
+    };
   }
-  private setupPanelClass() {
-    return this.setup === 'repositories' ? 'soda-setup-form' : 'soda-setup-welcome';
-  }
-  private renderSetupBody(blocked: boolean) {
-    if (this.setup === 'repositories') {
-      return renderRepositoryPicker(
-        {
-          query: this.repositoryQuery,
-          result: this.repositoryResult,
-          selected: this.repositoryChoice,
-          busy: this.repositoryBusy,
-          error: this.repositoryError,
-          blocked,
-          createURL: this.repositoryPrefix() + '/repo/create',
-        },
-        {
-          query: (value) => this.onRepositoryQuery(value),
-          search: (page) => {
-            void this.searchRepositories(page);
-          },
-          select: (value) => {
-            this.repositoryChoice = value;
-          },
-          back: () => this.cancelSetup(),
-          continue: () => this.configureProject(),
-        }
-      );
-    }
-    if (this.welcomeScreen) return renderWelcome(blocked, this.onBeginSetup);
-    return renderWorkspaceIntro({
-      kind: setupIntroKind(this.busy),
-      heading: setupIntroHeading(this.busy, this.reconnectRequired),
-      description: setupIntroDescription(this.busy, this.reconnectRequired),
-      action: setupIntroAction(
-        this.busy,
-        this.reconnectRequired,
-        this.stale,
-        this.connectURL,
-        blocked,
-        this.onRefreshClick
-      ),
-      helper: setupIntroHelper(this.busy),
-    });
-  }
-  private onRepositoryQuery(value: string) {
-    this.repositoryQuery = value;
-    this.repositoryCursors = [''];
-    this.repositoryChoice = '';
-    this.repositoryResult = undefined;
-    this.repositoryError = '';
-    this.repositoryRequest?.abort();
-    this.repositoryRequest = undefined;
-    this.repositoryBusy = false;
-  }
-  private setupUnavailableHeading() {
-    if (this.busy) return 'Loading projects…';
-    if (this.reconnectRequired) return 'Reconnect to Forgejo';
-    return 'Could not load projects';
-  }
-  private setupUnavailableDescription() {
-    if (this.busy) return html`Checking the projects you can access.`;
-    if (this.reconnectRequired) return html`Sign in again to restore your Forgejo access.`;
-    return html`We couldn’t load your project list. Try again.`;
-  }
-  private setupUnavailableAction(blocked: boolean) {
-    if (this.busy) return html``;
-    if (this.reconnectRequired)
-      return html`<a class="ui primary button" href=${this.connectURL}>Reconnect to Forgejo</a>`;
-    if (this.stale)
-      return html`<button class="ui primary button" @click=${() => window.location.reload()}>Reload Spaces</button>`;
-    return html`<button class="ui primary button" ?disabled=${blocked} @click=${() => this.refresh()}>
-      Retry projects
-    </button>`;
-  }
-  private setupUnavailableHelper() {
-    if (this.busy) return html`This will not create or start anything.`;
-    return html`Your existing projects and terminals are not replaced.`;
-  }
-  private renderSetupUnavailable(blocked: boolean) {
-    return renderWorkspaceIntro({
-      kind: this.busy ? 'loading' : 'unavailable',
-      heading: this.setupUnavailableHeading(),
-      description: this.setupUnavailableDescription(),
-      action: this.setupUnavailableAction(blocked),
-      helper: this.setupUnavailableHelper(),
-    });
-  }
-  private renderSetup() {
-    const blocked = this.stale || !this.canRestore;
-    const formClass = this.setup === 'repositories' ? 'soda-setup-form' : 'soda-setup-welcome';
-    return html`<div class="soda-setup-panel" ?hidden=${this.setup === 'configure'}>
-      <div class=${formClass}>${this.renderSetupBody(blocked)}</div>
-    </div>`;
-  }
-  private focusSetup() {
-    void this.updateComplete.then(() => {
-      if (!this.stale && this.activeSurface)
-        this.querySelector<HTMLElement>('.soda-setup-panel:not([hidden]) h2, .soda-project-journey h2')?.focus();
-    });
-  }
-  private beginSetup() {
-    if (this.stale || !this.available || !this.canRestore || !this.activeSurface) return;
-    this.rememberFocus();
-    this.setupReturn = {project: this.project, view: this.view, mode: this.managementMode};
-    this.setup = 'repositories';
-    this.repositoryChoice = '';
-    this.focusSetup();
-    void this.searchRepositories(1);
-  }
-  private changeRepository() {
-    if (this.stale || !this.canRestore || this.setup !== 'configure' || !this.activeSurface) return;
-    this.setup = 'repositories';
-    this.focusSetup();
-  }
-  private cancelSetup() {
-    if (this.stale || !this.canRestore) return;
-    this.repositoryRequest?.abort();
-    this.repositoryRequest = undefined;
-    this.repositoryBusy = false;
-    this.setup = null;
-    if (this.setupReturn) {
-      this.project = this.setupReturn.project;
-      this.view = this.setupReturn.view;
-      this.managementMode = this.setupReturn.mode;
-    }
-    this.setupReturn = undefined;
-    if (!this.selectedSpace && this.spaces[0]) this.selectProject(this.spaces[0]);
-    this.restoreFocus();
-  }
-  private applyRepositorySearch(request: AbortController, query: string, result: RepositoryChoices) {
-    if (this.stale || this.repositoryRequest !== request || request.signal.aborted) return;
-    if (this.repositoryQuery !== query) return;
-    this.repositoryCursors = this.repositoryCursors.slice(0, result.page);
-    if (result.nextCursor) this.repositoryCursors.push(result.nextCursor);
-    this.repositoryResult = result;
-  }
-  private failRepositorySearch(request: AbortController, query: string) {
-    if (this.stale || this.repositoryRequest !== request) return;
-    if (this.repositoryQuery === query)
-      this.repositoryError = 'Could not find repositories. Search again; no project was created.';
-  }
-  private searchCursor(page: number) {
-    if (page === 1) this.repositoryCursors = [''];
-    return this.repositoryCursors[page - 1];
-  }
-  private async searchRepositories(page: number) {
-    if (!searchAdmitted(this.stale, this.available, this.setup, this.activeSurface)) return;
-    const cursor = this.searchCursor(page);
-    if (cursor === undefined) return;
-    this.repositoryRequest?.abort();
-    const request = (this.repositoryRequest = new AbortController()),
-      query = this.repositoryQuery;
-    const timer = window.setTimeout(() => request.abort(), 15000);
-    this.repositoryBusy = true;
-    this.repositoryError = '';
-    this.repositoryChoice = '';
-    this.repositoryResult = undefined;
-    try {
-      const result = repositoryChoices(
-        await this.api(repositorySearchPath(query, cursor), undefined, request.signal),
-        page
-      );
-      this.applyRepositorySearch(request, query, result);
-    } catch {
-      this.failRepositorySearch(request, query);
-    } finally {
-      window.clearTimeout(timer);
-      if (this.repositoryRequest === request) this.repositoryBusy = false;
-    }
-  }
-  private configureProject() {
-    const choice = this.repositoryResult?.items.find((item) => item.id === this.repositoryChoice);
-    if (!choice || this.repositoryBusy || this.stale || !this.canRestore || this.setup !== 'repositories') return;
-    this.setup = 'configure';
-    void this.showManagement(choice.id, 'journey');
+  private setupActions(): SetupActions {
+    return {
+      setSetup: (setup) => {
+        this.setup = setup;
+      },
+      setRepositoryQuery: (query) => {
+        this.repositoryQuery = query;
+      },
+      setRepositoryChoice: (choice) => {
+        this.repositoryChoice = choice;
+      },
+      setRepositoryResult: (result) => {
+        this.repositoryResult = result;
+      },
+      setRepositoryCursors: (cursors) => {
+        this.repositoryCursors = cursors;
+      },
+      setRepositoryError: (error) => {
+        this.repositoryError = error;
+      },
+      setRepositoryBusy: (busy) => {
+        this.repositoryBusy = busy;
+      },
+      setSetupReturn: (target) => {
+        this.setupReturn = target;
+      },
+      setProject: (project) => {
+        this.project = project;
+      },
+      setView: (view) => {
+        this.view = view;
+      },
+      setManagementMode: (mode) => {
+        this.managementMode = mode;
+      },
+      repositoryCursors: () => this.repositoryCursors,
+      currentRepositoryRequest: () => this.repositoryRequest,
+      admitRepositoryRequest: (request) => {
+        this.repositoryRequest = request;
+      },
+      currentRepositoryQuery: () => this.repositoryQuery,
+      isStale: () => this.stale,
+      isActiveSurface: () => this.activeSurface,
+      selectProject: (space) => this.selectProject(space),
+      rememberFocus: () => this.rememberFocus(),
+      restoreFocus: () => this.restoreFocus(),
+      showManagement: (repositoryId, mode) => {
+        void this.showManagement(repositoryId, mode);
+      },
+      api: (path, body, signal) => this.api(path, body, signal),
+    };
   }
   private selectProject(space: Space) {
     if (this.stale || !this.available || !this.canRestore) return;
@@ -1676,7 +1565,12 @@ export class SodaSpaces extends LitElement {
     if (created || changed || mode === 'journey') void project.api.refresh();
   }
   private focusConfigureIfNeeded(n: number, repositoryId: string) {
-    if (this.live(n) && this.project === repositoryId && this.setup === 'configure') this.focusSetup();
+    if (this.live(n) && this.project === repositoryId && this.setup === 'configure')
+      focusSetupPanel(
+        this,
+        () => this.stale,
+        () => this.activeSurface
+      );
   }
   private async showManagement(repositoryId: string, mode?: 'standard' | 'journey' | 'settings') {
     if (!this.managementAdmitted(repositoryId)) return;
