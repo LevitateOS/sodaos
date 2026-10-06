@@ -10,7 +10,7 @@
 //! overrides the verification program. Both are honored only together;
 //! production (unset) behavior is byte-identical to the original.
 
-#[path = "../../../../rust/soda-project-factory-roles/src/account.rs"]
+#[path = "accounts.rs"]
 pub(crate) mod account;
 #[path = "../../../../rust/soda-project-factory-roles/src/b64.rs"]
 pub(crate) mod b64;
