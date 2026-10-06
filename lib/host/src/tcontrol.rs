@@ -25,8 +25,6 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::project::{Executor, Native};
-use crate::tailnet_companion::TailnetControl;
-use crate::tailnet_domain;
 use crate::tcontrol_enroll as enroll;
 use crate::tcontrol_native as native;
 use crate::tcontrol_policy as policy;
@@ -74,7 +72,7 @@ impl Default for Options {
 /// companion; production passes [`NativeExec`].
 pub struct Control<E: Executor = NativeExec> {
     exec: E,
-    policy: policy::PolicyStore,
+    pub(crate) policy: policy::PolicyStore,
     socket: PathBuf,
     cli: String,
     libexec: String,
@@ -84,6 +82,9 @@ pub struct Control<E: Executor = NativeExec> {
     /// Test seam: canned provider `(status, body)` rounds.
     pub(crate) provider_stub: Option<Box<provider::ProviderTransport>>,
 }
+
+#[path = "tailnet/control/project.rs"]
+mod project;
 
 impl<E: Executor> Control<E> {
     /// Build a control plane. `exec` runs native commands (`tailscale`,
@@ -132,7 +133,7 @@ impl<E: Executor> Control<E> {
         |method, path, body, deadline| self.local_round_trip(method, path, body, deadline)
     }
 
-    fn provider(&self) -> enroll::Provider<'_> {
+    pub(crate) fn provider(&self) -> enroll::Provider<'_> {
         match &self.provider_stub {
             Some(stub) => enroll::Provider::Stub(stub),
             None => enroll::Provider::Curl {
@@ -263,45 +264,6 @@ impl<E: Executor> Control<E> {
         capped(out?.encode().into_bytes())
     }
 
-    /// Inspect or mutate one project's tailnet selection, same semantics as
-    /// Go `Control.Project`. `cid` is the project container id.
-    pub fn project(
-        &self,
-        req: &tailnet_domain::ProjectRequest,
-        cid: &str,
-        deadline: Instant,
-    ) -> Result<tailnet_domain::ProjectView, String> {
-        self.policy.project(deadline, req, cid)
-    }
-
-    /// Native-only public-metadata projection for one run incarnation,
-    /// mirroring `Control.RunBinding`.
-    pub fn run_binding(
-        &self,
-        target: &tailnet_domain::RunTarget,
-        deadline: Instant,
-    ) -> Result<tailnet_domain::RunBinding, String> {
-        self.policy.run_binding(deadline, target)
-    }
-
-    /// Enroll one run incarnation, mirroring `Control.EnrollRun`.
-    pub fn enroll_run(
-        &self,
-        target: &tailnet_domain::RunTarget,
-        recheck: &dyn Fn(Instant) -> Result<(), String>,
-        consume: &dyn Fn(Instant, &str) -> Result<(), String>,
-        deadline: Instant,
-    ) -> Result<(), String> {
-        enroll::enroll_run(
-            &self.policy,
-            &self.provider(),
-            target,
-            recheck,
-            consume,
-            deadline,
-        )
-    }
-
     /// Read the local node's authoritative Tailscale status via the CLI.
     pub fn cli_status(&self, deadline: Instant) -> Result<native::CliStatus, String> {
         native::cli_status(&self.exec, &self.cli, deadline)
@@ -310,35 +272,6 @@ impl<E: Executor> Control<E> {
     /// Resolve the advertised host and IPv4 address used by Forgejo.
     pub fn cli_endpoint(&self, deadline: Instant) -> Result<native::CliEndpoint, String> {
         native::cli_endpoint(&self.exec, &self.cli, deadline)
-    }
-}
-
-impl<E: Executor> TailnetControl for Control<E> {
-    fn project(
-        &self,
-        req: &tailnet_domain::ProjectRequest,
-        cid: &str,
-        deadline: Instant,
-    ) -> Result<tailnet_domain::ProjectView, String> {
-        Control::project(self, req, cid, deadline)
-    }
-
-    fn run_binding(
-        &self,
-        target: &tailnet_domain::RunTarget,
-        deadline: Instant,
-    ) -> Result<tailnet_domain::RunBinding, String> {
-        Control::run_binding(self, target, deadline)
-    }
-
-    fn enroll_run(
-        &self,
-        target: &tailnet_domain::RunTarget,
-        recheck: &dyn Fn(Instant) -> Result<(), String>,
-        consume: &dyn Fn(Instant, &str) -> Result<(), String>,
-        deadline: Instant,
-    ) -> Result<(), String> {
-        Control::enroll_run(self, target, recheck, consume, deadline)
     }
 }
 
