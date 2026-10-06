@@ -1,12 +1,13 @@
 use soda_json::JsonValue;
 
 use super::config::VmConfig;
-use super::{Phase, Vm};
+use super::lifecycle::Vm;
 use crate::command::{self, CommandSpec, StdinSpec};
 use crate::error::Error;
 use crate::evidence::Evidence;
 use crate::files;
 use crate::jsonio;
+use crate::process::Phase;
 
 pub(super) fn verify_qemu_commands(
     phase: &Phase,
