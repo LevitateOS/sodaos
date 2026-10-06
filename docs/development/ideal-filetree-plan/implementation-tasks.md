@@ -28,8 +28,8 @@ monolith at the same time as its selected same-file correction or move; no
 mandatory repository-wide extraction barrier. A owns host/guest extraction;
 route the browser workspace extraction to B.
 
-- [ ] **A00.M** Bind the reviewed descendants of host `project`, `account`, `preparation`, `prepare`, `texec`, terminal/factory and guest PTY/protocol plus `frontend/spaces/sodaspaces-workspace.ts`. Keep one defining DTO/fixture/module root before handing descendants to other packets. Use [host](decomposition/host-runtime.md), [Project](decomposition/project-runtime.md) and [browser](decomposition/browser-and-design.md) allocations.
-- [ ] **A00.V** Check real imports, private test visibility, relative fixtures and same-package binary ownership through R01. No new facade, duplicated state or size-only helper files.
+- [x] **A00.M** [run 20261005: DONE, integrated 56c095ed (6 in-place roots, whole-file; guest verified bound)] Bind the reviewed descendants of host `project`, `account`, `preparation`, `prepare`, `texec`, terminal/factory and guest PTY/protocol plus `frontend/spaces/sodaspaces-workspace.ts`. Keep one defining DTO/fixture/module root before handing descendants to other packets. Use [host](decomposition/host-runtime.md), [Project](decomposition/project-runtime.md) and [browser](decomposition/browser-and-design.md) allocations.
+- [x] **A00.V** [run 20261005: DONE (real imports, test visibility, relative fixtures, bin+lib ownership; host 641 + guest 92+12)] Check real imports, private test visibility, relative fixtures and same-package binary ownership through R01. No new facade, duplicated state or size-only helper files.
 
 ### A01 Project creation, membership and access
 
