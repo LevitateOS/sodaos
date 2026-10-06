@@ -10,7 +10,7 @@ use crate::pyemit;
 use crate::sha;
 use crate::svc;
 use crate::sys;
-use crate::term::subscription_lifetime;
+use crate::term_attach::subscription_lifetime;
 use crate::term_binding::{
     binding_object, binding_record, read_reservation, reservation_object, write_name, BindingRecord,
 };

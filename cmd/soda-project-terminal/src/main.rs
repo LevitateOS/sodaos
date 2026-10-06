@@ -41,6 +41,7 @@ mod subscription_wire;
 mod svc;
 mod sys;
 mod term;
+mod term_attach;
 mod term_binding;
 mod term_collect;
 mod term_create;
