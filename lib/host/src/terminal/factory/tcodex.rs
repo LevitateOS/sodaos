@@ -22,15 +22,20 @@ use crate::sha256;
 use crate::terminal::Delivery;
 use crate::terminal::{self, Binding, Lease, Service, KIND_FACTORY};
 
+// `muse_serve_oracle` compiles this module through a private `#[path]` copy
+// that never touches some re-exported names; they serve the real library.
+#[allow(unused_imports)]
 pub use super::artifacts::{
     export_argv, takeover_destination, takeover_source, takeover_steps, ERR_FACTORY_EXPORT_BOUNDS,
     ERR_FACTORY_EXPORT_CANDIDATE, FACTORY_EXPORT_SCRIPT, MAX_FACTORY_EXPORT_BUNDLE,
     TAKEOVER_DIR_NAME,
 };
+pub use super::lifecycle::factory_retire;
 pub use super::output::{
     factory_output_size, output_read_command, FactoryCodexOutputSlice, MAX_FACTORY_OUTPUT_OFFSET,
     MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW,
 };
+#[allow(unused_imports)]
 pub use super::run::{
     valid_commit, valid_digest, valid_factory_role, valid_factory_run_id, valid_harness_family,
     valid_harness_version, valid_preparation_id, FactoryRun, FACTORY_HARNESS_CODEX,
@@ -156,38 +161,6 @@ pub fn factory_supervisor(p: &FactoryCodexPaths, guest: &str, model: &str) -> St
         "CODE=$?; echo \"$CODE\" >\"$RUNDIR/exit\"; exit \"$CODE\"".to_string(),
     ];
     steps.join("\n") + "\n"
-}
-
-/// `factoryRetire`: identity-verified supervisor process-group kill plus a
-/// lingering-member scan. Golden-pinned against the Go output.
-pub fn factory_retire(p: &FactoryCodexPaths) -> String {
-    let script = [
-        format!("RUNDIR={}", shell_quote(&p.run_dir)),
-        ": >\"$RUNDIR/stop\"".to_string(),
-        "[ -f \"$RUNDIR/supervisor.pid\" ] || exit 0".to_string(),
-        "read PID START <\"$RUNDIR/supervisor.pid\"".to_string(),
-        "case \"$PID\" in ''|*[!0-9]*) exit 0;; esac".to_string(),
-        "case \"$START\" in ''|*[!0-9]*) exit 0;; esac".to_string(),
-        "if [ -d \"/proc/$PID\" ]; then".to_string(),
-        "  if STAT=$(cat \"/proc/$PID/stat\" 2>/dev/null); then".to_string(),
-        "    REST=${STAT##*)}; set -- $REST".to_string(),
-        "    if [ \"${20}\" = \"$START\" ]; then".to_string(),
-        "      CMDLINE=$(tr '\\000' ' ' <\"/proc/$PID/cmdline\" 2>/dev/null) || CMDLINE=\"\"".to_string(),
-        "      case \"$CMDLINE\" in *\"$RUNDIR\"*)".to_string(),
-        "        if [ \"$3\" = \"$PID\" ]; then kill -KILL -- \"-$PID\" 2>/dev/null || true; else kill -KILL -- \"$PID\" 2>/dev/null || true; fi".to_string(),
-        "      ;; esac".to_string(),
-        "    fi".to_string(),
-        "  fi".to_string(),
-        "fi".to_string(),
-        "sleep 1".to_string(),
-        "for S in /proc/[0-9]*/stat; do".to_string(),
-        "  STAT=$(cat \"$S\" 2>/dev/null) || continue".to_string(),
-        "  REST=${STAT##*)}; set -- $REST".to_string(),
-        "  if [ \"$3\" = \"$PID\" ]; then echo \"lingering: $S\"; exit 1; fi".to_string(),
-        "done".to_string(),
-        "exit 0".to_string(),
-    ];
-    script.join("\n") + "\n"
 }
 
 /// `factoryCodexBinding`: supervised factory-Codex binding check plus
@@ -825,86 +798,6 @@ impl<E: Executor> Service<E> {
             &p.run_dir,
             deadline,
         )
-    }
-
-    pub(crate) fn factory_await_inactive(
-        &self,
-        unit: &str,
-        deadline: Instant,
-    ) -> Result<(), String> {
-        let end = Instant::now() + Duration::from_secs(15);
-        loop {
-            if let Ok(show) = self.factory_unit_state(unit, deadline) {
-                if !show.active {
-                    return Ok(());
-                }
-            }
-            let now = Instant::now();
-            if now >= end || now >= deadline {
-                return Err(terminal::err_uncertain());
-            }
-            if sleep_until(now + Duration::from_millis(250), deadline).is_err() {
-                return Err(terminal::err_uncertain());
-            }
-        }
-    }
-
-    pub(crate) fn factory_retire(
-        &self,
-        container: &str,
-        run_dir: &str,
-        deadline: Instant,
-    ) -> Result<(), String> {
-        // The retire script only needs the run directory; build the shim
-        // paths so the golden-pinned builder stays untouched.
-        let p = FactoryCodexPaths {
-            run_dir: run_dir.to_string(),
-            ..Default::default()
-        };
-        let argv = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            container.to_string(),
-            "/usr/bin/sh".to_string(),
-            "-c".to_string(),
-            factory_retire(&p),
-        ];
-        self.run_podman(&[], &argv, deadline)
-            .map(|_| ())
-            .map_err(|_| terminal::err_uncertain())
-    }
-
-    pub(crate) fn factory_read_pid(
-        &self,
-        container: &str,
-        pid_file: &str,
-        deadline: Instant,
-    ) -> String {
-        let argv = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            container.to_string(),
-            "/usr/bin/cat".to_string(),
-            pid_file.to_string(),
-        ];
-        match self.run_podman(&[], &argv, deadline) {
-            Ok(out) if out.len() <= 256 && out.contains(&b' ') => {
-                String::from_utf8_lossy(&out).trim().to_string()
-            }
-            _ => String::new(),
-        }
-    }
-
-    pub(crate) fn factory_container_exists(
-        &self,
-        container: &str,
-        deadline: Instant,
-    ) -> Result<bool, String> {
-        match self.run_podman(&[], &terminal::container_exists_argv(container), deadline) {
-            Ok(_) => Ok(true),
-            Err(err) if terminal::exit_code_of(&err) == Some(1) => Ok(false),
-            Err(_) => Err(terminal::err_uncertain()),
-        }
     }
 
     /// `Service.FactoryCodexCapture`: read back the maintained credential
