@@ -12,7 +12,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 // Publisher is the coordinator's conditional-publication executor: it
@@ -55,7 +55,7 @@ func (p *Publisher) ObservePublication(ctx context.Context, work factory.Publica
 	if err != nil {
 		return empty, err
 	}
-	validated, err := cfg.PrepareValidated(ctx, hostpublish.Request{
+	validated, err := cfg.PrepareValidated(ctx, forgejopublish.Request{
 		Run: work.Run, BaseSHA: work.BaseSHA, Commit: work.Candidate,
 		Bundle: work.Bundle, ProtectedCredentials: secrets,
 	})
@@ -81,7 +81,7 @@ func (p *Publisher) SubmitPublish(ctx context.Context, work factory.PublicationW
 	if err != nil {
 		return empty, err
 	}
-	outcome, err := cfg.SubmitPublish(ctx, p.background, hostpublish.PublishOpIntent{
+	outcome, err := cfg.SubmitPublish(ctx, p.background, forgejopublish.PublishOpIntent{
 		Credential: extensions.CredentialFile(p.tokenFile), OperationID: work.OperationID,
 		AuthRevision: work.AuthRevision, Ref: factory.PublishBranchName(work.AssignmentID),
 		ExpectedOld: work.ExpectedOld, NewOID: work.Candidate,
@@ -108,7 +108,7 @@ func (p *Publisher) PushBranch(ctx context.Context, work factory.PublicationWork
 	if err != nil {
 		return empty, err
 	}
-	validated, err := cfg.PrepareValidated(ctx, hostpublish.Request{
+	validated, err := cfg.PrepareValidated(ctx, forgejopublish.Request{
 		Run: work.Run, BaseSHA: work.BaseSHA, Commit: work.Candidate,
 		Bundle: work.Bundle, ProtectedCredentials: secrets,
 	})
@@ -118,7 +118,7 @@ func (p *Publisher) PushBranch(ctx context.Context, work factory.PublicationWork
 	defer validated.Close()
 	target := factory.PublishBranchName(work.AssignmentID)
 	if err := validated.PushBranch(ctx, cfg, p.background, work.OperationID, target); err != nil {
-		var adopted *hostpublish.Adopted
+		var adopted *forgejopublish.Adopted
 		if errors.As(err, &adopted) {
 			return adopted.Outcome, nil
 		}
@@ -142,7 +142,7 @@ func (p *Publisher) SubmitPRCreate(ctx context.Context, work factory.Publication
 	if err != nil {
 		return empty, err
 	}
-	outcome, err := cfg.SubmitPRCreate(ctx, p.background, hostpublish.PRCreateOpIntent{
+	outcome, err := cfg.SubmitPRCreate(ctx, p.background, forgejopublish.PRCreateOpIntent{
 		Credential: extensions.CredentialFile(p.tokenFile), OperationID: work.OperationID,
 		AuthRevision: work.AuthRevision, HeadRef: factory.PublishBranchName(work.AssignmentID),
 		BaseRef: work.TargetBranch, ExpectedHead: work.Candidate, ExpectedBase: work.ComparisonOID,
@@ -160,7 +160,7 @@ func (p *Publisher) LookupOp(ctx context.Context, operationID string) (factory.O
 	if p.background == nil {
 		return empty, &factory.PublicationWait{Reason: "operations_unavailable"}
 	}
-	outcome, err := hostpublish.Config{}.LookupOperation(ctx, p.background, operationID)
+	outcome, err := forgejopublish.Config{}.LookupOperation(ctx, p.background, operationID)
 	if err != nil {
 		return empty, p.flattenError(err)
 	}
@@ -174,7 +174,7 @@ func (p *Publisher) CancelOp(ctx context.Context, operationID string) (factory.O
 	if p.background == nil {
 		return empty, &factory.PublicationWait{Reason: "operations_unavailable"}
 	}
-	outcome, err := hostpublish.Config{}.CancelOperation(ctx, p.background, operationID)
+	outcome, err := forgejopublish.Config{}.CancelOperation(ctx, p.background, operationID)
 	if err != nil {
 		return empty, p.flattenError(err)
 	}
@@ -187,7 +187,7 @@ func (p *Publisher) AdoptBranch(work factory.PublicationWork, outcome factory.Op
 	if err := publicationOutcomeMatches(work, outcome, factory.OpRefPublish); err != nil {
 		return factory.BranchOutcome{}, err
 	}
-	return hostpublish.DecodePublishReceipt(outcome, factory.PublishBranchName(work.AssignmentID),
+	return forgejopublish.DecodePublishReceipt(outcome, factory.PublishBranchName(work.AssignmentID),
 		work.ExpectedOld, work.Candidate, work.ComparisonRef, work.ComparisonOID, work.ActorID, work.Repository)
 }
 
@@ -197,7 +197,7 @@ func (p *Publisher) AdoptPRCreation(work factory.PublicationWork, outcome factor
 	if err := publicationOutcomeMatches(work, outcome, factory.OpPRCreate); err != nil {
 		return factory.PRCreationOutcome{}, err
 	}
-	return hostpublish.DecodePRCreateReceipt(outcome, factory.PublishBranchName(work.AssignmentID),
+	return forgejopublish.DecodePRCreateReceipt(outcome, factory.PublishBranchName(work.AssignmentID),
 		work.TargetBranch, work.Candidate, work.ComparisonOID, work.ActorID, work.Repository)
 }
 
@@ -213,8 +213,8 @@ func publicationOutcomeMatches(work factory.PublicationWork, outcome factory.Ope
 // repository's exact internal smart-HTTP remote plus the private root,
 // bound actor login and restricted credential file. Every remote is
 // derived from the verified repository identity, never caller-supplied.
-func (p *Publisher) publisherConfig(ctx context.Context, work factory.PublicationWork) (hostpublish.Config, error) {
-	var empty hostpublish.Config
+func (p *Publisher) publisherConfig(ctx context.Context, work factory.PublicationWork) (forgejopublish.Config, error) {
+	var empty forgejopublish.Config
 	if err := work.ValidateObservation(); err != nil {
 		return empty, &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
@@ -233,7 +233,7 @@ func (p *Publisher) publisherConfig(ctx context.Context, work factory.Publicatio
 		return empty, &factory.PublicationWait{Reason: "repository_unavailable"}
 	}
 	login := p.cachedLogin()
-	cfg := hostpublish.Config{
+	cfg := forgejopublish.Config{
 		Root: p.root, Remote: p.internal + "/" + url.PathEscape(repo.Owner.Login) + "/" + url.PathEscape(repo.Name) + ".git",
 		Username: login, TokenFile: p.tokenFile,
 	}
@@ -303,14 +303,14 @@ func (p *Publisher) protectedSecrets() ([]string, error) {
 // refusals: the recorded bytes are wrong, and retrying identical bytes
 // is pointless. Transport failures reaching validation stay errors.
 func (p *Publisher) mapValidationError(err error) error {
-	var refusal *hostpublish.Refusal
+	var refusal *forgejopublish.Refusal
 	if errors.As(err, &refusal) {
 		if refusal.Reason == "invalid_publisher" {
 			return &factory.PublicationWait{Reason: "operations_unavailable"}
 		}
 		return &factory.PublicationRefusal{Reason: "candidate_invalid"}
 	}
-	var wait *hostpublish.Wait
+	var wait *forgejopublish.Wait
 	if errors.As(err, &wait) {
 		return &factory.PublicationWait{Reason: wait.Reason}
 	}
@@ -325,7 +325,7 @@ func (p *Publisher) flattenOutcome(outcome factory.OperationOutcome, err error) 
 	if err == nil {
 		return outcome, nil
 	}
-	var adopted *hostpublish.Adopted
+	var adopted *forgejopublish.Adopted
 	if errors.As(err, &adopted) {
 		return adopted.Outcome, nil
 	}
@@ -333,11 +333,11 @@ func (p *Publisher) flattenOutcome(outcome factory.OperationOutcome, err error) 
 }
 
 func (p *Publisher) flattenError(err error) error {
-	var refusal *hostpublish.Refusal
+	var refusal *forgejopublish.Refusal
 	if errors.As(err, &refusal) {
 		return &factory.PublicationRefusal{Reason: refusal.Reason}
 	}
-	var wait *hostpublish.Wait
+	var wait *forgejopublish.Wait
 	if errors.As(err, &wait) {
 		return &factory.PublicationWait{Reason: wait.Reason}
 	}

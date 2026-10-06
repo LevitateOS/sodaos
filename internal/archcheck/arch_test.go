@@ -220,13 +220,13 @@ func TestDependencyDirection(t *testing.T) {
 	allowOnly(t, edges, "internal/identity/client", "internal/identity", "internal/strictjson")
 
 	// Privilege execution lives in the Rust `soda-host` daemon; the only
-	// Go executor left under host/ is host/publish (no Rust replacement).
+	// Go publisher is forgejo/publish (no Rust replacement).
 	// The cutover pins both halves: publish present, the superseded
-	// project/terminal/tailnet executors absent.
-	if _, err := os.Stat(filepath.Join(root, "internal/host/publish")); err != nil {
-		t.Errorf("native executor internal/host/publish missing")
+	// host/publish and project/terminal/tailnet executors absent.
+	if _, err := os.Stat(filepath.Join(root, "internal/forgejo/publish")); err != nil {
+		t.Errorf("native publisher internal/forgejo/publish missing")
 	}
-	for _, pkg := range []string{"internal/host/project", "internal/host/terminal", "internal/host/tailnet"} {
+	for _, pkg := range []string{"internal/host/publish", "internal/host/project", "internal/host/terminal", "internal/host/tailnet"} {
 		if _, err := os.Stat(filepath.Join(root, pkg)); !os.IsNotExist(err) {
 			t.Errorf("superseded executor %s resurrected; execution lives in the Rust daemon", pkg)
 		}
@@ -248,7 +248,7 @@ func TestDependencyDirection(t *testing.T) {
 
 	// The remaining privileged helper stays a leaf: no upward import of
 	// the daemon, no outward reach into transport, storage or release.
-	for _, pkg := range []string{"internal/host/publish"} {
+	for _, pkg := range []string{"internal/forgejo/publish"} {
 		forbid(t, edges, pkg, "internal/web", "internal/release", "internal/store")
 		for _, imp := range importsOf(edges, pkg) {
 			if imp == "internal/host" {
