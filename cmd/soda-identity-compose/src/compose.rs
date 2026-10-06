@@ -1,4 +1,4 @@
-use super::json_string;
+use super::launch_wire::json_string;
 use super::options::Options;
 use super::MUSE_LAUNCH_SOCKET;
 use std::fs;

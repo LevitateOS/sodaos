@@ -1,6 +1,6 @@
-use super::launch_request_json;
-use super::parse_launch_exit;
-use super::NestedRegistration;
+use super::launch_wire::launch_request_json;
+use super::launch_wire::parse_launch_exit;
+use super::launch_wire::NestedRegistration;
 use super::MUSE_LAUNCH_SOCKET;
 use std::ffi::CString;
 use std::fs;
