@@ -25,7 +25,7 @@ func TestProjectStateRefusesOutsideRootContainer(t *testing.T) {
 }
 
 func TestProjectStateSnapshotContracts(t *testing.T) {
-	source := readProbeSource(t, "rust/soda-acceptance/src/project_state.rs")
+	source := readProbeSource(t, "tools/acceptance/src/project_state.rs")
 	for _, want := range []string{
 		"SODA_EXPECT_WORKLOADS",
 		"Caller must declare required workload observations",

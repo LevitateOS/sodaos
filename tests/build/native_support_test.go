@@ -201,7 +201,7 @@ func TestOutsideSupportToolsAreNotApplianceCommands(t *testing.T) {
 	}
 	Check(t, statIsFile("lib/soda-release-tools/src/artifacts.rs"), "soda-artifacts owner missing")
 	Check(t, !statExists("cmd/soda-artifacts"), "cmd soda-artifacts present")
-	Check(t, statIsFile("rust/soda-acceptance/Cargo.toml"), "acceptance crate missing")
+	Check(t, statIsFile("tools/acceptance/Cargo.toml"), "acceptance crate missing")
 	Check(t, !statExists("cmd/soda-acceptance"), "cmd soda-acceptance present")
 	Check(t, !statExists("tools/soda-acceptance/main.go"), "go acceptance driver present")
 	Check(t, statIsFile("lib/soda-release-tools/src/build_cli.rs"), "soda-build missing")
