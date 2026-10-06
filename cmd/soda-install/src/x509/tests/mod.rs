@@ -1,166 +1,14 @@
+use self::fixtures::{
+    ai_element, bitstring, boolean, cert_from_tbs_parts, concat, dsa_params, dsa_spki, ec_spki,
+    err_text, extension, gentime, int_raw, int_small, ku_value, null, octet, oid, seq,
+    spki_with_key, std_cert, std_parts, std_spki, tlv, utctime, v3_cert, v3_parts,
+    OID_BASIC_CONSTRAINTS, OID_DSA, OID_DSA_SHA256, OID_ECDSA_SHA1, OID_ECDSA_SHA256, OID_EC_PUB,
+    OID_ED25519, OID_ISO_SHA1_RSA, OID_KEY_USAGE, OID_MD5_RSA, OID_MGF1, OID_P256, OID_PSS,
+    OID_RSA_ENC, OID_SHA1_RSA, OID_SHA256, OID_SHA256_RSA, OID_SHA384, OID_SHA512,
+};
 use super::*;
 
-fn tlv(tag: u8, contents: &[u8]) -> Vec<u8> {
-    let mut out = vec![tag];
-    if contents.len() < 128 {
-        out.push(contents.len() as u8);
-    } else {
-        let mut len = contents.len();
-        let mut bytes = Vec::new();
-        while len > 0 {
-            bytes.push((len & 0xff) as u8);
-            len >>= 8;
-        }
-        out.push(0x80 | bytes.len() as u8);
-        bytes.reverse();
-        out.extend_from_slice(&bytes);
-    }
-    out.extend_from_slice(contents);
-    out
-}
-
-fn seq(contents: &[u8]) -> Vec<u8> {
-    tlv(0x30, contents)
-}
-
-fn concat(parts: &[Vec<u8>]) -> Vec<u8> {
-    let mut out = Vec::new();
-    for part in parts {
-        out.extend_from_slice(part);
-    }
-    out
-}
-
-fn int_raw(bytes: &[u8]) -> Vec<u8> {
-    tlv(0x02, bytes)
-}
-
-fn int_small(v: u64) -> Vec<u8> {
-    if v == 0 {
-        return tlv(0x02, &[0]);
-    }
-    let mut bytes = Vec::new();
-    let mut x = v;
-    while x > 0 {
-        bytes.push((x & 0xff) as u8);
-        x >>= 8;
-    }
-    bytes.reverse();
-    if bytes[0] & 0x80 != 0 {
-        bytes.insert(0, 0);
-    }
-    tlv(0x02, &bytes)
-}
-
-fn oid(body: &[u8]) -> Vec<u8> {
-    tlv(0x06, body)
-}
-
-fn null() -> Vec<u8> {
-    vec![0x05, 0x00]
-}
-
-fn bitstring(payload: &[u8]) -> Vec<u8> {
-    let mut contents = vec![0x00];
-    contents.extend_from_slice(payload);
-    tlv(0x03, &contents)
-}
-
-fn utctime(s: &str) -> Vec<u8> {
-    tlv(0x17, s.as_bytes())
-}
-
-fn gentime(s: &str) -> Vec<u8> {
-    tlv(0x18, s.as_bytes())
-}
-
-fn octet(contents: &[u8]) -> Vec<u8> {
-    tlv(0x04, contents)
-}
-
-fn boolean(v: bool) -> Vec<u8> {
-    tlv(0x01, &[if v { 0xff } else { 0 }])
-}
-
-const OID_SHA256_RSA: &[u8] = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x0B];
-const OID_SHA1_RSA: &[u8] = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x05];
-const OID_MD5_RSA: &[u8] = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x04];
-const OID_RSA_ENC: &[u8] = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01];
-const OID_PSS: &[u8] = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x0A];
-const OID_MGF1: &[u8] = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x08];
-const OID_SHA256: &[u8] = &[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01];
-const OID_SHA384: &[u8] = &[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02];
-const OID_SHA512: &[u8] = &[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03];
-const OID_ECDSA_SHA256: &[u8] = &[0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x03, 0x02];
-const OID_ECDSA_SHA1: &[u8] = &[0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x01];
-const OID_EC_PUB: &[u8] = &[0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01];
-const OID_P256: &[u8] = &[0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07];
-const OID_ED25519: &[u8] = &[0x2B, 0x65, 0x70];
-const OID_DSA: &[u8] = &[0x2A, 0x86, 0x48, 0xCE, 0x38, 0x04, 0x01];
-const OID_DSA_SHA256: &[u8] = &[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x03, 0x02];
-const OID_ISO_SHA1_RSA: &[u8] = &[0x2B, 0x0E, 0x03, 0x02, 0x1D];
-const OID_KEY_USAGE: &[u8] = &[0x55, 0x1D, 0x0F];
-const OID_BASIC_CONSTRAINTS: &[u8] = &[0x55, 0x1D, 0x13];
-
-/// Full SEQ element for an AlgorithmIdentifier with optional params.
-fn ai_element(oid_body: &[u8], params: Option<&[u8]>) -> Vec<u8> {
-    let mut contents = oid(oid_body);
-    if let Some(p) = params {
-        contents.extend_from_slice(p);
-    }
-    seq(&contents)
-}
-
-fn rsa_spki(n: &[u8], e: &[u8], params: Option<&[u8]>) -> Vec<u8> {
-    let pk_alg = ai_element(OID_RSA_ENC, params);
-    let key = seq(&concat(&[int_raw(n), int_raw(e)]));
-    seq(&concat(&[pk_alg, bitstring(&key)]))
-}
-
-fn std_spki() -> Vec<u8> {
-    rsa_spki(
-        &[0x00, 0xC0, 0xFF, 0xEE],
-        &[0x01, 0x00, 0x01],
-        Some(&null()),
-    )
-}
-
-fn std_validity() -> Vec<u8> {
-    seq(&concat(&[
-        utctime("700101000000Z"),
-        utctime("700102000000Z"),
-    ]))
-}
-
-/// The six standard TBS parts: serial, inner AI, issuer, validity,
-/// subject, SPKI. Callers may prefix a version or suffix unique IDs.
-fn std_parts() -> Vec<Vec<u8>> {
-    vec![
-        int_small(1),
-        ai_element(OID_SHA256_RSA, Some(&null())),
-        seq(&[]),
-        std_validity(),
-        seq(&[]),
-        std_spki(),
-    ]
-}
-
-fn cert_from_tbs_parts(parts: &[Vec<u8>], outer_ai: &[u8], sig: &[u8]) -> Vec<u8> {
-    let tbs = seq(&concat(parts));
-    seq(&concat(&[tbs, outer_ai.to_vec(), bitstring(sig)]))
-}
-
-fn std_cert() -> Vec<u8> {
-    cert_from_tbs_parts(
-        &std_parts(),
-        &ai_element(OID_SHA256_RSA, Some(&null())),
-        &[0xAB, 0xCD],
-    )
-}
-
-fn err_text(result: Result<Certificate, String>) -> String {
-    result.expect_err("expected parse failure")
-}
+mod fixtures;
 
 #[test]
 fn parse_minimal_v1_rsa_cert() {
@@ -400,10 +248,6 @@ fn parse_versions_and_unique_ids() {
     );
 }
 
-fn spki_with_key(pk_alg: &[u8], key_der: &[u8]) -> Vec<u8> {
-    seq(&concat(&[pk_alg.to_vec(), bitstring(key_der)]))
-}
-
 fn key_err(spki: &[u8]) -> String {
     let mut parts = std_parts();
     parts[5] = spki.to_vec();
@@ -476,14 +320,6 @@ fn parse_rsa_key_errors() {
     );
 }
 
-fn dsa_spki(y: &[u8], params: &[u8]) -> Vec<u8> {
-    spki_with_key(&ai_element(OID_DSA, Some(params)), &int_raw(y))
-}
-
-fn dsa_params(p: &[u8], q: &[u8], g: &[u8]) -> Vec<u8> {
-    seq(&concat(&[int_raw(p), int_raw(q), int_raw(g)]))
-}
-
 #[test]
 fn parse_dsa_key() {
     // Happy path stores magnitudes.
@@ -532,10 +368,6 @@ fn parse_dsa_key() {
         key_err(&dsa_spki(&[0x11], &dsa_params(&[0x11], &[0xFF], &[0x17]))),
         "x509: zero or negative DSA parameter"
     );
-}
-
-fn ec_spki(curve_body: &[u8], point: &[u8]) -> Vec<u8> {
-    spki_with_key(&ai_element(OID_EC_PUB, Some(&oid(curve_body))), point)
 }
 
 #[test]
@@ -918,36 +750,6 @@ fn ecdsa_signature_lenient_parse() {
     sig.push(0x00);
     assert_eq!(parse_ecdsa_signature(&sig), None);
     assert_eq!(parse_ecdsa_signature(&[0x04, 0x02, 0x01, 0x02]), None);
-}
-
-fn extension(oid_body: &[u8], critical: bool, value: &[u8]) -> Vec<u8> {
-    let mut contents = oid(oid_body);
-    if critical {
-        contents.extend_from_slice(&boolean(true));
-    }
-    contents.extend_from_slice(&octet(value));
-    seq(&contents)
-}
-
-fn v3_parts(exts: &[Vec<u8>]) -> Vec<Vec<u8>> {
-    let mut parts = std_parts();
-    parts.insert(0, tlv(0xA0, &int_small(2)));
-    parts.push(tlv(0xA3, &seq(&concat(exts))));
-    parts
-}
-
-fn v3_cert(exts: &[Vec<u8>]) -> Vec<u8> {
-    cert_from_tbs_parts(
-        &v3_parts(exts),
-        &ai_element(OID_SHA256_RSA, Some(&null())),
-        &[1],
-    )
-}
-
-fn ku_value(bits: &[u8], unused: u8) -> Vec<u8> {
-    let mut contents = vec![unused];
-    contents.extend_from_slice(bits);
-    tlv(0x03, &contents)
 }
 
 #[test]
