@@ -13,7 +13,7 @@
 //! Rust port of appliance/bin/soda-pg-restore. Std-only (`cargo build
 //! --offline`). Exit codes and messages match the shell.
 
-use soda_pg_maintenance::{db_exists_sql, valid_db_name};
+use soda_pg_maintenance::{db_exists_sql, delivery_exit, valid_db_name};
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -168,10 +168,14 @@ fn psql_stdin(container: &str, sql: &[u8]) -> Result<(), i32> {
         .stdin
         .take()
         .is_some_and(|mut stdin| stdin.write_all(sql).is_ok());
-    match (wrote, child.wait()) {
-        (true, Ok(status)) if status.success() => Ok(()),
-        (_, Ok(status)) => Err(status.code().unwrap_or(1)),
-        (_, Err(_)) => Err(1),
+    let code = match child.wait() {
+        Ok(status) => delivery_exit(wrote, status),
+        Err(_) => 1,
+    };
+    if code == 0 {
+        Ok(())
+    } else {
+        Err(code)
     }
 }
 

@@ -3,6 +3,7 @@
 //! appliance/bin/soda-pg-*. Std-only so the tree builds without vendoring
 //! (`cargo build`).
 
+use std::process::ExitStatus;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Shell `case "$db" in ''|*[!a-z0-9_]*|'pg_'*)` refusal, inverted.
@@ -62,6 +63,18 @@ pub fn stamp_from_unix(secs: i64) -> String {
     )
 }
 
+/// Exit code for a reaped SQL-delivery child (O01-F1/O06-F1). The caller
+/// owns the child, writes its stdin, reaps exactly once, and maps the
+/// outcome here: a nonzero child status is preserved, but a failed input
+/// write is a failure even when the child itself exited zero.
+pub fn delivery_exit(wrote: bool, status: ExitStatus) -> i32 {
+    match (wrote, status.code()) {
+        (true, Some(0)) => 0,
+        (_, Some(code)) if code != 0 => code,
+        _ => 1,
+    }
+}
+
 /// Current UTC stamp, or None when the clock is unreadable.
 pub fn utc_stamp() -> Option<String> {
     SystemTime::now()
@@ -99,6 +112,23 @@ mod tests {
              ALTER ROLE \"soda\" WITH LOGIN PASSWORD 'q''uote';\n\
              SELECT 'CREATE DATABASE \"soda\" OWNER \"soda\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname='soda')\\gexec\n"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn delivery_exit_maps_failed_write_and_child_status() {
+        use std::os::unix::process::ExitStatusExt;
+        let exited = |code: i32| ExitStatus::from_raw(code << 8);
+        // O01-F1/O06-F1: failed input delivery plus child exit zero is a
+        // failure, never success.
+        assert_eq!(delivery_exit(false, exited(0)), 1);
+        assert_eq!(delivery_exit(true, exited(0)), 0);
+        // Nonzero child errors are preserved either way.
+        assert_eq!(delivery_exit(true, exited(3)), 3);
+        assert_eq!(delivery_exit(false, exited(3)), 3);
+        // Signalled children carry no code; report generic failure.
+        assert_eq!(delivery_exit(true, ExitStatus::from_raw(9)), 1);
+        assert_eq!(delivery_exit(false, ExitStatus::from_raw(9)), 1);
     }
 
     #[test]
