@@ -5,7 +5,7 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 import {LitElement, html} from 'lit';
 import {renderProjectStatus} from './sodaspaces-project-view.js';
 import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
-import {object, check, id, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
+import {check, id} from './sodaspaces-api.js';
 import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
 import {renderJourney} from './sodaspaces-project-journey-view.js';
@@ -23,8 +23,16 @@ import {refresh as runRefresh} from './sodaspaces-project-refresh.js';
 import type {RefreshInput} from './sodaspaces-project-refresh.js';
 import {copyConnection} from './sodaspaces-project-connection.js';
 import type {ConnectionInput} from './sodaspaces-project-connection.js';
-import {mutate} from './sodaspaces-project-mutations.js';
 import type {MutationsInput} from './sodaspaces-project-mutations.js';
+import {
+  announceChanged,
+  announceObserved,
+  api,
+  beginEpoch,
+  beginRead,
+  createProject,
+} from './sodaspaces-project-request.js';
+import type {RequestInput} from './sodaspaces-project-request.js';
 import {
   changeNetwork,
   clearNetworkReview,
@@ -63,37 +71,6 @@ function viewFromTabKey(key: string, current: View): View | undefined {
   if (key === 'End') return views[views.length - 1];
   if (key === 'ArrowRight') return views[(i + 1) % views.length];
   if (key === 'ArrowLeft') return views[(i - 1 + views.length) % views.length];
-}
-
-function sodaFetchInit(
-  method: string,
-  headers: Record<string, string>,
-  body?: Record<string, unknown>,
-  signal?: AbortSignal
-): RequestInit {
-  return {
-    method,
-    headers,
-    ...(body === undefined
-      ? {}
-      : {
-          body: JSON.stringify(body),
-        }),
-    ...(signal
-      ? {
-          signal,
-        }
-      : {}),
-  };
-}
-
-async function sodaErrorCode(response: Response): Promise<string | undefined> {
-  try {
-    const error = object(object(await readSodaJSON(response)).error);
-    if (typeof error.code === 'string') return error.code;
-  } catch {
-    /* Never display a response body. */
-  }
 }
 
 export class SodaProjectControls extends LitElement {
@@ -334,24 +311,6 @@ export class SodaProjectControls extends LitElement {
     this.selected = 'environment';
     return true;
   }
-  private createProject() {
-    if (!this.canCreate || this.networkReview || !this.profiles.some((p) => p.id === this.selectedProfile)) return;
-    return mutate(
-      this.mutationsInput(),
-      '/api/environments',
-      {
-        repository_id: this.binding?.repositoryId,
-        profile_id: this.selectedProfile,
-        tailnet: this.createTailnetBody(),
-      },
-      'Project created. Join explicitly to set up your browser-terminal account.'
-    );
-  }
-  private createTailnetBody() {
-    if (this.networkEnabled && this.networkOptions?.available)
-      return {enabled: true, revision: this.networkOptions.revision, binding: this.networkOptions.binding};
-    return {enabled: false};
-  }
   private journeyViewInput(): JourneyViewInput {
     return {
       isStale: () => this.stale,
@@ -380,7 +339,7 @@ export class SodaProjectControls extends LitElement {
       refreshNow: () => this.refresh(),
       requestJoin: (event) => this.command(event, () => joinEnvironment(this.accessInput())),
       requestStart: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), false)),
-      requestCreate: (event) => this.command(event, () => this.createProject()),
+      requestCreate: (event) => this.command(event, () => createProject(this.requestInput())),
       requestRepositoryChange: (event) => this.command(event, () => this.requestRepositoryChange()),
       clearNetworkReview: (event) => this.command(event, () => clearNetworkReview(this.networkInput())),
       selectProfile: (value) => this.onSelectProfile(value),
@@ -492,7 +451,7 @@ export class SodaProjectControls extends LitElement {
       selectProfile: (value) => this.onSelectProfile(value),
       setUseSavedKeys: (checked) => setUseSavedKeys(this.accessInput(), checked),
       requestRefresh: (event) => this.command(event, () => this.refresh()),
-      requestCreate: (event) => this.command(event, () => this.createProject()),
+      requestCreate: (event) => this.command(event, () => createProject(this.requestInput())),
       requestJoin: (event) => this.command(event, () => joinEnvironment(this.accessInput())),
       requestStart: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), false)),
       requestStop: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), true)),
@@ -551,7 +510,7 @@ export class SodaProjectControls extends LitElement {
       },
       takeReadController: () => (this.readController = new AbortController()),
       invalidate: () => this.invalidate(),
-      api: (path, method, body, signal) => this.api(path, method, body, signal),
+      api: (path, method, body, signal) => api(this.requestInput(), path, method, body, signal),
       mutations: this.mutationsInput(),
     };
   }
@@ -592,7 +551,7 @@ export class SodaProjectControls extends LitElement {
         this.outcome = outcome;
       },
       runCommand: (event, action) => this.command(event, action),
-      api: (path, method, body, signal) => this.api(path, method, body, signal),
+      api: (path, method, body, signal) => api(this.requestInput(), path, method, body, signal),
       mutations: this.mutationsInput(),
     };
   }
@@ -657,65 +616,38 @@ export class SodaProjectControls extends LitElement {
     this.status =
       'Page context changed. Reload the full repository page; no action was replayed or undone. A dispatched operation may still have completed.';
   }
-  private requestHeaders(method: string): Record<string, string> {
-    const headers: Record<string, string> = {};
-    if (method === 'GET') return headers;
-    headers['Content-Type'] = 'application/json';
-    return headers;
-  }
-  private admitHttpFailure(status: number) {
-    if (status !== 401 && status !== 403) return;
-    this.invalidate();
-  }
-  private async api(
-    path: string,
-    method = 'GET',
-    body?: Record<string, unknown>,
-    signal?: AbortSignal
-  ): Promise<unknown> {
-    if (!this.binding) throw Error('Missing native extension');
-    const response = await this.binding.transport.request(
-      path.slice('/api/'.length),
-      sodaFetchInit(method, this.requestHeaders(method), body, signal)
-    );
-    if (response.ok) return response.status === 204 ? null : readSodaJSON(response);
-    this.admitHttpFailure(response.status);
-    throw new SodaRequestError(response.status, await sodaErrorCode(response));
-  }
   async refresh() {
     await runRefresh(this.refreshInput());
   }
-  private beginEpoch() {
-    return ++this.epoch;
-  }
-  private beginRead() {
-    this.readController?.abort();
-    this.reset();
-    const control = (this.readController = new AbortController());
-    return control;
-  }
-  private announceObserved(summary: {
-    repositoryId: string;
-    environmentId: string;
-    provisioned: boolean;
-    login: string;
-    running: boolean;
-  }) {
-    this.dispatchEvent(
-      new CustomEvent('soda-project-observed', {
-        bubbles: true,
-        detail: {
-          repositoryId: summary.repositoryId,
-          environmentId: summary.environmentId,
-          provisioned: summary.provisioned,
-          login: summary.login,
-          running: summary.running,
-        },
-      })
-    );
-  }
-  private announceChanged(repositoryId: string) {
-    this.dispatchEvent(new CustomEvent('soda-project-changed', {bubbles: true, detail: {repositoryId}}));
+  private requestInput(): RequestInput {
+    return {
+      readBinding: () => this.binding,
+      beginEpoch: () => ++this.epoch,
+      abortRead: () => {
+        this.readController?.abort();
+      },
+      takeReadController: () => (this.readController = new AbortController()),
+      resetState: () => this.reset(),
+      invalidate: () => this.invalidate(),
+      dispatchObserved: (detail) => {
+        this.dispatchEvent(
+          new CustomEvent('soda-project-observed', {
+            bubbles: true,
+            detail,
+          })
+        );
+      },
+      dispatchChanged: (repositoryId) => {
+        this.dispatchEvent(new CustomEvent('soda-project-changed', {bubbles: true, detail: {repositoryId}}));
+      },
+      readCanCreate: () => this.canCreate,
+      readNetworkReview: () => this.networkReview,
+      readProfiles: () => this.profiles,
+      readSelectedProfile: () => this.selectedProfile,
+      readNetworkEnabled: () => this.networkEnabled,
+      readNetworkOptions: () => this.networkOptions,
+      mutations: this.mutationsInput(),
+    };
   }
   private refreshInput(): RefreshInput {
     return {
@@ -725,9 +657,9 @@ export class SodaProjectControls extends LitElement {
       hasBinding: () => !!this.binding,
       readBinding: () => this.binding,
       isActive: (n) => this.active(n),
-      beginEpoch: () => this.beginEpoch(),
-      beginRead: () => this.beginRead(),
-      api: (path, method, body, signal) => this.api(path, method, body, signal),
+      beginEpoch: () => beginEpoch(this.requestInput()),
+      beginRead: () => beginRead(this.requestInput()),
+      api: (path, method, body, signal) => api(this.requestInput(), path, method, body, signal),
       readPresentation: () => this.presentation,
       readEnvironment: () => this.environment,
       readDetail: () => this.detail,
@@ -739,8 +671,8 @@ export class SodaProjectControls extends LitElement {
       isRunning: () => this.running,
       readJoinFailed: () => this.joinFailed,
       updated: () => this.updateComplete,
-      announceObserved: (summary) => this.announceObserved(summary),
-      announceChanged: (repositoryId) => this.announceChanged(repositoryId),
+      announceObserved: (summary) => announceObserved(this.requestInput(), summary),
+      announceChanged: (repositoryId) => announceChanged(this.requestInput(), repositoryId),
       setBusy: (busy) => {
         this.busy = busy;
       },
@@ -819,7 +751,7 @@ export class SodaProjectControls extends LitElement {
       readBindingRepository: () => this.binding?.repositoryId,
       readEnvironmentId: () => this.environment?.id,
       readDetailLogin: () => this.detail?.login,
-      api: (path, method, body, signal) => this.api(path, method, body, signal),
+      api: (path, method, body, signal) => api(this.requestInput(), path, method, body, signal),
       refreshAfter: () => this.refresh(),
       announceOperation: () => this.dispatchEvent(new CustomEvent('soda-project-operation', {bubbles: true})),
       announceChanged: (repositoryId) =>
