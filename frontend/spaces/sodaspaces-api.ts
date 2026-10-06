@@ -354,8 +354,8 @@ export function factoryControlText(control: FactoryControl | undefined) {
 export function factoryCommandId() {
   return crypto.randomUUID().replace(/-/g, '');
 }
-function spaceNetwork(data: Record<string, unknown>) {
-  const network = data.tailnet_state;
+function spaceNetwork(row: Record<string, unknown>) {
+  const network = row.tailnet_state;
   check(network === undefined || (typeof network === 'string' && ['unavailable', 'off', 'managed'].includes(network)));
   return typeof network === 'string' ? network : undefined;
 }
@@ -734,13 +734,7 @@ function spaceTerminals(
   check(sessions.size <= 64);
   return terminals;
 }
-function spaceItem(
-  value: unknown,
-  expectedUserId: string,
-  data: Record<string, unknown>,
-  seen: Set<string>,
-  sessions: Set<string>
-): Space {
+function spaceItem(value: unknown, expectedUserId: string, seen: Set<string>, sessions: Set<string>): Space {
   const row = object(value),
     env = object(row.environment);
   check(
@@ -756,7 +750,7 @@ function spaceItem(
     repositoryId = env.repository_id;
   const detail = detailResponse(row, {id: environmentId, repository_id: repositoryId});
   const terminals = spaceTerminals(row, detail, expectedUserId, repositoryId, environmentId, sessions);
-  const network = spaceNetwork(data);
+  const network = spaceNetwork(row);
   const authority = spaceFactoryAuthority(row);
   const control = spaceFactoryControl(row);
   const runs = spaceFactoryRuns(row);
@@ -791,7 +785,7 @@ export function spacesResponse(value: unknown): {
   check(data.factory_incomplete === undefined || typeof data.factory_incomplete === 'boolean');
   const seen = new Set<string>(),
     sessions = new Set<string>();
-  const items = data.items.map((row: unknown) => spaceItem(row, actor.id as string, data, seen, sessions));
+  const items = data.items.map((row: unknown) => spaceItem(row, actor.id as string, seen, sessions));
   return {
     actor: {id: actor.id as string, login: actor.login as string},
     items,

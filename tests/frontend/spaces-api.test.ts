@@ -248,3 +248,33 @@ test('Spaces admits factory run rows and renders their status', () => {
     assert.throws(() => spacesResponse({actor, items: [{...row, factory_runs: runs}], complete: true}));
   assert.throws(() => spacesResponse({actor, items: [{...row, factory_runs: undefined}], complete: true}));
 });
+test("Spaces decodes each row's own TailnetState", () => {
+  const actor = {id: '1', login: 'soda-tester'};
+  const secondEnv = 'pfedcba9876543210fedcba98';
+  const terminalB = {...terminal, id: 'b'.repeat(32), environment_id: secondEnv, created_at: 200};
+  const rowB = {
+    ...row,
+    environment: {...row.environment, id: secondEnv, name: 'repo2', repository: 'alice/repo2'},
+    observed: {id: secondEnv, running: false},
+    terminals: [terminalB],
+  };
+  const parsed = spacesResponse({
+    actor,
+    items: [
+      {...row, tailnet_state: 'managed'},
+      {...rowB, tailnet_state: 'off'},
+    ],
+    complete: true,
+  });
+  assert.equal(parsed.items[0]?.tailnet_state, 'managed');
+  assert.equal(parsed.items[1]?.tailnet_state, 'off');
+  const isolated = spacesResponse({
+    actor,
+    items: [{...row, tailnet_state: 'off'}, {...rowB}],
+    complete: true,
+    tailnet_state: 'managed',
+  });
+  assert.equal(isolated.items[0]?.tailnet_state, 'off');
+  assert.equal(isolated.items[1]?.tailnet_state, undefined);
+  assert.throws(() => spacesResponse({actor, items: [{...row, tailnet_state: 'bogus'}], complete: true}));
+});
