@@ -41,6 +41,7 @@ mod subscription_wire;
 mod svc;
 mod sys;
 mod term;
+mod term_binding;
 mod term_paths;
 mod timex;
 mod tmux;
