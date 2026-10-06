@@ -113,3 +113,7 @@ pub(crate) fn tar_header(name: &str, size: u64) -> Result<[u8; 512], String> {
     header[148..156].copy_from_slice(format!("{sum:06o}\0 ").as_bytes());
     Ok(header)
 }
+
+#[cfg(test)]
+#[path = "archive_tests.rs"]
+mod archive_tests;
