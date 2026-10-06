@@ -18,65 +18,35 @@
 //!   it to a generic 500) follows Rust formatting.
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+#[cfg(test)]
+use std::time::Duration;
+use std::time::Instant;
 
 use crate::domain;
 use crate::json::{self, Value};
-use crate::net;
 
+mod confirmation;
 mod connection;
 mod create;
+mod executor;
+mod inspect;
 mod os;
 mod profile;
 
+pub use self::confirmation::{
+    confirm_access_keys, confirm_lifecycle, confirm_observe_os, confirm_resolve_profile,
+    valid_address,
+};
+pub use self::executor::{Executor, Native};
+// `muse_serve_oracle` compiles this root through a private `#[path]` copy
+// that never touches the crate-visible specs; the re-export serves the
+// real library (`prepare/helper.rs`).
+#[allow(unused_imports)]
+pub(crate) use self::inspect::INSPECTION_SPECS;
+pub use self::inspect::PROJECT_INSPECT_FORMAT;
+
 #[cfg(test)]
 mod tests;
-
-pub(crate) const INSPECTION_SPECS: &[json::Spec] = &[
-    json::Spec {
-        name: "id",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "running",
-        kind: json::Kind::Bool,
-    },
-    json::Spec {
-        name: "project",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "owner",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "privileged",
-        kind: json::Kind::Bool,
-    },
-    json::Spec {
-        name: "userns",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "mappings",
-        kind: json::Kind::Object {
-            go_type: "struct",
-            struct_name: "struct",
-            specs: &[
-                json::Spec {
-                    name: "UidMap",
-                    kind: json::Kind::StrList,
-                },
-                json::Spec {
-                    name: "GidMap",
-                    kind: json::Kind::StrList,
-                },
-            ],
-        },
-    },
-];
-
-pub const PROJECT_INSPECT_FORMAT: &str = "{\"id\":{{json .ID}},\"running\":{{json .State.Running}},\"project\":{{json (index .Config.Labels \"org.soda.project\")}},\"owner\":{{json (index .Config.Labels \"org.soda.owner\")}},\"privileged\":{{json .HostConfig.Privileged}},\"userns\":{{json .HostConfig.UsernsMode}},\"mappings\":{{json .HostConfig.IDMappings}}}";
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
@@ -142,150 +112,6 @@ impl LifecycleState {
 /// Selected project unit template (`platform.ProjectUnit`).
 pub const PROJECT_UNIT_PATH: &str = "/usr/lib/systemd/system/soda-project@.service";
 
-pub trait Executor {
-    fn run(
-        &self,
-        stdin: &[u8],
-        cmd: &str,
-        args: &[&str],
-        deadline: Instant,
-    ) -> Result<Vec<u8>, String>;
-    /// Mirrors Go's `HostNative()` marker assertion: the privileged host
-    /// executor whose native protocols must never leak stderr text.
-    fn is_host_native(&self) -> bool {
-        false
-    }
-}
-
-impl<E: Executor> Executor for &E {
-    fn run(
-        &self,
-        stdin: &[u8],
-        cmd: &str,
-        args: &[&str],
-        deadline: Instant,
-    ) -> Result<Vec<u8>, String> {
-        (*self).run(stdin, cmd, args, deadline)
-    }
-
-    fn is_host_native(&self) -> bool {
-        (*self).is_host_native()
-    }
-}
-
-/// Native process execution with deadline kill, mirroring
-/// `exec.CommandContext` + `Output` (piped stdin, combined stderr in the
-/// failure text).
-pub struct Native;
-
-impl Executor for Native {
-    fn run(
-        &self,
-        stdin: &[u8],
-        cmd: &str,
-        args: &[&str],
-        deadline: Instant,
-    ) -> Result<Vec<u8>, String> {
-        use std::io::Write;
-        use std::process::Stdio;
-        let mut child = std::process::Command::new(cmd)
-            .args(args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("{cmd} failed: {e}"))?;
-        let mut input = child.stdin.take();
-        let mut out_pipe = child.stdout.take();
-        let mut err_pipe = child.stderr.take();
-        let outcome = std::thread::scope(|scope| {
-            let writer = scope.spawn(|| {
-                if let Some(mut w) = input.take() {
-                    let _ = w.write_all(stdin);
-                }
-            });
-            // Drain stdout/stderr concurrently: a child emitting beyond
-            // pipe capacity would otherwise block forever while the poll
-            // loop below waits for exit (H01-F2).
-            let out_drain = scope.spawn(|| {
-                use std::io::Read;
-                let mut buf = Vec::new();
-                if let Some(mut o) = out_pipe.take() {
-                    let _ = o.read_to_end(&mut buf);
-                }
-                buf
-            });
-            let err_drain = scope.spawn(|| {
-                use std::io::Read;
-                let mut buf = Vec::new();
-                if let Some(mut e) = err_pipe.take() {
-                    let _ = e.read_to_end(&mut buf);
-                }
-                buf
-            });
-            let status = loop {
-                match child.try_wait().map_err(|e| format!("{cmd} failed: {e}"))? {
-                    Some(status) => break status,
-                    None => {
-                        if Instant::now() >= deadline {
-                            let _ = child.kill();
-                            let _ = child.wait();
-                            let _ = writer.join();
-                            return Err(format!("{cmd} failed: deadline exceeded"));
-                        }
-                        std::thread::sleep(Duration::from_millis(5));
-                    }
-                }
-            };
-            writer
-                .join()
-                .map_err(|_| format!("{cmd} failed: stdin writer panicked"))?;
-            let stdout = out_drain.join().unwrap_or_default();
-            let stderr = err_drain.join().unwrap_or_default();
-            Ok((status, stdout, stderr))
-        })?;
-        let (status, stdout, stderr): (std::process::ExitStatus, Vec<u8>, Vec<u8>) = outcome;
-        if status.success() {
-            return Ok(stdout);
-        }
-        Err(format!(
-            "{cmd} failed: {}: {}",
-            exit_text(status),
-            String::from_utf8_lossy(&stderr)
-        ))
-    }
-
-    fn is_host_native(&self) -> bool {
-        true
-    }
-}
-
-#[cfg(unix)]
-fn exit_text(status: std::process::ExitStatus) -> String {
-    use std::os::unix::process::ExitStatusExt;
-    match status.code() {
-        Some(code) => format!("exit status {code}"),
-        None => match status.signal() {
-            Some(1) => "signal: hangup".to_string(),
-            Some(2) => "signal: interrupt".to_string(),
-            Some(3) => "signal: quit".to_string(),
-            Some(6) => "signal: aborted".to_string(),
-            Some(9) => "signal: killed".to_string(),
-            Some(15) => "signal: terminated".to_string(),
-            Some(n) => format!("signal: {n}"),
-            None => "signal: unknown".to_string(),
-        },
-    }
-}
-
-#[cfg(not(unix))]
-fn exit_text(status: std::process::ExitStatus) -> String {
-    match status.code() {
-        Some(code) => format!("exit status {code}"),
-        None => "signal: unknown".to_string(),
-    }
-}
-
 pub struct Runtime<E> {
     pub exec: E,
     pub config: Config,
@@ -299,159 +125,6 @@ impl<E: Executor> Runtime<E> {
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
         self.exec.run(stdin, "/usr/bin/podman", args, deadline)
-    }
-
-    /// `Inspect`: observe one project container by identity.
-    pub fn inspect(
-        &self,
-        id: &str,
-        deadline: Instant,
-    ) -> Result<(domain::Environment, i64), String> {
-        let mut env = domain::Environment {
-            image: String::new(),
-            profile: None,
-            id: id.to_string(),
-            ip: String::new(),
-            running: false,
-        };
-        if !domain::valid_id(id) {
-            return Err("invalid project id".to_string());
-        }
-        let out = self.podman(&[], &["inspect", &format!("soda-{id}")], deadline)?;
-        let v = json::decode_tolerant(&out).map_err(|_| "invalid native inspection".to_string())?;
-        let items = v
-            .as_array()
-            .filter(|a| a.len() == 1)
-            .ok_or_else(|| "invalid native inspection".to_string())?;
-        let item = &items[0];
-        if item.as_object().is_none() {
-            return Err("invalid native inspection".to_string());
-        }
-        let image = tolerant_str(item, "Image")?;
-        if domain::valid_image_ref(&image) {
-            env.image = format!("sha256:{}", image.trim_start_matches("sha256:"));
-        }
-        let empty = Value::Object(Vec::new());
-        let config = json::tolerant_get(item, "Config").unwrap_or(&empty);
-        let labels = labels_of(config)?;
-        if labels
-            .get("org.soda.project")
-            .map(String::as_str)
-            .unwrap_or("")
-            != id
-        {
-            return Err("container is not owned by this project".to_string());
-        }
-        let owner: i64 = json::parse_go_int64(
-            labels
-                .get("org.soda.owner")
-                .map(String::as_str)
-                .unwrap_or(""),
-        )
-        .ok_or_else(|| "invalid native project owner".to_string())?;
-        if owner <= 0 {
-            return Err("invalid native project owner".to_string());
-        }
-        profile::apply_creation_profile(&mut env, &labels, &image)?;
-        env.running = match json::tolerant_get(item, "State") {
-            None => false,
-            Some(state) => match json::tolerant_get(state, "Running") {
-                None => false,
-                Some(Value::Bool(b)) => *b,
-                Some(_) => return Err("invalid native inspection".to_string()),
-            },
-        };
-        let mut ip = String::new();
-        if let Some(settings) = json::tolerant_get(item, "NetworkSettings") {
-            if settings.as_object().is_none() {
-                return Err("invalid native inspection".to_string());
-            }
-            let empty = Value::Object(Vec::new());
-            let networks = json::tolerant_get(settings, "Networks").unwrap_or(&empty);
-            if networks.as_object().is_none() {
-                return Err("invalid native inspection".to_string());
-            }
-            if let Some(entry) = networks
-                .as_object()
-                .unwrap()
-                .iter()
-                .find(|(k, _)| *k == self.config.network)
-                .map(|(_, v)| v)
-            {
-                if entry.is_null() {
-                    // Null decodes as the zero struct: no address.
-                } else if entry.as_object().is_none() {
-                    return Err("invalid native inspection".to_string());
-                }
-                match json::tolerant_get(entry, "IPAddress") {
-                    None => {}
-                    Some(Value::Str(s)) => ip = s.clone(),
-                    Some(_) => return Err("invalid native inspection".to_string()),
-                }
-            }
-        }
-        env.ip = ip.clone();
-        net::admit_ip(&ip, &self.config.subnet).map_err(|e| {
-            if e == "project IP outside configured network" {
-                e
-            } else {
-                format!("invalid IP address {ip:?}")
-            }
-        })?;
-        Ok((env, owner))
-    }
-
-    /// `ProjectContainer`: bind the exact isolated container identity.
-    pub fn project_container(
-        &self,
-        id: &str,
-        require_running: bool,
-        deadline: Instant,
-    ) -> Result<String, String> {
-        if !domain::valid_id(id) {
-            return Err("invalid project".to_string());
-        }
-        let data = self
-            .podman(
-                &[],
-                &[
-                    "--remote=false",
-                    "inspect",
-                    "--format",
-                    PROJECT_INSPECT_FORMAT,
-                    &format!("soda-{id}"),
-                ],
-                deadline,
-            )
-            .map_err(|_| "terminal inspection unavailable".to_string())?;
-        if data.len() > 4096 {
-            return Err("terminal inspection unavailable".to_string());
-        }
-        let v =
-            json::decode_strict(&data).map_err(|_| "invalid terminal inspection".to_string())?;
-        let m = json::bind_root(&v, "projectInspection", INSPECTION_SPECS, false)
-            .map_err(|_| "invalid terminal inspection".to_string())?;
-        let cid = m.take_string("id");
-        let running = m.take_bool("running");
-        let project = m.take_string("project");
-        let owner = m.take_string("owner");
-        let privileged = m.take_bool("privileged");
-        let userns = m.take_string("userns");
-        let mappings = m.take_map("mappings");
-        let uid_map = mappings.take_str_list("UidMap");
-        let gid_map = mappings.take_str_list("GidMap");
-        let owner_num: i64 = json::parse_go_int64(&owner)
-            .ok_or_else(|| "terminal target not ready or isolated".to_string())?;
-        if owner_num <= 0 || (require_running && !running) {
-            return Err("terminal target not ready or isolated".to_string());
-        }
-        if !domain::valid_container_id(&cid) || project != id || privileged || userns != "private" {
-            return Err("terminal target not ready or isolated".to_string());
-        }
-        if !project_id_map(&uid_map) || !project_id_map(&gid_map) {
-            return Err("terminal target not ready or isolated".to_string());
-        }
-        Ok(cid)
     }
 
     /// `Lifecycle`: inspect, start or stop one project environment through
@@ -595,156 +268,6 @@ fn verify_lifecycle_outcome(action: &str, result: &LifecycleState) -> Result<(),
         return Err("native lifecycle outcome unconfirmed".to_string());
     }
     Ok(())
-}
-
-// ---------- facade confirmations ----------
-//
-// Pure client-side logic from `internal/host/{lifecycle,profiles,os,
-// access_keys}.go`: transport (`c.call`) arrives with the route layer,
-// but the confirmation predicates are exact here.
-
-/// `validAddress`: a usable endpoint address, never unspecified,
-/// multicast or loopback. Go's `netip.ParseAddr` also accepts scoped
-/// (`%zone`) addresses, which this daemon never reports; those are
-/// rejected here.
-pub fn valid_address(value: &str) -> bool {
-    match value.parse::<std::net::IpAddr>() {
-        Ok(ip) => !ip.is_unspecified() && !ip.is_multicast() && !ip.is_loopback(),
-        Err(_) => false,
-    }
-}
-
-fn lifecycle_action_confirmed(action: &str, out: &LifecycleState) -> bool {
-    match action {
-        "start" => out.environment.running && out.boot_enabled,
-        "stop" => !out.environment.running && !out.boot_enabled,
-        _ => true,
-    }
-}
-
-/// `Client.Lifecycle` outcome confirmation.
-pub fn confirm_lifecycle(input: &Lifecycle, out: &LifecycleState) -> Result<(), String> {
-    if out.environment.id != input.project {
-        return Err("native lifecycle outcome not confirmed".to_string());
-    }
-    if !out.environment.ip.is_empty() && !valid_address(&out.environment.ip) {
-        return Err("native lifecycle outcome not confirmed".to_string());
-    }
-    if !lifecycle_action_confirmed(&input.action, out) {
-        return Err("native lifecycle outcome not confirmed".to_string());
-    }
-    Ok(())
-}
-
-/// `Client.ResolveProfile` confirmation: the profile validates and the
-/// image is native to this backend. Like Go, a foreign architecture
-/// overwrites a validation failure.
-pub fn confirm_resolve_profile(p: &domain::Profile) -> Result<(), String> {
-    let mut err = p.validate().err();
-    if p.architecture != go_arch() {
-        err = Some("project image is not native to this backend".to_string());
-    }
-    err.map_or(Ok(()), Err)
-}
-
-fn valid_os_environment(env: &domain::Environment) -> bool {
-    if !env.image.is_empty()
-        && (!env.image.starts_with("sha256:") || !domain::valid_image_ref(&env.image))
-    {
-        return false;
-    }
-    if !env.ip.is_empty() && !valid_address(&env.ip) {
-        return false;
-    }
-    env.profile
-        .as_ref()
-        .map(|p| p.validate().is_ok())
-        .unwrap_or(true)
-}
-
-fn valid_os_observation(id: &str, out: &domain::OsObservation) -> bool {
-    if out.environment.id != id || out.release.is_none() != out.unavailable {
-        return false;
-    }
-    if !valid_os_environment(&out.environment) {
-        return false;
-    }
-    match &out.release {
-        Some(release) => out.environment.running && domain::valid_os_release(release),
-        None => true,
-    }
-}
-
-/// `Client.ObserveOS` confirmation.
-pub fn confirm_observe_os(id: &str, out: &domain::OsObservation) -> Result<(), String> {
-    if valid_os_observation(id, out) {
-        Ok(())
-    } else {
-        Err("invalid native OS observation".to_string())
-    }
-}
-
-/// `Client.AccessKeys` confirmation. Go additionally rejects a null key
-/// list, which the decoded struct cannot distinguish from empty; that
-/// single check is not mirrored.
-pub fn confirm_access_keys(
-    input: &domain::AccessKeys,
-    out: &domain::AccessKeyState,
-) -> Result<(), String> {
-    let mut err = crate::account::canonical_keys(&out.keys).err();
-    if !crate::account::valid_key_revision(&out.revision) {
-        err = Some("invalid native key revision".to_string());
-    }
-    if input.apply && out.keys.join("\n") != input.keys.join("\n") {
-        err = Some("native key result differs from request".to_string());
-    }
-    err.map_or(Ok(()), Err)
-}
-
-fn tolerant_str(item: &Value, key: &str) -> Result<String, String> {
-    match json::tolerant_get(item, key) {
-        None => Ok(String::new()),
-        Some(Value::Str(s)) => Ok(s.clone()),
-        Some(_) => Err("invalid native inspection".to_string()),
-    }
-}
-
-fn labels_of(config: &Value) -> Result<HashMap<String, String>, String> {
-    if config.as_object().is_none() {
-        return Err("invalid native inspection".to_string());
-    }
-    match json::tolerant_get(config, "Labels") {
-        None => Ok(HashMap::new()),
-        Some(Value::Object(fields)) => {
-            let mut map = HashMap::new();
-            for (k, val) in fields {
-                match val {
-                    Value::Str(s) => {
-                        map.insert(k.clone(), s.clone());
-                    }
-                    Value::Null => {}
-                    _ => return Err("invalid native inspection".to_string()),
-                }
-            }
-            Ok(map)
-        }
-        Some(_) => Err("invalid native inspection".to_string()),
-    }
-}
-
-/// Single 262144-ID mapping with container root shifted off host root.
-/// (The Go `base+262144 <= 4294967295` bound is vacuous under uint32
-/// wraparound: every canonical non-zero base passes it, so the check is
-/// exactly `base > 0`.)
-fn project_id_map(values: &[String]) -> bool {
-    if values.len() != 1 {
-        return false;
-    }
-    let parts: Vec<&str> = values[0].split(':').collect();
-    if parts.len() != 3 || parts[0] != "0" || parts[2] != "262144" {
-        return false;
-    }
-    matches!(parts[1].parse::<u32>(), Ok(base) if base.to_string() == parts[1] && base > 0 && u64::from(base) + 262144 <= 4294967295)
 }
 
 #[cfg(test)]
