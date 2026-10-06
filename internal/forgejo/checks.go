@@ -11,7 +11,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 // CheckAssessor observes native check evidence for one exact candidate
@@ -92,7 +92,7 @@ func checkReadError(err error) error {
 	// A busy host refuses snapshot reads with 503 while native writers
 	// settle; the attempt waits for the resource instead of weakening
 	// verification. Any other failure stays unavailable, never a guess.
-	var status *hostpublish.StatusError
+	var status *forgejopublish.StatusError
 	if errors.As(err, &status) && status.Status == http.StatusServiceUnavailable {
 		return &factory.PublicationWait{Reason: "native_busy"}
 	}

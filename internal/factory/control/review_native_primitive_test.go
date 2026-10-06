@@ -18,7 +18,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/forgejo"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 type nativeST10Config struct {
@@ -126,7 +126,7 @@ func TestNativeReviewPrimitive(t *testing.T) {
 		}
 		observed, readErr := bg.ReadSnapshot(ctx, extensions.CredentialFile(c.ReviewerTokenFile), req)
 		if readErr != nil {
-			var status *hostpublish.StatusError
+			var status *forgejopublish.StatusError
 			if errors.As(readErr, &status) {
 				t.Logf("native snapshot %s status=%d reason=%s", family, status.Status, status.Body)
 			} else {
@@ -304,7 +304,7 @@ func TestNativeReviewRoleBinding(t *testing.T) {
 	nativeMust(t, err)
 	intent := extensions.OperationIntent{OperationID: "st10-role-" + factory.NewID(), ActorID: strconv.FormatInt(c.ReviewerID, 10), RepositoryID: strconv.FormatInt(c.Repository, 10), Kind: factory.OpRefPublish, AuthorizationRevision: "st10-native-role", ExpectedNativeRevision: revision.Revision, NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: payload}
 	_, err = bg.SubmitOperation(ctx, extensions.CredentialFile(c.ReviewerTokenFile), intent)
-	var denied *hostpublish.StatusError
+	var denied *forgejopublish.StatusError
 	if !errors.As(err, &denied) || denied.Status != http.StatusForbidden {
 		t.Fatal("review actor was not denied publication binding")
 	}

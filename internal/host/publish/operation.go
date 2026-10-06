@@ -325,7 +325,7 @@ func submitOperation(ctx context.Context, ops BackgroundOperations, credential e
 // not_observed lookup leaves the identity unsubmitted. Terminal dispatch
 // verdicts refuse or wait without another submit.
 func mapSubmitError(ctx context.Context, ops BackgroundOperations, operationID string, err error) error {
-	var status *StatusError
+	var status *forgejopublish.StatusError
 	if !errors.As(err, &status) {
 		return reconcileAfterSubmitError(ctx, ops, operationID, err)
 	}
@@ -401,7 +401,7 @@ func lookupOperation(ctx context.Context, ops BackgroundOperations, operationID 
 }
 
 func mapLookupError(err error) error {
-	var status *StatusError
+	var status *forgejopublish.StatusError
 	if !errors.As(err, &status) {
 		return err
 	}
@@ -429,7 +429,7 @@ func (c Config) CancelOperation(ctx context.Context, ops BackgroundOperations, o
 	}
 	record, err := ops.CancelOperation(ctx, operationID)
 	if err != nil {
-		var status *StatusError
+		var status *forgejopublish.StatusError
 		if errors.As(err, &status) && (status.Status == 400 || status.Status == 401 || status.Status == 403) {
 			return empty, &Wait{Reason: "operations_unavailable"}
 		}
@@ -756,8 +756,3 @@ func DecodePRCreateReceipt(outcome factory.OperationOutcome, headRef, baseRef, h
 func OperationNotAfter(now time.Time) int64 {
 	return now.Add(operationLifetime).Unix()
 }
-
-// StatusError is owned by the Forgejo publication successor package;
-// this alias preserves the predecessor's API until the package move
-// completes.
-type StatusError = forgejopublish.StatusError

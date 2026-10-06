@@ -14,7 +14,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 // scriptedBackgroundServer speaks the background dispatcher paths with a
@@ -292,7 +292,7 @@ func TestServiceBackgroundMapsDispatchStatuses(t *testing.T) {
 		ExpectedNativeRevision: 12, NotAfter: 9999999999,
 	}
 	_, err := background.SubmitOperation(ctx, credential, intent)
-	var status *hostpublish.StatusError
+	var status *forgejopublish.StatusError
 	if !errors.As(err, &status) || status.Status != 409 || status.Body != "intent_conflict" {
 		t.Fatalf("conflict: %v", err)
 	}

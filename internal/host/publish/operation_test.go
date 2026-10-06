@@ -16,6 +16,7 @@ import (
 	extensions "forgejo.org/extension-sdk"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 type fakeBackgroundOps struct {
@@ -95,7 +96,7 @@ func TestSubmitPublishMapsTerminalDispatchVerdicts(t *testing.T) {
 		}
 	}
 	for _, status := range []int{400} {
-		ops := &fakeBackgroundOps{submitErr: &StatusError{Status: status}}
+		ops := &fakeBackgroundOps{submitErr: &forgejopublish.StatusError{Status: status}}
 		if _, err := c.SubmitPublish(ctx, ops, intent()); err == nil {
 			t.Fatalf("status %d accepted", status)
 		} else {
@@ -106,7 +107,7 @@ func TestSubmitPublishMapsTerminalDispatchVerdicts(t *testing.T) {
 		}
 	}
 	for _, status := range []int{401, 403} {
-		ops := &fakeBackgroundOps{submitErr: &StatusError{Status: status}}
+		ops := &fakeBackgroundOps{submitErr: &forgejopublish.StatusError{Status: status}}
 		if _, err := c.SubmitPublish(ctx, ops, intent()); err == nil {
 			t.Fatalf("status %d accepted", status)
 		} else {
@@ -116,7 +117,7 @@ func TestSubmitPublishMapsTerminalDispatchVerdicts(t *testing.T) {
 			}
 		}
 	}
-	ops := &fakeBackgroundOps{submitErr: &StatusError{Status: 409, Body: "intent_conflict"}}
+	ops := &fakeBackgroundOps{submitErr: &forgejopublish.StatusError{Status: 409, Body: "intent_conflict"}}
 	if _, err := c.SubmitPublish(ctx, ops, intent()); err == nil {
 		t.Fatal("intent conflict accepted")
 	} else {
@@ -155,7 +156,7 @@ func TestSubmitPublishReconcilesLostReplies(t *testing.T) {
 		t.Fatalf("adopted: %+v submits=%d", adopted.Outcome, ops.submits)
 	}
 	ops = &fakeBackgroundOps{
-		submitErr: &StatusError{Status: 503},
+		submitErr: &forgejopublish.StatusError{Status: 503},
 		lookup: extensions.OperationLookup{
 			InstallationID: "install-1", OperationID: in.OperationID,
 			Status: extensions.BackgroundOutcomeNotObserved,
@@ -306,7 +307,7 @@ func TestLookupAndCancelMapHonestly(t *testing.T) {
 	if outcome.Effect != factory.OpEffectNotCommitted || outcome.Cancellation != factory.OpCancelCancelled {
 		t.Fatalf("cancel: %+v", outcome)
 	}
-	ops = &fakeBackgroundOps{cancelErr: &StatusError{Status: 401}}
+	ops = &fakeBackgroundOps{cancelErr: &forgejopublish.StatusError{Status: 401}}
 	if _, err := c.CancelOperation(ctx, ops, "soda-test-publish-1"); err == nil {
 		t.Fatal("unauthorized cancel accepted")
 	} else {

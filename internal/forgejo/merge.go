@@ -14,7 +14,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 // Merger submits only exact fast-forward-only merges through the shared
@@ -309,7 +309,7 @@ func (m *Merger) CancelOp(ctx context.Context, id string) (factory.OperationOutc
 }
 
 func mergeCallError(err error) error {
-	var status *hostpublish.StatusError
+	var status *forgejopublish.StatusError
 	if !errors.As(err, &status) {
 		return err
 	}

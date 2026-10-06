@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
-	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
 func checkTargetForObserve() factory.CheckTarget {
@@ -117,8 +117,8 @@ func TestCheckReadErrorMapsBusy(t *testing.T) {
 	for err, want := range map[error]string{
 		ErrNativeBusy:    "publication waits: native_busy",
 		ErrStaleSnapshot: "publication waits: revision_moved",
-		&hostpublish.StatusError{Status: http.StatusServiceUnavailable}:  "publication waits: native_busy",
-		&hostpublish.StatusError{Status: http.StatusInternalServerError}: "publication waits: checks_unavailable",
+		&forgejopublish.StatusError{Status: http.StatusServiceUnavailable}:  "publication waits: native_busy",
+		&forgejopublish.StatusError{Status: http.StatusInternalServerError}: "publication waits: checks_unavailable",
 	} {
 		if got := checkReadError(err); got.Error() != want {
 			t.Fatalf("read error %v: got %v want %s", err, got, want)
