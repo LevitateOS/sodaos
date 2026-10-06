@@ -4,6 +4,11 @@
 
 ## Coverage inventory: cmd
 
+R02 check @HEAD `406d5ac7`: all 18 Go rows verified present (no moves).
+`cmd/soda-identity` (42 files, A05+A06 LANDED) is inventoried under
+`native-packages.md`, not here; `cmd/soda-project-terminal` (A01) stays out
+until the batch merges.
+
 | Current tracked path | Kind / lifecycle | Slice mapping |
 | --- | --- | --- |
 | [cmd/soda-dashboard/extension.go](../../../../../cmd/soda-dashboard/extension.go) | source / active | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) |
