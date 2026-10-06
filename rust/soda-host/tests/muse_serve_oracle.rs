@@ -35,7 +35,7 @@ mod project;
 #[path = "../src/sha256.rs"]
 #[allow(dead_code)]
 mod sha256;
-#[path = "../src/ssh.rs"]
+#[path = "../src/ssh/mod.rs"]
 #[allow(dead_code)]
 mod ssh;
 #[path = "../src/terminal/mod.rs"]
