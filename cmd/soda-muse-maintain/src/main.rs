@@ -20,57 +20,19 @@ mod release;
 mod release_validation;
 mod release_wire;
 mod sha256;
+mod stage;
 
-use command::{podman, podman_streamed};
+use command::podman;
 use config::{load_config, Config};
-use filesystem::{go_base, go_dir, go_errno, last_errno, load_tools, Tool};
+use filesystem::{go_base, go_dir, go_errno, last_errno, load_tools};
 use options::{parse, Options};
 use project::{confirm_project, wait_project, Observation};
+use stage::{ensure_system_bus, stage_tools};
 
 const MUSE_VERSION: &str = "1.4.0-R4161.1";
 const RELEASE_PATH: &str = "/usr/share/soda/release.json";
 
-// --wait/--pipe needs the native system bus, not just systemd's private socket.
-// Installing this demonstrated prerequisite belongs only to explicit maintenance.
-const BUS_SCRIPT: &str = r#"set -eu
-if ! rpm -q dbus-broker >/dev/null; then dnf -y install dbus-broker; fi
-systemctl start dbus.socket
-systemd-run --quiet --wait --pipe --collect /usr/bin/true
-"#;
-
 const INTERFACE_SCRIPT: &str = "set -eu; test ! -L /run; test -d /run; test ! -L /run/soda-muse-interface; if test -e /run/soda-muse-interface; then test -d /run/soda-muse-interface; fi; mkdir -p /run/soda-muse-interface";
-
-// Destinations are fixed by the installed project interface, never repository input.
-const DESTINATIONS: [&str; 3] = [
-    "/usr/local/bin/muse",
-    "/usr/local/bin/soda-identity-compose",
-    "/usr/local/libexec/soda/muse",
-];
-
-const INSTALL_SCRIPT: &str = r#"
-set -eu
-safe_parent() {
- path=$(dirname "$1")
- while [ "$path" != / ]; do
-  test ! -L "$path"
-  if test -e "$path"; then test -d "$path"; fi
-  path=$(dirname "$path")
- done
-}
-for target in "$@"; do
- safe_parent "$target"
- test ! -L "$target"
- if test -e "$target"; then test -f "$target"; fi
- done
-for target in "$@"; do mkdir -p "$(dirname "$target")"; done
-stage=$(mktemp -d "$(dirname "$3")/.soda-muse-maintain.XXXXXXXX")
-trap 'rm -rf -- "$stage"' EXIT
-tar --extract --file=- --directory="$stage" --no-same-owner
-chmod 0755 "$stage/muse" "$stage/soda-identity-compose" "$stage/muse-native"
-mv -T -- "$stage/muse" "$1"
-mv -T -- "$stage/soda-identity-compose" "$2"
-mv -T -- "$stage/muse-native" "$3"
-"#;
 
 fn main() {
     if let Err(e) = run() {
@@ -113,47 +75,6 @@ fn maintain(o: &Options, c: &Config) -> Result<(), String> {
     }
     prepare_interface(&target, deadline)?;
     attach_interface(&target, &c.muse_socket, deadline)
-}
-
-fn ensure_system_bus(target: &Observation, deadline: Instant) -> Result<(), String> {
-    confirm_project(target, deadline)?;
-    podman(
-        &[
-            "exec", "--user", "0:0", &target.id, "/bin/sh", "-ceu", BUS_SCRIPT,
-        ],
-        deadline,
-    )?;
-    Ok(())
-}
-
-fn stage_tools(target: &Observation, sources: &[Tool], deadline: Instant) -> Result<(), String> {
-    confirm_project(target, deadline)?;
-    // The feeder thread borrows no Tool state: the fds stay open in the
-    // caller while only plain ints cross the thread boundary.
-    let feeds: Vec<(String, RawFd, u64)> = sources
-        .iter()
-        .map(|t| (t.name.clone(), t.fd, t.size))
-        .collect();
-    let args: Vec<&str> = vec![
-        "exec",
-        "--user",
-        "0:0",
-        "-i",
-        &target.id,
-        "/bin/sh",
-        "-ceu",
-        INSTALL_SCRIPT,
-        "soda-muse-maintain",
-        DESTINATIONS[0],
-        DESTINATIONS[1],
-        DESTINATIONS[2],
-    ];
-    podman_streamed(
-        move |writer| feed_archive(writer, &feeds, deadline),
-        &args,
-        deadline,
-    )?;
-    Ok(())
 }
 
 // feed_archive streams the tar byte sequence to podman's stdin. Writes
@@ -489,6 +410,7 @@ mod tests {
     use super::project::{decode_observation, validate_observation, Observation};
     use super::release::{apply_release_images, load_release_payload};
     use super::sha256::{hex_encode, Sha256};
+    use super::stage::INSTALL_SCRIPT;
     use super::*;
     use std::io::Write as _;
     use std::os::unix::fs::PermissionsExt;
