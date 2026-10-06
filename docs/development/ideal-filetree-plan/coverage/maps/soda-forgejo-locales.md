@@ -3,7 +3,7 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `d5012d10` (C09 consolidation): 3 headings folded to `tools/release-assets/src/locales/*` + shared tests successor; intervals STALE — bannered.
+R02 @HEAD `d5012d10` (C09 consolidation, corrected): 2 src headings folded to `tools/release-assets/src/locales/*` (STALE, bannered); tests/cli.rs verified byte-identical move to `tests/locales_cli.rs`, intervals kept.
 
 <a id="coverage-09c1f2dd0505"></a>
 
@@ -100,9 +100,7 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-forgejo-localestestsclirs-1"></a>
 
-## [tools/release-assets/tests/fetchers_cli.rs](../../../../../tools/release-assets/tests/fetchers_cli.rs)
-
-> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-forgejo-locales/tests/cli.rs` layout (C09 consolidation; shared successor with stage cli) — pending re-audit.
+## [tools/release-assets/tests/locales_cli.rs](../../../../../tools/release-assets/tests/locales_cli.rs)
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 

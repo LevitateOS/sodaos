@@ -3,7 +3,7 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `d5012d10` (C09 consolidation): 5 headings folded to `tools/release-assets/src/render/*` + shared tests successor; intervals STALE — bannered with siblings.
+R02 @HEAD `d5012d10` (C09 consolidation, corrected): 4 src headings folded to `tools/release-assets/src/render/*` (STALE, bannered with siblings); tests/cli.rs SPLIT in c2145e05 into render_* suites (bannered, audit heading kept).
 
 <a id="coverage-d04d16b4f1e0"></a>
 
@@ -163,9 +163,9 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 
 <a id="rustsoda-stage-rendertestsclirs-1"></a>
 
-## [tools/release-assets/tests/fetchers_cli.rs](../../../../../tools/release-assets/tests/fetchers_cli.rs)
+## [rust/soda-stage-render/tests/cli.rs](../../../../../rust/soda-stage-render/tests/cli.rs)
 
-> R02 STALE: intervals below reference the pre-C08/C09 `rust/soda-stage-render/tests/cli.rs` layout (C09 consolidation; shared successor with locales cli) — pending re-audit.
+> R02 SPLIT: suite divided in c2145e05 into `tools/release-assets/tests/render_provisioning.rs`, `render_staging.rs`, `render_terminal_logo.rs` (+ `render_support/`); intervals below are audit history.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
 
