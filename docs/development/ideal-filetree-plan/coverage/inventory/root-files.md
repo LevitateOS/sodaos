@@ -10,6 +10,8 @@ upkeep does not advance the inventory baseline or claim a slice validity review.
 
 ## Coverage inventory: (root files)
 
+R02 check @HEAD `64b57b83`: 22/22 rows verified present at HEAD (bulk sweep gap-fill, 0 GONE).
+
 | Current tracked path | Kind / lifecycle | Slice mapping |
 | --- | --- | --- |
 | [.containerignore](../../../../../.containerignore) | configuration / active | [D03](../../slices/release-and-installation.md#d03-candidate-production) |
