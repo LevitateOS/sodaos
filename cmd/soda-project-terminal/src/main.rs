@@ -19,6 +19,7 @@ mod account;
 mod b64;
 mod broker;
 mod fs;
+mod key_lines;
 mod keys;
 mod proto;
 mod pty;
