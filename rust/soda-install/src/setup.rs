@@ -623,7 +623,7 @@ fn local_ca_fingerprint(data: &[u8]) -> Result<String, Error> {
 mod tests {
     use super::*;
     use crate::command::FnRunner;
-    use crate::enroll::tests::{drain_available, open_test_pty, temp_dir, ENV_LOCK};
+    use crate::enroll::test_support::{drain_available, open_test_pty, temp_dir, ENV_LOCK};
 
     #[test]
     fn private_setup_addresses() {
