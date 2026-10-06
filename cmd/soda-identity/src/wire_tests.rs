@@ -33,8 +33,17 @@ fn timestamps_reject_malformed_input() {
         "2026-10-04T18:30:05.1234567890Z",
         "2026-10-04T18:30:05+25:00",
         "2026-10-04 18:30:05Z",
+        // H03-F6: slice endpoints inside a multi-byte character must
+        // reject, never panic (seconds field, numeric offset).
+        "2025-01-01T00:00:0é",
+        "2025-01-01T00:00:00+0é",
     ] {
         assert!(parse_rfc3339_nano(text).is_err(), "admitted {text:?}");
+        let json = format!("{text:?}");
+        assert!(
+            serde_json::from_str::<UnixTime>(&json).is_err(),
+            "serde admitted {text:?}"
+        );
     }
 }
 
