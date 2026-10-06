@@ -11,6 +11,31 @@ Shared HTTP/test support and native assertion destinations also intentionally
 consolidate existing concerns. Each shared leaf has one implementation owner;
 duplicate file leaves or competing Rust module roots are not intended.
 
+R02 reconciliation @HEAD `216cad1b` (landed-scope check; tree text below
+unchanged — it shows the post-cutover target, not current state):
+
+- EXACT MATCH (every HEAD file proposed, 0 missing): `lib/json` (2),
+  `lib/soda-release-build` (21), `lib/soda-release-image` (33),
+  `cmd/soda-identity` (42), `cmd/soda-project-terminal` (20), `system/` (64).
+- FUTURE-SPLIT DELTAS (current coarse file, proposed dir exists — pending
+  decomposition, not misplacement; 10 files): deliver `src/{buildx,fetch,
+  jsonx,model,native,oci,publish}.rs` → same-stem dirs, `tests/oracle.rs` →
+  `tests/oracle/`; tools `tests/cli.rs` → `tests/cli/`; host `src/domain.rs`
+  → `src/domain/`.
+- UNMAPPED (no same-stem proposed destination; dispositions belong to
+  slice/decomposition upkeep — recorded here, not silently carried; 37
+  files): host `GMUX_PATCHES.md`, `src/{dbackend,gmux_admission,
+  gmux_backend,gmux_routes,gmux_server,iclient,iconfig,json,main,muse,
+  muse_serve,pfactory,pops,tailnet_companion,tailnet_domain,tailnet_files,
+  tailnet_runtime,tcontrol,tcontrol_enroll,tcontrol_native,tcontrol_policy,
+  tcontrol_provider,tcontrol_wire}.rs`,
+  `src/terminal/factory/{tcodex,tfactory,tmuse}.rs`,
+  `tests/{gmux_smoke,iclient_oracle,muse_serve_oracle,pops_oracle,
+  tcodex_ops_oracle,tcontrol_oracle}.rs` (33); tools `src/{check_cli,
+  pipeline}.rs` (2); assets `tests/fetchers_cli.rs` +
+  `tests/fixtures/prov-root/.../forgejo-payload.json` (2, C09-created,
+  post-proposal).
+
 ```text
 .
 ├── .agents/
