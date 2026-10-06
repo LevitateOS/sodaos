@@ -14,7 +14,7 @@ pub(super) struct Mock {
 }
 
 impl Mock {
-pub(super) fn new(responses: Vec<Result<Vec<u8>, String>>) -> Self {
+    pub(super) fn new(responses: Vec<Result<Vec<u8>, String>>) -> Self {
         Mock {
             calls: RefCell::new(Vec::new()),
             script: RefCell::new(responses.into()),
@@ -65,9 +65,7 @@ fn inspect_payload(id: &str, running: bool) -> Vec<u8> {
     s.push_str(&crate::json::quote(id));
     s.push_str(",\"org.soda.owner\":\"42\"}},\"State\":{\"Running\":");
     s.push_str(if running { "true" } else { "false" });
-    s.push_str(
-        ",\"NetworkSettings\":{\"Networks\":{\"sodanet\":{\"IPAddress\":\"10.0.0.5\"}}}}}]",
-    );
+    s.push_str(",\"NetworkSettings\":{\"Networks\":{\"sodanet\":{\"IPAddress\":\"10.0.0.5\"}}}}}]");
     s.into_bytes()
 }
 
@@ -194,9 +192,8 @@ fn access_key_state_decode_uses_plain_json_semantics() {
             .unwrap_err(),
         "invalid native key observation"
     );
-    let state =
-        decode_access_key_state(format!("{{\"revision\":{rev:?},\"keys\":[]}}").as_bytes())
-            .unwrap();
+    let state = decode_access_key_state(format!("{{\"revision\":{rev:?},\"keys\":[]}}").as_bytes())
+        .unwrap();
     assert!(state.keys.is_empty());
     // Unknown fields ignored, last duplicate wins (plain Unmarshal).
     let body =
@@ -338,4 +335,3 @@ fn account_rejects_bad_requests_and_unconfirmed_helpers() {
     };
     assert_eq!(rt.account(&input, deadline()).unwrap_err(), "exit status 1");
 }
-

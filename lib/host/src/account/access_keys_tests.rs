@@ -1,5 +1,5 @@
-use super::*;
 use super::tests::{container_payload, deadline, pid, test_config, Mock, ED};
+use super::*;
 
 #[test]
 fn access_keys_preview_observes_without_applying() {
