@@ -4,7 +4,7 @@ Project images include packaged `tea` (Forgejo) and `gh` (GitHub) CLIs for perso
 provider authentication inside the project. They are not shared credentials and not
 a substitute for native Git or a factory execution identity.
 
-Runtime packaging lives in `project-os/` recipes. Versions belong in those recipes
+Runtime packaging lives in `system/project/` recipes. Versions belong in those recipes
 and locks, not a second prose table here.
 
 ## Usage

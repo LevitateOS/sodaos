@@ -14,7 +14,7 @@ struct Options {
 fn parse(args: &[String]) -> Result<Options, String> {
     let mut options = Options {
         arch: String::new(),
-        manifest: "project-os/muse-release.json".to_string(),
+        manifest: "system/project/muse-release.json".to_string(),
         out: String::new(),
     };
     let mut i = 0;

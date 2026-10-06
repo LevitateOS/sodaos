@@ -54,7 +54,7 @@ fi
 # Extensionless programs (appliance/bin, project helpers, hooks) can hide
 # invocations behind any name, so they join *.sh. Containerfiles stay out:
 # image package installs are third-party tooling, not SodaOS Python.
-shfiles=$(git ls-files '*.sh' 'appliance/bin/*' 'project-os/rootfs/usr/libexec/soda/*' '.githooks/*' | grep -v "^$self\$" || true)
+shfiles=$(git ls-files '*.sh' 'appliance/bin/*' 'system/project/rootfs/usr/libexec/soda/*' '.githooks/*' | grep -v "^$self\$" || true)
 tsfiles=$(git ls-files '*.ts' '*.js' '*.mjs' 'package.json' | grep -v "^$self\$" || true)
 token='(^|[][:space:];'"'"'"`=([|&{,])(sudo[[:space:]]+)?(/usr/bin/)?python[0-9.]*([][:space:];,'"'"'"`)}{&]|$)'
 scripthits=""

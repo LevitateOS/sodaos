@@ -6,7 +6,7 @@ ARG GH_VERSION=2.97.0
 # Creation identity; the native build supplies the exact Soda recipe revision.
 LABEL org.soda.profile="rocky-headless" org.soda.distribution="rocky" org.soda.distribution.version="10.2" org.soda.interface="headless"
 # Native GitHub CLI repository; signature verification remains enabled.
-COPY project-os/rootfs/etc/yum.repos.d/gh-cli.repo /etc/yum.repos.d/gh-cli.repo
+COPY system/project/rootfs/etc/yum.repos.d/gh-cli.repo /etc/yum.repos.d/gh-cli.repo
 # Non-preference headless foundation. Repository runtimes still belong to mise;
 # native compilers, headers and diagnostics must not need post-Create repairs.
 # The declared Ninja build prerequisite is shipped in Rocky's official CRB.
@@ -34,7 +34,7 @@ COPY ${ARTIFACT_DIR}/project-tools/bin/soda-identity-compose /usr/local/bin/soda
 COPY ${ARTIFACT_DIR}/project-tools/bin/muse-native /usr/local/libexec/soda/muse
 COPY ${ARTIFACT_DIR}/project-tools/bin/tea /usr/local/bin/tea
 COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/licenses/tea/LICENSE
-COPY project-os/rootfs/ /
+COPY system/project/rootfs/ /
 # Same fixed program the host daemon verifies; never downloaded or installed on Open.
 COPY ${ARTIFACT_DIR}/project-tools/bin/project-terminal /usr/libexec/soda/project-terminal
 COPY ${ARTIFACT_DIR}/project-tools/bin/project-account /usr/libexec/soda/project-account

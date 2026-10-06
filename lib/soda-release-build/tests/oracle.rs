@@ -288,7 +288,7 @@ fn oracle_production_sequence() {
             "{\"packageManager\":\"bun@1.4.2\",\"unrelated\":true}",
         ),
         (
-            "project-os/Containerfile",
+            "system/project/Containerfile",
             "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
         ),
         (

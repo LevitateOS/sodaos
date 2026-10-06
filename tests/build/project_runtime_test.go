@@ -13,7 +13,7 @@ func parseUnit(t *testing.T, name string) map[string]map[string]string {
 	t.Helper()
 	units := map[string]map[string]string{}
 	section := ""
-	for _, raw := range strings.Split(ReadFile(t, "project-os/rootfs/etc/systemd/system/"+name), "\n") {
+	for _, raw := range strings.Split(ReadFile(t, "system/project/rootfs/etc/systemd/system/"+name), "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
 			continue
@@ -36,7 +36,7 @@ func parseUnit(t *testing.T, name string) map[string]map[string]string {
 }
 
 func TestRuntimeCreationImageIdentityHasRecipeAndOSGuard(t *testing.T) {
-	recipe := ReadFile(t, "project-os/Containerfile")
+	recipe := ReadFile(t, "system/project/Containerfile")
 	Check(t, strings.Contains(recipe, `org.soda.profile="rocky-headless"`), "missing profile label")
 	Check(t, strings.Contains(recipe, `org.soda.interface="headless"`), "missing interface label")
 	Check(t, strings.Contains(recipe, `RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2"`), "missing os guard")
@@ -82,14 +82,14 @@ func TestRuntimeSocketIsProjectAdminOnly(t *testing.T) {
 		Check(t, found, "service %s=%q", field, service[field])
 	}
 	Check(t, socket["directorymode"] == "0750", "DirectoryMode=%q", socket["directorymode"])
-	init := ReadFile(t, "project-os/rootfs/usr/libexec/soda/project-init")
+	init := ReadFile(t, "system/project/rootfs/usr/libexec/soda/project-init")
 	Check(t, strings.Contains(init, "install -d -m 0750 -o root -g wheel /run/soda-podman"), "missing runtime dir install")
-	recipe := ReadFile(t, "project-os/Containerfile")
+	recipe := ReadFile(t, "system/project/Containerfile")
 	Check(t, strings.Contains(recipe, "systemctl enable sshd.service soda-project-init.service soda-podman.socket"), "missing enable")
 }
 
 func TestRuntimeOnlyNetworkSysctlSubtreeIsRebound(t *testing.T) {
-	init := ReadFile(t, "project-os/rootfs/usr/libexec/soda/project-init")
+	init := ReadFile(t, "system/project/rootfs/usr/libexec/soda/project-init")
 	Check(t, strings.Contains(init, "mount -t proc -o nosuid,nodev,noexec proc /run/soda-net-proc"), "missing proc mount")
 	Check(t, strings.Contains(init, "mount --bind /run/soda-net-proc/sys/net /proc/sys/net"), "missing bind")
 	Check(t, !strings.Contains(init, "remount,rw /proc/sys"), "remount present")

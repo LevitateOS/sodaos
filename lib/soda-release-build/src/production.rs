@@ -446,7 +446,7 @@ impl Production {
     }
 
     fn recipe_image_refs(&self) -> Result<(String, String, String), Error> {
-        let rocky = recipe_base(&PathBuf::from(&self.source).join("project-os/Containerfile"))
+        let rocky = recipe_base(&PathBuf::from(&self.source).join("system/project/Containerfile"))
             .map_err(|e| Error::msg(e.to_string()))?;
         let dashboard =
             recipe_base(&PathBuf::from(&self.source).join("appliance/dashboard.Containerfile"))
@@ -570,7 +570,7 @@ impl Production {
     }
 
     fn resolve_rocky_base(&self, pull: PullFn) -> Result<(String, String), Error> {
-        let rocky = recipe_base(&PathBuf::from(&self.source).join("project-os/Containerfile"))
+        let rocky = recipe_base(&PathBuf::from(&self.source).join("system/project/Containerfile"))
             .map_err(|e| Error::msg(e.to_string()))?;
         let dashboard =
             recipe_base(&PathBuf::from(&self.source).join("appliance/dashboard.Containerfile"))
@@ -595,7 +595,7 @@ impl Production {
     ) -> Result<(), Error> {
         for name in ["dashboard", "project-os"] {
             let file = if name == "project-os" {
-                "project-os/Containerfile"
+                "system/project/Containerfile"
             } else {
                 "appliance/dashboard.Containerfile"
             };
@@ -820,7 +820,7 @@ mod tests {
                 "{\"packageManager\":\"bun@1.4.2\",\"unrelated\":true}",
             ),
             (
-                "project-os/Containerfile",
+                "system/project/Containerfile",
                 "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
             ),
             (

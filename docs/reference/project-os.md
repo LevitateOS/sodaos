@@ -69,13 +69,13 @@ account collisions refuse instead of adopting an existing Linux user. Wheel gran
 follow the creation-time owner label and are not automatically synchronized when
 Forgejo ownership transfers.
 
-Source owners include `internal/host/`, `project-os/rootfs/usr/libexec/soda/`,
-`internal/web/api/` and project sudoers under `project-os/rootfs/etc/sudoers.d/`.
+Source owners include `internal/host/`, `system/project/rootfs/usr/libexec/soda/`,
+`internal/web/api/` and project sudoers under `system/project/rootfs/etc/sudoers.d/`.
 
 ## Supported userspace
 
 - Keep the distribution's native package mechanisms, systemd with its D-Bus broker, OpenSSH, Git, Bash and
-  OS Python. Versions live in `project-os/Containerfile` and locks.
+  OS Python. Versions live in `system/project/Containerfile` and locks.
 - Shared mise lives in `/opt/mise` with global config in `/etc/mise/config.toml`.
 - Keep personal Git clones, repository `mise.toml`, explicit trust decisions and
   native Compose/systemd files.
@@ -129,7 +129,7 @@ Project execution admission follows the current repository-write policy in
 The normal `muse` command uses the [Identity Broker](credentials.md#normal-muse-command)
 from SSH and browser terminals. The pinned native executable lives at
 `/usr/local/libexec/soda/muse`; its Go launcher lives at `/usr/local/bin/muse`.
-Versions and architecture-specific checksums belong to `project-os/muse-release.json`.
+Versions and architecture-specific checksums belong to `system/project/muse-release.json`.
 Project images contain public executables only. Enrollment and runtime credentials
 are never image payloads.
 

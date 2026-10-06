@@ -10,7 +10,7 @@ import (
 )
 
 func TestFoundationRecipeDeclaresNativeDevelopmentFoundation(t *testing.T) {
-	recipe := strings.ReplaceAll(ReadFile(t, "project-os/Containerfile"), "\\\n", " ")
+	recipe := strings.ReplaceAll(ReadFile(t, "system/project/Containerfile"), "\\\n", " ")
 	match := regexp.MustCompile(`RUN dnf -y --enablerepo=crb install (.*?) && dnf clean all`).FindStringSubmatch(recipe)
 	Require(t, match != nil, "install RUN not found")
 	packages := map[string]bool{}
@@ -30,7 +30,7 @@ func TestFoundationRecipeDeclaresNativeDevelopmentFoundation(t *testing.T) {
 }
 
 func TestFoundationRecipeStagesCompiledProjectHelpers(t *testing.T) {
-	recipe := ReadFile(t, "project-os/Containerfile")
+	recipe := ReadFile(t, "system/project/Containerfile")
 	for _, helper := range []string{"project-terminal", "project-account", "project-factory-roles"} {
 		Check(t, strings.Contains(recipe,
 			"COPY ${ARTIFACT_DIR}/project-tools/bin/"+helper+" /usr/libexec/soda/"+helper),

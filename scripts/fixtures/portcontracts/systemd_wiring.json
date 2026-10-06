@@ -1,6 +1,6 @@
 {
   "installed_paths": [
-    "project-os/rootfs/usr/libexec/soda/project-init"
+    "system/project/rootfs/usr/libexec/soda/project-init"
   ],
   "units": [
     {
