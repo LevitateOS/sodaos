@@ -32,11 +32,16 @@ impl PumpSink for RedactingWriter {
             .map(|_| ())
             .map_err(|e| e.to_string())
     }
+
+    fn pump_cancelled(&mut self) {
+        self.mark_incomplete_capture();
+    }
 }
 
 /// Start an owned process, like `StartProcess`. Stdout/stderr pump into the
 /// shared redacting writers; stdin is inherited, null, or pumped bytes.
-/// Redacting pumps drain to EOF regardless of the phase, as before.
+/// Redacting pumps retain the operation phase so escaped pipe holders cannot
+/// keep the caller blocked after its capture deadline.
 pub fn start_process(
     phase: &Phase,
     spec: &CommandSpec,
@@ -44,7 +49,7 @@ pub fn start_process(
     err: SharedWriter,
 ) -> Result<Arc<Process>, Error> {
     phase.check()?;
-    start_inner(spec, out, err, None)
+    start_inner(spec, out, err, Some(phase.clone()))
 }
 
 #[cfg(target_os = "linux")]

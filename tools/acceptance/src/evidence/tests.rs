@@ -138,6 +138,134 @@ fn output_bound() {
 }
 
 #[test]
+fn expanded_redaction_is_bounded_and_sticky() {
+    for (name, newline) in [("without-newline", false), ("with-newline", true)] {
+        let fixture = Fixture::new(&["a"]);
+        let file = fixture.evidence.open_file(name).unwrap();
+        let mut writer = RedactingWriter::tee(file, fixture.evidence.secrets().to_vec());
+        let mut chunk = vec![b'a'; 128 * 1024];
+        if newline {
+            chunk.push(b'\n');
+        }
+        let mut failed = false;
+        for _ in 0..20 {
+            if writer.write_bytes(&chunk).is_err() {
+                failed = true;
+                break;
+            }
+        }
+        assert!(failed, "capture did not hit expanded output cap ({name})");
+        assert!(writer.close().is_err());
+        assert!(writer.close().is_err());
+        assert!(writer.buffer().len() as u64 <= EVIDENCE_LIMIT);
+        let retained = std::fs::metadata(format!("{}/{name}", fixture.evidence.path()))
+            .unwrap()
+            .len();
+        assert!(
+            retained <= EVIDENCE_LIMIT,
+            "oversized retained file: {retained}"
+        );
+        assert!(writer.buffer().len() <= EVIDENCE_LIMIT as usize);
+    }
+}
+
+#[test]
+fn tiny_split_url_stream_keeps_only_safe_components() {
+    let fixture = Fixture::new(&["known-secret"]);
+    let mut writer = fixture.evidence.writer("split").unwrap();
+    let input = b"KEEP\xff known-secret HTTPS://user:pw@h?token=unknown-token https://h/%zz?bad=unknown-percent https://h\\?token=unknown-backslash https://h/path\xff?token=unknown-binary Z\0";
+    for byte in input {
+        writer.write_bytes(std::slice::from_ref(byte)).unwrap();
+    }
+    writer.close().unwrap();
+    let retained = std::fs::read(format!("{}/split", fixture.evidence.path())).unwrap();
+    for sensitive in [
+        b"known-secret".as_slice(),
+        b"unknown-token",
+        b"unknown-percent",
+        b"unknown-backslash",
+        b"unknown-binary",
+        b"user:pw",
+    ] {
+        assert!(
+            !contains_slice(&retained, sensitive),
+            "retained {sensitive:?}: {retained:?}"
+        );
+    }
+    assert!(
+        contains_slice(&retained, b"KEEP\xff"),
+        "unrelated binary prefix lost: {retained:?}"
+    );
+    assert!(
+        retained.ends_with(b" Z\0"),
+        "unrelated binary suffix lost: {retained:?}"
+    );
+    assert!(
+        contains_slice(&retained, b"HTTPS://h"),
+        "safe authority lost: {retained:?}"
+    );
+}
+
+#[test]
+fn pattern_admission_bounds_escaped_expansion() {
+    let mut dir = std::env::temp_dir();
+    dir.push(format!(
+        "soda-evidence-pattern-{}-{}",
+        std::process::id(),
+        fresh_id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("evidence").to_string_lossy().into_owned();
+    let controls = vec![1u8; 3 * 1024 * 1024];
+    assert!(create_evidence(&path, &[controls]).is_err());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn structured_redaction_refuses_expansion_before_encoding() {
+    let fixture = Fixture::new(&["a"]);
+    let value = JsonValue::Str("a".repeat(2 * 1024 * 1024));
+    assert!(fixture.evidence.write_json("large.json", &value).is_err());
+    let observation = JsonValue::Object(vec![("value".to_string(), value)]);
+    assert!(fixture.evidence.publish_observation(&observation).is_err());
+    assert!(std::fs::read(format!("{}/observation.json", fixture.evidence.path())).is_err());
+    assert!(
+        std::fs::read(format!(
+            "{}/observation.pending.json",
+            fixture.evidence.path()
+        ))
+        .is_err()
+    );
+}
+
+#[test]
+fn incomplete_capture_is_sticky_and_preserves_prior_error() {
+    let fixture = Fixture::new(&[]);
+    let mut writer = fixture.evidence.writer("partial").unwrap();
+    writer.mark_incomplete_capture();
+    assert!(
+        writer
+            .write_bytes(b"later")
+            .unwrap_err()
+            .to_string()
+            .contains("capture incomplete")
+    );
+    assert!(
+        writer
+            .close()
+            .unwrap_err()
+            .to_string()
+            .contains("capture incomplete")
+    );
+
+    let mut failed = fixture.evidence.writer("failed").unwrap();
+    let too_large = vec![0; EVIDENCE_LIMIT as usize + 1];
+    let original = failed.write_bytes(&too_large).unwrap_err().to_string();
+    failed.mark_incomplete_capture();
+    assert_eq!(failed.close().unwrap_err().to_string(), original);
+}
+
+#[test]
 fn structured_evidence_escapes_and_numeric_identity() {
     let secret = "synthetic-\"credential\\with\nnewline";
     let fixture = Fixture::new(&[secret]);
@@ -242,6 +370,18 @@ fn url_shapes_match_go() {
     assert_eq!(redact_urls("http://[::1/x"), "[URL OMITTED]");
     assert_eq!(redact_urls("https://h/%zz"), "[URL OMITTED]");
     assert_eq!(redact_urls("https://h/a%20b?x=1"), "https://h/a%20b");
+    assert_eq!(redact_urls("HTTPS://h?token=secret"), "HTTPS://h");
+    assert_eq!(redact_urls("http://user:pass@h?token=secret"), "http://h");
+    assert_eq!(
+        redact_urls("https://h/path\u{00ff}?token=secret"),
+        "[URL OMITTED]"
+    );
+    assert_eq!(redact_urls("https://user%40hidden@h/path"), "[URL OMITTED]");
+    assert_eq!(
+        redact_urls("https://h/path%5c?token=secret"),
+        "[URL OMITTED]"
+    );
+    assert_eq!(redact_urls("https://h\\?token=secret"), "[URL OMITTED]");
     // Go's URL class keeps single quotes inside the match.
     assert_eq!(
         redact_urls("see https://h/a'b?x=1 done"),

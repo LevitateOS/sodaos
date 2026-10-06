@@ -344,8 +344,16 @@ impl Process {
     pub fn join_pumps(&self) -> Option<String> {
         let pumps = lock(&self.pumps).take();
         if let Some((out, err)) = pumps {
-            let _ = out.join();
-            let _ = err.join();
+            // Join both pumps even if one panicked, then cache the first
+            // failure so repeated joins preserve the same ownership result.
+            let out_result = out.join();
+            let err_result = err.join();
+            if out_result.is_err() || err_result.is_err() {
+                let mut pump_error = lock(&self.pump_error);
+                if pump_error.is_none() {
+                    *pump_error = Some("process output pump panicked".to_string());
+                }
+            }
         }
         lock(&self.pump_error).clone()
     }

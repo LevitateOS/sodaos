@@ -79,6 +79,7 @@ pub fn execute(
         let err_close = err_writer.clone();
         std::thread::spawn(move || {
             let _ = process.wait(&Phase::background());
+            let _ = process.join_pumps();
             let _ = close_shared(&out_close);
             let _ = close_shared(&err_close);
         });
@@ -98,27 +99,25 @@ pub fn execute(
     let close_err = Error::join(vec![close_shared(&out), close_shared(&err_writer)]);
     let outcome = process.outcome();
     let exit_code = outcome.as_ref().and_then(|o| o.exit_code);
-    let (run_err, write_err) = match (&outcome, exit_code) {
-        (Some(o), Some(0)) if pump_err.is_some() && phase.check().is_ok() => {
-            // Copy failures after exit zero belong to retention, not a
-            // native denial. Group cleanup failures remain execution failures.
-            (
-                o.cleanup_message.clone().map(Error::msg),
-                Error::join(vec![close_err, pump_err.map(Error::msg)]),
-            )
-        }
-        _ => (run_err, close_err),
+    let write_err = Error::join(vec![close_err, pump_err.map(Error::msg)]);
+    // A failed pump or final flush means these bytes are only a prefix of
+    // the command output. Keep the native exit status, but make the
+    // incomplete capture unavailable to callers that parse stdout.
+    let (stdout, stderr) = if write_err.is_some() {
+        (Vec::new(), Vec::new())
+    } else {
+        let stdout = out
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .buffer()
+            .to_vec();
+        let stderr = err_writer
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .buffer()
+            .to_vec();
+        (stdout, stderr)
     };
-    let stdout = out
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .buffer()
-        .to_vec();
-    let stderr = err_writer
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .buffer()
-        .to_vec();
     let mut result = CommandResult {
         stdout,
         stderr,

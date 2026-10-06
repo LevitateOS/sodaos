@@ -183,3 +183,23 @@ fn cancelled_execution_records_failure() {
     assert!(text.contains("\"Outcome\": \"cancelled\""), "{text}");
     assert!(text.contains("\"Execution\": \"not-started\""), "{text}");
 }
+
+#[test]
+fn evidence_failure_records_failed_evidence_and_outcome() {
+    let scratch = TempDir::new("driver-evidence-failure").unwrap();
+    let path = scratch.join("evidence").to_string_lossy().into_owned();
+    let evidence = crate::evidence::create_evidence(&path, &[]).unwrap();
+
+    let result = finalize_observation(
+        &evidence,
+        Observation::default(),
+        None,
+        Some(crate::error::Error::msg("synthetic capture failure")),
+    );
+
+    assert!(result.is_err());
+    let text = std::fs::read_to_string(format!("{path}/observation.json")).unwrap();
+    assert!(text.contains("\"Evidence\": \"failed\""), "{text}");
+    assert!(text.contains("\"Outcome\": \"failed\""), "{text}");
+    assert!(!text.contains("\"Outcome\": \"completed\""), "{text}");
+}

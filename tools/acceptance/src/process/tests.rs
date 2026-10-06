@@ -85,6 +85,77 @@ fn owned_process_wait_and_cleanup() {
 
 #[test]
 #[cfg(target_os = "linux")]
+fn pump_write_failure_is_retained_across_joins() {
+    let (out, err) = discard_pair();
+    out.lock().unwrap().close().unwrap();
+    let process = start_process(
+        &Phase::background(),
+        &shell_command("printf output"),
+        out,
+        err,
+    )
+    .unwrap();
+    process
+        .wait(&Phase::timeout(Duration::from_secs(5)))
+        .unwrap();
+    let first = process.join_pumps().expect("pump write failure");
+    assert!(first.contains("file already closed"), "{first}");
+    assert_eq!(process.join_pumps().as_deref(), Some(first.as_str()));
+}
+
+#[test]
+fn pump_panics_are_joined_and_cached() {
+    let process = owned_process::Process::new(1);
+    let out = std::thread::spawn(|| panic!("synthetic stdout pump panic"));
+    let err = std::thread::spawn(|| {});
+    *process.pumps.lock().unwrap() = Some((out, err));
+    let first = process.join_pumps().expect("pump panic");
+    assert_eq!(first, "process output pump panicked");
+    assert_eq!(process.join_pumps().as_deref(), Some(first.as_str()));
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn redacting_pumps_stop_at_phase_deadline_with_incomplete_capture() {
+    use std::sync::{Arc, Mutex};
+
+    let dir = crate::files::TempDir::new("redacting-escape").unwrap();
+    let ready = dir.path().join("escaped");
+    let script = format!(
+        "setsid sh -c 'echo ready > {}; exec sleep 5' & while [ ! -f {} ]; do sleep 0.01; done; echo out",
+        ready.display(),
+        ready.display()
+    );
+    let out_file = std::fs::File::create(dir.path().join("stdout")).unwrap();
+    let out = Arc::new(Mutex::new(RedactingWriter::tee(out_file, Vec::new())));
+    let err = Arc::new(Mutex::new(RedactingWriter::discard()));
+    let start = Instant::now();
+    let process = start_process(
+        &Phase::timeout(Duration::from_millis(300)),
+        &shell_command(&script),
+        out.clone(),
+        err.clone(),
+    )
+    .unwrap();
+    process
+        .wait(&Phase::timeout(Duration::from_secs(5)))
+        .unwrap();
+    process.join_pumps();
+    let close_err = out.lock().unwrap().close().unwrap_err().to_string();
+    assert!(close_err.contains("capture incomplete"), "{close_err}");
+    let stderr_error = err.lock().unwrap().close().unwrap_err().to_string();
+    assert!(
+        stderr_error.contains("capture incomplete"),
+        "{stderr_error}"
+    );
+    assert!(
+        start.elapsed() < Duration::from_secs(3),
+        "pump missed deadline"
+    );
+}
+
+#[test]
+#[cfg(target_os = "linux")]
 fn raw_capture_keeps_bounded_bytes_and_discards_stderr() {
     // Raw mode keeps exact machine bytes (no redaction), flags overflow
     // past the cap while still draining, and discards stderr.

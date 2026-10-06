@@ -120,6 +120,35 @@ fn command_and_evidence_failures_are_separate() {
 
 #[test]
 #[cfg(target_os = "linux")]
+fn output_limit_failure_survives_nonzero_native_exit() {
+    let (_dir, evidence) = fixture_evidence();
+    let spec = CommandSpec {
+        name: "/bin/sh".to_string(),
+        args: vec![
+            "-c".to_string(),
+            "head -c 16777217 /dev/zero | tr '\\000' '\\n'; exit 23".to_string(),
+        ],
+        dir: None,
+        stdin: StdinSpec::Null,
+        env: Vec::new(),
+    };
+
+    let (result, evidence_err) = execute(&Phase::background(), &evidence, "too-large", &spec);
+
+    assert!(
+        evidence_err.is_some(),
+        "capture failure must be evidence failure"
+    );
+    assert!(result.err.is_some(), "exit 23 must remain a native failure");
+    assert_eq!(result.exit_code, Some(23));
+    assert!(
+        result.stdout.is_empty(),
+        "partial capture must not be decoded"
+    );
+}
+
+#[test]
+#[cfg(target_os = "linux")]
 fn cancelled_command_is_not_denial_or_success() {
     let (_dir, evidence) = fixture_evidence_pair();
     let phase = Phase::background();
