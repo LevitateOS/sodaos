@@ -76,7 +76,7 @@ pub use self::native::{
 
 mod stream;
 
-pub use self::stream::{StreamTable, TerminalStart};
+pub use self::stream::TerminalStart;
 
 mod broker;
 
