@@ -1,0 +1,116 @@
+.soda-code-actions #repo-action-view {
+  width: min(1400px,calc(100% - 48px));
+  margin-inline: auto;
+}
+.soda-code-no-workflows > svg {
+  margin-bottom: 16px;
+  color: var(--soda-page-link);
+}
+.soda-code-workflows .filter.menu {
+  padding: 0;
+  margin-bottom: 16px;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.soda-code-workflows .filter.menu > .dropdown.item {
+  min-height: var(--soda-control-height);
+  border-radius: var(--soda-control-radius);
+  color: var(--soda-page-text);
+  background: var(--soda-page-canvas);
+}
+.soda-code-runs .flex-item-title { font: 600 17px/1.5 Barlow,Arial,sans-serif; }
+.soda-code-runs .flex-item-body { color: var(--soda-page-muted); line-height: 1.6; }
+.soda-code-dispatch { flex-wrap: wrap; gap: 12px; border-radius: var(--soda-panel-radius); }
+.soda-code-dispatch #workflow_dispatch_dropdown > .menu {
+  padding: 16px;
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  max-width: calc(100vw - 48px);
+}
+.soda-code-dispatch .menu .ui.form {
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+}
+
+@media (max-width: 700px) {
+  .soda-code :is(.soda-code-finder,.soda-code-branch-picker) {
+    padding: 16px;
+  }
+  .soda-code-editor #editor-bar { flex-wrap: wrap; }
+  .soda-code-editor #editor-bar .switch > .item { padding-inline: 8px; }
+  .soda-code-branch-picker > .dropdown { width: 100%; }
+  .soda-code-branch-picker > .dropdown > .menu {
+    max-width: calc(100vw - 64px);
+  }
+  .soda-code-actions #repo-action-view { width: calc(100% - 32px); }
+}
+
+/* Repository landing metadata has one native owner, beside the code content. */
+.soda-repo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--soda-sidebar-width);
+  grid-template-areas: "code sidebar";
+  gap: 24px;
+  align-items: start;
+}
+.soda-repo-main { grid-area: code; min-width: 0; }
+.soda-repo-sidebar {
+  grid-area: sidebar;
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 0;
+  overflow-wrap: anywhere;
+}
+.soda-repo-sidebar .repo-description { margin-bottom: 12px; }
+.soda-repo-sidebar #repo-desc .link { display: block; margin-top: 8px; }
+.soda-repo-sidebar .repo-topics { display: flex; flex-wrap: wrap; gap: 4px; }
+.soda-repo-sidebar .repo-topics .repo-topic { margin: 0; font-size: 12px; }
+.soda-repo-sidebar #manage_topic { flex-basis: 100%; text-align: left; margin-top: 4px; }
+.soda-repo-sidebar #topic_edit { flex-wrap: wrap; }
+.soda-repo-sidebar #topic_edit > .dropdown { flex-basis: 100%; min-width: 0; }
+.soda-repo-sidebar .soda-code-summary.ui.segments {
+  margin-top: 16px !important;
+  border: 0;
+  border-top: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.soda-repo-sidebar .soda-code-summary .repository-menu {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 16px 0;
+  border: 0;
+  background: transparent;
+}
+.soda-repo-sidebar .repository-menu .item { display: flex; align-items: center; justify-content: flex-start; gap: 4px; white-space: nowrap; flex: none; }
+.soda-repo-sidebar #language-stats { border-top: 0; padding-top: 16px; }
+.soda-repo-sidebar #language-stats > ul { padding: 12px 0; }
+.soda-repo-sidebar #language-stats > ul > li { margin: 4px 0; }
+.soda-repo-main .repo-button-row.soda-toolbar { padding: 0; border: 0; background: transparent; }
+.soda-repo-main .clone-panel { min-width: 0; max-width: 100%; }
+.soda-repo-main .clone-panel input { min-width: 0; }
+@media (max-width: 1000px) {
+  .soda-repo-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sidebar" "code"; gap: 16px; }
+  .soda-repo-sidebar { padding: 0; border-left: 0; border-bottom: 0; }
+  .soda-repo-sidebar .soda-code-summary.ui.segments { margin: 12px 0 0 !important; }
+  .soda-repo-sidebar .soda-code-summary .repository-menu { display: flex; flex-wrap: wrap; gap: 12px 16px; padding: 0; }
+}
+
+/* The landing README is content, not another card beneath the file table. */
+.soda-repo-main .soda-code-file,
+.soda-repo-main .soda-code-file > .ui.attached.segment,
+.soda-repo-main .soda-code-file .file-header,
+.soda-repo-main .soda-code-file :is(.file-view, .repo-file-view) {
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+}
+.soda-repo-main .soda-code-file { margin-top: 24px; }
+.soda-repo-main .soda-code-file .file-header { padding-inline: 0; }
