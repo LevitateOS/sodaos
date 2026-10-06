@@ -89,6 +89,15 @@ import {
   sessionsButtonHidden,
   sessionsButtonLabel,
 } from './sodaspaces-workspace-toolbar-view.js';
+import {
+  repositorySearchPath,
+  searchAdmitted,
+  setupIntroAction,
+  setupIntroDescription,
+  setupIntroHeading,
+  setupIntroHelper,
+  setupIntroKind,
+} from './sodaspaces-workspace-setup.js';
 type TerminalFactory = typeof mountTerminal;
 const factoryWatchLimit = 8;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
@@ -849,33 +858,6 @@ export class SodaSpaces extends LitElement {
   private setupPanelClass() {
     return this.setup === 'repositories' ? 'soda-setup-form' : 'soda-setup-welcome';
   }
-  private setupIntroKind() {
-    return this.busy ? 'loading' : 'unavailable';
-  }
-  private setupIntroHeading() {
-    if (this.busy) return 'Loading projects…';
-    if (this.reconnectRequired) return 'Reconnect to Forgejo';
-    return 'Could not load projects';
-  }
-  private setupIntroDescription() {
-    if (this.busy) return html`Checking the projects you can access.`;
-    if (this.reconnectRequired) return html`Sign in again to restore your Forgejo access.`;
-    return html`We couldn’t load your project list. Try again.`;
-  }
-  private setupIntroAction(blocked: boolean) {
-    if (this.busy) return html``;
-    if (this.reconnectRequired)
-      return html`<a class="ui primary button" href=${this.connectURL}>Reconnect to Forgejo</a>`;
-    if (this.stale)
-      return html`<button class="ui primary button" @click=${() => window.location.reload()}>Reload Spaces</button>`;
-    return html`<button class="ui primary button" ?disabled=${blocked} @click=${this.onRefreshClick}>
-      Retry projects
-    </button>`;
-  }
-  private setupIntroHelper() {
-    if (this.busy) return html`This will not create or start anything.`;
-    return html`Your existing projects and terminals are not replaced.`;
-  }
   private renderSetupBody(blocked: boolean) {
     if (this.setup === 'repositories') {
       return renderRepositoryPicker(
@@ -903,11 +885,18 @@ export class SodaSpaces extends LitElement {
     }
     if (this.welcomeScreen) return renderWelcome(blocked, this.onBeginSetup);
     return renderWorkspaceIntro({
-      kind: this.setupIntroKind(),
-      heading: this.setupIntroHeading(),
-      description: this.setupIntroDescription(),
-      action: this.setupIntroAction(blocked),
-      helper: this.setupIntroHelper(),
+      kind: setupIntroKind(this.busy),
+      heading: setupIntroHeading(this.busy, this.reconnectRequired),
+      description: setupIntroDescription(this.busy, this.reconnectRequired),
+      action: setupIntroAction(
+        this.busy,
+        this.reconnectRequired,
+        this.stale,
+        this.connectURL,
+        blocked,
+        this.onRefreshClick
+      ),
+      helper: setupIntroHelper(this.busy),
     });
   }
   private onRepositoryQuery(value: string) {
@@ -1007,20 +996,12 @@ export class SodaSpaces extends LitElement {
     if (this.repositoryQuery === query)
       this.repositoryError = 'Could not find repositories. Search again; no project was created.';
   }
-  private searchAdmitted() {
-    return !this.stale && this.available && this.setup === 'repositories' && this.activeSurface;
-  }
   private searchCursor(page: number) {
     if (page === 1) this.repositoryCursors = [''];
     return this.repositoryCursors[page - 1];
   }
-  private repositorySearchPath(query: string, cursor: string) {
-    const params = new URLSearchParams({q: query});
-    if (cursor) params.set('cursor', cursor);
-    return '/api/repositories?' + params;
-  }
   private async searchRepositories(page: number) {
-    if (!this.searchAdmitted()) return;
+    if (!searchAdmitted(this.stale, this.available, this.setup, this.activeSurface)) return;
     const cursor = this.searchCursor(page);
     if (cursor === undefined) return;
     this.repositoryRequest?.abort();
@@ -1033,7 +1014,7 @@ export class SodaSpaces extends LitElement {
     this.repositoryResult = undefined;
     try {
       const result = repositoryChoices(
-        await this.api(this.repositorySearchPath(query, cursor), undefined, request.signal),
+        await this.api(repositorySearchPath(query, cursor), undefined, request.signal),
         page
       );
       this.applyRepositorySearch(request, query, result);
