@@ -33,7 +33,7 @@ mod tcontrol_enroll;
 mod tcontrol_native;
 #[path = "../src/tailnet/control/policy.rs"]
 mod tcontrol_policy;
-#[path = "../src/tcontrol_provider.rs"]
+#[path = "../src/tailnet/control/provider.rs"]
 mod tcontrol_provider;
 #[path = "../src/tailnet/control/wire.rs"]
 mod tcontrol_wire;
