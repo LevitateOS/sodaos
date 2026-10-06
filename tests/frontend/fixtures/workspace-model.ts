@@ -1,6 +1,6 @@
 // Shared synthetic API/socket model for component tests and the local review server.
 import {object} from '../../../frontend/spaces/sodaspaces-api.js';
-import type {Space} from '../../../frontend/spaces/sodaspaces-api.js';
+import type {Space} from '../../../frontend/spaces/sodaspaces-inventory-response.js';
 import type {TerminalMetadata} from '../../../frontend/spaces/sodaspaces-terminal-response.js';
 export const projectA = 'p' + '1'.repeat(24),
   projectB = 'p' + '2'.repeat(24);

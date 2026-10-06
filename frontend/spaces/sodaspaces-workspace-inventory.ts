@@ -1,6 +1,7 @@
 import {html} from 'lit';
-import {check, readSodaJSON, spacesResponse} from './sodaspaces-api.js';
-import type {Space} from './sodaspaces-api.js';
+import {check, readSodaJSON} from './sodaspaces-api.js';
+import {spacesResponse} from './sodaspaces-inventory-response.js';
+import type {Space} from './sodaspaces-inventory-response.js';
 import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
 import type {TerminalLocator} from './sodaspaces-terminal.js';
 import type {Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';

@@ -14,7 +14,8 @@ import type {TerminalContext} from './sodaspaces-terminal.js';
 import {emptyLayout, focusedPane, hideTab} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
 import {check, id, object, repositoryChoices, projectId} from './sodaspaces-api.js';
-import type {Space, RepositoryChoices} from './sodaspaces-api.js';
+import type {RepositoryChoices} from './sodaspaces-api.js';
+import type {Space} from './sodaspaces-inventory-response.js';
 import type {Creation, FactoryWatch, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 import {WorkspaceMeasurement} from './sodaspaces-workspace-measurement.js';
 import {

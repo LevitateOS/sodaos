@@ -1,6 +1,6 @@
 import {check} from './sodaspaces-api.js';
 import {terminalResponse} from './sodaspaces-terminal-response.js';
-import type {Space} from './sodaspaces-api.js';
+import type {Space} from './sodaspaces-inventory-response.js';
 import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
 import type {LayoutEntry, PaneArea, WorkspaceLayout} from './sodaspaces-layout.js';
 import {forgetEntry, layoutLimit, moveTab, panes, putEntry, sameLocator, selectTab} from './sodaspaces-layout.js';

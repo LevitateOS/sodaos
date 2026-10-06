@@ -1,6 +1,6 @@
 import {html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
-import type {Space} from './sodaspaces-api.js';
+import type {Space} from './sodaspaces-inventory-response.js';
 import type {Area, LayoutEntry, Pane, Split, WorkspaceLayout} from './sodaspaces-layout.js';
 import {moveTab, panes, splitPane} from './sodaspaces-layout.js';
 import {consolidatePanes, toggleMaximizedPane} from './sodaspaces-workspace-layout.js';
