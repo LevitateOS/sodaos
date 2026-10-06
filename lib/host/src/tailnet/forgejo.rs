@@ -28,8 +28,12 @@ pub fn run(exec: &dyn Executor) -> Result<(), String> {
         return Err(String::from("host operator required"));
     }
     let deadline = Instant::now() + Duration::from_secs(DEADLINE_SECS);
-    // CLI diagnostics stay status-only like Go's exec shapes: the shared
-    // runner with the status-only error policy, never subprocess stderr.
+    // CLI diagnostics are status-only by design: the shared runner with
+    // the status-only error policy reports Go's documented exit/signal/
+    // spawn head shape, but intentionally suppresses the trimmed-stderr
+    // detail the retired Go Status appended. Byte parity against the
+    // retired helper is unproved; further diagnostics come from the shared
+    // observer, never subprocess stderr.
     let status_exec = NativeStatusOnly;
     let endpoint = tcontrol_native::cli_endpoint(&status_exec, TAILSCALE_CLI, deadline)?;
     // Do not advertise a Tailnet address while the native port only binds a LAN IP.
@@ -37,7 +41,9 @@ pub fn run(exec: &dyn Executor) -> Result<(), String> {
     let live = inspect_forgejo(exec, deadline)?;
     let (domain, running) = published_state(&live, &endpoint.ipv4)?;
     let changed = update_ssh_domain(FORGEJO_ENV, &endpoint.identity)?;
-    // The restart shares the status-only runner (Go's Run shape).
+    // The restart shares the status-only runner: no subprocess stderr by
+    // design. Go's Run also discarded stderr, but byte parity against the
+    // retired helper is unproved; only the tested status shapes are pinned.
     restart_forgejo_if_needed(
         &status_exec,
         changed,
