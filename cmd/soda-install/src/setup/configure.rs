@@ -1,5 +1,5 @@
+use super::access::configured_access;
 use super::address::{private_setup_origin, setup_addresses, SetupAddress};
-use super::configured_access;
 use super::SBIN;
 
 use crate::command::{failure_summary, Runner};
