@@ -8,6 +8,7 @@ name = "soda-install"
 path = "src/main.rs"
 
 [dependencies]
+getrandom = { version = "=0.4.3", features = ["std"] }
 soda-json = { path = "../../lib/json" }
 libc = "=0.2.190"
 sha2 = { version = "0.10", features = ["oid"] }
@@ -17,6 +18,6 @@ p256 = "0.13"
 p384 = "0.13"
 p521 = "0.13"
 rsa = "0.9"
-ecdsa = { version = "0.16", features = ["verifying"] }
+ecdsa = { version = "=0.16.9", default-features = false, features = ["verifying", "pkcs8", "std"] }
 signature = "2"
 ed25519-dalek = { version = "2", default-features = false, features = ["alloc", "fast", "zeroize"] }

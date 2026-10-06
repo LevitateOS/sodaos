@@ -19,6 +19,19 @@ This document owns the durable release model. How to run tools day-to-day lives 
 One candidate is the unit of install and update. Experimental host-image tooling
 does not replace native FCOS installation and updating.
 
+## Trust-key admission
+
+Release trust keys use one `PUBLIC KEY` PEM block with only ASCII whitespace
+around it, within the existing 1 MiB trust-document bound. Image and delivery
+share the typed admission adapter in `lib/release-inputs`: it requires strict
+DER SPKI, the P-256 algorithm and curve identifiers, and an uncompressed point
+on the curve. Fingerprints use the original decoded DER bytes. Signer roles
+retain their distinct keys and existing publication authority.
+
+Installer ECDSA signatures use strict DER on P-224, P-256, P-384 and P-521.
+Verification hashes the certificate's original signed TBS bytes; certificate
+authority, key-usage and signature-algorithm policy remain with the installer.
+
 ## Host update ownership
 
 The appliance follows Fedora CoreOS update mechanics (rpm-ostree / Zincati-aligned

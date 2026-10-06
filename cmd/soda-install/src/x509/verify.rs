@@ -1,5 +1,4 @@
 use super::algorithms::{PublicKeyAlgorithm, SignatureAlgorithm, KEY_USAGE_CERT_SIGN};
-use super::der::{Reader, TAG_INTEGER, TAG_SEQ};
 use super::types::{Certificate, PublicKeyData};
 
 // ---------------------------------------------------------------------------
@@ -71,52 +70,6 @@ fn digest(hash: Hash, signed: &[u8]) -> Vec<u8> {
     }
 }
 
-/// Go `ecdsa.VerifyASN1` lenient signature parse: `SEQUENCE { r, s }` with
-/// `encoding/asn1` INTEGER semantics (non-minimal accepted, two's
-/// complement, empty rejected, exactly two elements). Returns big-endian
-/// magnitudes, or `None` for anything Go rejects (including non-positive
-/// values, which fail Go's range check downstream).
-pub(super) fn parse_ecdsa_signature(sig: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
-    let mut outer = Reader::new(sig);
-    let contents = outer.read_asn1(TAG_SEQ)?;
-    if !outer.is_empty() {
-        return None;
-    }
-    let mut reader = Reader::new(contents);
-    let r = reader.read_asn1(TAG_INTEGER)?;
-    let s = reader.read_asn1(TAG_INTEGER)?;
-    if !reader.is_empty() || r.is_empty() || s.is_empty() {
-        return None;
-    }
-    let to_magnitude = |raw: &[u8]| -> Option<Vec<u8>> {
-        if raw[0] & 0x80 != 0 {
-            // Negative: Go's range check rejects it downstream.
-            return None;
-        }
-        let mut start = 0;
-        while start + 1 < raw.len() && raw[start] == 0 {
-            start += 1;
-        }
-        let mag = &raw[start..];
-        if mag.iter().all(|b| *b == 0) {
-            return None;
-        }
-        Some(mag.to_vec())
-    };
-    Some((to_magnitude(r)?, to_magnitude(s)?))
-}
-
-/// Left-pad a magnitude to the field length; `None` when it cannot fit
-/// (at least `2^fieldlen`, hence `>= n`, which Go rejects).
-fn pad_scalar(mag: &[u8], field: usize) -> Option<Vec<u8>> {
-    if mag.len() > field {
-        return None;
-    }
-    let mut out = vec![0u8; field];
-    out[field - mag.len()..].copy_from_slice(mag);
-    Some(out)
-}
-
 fn verify_rsa(
     key: &rsa::RsaPublicKey,
     expected: PublicKeyAlgorithm,
@@ -157,11 +110,7 @@ fn verify_ecdsa_256(
     if expected != PublicKeyAlgorithm::Ecdsa {
         return Err(mismatch_error(expected, "*ecdsa.PublicKey"));
     }
-    let (r, s) = parse_ecdsa_signature(signature).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?;
-    let mut fixed = Vec::with_capacity(64);
-    fixed.extend_from_slice(&pad_scalar(&r, 32).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?);
-    fixed.extend_from_slice(&pad_scalar(&s, 32).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?);
-    let sig = ecdsa::Signature::<p256::NistP256>::from_slice(&fixed)
+    let sig = ecdsa::Signature::<p256::NistP256>::from_der(signature)
         .map_err(|_| String::from(ERR_ECDSA_FAILURE))?;
     key.verify_prehash(hashed, &sig)
         .map_err(|_| String::from(ERR_ECDSA_FAILURE))
@@ -177,11 +126,7 @@ fn verify_ecdsa_384(
     if expected != PublicKeyAlgorithm::Ecdsa {
         return Err(mismatch_error(expected, "*ecdsa.PublicKey"));
     }
-    let (r, s) = parse_ecdsa_signature(signature).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?;
-    let mut fixed = Vec::with_capacity(96);
-    fixed.extend_from_slice(&pad_scalar(&r, 48).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?);
-    fixed.extend_from_slice(&pad_scalar(&s, 48).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?);
-    let sig = ecdsa::Signature::<p384::NistP384>::from_slice(&fixed)
+    let sig = ecdsa::Signature::<p384::NistP384>::from_der(signature)
         .map_err(|_| String::from(ERR_ECDSA_FAILURE))?;
     key.verify_prehash(hashed, &sig)
         .map_err(|_| String::from(ERR_ECDSA_FAILURE))
@@ -197,11 +142,7 @@ fn verify_ecdsa_521(
     if expected != PublicKeyAlgorithm::Ecdsa {
         return Err(mismatch_error(expected, "*ecdsa.PublicKey"));
     }
-    let (r, s) = parse_ecdsa_signature(signature).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?;
-    let mut fixed = Vec::with_capacity(132);
-    fixed.extend_from_slice(&pad_scalar(&r, 66).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?);
-    fixed.extend_from_slice(&pad_scalar(&s, 66).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?);
-    let sig = ecdsa::Signature::<p521::NistP521>::from_slice(&fixed)
+    let sig = ecdsa::Signature::<p521::NistP521>::from_der(signature)
         .map_err(|_| String::from(ERR_ECDSA_FAILURE))?;
     key.verify_prehash(hashed, &sig)
         .map_err(|_| String::from(ERR_ECDSA_FAILURE))
@@ -217,11 +158,7 @@ fn verify_ecdsa_224(
     if expected != PublicKeyAlgorithm::Ecdsa {
         return Err(mismatch_error(expected, "*ecdsa.PublicKey"));
     }
-    let (r, s) = parse_ecdsa_signature(signature).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?;
-    let mut fixed = Vec::with_capacity(56);
-    fixed.extend_from_slice(&pad_scalar(&r, 28).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?);
-    fixed.extend_from_slice(&pad_scalar(&s, 28).ok_or_else(|| String::from(ERR_ECDSA_FAILURE))?);
-    let sig = ecdsa::Signature::<p224::NistP224>::from_slice(&fixed)
+    let sig = ecdsa::Signature::<p224::NistP224>::from_der(signature)
         .map_err(|_| String::from(ERR_ECDSA_FAILURE))?;
     key.verify_prehash(hashed, &sig)
         .map_err(|_| String::from(ERR_ECDSA_FAILURE))

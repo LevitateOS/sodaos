@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use soda_json::JsonValue;
 
-use crate::jsonx::{as_u64, base64_decode, Binder, Emit, Emitter};
+use crate::jsonx::{as_u64, Binder, Emit, Emitter};
 use crate::payload::{
     decode_opt_i64, decode_opt_string, decode_opt_u64, valid_repository_prefix, NAMES,
 };
@@ -41,104 +41,10 @@ fn valid_trust_envelope(t: &Trust) -> bool {
         && valid_trust_timing(t)
 }
 
-/// Parse one PEM `PUBLIC KEY` block and require a native P-256 Sigstore
-/// public key, returning the DER bytes for fingerprinting.
+/// Parse one admitted P-256 PUBLIC KEY PEM and return its original DER.
 fn parse_trust_public_key(key: &str) -> Result<Vec<u8>, Error> {
-    let der = decode_pem_public_key(key).ok_or_else(Error::refused)?;
-    parse_p256_spki(&der)?;
-    Ok(der)
-}
-
-fn decode_pem_public_key(key: &str) -> Option<Vec<u8>> {
-    let begin = "-----BEGIN PUBLIC KEY-----";
-    let end = "-----END PUBLIC KEY-----";
-    let start = key.find(begin)? + begin.len();
-    let tail = &key[start..];
-    let end_pos = tail.find(end)?;
-    let (body, rest) = tail.split_at(end_pos);
-    if !rest[end.len()..].trim().is_empty() {
-        return None;
-    }
-    let compact: String = body.chars().filter(|c| !c.is_whitespace()).collect();
-    if compact.is_empty() {
-        return None;
-    }
-    base64_decode(&compact).ok()
-}
-
-fn read_der_length(der: &[u8], pos: &mut usize) -> Option<usize> {
-    let first = *der.get(*pos)?;
-    *pos += 1;
-    if first & 0x80 == 0 {
-        return Some(first as usize);
-    }
-    let count = (first & 0x7f) as usize;
-    if count == 0 || count > 4 {
-        return None;
-    }
-    let mut length = 0usize;
-    for _ in 0..count {
-        length = (length << 8) | (*der.get(*pos)? as usize);
-        *pos += 1;
-    }
-    Some(length)
-}
-
-fn parse_p256_spki(der: &[u8]) -> Result<(), Error> {
-    let refused = || Error::msg("native P-256 Sigstore public key required");
-    let mut pos = 0;
-    if der.get(pos) != Some(&0x30) {
-        return Err(refused());
-    }
-    pos += 1;
-    let outer = read_der_length(der, &mut pos).ok_or_else(refused)?;
-    if pos + outer != der.len() {
-        return Err(refused());
-    }
-    if der.get(pos) != Some(&0x30) {
-        return Err(refused());
-    }
-    pos += 1;
-    let inner = read_der_length(der, &mut pos).ok_or_else(refused)?;
-    let inner_end = pos + inner;
-    // ecPublicKey 1.2.840.10045.2.1
-    let ec_oid: &[u8] = &[0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01];
-    // secp256r1 1.2.840.10045.3.1.7
-    let curve_oid: &[u8] = &[0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07];
-    if der.get(pos..pos + ec_oid.len()) != Some(ec_oid) {
-        return Err(refused());
-    }
-    pos += ec_oid.len();
-    if der.get(pos..pos + curve_oid.len()) != Some(curve_oid) {
-        return Err(refused());
-    }
-    pos += curve_oid.len();
-    if pos != inner_end {
-        return Err(refused());
-    }
-    if der.get(pos) != Some(&0x03) {
-        return Err(refused());
-    }
-    pos += 1;
-    let bit_len = read_der_length(der, &mut pos).ok_or_else(refused)?;
-    if bit_len != 66 || pos + bit_len != der.len() {
-        return Err(refused());
-    }
-    if der[pos] != 0x00 || der[pos + 1] != 0x04 {
-        return Err(refused());
-    }
-    // Coordinates must be below the P-256 field prime.
-    let prime: &[u8] = &[
-        0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff,
-    ];
-    let x = &der[pos + 2..pos + 34];
-    let y = &der[pos + 34..pos + 66];
-    if x >= prime || y >= prime || x.iter().all(|b| *b == 0) && y.iter().all(|b| *b == 0) {
-        return Err(refused());
-    }
-    Ok(())
+    soda_build_tools::trust_key::parse_p256_public_key(key)
+        .map_err(|_| Error::msg("native P-256 Sigstore public key required"))
 }
 
 fn admit_trust_role_keys(keys: &[String], seen: &mut BTreeSet<String>) -> Result<(), Error> {

@@ -38,7 +38,6 @@ use self::names::parse_ai;
 use self::public_key::{signature_algorithm_from_ai, P256_ELEMENT_ERROR, P256_PRIME};
 pub use self::types::{Certificate, PublicKeyData};
 pub use self::verify::check_signature_from;
-use self::verify::parse_ecdsa_signature;
 const NULL_BYTES: &[u8] = &[0x05, 0x00];
 mod algorithms;
 mod certificate;

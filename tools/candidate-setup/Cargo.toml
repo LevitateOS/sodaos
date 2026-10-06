@@ -7,4 +7,5 @@ edition = "2021"
 name = "soda-candidate-setup"
 path = "src/main.rs"
 
-# No dependencies: std only, so the tool builds offline.
+[dependencies]
+getrandom = { version = "=0.4.3", features = ["std"] }

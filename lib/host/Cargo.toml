@@ -16,6 +16,7 @@ name = "soda-forgejo-tailnet"
 path = "../../cmd/soda-forgejo-tailnet/main.rs"
 
 [dependencies]
+getrandom = { version = "=0.4.3", features = ["std"] }
 libc = "0.2"
 soda-release-deliver = { path = "../../lib/soda-release-deliver" }
 soda-release-build = { path = "../../lib/soda-release-build" }

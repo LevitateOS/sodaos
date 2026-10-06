@@ -1214,10 +1214,16 @@ dependencies = [
 [[package]]
 name = "soda-build-tools"
 version = "0.1.0"
+dependencies = [
+ "p256",
+]
 
 [[package]]
 name = "soda-candidate-setup"
 version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+]
 
 [[package]]
 name = "soda-console-welcome"
@@ -1234,11 +1240,15 @@ version = "0.1.0"
 [[package]]
 name = "soda-forgejo-migrate"
 version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+]
 
 [[package]]
 name = "soda-host"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.4.3",
  "libc",
  "soda-release-build",
  "soda-release-deliver",
@@ -1251,6 +1261,7 @@ dependencies = [
  "aes-gcm",
  "bytes",
  "fallible-iterator",
+ "getrandom 0.4.3",
  "libc",
  "postgres-protocol",
  "serde",
@@ -1261,6 +1272,7 @@ dependencies = [
 name = "soda-identity-compose"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.4.3",
  "libc",
 ]
 
@@ -1278,6 +1290,7 @@ dependencies = [
  "ecdsa",
  "ed25519-dalek",
  "elliptic-curve",
+ "getrandom 0.4.3",
  "libc",
  "p224",
  "p256",
@@ -1310,6 +1323,9 @@ dependencies = [
 [[package]]
 name = "soda-pg-fixture"
 version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+]
 
 [[package]]
 name = "soda-pg-maintenance"
@@ -1376,6 +1392,7 @@ dependencies = [
 name = "soda-release-tools"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.4.3",
  "libc",
  "sha2 0.10.9",
  "soda-json",
@@ -1387,10 +1404,16 @@ dependencies = [
 [[package]]
 name = "soda-rotate-lab-creds"
 version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+]
 
 [[package]]
 name = "soda-setup"
 version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+]
 
 [[package]]
 name = "soda-test-vm"

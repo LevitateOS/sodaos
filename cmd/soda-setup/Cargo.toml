@@ -6,3 +6,6 @@ edition = "2021"
 [[bin]]
 name = "soda-setup"
 path = "src/main.rs"
+
+[dependencies]
+getrandom = { version = "=0.4.3", features = ["std"] }

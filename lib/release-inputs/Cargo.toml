@@ -5,3 +5,9 @@ edition = "2021"
 license = "Apache-2.0"
 publish = false
 description = "Foundation crate for SodaOS Rust build tools (lane R)"
+
+[features]
+trust-key = ["dep:p256"]
+
+[dependencies]
+p256 = { version = "=0.13.2", default-features = false, features = ["arithmetic", "ecdsa", "pem", "std"], optional = true }

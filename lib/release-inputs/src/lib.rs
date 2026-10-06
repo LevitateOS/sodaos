@@ -1,13 +1,13 @@
 //! Foundation crate for SodaOS Rust build tools (lane R).
 //!
-//! PR03 establishes the offline Rust build (workspace, pinned toolchain,
-//! vendored sources). Later lane-R PRs add the asset-script and
-//! release/build ports on top of this crate. Dependency-free by policy:
-//! the tree must build with zero network.
-//!
-//! PR04 adds [`reader`], the read-only `internal/release/build` validators.
+//! Read-only release input validators and optional typed trust-key admission.
+//! Dependencies resolve through the workspace lock and are cached for offline
+//! builds; the `trust-key` feature enables the shared P-256 admission adapter.
 
 pub mod reader;
+
+#[cfg(feature = "trust-key")]
+pub mod trust_key;
 
 #[cfg(test)]
 mod tests {

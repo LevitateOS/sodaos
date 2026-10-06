@@ -31,6 +31,7 @@ name = "cli"
 path = "tests/cli/main.rs"
 
 [dependencies]
+getrandom = { version = "=0.4.3", features = ["std"] }
 soda-json = { path = "../json" }
 soda-release-build = { path = "../soda-release-build" }
 soda-release-deliver = { path = "../soda-release-deliver" }

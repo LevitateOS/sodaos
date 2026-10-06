@@ -43,3 +43,49 @@ fn oracle_payload_identity_validation() {
         "invalid appliance payload identity"
     );
 }
+
+#[test]
+fn trust_key_admission_preserves_cross_role_separation() {
+    let key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaxfR8uEsQkf4vOblY6RA8ncDfYEt\n6zOg9KE5RdiYwpZP40Li/hp/m47n60p8D54WK84zV2sxXs7LtkBoN79R9Q==\n-----END PUBLIC KEY-----".to_string();
+    let trust = Trust {
+        format: 1,
+        prefix: "ghcr.io/example/sodaos".to_string(),
+        epoch: 1,
+        keys: ["artifact", "candidate", "preview", "stable"]
+            .into_iter()
+            .map(|role| (role.to_string(), vec![key.clone()]))
+            .collect(),
+        not_before: 1,
+        max_age_seconds: 60,
+        clock_skew_seconds: 0,
+        minimum_sequence: ["candidate", "preview", "stable"]
+            .into_iter()
+            .map(|role| (role.to_string(), 1))
+            .collect(),
+    };
+    assert_eq!(
+        trust.validate().unwrap_err().0,
+        "signer roles must not share keys"
+    );
+}
+
+#[test]
+fn producer_trust_fixture_keeps_its_raw_der_fingerprint() {
+    let value = crate::jsonio::parse(include_str!(
+        "../../../../system/host/trust/release-trust.json"
+    ))
+    .expect("producer trust fixture JSON");
+    let trust = Trust::parse(&value).expect("producer trust fixture");
+    trust.validate().expect("producer trust fixture admits");
+    let pem = trust
+        .keys
+        .iter()
+        .find(|(role, _)| role == "artifact")
+        .and_then(|(_, keys)| keys.first())
+        .expect("artifact trust key");
+    let der = soda_build_tools::trust_key::parse_p256_public_key(pem).expect("admitted SPKI");
+    assert_eq!(
+        deliver_hash(&der),
+        "sha256:caf16f22be044cdd5cfb72570ba2204e09f13d1a26ff8bfb6ff7aa79d76416fd"
+    );
+}

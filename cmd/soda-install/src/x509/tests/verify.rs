@@ -7,27 +7,51 @@ use super::fixtures::{
 };
 
 #[test]
-fn ecdsa_signature_lenient_parse() {
-    // Minimal valid.
-    let sig = seq(&concat(&[int_small(1), int_small(2)]));
-    assert_eq!(parse_ecdsa_signature(&sig), Some((vec![0x01], vec![0x02])));
-    // Non-minimal integers are accepted (encoding/asn1 semantics).
-    let sig = seq(&concat(&[int_raw(&[0x00, 0x00, 0x01]), int_small(2)]));
-    assert_eq!(parse_ecdsa_signature(&sig), Some((vec![0x01], vec![0x02])));
-    // Negative, zero, and empty values are rejected.
-    let sig = seq(&concat(&[int_raw(&[0xFF]), int_small(2)]));
-    assert_eq!(parse_ecdsa_signature(&sig), None);
-    let sig = seq(&concat(&[int_small(1), int_raw(&[0x00])]));
-    assert_eq!(parse_ecdsa_signature(&sig), None);
-    let sig = seq(&concat(&[tlv(0x02, &[]), int_small(2)]));
-    assert_eq!(parse_ecdsa_signature(&sig), None);
-    // Wrong arity, trailing bytes, wrong tag.
-    let sig = seq(&concat(&[int_small(1), int_small(2), int_small(3)]));
-    assert_eq!(parse_ecdsa_signature(&sig), None);
-    let mut sig = seq(&concat(&[int_small(1), int_small(2)]));
-    sig.push(0x00);
-    assert_eq!(parse_ecdsa_signature(&sig), None);
-    assert_eq!(parse_ecdsa_signature(&[0x04, 0x02, 0x01, 0x02]), None);
+fn ecdsa_signature_der_is_strict_on_all_curves() {
+    use ecdsa::Signature;
+
+    let valid = seq(&concat(&[int_raw(&[0x00, 0x80]), int_small(2)]));
+    assert!(Signature::<p224::NistP224>::from_der(&valid).is_ok());
+    assert!(Signature::<p256::NistP256>::from_der(&valid).is_ok());
+    assert!(Signature::<p384::NistP384>::from_der(&valid).is_ok());
+    assert!(Signature::<p521::NistP521>::from_der(&valid).is_ok());
+
+    // Redundant sign bytes, negative/zero values, empty integers, and bad
+    // arity are rejected by the typed DER parser.
+    for invalid in [
+        seq(&concat(&[int_raw(&[0x00, 0x00, 0x01]), int_small(2)])),
+        seq(&concat(&[int_raw(&[0xff]), int_small(2)])),
+        seq(&concat(&[int_small(1), int_raw(&[0x00])])),
+        seq(&concat(&[tlv(0x02, &[]), int_small(2)])),
+        seq(&concat(&[int_small(1)])),
+        seq(&concat(&[int_small(1), int_small(2), int_small(3)])),
+        vec![0x30, 0x81, 0x06, 0x02, 1, 1, 0x02, 1, 2],
+        vec![0x04, 0x02, 0x01, 0x02],
+    ] {
+        assert!(Signature::<p224::NistP224>::from_der(&invalid).is_err());
+        assert!(Signature::<p256::NistP256>::from_der(&invalid).is_err());
+        assert!(Signature::<p384::NistP384>::from_der(&invalid).is_err());
+        assert!(Signature::<p521::NistP521>::from_der(&invalid).is_err());
+    }
+
+    for (width, curve) in [(28, 224), (32, 256), (48, 384), (66, 521)] {
+        let mut oversized = vec![0; width + 1];
+        oversized[1..].fill(0xff);
+        let signature = seq(&concat(&[tlv(0x02, &oversized), int_small(1)]));
+        match curve {
+            224 => assert!(Signature::<p224::NistP224>::from_der(&signature).is_err()),
+            256 => assert!(Signature::<p256::NistP256>::from_der(&signature).is_err()),
+            384 => assert!(Signature::<p384::NistP384>::from_der(&signature).is_err()),
+            _ => assert!(Signature::<p521::NistP521>::from_der(&signature).is_err()),
+        }
+    }
+
+    let mut trailing = valid.clone();
+    trailing.push(0);
+    assert!(Signature::<p224::NistP224>::from_der(&trailing).is_err());
+    assert!(Signature::<p256::NistP256>::from_der(&trailing).is_err());
+    assert!(Signature::<p384::NistP384>::from_der(&trailing).is_err());
+    assert!(Signature::<p521::NistP521>::from_der(&trailing).is_err());
 }
 
 /// v3 CA parent with the given SPKI and extra extensions.
@@ -42,6 +66,152 @@ fn ca_cert(spki: &[u8], extra: &[Vec<u8>]) -> Certificate {
         &[1],
     ))
     .expect("ca parses")
+}
+
+fn signed_p256_ca(scalar: [u8; 32]) -> Certificate {
+    use signature::Signer as _;
+
+    let signing = p256::ecdsa::SigningKey::from_bytes(&scalar.into()).expect("synthetic key");
+    let algorithm = ai_element(OID_ECDSA_SHA256, None);
+    let point = signing.verifying_key().to_encoded_point(false);
+    let mut parts = v3_parts(&[extension(OID_BASIC_CONSTRAINTS, true, &seq(&boolean(true)))]);
+    parts[2] = algorithm.clone();
+    parts[6] = ec_spki(OID_P256, point.as_bytes());
+    let tbs = seq(&concat(&parts));
+    let signature: p256::ecdsa::Signature = signing.sign(&tbs);
+    let signature_der = signature.to_der();
+    parse_certificate(&seq(&concat(&[
+        tbs,
+        algorithm,
+        bitstring(signature_der.as_bytes()),
+    ])))
+    .expect("synthetic signed CA parses")
+}
+
+const OID_P224: &[u8] = &[0x2b, 0x81, 0x04, 0x00, 0x21];
+const OID_P384: &[u8] = &[0x2b, 0x81, 0x04, 0x00, 0x22];
+const OID_P521: &[u8] = &[0x2b, 0x81, 0x04, 0x00, 0x23];
+const OID_ECDSA_SHA512: &[u8] = &[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x04];
+
+fn signed_ecdsa_ca(
+    curve_oid: &[u8],
+    signature_oid: &[u8],
+    point: &[u8],
+    sign_prehash: impl FnOnce(&[u8]) -> Vec<u8>,
+) -> Certificate {
+    let algorithm = ai_element(signature_oid, None);
+    let mut parts = v3_parts(&[extension(OID_BASIC_CONSTRAINTS, true, &seq(&boolean(true)))]);
+    parts[2] = algorithm.clone();
+    parts[6] = ec_spki(curve_oid, point);
+    let tbs = seq(&concat(&parts));
+    let signature_der = sign_prehash(&tbs);
+    parse_certificate(&seq(&concat(&[tbs, algorithm, bitstring(&signature_der)])))
+        .expect("synthetic signed CA parses")
+}
+
+macro_rules! signed_ecdsa_ca_case {
+    ($name:ident, $curve:ty, $signing_key:ty, $verifying_key:ty, $curve_oid:expr, $width:expr, $signature_oid:expr, $digest:ty) => {
+        fn $name() -> Certificate {
+            use sha2::Digest as _;
+            use signature::hazmat::PrehashSigner as _;
+
+            let mut scalar = [0u8; $width];
+            scalar[$width - 1] = 1;
+            let signing = <$signing_key>::from_slice(&scalar).expect("synthetic ECDSA key");
+            let point = <$verifying_key>::from(&signing).to_encoded_point(false);
+            signed_ecdsa_ca($curve_oid, $signature_oid, point.as_bytes(), |tbs| {
+                let prehash = <$digest>::digest(tbs);
+                let signature: ecdsa::Signature<$curve> = signing
+                    .sign_prehash(&prehash)
+                    .expect("synthetic ECDSA signature");
+                signature.to_der().as_bytes().to_vec()
+            })
+        }
+    };
+}
+
+signed_ecdsa_ca_case!(
+    signed_p224_ca,
+    p224::NistP224,
+    ecdsa::SigningKey<p224::NistP224>,
+    ecdsa::VerifyingKey<p224::NistP224>,
+    OID_P224,
+    28,
+    OID_ECDSA_SHA256,
+    sha2::Sha256
+);
+signed_ecdsa_ca_case!(
+    signed_p384_ca,
+    p384::NistP384,
+    ecdsa::SigningKey<p384::NistP384>,
+    ecdsa::VerifyingKey<p384::NistP384>,
+    OID_P384,
+    48,
+    OID_ECDSA_SHA256,
+    sha2::Sha256
+);
+signed_ecdsa_ca_case!(
+    signed_p521_ca,
+    p521::NistP521,
+    p521::ecdsa::SigningKey,
+    p521::ecdsa::VerifyingKey,
+    OID_P521,
+    66,
+    OID_ECDSA_SHA512,
+    sha2::Sha512
+);
+
+#[test]
+fn ecdsa_raw_tbs_verification_round_trips_all_curves() {
+    let cases = [
+        ("P-224", signed_p224_ca()),
+        (
+            "P-256",
+            signed_p256_ca({
+                let mut scalar = [0u8; 32];
+                scalar[31] = 1;
+                scalar
+            }),
+        ),
+        ("P-384", signed_p384_ca()),
+        ("P-521", signed_p521_ca()),
+    ];
+    for (name, certificate) in cases {
+        check_signature_from(&certificate, &certificate)
+            .unwrap_or_else(|error| panic!("{name} raw-TBS signature failed: {error}"));
+    }
+}
+
+#[test]
+fn ecdsa_uses_original_tbs_and_rejects_wrong_key_or_tampering() {
+    let child = signed_p256_ca({
+        let mut scalar = [0u8; 32];
+        scalar[31] = 1;
+        scalar
+    });
+    check_signature_from(&child, &child).expect("self-signed P-256 CA verifies");
+
+    let wrong_parent = signed_p256_ca({
+        let mut scalar = [0u8; 32];
+        scalar[31] = 2;
+        scalar
+    });
+    assert_eq!(
+        check_signature_from(&child, &wrong_parent),
+        Err(String::from("x509: ECDSA verification failure"))
+    );
+
+    let mut tampered = signed_p256_ca({
+        let mut scalar = [0u8; 32];
+        scalar[31] = 1;
+        scalar
+    });
+    let last = tampered.raw_tbs.len() - 1;
+    tampered.raw_tbs[last] ^= 1;
+    assert_eq!(
+        check_signature_from(&tampered, &child),
+        Err(String::from("x509: ECDSA verification failure"))
+    );
 }
 
 fn child_with_alg(sig_oid: &[u8], params: Option<&[u8]>) -> Certificate {
