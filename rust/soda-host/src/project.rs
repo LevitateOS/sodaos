@@ -192,11 +192,32 @@ impl Executor for Native {
             .spawn()
             .map_err(|e| format!("{cmd} failed: {e}"))?;
         let mut input = child.stdin.take();
+        let mut out_pipe = child.stdout.take();
+        let mut err_pipe = child.stderr.take();
         let outcome = std::thread::scope(|scope| {
             let writer = scope.spawn(|| {
                 if let Some(mut w) = input.take() {
                     let _ = w.write_all(stdin);
                 }
+            });
+            // Drain stdout/stderr concurrently: a child emitting beyond
+            // pipe capacity would otherwise block forever while the poll
+            // loop below waits for exit (H01-F2).
+            let out_drain = scope.spawn(|| {
+                use std::io::Read;
+                let mut buf = Vec::new();
+                if let Some(mut o) = out_pipe.take() {
+                    let _ = o.read_to_end(&mut buf);
+                }
+                buf
+            });
+            let err_drain = scope.spawn(|| {
+                use std::io::Read;
+                let mut buf = Vec::new();
+                if let Some(mut e) = err_pipe.take() {
+                    let _ = e.read_to_end(&mut buf);
+                }
+                buf
             });
             let status = loop {
                 match child.try_wait().map_err(|e| format!("{cmd} failed: {e}"))? {
@@ -204,6 +225,7 @@ impl Executor for Native {
                     None => {
                         if Instant::now() >= deadline {
                             let _ = child.kill();
+                            let _ = child.wait();
                             let _ = writer.join();
                             return Err(format!("{cmd} failed: deadline exceeded"));
                         }
@@ -214,18 +236,11 @@ impl Executor for Native {
             writer
                 .join()
                 .map_err(|_| format!("{cmd} failed: stdin writer panicked"))?;
-            Ok(status)
+            let stdout = out_drain.join().unwrap_or_default();
+            let stderr = err_drain.join().unwrap_or_default();
+            Ok((status, stdout, stderr))
         })?;
-        let status: std::process::ExitStatus = outcome;
-        let mut stdout = Vec::new();
-        let mut stderr = Vec::new();
-        use std::io::Read;
-        if let Some(mut o) = child.stdout.take() {
-            let _ = o.read_to_end(&mut stdout);
-        }
-        if let Some(mut e) = child.stderr.take() {
-            let _ = e.read_to_end(&mut stderr);
-        }
+        let (status, stdout, stderr): (std::process::ExitStatus, Vec<u8>, Vec<u8>) = outcome;
         if status.success() {
             return Ok(stdout);
         }
@@ -2200,5 +2215,54 @@ mod tests {
             .unwrap_err(),
             "invalid development key"
         );
+    }
+
+    #[test]
+    fn native_run_drains_large_dual_streams_intact() {
+        // >64 KiB on stdout with a live stderr: the pre-H01-F2
+        // reap-before-drain order deadlocked here.
+        let out = Native
+            .run(
+                b"",
+                "sh",
+                &["-c", "head -c 70000 /dev/zero | tr '\\0' 'A'"],
+                Instant::now() + Duration::from_secs(5),
+            )
+            .unwrap();
+        assert_eq!(out, vec![b'A'; 70000]);
+    }
+
+    #[test]
+    fn native_run_failure_shape_carries_full_stderr() {
+        let err = Native
+            .run(
+                b"",
+                "sh",
+                &[
+                    "-c",
+                    "head -c 70000 /dev/zero | tr '\\0' 'A'; head -c 70000 /dev/zero | tr '\\0' 'B' >&2; exit 3",
+                ],
+                Instant::now() + Duration::from_secs(5),
+            )
+            .unwrap_err();
+        assert_eq!(
+            err,
+            format!("sh failed: exit status 3: {}", "B".repeat(70000))
+        );
+    }
+
+    #[test]
+    fn native_run_deadline_kills_promptly() {
+        let start = Instant::now();
+        let err = Native
+            .run(
+                b"",
+                "sleep",
+                &["30"],
+                Instant::now() + Duration::from_secs(1),
+            )
+            .unwrap_err();
+        assert_eq!(err, "sleep failed: deadline exceeded");
+        assert!(start.elapsed() < Duration::from_secs(10), "kill not prompt");
     }
 }

@@ -156,7 +156,9 @@ fn read_response(stream: &mut UnixStream) -> Result<(u16, Vec<u8>), Error> {
         }
     }
     if chunked {
-        return Ok((status, read_chunked(stream)?));
+        // The host daemon only emits Content-Length responses; a chunked
+        // response is outside the retained framing contract (H01-F1).
+        return Err(Error::internal("invalid native response"));
     }
     if let Some(len) = content_length {
         if len > FINISH_LIMIT + 1 {
@@ -178,63 +180,6 @@ fn read_response(stream: &mut UnixStream) -> Result<(u16, Vec<u8>), Error> {
         .read_to_end(&mut body)
         .map_err(|_| Error::internal("host service unavailable"))?;
     Ok((status, body))
-}
-
-fn read_chunked(stream: &mut UnixStream) -> Result<Vec<u8>, Error> {
-    let mut body = Vec::new();
-    loop {
-        let line = read_line(stream)?;
-        let size = line
-            .split(|b| *b == b';')
-            .next()
-            .and_then(|hex| {
-                std::str::from_utf8(hex.trim_ascii())
-                    .ok()?
-                    .parse::<usize>()
-                    .ok()
-            })
-            .ok_or_else(|| Error::internal("invalid native response"))?;
-        if size == 0 {
-            let _ = read_line(stream)?;
-            return Ok(body);
-        }
-        if body.len() + size > FINISH_LIMIT + 1 {
-            return Err(Error::internal("invalid native response"));
-        }
-        let mut chunk = vec![0u8; size];
-        stream
-            .read_exact(&mut chunk)
-            .map_err(|_| Error::internal("host service unavailable"))?;
-        body.extend_from_slice(&chunk);
-        let crlf = read_line(stream)?;
-        if !crlf.is_empty() {
-            return Err(Error::internal("invalid native response"));
-        }
-    }
-}
-
-fn read_line(stream: &mut UnixStream) -> Result<Vec<u8>, Error> {
-    let mut line = Vec::new();
-    let mut byte = [0u8; 1];
-    loop {
-        match stream.read(&mut byte) {
-            Ok(0) => return Err(Error::internal("host service unavailable")),
-            Ok(_) => {
-                if byte[0] == b'\n' {
-                    break;
-                }
-                line.push(byte[0]);
-                if line.len() > 65536 {
-                    return Err(Error::internal("invalid native response"));
-                }
-            }
-            Err(e) => return Err(Error::internal(format!("host service unavailable: {e}"))),
-        }
-    }
-    if line.last() == Some(&b'\r') {
-        line.pop();
-    }
-    Ok(line)
 }
 
 #[cfg(test)]
@@ -386,5 +331,17 @@ mod tests {
             1,
         );
         assert!(client.finish(&lease(true)).is_err());
+    }
+
+    #[test]
+    fn chunked_response_refused_without_decode() {
+        let (mut peer, mut stream) = std::os::unix::net::UnixStream::pair().unwrap();
+        std::io::Write::write_all(
+            &mut peer,
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n0\r\n\r\n",
+        )
+        .unwrap();
+        let err = read_response(&mut stream).unwrap_err();
+        assert_eq!(err.to_string(), "invalid native response");
     }
 }

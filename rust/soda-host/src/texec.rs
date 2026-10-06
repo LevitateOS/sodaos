@@ -2290,12 +2290,14 @@ impl NativeAttach {
         Ok(())
     }
 
+    /// Detach the stdout reader for lock-free output pumps (H01-F3).
+    /// Teardown still funnels through [`Self::close`].
+    pub fn take_reader(&mut self) -> Option<BufReader<File>> {
+        self.reader.take()
+    }
+
     /// `nativeTerminal.Output`: one validated agent stdout line.
-    pub fn output_frame(&mut self) -> Result<TerminalFrame, String> {
-        let reader = self
-            .reader
-            .as_mut()
-            .ok_or_else(|| "terminal output ended".to_string())?;
+    pub fn output_frame(reader: &mut BufReader<File>) -> Result<TerminalFrame, String> {
         let mut line = Vec::new();
         // `bufio.Scanner` with a 131072-byte token cap: overlong lines and
         // EOF both end the stream.
@@ -4828,5 +4830,65 @@ mod tests {
             identity_route("/identity/finish", &live_lease(), true),
             IdentityRoute::Terminal
         );
+    }
+
+    fn piped_file() -> (std::os::unix::net::UnixStream, File) {
+        use std::os::unix::io::{FromRawFd, IntoRawFd};
+        use std::os::unix::net::UnixStream;
+        let (peer, end) = UnixStream::pair().unwrap();
+        // SAFETY: the fd is owned by the new File exactly once.
+        let file = unsafe { File::from_raw_fd(end.into_raw_fd()) };
+        (peer, file)
+    }
+
+    #[test]
+    fn take_reader_detaches_output() {
+        let (out_peer, out_file) = piped_file();
+        let (_in_peer, in_file) = piped_file();
+        let mut attach = NativeAttach {
+            child: None,
+            stdin: Some(in_file),
+            reader: Some(BufReader::new(out_file)),
+            closed: false,
+        };
+        let mut reader = attach.take_reader().expect("reader detached");
+        assert!(attach.take_reader().is_none());
+        std::io::Write::write_all(&mut &out_peer, b"{\"type\":\"ready\"}\n").unwrap();
+        let frame = NativeAttach::output_frame(&mut reader).unwrap();
+        assert_eq!(frame.frame_type, "ready");
+        drop(out_peer);
+        assert_eq!(
+            NativeAttach::output_frame(&mut reader).unwrap_err(),
+            "terminal output ended"
+        );
+        attach.close();
+        assert!(attach.closed);
+    }
+
+    #[test]
+    fn quiet_output_never_blocks_input() {
+        let (out_peer, out_file) = piped_file();
+        let (_in_peer, in_file) = piped_file();
+        let mut attach = NativeAttach {
+            child: None,
+            stdin: Some(in_file),
+            reader: Some(BufReader::new(out_file)),
+            closed: false,
+        };
+        let mut reader = attach.take_reader().unwrap();
+        let out = std::thread::spawn(move || NativeAttach::output_frame(&mut reader));
+        // Child quiet (peer open, no data): input still flows.
+        let frame = TerminalFrame {
+            frame_type: "input".to_string(),
+            data: "eA==".to_string(),
+            cols: 0,
+            rows: 0,
+            reason: String::new(),
+            terminals: None,
+        };
+        attach.input_frame(&frame).unwrap();
+        drop(out_peer);
+        assert_eq!(out.join().unwrap().unwrap_err(), "terminal output ended");
+        attach.close();
     }
 }
