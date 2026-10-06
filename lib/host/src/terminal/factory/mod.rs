@@ -4,6 +4,7 @@ pub mod binding;
 pub mod codex;
 pub mod lifecycle;
 pub mod muse;
+pub mod native;
 pub mod output;
 pub mod run;
 pub mod tcodex;
