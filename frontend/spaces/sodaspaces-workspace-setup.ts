@@ -112,21 +112,6 @@ export interface SetupHost {
   querySelector<E extends Element>(selectors: string): E | null;
 }
 
-export function clearRepositorySearch(actions: SetupActions) {
-  actions.setRepositoryQuery('');
-  actions.setRepositoryError('');
-  actions.setRepositoryChoice('');
-  actions.setRepositoryResult(undefined);
-  actions.setRepositoryCursors(['']);
-  actions.currentRepositoryRequest()?.abort();
-  actions.admitRepositoryRequest(undefined);
-  actions.setRepositoryBusy(false);
-}
-
-export function setupPanelClass(setup: 'repositories' | 'configure' | null) {
-  return setup === 'repositories' ? 'soda-setup-form' : 'soda-setup-welcome';
-}
-
 export function renderSetupBody(
   reading: SetupReading,
   actions: SetupActions,
@@ -184,44 +169,6 @@ export function onRepositoryQuery(actions: SetupActions, value: string) {
   actions.currentRepositoryRequest()?.abort();
   actions.admitRepositoryRequest(undefined);
   actions.setRepositoryBusy(false);
-}
-
-export function setupUnavailableHeading(reading: SetupReading) {
-  if (reading.busy) return 'Loading projects…';
-  if (reading.reconnectRequired) return 'Reconnect to Forgejo';
-  return 'Could not load projects';
-}
-
-export function setupUnavailableDescription(reading: SetupReading) {
-  if (reading.busy) return html`Checking the projects you can access.`;
-  if (reading.reconnectRequired) return html`Sign in again to restore your Forgejo access.`;
-  return html`We couldn’t load your project list. Try again.`;
-}
-
-export function setupUnavailableAction(reading: SetupReading, blocked: boolean) {
-  if (reading.busy) return html``;
-  if (reading.reconnectRequired)
-    return html`<a class="ui primary button" href=${reading.connectURL}>Reconnect to Forgejo</a>`;
-  if (reading.stale)
-    return html`<button class="ui primary button" @click=${() => window.location.reload()}>Reload Spaces</button>`;
-  return html`<button class="ui primary button" ?disabled=${blocked} @click=${() => reading.onRefresh()}>
-    Retry projects
-  </button>`;
-}
-
-export function setupUnavailableHelper(reading: SetupReading) {
-  if (reading.busy) return html`This will not create or start anything.`;
-  return html`Your existing projects and terminals are not replaced.`;
-}
-
-export function renderSetupUnavailable(reading: SetupReading, blocked: boolean) {
-  return renderWorkspaceIntro({
-    kind: reading.busy ? 'loading' : 'unavailable',
-    heading: setupUnavailableHeading(reading),
-    description: setupUnavailableDescription(reading),
-    action: setupUnavailableAction(reading, blocked),
-    helper: setupUnavailableHelper(reading),
-  });
 }
 
 export function renderSetup(reading: SetupReading, actions: SetupActions, host: SetupHost, read: () => SetupReading) {
