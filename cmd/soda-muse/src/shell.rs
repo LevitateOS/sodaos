@@ -1,5 +1,4 @@
-use super::go_join;
-use super::go_strerror;
+use super::env::{go_join, go_strerror};
 use super::json_string;
 use super::ShellRequest;
 use std::io;
