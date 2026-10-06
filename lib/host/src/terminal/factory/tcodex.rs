@@ -16,214 +16,27 @@
 use std::time::{Duration, Instant};
 
 use crate::domain;
-use crate::json::{self, Kind, Spec};
 use crate::project::Executor;
 use crate::sha256;
-use crate::terminal::{self, Binding, Delivery, Lease, Service, KIND_FACTORY};
+#[cfg(test)]
+use crate::terminal::Delivery;
+use crate::terminal::{self, Binding, Lease, Service, KIND_FACTORY};
 
-// ---------- factory domain (internal/project) ----------
-
-/// Fixed factory execution discriminator for supervised Codex runs.
-pub const FACTORY_SCOPE_CODEX: &str = "factory-codex";
-/// First harness family.
-pub const FACTORY_HARNESS_CODEX: &str = "codex";
-/// Fixed factory execution discriminator for supervised Muse Code runs.
-pub const FACTORY_SCOPE_MUSE: &str = "factory-muse";
-/// Muse Code CLI harness family (`muse exec` runs backed by the native
-/// "muse" provider).
-pub const FACTORY_HARNESS_MUSE: &str = "muse";
-
-/// Supported supervised CLI families.
-pub fn valid_harness_family(family: &str) -> bool {
-    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE
-}
-/// Fixed factory role logins.
-pub const ROLE_CODER: &str = "soda-coder";
-pub const ROLE_REVIEWER: &str = "soda-reviewer";
-/// Prompt byte bound (`64*1024`).
-pub const MAX_FACTORY_PROMPT: usize = 64 * 1024;
-/// One output slice bound (`24*1024-256`).
-pub const MAX_FACTORY_OUTPUT_READ: i64 = 24 * 1024 - 256;
-/// Trailing attach window (`256*1024`).
-pub const MAX_FACTORY_OUTPUT_WINDOW: i64 = 256 * 1024;
-/// Output cursor bound (`256<<20`).
-pub const MAX_FACTORY_OUTPUT_OFFSET: i64 = 256 << 20;
-/// Exported bundle bound (`4<<20`).
-pub const MAX_FACTORY_EXPORT_BUNDLE: usize = 4 << 20;
-/// Takeover checkout directory inside a member home.
-pub const TAKEOVER_DIR_NAME: &str = "factory-takeover";
-
-/// `project.ErrFactoryExportCandidate`.
-pub const ERR_FACTORY_EXPORT_CANDIDATE: &str = "export candidate is not recorded";
-/// `project.ErrFactoryExportBounds`.
-pub const ERR_FACTORY_EXPORT_BOUNDS: &str = "candidate export exceeds bounds";
-
-/// `ValidFactoryRole`: the two fixed factory roles only.
-pub fn valid_factory_role(role: &str) -> bool {
-    role == ROLE_CODER || role == ROLE_REVIEWER
-}
-
-/// `ValidPreparationID = ^f[0-9a-f]{24}$`.
-pub fn valid_preparation_id(id: &str) -> bool {
-    id.len() == 25 && id.as_bytes()[0] == b'f' && domain::is_hex_lower(&id[1..])
-}
-
-/// `ValidDigest = ^[0-9a-f]{64}$`.
-pub fn valid_digest(d: &str) -> bool {
-    domain::valid_container_id(d)
-}
-
-/// `ValidCommit = ^[0-9a-f]{40}$`.
-pub fn valid_commit(c: &str) -> bool {
-    c.len() == 40 && domain::is_hex_lower(c)
-}
-
-/// `ValidFactoryRunID = ^[a-f0-9]{32}$`.
-pub fn valid_factory_run_id(id: &str) -> bool {
-    terminal::valid_terminal_id(id)
-}
-
-/// `ValidHarnessVersion = ^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$`.
-pub fn valid_harness_version(version: &str) -> bool {
-    let b = version.as_bytes();
-    !b.is_empty()
-        && b.len() <= 32
-        && b[0].is_ascii_alphanumeric()
-        && b[1..]
-            .iter()
-            .all(|c| c.is_ascii_alphanumeric() || *c == b'.' || *c == b'_' || *c == b'-')
-}
-
-/// One supervised CLI execution (`project.FactoryRun`).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct FactoryRun {
-    pub deadline_raw: String,
-    pub actor: i64,
-    pub id: String,
-    pub project: String,
-    pub role: String,
-    pub preparation: String,
-    pub harness: String,
-    pub harness_vers: String,
-    pub model: String,
-    pub assignment: String,
-    pub source_commit: String,
-    pub connection: String,
-}
-
-const FACTORY_RUN_SPECS: &[Spec] = &[
-    Spec {
-        name: "deadline",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "actor",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "preparation",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "harness",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "harness_version",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "model",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "assignment",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "source_commit",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "connection",
-        kind: Kind::Str,
-    },
-];
-
-impl FactoryRun {
-    /// `FactoryRun.Validate()` with exact error strings.
-    pub fn validate(&self) -> Result<(), String> {
-        if !valid_factory_run_id(&self.id)
-            || !domain::valid_id(&self.project)
-            || !valid_factory_role(&self.role)
-        {
-            return Err("invalid factory run identity".to_string());
-        }
-        if !valid_preparation_id(&self.preparation) {
-            return Err("invalid run preparation reference".to_string());
-        }
-        if !valid_harness_family(&self.harness) || !valid_harness_version(&self.harness_vers) {
-            return Err("unsupported factory harness".to_string());
-        }
-        if !self.model.is_empty() {
-            if self.model.len() > 128 {
-                return Err("invalid run model selection".to_string());
-            }
-            // Go checks raw bytes, not runes.
-            for byte in self.model.bytes() {
-                if byte < 0x20 || byte == 0x7f {
-                    return Err("invalid run model selection".to_string());
-                }
-            }
-        }
-        if !valid_digest(&self.assignment) || !valid_commit(&self.source_commit) {
-            return Err("invalid run assignment or source identity".to_string());
-        }
-        if self.connection.is_empty() || self.connection.len() > 128 || self.actor <= 0 {
-            return Err("invalid run sponsorship".to_string());
-        }
-        if self.deadline_raw.is_empty() {
-            return Err("run deadline is required".to_string());
-        }
-        Ok(())
-    }
-
-    /// Strict decode of one run object.
-    pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        let m = json::bind_root(&v, "FactoryRun", FACTORY_RUN_SPECS, false).map_err(|e| e.0)?;
-        let deadline_raw = m.take_string("deadline");
-        if m.contains("deadline") {
-            terminal::parse_rfc3339(&deadline_raw).ok_or_else(|| "invalid deadline".to_string())?;
-        }
-        Ok(FactoryRun {
-            deadline_raw,
-            actor: m.take_i64("actor"),
-            id: m.take_string("id"),
-            project: m.take_string("project"),
-            role: m.take_string("role"),
-            preparation: m.take_string("preparation"),
-            harness: m.take_string("harness"),
-            harness_vers: m.take_string("harness_version"),
-            model: m.take_string("model"),
-            assignment: m.take_string("assignment"),
-            source_commit: m.take_string("source_commit"),
-            connection: m.take_string("connection"),
-        })
-    }
-}
+pub use super::artifacts::{
+    export_argv, takeover_destination, takeover_source, takeover_steps, ERR_FACTORY_EXPORT_BOUNDS,
+    ERR_FACTORY_EXPORT_CANDIDATE, FACTORY_EXPORT_SCRIPT, MAX_FACTORY_EXPORT_BUNDLE,
+    TAKEOVER_DIR_NAME,
+};
+pub use super::output::{
+    factory_output_size, output_read_command, FactoryCodexOutputSlice, MAX_FACTORY_OUTPUT_OFFSET,
+    MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW,
+};
+pub use super::run::{
+    valid_commit, valid_digest, valid_factory_role, valid_factory_run_id, valid_harness_family,
+    valid_harness_version, valid_preparation_id, FactoryRun, FACTORY_HARNESS_CODEX,
+    FACTORY_HARNESS_MUSE, FACTORY_SCOPE_CODEX, FACTORY_SCOPE_MUSE, MAX_FACTORY_PROMPT, ROLE_CODER,
+    ROLE_REVIEWER,
+};
 
 /// `FactoryRunPaths`: fixed container paths for one run; `None` on an
 /// invalid identity. Returns `(checkout, run_dir, home, codex_home)`.
@@ -261,22 +74,6 @@ pub fn factory_unit_name(run: &str) -> Option<String> {
 
 pub(crate) fn factory_unit_name_or_denied(run: &str) -> Result<String, String> {
     factory_unit_name(run).ok_or_else(terminal::err_denied)
-}
-
-/// `TakeoverDestination`: member-owned checkout destination for one run.
-pub fn takeover_destination(member: &str, run: &str) -> Option<String> {
-    if !domain::valid_login(member) || member == "root" || !valid_factory_run_id(run) {
-        return None;
-    }
-    Some(format!("/home/{member}/{TAKEOVER_DIR_NAME}/{run}"))
-}
-
-/// `TakeoverSource`: the exact fixed role-checkout layout, nothing else.
-pub fn takeover_source(path: &str, role: &str, preparation: &str) -> bool {
-    if !valid_factory_role(role) || !valid_preparation_id(preparation) {
-        return false;
-    }
-    path == format!("/home/{role}/checkouts/{preparation}")
 }
 
 // ---------- run paths, scripts, bindings ----------
@@ -320,16 +117,6 @@ pub fn factory_codex_paths(run: &FactoryRun) -> Result<FactoryCodexPaths, String
         auth: format!("{codex}/auth.json"),
         guest,
     })
-}
-
-/// One observed byte slice of recorded CLI output with its cursor.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct FactoryCodexOutputSlice {
-    pub data: Vec<u8>,
-    pub total: i64,
-    pub offset: i64,
-    pub truncated: bool,
-    pub gap: bool,
 }
 
 /// `systemdEscape`: double every dollar for transport through systemd-run.
@@ -402,36 +189,6 @@ pub fn factory_retire(p: &FactoryCodexPaths) -> String {
     ];
     script.join("\n") + "\n"
 }
-
-/// `factoryExportScript`: objects-only candidate export through a clean
-/// bare repository. Golden-pinned against the Go output.
-pub const FACTORY_EXPORT_SCRIPT: &str = r#"set -eu
-src=$1
-candidate=$2
-limit=$3
-if ! /usr/bin/test -d "$src/.git/objects"; then
-  printf 'soda-export-missing\n'
-  exit 0
-fi
-dir=$(/usr/bin/mktemp -d "$TMPDIR/.soda-export-XXXXXX")
-trap '/usr/bin/rm -rf "$dir"' EXIT HUP INT TERM
-/usr/bin/git -c core.hooksPath=/dev/null init --bare --template= "$dir/repo.git" >/dev/null 2>/dev/null
-export GIT_OBJECT_DIRECTORY="$src/.git/objects"
-git_export() {
-  /usr/bin/git -c core.hooksPath=/dev/null --git-dir="$dir/repo.git" "$@"
-}
-if ! actual=$(git_export rev-parse --verify "$candidate^{commit}" 2>/dev/null); then
-  printf 'soda-export-invalid\n'
-  exit 0
-fi
-if [ "$actual" != "$candidate" ]; then
-  printf 'soda-export-invalid\n'
-  exit 0
-fi
-git_export update-ref HEAD "$candidate" 2>/dev/null
-git_export bundle create "$dir/candidate.bundle" HEAD 2>/dev/null
-/usr/bin/head -c "$limit" "$dir/candidate.bundle"
-"#;
 
 /// `factoryCodexBinding`: supervised factory-Codex binding check plus
 /// derived run paths. The recorded credential root must equal the derived
@@ -598,83 +355,6 @@ pub fn start_gate_script(p: &FactoryCodexPaths) -> String {
         shell_quote(&p.marker),
         shell_quote(&p.started),
     )
-}
-
-/// `FactoryCodexOutput` bounded read pipeline.
-pub fn output_read_command(stdout: &str, start: i64, limit: i64) -> String {
-    format!(
-        "/usr/bin/tail -c +{} {} | /usr/bin/head -c {limit}\n",
-        start.wrapping_add(1),
-        shell_quote(stdout),
-    )
-}
-
-/// `FactoryTakeoverCopy` fixed copy steps.
-pub fn takeover_steps(src: &str, dest: &str, member: &str) -> Vec<Vec<String>> {
-    let partial = format!("{dest}.partial");
-    let parent = format!("/home/{member}/{TAKEOVER_DIR_NAME}");
-    vec![
-        vec!["/usr/bin/mkdir".to_string(), "-p".to_string(), parent],
-        vec![
-            "/usr/bin/rm".to_string(),
-            "-rf".to_string(),
-            partial.clone(),
-        ],
-        vec!["/usr/bin/mkdir".to_string(), partial.clone()],
-        vec![
-            "/usr/bin/cp".to_string(),
-            "-a".to_string(),
-            format!("{src}/."),
-            format!("{partial}/"),
-        ],
-        vec![
-            "/usr/bin/rm".to_string(),
-            "-rf".to_string(),
-            format!("{partial}/.git"),
-            format!("{partial}/.soda-home"),
-        ],
-        vec![
-            "/usr/bin/git".to_string(),
-            "-C".to_string(),
-            partial.clone(),
-            "init".to_string(),
-            "-q".to_string(),
-        ],
-        vec![
-            "/usr/bin/chown".to_string(),
-            "-R".to_string(),
-            format!("--reference=/home/{member}"),
-            partial,
-        ],
-    ]
-}
-
-/// `FactoryExportBundle` guest env (fixed, clean) plus argv tail.
-pub fn export_argv(current: &str, role: &str, src: &str, candidate: &str) -> Vec<String> {
-    vec![
-        "--remote=false".to_string(),
-        "exec".to_string(),
-        "--user".to_string(),
-        role.to_string(),
-        current.to_string(),
-        "/usr/bin/env".to_string(),
-        "-i".to_string(),
-        "PATH=/usr/bin:/bin".to_string(),
-        format!("HOME=/home/{role}"),
-        "LC_ALL=C".to_string(),
-        format!("TMPDIR=/home/{role}/checkouts"),
-        "GIT_CONFIG_NOSYSTEM=1".to_string(),
-        "GIT_CONFIG_GLOBAL=/dev/null".to_string(),
-        "GIT_NO_REPLACE_OBJECTS=1".to_string(),
-        "GIT_TERMINAL_PROMPT=0".to_string(),
-        "/usr/bin/sh".to_string(),
-        "-c".to_string(),
-        FACTORY_EXPORT_SCRIPT.to_string(),
-        "soda-export".to_string(),
-        src.to_string(),
-        candidate.to_string(),
-        (MAX_FACTORY_EXPORT_BUNDLE + 1).to_string(),
-    ]
 }
 
 // ---------- executor ----------
@@ -1294,194 +974,6 @@ impl<E: Executor> Service<E> {
             deadline,
         )?;
         self.factory_output_window(&binding.project, &stdout, offset, limit, deadline)
-    }
-
-    /// `Service.FactoryExportBundle`: exact-candidate bundle export.
-    pub fn factory_export_bundle(
-        &self,
-        project_id: &str,
-        recorded: &str,
-        role: &str,
-        preparation: &str,
-        candidate: &str,
-        deadline: Instant,
-    ) -> Result<Vec<u8>, String> {
-        let src = format!("/home/{role}/checkouts/{preparation}");
-        if !takeover_source(&src, role, preparation)
-            || !valid_commit(candidate)
-            || !domain::valid_container_id(recorded)
-        {
-            return Err(terminal::err_denied());
-        }
-        let current = self.factory_project_container(project_id, true, deadline)?;
-        if current != recorded {
-            return Err(terminal::err_stale());
-        }
-        let argv = export_argv(&current, role, &src, candidate);
-        let bundle = match self.run_podman(&[], &argv, deadline) {
-            Ok(bundle) => bundle,
-            Err(_) => {
-                if Instant::now() >= deadline {
-                    return Err("context deadline exceeded".to_string());
-                }
-                return Err("candidate export execution unconfirmed".to_string());
-            }
-        };
-        if bundle == b"soda-export-missing\n" {
-            return Err(terminal::ERR_NOT_FOUND.to_string());
-        }
-        if bundle == b"soda-export-invalid\n" {
-            return Err(ERR_FACTORY_EXPORT_CANDIDATE.to_string());
-        }
-        if bundle.is_empty() || bundle.len() > MAX_FACTORY_EXPORT_BUNDLE {
-            return Err(ERR_FACTORY_EXPORT_BOUNDS.to_string());
-        }
-        Ok(bundle)
-    }
-
-    /// `Service.FactoryTakeoverCopy`: copy retained role-checkout work
-    /// into the admitted member's derived destination.
-    #[allow(clippy::too_many_arguments)] // one parameter per Go argument, in order
-    pub fn factory_takeover_copy(
-        &self,
-        project_id: &str,
-        recorded: &str,
-        role: &str,
-        preparation: &str,
-        member: &str,
-        run: &str,
-        deadline: Instant,
-    ) -> Result<(String, bool), String> {
-        let dest = takeover_destination(member, run).ok_or_else(terminal::err_denied)?;
-        let src = format!("/home/{role}/checkouts/{preparation}");
-        if !takeover_source(&src, role, preparation) || !domain::valid_container_id(recorded) {
-            return Err(terminal::err_denied());
-        }
-        let current = self.factory_project_container(project_id, true, deadline)?;
-        if current != recorded {
-            return Err(terminal::err_stale());
-        }
-        let probe = |args: &[String]| self.run_podman(&[], args, deadline);
-        let test_dir = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            current.clone(),
-            "/usr/bin/test".to_string(),
-            "-d".to_string(),
-            dest.clone(),
-        ];
-        if probe(&test_dir).is_ok() {
-            return Ok((dest, true));
-        }
-        let partial = format!("{dest}.partial");
-        let test_src = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            current.clone(),
-            "/usr/bin/test".to_string(),
-            "-d".to_string(),
-            src.clone(),
-        ];
-        if probe(&test_src).is_err() {
-            return Err("takeover found no retained work".to_string());
-        }
-        for step in takeover_steps(&src, &dest, member) {
-            let mut argv = vec![
-                "--remote=false".to_string(),
-                "exec".to_string(),
-                current.clone(),
-            ];
-            argv.extend(step);
-            match probe(&argv) {
-                Ok(out) if out.len() <= 65536 => {}
-                Ok(_) => return Err("takeover step returned excessive output".to_string()),
-                Err(err) => return Err(err),
-            }
-        }
-        let test_dest = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            current.clone(),
-            "/usr/bin/test".to_string(),
-            "-e".to_string(),
-            dest.clone(),
-        ];
-        if probe(&test_dest).is_ok() {
-            let cleanup = vec![
-                "--remote=false".to_string(),
-                "exec".to_string(),
-                current,
-                "/usr/bin/rm".to_string(),
-                "-rf".to_string(),
-                partial,
-            ];
-            let _ = probe(&cleanup);
-            return Ok((dest, true));
-        }
-        let mv = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            current.clone(),
-            "/usr/bin/mv".to_string(),
-            "-T".to_string(),
-            partial.clone(),
-            dest.clone(),
-        ];
-        if probe(&mv).is_err() {
-            let cleanup = vec![
-                "--remote=false".to_string(),
-                "exec".to_string(),
-                current,
-                "/usr/bin/rm".to_string(),
-                "-rf".to_string(),
-                partial,
-            ];
-            let _ = probe(&cleanup);
-            return Err("takeover destination was not confirmed".to_string());
-        }
-        Ok((dest, false))
-    }
-
-    /// `Daemon.factoryIdentityOperation`: broker validate/stop/finish
-    /// callbacks for supervised factory runs.
-    pub fn factory_identity_operation(
-        &self,
-        action: &str,
-        delivery: &Delivery,
-        deadline: Instant,
-    ) -> Result<Delivery, String> {
-        let mut out = delivery.clone();
-        out.credential = None;
-        let muse = delivery
-            .lease
-            .binding
-            .as_ref()
-            .is_some_and(|b| b.scope == FACTORY_SCOPE_MUSE);
-        match action {
-            "validate" if muse => self.factory_muse_validate(&delivery.lease, deadline)?,
-            "validate" => self.factory_codex_validate(&delivery.lease, deadline)?,
-            "stop" if muse => self.factory_muse_stop(&delivery.lease, deadline)?,
-            "stop" => self.factory_codex_stop(&delivery.lease, deadline)?,
-            // Muse borrows: the broker forgets the lease on return and
-            // never calls finish (same denial as the interactive muse
-            // runtime, which allows only validate and stop).
-            "finish" if muse => return Err(terminal::err_denied()),
-            "finish" => {
-                out.credential = Some(self.factory_codex_finish(&delivery.lease, deadline)?);
-            }
-            _ => return Err(terminal::err_denied()),
-        }
-        Ok(out)
-    }
-}
-
-/// `factoryOutputSize`: non-negative stat size from a short read.
-pub fn factory_output_size(out: &[u8]) -> Option<i64> {
-    let size = terminal::parse_go_int(String::from_utf8_lossy(out).trim())?;
-    if size >= 0 && out.len() <= 64 {
-        Some(size)
-    } else {
-        None
     }
 }
 

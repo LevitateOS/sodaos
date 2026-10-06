@@ -10,66 +10,13 @@
 //! delegate. Every core preserves the exact podman/unit call sequence
 //! the family FakeExec suites pin, so either side fails loudly on drift.
 
-use crate::domain;
 use crate::project::Executor;
 use crate::terminal::factory::tcodex;
-use crate::terminal::{self, Binding, Lease, Service, KIND_FACTORY};
+use crate::terminal::{self, Binding, Service, KIND_FACTORY};
 use std::time::{Duration, Instant};
 
-/// Family-neutral alias for the shared output-slice record.
-pub type FactoryOutputSlice = tcodex::FactoryCodexOutputSlice;
-
-/// Run-path resolver shape shared by `factory_run_paths` and
-/// `factory_muse_run_paths`: validated identities to
-/// `(checkout, run_dir, home, family_home)`.
-pub type RunPathsFn = fn(&str, &str, &str) -> Option<(String, String, String, String)>;
-
-/// Shared output-cursor gate: adapters run this before binding
-/// attestation so a bad cursor never shells out.
-pub fn check_output_range(offset: i64, limit: i64) -> Result<(), String> {
-    if !(0..=tcodex::MAX_FACTORY_OUTPUT_OFFSET).contains(&offset)
-        || !(1..=tcodex::MAX_FACTORY_OUTPUT_READ).contains(&limit)
-    {
-        return Err(terminal::err_denied());
-    }
-    Ok(())
-}
-
-/// Shared `factory*Binding` checks: lease presence, provider, kind,
-/// scope, run/container/invocation/preparation shape, derived run
-/// paths, and the credential-root match. Family adapters add their own
-/// login and generation policy around this (codex and muse differ
-/// there by pre-existing design) and build their path structs from
-/// the returned tuple.
-pub fn checked_binding_paths(
-    lease: &Lease,
-    provider: &str,
-    scope: &str,
-    run_paths: RunPathsFn,
-) -> Result<(String, String, String, String), String> {
-    let Some(b) = &lease.binding else {
-        return Err(terminal::err_denied());
-    };
-    if lease.provider_id != provider || lease.kind != KIND_FACTORY {
-        return Err(terminal::err_denied());
-    }
-    if b.kind != KIND_FACTORY || b.scope != scope || !terminal::valid_terminal_id(&b.id) {
-        return Err(terminal::err_denied());
-    }
-    if !domain::valid_container_id(&b.project) {
-        return Err(terminal::err_denied());
-    }
-    if !terminal::valid_terminal_id(&b.invocation_id) || !tcodex::valid_preparation_id(&b.child_id)
-    {
-        return Err(terminal::err_denied());
-    }
-    // Harness fields are not in the binding; paths need only role/prep/run.
-    let paths = run_paths(&b.login, &b.child_id, &b.id).ok_or_else(terminal::err_denied)?;
-    if paths.0.is_empty() || terminal::clean_path(&b.credential_root) != paths.1 {
-        return Err(terminal::err_denied());
-    }
-    Ok(paths)
-}
+pub use super::binding::{checked_binding_paths, RunPathsFn};
+pub use super::output::{check_output_range, FactoryOutputSlice};
 
 impl<E: Executor> Service<E> {
     /// Shared wait core: unit quiescence, then the exit code and the
@@ -260,121 +207,5 @@ impl<E: Executor> Service<E> {
             Ok(show) => show.active && show.invocation == binding.invocation_id,
             Err(_) => false,
         }
-    }
-
-    /// Shared output-binding core: scope/shape checks plus container
-    /// attestation, returning the derived stdout path.
-    pub(crate) fn factory_output_stdout(
-        &self,
-        project_id: &str,
-        binding: &Binding,
-        scope: &str,
-        run_paths: RunPathsFn,
-        deadline: Instant,
-    ) -> Result<String, String> {
-        if binding.kind != KIND_FACTORY
-            || binding.scope != scope
-            || !terminal::valid_terminal_id(&binding.id)
-        {
-            return Err(terminal::err_denied());
-        }
-        if !domain::valid_container_id(&binding.project)
-            || !tcodex::valid_factory_role(&binding.login)
-            || !terminal::valid_terminal_id(&binding.invocation_id)
-        {
-            return Err(terminal::err_denied());
-        }
-        if !tcodex::valid_preparation_id(&binding.child_id) {
-            return Err(terminal::err_denied());
-        }
-        let (checkout, run_dir, _, _) = run_paths(&binding.login, &binding.child_id, &binding.id)
-            .ok_or_else(terminal::err_denied)?;
-        if checkout.is_empty() || terminal::clean_path(&binding.credential_root) != run_dir {
-            return Err(terminal::err_denied());
-        }
-        let container = self.factory_project_container(project_id, true, deadline)?;
-        if container != binding.project {
-            return Err(terminal::err_stale());
-        }
-        Ok(format!("{run_dir}/stdout.log"))
-    }
-
-    /// Shared output core: one bounded slice at a byte cursor. The
-    /// cursor gate stays in the caller (`check_output_range` runs
-    /// before binding attestation, so a bad cursor never shells out).
-    pub(crate) fn factory_output_window(
-        &self,
-        project: &str,
-        stdout: &str,
-        offset: i64,
-        limit: i64,
-        deadline: Instant,
-    ) -> Result<FactoryOutputSlice, String> {
-        check_output_range(offset, limit)?;
-        let mut total = 0i64;
-        let stat = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            project.to_string(),
-            "/usr/bin/stat".to_string(),
-            "-c".to_string(),
-            "%s".to_string(),
-            stdout.to_string(),
-        ];
-        if let Ok(out) = self.run_podman(&[], &stat, deadline) {
-            if let Some(size) = tcodex::factory_output_size(&out) {
-                total = size;
-            }
-        }
-        if offset > total {
-            return Ok(FactoryOutputSlice {
-                total,
-                offset: total,
-                gap: true,
-                ..Default::default()
-            });
-        }
-        let (mut start, mut truncated) = (offset, false);
-        if start == 0 && total > tcodex::MAX_FACTORY_OUTPUT_WINDOW {
-            start = total - tcodex::MAX_FACTORY_OUTPUT_WINDOW;
-            truncated = true;
-        }
-        if start >= total {
-            return Ok(FactoryOutputSlice {
-                total,
-                offset: start,
-                truncated,
-                ..Default::default()
-            });
-        }
-        let read = vec![
-            "--remote=false".to_string(),
-            "exec".to_string(),
-            project.to_string(),
-            "/usr/bin/sh".to_string(),
-            "-c".to_string(),
-            tcodex::output_read_command(stdout, start, limit),
-        ];
-        let mut out = match self.run_podman(&[], &read, deadline) {
-            Ok(out) => out,
-            Err(_) => {
-                return Ok(FactoryOutputSlice {
-                    total,
-                    offset: start,
-                    truncated,
-                    ..Default::default()
-                });
-            }
-        };
-        if out.len() as i64 > limit {
-            out.truncate(limit as usize);
-        }
-        Ok(FactoryOutputSlice {
-            data: out,
-            total,
-            offset: start,
-            truncated,
-            ..Default::default()
-        })
     }
 }
