@@ -224,8 +224,18 @@ impl OwnedDir {
         } else {
             self.sub_dir(prefix)?
         };
-        // `fdopendir` takes ownership, so hand it a duplicate.
-        let raw = unsafe { libc::fcntl(dir.fd.as_raw_fd(), libc::F_DUPFD_CLOEXEC, 0) };
+        // `fdopendir` takes ownership, and a duplicate would share this
+        // handle's directory offset across walks. Open "." beneath the
+        // pinned fd instead: an independent description rooted at the same
+        // inode, without reopening the public pathname.
+        let dot = c_string(Path::new("."))?;
+        let raw = unsafe {
+            libc::openat(
+                dir.fd.as_raw_fd(),
+                dot.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC,
+            )
+        };
         if raw < 0 {
             return Err(Error::from(std::io::Error::last_os_error()));
         }
