@@ -1,4 +1,5 @@
 // soda-muse delegates a normal shell invocation over the launch-only socket.
+mod account;
 #[cfg(test)]
 mod config_tests;
 mod env_prepare;
@@ -10,15 +11,17 @@ mod launch_json;
 mod launch_tests;
 mod maintenance;
 mod paths;
+mod runtime;
 mod shell;
 #[cfg(test)]
 mod shell_tests;
 
+use account::account_for;
 use env_prepare::copy_config;
 use execution::execute;
 use home_cfg::read_config;
 use launch::{launch_shell, seqpacket_connect};
-use maintenance::{account_for, check_runtime};
+use runtime::check_runtime;
 use shell::shell_request;
 
 const MUSE_LAUNCH_SOCKET: &str = "/run/soda-muse-interface/launch.sock";
