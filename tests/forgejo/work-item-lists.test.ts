@@ -5,6 +5,19 @@ import {chromium} from 'playwright';
 
 const origin = process.env.SODA_FORGEJO_LAYOUT_ORIGIN;
 
+// Inline same-directory concern stylesheets so assertions cover the delivered
+// cascade, not just the composing entry file.
+async function inlineLocalImports(css: string): Promise<string> {
+  const refs = [...css.matchAll(/@import\s+"\.\/([^"?]+\.css)[^;]*;\r?\n?/g)];
+  let out = css;
+  for (const [directive, name] of refs) {
+    assert(name);
+    const body = await readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8');
+    out = out.replace(directive, () => body);
+  }
+  return out;
+}
+
 // Read-only native markup samples, then isolated component fixtures. No session,
 // writes to Forgejo, script replacement, or claim of verified native captures.
 test('work items share appearance across native callers and keep usable metadata', {skip: !origin}, async () => {
@@ -35,7 +48,9 @@ test('work items share appearance across native callers and keep usable metadata
     );
     const files = [...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map((m) => m[1]);
     const styles = await Promise.all(
-      files.map((file) => readFile(new URL(`../../assets/branding/forgejo/${file}`, import.meta.url), 'utf8'))
+      files.map(async (file) =>
+        inlineLocalImports(await readFile(new URL(`../../assets/branding/forgejo/${file}`, import.meta.url), 'utf8'))
+      )
     );
     const nativeResponse = await fetch(`${origin}/assets/css/index.css`);
     assert.equal(nativeResponse.status, 200);
