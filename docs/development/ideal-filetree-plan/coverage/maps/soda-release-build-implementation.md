@@ -3,7 +3,7 @@
 [Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
 Page grouping is navigation; the slice IDs retain their individual review ownership.
 
-R02 @HEAD `d5012d10` (C08): 6 headings verified byte-identical moves (coreos, coreos_stream, files, json_go, lib, oci); production.rs STALE drift; progress.rs RETIRED (3aaec1c8, D03-E4, bannered).
+R02 @HEAD `d5012d10` (C08, corrected per review-012): 5 headings verified byte-identical moves (coreos, coreos_stream, files, json_go, oci); lib.rs STALE (C08 removed clock/progress exports vs the `0d8d3b8e` audit source — bannered); production.rs STALE drift; progress.rs RETIRED (3aaec1c8, D03-E4, bannered).
 
 <a id="coverage-0ee161fbce5f"></a>
 
@@ -233,6 +233,8 @@ Source assertions/fixtures were inspected for mapping only; no test execution, r
 <a id="coverage-33ce1bf6ebad"></a>
 
 ## [lib/soda-release-build/src/lib.rs](../../../../../lib/soda-release-build/src/lib.rs)
+
+> R02 STALE: intervals below reference the `0d8d3b8e` audit source; C08 removed the clock/progress exports and shifted spans — pending re-audit.
 
 Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Public module wiring is mapped separately; module exposure does not create a new process boundary.
 
