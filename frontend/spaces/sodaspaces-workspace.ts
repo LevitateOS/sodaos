@@ -1,10 +1,9 @@
 import {LitElement, html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
-import {attentionReason, terminalObservation} from './sodaspaces-attention.js';
+import {terminalObservation} from './sodaspaces-attention.js';
 import {
   renderMenu,
   renderSessionTab,
-  renderProjectNavigation,
   renderFactoryRuns,
   renderRename,
   renderCreation,
@@ -49,8 +48,6 @@ import {
   terminalID,
   repositoryChoices,
   projectId,
-  factoryAuthorityText,
-  factoryControlText,
   factoryRunText,
 } from './sodaspaces-api.js';
 import type {Space, TerminalMetadata, RepositoryChoices, FactoryRun} from './sodaspaces-api.js';
@@ -98,6 +95,14 @@ import {
   setupIntroHelper,
   setupIntroKind,
 } from './sodaspaces-workspace-setup.js';
+import {
+  attentionRows,
+  filteredSpaces,
+  projectRows,
+  rowAttention,
+  rowName,
+  rows,
+} from './sodaspaces-workspace-navigation.js';
 type TerminalFactory = typeof mountTerminal;
 const factoryWatchLimit = 8;
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
@@ -297,7 +302,7 @@ export class SodaSpaces extends LitElement {
     if (!space?.login || space.authority_unavailable || !space.execution_allowed || space.native_unavailable)
       return false;
     if (space.observed?.running !== true || !space.environment.provisioned) return false;
-    return !this.rows(space).length;
+    return !rows(space, this.layout.entries, this.slots).length;
   }
   private projectRunnable(space: Space) {
     return (
@@ -557,7 +562,11 @@ export class SodaSpaces extends LitElement {
     >`;
   }
   private hideAttentionFilters() {
-    return this.binding?.kind === 'page' && !this.attentionRows().length && !this.attentionOnly;
+    return (
+      this.binding?.kind === 'page' &&
+      !attentionRows(this.navReading(), this.spaces, this.layout.entries).length &&
+      !this.attentionOnly
+    );
   }
   private renderCreateAnotherProject() {
     if (this.binding?.kind !== 'page') return '';
@@ -576,7 +585,19 @@ export class SodaSpaces extends LitElement {
     return 'No authorized projects available.';
   }
   private renderEmptySpaces() {
-    if (this.filteredSpaces().length) return '';
+    if (
+      filteredSpaces({
+        reading: this.navReading(),
+        spaces: this.spaces,
+        entries: this.layout.entries,
+        search: this.search,
+        attentionOnly: this.attentionOnly,
+        thisPage: this.thisPage,
+        binding: this.binding,
+        projectName: (space) => this.projectName(space),
+      }).length
+    )
+      return '';
     return html`<p>${this.emptyFilterMessage()}</p>`;
   }
   private readonly onDividerPointerMove = (e: PointerEvent) => {
@@ -671,14 +692,41 @@ export class SodaSpaces extends LitElement {
           aria-pressed=${this.attentionOnly ? 'true' : 'false'}
           @click=${this.onShowAttentionOnly}
         >
-          Attention (${this.attentionRows().length})
+          Attention (${attentionRows(this.navReading(), this.spaces, this.layout.entries).length})
         </button>
         <button class="ui button" @click=${() => this.nextAttention()}>Next attention</button>
       </div>
       ${repeat(
-        this.filteredSpaces(),
+        filteredSpaces({
+          reading: this.navReading(),
+          spaces: this.spaces,
+          entries: this.layout.entries,
+          search: this.search,
+          attentionOnly: this.attentionOnly,
+          thisPage: this.thisPage,
+          binding: this.binding,
+          projectName: (space) => this.projectName(space),
+        }),
         (space) => space.environment.id,
-        (space) => this.projectRows(space)
+        (space) =>
+          projectRows({
+            reading: this.navReading(),
+            space,
+            search: this.search,
+            attentionOnly: this.attentionOnly,
+            selected: this.selected,
+            entries: this.layout.entries,
+            tree: this.layout.tree,
+            kind: this.binding?.kind,
+            project: this.project,
+            state: this.projectState(space),
+            status: this.projectStatus(space),
+            projectName: this.projectName(space),
+            factory: this.factorySection(space, this.search.toLocaleLowerCase()),
+            selectRow: (target, row) => this.selectRow(target, row),
+            showManagement: (repository) => this.showManagement(repository),
+            selectProject: (target) => this.selectProject(target),
+          })
       )}
       ${this.renderMoreProjects()} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
     </nav>`;
@@ -1124,39 +1172,18 @@ export class SodaSpaces extends LitElement {
   private rowAttentionReady(space: Space) {
     return !this.stale && this.available && !!space.login && !space.authority_unavailable && space.execution_allowed;
   }
-  private rowAttentionBlocked(space: Space) {
-    return this.stale || !this.available || !space.login || !space.execution_allowed || space.authority_unavailable;
-  }
-  private rowAttention(space: Space, row: Row) {
-    if (this.rowAttentionBlocked(space)) return '';
-    if (space.native_unavailable) return 'Native status unavailable; refresh';
-    const slot = this.slots.find((slot) => slot.key === row.key);
-    return attentionReason(
-      row.metadata,
-      slot?.metadata ? slot.observedAt : this.observedAt,
-      this.now,
-      slot?.observation?.state
-    );
-  }
-  private attentionRows() {
-    const seen = new Set<string>();
-    return this.spaces.flatMap((space) =>
-      this.rows(space)
-        .filter((row) => {
-          const key = row.metadata?.id || row.key;
-          if (!this.rowAttention(space, row) || seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .map((row) => ({
-          space,
-          row,
-        }))
-    );
+  private navReading() {
+    return {
+      stale: this.stale,
+      available: this.available,
+      slots: this.slots,
+      observedAt: this.observedAt,
+      now: this.now,
+    };
   }
   private nextAttention() {
     if (!this.activeSurface || this.stale || !this.available) return;
-    const rows = this.attentionRows(),
+    const rows = attentionRows(this.navReading(), this.spaces, this.layout.entries),
       index = rows.findIndex(({row}) => row.key === this.selected);
     const next = rows[(index + 1) % rows.length];
     if (!next) {
@@ -1168,56 +1195,8 @@ export class SodaSpaces extends LitElement {
     if (next.row.entry) void this.openSaved(next.row.entry);
     else if (next.row.metadata) void this.openExisting(next.space, next.row.metadata);
   }
-  private filteredSpaces() {
-    const query = this.search.toLocaleLowerCase();
-    return this.spaces.filter(
-      (space) =>
-        (!this.attentionOnly || this.rows(space).some((row) => this.rowAttention(space, row))) &&
-        (!this.thisPage ||
-          (this.binding?.kind === 'native' && space.environment.repository_id === this.binding.pageRepositoryId)) &&
-        (!query ||
-          this.projectName(space).toLocaleLowerCase().includes(query) ||
-          this.rows(space).some((row) => this.rowName(row).toLocaleLowerCase().includes(query)))
-    );
-  }
   private projectName(space: Space) {
     return space.environment.repository || space.environment.name || space.environment.id;
-  }
-  private rows(space: Space): Row[] {
-    if (space.authority_unavailable || !space.execution_allowed || !space.login) return [];
-    const entries = this.layout.entries.filter((e) => e.environmentId === space.environment.id),
-      seen = new Set<string>();
-    const rows = space.terminals.map((metadata) => {
-      const entry = entries.find((e) => sameLocator(e.locator, {kind: 'existing', id: metadata.id}));
-      if (entry) seen.add(entry.key);
-      const observed = this.slots.find((s) => s.key === entry?.key)?.metadata || metadata;
-      return {
-        key: entry?.key || metadata.id,
-        ...(entry
-          ? {
-              entry,
-            }
-          : {}),
-        metadata: observed,
-      };
-    });
-    return [
-      ...rows,
-      ...entries
-        .filter((e) => !seen.has(e.key))
-        .map((entry) => {
-          const metadata = this.slots.find((s) => s.key === entry.key)?.metadata;
-          return {
-            key: entry.key,
-            entry,
-            ...(metadata
-              ? {
-                  metadata,
-                }
-              : {}),
-          };
-        }),
-    ];
   }
   private metadataRowName(row: Row) {
     if (row.metadata?.name) return row.metadata.name;
@@ -1230,86 +1209,9 @@ export class SodaSpaces extends LitElement {
     if (row.entry?.locator.kind === 'new') return 'Unsent terminal';
     return 'Saved ' + (row.entry?.locator.kind || 'unknown') + ' terminal';
   }
-  private unnamedRow(row: Row) {
-    if (row.metadata) return 'Terminal ' + row.metadata.id.slice(0, 8);
-    if (row.entry?.locator.kind === 'new') return 'Unsent terminal';
-    return 'Saved ' + (row.entry?.locator.kind || 'unknown') + ' terminal';
-  }
-  private rowName(row: Row) {
-    if (row.metadata?.name) return row.metadata.name;
-    const proposed = this.slots.find((slot) => slot.key === row.key)?.proposedName;
-    if (proposed) return proposed;
-    return this.unnamedRow(row);
-  }
-  private rowMatchesQuery(space: Space, row: Row, query: string) {
-    return (
-      !query ||
-      this.projectName(space).toLocaleLowerCase().includes(query) ||
-      this.rowName(row).toLocaleLowerCase().includes(query)
-    );
-  }
-  private rowTerminalId(row: Row) {
-    if (row.metadata?.id) return row.metadata.id;
-    if (row.entry?.locator.kind === 'existing') return row.entry.locator.id;
-    return '';
-  }
-  private rowDescription(row: Row) {
-    if (row.metadata && row.metadata.state !== 'ready') return row.metadata.state;
-    if (row.entry && !paneFor(this.layout.tree, row.entry.key)) return 'Hidden';
-    if (row.entry) return 'In this window';
-    return '';
-  }
-  private rowDisabled(space: Space) {
-    return this.stale || !this.available || !space.login || !space.execution_allowed || space.authority_unavailable;
-  }
   private selectRow(space: Space, row: Row) {
     if (row.entry) void this.openSaved(row.entry, this.choosingPane);
     else if (row.metadata) void this.openExisting(space, row.metadata, this.choosingPane);
-  }
-  private rowNavItem(space: Space, row: Row) {
-    return {
-      key: row.key,
-      active: row.key === this.selected,
-      terminalId: this.rowTerminalId(row),
-      name: this.rowName(row),
-      unread: !!this.slots.find((slot) => slot.key === row.key)?.unread,
-      attention: this.rowAttention(space, row),
-      description: this.rowDescription(row),
-      disabled: this.rowDisabled(space),
-      select: () => this.selectRow(space, row),
-    };
-  }
-  private pageProjectNav(space: Space) {
-    if (this.binding?.kind !== 'page') return;
-    return {
-      active: this.project === space.environment.repository_id,
-      environmentId: space.environment.id,
-      state: this.projectState(space),
-      select: () => this.selectProject(space),
-    };
-  }
-  private projectSubtitle(space: Space) {
-    return (
-      this.projectStatus(space) +
-      (space.tailnet_state ? ' · Tailnet policy: ' + space.tailnet_state : '') +
-      factoryAuthorityText(space.factory_authority) +
-      factoryControlText(space.factory_control)
-    );
-  }
-  private projectRows(space: Space) {
-    const query = this.search.toLocaleLowerCase();
-    const rows = this.rows(space).filter((row) => this.rowMatchesQuery(space, row, query));
-    const shown = this.attentionOnly ? rows.filter((row) => this.rowAttention(space, row)) : rows;
-    return html`${renderProjectNavigation(
-      this.projectName(space),
-      this.projectSubtitle(space),
-      shown.map((row) => this.rowNavItem(space, row)),
-      this.stale || !this.available,
-      () => {
-        void this.showManagement(space.environment.repository_id);
-      },
-      this.pageProjectNav(space)
-    )}${this.factorySection(space, query)}`;
   }
   private factoryWatching(runId: string) {
     return this.watches.some((watch) => watch.run === runId);
@@ -1459,11 +1361,11 @@ export class SodaSpaces extends LitElement {
     const {entry, space, slot} = item;
     return {
       key: entry.key,
-      name: slot ? this.slotName(slot) : this.rowName({key: entry.key, entry}),
+      name: slot ? this.slotName(slot) : rowName({key: entry.key, entry}, this.slots),
       project: this.projectName(space),
       selected: entry.key === pane.selected,
       unread: !!slot?.unread,
-      attention: this.rowAttention(space, this.sessionRow(entry, slot)),
+      attention: rowAttention(this.navReading(), space, this.sessionRow(entry, slot)),
       select: () => {
         void this.openSaved(entry);
       },
