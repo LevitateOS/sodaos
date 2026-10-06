@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::domain;
-use crate::json::{self, Kind, Spec, Value};
+use crate::json::{self, Value};
 use crate::project::Executor;
 #[cfg(test)]
 use crate::terminal::Lease;
@@ -62,69 +62,11 @@ pub use self::argv::{muse_command_argv, unit_active_argv, unit_invocation_argv};
 
 // ---------- runtime ----------
 
-/// Strict-decoded Muse container inspection.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-struct MuseInspection {
-    id: String,
-    project: String,
-    running: bool,
-    privileged: bool,
-    userns: String,
-}
+mod inspect;
 
-const MUSE_INSPECTION_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "pid",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "running",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "privileged",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "userns",
-        kind: Kind::Str,
-    },
-];
-
-fn muse_peer_alive(peer: &MusePeer) -> bool {
-    let mut fds = [libc::pollfd {
-        fd: peer.pidfd,
-        events: libc::POLLIN,
-        revents: 0,
-    }];
-    // SAFETY: valid one-element pollfd array.
-    let n = unsafe { libc::poll(fds.as_mut_ptr(), 1, 0) };
-    n == 0
-}
-
-fn sleep_until(target: Instant, deadline: Instant) -> Result<(), ()> {
-    loop {
-        let now = Instant::now();
-        if now >= deadline {
-            return Err(());
-        }
-        if now >= target {
-            return Ok(());
-        }
-        let slice = (target - now)
-            .min(deadline - now)
-            .min(Duration::from_millis(10));
-        std::thread::sleep(slice);
-    }
-}
+pub(in crate::muse) use self::inspect::{
+    muse_peer_alive, sleep_until, MuseInspection, MUSE_INSPECTION_SPECS,
+};
 
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     fn podman(&self, stdin: &[u8], args: &[String], deadline: Instant) -> Result<Vec<u8>, String> {
