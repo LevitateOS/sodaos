@@ -28,15 +28,16 @@ pub fn run(exec: &dyn Executor) -> Result<(), String> {
         return Err(String::from("host operator required"));
     }
     let deadline = Instant::now() + Duration::from_secs(DEADLINE_SECS);
-    let endpoint = tcontrol_native::cli_endpoint(exec, TAILSCALE_CLI, deadline)?;
+    // CLI diagnostics stay status-only like Go's exec shapes: the shared
+    // runner with the status-only error policy, never subprocess stderr.
+    let status_exec = NativeStatusOnly;
+    let endpoint = tcontrol_native::cli_endpoint(&status_exec, TAILSCALE_CLI, deadline)?;
     // Do not advertise a Tailnet address while the native port only binds a LAN IP.
     // Raw inspection may contain credentials; never print it or include it in errors.
     let live = inspect_forgejo(exec, deadline)?;
     let (domain, running) = published_state(&live, &endpoint.ipv4)?;
     let changed = update_ssh_domain(FORGEJO_ENV, &endpoint.identity)?;
-    // Restart diagnostics stay status-only like Go's Run: the shared
-    // runner with the status-only error policy, never subprocess stderr.
-    let status_exec = NativeStatusOnly;
+    // The restart shares the status-only runner (Go's Run shape).
     restart_forgejo_if_needed(
         &status_exec,
         changed,
@@ -56,10 +57,9 @@ fn inspect_forgejo(exec: &dyn Executor, deadline: Instant) -> Result<Vec<u8>, St
         })
 }
 
-/// Last matching object field (exact or ASCII case-insensitive). Go binds
-/// each incoming key in order with exact-or-fold matching, so the last
-/// matching key wins even across exact/fold forms; with distinct field
-/// names this reverse lookup is equivalent. Null counts as absent.
+/// Last matching object field (exact or ASCII case-insensitive) for
+/// object-valued intermediaries; null counts as absent. Scalar fields use
+/// the sequential binders below instead, like Go's struct decoding.
 fn field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
     fields
         .iter()
@@ -67,6 +67,40 @@ fn field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
         .find(|(k, _)| k == name || k.eq_ignore_ascii_case(name))
         .map(|(_, v)| v)
         .filter(|v| !v.is_null())
+}
+
+/// Sequential scalar binding like Go's struct decoding: every matching key
+/// (exact or ASCII case-insensitive) binds in document order, null is a
+/// no-op retaining the prior value, and any mistyped occurrence fails the
+/// decode — a later valid value never hides the initial type error.
+fn scalar_str(fields: &[(String, Value)], name: &str) -> Option<Option<String>> {
+    let mut out: Option<String> = None;
+    for (key, value) in fields {
+        if key != name && !key.eq_ignore_ascii_case(name) {
+            continue;
+        }
+        match value {
+            Value::Null => {}
+            Value::Str(s) => out = Some(s.clone()),
+            _ => return None,
+        }
+    }
+    Some(out)
+}
+
+fn scalar_bool(fields: &[(String, Value)], name: &str) -> Option<Option<bool>> {
+    let mut out: Option<bool> = None;
+    for (key, value) in fields {
+        if key != name && !key.eq_ignore_ascii_case(name) {
+            continue;
+        }
+        match value {
+            Value::Null => {}
+            Value::Bool(b) => out = Some(*b),
+            _ => return None,
+        }
+    }
+    Some(out)
 }
 
 fn published_state(data: &[u8], ip: &str) -> Result<(String, bool), String> {
@@ -120,16 +154,8 @@ fn binding_entries(value: &Value) -> Option<Vec<(String, String)>> {
     let mut out = Vec::new();
     for entry in entries {
         let fields = entry.as_object()?;
-        let host_ip = match field(fields, "HostIp") {
-            None => String::new(),
-            Some(Value::Str(s)) => s.clone(),
-            Some(_) => return None,
-        };
-        let host_port = match field(fields, "HostPort") {
-            None => String::new(),
-            Some(Value::Str(s)) => s.clone(),
-            Some(_) => return None,
-        };
+        let host_ip = scalar_str(fields, "HostIp")?.unwrap_or_default();
+        let host_port = scalar_str(fields, "HostPort")?.unwrap_or_default();
         out.push((host_ip, host_port));
     }
     Some(out)
@@ -168,11 +194,7 @@ fn ssh_domain_state(root: &[(String, Value)]) -> Option<(String, bool)> {
         None => false,
         Some(v) => {
             let state = v.as_object()?;
-            match field(state, "Running") {
-                None => false,
-                Some(Value::Bool(b)) => *b,
-                Some(_) => return None,
-            }
+            scalar_bool(state, "Running")?.unwrap_or(false)
         }
     };
     Some((domain, running))
@@ -311,23 +333,39 @@ fn stage_forgejo_env(fd: RawFd, temp: &std::path::Path, updated: &[u8]) -> Resul
             std::io::Error::last_os_error()
         ));
     }
-    let mut written = 0;
-    while written < updated.len() {
-        let n = unsafe {
-            libc::write(
-                fd,
-                updated[written..].as_ptr() as *const libc::c_void,
-                updated.len() - written,
-            )
-        };
+    write_full(temp, updated, |buf| {
+        let n = unsafe { libc::write(fd, buf.as_ptr() as *const libc::c_void, buf.len()) };
         if n < 0 {
-            let e = std::io::Error::last_os_error();
-            if e.kind() == std::io::ErrorKind::Interrupted {
-                continue;
-            }
-            return Err(format!("write {}: {e}", temp.display()));
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(n as usize)
         }
-        written += n as usize;
+    })
+}
+
+/// Complete write with EINTR retry. A zero write fails like
+/// `File::write_all`'s WriteZero instead of spinning forever.
+fn write_full(
+    temp: &std::path::Path,
+    mut remaining: &[u8],
+    mut write: impl FnMut(&[u8]) -> Result<usize, std::io::Error>,
+) -> Result<(), String> {
+    while !remaining.is_empty() {
+        match write(remaining) {
+            Ok(0) => {
+                return Err(format!(
+                    "write {}: {}",
+                    temp.display(),
+                    std::io::Error::new(
+                        std::io::ErrorKind::WriteZero,
+                        "failed to write whole buffer"
+                    )
+                ));
+            }
+            Ok(n) => remaining = &remaining[n.min(remaining.len())..],
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(format!("write {}: {e}", temp.display())),
+        }
     }
     Ok(())
 }
@@ -573,6 +611,96 @@ mod tests {
     }
 
     #[test]
+    fn sequential_alias_null_semantics() {
+        // Like Go's struct decoding: aliases bind in order, null retains the
+        // prior value, and any mistyped occurrence fails the whole decode.
+        let entry = |binding: &str| {
+            PUBLISHED.replacen(r#"{"HostIp":"100.64.0.1","HostPort":"2222"}"#, binding, 1)
+        };
+        // Frozen 19-002 case: a LAN IP followed by a null alias retains the
+        // LAN IP, so the Tailnet listener check refuses.
+        let err = published_state(
+            entry(r#"{"HostIp":"192.168.1.10","hostip":null,"HostPort":"2222"}"#).as_bytes(),
+            "100.64.0.1",
+        )
+        .unwrap_err();
+        assert!(
+            err.starts_with("forgejo Git SSH is not bound to Tailnet IP"),
+            "fail-open admission: {err}"
+        );
+        // Null before the valid value is a no-op; the later value binds.
+        assert_eq!(
+            published_state(
+                entry(r#"{"hostip":null,"HostIp":"100.64.0.1","HostPort":"2222"}"#).as_bytes(),
+                "100.64.0.1",
+            )
+            .unwrap(),
+            ("old".to_string(), true)
+        );
+        // A null port alias retains 2222; admission proceeds.
+        assert_eq!(
+            published_state(
+                entry(r#"{"HostIp":"100.64.0.1","HostPort":"2222","hostport":null}"#).as_bytes(),
+                "100.64.0.1",
+            )
+            .unwrap(),
+            ("old".to_string(), true)
+        );
+        // Null with no prior value stays absent, like Go's zero field.
+        assert_eq!(
+            published_state(
+                entry(r#"{"HostIp":null,"HostPort":"2222"}"#).as_bytes(),
+                "100.64.0.1",
+            )
+            .unwrap(),
+            ("old".to_string(), true)
+        );
+        // A mistyped occurrence fails even beside a valid alias value.
+        // (Exact duplicates collapse in decode_tolerant before this layer,
+        // so the earlier-mistype rule pins the observable alias forms.)
+        for binding in [
+            r#"{"hostip":5,"HostIp":"100.64.0.1","HostPort":"2222"}"#,
+            r#"{"hostip":[],"HostIp":"100.64.0.1","HostPort":"2222"}"#,
+            r#"{"HostIp":"100.64.0.1","hostip":7,"HostPort":"2222"}"#,
+            r#"{"HostIp":"100.64.0.1","HostPort":"2222","hostport":{}}"#,
+        ] {
+            assert_eq!(
+                published_state(entry(binding).as_bytes(), "100.64.0.1").unwrap_err(),
+                "cannot read native Forgejo network state",
+                "binding {binding:?}"
+            );
+        }
+        // Running follows the same sequential rule.
+        let running = |state: &str| PUBLISHED.replacen(r#""Running":true"#, state, 1);
+        assert_eq!(
+            published_state(
+                running(r#""Running":true,"running":null"#).as_bytes(),
+                "100.64.0.1"
+            )
+            .unwrap(),
+            ("old".to_string(), true)
+        );
+        assert_eq!(
+            published_state(
+                running(r#""running":null,"Running":false"#).as_bytes(),
+                "100.64.0.1"
+            )
+            .unwrap(),
+            ("old".to_string(), false)
+        );
+        for state in [
+            r#""running":5,"Running":true"#,
+            r#""Running":true,"running":"yes""#,
+        ] {
+            assert_eq!(
+                published_state(running(state).as_bytes(), "100.64.0.1").unwrap_err(),
+                "cannot read native Forgejo network state",
+                "state {state:?}"
+            );
+        }
+    }
+
+    #[test]
     fn bound_to_ip_matrix() {
         let ip = "100.64.0.1";
         let yes: &[&[(String, String)]] = &[
@@ -732,12 +860,49 @@ mod tests {
 
     #[test]
     fn checked_close_reports_errors() {
-        // A second close of the same owned descriptor deterministically
-        // fails, proving close errors surface instead of dropping.
+        // An owned descriptor closes cleanly exactly once; an invalid
+        // sentinel deterministically fails, proving close errors surface
+        // instead of dropping. Never close a released number: another
+        // test may have reused it.
         let file = std::fs::File::open("/dev/null").unwrap();
-        let fd = file.into_raw_fd();
-        close_owned(fd).unwrap();
-        assert!(close_owned(fd).is_err());
+        close_owned(file.into_raw_fd()).unwrap();
+        assert!(close_owned(-1).is_err());
+    }
+
+    #[test]
+    fn zero_write_fails_without_spinning() {
+        use std::io::ErrorKind;
+        let temp = std::path::Path::new("forgejo.env");
+        // A writer that always reports zero fails like write_all's
+        // WriteZero instead of looping forever.
+        let err = write_full(temp, "data".as_bytes(), |_| Ok(0)).unwrap_err();
+        assert_eq!(err, "write forgejo.env: failed to write whole buffer");
+        // Partial progress then zero still fails after consuming input.
+        let mut calls = 0;
+        let err = write_full(temp, "data".as_bytes(), |buf| {
+            calls += 1;
+            if calls == 1 {
+                assert_eq!(buf, "data".as_bytes());
+                Ok(1)
+            } else {
+                assert_eq!(buf, "ata".as_bytes());
+                Ok(0)
+            }
+        })
+        .unwrap_err();
+        assert_eq!(err, "write forgejo.env: failed to write whole buffer");
+        assert_eq!(calls, 2);
+        // Short writes and interrupts complete; first error wins.
+        let mut steps = vec![Ok(1), Err(ErrorKind::Interrupted), Ok(3)].into_iter();
+        assert!(write_full(temp, "data".as_bytes(), |_| {
+            steps.next().unwrap().map_err(std::io::Error::from)
+        })
+        .is_ok());
+        let err = write_full(temp, "data".as_bytes(), |_| {
+            Err(std::io::Error::from(ErrorKind::PermissionDenied))
+        })
+        .unwrap_err();
+        assert!(err.starts_with("write forgejo.env: "), "{err}");
     }
 
     #[test]
@@ -851,6 +1016,74 @@ mod tests {
         assert_eq!(
             exec.run(&[], "/bin/sleep", &["60"], deadline).unwrap_err(),
             "signal: killed"
+        );
+    }
+
+    fn stub_cli(env: &TestEnv, name: &str, body: &str) -> String {
+        use std::os::unix::fs::PermissionsExt;
+        let script = env.path(name);
+        std::fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        script
+    }
+
+    #[test]
+    fn endpoint_cli_reports_real_status() {
+        let env = TestEnv::fresh("cli-status");
+        let cli = stub_cli(&env, "tailscale", "echo SECRET=never-log >&2\nexit 3");
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let err = tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap_err();
+        assert_eq!(
+            err,
+            format!(
+                "unavailable: tailscale status is unavailable: {cli} status --json: exit status 3"
+            )
+        );
+        assert!(!err.contains("SECRET"), "stderr leaked: {err}");
+    }
+
+    #[test]
+    fn endpoint_cli_parses_real_output() {
+        let env = TestEnv::fresh("cli-parse");
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        for (doc, identity) in [
+            (
+                r#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["100.88.77.66"]},"CurrentTailnet":{"MagicDNSEnabled":true}}"#,
+                "atlas.example.ts.net",
+            ),
+            (
+                r#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["100.88.77.66"]}}"#,
+                "100.88.77.66",
+            ),
+        ] {
+            let cli = stub_cli(&env, "tailscale", &format!("printf '%s' '{doc}'"));
+            let endpoint = tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap();
+            assert_eq!(endpoint.identity, identity);
+            assert_eq!(endpoint.ipv4, "100.88.77.66");
+        }
+    }
+
+    #[test]
+    fn endpoint_cli_ignores_stdout_on_failure() {
+        // Like Go's Status: a failing CLI is an error even when stdout
+        // holds parseable JSON; the output is never parsed.
+        let env = TestEnv::fresh("cli-failout");
+        let cli = stub_cli(
+            &env,
+            "tailscale",
+            r#"printf '%s' '{"BackendState":"Running","Self":{"TailscaleIPs":["100.88.77.66"]}}'
+echo noise >&2
+exit 1"#,
+        );
+        let exec = NativeStatusOnly;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        assert_eq!(
+            tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap_err(),
+            format!(
+                "unavailable: tailscale status is unavailable: {cli} status --json: exit status 1"
+            )
         );
     }
 

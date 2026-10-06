@@ -129,6 +129,48 @@ fn snapshot_command_reports_failures() {
     assert_eq!(err.detail, "Snapshot output exceeded bound");
 }
 
+/// ACCEPTANCE-19-002: the timeout path retires the whole process group.
+/// A backgrounded grandchild holds the pipes for 60s; killing only the
+/// direct child would leave the stderr join hanging until then. The call
+/// must report TimeoutExpired promptly instead.
+#[test]
+fn snapshot_command_timeout_retires_pipe_holding_descendants() {
+    let start = std::time::Instant::now();
+    let err = command_with_timeout(
+        &arg_list(&["sh", "-c", "sleep 60 & wait"]),
+        &[],
+        Duration::from_millis(200),
+    )
+    .unwrap_err();
+    assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
+    assert!(
+        start.elapsed() < Duration::from_secs(15),
+        "group retirement took {:?}",
+        start.elapsed()
+    );
+}
+
+/// ACCEPTANCE-19-002: the deadline also covers pipe completion after a
+/// clean leader exit. The leader exits at once while a grandchild holds
+/// the pipes for 5s; the call must report TimeoutExpired at the deadline
+/// rather than succeeding late.
+#[test]
+fn snapshot_command_exit_path_bounds_pipe_completion() {
+    let start = std::time::Instant::now();
+    let err = command_with_timeout(
+        &arg_list(&["sh", "-c", "sleep 5 &"]),
+        &[],
+        Duration::from_millis(300),
+    )
+    .unwrap_err();
+    assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
+    assert!(
+        start.elapsed() < Duration::from_secs(5),
+        "pipe join returned after {:?}",
+        start.elapsed()
+    );
+}
+
 #[test]
 fn dumps_sorted_matches_python_separators() {
     let mut value = obj();
