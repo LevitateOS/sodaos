@@ -177,12 +177,18 @@ fn fresh_directory_and_destination_gates() {
 /// their own fixtures and never match.
 fn fixture_dir_fds(dir: &std::path::Path) -> usize {
     let want = std::fs::metadata(dir).unwrap();
-    std::fs::read_dir("/proc/self/fd")
-        .unwrap()
-        .filter_map(|entry| entry.ok())
-        .filter_map(|entry| std::fs::metadata(entry.path()).ok())
-        .filter(|meta| meta.dev() == want.dev() && meta.ino() == want.ino())
-        .count()
+    let mut count = 0;
+    for entry in std::fs::read_dir("/proc/self/fd").unwrap() {
+        let target = std::fs::metadata(entry.unwrap().path());
+        match target {
+            Ok(meta) if meta.dev() == want.dev() && meta.ino() == want.ino() => count += 1,
+            Ok(_) => {}
+            // Only a concurrently closed unrelated FD may vanish here.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => panic!("fixture fd inspection failed: {e}"),
+        }
+    }
+    count
 }
 
 #[test]
