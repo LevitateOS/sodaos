@@ -1,6 +1,7 @@
 use super::test_support::*;
 use super::*;
 use crate::command::FnRunner;
+use std::io::Write;
 
 #[test]
 fn ask_trims_and_refuses_controls() {
