@@ -9,7 +9,7 @@
 // Scratch sockets live under the package target dir inside the worktree,
 // never under /tmp.
 
-#[path = "../src/account.rs"]
+#[path = "../src/account/mod.rs"]
 #[allow(dead_code)]
 mod account;
 #[path = "../src/domain.rs"]
