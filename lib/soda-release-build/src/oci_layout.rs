@@ -4,7 +4,9 @@
 
 use crate::confined_files::Root;
 use crate::files::{is_digest, is_revision, oci_architecture};
-use crate::oci::{inspect_oci_image, read_oci_blob, read_oci_index, Blob, Image, LoadBlobs};
+use crate::oci::archive::read_oci_blob;
+use crate::oci::manifest::{inspect_oci_image, read_oci_index};
+use crate::oci::{Blob, Image, LoadBlobs};
 use crate::{io_error, Error};
 use std::collections::HashMap;
 use std::path::Path;
@@ -136,8 +138,8 @@ fn load_layout_entry(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::oci::tests::{fixture_oci_bytes, FIXTURE_REVISION};
     use crate::sha256_hex;
+    use crate::test_support::{fixture_oci_bytes, FIXTURE_REVISION};
 
     fn layout_fixture() -> (std::path::PathBuf, HashMap<String, String>) {
         // Unpacks two archives into one shared layout, like testoci.Add.

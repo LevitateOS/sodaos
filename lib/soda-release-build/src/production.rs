@@ -800,7 +800,7 @@ mod tests {
     use super::*;
     use crate::coreos_stream::tests::fixture_live_inputs;
     use crate::coreos_stream::write_live_inputs;
-    use crate::oci::tests::{fixture_oci_bytes, FIXTURE_REVISION};
+    use crate::test_support::{fixture_oci_bytes, FIXTURE_REVISION};
     use std::os::unix::fs::PermissionsExt;
     use std::sync::{Arc, Mutex};
 

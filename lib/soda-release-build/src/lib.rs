@@ -29,6 +29,9 @@ pub mod oci;
 pub mod oci_layout;
 pub mod production;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 use std::io;
 use std::path::Path;
 
