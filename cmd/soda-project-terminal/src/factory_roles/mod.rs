@@ -20,7 +20,7 @@ pub(crate) mod emit;
 pub(crate) mod error;
 #[path = "layout.rs"]
 pub(crate) mod fsx;
-#[path = "../../../../rust/soda-project-factory-roles/src/ops_approve.rs"]
+#[path = "inputs.rs"]
 pub(crate) mod ops_approve;
 #[path = "../../../../rust/soda-project-factory-roles/src/ops_inspect.rs"]
 pub(crate) mod ops_inspect;
