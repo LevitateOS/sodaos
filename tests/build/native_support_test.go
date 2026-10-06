@@ -207,7 +207,7 @@ func TestOutsideSupportToolsAreNotApplianceCommands(t *testing.T) {
 	Check(t, statIsFile("lib/soda-release-tools/src/build_cli.rs"), "soda-build missing")
 	Check(t, !statExists("scripts/build-native.sh"), "build-native.sh present")
 	Check(t, !statExists("tools/soda-host-image"), "soda-host-image present")
-	producer := ReadFile(t, "lib/soda-release-build/src/production.rs")
+	producer := ReadFile(t, "lib/soda-release-build/src/production_images.rs")
 	Check(t, strings.Contains(producer, `"save".to_string()`), "missing save")
 	Check(t, strings.Contains(producer, `"--format=oci-archive".to_string()`), "missing oci-archive")
 	Check(t, strings.Contains(producer, "--iidfile"), "missing iidfile")
