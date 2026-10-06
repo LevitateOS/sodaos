@@ -2,7 +2,7 @@ use super::execution::muse_environment_with;
 use super::launch_wire::{base64_encode, parse_launch_exit, shell_request_json};
 use super::paths::{go_base, go_clean, go_join, go_quote_rune};
 use super::shell::validate_shell;
-use super::ShellRequest;
+use super::shell::ShellRequest;
 
 fn shell_fixture() -> ShellRequest {
     ShellRequest {

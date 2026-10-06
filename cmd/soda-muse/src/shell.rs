@@ -1,8 +1,19 @@
 use super::paths::{go_join, go_strerror};
-use super::ShellRequest;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
+
+pub(crate) struct ShellRequest {
+    pub(crate) cwd: String,
+    pub(crate) args: Vec<String>,
+    pub(crate) home: String,
+    pub(crate) connection_id: String,
+    pub(crate) config_home: String,
+    pub(crate) term: String,
+    pub(crate) tty: bool,
+    pub(crate) cols: u16,
+    pub(crate) rows: u16,
+}
 
 pub(crate) fn shell_request(argv: &[String]) -> Result<ShellRequest, String> {
     let cwd = match std::env::current_dir() {

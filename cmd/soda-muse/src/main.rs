@@ -90,15 +90,3 @@ fn metadata_action(args: &[String]) -> Option<(i32, Option<String>)> {
     };
     Some((0, err))
 }
-
-struct ShellRequest {
-    cwd: String,
-    args: Vec<String>,
-    home: String,
-    connection_id: String,
-    config_home: String,
-    term: String,
-    tty: bool,
-    cols: u16,
-    rows: u16,
-}

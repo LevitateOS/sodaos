@@ -1,5 +1,5 @@
 use super::launch_wire::{parse_launch_exit, shell_request_json};
-use super::ShellRequest;
+use super::shell::ShellRequest;
 use std::io;
 use std::os::unix::io::AsRawFd;
 

@@ -1,5 +1,5 @@
 use super::launch_json::{parse_json_integer, parse_json_string, skip_json_value};
-use super::ShellRequest;
+use super::shell::ShellRequest;
 
 // shell_request_json emits the exact Go LaunchRequest field order for a
 // shell: empty home/config_home/term omitted, argv always an array.
