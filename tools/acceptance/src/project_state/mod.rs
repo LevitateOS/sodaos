@@ -18,11 +18,15 @@ use soda_json::JsonValue;
 mod command;
 mod files;
 mod snapshot;
+mod workloads;
 
 pub use command::{command, command_with_timeout, output_lines};
 pub use files::{dumps_sorted, Entry, EntryBody};
 
 pub use snapshot::run_snapshot;
+
+#[cfg(test)]
+use workloads::check_project_ip;
 
 /// Snapshot failure kind, mirroring the Python exception taxonomy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -223,24 +227,6 @@ pub fn check_snapshot_gate(euid: u32, containerenv: &Path) -> Result<(), Snapsho
         return Err(SnapshotFailure::assertion(""));
     }
     Ok(())
-}
-
-/// Project IP gate, like `assert ip_address(ip) in ip_network('10.89.0.0/24')`:
-/// unparseable input is a `ValueError`, parsed-but-outside (v4 or v6) fails
-/// the bare membership assert.
-fn check_project_ip(ip: &str) -> Result<(), SnapshotFailure> {
-    match ip.parse::<std::net::IpAddr>() {
-        Ok(std::net::IpAddr::V4(v4)) => {
-            let octets = v4.octets();
-            if octets[0] == 10 && octets[1] == 89 && octets[2] == 0 {
-                Ok(())
-            } else {
-                Err(SnapshotFailure::assertion(""))
-            }
-        }
-        Ok(_) => Err(SnapshotFailure::assertion("")),
-        Err(_) => Err(SnapshotFailure::bare(SnapshotKind::ValueError)),
-    }
 }
 
 #[cfg(test)]
