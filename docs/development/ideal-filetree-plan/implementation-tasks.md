@@ -131,9 +131,9 @@ Lead B; [F09](reviews/F09.md), [F10](reviews/F10.md). B03 durable attempt/settle
 
 Lead B; [F11](reviews/F11.md), [F12](reviews/F12.md). B02/B04/B07 fresh candidate/evidence; Q5 actual native result reachability blocks the dependent C.
 
-- [ ] **B05.M** Split existing check assessment and merge/evidence/reconcile/withdraw concern owners; cached assessment remains observation, not admission authority.
-- [ ] **B05.C** Correct F12-F1 attributable result reachability only with the actual approved producer/SDK proof. Removing target-tip equality alone is not a complete correction.
-- [ ] **B05.V** Preserve result/actor/target/bookkeeping checks, fresh policy/digest and stale/non-progress refusal through the real producer/caller subjects. Do not invent a native wire field or local merge engine.
+- [x] **B05.M** [run 20261005: DONE, integrated 51e2bf59 (check/merge splits P1-P4+T1-T4, 26 files pure; 230 decls token-preserved per Codex)] Split existing check assessment and merge/evidence/reconcile/withdraw concern owners; cached assessment remains observation, not admission authority.
+- [ ] **B05.C** [run 20261005: HELD (Q5, zero correction edits)] Correct F12-F1 attributable result reachability only with the actual approved producer/SDK proof. Removing target-tip equality alone is not a complete correction.
+- [x] **B05.V** [run 20261005: DONE (coordinator PG-backed V on final de470b99: 254/0/40-native-SKIP across factory/control/forgejo; B04-log identity resolved)] Preserve result/actor/target/bookkeeping checks, fresh policy/digest and stale/non-progress refusal through the real producer/caller subjects. Do not invent a native wire field or local merge engine.
 
 ### B06 Dashboard authority and native reads
 
