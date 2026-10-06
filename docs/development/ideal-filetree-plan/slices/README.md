@@ -1,5 +1,14 @@
 # Slice catalog index
 
+R02 note @HEAD `cb221d9c`: source citations below are audit-pinned to the
+`0d8d3b8e` snapshot (refs exclude later tree changes, per the catalog
+statement). ~400 citations name pre-move paths (`rust/soda-identity`,
+`rust/identity-providers`, `rust/soda-release-*`, `rust/soda-host`,
+`rust/soda-project-*`, `appliance/`, `project-os/`) with audit line
+anchors; they are intentionally NOT path-substituted, because splits
+shifted spans (see STALE banners in coverage maps). Current locations for
+moved files live in the coverage inventory/maps R02 notes.
+
 ## Review slice catalog
 
 Catalog snapshot: **2026-10-05**, committed source `0d8d3b8ebb5a7df36759685529f27f417d96fac8`. These **80 candidate slices** describe existing responsibilities and current evidence. They are review units that can span frontend, Go, Rust, SQL and tests; a slice does not imply a package, service, process or sidecar. References exclude later working-tree changes. The complete proposed tree retains the older structural baseline recorded under [source coverage](../package-ownership.md#source-coverage), with the obsolete-leaf corrections and latest affected-file upkeep recorded in the coverage ledger.

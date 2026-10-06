@@ -1,5 +1,12 @@
 # Decomposition index
 
+R02 note @HEAD `cb221d9c`: seam citations are audit-pinned like the slice
+catalog; moved-owner paths (`rust/soda-host`, `rust/soda-release-*`,
+`rust/identity-providers`, `appliance/`, `project-os/`) are intentionally
+NOT path-substituted (splits shifted spans; see coverage-map STALE
+banners). Current locations live in the coverage inventory/maps R02 notes;
+successor dispositions for retiring sources stay in the seam entries.
+
 ## Detailed decomposition
 
 The following names describe existing concern seams. The Rust host, installer,
