@@ -2,6 +2,7 @@
 //! retirement, and the maintenance hold. Also the `/proc` process-group
 //! primitives shared with `start`.
 
+pub(crate) use super::fsx::*;
 use crate::emit::{obj, str_value};
 use crate::error::{fail, Error};
 use crate::fsx;
@@ -9,54 +10,6 @@ use crate::validate;
 use soda_json::JsonValue;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
-
-/// `(active, revision)` with the revision carried as normalized text.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Hold {
-    pub active: bool,
-    pub revision: String,
-}
-
-pub fn hold_json(hold: &Hold) -> JsonValue {
-    obj(vec![
-        ("active", JsonValue::Bool(hold.active)),
-        ("revision", JsonValue::Number(hold.revision.clone())),
-    ])
-}
-
-pub fn hold_state(ctx: &crate::Ctx) -> Result<Hold, Error> {
-    let held = match fsx::read_json(ctx, &ctx.hold, 1024) {
-        Ok(value) => value,
-        Err(Error::Missing) => {
-            return Ok(Hold {
-                active: false,
-                revision: "-1".to_string(),
-            });
-        }
-        Err(err) => return Err(err),
-    };
-    if !validate::as_object(&held).is_some_and(|e| validate::key_set(e, &["revision"])) {
-        return fail("unsafe maintenance hold");
-    }
-    match validate::as_int_text(held.get("revision").unwrap_or(&JsonValue::Null)) {
-        Some(revision) => Ok(Hold {
-            active: true,
-            revision,
-        }),
-        None => fail("unsafe maintenance hold"),
-    }
-}
-
-/// The hold and the stop tombstone both bar new preparation work.
-pub fn refuse_barred(ctx: &crate::Ctx, directory: &Path) -> Result<(), Error> {
-    if hold_state(ctx)?.active {
-        return fail("maintenance hold denies preparation");
-    }
-    if fsx::lexists(&directory.join("stopped.json")) {
-        return fail("preparation was stopped; use a new identity");
-    }
-    Ok(())
-}
 
 /// Bounded privileged log read; missing logs read empty.
 pub fn read_log(ctx: &crate::Ctx, path: &Path) -> Result<String, Error> {

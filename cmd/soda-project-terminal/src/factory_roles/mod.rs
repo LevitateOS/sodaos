@@ -18,7 +18,7 @@ pub(crate) mod b64;
 pub(crate) mod emit;
 #[path = "../../../../rust/soda-project-factory-roles/src/error.rs"]
 pub(crate) mod error;
-#[path = "../../../../rust/soda-project-factory-roles/src/fsx.rs"]
+#[path = "layout.rs"]
 pub(crate) mod fsx;
 #[path = "../../../../rust/soda-project-factory-roles/src/ops_approve.rs"]
 pub(crate) mod ops_approve;
