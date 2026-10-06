@@ -1,12 +1,12 @@
 use soda_json::JsonValue;
 
 use super::config::{valid_signer, VmConfig};
-use super::Phase;
 use crate::coreos;
 use crate::error::Error;
 use crate::evidence::Evidence;
 use crate::files;
 use crate::jsonio;
+use crate::process::Phase;
 
 /// Verified base receipt, mirroring Go's `VerifiedBase`.
 pub struct VerifiedBase {
