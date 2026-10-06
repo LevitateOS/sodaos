@@ -410,6 +410,47 @@ mod tests {
     }
 
     #[test]
+    fn n07t3_staging_links_tailnet_only_before_go_retirement() {
+        // N07-T3: candidate links follow discovery. Pre-retirement the
+        // tailnet dir lists and links from rootfs/usr/libexec/soda/
+        // soda-forgejo-tailnet — the same destination U1 compiles to.
+        // Post-retirement the sourceless dir is excluded, staging succeeds,
+        // and no link is produced (fixed-list-only binaries like soda-host
+        // are likewise unlink candidates).
+        let dir = std::env::temp_dir().join(format!("sri-n07t3c-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let source = dir.join("src");
+        fs::create_dir_all(source.join("cmd/soda-fakego")).unwrap();
+        let tailnet = source.join("cmd/soda-forgejo-tailnet");
+        fs::create_dir_all(&tailnet).unwrap();
+        fs::write(tailnet.join("main.go"), b"package main\n").unwrap();
+        let context = dir.join("ctx");
+        let bindir = context.join("rootfs/usr/libexec/soda");
+        fs::create_dir_all(&bindir).unwrap();
+        fs::write(bindir.join("soda-fakego"), b"fake").unwrap();
+        fs::write(bindir.join("soda-forgejo-tailnet"), b"tailnet").unwrap();
+        let native = dir.join("native");
+        link_candidate_commands(
+            source.to_str().unwrap(),
+            context.to_str().unwrap(),
+            native.to_str().unwrap(),
+        )
+        .unwrap();
+        assert!(native.join("bin/soda-forgejo-tailnet").is_file());
+        fs::remove_file(tailnet.join("main.go")).unwrap();
+        fs::remove_dir_all(&native).unwrap();
+        link_candidate_commands(
+            source.to_str().unwrap(),
+            context.to_str().unwrap(),
+            native.to_str().unwrap(),
+        )
+        .unwrap();
+        assert!(native.join("bin/soda-fakego").is_file());
+        assert!(!native.join("bin/soda-forgejo-tailnet").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn cr02_staging_links_resolve_without_pg_identity() {
         // CODEX-CR02-001: payload staging links only real commands. Context
         // holds the three pg binaries (via RUST_TOOLS) but no

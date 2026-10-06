@@ -349,6 +349,23 @@ fn is_tools_owned(name: &str) -> bool {
     RUST_TOOLS_MEMBERS.contains(&name)
 }
 
+/// N07-T3: true when a cmd directory still carries Go sources. Unreadable
+/// directories report true so discovery keeps its previous listing; only a
+/// readable directory with no `.go` files counts as retired.
+fn has_go_sources(cmd_dir: &str) -> bool {
+    fs::read_dir(cmd_dir)
+        .map(|entries| {
+            entries.filter_map(|entry| entry.ok()).any(|entry| {
+                entry
+                    .file_type()
+                    .map(|kind| kind.is_file())
+                    .unwrap_or(false)
+                    && entry.file_name().to_string_lossy().ends_with(".go")
+            })
+        })
+        .unwrap_or(true)
+}
+
 /// `build.SodaCommands`: sorted `cmd/soda-*` directories, tools excluded.
 pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
     let mut names = Vec::new();
@@ -375,6 +392,13 @@ pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
         // established install destinations; skip it here (not error) so
         // compile/link produce each binary exactly once.
         if is_rust_command(&join(&[source, "cmd", &name])) && is_tools_owned(&name) {
+            continue;
+        }
+        // N07-T3: cmd/soda-forgejo-tailnet is Rust-built from the soda-host
+        // package once its Go sources retire; skip it here (not error) so
+        // discovery never attempts a Go build of a sourceless directory.
+        // Pre-retirement trees (Go sources present) list it exactly as before.
+        if name == "soda-forgejo-tailnet" && !has_go_sources(&join(&[source, "cmd", &name])) {
             continue;
         }
         if !is_soda_command(&name) || name == "soda-artifacts" || name == "soda-acceptance" {
@@ -592,6 +616,35 @@ mod tests {
             names,
             vec!["soda-fakego".to_string(), "soda-identity".to_string()]
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn n07t3_discovery_skips_tailnet_only_after_go_retirement() {
+        // N07-T3: cmd/soda-forgejo-tailnet has no manifest of its own; it
+        // leaves Go discovery only once its Go sources retire. A retired
+        // directory (Rust sources only) is skipped so no Go build is
+        // attempted, while a pre-retirement directory (main.go present)
+        // lists exactly as before.
+        let dir = std::env::temp_dir().join(format!("sri-n07t3b-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
+        let tailnet = snapshot.join("cmd/soda-forgejo-tailnet");
+        fs::create_dir_all(&tailnet).unwrap();
+        fs::write(tailnet.join("main.go"), b"package main\n").unwrap();
+        fs::write(tailnet.join("main.rs"), b"fn main() {}\n").unwrap();
+        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
+        assert_eq!(
+            names,
+            vec![
+                "soda-fakego".to_string(),
+                "soda-forgejo-tailnet".to_string()
+            ]
+        );
+        fs::remove_file(tailnet.join("main.go")).unwrap();
+        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
+        assert_eq!(names, vec!["soda-fakego".to_string()]);
         let _ = fs::remove_dir_all(&dir);
     }
 
