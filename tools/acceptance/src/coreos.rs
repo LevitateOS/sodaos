@@ -10,7 +10,7 @@
 //! Only the QEMU closure is ported: the Tailnet/live-input/download
 //! surface belongs to Tier-3 builders that stay in Go.
 
-use soda_build_tools::reader::stream::{valid_stream_images, CoreOSImage};
+use soda_build_tools::reader::stream::{CoreOSImage, valid_stream_images};
 use soda_build_tools::reader::url::https_url;
 use soda_build_tools::reader::{is_digest, oci_architecture};
 use soda_json::JsonValue;
@@ -112,6 +112,139 @@ fn status_text(headers: &str) -> String {
     status
 }
 
+fn close_capture(writer: &SharedWriter) -> Option<Error> {
+    writer
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .close()
+        .err()
+}
+
+fn capture_fetch(
+    phase: &Phase,
+    spec: &CommandSpec,
+    body_path: &str,
+    headers_path: &str,
+    meta_path: &str,
+    errors_path: &str,
+    max_bytes: u64,
+) -> Result<(u16, String, Vec<u8>), Error> {
+    let meta_file = std::fs::File::create(meta_path)
+        .map_err(|err| Error::msg(format!("live input fetch failed: {err}")))?;
+    let errors_file = std::fs::File::create(errors_path)
+        .map_err(|err| Error::msg(format!("live input fetch failed: {err}")))?;
+    let out: SharedWriter = std::sync::Arc::new(std::sync::Mutex::new(
+        crate::evidence::RedactingWriter::tee(meta_file, Vec::new()),
+    ));
+    let err_writer: SharedWriter = std::sync::Arc::new(std::sync::Mutex::new(
+        crate::evidence::RedactingWriter::tee(errors_file, Vec::new()),
+    ));
+    capture_fetch_with_writers(
+        phase,
+        spec,
+        body_path,
+        headers_path,
+        meta_path,
+        max_bytes,
+        out,
+        err_writer,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn capture_fetch_with_writers(
+    phase: &Phase,
+    spec: &CommandSpec,
+    body_path: &str,
+    headers_path: &str,
+    meta_path: &str,
+    max_bytes: u64,
+    out: SharedWriter,
+    err_writer: SharedWriter,
+) -> Result<(u16, String, Vec<u8>), Error> {
+    let process = match process::start_process(phase, spec, out.clone(), err_writer.clone()) {
+        Ok(process) => process,
+        Err(start_err) => {
+            let close_err = Error::join(vec![close_capture(&out), close_capture(&err_writer)]);
+            return Err(Error::wrap(
+                "live input fetch failed",
+                Error::join(vec![Some(start_err), close_err]).expect("start error is present"),
+            ));
+        }
+    };
+    let wait_err = process.wait(phase).err();
+    let mut stop_err = None;
+    if wait_err.is_some() && !process.is_done() {
+        stop_err = process.stop().err();
+        if !process.is_done() {
+            return Err(Error::join(vec![
+                Some(Error::msg(
+                    "live input fetch process cleanup did not complete",
+                )),
+                stop_err,
+            ])
+            .expect("cleanup error is present"));
+        }
+    }
+    let pump_err = process.join_pumps().map(Error::msg);
+    let out_close_err = close_capture(&out);
+    let err_close_err = close_capture(&err_writer);
+    let capture_err = Error::join(vec![pump_err, out_close_err, err_close_err]);
+    if let Some(capture_err) = capture_err {
+        return Err(Error::wrap(
+            "live input fetch failed",
+            Error::join(vec![wait_err, Some(capture_err), stop_err])
+                .expect("capture failure is present"),
+        ));
+    }
+    let detail = err_writer
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .buffer()
+        .to_vec();
+    if wait_err.is_some() {
+        let detail = String::from_utf8_lossy(&detail);
+        let primary = if phase.is_cancelled() {
+            Error::msg("context canceled")
+        } else if phase.expired() {
+            Error::msg("context deadline exceeded")
+        } else if detail.contains("not supported or disabled") {
+            Error::msg("unsafe metadata redirect")
+        } else if detail.contains("exceeds maximum file size")
+            || detail.contains("Maximum file size exceeded")
+        {
+            Error::msg("live input exceeds size limit")
+        } else if detail.trim().is_empty() {
+            wait_err.unwrap()
+        } else {
+            Error::msg(detail.trim())
+        };
+        return Err(Error::wrap(
+            "live input fetch failed",
+            Error::join(vec![Some(primary), stop_err]).expect("wait failure is present"),
+        ));
+    }
+    if let Some(err) = stop_err {
+        return Err(Error::wrap("live input fetch failed", err));
+    }
+    let meta = std::fs::read(&meta_path)
+        .map_err(|err| Error::msg(format!("live input fetch failed: {err}")))?;
+    let meta = String::from_utf8_lossy(&meta);
+    let (code_text, effective) = meta.trim().split_once(' ').unwrap_or(("", ""));
+    let code: u16 = code_text.parse().unwrap_or(0);
+    if !effective.starts_with("https://") {
+        return Err(Error::msg("unsafe metadata redirect"));
+    }
+    let headers = std::fs::read_to_string(headers_path)
+        .map_err(|err| Error::msg(format!("live input fetch failed: {err}")))?;
+    let body = std::fs::read(body_path)
+        .map_err(|err| Error::msg(format!("live input fetch failed: {err}")))?;
+    if body.len() as u64 > max_bytes {
+        return Err(Error::msg("live input exceeds size limit"));
+    }
+    Ok((code, status_text(&headers), body))
+}
+
 /// Bounded HTTPS fetch through host curl. Returns the status code, the
 /// status text, and the body bytes.
 fn fetch_capped(
@@ -133,70 +266,15 @@ fn fetch_capped(
     let meta_path = scratch.join("meta").to_string_lossy().into_owned();
     let errors_path = scratch.join("errors").to_string_lossy().into_owned();
     let spec = curl_spec(url, &body_path, &headers_path, extra, max_bytes);
-    let meta_file = std::fs::File::create(&meta_path)
-        .map_err(|err| Error::msg(format!("live input fetch failed: {err}")))?;
-    let errors_file = std::fs::File::create(&errors_path)
-        .map_err(|err| Error::msg(format!("live input fetch failed: {err}")))?;
-    let out: SharedWriter = std::sync::Arc::new(std::sync::Mutex::new(
-        crate::evidence::RedactingWriter::tee(meta_file, Vec::new()),
-    ));
-    let err_writer: SharedWriter = std::sync::Arc::new(std::sync::Mutex::new(
-        crate::evidence::RedactingWriter::tee(errors_file, Vec::new()),
-    ));
-    let process = process::start_process(phase, &spec, out.clone(), err_writer.clone())
-        .map_err(|err| Error::msg(format!("live input fetch failed: {err}")))?;
-    let wait_err = process.wait(phase).err();
-    let _ = process.join_pumps();
-    let detail = String::from_utf8_lossy(
-        err_writer
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .buffer(),
+    capture_fetch(
+        phase,
+        &spec,
+        &body_path,
+        &headers_path,
+        &meta_path,
+        &errors_path,
+        max_bytes,
     )
-    .into_owned();
-    if wait_err.is_some() {
-        if phase.is_cancelled() {
-            return Err(Error::msg("live input fetch failed: context canceled"));
-        }
-        if phase.expired() {
-            return Err(Error::msg(
-                "live input fetch failed: context deadline exceeded",
-            ));
-        }
-        if detail.contains("not supported or disabled") {
-            return Err(Error::msg("unsafe metadata redirect"));
-        }
-        if detail.contains("exceeds maximum file size")
-            || detail.contains("Maximum file size exceeded")
-        {
-            return Err(Error::msg("live input exceeds size limit"));
-        }
-        if detail.trim().is_empty() {
-            let cause = wait_err.map(|e| e.to_string()).unwrap_or_default();
-            return Err(Error::msg(format!("live input fetch failed: {cause}")));
-        }
-        return Err(Error::msg(format!(
-            "live input fetch failed: {}",
-            detail.trim()
-        )));
-    }
-    let meta = out
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .buffer()
-        .to_vec();
-    let meta = String::from_utf8_lossy(&meta);
-    let (code_text, effective) = meta.trim().split_once(' ').unwrap_or(("", ""));
-    let code: u16 = code_text.parse().unwrap_or(0);
-    if !effective.starts_with("https://") {
-        return Err(Error::msg("unsafe metadata redirect"));
-    }
-    let headers = std::fs::read_to_string(&headers_path).unwrap_or_default();
-    let body = std::fs::read(&body_path).unwrap_or_default();
-    if body.len() as u64 > max_bytes {
-        return Err(Error::msg("live input exceeds size limit"));
-    }
-    Ok((code, status_text(&headers), body))
 }
 
 /// Parse `/builds/<release>/` out of an ISO location, like the Go

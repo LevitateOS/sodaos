@@ -72,6 +72,90 @@ fn status_text_prefers_last_response() {
 }
 
 #[test]
+fn fetch_capture_flushes_newline_free_metadata_before_parsing() {
+    let scratch = TempDir::new("coreos-capture-test").unwrap();
+    let body = scratch.join("body").to_string_lossy().into_owned();
+    let headers = scratch.join("headers").to_string_lossy().into_owned();
+    let meta = scratch.join("meta").to_string_lossy().into_owned();
+    let errors = scratch.join("errors").to_string_lossy().into_owned();
+    let spec = CommandSpec {
+        name: "sh".to_string(),
+        args: vec![
+            "-c".to_string(),
+            format!(
+                "printf 'HTTP/1.1 200 OK\\r\\n\\r\\n' > '{headers}'; printf body > '{body}'; printf '200 https://example.test/data'"
+            ),
+        ],
+        dir: None,
+        stdin: StdinSpec::Null,
+        env: Vec::new(),
+    };
+    let (code, status, bytes) = capture_fetch(
+        &Phase::background(),
+        &spec,
+        &body,
+        &headers,
+        &meta,
+        &errors,
+        64,
+    )
+    .unwrap();
+    assert_eq!(code, 200);
+    assert_eq!(status, "200 OK");
+    assert_eq!(bytes, b"body");
+    assert_eq!(
+        std::fs::read(meta).unwrap(),
+        b"200 https://example.test/data"
+    );
+}
+
+#[test]
+fn fetch_capture_rejects_pump_and_both_close_failures() {
+    let scratch = TempDir::new("coreos-capture-failure-test").unwrap();
+    let body = scratch.join("body").to_string_lossy().into_owned();
+    let headers = scratch.join("headers").to_string_lossy().into_owned();
+    let meta = scratch.join("meta").to_string_lossy().into_owned();
+    let errors_path = scratch.join("errors");
+    std::fs::File::create(&meta).unwrap();
+    std::fs::File::create(&errors_path).unwrap();
+    let out: SharedWriter = std::sync::Arc::new(std::sync::Mutex::new(
+        crate::evidence::RedactingWriter::tee(std::fs::File::open(&meta).unwrap(), Vec::new()),
+    ));
+    let err_writer: SharedWriter = std::sync::Arc::new(std::sync::Mutex::new(
+        crate::evidence::RedactingWriter::tee(
+            std::fs::File::open(errors_path).unwrap(),
+            Vec::new(),
+        ),
+    ));
+    let spec = CommandSpec {
+        name: "sh".to_string(),
+        args: vec![
+            "-c".to_string(),
+            format!(
+                "printf 'HTTP/1.1 200 OK\\r\\n\\r\\n' > '{headers}'; printf body > '{body}'; printf '200 https://example.test/data\\n'; printf stderr-final-flush >&2"
+            ),
+        ],
+        dir: None,
+        stdin: StdinSpec::Null,
+        env: Vec::new(),
+    };
+    let err = capture_fetch_with_writers(
+        &Phase::background(),
+        &spec,
+        &body,
+        &headers,
+        &meta,
+        64,
+        out,
+        err_writer,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("Bad file descriptor"), "{err}");
+    assert!(err.matches("Bad file descriptor").count() >= 3, "{err}");
+}
+
+#[test]
 fn fetch_gate_rejects_plain_http_without_network() {
     // No request is issued: the gate fails first.
     let err = fetch_capped(
