@@ -4,7 +4,7 @@ import type {FactoryRun} from './sodaspaces-factory-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import {mountFactoryWatch} from './sodaspaces-factory.js';
 import type {FactoryWatchContext} from './sodaspaces-factory.js';
-import {renderFactoryRuns} from './sodaspaces-workspace-view.js';
+import {renderFactoryRuns} from './sodaspaces-factory-navigation-view.js';
 import type {FactoryWatch, WorkspaceContext} from './sodaspaces-workspace-types.js';
 
 export const factoryWatchLimit = 8;
