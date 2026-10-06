@@ -68,7 +68,6 @@ fn unavailable() -> String {
     ERR_UNAVAILABLE.to_string()
 }
 
-#[path = "tailnet/runtime/process.rs"]
 mod process;
 
 pub use process::{
@@ -76,7 +75,6 @@ pub use process::{
     read_process_id_map, read_process_namespace, read_system_boot_id,
 };
 
-#[path = "tailnet/runtime/wire.rs"]
 mod wire;
 
 pub use wire::{
@@ -245,15 +243,12 @@ pub fn recheck_project_run(
     }
 }
 
-#[path = "tailnet/runtime/project.rs"]
 mod project;
 
 pub use project::{id_map, inspect_project, project_container, project_isolation, project_running};
 
 #[cfg(test)]
-#[path = "tailnet/runtime/tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "tailnet/runtime/project_tests.rs"]
 mod project_tests;
