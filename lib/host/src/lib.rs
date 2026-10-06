@@ -7,6 +7,7 @@
 pub mod account;
 pub mod dbackend;
 pub mod domain;
+pub mod factory;
 pub mod gmux_admission;
 pub mod gmux_backend;
 pub mod gmux_routes;
