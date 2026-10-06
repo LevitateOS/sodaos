@@ -4,11 +4,20 @@ import {test} from 'node:test';
 import {contracts} from './settings-contracts.ts';
 
 const root = new URL('../../../frontend/forgejo/templates/', import.meta.url);
+// Compose split settings entries with their section leaves so contracts cover
+// the delivered page closure, not just the composing entry file.
+async function closureSource(path: string): Promise<string> {
+  const source = await readFile(new URL(path, root), 'utf8');
+  const leaves = [...source.matchAll(/{{\s*template\s+"(repo\/settings\/options_[^"]+)"[^}]*}}/g)].map((m) => m[1]);
+  if (!leaves.length) return source;
+  const bodies = await Promise.all(leaves.map((leaf) => readFile(new URL(`${leaf}.tmpl`, root), 'utf8')));
+  return source + '\n' + bodies.join('\n');
+}
 test('repository settings retain pinned native controls, gates and script hooks', async () => {
   const snapshot = (await import('./repository-settings-native-contracts.json')).default;
   assert.equal(snapshot.upstream, '15.0.9');
   for (const [path, native] of Object.entries(snapshot.entries)) {
-    const source = await readFile(new URL(path, root), 'utf8');
+    const source = await closureSource(path);
     const actual = contracts(source);
     for (const kind of ['controls', 'gates'] as const) {
       const remaining = [...actual[kind]];
@@ -34,7 +43,7 @@ test('repository settings preserve native footer and explicit form boundaries', 
   const units = await readFile(new URL('repo/settings/units.tmpl', root), 'utf8');
   assert.equal((units.match(/<form\b/g) || []).length, 1);
   assert(units.includes('action="{{.RepoLink}}/settings/units"'));
-  const options = await readFile(new URL('repo/settings/options.tmpl', root), 'utf8');
+  const options = await closureSource('repo/settings/options.tmpl');
   for (const modal of ['delete-repo-modal', 'transfer-repo-modal', 'archive-repo-modal']) {
     assert(options.includes(`id="${modal}"`), modal);
   }

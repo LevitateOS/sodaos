@@ -5837,11 +5837,41 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "98078cb003db17889e1868485b7678697e7165ae23c2a7c040792e6512e4c865",
+      "beforeRoleHash": "555bc2751e007e067f43fd485bf6055ddbfcf66982b00d0929a56615a306ecb1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "repository-settings-structural-overhaul",
       "presentationDelta": "Native repo-name autofocus is intentionally removed on the ordinary settings landing page."
+    },
+    {
+      "template": "repo/settings/options_repository.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/options.tmpl"
+      ],
+      "nativeCalls": [
+        "base/disable_form_autofill"
+      ],
+      "roles": [
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "populated",
+        "error",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "3e37ab2241649901df79840f815f5107a8e1717c6ffa0e994592f4040421ffd0",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
     },
     {
       "template": "repo/settings/protected_branch.tmpl",
