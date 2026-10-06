@@ -1,5 +1,6 @@
 use super::*;
 use crate::project::Executor;
+use crate::terminal;
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
