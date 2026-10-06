@@ -661,7 +661,7 @@ func TestForgejoNativeFormAdapterSelectsMainFormsOnly(t *testing.T) {
 
 func readForgejoTemplate(t *testing.T, parts ...string) string {
 	t.Helper()
-	path := filepath.Join(append([]string{"..", "appliance", "forgejo", "templates"}, parts...)...)
+	path := filepath.Join(append([]string{"..", "frontend", "forgejo", "templates"}, parts...)...)
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)

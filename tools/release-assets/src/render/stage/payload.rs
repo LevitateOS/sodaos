@@ -9,7 +9,7 @@ use super::files::read_text;
 use super::StageError;
 
 pub(crate) fn payload_entries(source: &Path) -> Result<Vec<(String, String)>, StageError> {
-    let path = source.join("assets/branding/forgejo/forgejo-payload.json");
+    let path = source.join("frontend/forgejo/payload.json");
     let text = read_text(&path)?;
     let value = JsonValue::parse(&text)
         .map_err(|_| StageError::failure(format!("cannot parse {}", path.display())))?;

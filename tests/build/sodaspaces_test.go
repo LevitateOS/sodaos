@@ -133,12 +133,11 @@ func TestSodaspacesActualStageRecipeWithSyntheticBuildInputs(t *testing.T) {
 	Require(t, err == nil, "resolve tempdir: %v", err)
 	copyTree(t, filepath.Join(RepoRoot, "assets"), filepath.Join(checkout, "assets"))
 	chmodTree(t, filepath.Join(checkout, "assets"))
-	copyTree(t, filepath.Join(RepoRoot, "appliance"), filepath.Join(checkout, "appliance"))
 	copyTree(t, filepath.Join(RepoRoot, "frontend"), filepath.Join(checkout, "frontend"))
 	copyTree(t, filepath.Join(RepoRoot, "system", "host", "config"), filepath.Join(checkout, "system/host/config"))
 	copyTree(t, filepath.Join(RepoRoot, "system", "licenses"), filepath.Join(checkout, "system/licenses"))
-	// The branding payload manifest rides along inside the copied assets/.
-	payloadSrc, err := os.ReadFile(filepath.Join(RepoRoot, "assets/branding/forgejo/forgejo-payload.json"))
+	// The branding payload manifest rides along inside the copied frontend/.
+	payloadSrc, err := os.ReadFile(filepath.Join(RepoRoot, "frontend/forgejo/payload.json"))
 	Require(t, err == nil, "read payload: %v", err)
 	for _, name := range []string{"LICENSE", "NOTICE"} {
 		data, err := os.ReadFile(filepath.Join(RepoRoot, name))

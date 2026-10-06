@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile, readdir} from 'node:fs/promises';
 import {test} from 'node:test';
-import payload from '../../assets/branding/forgejo/forgejo-payload.json';
+import payload from '../../frontend/forgejo/payload.json';
 const root = new URL('../../', import.meta.url);
 
 test('Forgejo delivers no decorative robot artwork and retains the new identity', async () => {
@@ -15,7 +15,7 @@ test('Forgejo delivers no decorative robot artwork and retains the new identity'
       )
     ).flat();
   };
-  for (const source of await walk(new URL('appliance/forgejo/templates/', root)))
+  for (const source of await walk(new URL('frontend/forgejo/templates/', root)))
     assert(!source.includes('-papercraft.png'), 'retired artwork remains in a production template');
   for (const [target, source] of Object.entries(payload))
     assert(
@@ -112,7 +112,7 @@ test('shared neutral surfaces, links, actions and control edges retain contrast 
 });
 
 test('every stylesheet referenced by the Forgejo header is in the canonical payload', async () => {
-  const header = await readFile(new URL('appliance/forgejo/templates/custom/header.tmpl', root), 'utf8');
+  const header = await readFile(new URL('frontend/forgejo/templates/custom/header.tmpl', root), 'utf8');
   const entries = new Map(Object.entries(payload));
   for (const match of header.matchAll(/<link[^>]+href="([^"]+)"/g)) {
     const path = match[1]!.replace('{{AssetUrlPrefix}}', '/assets').replace('{{AppSubUrl}}', '').split('?')[0]!;

@@ -32,7 +32,7 @@ func TestForgejoFooterKeepsLiveFeatures(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpl, err := template.New("hooks").Funcs(template.FuncMap{"AppSubUrl": func() string { return "" }, "AssetUrlPrefix": func() string { return "/assets" }, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles(
-				"../appliance/forgejo/templates/custom/footer.tmpl")
+				"../frontend/forgejo/templates/custom/footer.tmpl")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,7 +88,7 @@ func TestSodaspacesRequestLoggingOmitsQueries(t *testing.T) {
 }
 
 func TestForgejoFooterUsesPrefixedNativeAssets(t *testing.T) {
-	tmpl, err := template.New("footer.tmpl").Funcs(template.FuncMap{"AppSubUrl": func() string { return "/native" }, "AssetUrlPrefix": func() string { return "/native/assets" }, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles("../appliance/forgejo/templates/custom/footer.tmpl")
+	tmpl, err := template.New("footer.tmpl").Funcs(template.FuncMap{"AppSubUrl": func() string { return "/native" }, "AssetUrlPrefix": func() string { return "/native/assets" }, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles("../frontend/forgejo/templates/custom/footer.tmpl")
 	if err != nil {
 		t.Fatal(err)
 	}

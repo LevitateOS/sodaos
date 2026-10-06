@@ -103,7 +103,7 @@ func TestForgejoPresentationGallery(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"repo/settings/navbar", "shared/actions/runner_create"} {
-		contents, readErr := os.ReadFile("../appliance/forgejo/templates/" + name + ".tmpl")
+		contents, readErr := os.ReadFile("../frontend/forgejo/templates/" + name + ".tmpl")
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
@@ -187,5 +187,4 @@ func TestForgejoPresentationGallery(t *testing.T) {
 			}
 		}
 	}
-
 }

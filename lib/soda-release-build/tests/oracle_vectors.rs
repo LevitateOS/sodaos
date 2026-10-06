@@ -168,7 +168,7 @@ cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal --
 STEP Build Soda extension browser assets
 bun scripts/build-soda-extension.ts --out $ROOT/.artifacts/native/x86_64/soda-extension-assets --terminal-assets $ROOT/.artifacts/native/x86_64/terminal-assets
 STEP Prepare Forgejo translations
-cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock appliance/forgejo/locale.lock.json --out $ROOT/.artifacts/native/x86_64/forgejo-locales/locale_en-US.ini
+cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock frontend/forgejo/locale.lock.json --out $ROOT/.artifacts/native/x86_64/forgejo-locales/locale_en-US.ini
 STEP Fetch upstream Muse binary
 cargo run --release --locked -p soda-release-assets --bin soda-fetch-muse -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools/bin/muse-native
 STEP Fetch upstream Tea binary

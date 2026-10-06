@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {watch, type FSWatcher} from 'node:fs';
 import {resolve, basename} from 'node:path';
 import {parseArgs} from 'node:util';
-import payload from '../assets/branding/forgejo/forgejo-payload.json';
+import payload from '../frontend/forgejo/payload.json';
 import {buildForgejoAssets} from './build-forgejo.ts';
 import {buildSodaExtensionAssets} from './build-soda-extension.ts';
 import {scenarioModel, scenarios, type Scenario, type Model} from './fixtures/spaces-scenarios.ts';

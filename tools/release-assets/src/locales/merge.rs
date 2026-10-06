@@ -22,7 +22,7 @@ pub const MAX_NATIVE: u64 = 1024 * 1024;
 /// Whole-request timeout, like the script's `urlopen(..., timeout=30)`.
 pub const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
 /// Default additions catalog, resolved against the working directory.
-pub const DEFAULT_ADDITIONS: &str = "appliance/forgejo/i18n/en-US.ini";
+pub const DEFAULT_ADDITIONS: &str = "frontend/forgejo/locales/en-US.ini";
 
 /// CLI failure with the script's exit-code contract: usage and lock
 /// refusals (`parser.error`) exit 2, everything else exits 1.

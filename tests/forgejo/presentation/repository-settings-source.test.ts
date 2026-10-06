@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {test} from 'node:test';
 import {contracts} from './settings-contracts.ts';
 
-const root = new URL('../../../appliance/forgejo/templates/', import.meta.url);
+const root = new URL('../../../frontend/forgejo/templates/', import.meta.url);
 test('repository settings retain pinned native controls, gates and script hooks', async () => {
   const snapshot = (await import('./repository-settings-native-contracts.json')).default;
   assert.equal(snapshot.upstream, '15.0.9');

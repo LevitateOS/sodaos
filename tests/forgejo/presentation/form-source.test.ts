@@ -7,7 +7,7 @@ import snapshot from './form-native-contracts.json';
 
 test('redesigned forms preserve native submission controls and capability gates', async () => {
   for (const [path, before] of Object.entries(snapshot.entries)) {
-    const source = await readFile(new URL(`../../../appliance/forgejo/templates/${path}`, import.meta.url), 'utf8');
+    const source = await readFile(new URL(`../../../frontend/forgejo/templates/${path}`, import.meta.url), 'utf8');
     const actual = contracts(source);
     assert.equal(
       createHash('sha256').update(JSON.stringify(actual.controls)).digest('hex'),

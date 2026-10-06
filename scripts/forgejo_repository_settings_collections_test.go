@@ -9,7 +9,7 @@ import (
 
 func readRepositorySettingsCollectionTemplate(t *testing.T, name string) string {
 	t.Helper()
-	path := filepath.Join("..", "appliance", "forgejo", "templates", "repo", "settings", name)
+	path := filepath.Join("..", "frontend", "forgejo", "templates", "repo", "settings", name)
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)

@@ -23,7 +23,7 @@ the lifetime of the native page and persistent workspace-panel contributions.
 `scripts/build-soda-extension.ts` checks that declaration against the entries and
 their styles, bundles the extension modules, and adds the locked terminal assets
 and required notices to the independently installed package. The Forgejo image
-payload in `assets/branding/forgejo/forgejo-payload.json` owns host branding and
+payload in `frontend/forgejo/payload.json` owns host branding and
 template assets; it does not publish a duplicate copy of the extension UI.
 
 The preview builds and serves the same extension asset package. Generated browser
