@@ -173,21 +173,6 @@ func CargoBinary(t *testing.T, pkg, bin string, extra ...string) string {
 	return filepath.Join(RepoRoot, "target", "debug", bin)
 }
 
-// raisedAs reports whether an exception MRO names one of the expected
-// classes. Temporary home: the u08 driver retired to Rust, and the last
-// user (project_factory_roles_test.go) goes with Lane B's rewrite, which
-// deletes this with driveModule/Python3.
-func raisedAs(mro []string, names ...string) bool {
-	for _, entry := range mro {
-		for _, name := range names {
-			if entry == name {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func tail(s string, n int) string {
 	if len(s) > n {
 		return s[len(s)-n:]
