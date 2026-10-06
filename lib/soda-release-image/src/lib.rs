@@ -35,6 +35,7 @@ pub mod media;
 mod media_assembler;
 mod media_authentication;
 mod media_container;
+mod media_installer;
 pub mod model;
 pub mod packages;
 pub mod payload_stage;
