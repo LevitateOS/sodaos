@@ -5,18 +5,16 @@
 //! retention failure, and both must be checked. [`Remote`] builds pinned
 //! SSH invocations; nothing here performs trust refresh or proxying.
 
-use std::net::IpAddr;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use soda_json::JsonValue;
-
 use crate::error::Error;
 use crate::evidence::{Evidence, RedactingWriter};
-use crate::files;
-use crate::jsonio;
 use crate::process::{self, Phase, SharedWriter};
+
+mod ssh;
+
+pub use self::ssh::{decode_remote, Remote};
 
 /// Standard input wiring for a spawned command.
 #[derive(Debug, Clone)]
@@ -66,166 +64,6 @@ pub fn quote(args: &[String]) -> String {
         .map(|s| format!("'{}'", s.replace('\'', "'\"'\"'")))
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-/// Pinned SSH endpoint. Keys are file references, never inline contents.
-pub struct Remote {
-    /// Login user.
-    pub user: String,
-    /// Host IP or DNS name.
-    pub host: String,
-    /// Private identity file.
-    pub key: String,
-    /// Pinned known_hosts file.
-    pub known_hosts: String,
-    /// SSH port.
-    pub port: i64,
-    /// Remote deadline. Never decoded from JSON, like Go's `json:"-"`.
-    pub timeout: Duration,
-}
-
-/// Decode connection JSON with Go field names and no unknown fields.
-/// `Timeout` is admitted and ignored, like Go's `json:"-"` under
-/// `DisallowUnknownFields`; the driver always sets the deadline.
-pub fn decode_remote(value: &JsonValue) -> Result<Remote, Error> {
-    jsonio::check_no_unknown(
-        value,
-        &["User", "Host", "Port", "Key", "KnownHosts", "Timeout"],
-    )?;
-    let port = jsonio::opt_integer(value, "Port")?;
-    let port: i64 = port
-        .try_into()
-        .map_err(|_| Error::msg("invalid Port: integer required"))?;
-    Ok(Remote {
-        user: jsonio::opt_string(value, "User")?,
-        host: jsonio::opt_string(value, "Host")?,
-        key: jsonio::opt_string(value, "Key")?,
-        known_hosts: jsonio::opt_string(value, "KnownHosts")?,
-        port,
-        timeout: Duration::ZERO,
-    })
-}
-
-fn valid_ssh_user(user: &str) -> bool {
-    let mut chars = user.chars();
-    match chars.next() {
-        Some('a'..='z') | Some('_') => {}
-        _ => return false,
-    }
-    chars.all(|c| matches!(c, 'a'..='z' | '0'..='9' | '_' | '-'))
-}
-
-fn valid_ssh_host(host: &str) -> bool {
-    if IpAddr::from_str(host).is_ok() {
-        return true;
-    }
-    let mut chars = host.chars();
-    match chars.next() {
-        Some('A'..='Z') | Some('a'..='z') | Some('0'..='9') => {}
-        _ => return false,
-    }
-    chars.all(|c| matches!(c, 'A'..='Z' | 'a'..='z' | '0'..='9' | '.' | '-'))
-}
-
-fn valid_ssh_port(port: i64) -> bool {
-    (1..=65535).contains(&port)
-}
-
-fn trusted_known_hosts(path: &str) -> Result<(), Error> {
-    if !path.starts_with('/') {
-        return Err(Error::msg("absolute pinned known_hosts required"));
-    }
-    let meta = std::fs::symlink_metadata(path)?;
-    use std::os::unix::fs::MetadataExt;
-    if !meta.is_file() || meta.mode() & 0o022 != 0 || meta.size() == 0 {
-        return Err(Error::msg("trusted regular known_hosts required"));
-    }
-    Ok(())
-}
-
-impl Remote {
-    /// Pinned SSH options, byte-identical to Go's `Remote.Args`.
-    pub fn args(&self) -> Result<Vec<String>, Error> {
-        if !valid_ssh_user(&self.user) || !valid_ssh_port(self.port) {
-            return Err(Error::msg("invalid SSH user/port"));
-        }
-        if !valid_ssh_host(&self.host) {
-            return Err(Error::msg("invalid SSH host"));
-        }
-        files::private_file(&self.key)?;
-        trusted_known_hosts(&self.known_hosts)?;
-        Ok(vec![
-            "-F".to_string(),
-            "/dev/null".to_string(),
-            "-T".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "IdentitiesOnly=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            "-o".to_string(),
-            "GlobalKnownHostsFile=/dev/null".to_string(),
-            "-o".to_string(),
-            format!("UserKnownHostsFile={}", self.known_hosts),
-            "-o".to_string(),
-            "ConnectTimeout=10".to_string(),
-            "-o".to_string(),
-            "ServerAliveInterval=15".to_string(),
-            "-o".to_string(),
-            "ServerAliveCountMax=2".to_string(),
-            "-i".to_string(),
-            self.key.clone(),
-            "-p".to_string(),
-            self.port.to_string(),
-            format!("{}@{}", self.user, self.host),
-        ])
-    }
-
-    /// SSH command running `args` under a bounded remote deadline.
-    pub fn command(&self, args: &[String], stdin: StdinSpec) -> Result<CommandSpec, Error> {
-        let base = self.args()?;
-        let duration = if self.timeout.is_zero() {
-            Duration::from_secs(30 * 60)
-        } else {
-            self.timeout
-        };
-        if duration.is_zero() || duration > Duration::from_secs(24 * 3600) {
-            return Err(Error::msg("bounded remote deadline required"));
-        }
-        let mut bounded = vec![
-            "timeout".to_string(),
-            "--signal=TERM".to_string(),
-            "--kill-after=10s".to_string(),
-            format!("{:.3}s", duration.as_secs_f64()),
-        ];
-        bounded.extend(args.iter().cloned());
-        let mut ssh_args = base;
-        ssh_args.push(quote(&bounded));
-        Ok(CommandSpec {
-            name: "ssh".to_string(),
-            args: ssh_args,
-            dir: None,
-            stdin,
-            env: Vec::new(),
-        })
-    }
-
-    /// Wait for pinned SSH readiness, retrying `ssh true` until the phase
-    /// ends, like Go's `Remote.WaitReady`.
-    pub fn wait_ready(&self, phase: &Phase) -> Result<(), Error> {
-        look_path("ssh")?;
-        let args = self.args()?;
-        loop {
-            if ssh_true(&args) {
-                return Ok(());
-            }
-            if let Err(e) = phase.check() {
-                return Err(Error::wrap("pinned SSH readiness", e));
-            }
-            std::thread::sleep(Duration::from_secs(1));
-        }
-    }
 }
 
 pub(crate) fn look_path(name: &str) -> Result<(), Error> {
