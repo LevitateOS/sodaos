@@ -1,5 +1,6 @@
 use super::*;
 use crate::key_lines::{canonical_key_ok, canonical_lines, KEY_FILE_LIMIT};
+use crate::key_request::{decode_key_request, json_truthy, state_object};
 
 const KEY_A: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqu7mMCw5R";
 const KEY_B: &str = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY=";

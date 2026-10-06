@@ -20,6 +20,7 @@ mod b64;
 mod broker;
 mod fs;
 mod key_lines;
+mod key_request;
 mod keys;
 mod proto;
 mod pty;
