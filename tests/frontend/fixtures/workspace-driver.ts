@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {chromium, type Browser, type Locator, type Page} from 'playwright';
 import path from 'node:path';
 import type {} from './workspace-fixture';
+import {captureSpacesComponent} from '../../../scripts/screenshot';
 
 const root = path.resolve(import.meta.dirname, '../../..');
 let browser: Browser, server: ReturnType<typeof Bun.serve>;
@@ -141,4 +142,28 @@ export async function create(page: Page, name = 'New build') {
 export async function paneAction(page: Page, name: string) {
   await page.getByLabel('Pane actions', {exact: true}).click();
   await page.getByRole('button', {name, exact: true}).click();
+}
+export async function chooseFirstRepository(page: Page, capture?: string) {
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  if (capture) await captureSpacesComponent(page, 'picker-' + capture);
+  const picker = {
+    frame: await page.locator('.soda-workspace-frame').boundingBox(),
+    heading: await page.getByRole('heading', {name: 'Choose a repository'}).boundingBox(),
+    action: await page.getByRole('button', {name: 'Continue', exact: true}).boundingBox(),
+  };
+  const selection = await page
+    .locator('.soda-repository-choice:has(input:checked)')
+    .evaluate((node) => ({background: getComputedStyle(node).backgroundColor, edge: getComputedStyle(node).boxShadow}));
+  assert.notEqual(selection.edge, 'none', 'selection needs a shape treatment beyond radio color');
+  assert.equal(
+    await page.getByRole('navigation', {name: 'Repository pages'}).count(),
+    0,
+    'single-page results should not show pagination'
+  );
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
+  await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
+  return picker;
 }

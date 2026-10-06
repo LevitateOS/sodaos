@@ -1,34 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright';
-import {setupWorkspaceDriver, fixture, textContents} from './fixtures/workspace-driver';
+import {setupWorkspaceDriver, chooseFirstRepository, fixture, textContents} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
-export async function chooseFirstRepository(page: Page, capture?: string) {
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
-  await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
-  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
-  if (capture) await captureSpacesComponent(page, 'picker-' + capture);
-  const picker = {
-    frame: await page.locator('.soda-workspace-frame').boundingBox(),
-    heading: await page.getByRole('heading', {name: 'Choose a repository'}).boundingBox(),
-    action: await page.getByRole('button', {name: 'Continue', exact: true}).boundingBox(),
-  };
-  const selection = await page
-    .locator('.soda-repository-choice:has(input:checked)')
-    .evaluate((node) => ({background: getComputedStyle(node).backgroundColor, edge: getComputedStyle(node).boxShadow}));
-  assert.notEqual(selection.edge, 'none', 'selection needs a shape treatment beyond radio color');
-  assert.equal(
-    await page.getByRole('navigation', {name: 'Repository pages'}).count(),
-    0,
-    'single-page results should not show pagination'
-  );
-  await page.getByRole('button', {name: 'Continue', exact: true}).click();
-  await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
-  await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
-  return picker;
-}
 async function workspaceIntroGeometry(page: Page) {
   const workspace = page.locator('.soda-workspace');
   assert.equal(await page.locator('.soda-setup-footer:visible').count(), 0);
