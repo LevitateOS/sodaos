@@ -112,12 +112,12 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 		"RemainAfterExit=yes",
 		"UMask=0077",
 	)
-	roles := readRuntimeFile(t, "rust/soda-pg-maintenance/src/bin/soda-pg-init-roles.rs")
+	roles := readRuntimeFile(t, "cmd/soda-pg-maintenance/src/bin/soda-pg-init-roles.rs")
 	requireContains(t, roles,
 		"pg_isready",
 		"ON_ERROR_STOP",
 	)
-	provisioning := readRuntimeFile(t, "rust/soda-pg-maintenance/src/lib.rs")
+	provisioning := readRuntimeFile(t, "cmd/soda-pg-maintenance/src/lib.rs")
 	requireContains(t, provisioning,
 		"CREATE ROLE",
 		"CREATE DATABASE",
