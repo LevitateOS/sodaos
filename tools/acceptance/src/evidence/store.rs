@@ -7,7 +7,7 @@ use crate::error::Error;
 use crate::files::{self, OwnedDir};
 use crate::jsonio;
 
-use super::RedactOut;
+use super::redaction::RedactOut;
 use super::{
     contains_slice, longest_secret, redact_urls, Evidence, RedactingWriter, EVIDENCE_LIMIT,
 };
