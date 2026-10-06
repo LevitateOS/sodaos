@@ -1,5 +1,6 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
+import type {TerminalState} from './sodaspaces-terminal-attachment.js';
 
 /** A render-time projection only. No transport, identity lookup or mutable state. */
 export interface TerminalPresentation {
@@ -26,6 +27,124 @@ export interface TerminalCommands {
   readonly rename: () => void;
   readonly hide: () => void;
   readonly menuKey: (event: KeyboardEvent) => void;
+}
+/** Owner state and callbacks behind the presentation/command projections. No transport here. */
+export interface TerminalViewInput {
+  readDisposed: () => boolean;
+  readState: () => TerminalState;
+  readSessionID: () => string | undefined;
+  readSessionName: () => string;
+  readMessage: () => string;
+  readNotice: () => boolean;
+  readScreenVisible: () => boolean;
+  readActionBusy: () => boolean;
+  readManagedEnded: () => boolean;
+  readConfirming: () => string | undefined;
+  setConfirming: (confirming: string | undefined) => void;
+  setRetries: (retries: number) => void;
+  readBindingLogin: () => string;
+  readBindingProject: () => string;
+  isHiddenOrInert: () => boolean;
+  closeMenu: () => void;
+  focusSummary: () => void;
+  focusControls: () => void;
+  requestCancelEndFocus: (target: string) => void;
+  dispatchWorkspaceCommand: (command: 'project' | 'rename' | 'hide') => void;
+  connectNow: () => void;
+  endNow: () => void;
+}
+function viewDisabled(input: TerminalViewInput) {
+  return input.readDisposed() || input.readState() === 'stale';
+}
+function canConnectView(input: TerminalViewInput, disabled: boolean) {
+  return !(
+    disabled ||
+    input.readManagedEnded() ||
+    input.readState() === 'opening' ||
+    input.readState() === 'ready' ||
+    input.readActionBusy()
+  );
+}
+function canEndView(input: TerminalViewInput, disabled: boolean) {
+  return !disabled && !!input.readSessionID() && !input.readActionBusy();
+}
+function contextLabels(input: TerminalViewInput) {
+  return {
+    name: input.readSessionName() || 'Terminal',
+    login: input.readBindingLogin(),
+    project: input.readBindingProject(),
+  };
+}
+export function terminalPresentation(input: TerminalViewInput): TerminalPresentation {
+  const disabled = viewDisabled(input),
+    labels = contextLabels(input);
+  return {
+    ready: input.readState() === 'ready',
+    disabled,
+    canConnect: canConnectView(input, disabled),
+    canEnd: canEndView(input, disabled),
+    connectLabel: input.readSessionID() ? 'Reconnect terminal' : 'Open terminal',
+    name: labels.name,
+    login: labels.login,
+    project: labels.project,
+    message: input.readMessage(),
+    notice: input.readNotice(),
+    screenVisible: input.readScreenVisible(),
+    confirmingName: input.readConfirming() ? input.readSessionName() || input.readConfirming()! : null,
+    canConfirm: !disabled && !input.readActionBusy() && input.readConfirming() === input.readSessionID(),
+  };
+}
+function menuKey(input: TerminalViewInput, event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    input.closeMenu();
+    input.focusSummary();
+  }
+}
+function connectFromControls(input: TerminalViewInput) {
+  input.closeMenu();
+  input.setRetries(0);
+  input.connectNow();
+}
+function endConfirmedTerminal(input: TerminalViewInput) {
+  // Admission must see the exact confirmed ID before the dialog is cleared.
+  if (input.readConfirming() === input.readSessionID() && !input.isHiddenOrInert()) input.endNow();
+  input.setConfirming(undefined);
+}
+function workspaceCommand(input: TerminalViewInput, command: 'project' | 'rename' | 'hide') {
+  if (input.readDisposed() || input.readState() === 'stale' || input.isHiddenOrInert()) return;
+  input.closeMenu();
+  input.dispatchWorkspaceCommand(command);
+}
+function confirmEnd(input: TerminalViewInput) {
+  if (
+    !input.readSessionID() ||
+    input.readDisposed() ||
+    input.readState() === 'stale' ||
+    input.readActionBusy() ||
+    input.isHiddenOrInert()
+  )
+    return;
+  input.closeMenu();
+  input.setConfirming(input.readSessionID());
+  input.requestCancelEndFocus(input.readSessionID()!);
+}
+function cancelEnd(input: TerminalViewInput) {
+  input.setConfirming(undefined);
+  input.focusControls();
+}
+export function terminalCommands(input: TerminalViewInput): TerminalCommands {
+  return {
+    connect: () => connectFromControls(input),
+    end: () => confirmEnd(input),
+    confirmEnd: () => endConfirmedTerminal(input),
+    cancelEnd: () => cancelEnd(input),
+    project: () => workspaceCommand(input, 'project'),
+    rename: () => workspaceCommand(input, 'rename'),
+    hide: () => workspaceCommand(input, 'hide'),
+    menuKey: (event) => menuKey(input, event),
+  };
 }
 function actions(view: TerminalPresentation, commands: TerminalCommands): TemplateResult {
   return html`

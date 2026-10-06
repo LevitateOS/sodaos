@@ -1,5 +1,6 @@
 import {LitElement} from 'lit';
-import {renderTerminal} from './sodaspaces-terminal-view.js';
+import {renderTerminal, terminalCommands, terminalPresentation} from './sodaspaces-terminal-view.js';
+import type {TerminalViewInput} from './sodaspaces-terminal-view.js';
 import {id as identifier} from './sodaspaces-api.js';
 import {terminalID} from './sodaspaces-terminal-response.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
@@ -160,112 +161,66 @@ export class SodaTerminal extends LitElement {
     this.dispose();
   }
   protected render() {
-    return renderTerminal(this.terminalPresentation(), this.terminalCommands());
+    return renderTerminal(terminalPresentation(this.terminalViewInput()), terminalCommands(this.terminalViewInput()));
   }
-  private viewDisabled() {
-    return this.disposed || this.state === 'stale';
-  }
-  private canConnectView(disabled: boolean) {
-    return !(disabled || this.managedEnded || this.state === 'opening' || this.state === 'ready' || this.actionBusy);
-  }
-  private canEndView(disabled: boolean) {
-    return !disabled && !!this.sessionID && !this.actionBusy;
-  }
-  private contextLabels() {
+  private terminalViewInput(): TerminalViewInput {
     return {
-      name: this.sessionName || 'Terminal',
-      login: this.binding?.login || '',
-      project: this.binding?.projectName || this.binding?.environmentId || '',
+      readDisposed: () => this.disposed,
+      readState: () => this.state,
+      readSessionID: () => this.sessionID,
+      readSessionName: () => this.sessionName,
+      readMessage: () => this.message,
+      readNotice: () => this.notice,
+      readScreenVisible: () => this.screenVisible,
+      readActionBusy: () => this.actionBusy,
+      readManagedEnded: () => this.managedEnded,
+      readConfirming: () => this.confirming,
+      setConfirming: (confirming) => {
+        this.confirming = confirming;
+      },
+      setRetries: (retries) => {
+        this.retries = retries;
+      },
+      readBindingLogin: () => this.binding?.login || '',
+      readBindingProject: () => this.binding?.projectName || this.binding?.environmentId || '',
+      isHiddenOrInert: () => !!this.closest('[hidden], [inert]'),
+      closeMenu: () => this.closeMenu(),
+      focusSummary: () => {
+        this.querySelector<HTMLElement>('summary')?.focus();
+      },
+      focusControls: () => {
+        this.querySelector<HTMLElement>('[data-action=controls]')?.focus();
+      },
+      requestCancelEndFocus: (target) => {
+        const active = document.activeElement;
+        void this.updateComplete.then(() => {
+          if (
+            this.confirming === target &&
+            !this.disposed &&
+            (document.activeElement === active || document.activeElement === document.body)
+          )
+            this.querySelector<HTMLElement>('[data-action=cancel-end]')?.focus();
+        });
+      },
+      dispatchWorkspaceCommand: (command) => {
+        this.dispatchEvent(
+          new CustomEvent('soda-terminal-command', {
+            bubbles: true,
+            detail: command,
+          })
+        );
+      },
+      connectNow: () => {
+        void connect(this.attachmentInput());
+      },
+      endNow: () => {
+        void endTerminal(this.actionsInput());
+      },
     };
-  }
-  private terminalPresentation() {
-    const disabled = this.viewDisabled(),
-      labels = this.contextLabels();
-    return {
-      ready: this.state === 'ready',
-      disabled,
-      canConnect: this.canConnectView(disabled),
-      canEnd: this.canEndView(disabled),
-      connectLabel: this.sessionID ? 'Reconnect terminal' : 'Open terminal',
-      name: labels.name,
-      login: labels.login,
-      project: labels.project,
-      message: this.message,
-      notice: this.notice,
-      screenVisible: this.screenVisible,
-      confirmingName: this.confirming ? this.sessionName || this.confirming : null,
-      canConfirm: !disabled && !this.actionBusy && this.confirming === this.sessionID,
-    };
-  }
-  private menuKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      this.closeMenu();
-      this.querySelector<HTMLElement>('summary')?.focus();
-    }
-  };
-  private terminalCommands() {
-    return {
-      connect: () => this.connectFromControls(),
-      end: () => this.confirmEnd(),
-      confirmEnd: () => this.endConfirmedTerminal(),
-      cancelEnd: () => this.cancelEnd(),
-      project: () => this.workspaceCommand('project'),
-      rename: () => this.workspaceCommand('rename'),
-      hide: () => this.workspaceCommand('hide'),
-      menuKey: this.menuKey,
-    };
-  }
-  private connectFromControls() {
-    this.closeMenu();
-    this.retries = 0;
-    void connect(this.attachmentInput());
-  }
-  private endConfirmedTerminal() {
-    // Admission must see the exact confirmed ID before the dialog is cleared.
-    if (this.confirming === this.sessionID && !this.closest('[hidden], [inert]')) void endTerminal(this.actionsInput());
-    this.confirming = undefined;
   }
   private closeMenu() {
     const menu = this.querySelector('details');
     if (menu) menu.open = false;
-  }
-  private workspaceCommand(command: 'project' | 'rename' | 'hide') {
-    if (this.disposed || this.state === 'stale' || this.closest('[hidden], [inert]')) return;
-    this.closeMenu();
-    this.dispatchEvent(
-      new CustomEvent('soda-terminal-command', {
-        bubbles: true,
-        detail: command,
-      })
-    );
-  }
-  private confirmEnd() {
-    if (
-      !this.sessionID ||
-      this.disposed ||
-      this.state === 'stale' ||
-      this.actionBusy ||
-      this.closest('[hidden], [inert]')
-    )
-      return;
-    this.closeMenu();
-    this.confirming = this.sessionID;
-    const target = this.confirming,
-      active = document.activeElement;
-    void this.updateComplete.then(() => {
-      if (
-        this.confirming === target &&
-        !this.disposed &&
-        (document.activeElement === active || document.activeElement === document.body)
-      )
-        this.querySelector<HTMLElement>('[data-action=cancel-end]')?.focus();
-    });
-  }
-  private cancelEnd() {
-    this.confirming = undefined;
-    this.querySelector<HTMLElement>('[data-action=controls]')?.focus();
   }
   private remember(value: string | null) {
     if (value === null) this.managedEnded = true;
