@@ -1212,19 +1212,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soda-asset-fetchers"
-version = "0.1.0"
-dependencies = [
- "base64",
- "flate2",
- "sha2 0.10.9",
- "soda-build-tools",
- "soda-json",
- "tar",
- "ureq",
-]
-
-[[package]]
 name = "soda-build-tools"
 version = "0.1.0"
 
@@ -1243,15 +1230,6 @@ version = "0.1.0"
 [[package]]
 name = "soda-forgejo-domain"
 version = "0.1.0"
-
-[[package]]
-name = "soda-forgejo-locales"
-version = "0.1.0"
-dependencies = [
- "sha2 0.10.9",
- "soda-json",
- "ureq",
-]
 
 [[package]]
 name = "soda-forgejo-migrate"
@@ -1362,6 +1340,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-release-assets"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "flate2",
+ "sha2 0.10.9",
+ "soda-build-tools",
+ "soda-json",
+ "tar",
+ "ureq",
+]
+
+[[package]]
 name = "soda-release-build"
 version = "0.1.0"
 dependencies = [
@@ -1416,14 +1407,6 @@ version = "0.1.0"
 [[package]]
 name = "soda-setup"
 version = "0.1.0"
-
-[[package]]
-name = "soda-stage-render"
-version = "0.1.0"
-dependencies = [
- "sha2 0.10.9",
- "soda-json",
-]
 
 [[package]]
 name = "soda-test-vm"
