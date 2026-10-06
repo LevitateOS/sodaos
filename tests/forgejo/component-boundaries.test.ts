@@ -1,47 +1,10 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
 import {test} from 'node:test';
-import {chromium} from 'playwright';
+import {openComponentBrowser, origin} from './fixtures/component-browser';
 
-// Explicit local opt-in. Native CSS plus the complete candidate CSS cascade,
-// with small native markup contracts; no account, fixture or provider writes.
-const origin = process.env.SODA_FORGEJO_LAYOUT_ORIGIN;
-// Inline same-directory concern stylesheets so assertions cover the delivered
-// cascade, not just the composing entry file. Parent-directory imports keep
-// their existing handling below.
-async function inlineLocalImports(css: string): Promise<string> {
-  const refs = [...css.matchAll(/@import\s+"\.\/([^"?]+\.css)[^;]*;\r?\n?/g)];
-  let out = css;
-  for (const [directive, name] of refs) {
-    assert(name);
-    const body = await readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8');
-    out = out.replace(directive, () => body);
-  }
-  return out;
-}
 test('expanded components preserve native state and layout boundaries', {skip: !origin}, async (t) => {
-  assert.equal(origin, 'http://localhost:3300');
-  const header = await readFile(
-    new URL('../../frontend/forgejo/templates/custom/header.tmpl', import.meta.url),
-    'utf8'
-  );
-  const files = [...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map(([, name]) => name);
-  const styles = await Promise.all(
-    files.map(async (name) =>
-      inlineLocalImports(await readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8'))
-    )
-  );
-  const palette = await readFile(new URL('../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
-  const browser = await chromium.launch({channel: 'chrome', headless: true, chromiumSandbox: true});
+  const {page, render, close} = await openComponentBrowser();
   try {
-    const page = await browser.newPage({viewport: {width: 1654, height: 1000}});
-    async function render(markup: string, theme = 'light') {
-      await page.mouse.move(1600, 990);
-      await page.setContent(`<link rel="stylesheet" href="${origin}/assets/css/index.css">
-        <link rel="stylesheet" href="${origin}/assets/css/theme-forgejo-${theme}.css">
-        <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style>${markup}`);
-    }
-
     await t.test('native form icons retain clearance and section headings share type', async () => {
       for (const theme of ['light', 'dark'])
         for (const width of [1440, 390, 320]) {
@@ -249,6 +212,6 @@ test('expanded components preserve native state and layout boundaries', {skip: !
       }
     });
   } finally {
-    await browser.close();
+    await close();
   }
 });
