@@ -23,5 +23,5 @@ rsa = "0.9"
 ecdsa = { version = "=0.16.9", default-features = false, features = ["verifying", "pkcs8", "std"] }
 signature = "2"
 ed25519-dalek = { version = "2", default-features = false, features = ["alloc", "fast", "zeroize"] }
-ssh-key = { version = "=0.6.7", default-features = false, features = ["std", "ecdsa"] }
+ssh-key = { version = "=0.7.0-rc.11", default-features = false, features = ["std", "ecdsa"] }
 x509-cert = { version = "=0.2.5", default-features = false, features = ["std"] }
