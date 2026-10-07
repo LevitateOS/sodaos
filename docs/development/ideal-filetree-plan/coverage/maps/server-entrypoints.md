@@ -31,18 +31,28 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [cmd/soda-dashboard/main.go](../../../../../cmd/soda-dashboard/main.go)
 
-exact-blob current maintained map; full spans retained
+Current defining methods and mixed responsibilities inspected at `71cfb075` (2026-10-08); the preceding snapshot is retained for unrelated entries.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–28, 33–37, 46–73, 84–93, 113–136, 139–156; whole file; main; run; serveOperatorSocket; openDashboard; extensionHTTPServer; serveExtensionSocket; beginShutdown; shutdownServer | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 9 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 29, 97–100; run; openDashboard, config.Load | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Configured service input path; declarations/fields: `run`; Load configured service inputs; declarations/fields: `openDashboard`, `config.Load` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 30; run | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Optional native-extension private endpoint configuration; declarations/fields: `run` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 31–32, 43–45, 74–83, 138; run; run, StartCoordinator; operatorEndpoint; beginShutdown, CloseCoordinator | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Private factory operator endpoint and explicit OS principal configuration; declarations/fields: `run`; 4 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 38–42, 105–108; run; openDashboard, config.Secret | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Close shared PostgreSQL handle on service exit; declarations/fields: `run`; Read restricted PostgreSQL DSN boundary; declarations/fields: `openDashboard`, `config.Secret` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 94–96; openDashboard, avatar.Validate | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Validate canonical authored avatar definitions before serving; declarations/fields: `openDashboard`, `avatar.Validate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 101–104, 109–112; openDashboard, config.GrantKey; openDashboard, store.OpenEncrypted | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | Read provisioned credential encryption key; declarations/fields: `openDashboard`, `config.GrantKey`; Open existing credential store with provisioned encryption-key check; declarations/fields: `openDashboard`, `store.OpenEncrypted` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 137; beginShutdown, CloseTerminals | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Terminate/cancel tracked human terminal operation streams at backend shutdown; declarations/fields: `beginShutdown`, `CloseTerminals` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 1–28, 33–37, 44–79, 95–105, 128–154, 156–159, 161, 163–191; scaffold, main, run, listener error reporting, extensionHTTPServer, serveExtensionSocket, beginShutdown, shutdownServers | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Public/private listener ownership; join shutdown results, preserve Serve/Shutdown/Close failures and force transport closure after the shared HTTP deadline. Actual dashboard checks pass; no installed service qualification. |
+| 29, 110–113; run configuration flag and openDashboard/config.Load | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Load configured service inputs under the existing configuration profile. |
+| 30; run extension-socket flag | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Optional private native-extension endpoint selection. |
+| 31–32, 39–43, 81–94, 155, 162; StartCoordinator, admission wrappers, operatorEndpoint, StopAdmission, CloseCoordinator | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Require an explicit OS operator principal; retain coordinator ownership through admitted callbacks and startup/error/normal shutdown. |
+| 38, 118–121; run database.Close and openDashboard/config.Secret | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Read the restricted PostgreSQL DSN and preserve database-close failures after coordinator retirement. |
+| 106–109; openDashboard/avatar.Validate | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Validate canonical avatar definitions before serving. |
+| 114–117, 122–127; openDashboard/config.GrantKey and store.OpenEncrypted | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | Read the provisioned encryption key and open the existing encrypted Store. |
+| 160; beginShutdown/CloseTerminals | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Cancel and join tracked hijacked terminal streams before releasing Store/coordinator ownership. |
+
+<a id="coverage-dashboard-main-test"></a>
+
+## [cmd/soda-dashboard/main_test.go](../../../../../cmd/soda-dashboard/main_test.go)
+
+Current source test declaration and local listener behavior inspected.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–56; `TestShutdownServersClosesConnectionsAndReturnsTimeout` | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Exercise shutdown of an admitted held HTTP connection, confirm deadline propagation, then release and join the request and server goroutines. — Included in the seven-check dashboard ownership packet |
 
 <a id="coverage-e446e6589b09"></a>
 

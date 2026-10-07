@@ -27,8 +27,8 @@ first twelve selected packets are committed, followed by readiness/artifact
 identity, installed-probe joins, duration cleanup and typed SDK snapshot cuts.
 Completed checks are source/development evidence; no installed, provider or
 native-worker qualification is inferred. Seven pre-existing dirty guidance
-files remain untouched. Current tracked paths total 2,560, including the new
-H06 Cargo-helper regression file. The established responsibility snapshot and
+files remain untouched. Current tracked paths total 2,557 after the dashboard
+test addition and four provisioning fixture retirements. The established responsibility snapshot and
 historical validity reviews retain their original scope; affected owner deltas
 are recorded selectively, with full R02.targets regeneration still pending.
 
@@ -146,7 +146,7 @@ roots once across their P/I/H duties, while A owns host/guest changes.
 - [x] **A07.C** [run 20261005: LANDED 865f0e2f (H01-F3) + 9d5a9281 (S04-F1/S05-F1); H01-F3 reap repair LANDED (6edf58b7+31bf88cf, integrated d4597974) + kill-then-wait source-verified; `81348345` keeps Muse control duplicates owned and close-on-exec; native transport pumping unproven (helpers lack output reader), provider/native qualification separate] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
 - [ ] **A07.V** Exercise actual PTY/relay/attachment and replacement transport subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement. L09 upgrade/read-ahead/wakeup/close ownership must be proven before its cutover and expensive native runs.
 
-- [ ] **A07.C-muse** [partial source receipt: `5fb32fbd` (52 related/control checks), `faa663cc` (65-second Muse operation+cleanup join horizon), and `1ee47d0c` (39 host checks and daemon compile). Selected terminal-child custody, 200-second error/report deadline, 65-second Muse marker, and systemd `KillMode=control-group`/210-second stop cutoff are source checked; no forced in-process cleanup, activation or full native qualification is claimed. A persistent child-wait error blocks before the pump error reaches the main cutoff, which currently starts only after a signal or finished server; a source-trigger repair is in progress. NativeAttach cleanup and outer HTTP join remain unresolved.] A owns CON-M01/CON-M02 signal/reap, supervisor joins and aggregate listener custody; completed H01-F3 remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **A07.C-muse** [partial source receipt: `5fb32fbd` (52 related/control checks), `faa663cc` (65-second Muse operation+cleanup join horizon), `1ee47d0c` (39 host checks and daemon compile), and `a94edec6` (39 failure-trigger/host checks plus daemon compile). Selected terminal-child custody, 200-second error/report deadline, 65-second Muse marker, and systemd `KillMode=control-group`/210-second stop cutoff are source checked; the child-wait failure trigger now starts the main cutoff before retention and has a constructor timeout/kill/reap confirmation path. No installed activation, forced native cleanup or full native qualification is claimed; broader caller/supervisor qualification remains open.] A owns CON-M01/CON-M02 signal/reap, supervisor joins and aggregate listener custody; completed H01-F3 remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [x] **A07.M-dependencies** [2026-10-07: `5c63e6c5`; iconfig checks passed, direct release-build edge removed; independently reviewed] A supplies COST-HOST-BUILD-EDGE-1 current iconfig predicate/direct dependency cut; delivery payload authority remains. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### A08 Spaces browser inventory and viewer
@@ -183,7 +183,7 @@ Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 bound
 - [ ] **B03.C** Correct F07-F1 authority tuple freshness, F07-F2 recorded prompt context, F08-F1 registration/withdraw capture ordering, F08-F2 fresh retry attempt and F08-F3 stop-owned settlement. Resolve exact grant/quiescence/transaction specifications first; Q3 blocks undecided simultaneous provider-family selection. The independent operator 4 KiB limiter-EOF correction is complete in `a1fec662`, with cap+one/read-error admission and focused endpoint checks; it does not close the remaining authority findings.
 - [x] **B03.V** [run 20261005: DONE on disposable PG (11 pkgs, -race 4/4, raw logs archived, 0F/0S)] Exercise actual authority/registration/withdraw/retry/stop races with existing real Store and coordinator subjects; preserve historical attribution and usage.
 
-- [ ] **B03.C-lifetime** B owns CON-G01 dashboard admission/drain/flock/DB lifetime and RES-GO-ACCEPTANCE-DEPENDANTS-1 exhaustive traversal bounds; select supported graph/progress profile first. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **B03.C-lifetime** CON-G01 dashboard admission/drain/flock/DB shutdown is complete in `71cfb075` with 32 actual checks (25 control, 7 dashboard; fresh PostgreSQL stopped). B03.C-lifetime remains open for RES-GO-ACCEPTANCE-DEPENDANTS-1 exhaustive traversal bounds; select supported graph/progress profile first. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### B04 Publication, review and correction loop
 
@@ -210,7 +210,7 @@ Lead B; [G01](reviews/G01.md), [G02](reviews/G02.md), [G03](reviews/G03.md), [G0
 - [ ] **B06.V** Verify existing real Go authority/transport/preference subjects and exact dependency correspondence; no adjacent-checkout substitution or new request authority.
 
 - [x] **B06.C-admission** [2026-10-07: `a2a0926d`; actual Unix-socket blocked-waiter and shared-admission checks passed; independently reviewed] B owns CON-G02 cancellable bootstrap wait independent of SDK replacement. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **B06.M-adapters** Local SIMP-SNAPSHOT-1 is complete in `5794a7d9`, independently reviewed with actual snapshot/bracket checks; broader SIMP-SDK-1 waits on exact upstream capabilities, SIMP-GJSON-1 on actual DTO profiles. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **B06.M-adapters** SIMP-SNAPSHOT-1 is complete in `5794a7d9`; SIMP-SDK-1 is complete in `eb83115c` against SDK `c92db11c`, removing only the forwarding adapter while retaining custom peer/credential transport. The parent remains open for SIMP-GJSON-1 actual DTO profiles. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### B07 Native Forgejo effect adapters
 
@@ -312,7 +312,7 @@ Lead C; [D02](reviews/D02.md), [D04](reviews/D04.md), [H05](reviews/H05.md). C08
 - [ ] **C09.C** [run 20261005: PARTIAL — D02-F1 DONE (byte-safe predicate + regression, proven-red pre-fix at url.rs:60); installer-version media reconciliation NOT done, gate Q7 REMAINS OPEN per RULING-C-002 §3, no finalized finding] Correct the recorded byte-safe HTTPS predicate and reconcile actual installer-version media handoff only with retained producer evidence. Preserve full Forgejo design and installed payload destinations.
 - [x] **C09.V** [run 20261005: DONE (375/0 mirror + canonical post-merge, clippy 0, 7 bins live, Go FAIL sets identical base-vs-post, cargo-building Go + TS suites green post-join; cockpit playwright NOT run)] Check real input/media/asset/attribution subjects and every actual binary/importer; no new network acquisition or signing contract.
 
-- [x] **C09.M-format** [2026-10-07: `00a2d4a1`; six focused checks pass (two library, four CLI), including the synthetic keygen path. Butane/image qualification was not run.] SIMP-ASSET-NODE-1 replaces the provisioning Node/Python formatter with Value/standard emission, retaining input values, private mutations, integer modes and output custody. Package/asset placement remains a separate completed scope. Scope and evidence: [finding allocation](execution-findings.md).
+- [x] **C09.M-format** [2026-10-08: `00a2d4a1` Value/standard emission and `71bb28bd` last-caller cleanup; six renderer checks pass for cleanup. Four unused formatter fixtures and three single-use forwarding helpers were removed. Butane/image qualification was not run.] SIMP-ASSET-NODE-1 replaces the provisioning Node/Python formatter with Value/standard emission, retaining input values, private mutations, integer modes and output custody. Package/asset placement remains a separate completed scope. Scope and evidence: [finding allocation](execution-findings.md).
 
 ### C10 Verification, delivery and native payload application
 
@@ -323,7 +323,7 @@ Lead C; [D05](reviews/D05.md), [D07](reviews/D07.md), [D08](reviews/D08.md), [D0
 - [ ] **C10.V** Exercise actual trust/null/duplicate/error/confinement/compression/result subjects and selected import/install lifecycle. Signing, publication and distribution effects are separately selected operations.
 
 - [ ] **C10.M-profiles** [partial: SIMP-PEM-1 complete in `058b6f53`; upstream PEM decoding keeps the 16 KiB/single-certificate/original-DER contract, and 15 installer checks pass with lock versions unchanged. CA-ALGORITHM-PROFILE-1 and SIMP-REL-WIRE-1/ORDERED-1/INSTALL-OCI-1 remain open.] C owns remaining actual producer/reader decisions. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **C10.M-format** [partial: REP-FMT-1 candidate/lab formatters complete in `f29ff882` with 43 focused checks; SIMP-REL-EMIT-1 still has controlled unsigned release emitters to profile. Preserve original signed bytes, raw fingerprints, and current shipping selectors.] C owns only the remaining output-site decisions after their actual consumers and deterministic contracts are established. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C10.M-format** [partial: REP-FMT-1 candidate/lab formatters complete in `f29ff882` with 43 focused checks; the ForgejoToolchain unsigned emitter cut completed in `8bcaec9c` with three stage/writer/readback checks. Other controlled unsigned release emitters remain. Preserve original signed bytes, raw fingerprints, and current shipping selectors.] C owns only the remaining output-site decisions after their actual consumers and deterministic contracts are established. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [x] **C10.M-dependencies** [2026-10-07: `4e30cd9c` crypto features and `ad14c1c5` direct Runner cut, independently reviewed; 115 actual installer tests and real-Runner invalid-revision check pass] C supplies installer feature-only trim preserving current algorithms and COST-BOOTSTRAP-SEAM-1 two-call Runner cut; coordinator owns graph changes. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C11 Verification infrastructure and developer tooling

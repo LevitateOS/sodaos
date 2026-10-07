@@ -31,7 +31,7 @@ Current coherent source duties matched to live consumer and prior semantic unit 
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–384; lines 19–26: enum Node; attached module comments and attributes; lines 27–33: enum RawChildren; lines 34–37: fn deserialize; lines 38–40: struct ChildrenVisitor; lines 41–41: type Value; lines 42–45: fn expecting; lines 46–56: fn visit_seq; lines 57–72: fn visit_map; lines 73–74: impl Node; lines 75–121: fn parse; lines 122–127: fn parse_document; lines 128–129: impl Serialize; lines 130–161: fn serialize; lines 162–162: struct PythonFormatter; lines 163–164: impl Default; lines 165–168: fn default; lines 169–170: impl Formatter; lines 171–190: fn write_string_fragment; lines 191–197: fn begin_array; lines 198–203: fn end_array; lines 204–209: fn begin_array_value; lines 210–215: fn end_array_value; lines 216–221: fn begin_object; lines 222–227: fn end_object; lines 228–233: fn begin_object_key; lines 234–239: fn end_object_key; lines 240–245: fn begin_object_value; lines 246–251: fn end_object_value; lines 252–262: fn write_char_escape; lines 263–264: fn write_unicode_escape; lines 265–275: const HEX; lines 276–285: dump_python and attached behavior; lines 286–292: object_mut and attached behavior; lines 293–304: get_mut and attached behavior; lines 305–322: files_mut and attached behavior; lines 323–326: not_a_list and attached behavior; lines 327–336: push_file and attached behavior; lines 337–346: clear_files and attached behavior; lines 347–350: str_value and attached behavior; lines 351–364: file_entry and attached behavior; lines 365–384: public_config and attached behavior | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Current enum Node and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 41 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–67; `files_mut` (10–26), `push_file` (28–31), `clear_files` (33–36), `file_entry` (38–44), `public_config` (46–67) | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Build a JSON Value from the live base document and branding SVG, retaining the single document owner. Object access uses `Value::as_object_mut` at the actual mutation sites; no forwarding formatter/value helpers remain. — Current renderer caller inspected |
 
 <a id="coverage-90df13df2cca"></a>
 <a id="rustsoda-stage-rendersrcprovisioningrs-1"></a>
@@ -63,7 +63,7 @@ Current coherent source duties matched to live consumer and prior semantic unit 
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–105; lines 12–24: RenderInputs and attached behavior; attached module comments and attributes; lines 25–105: render and attached behavior | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs Adjacent comments and attributes explain this same authored responsibility.; Public bootstrap plus private per-instance operator input renderer; declaration/member render — tools/release-assets/src/render/provisioning/render.rs:12-24; current named unit matched to maintained semantic map and release consumer; tools/release-assets/src/render/provisioning/render.rs:25-105; current named unit matched to maintained semantic map and release consumer |
+| 1–101; `RenderInputs` (11–19), `render` (23–101) | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Merge the public base/SVG document with admitted private inputs and emit standard pretty JSON; the final exclusive writer retains mode 0600 and appends LF. — Current producer and final writer inspected |
 
 <a id="coverage-3669d4c2bc10"></a>
 
@@ -186,7 +186,7 @@ Current declaration selectors; prior map used only as owner candidate evidence; 
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–402; provisioning renderer test module and fixtures | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Tests provisioning help and usage, baked output goldens, host-key exclusion from argv, and rejection behavior against the provisioning renderer/script contract. — Current source inspected at tools/release-assets/tests/render_provisioning.rs; concrete renderer/build/test consumer is named in the selector and description. |
+| 1–482; provisioning renderer tests and live `prov-root` fixture | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Tests current document values, deterministic rendering, host-key exclusion from argv, private output mode/LF and rejection behavior. The four unused formatter oracles are retired; six renderer checks pass. — Current test source and fixture loader inspected |
 
 <a id="coverage-8c08675160c9"></a>
 

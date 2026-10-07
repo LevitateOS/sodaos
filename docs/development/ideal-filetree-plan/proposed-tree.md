@@ -336,6 +336,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── extension.go
 │   │   ├── extension_test.go
 │   │   ├── main.go
+│   │   ├── main_test.go
 │   │   ├── operator.go
 │   │   ├── operator_linux.go
 │   │   ├── operator_linux_test.go
@@ -2933,7 +2934,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   └── lib.rs
 │   │   ├── tests/
 │   │   │   ├── fixtures/
-│   │   │   │   ├── prov-root/
+│   │   │   │   └── prov-root/
 │   │   │   │   │   ├── assets/
 │   │   │   │   │   │   └── branding/
 │   │   │   │   │   │       └── source/
@@ -2945,10 +2946,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   │       └── host/
 │   │   │   │   │           └── provisioning/
 │   │   │   │   │               └── base.json
-│   │   │   │   ├── ext-host.bu
-│   │   │   │   ├── ext-hostkey.bu
-│   │   │   │   ├── ext-product.bu
-│   │   │   │   └── min-host.bu
 │   │   │   ├── locales_support/
 │   │   │   │   └── mod.rs
 │   │   │   ├── render_support/

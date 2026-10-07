@@ -26,12 +26,15 @@ current scoped subtasks and dependent holds. Refresh affected source/guidance
 before each dispatch. The owner has now authorized execution through the full
 remaining task list, with local commits early and often. Current implemented
 follow-ups are reconciled at `5794a7d9` in the existing
-[finding allocation](execution-findings.md#implemented-source-follow-ups-2026-10-07);
+[finding allocation](execution-findings.md#implemented-source-follow-ups-2026-10-08);
 prior audit and R03.L receipts keep their original evidence scope.
 The selective source receipts `f29ff882`, `96dadd55`, `37dc05fd`, `1ee47d0c`,
-and `00a2d4a1` are recorded in that same table without regenerating the full
-tree or census. The staged Identity HTTP decoder cut remains unverified until
-its focused checks run; Settings retains its separate decoder profile.
+`00a2d4a1`, `71cfb075`, `eb83115c`, `8bcaec9c`, `71bb28bd`, and `a94edec6` are recorded in
+that same table without regenerating the full tree or census. Identity HTTP
+decoder checks are complete in `1a297425`; Settings retains its separate
+decoder profile. A07's child-wait failure-trigger repair completed in
+`a94edec6` with 39 host checks and daemon compilation; installed activation and
+native-shell qualification remain open.
 
 The retained [tree](proposed-tree.md), [placement](placement.md),
 [ownership](package-ownership.md), [review records](reviews/README.md) and
