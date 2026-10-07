@@ -4,7 +4,7 @@
 
 use base64::Engine;
 use soda_release_image::{
-    compression, extension, ignition, jsonio, layout, model, packages, quadlet, recall, rootfs, sys,
+    compression, extension, ignition, layout, model, packages, quadlet, recall, rootfs, sys,
 };
 
 fn b64(data: &[u8]) -> String {

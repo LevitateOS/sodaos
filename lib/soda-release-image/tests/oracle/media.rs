@@ -98,12 +98,12 @@ fn oracle_media_compression() {
     let def = r"-zlzma,level=6 -Efragments -C1048576 --quiet";
     let mut cfg_prod = compression::ImageConfig::parse(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        jsonio::to_compact(&serde_json::Value::String(def.to_string()))
+        serde_json::to_string(&serde_json::Value::String(def.to_string())).unwrap()
     ))
     .unwrap();
     compression::set_media_compression(&mut cfg_prod, "").unwrap();
     let rendered_prod =
-        jsonio::to_compact(&serde_json::Value::String(cfg_prod.settings().unwrap().1));
+        serde_json::to_string(&serde_json::Value::String(cfg_prod.settings().unwrap().1)).unwrap();
     check_ok(
         "E-comp-prod",
         r"Ii16bHptYSxsZXZlbD02IC1FZnJhZ21lbnRzIC1DMTA0ODU3NiAtLXF1aWV0Ig==",
@@ -111,12 +111,12 @@ fn oracle_media_compression() {
     );
     let mut cfg_fast = compression::ImageConfig::parse(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        jsonio::to_compact(&serde_json::Value::String(def.to_string()))
+        serde_json::to_string(&serde_json::Value::String(def.to_string())).unwrap()
     ))
     .unwrap();
     compression::set_media_compression(&mut cfg_fast, "fast").unwrap();
     let rendered_fast =
-        jsonio::to_compact(&serde_json::Value::String(cfg_fast.settings().unwrap().1));
+        serde_json::to_string(&serde_json::Value::String(cfg_fast.settings().unwrap().1)).unwrap();
     check_ok(
         "E-comp-fast",
         r"Ii16bHptYSxsZXZlbD0xIC1FZnJhZ21lbnRzIC1DMTA0ODU3NiAtLXF1aWV0Ig==",
@@ -124,7 +124,7 @@ fn oracle_media_compression() {
     );
     let mut cfg_turbo = compression::ImageConfig::parse(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        jsonio::to_compact(&serde_json::Value::String(def.to_string()))
+        serde_json::to_string(&serde_json::Value::String(def.to_string())).unwrap()
     ))
     .unwrap();
     check_err(
@@ -134,7 +134,7 @@ fn oracle_media_compression() {
     );
     let mut cfg_xfs = compression::ImageConfig::parse(&format!(
         "{{\"live-rootfs-fstype\":\"xfs\",\"live-rootfs-fsoptions\":{}}}",
-        jsonio::to_compact(&serde_json::Value::String(def.to_string()))
+        serde_json::to_string(&serde_json::Value::String(def.to_string())).unwrap()
     ))
     .unwrap();
     check_err(

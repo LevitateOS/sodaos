@@ -223,7 +223,7 @@ mod tests {
             ..Result::default()
         };
         let mut out = String::new();
-        out.push_str(&crate::jsonio::to_compact(&result));
+        out.push_str(&serde_json::to_string(&result).expect("serialization to String cannot fail"));
         assert!(!out.contains("Media"));
         let result = Result {
             media: "m".to_string(),
@@ -231,7 +231,7 @@ mod tests {
             ..Result::default()
         };
         let mut out = String::new();
-        out.push_str(&crate::jsonio::to_compact(&result));
+        out.push_str(&serde_json::to_string(&result).expect("serialization to String cannot fail"));
         assert!(out.contains("\"Media\":\"m\""));
         assert!(out.contains("\"MediaCompression\":\"fast\""));
     }

@@ -81,15 +81,13 @@ impl<W: Write, E: Write> MediaEventWriter<W, E> {
             #[serde(rename = "Event")]
             event: &'a str,
             #[serde(rename = "Seconds")]
-            seconds: &'a serde_json::value::RawValue,
+            seconds: f64,
         }
-        let raw_seconds =
-            serde_json::value::RawValue::from_string(crate::jsonio::format_float_go(seconds))
-                .map_err(|_| Error::msg("invalid event timestamp"))?;
-        let mut line = crate::jsonio::to_compact(&EventRecord {
+        let mut line = serde_json::to_string(&EventRecord {
             event: &event,
-            seconds: &raw_seconds,
-        });
+            seconds,
+        })
+        .expect("serialization to String cannot fail");
         line.push('\n');
         self.events.write_all(line.as_bytes())?;
         Ok(())
@@ -129,8 +127,17 @@ mod tests {
             .unwrap();
         writer.write_data(b"Packing successful!\n").unwrap();
         let events = String::from_utf8(writer.events.clone()).unwrap();
-        assert!(events.contains("\"Event\":\"rootfs-start\""));
-        assert!(events.contains("\"Event\":\"osmet-end\""));
+        assert!(events.ends_with('\n'));
+        let records: Vec<serde_json::Value> = events
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0]["Event"], "rootfs-start");
+        assert_eq!(records[1]["Event"], "osmet-end");
+        assert!(records
+            .iter()
+            .all(|record| record["Seconds"].as_f64().is_some()));
         assert!(!events.contains("noise"));
         // Over-long lines are dropped, never emitted.
         let mut writer = MediaEventWriter::new(Vec::new(), Vec::new());

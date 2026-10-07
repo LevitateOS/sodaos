@@ -168,7 +168,8 @@ impl PreparedWriter {
             base: base.image(arch),
             packages,
         };
-        let mut encoded = jsonio::to_indent(&record);
+        let mut encoded =
+            serde_json::to_string_pretty(&record).expect("serialization to String cannot fail");
         encoded.push('\n');
         self.write(
             "rootfs/usr/share/soda/host-image/build.json",
@@ -364,7 +365,8 @@ pub fn inventory(context: &str) -> Result<(), Error> {
         Ok(())
     })?;
     entries.sort_by(|a, b| a.0.cmp(&b.0));
-    let mut data = jsonio::to_indent(&jsonio::SortedPairs(&entries));
+    let mut data = serde_json::to_string_pretty(&jsonio::SortedPairs(&entries))
+        .expect("serialization to String cannot fail");
     data.push('\n');
     sys::write_new(
         &sys::join(&[&sys::dir_name(context), "context-inventory.json"]),

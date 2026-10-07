@@ -181,7 +181,7 @@ pub fn candidate_live_config(
     {
         return Err(Error::msg("candidate media identity required"));
     }
-    let media = jsonio::to_compact(&identity);
+    let media = serde_json::to_string(&identity).expect("serialization to String cannot fail");
     #[derive(Serialize)]
     struct InlineContents {
         source: String,
@@ -290,7 +290,9 @@ pub fn candidate_live_config(
         storage: Storage { files },
         systemd: Systemd { units },
     };
-    Ok(jsonio::to_compact(&document).into_bytes())
+    Ok(serde_json::to_string(&document)
+        .expect("serialization to String cannot fail")
+        .into_bytes())
 }
 
 #[cfg(test)]

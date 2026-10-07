@@ -265,7 +265,8 @@ pub fn seal_media(
         rootfs_filesystem: filesystem.to_string(),
         rootfs_options: fsoptions.to_string(),
     };
-    let mut data = jsonio::to_indent(&result);
+    let mut data =
+        serde_json::to_string_pretty(&result).expect("serialization to String cannot fail");
     data.push('\n');
     sys::write_new(
         &sys::join(&[media_dir, "media.json"]),

@@ -103,7 +103,8 @@ pub fn candidate_content(out: &str) -> Result<Vec<(String, String)>, Error> {
 pub fn content_inventory_bytes(files: &[(String, String)]) -> Result<Vec<u8>, Error> {
     let mut sorted = files.to_vec();
     sorted.sort_by(|a, b| a.0.cmp(&b.0));
-    let mut data = jsonio::to_indent(&jsonio::SortedPairs(&sorted));
+    let mut data = serde_json::to_string_pretty(&jsonio::SortedPairs(&sorted))
+        .expect("serialization to String cannot fail");
     data.push('\n');
     Ok(data.into_bytes())
 }
@@ -168,7 +169,8 @@ pub fn record_build_result(
     if request.development {
         result.scope = "development-only; not release-qualified".to_string();
     }
-    let mut data = jsonio::to_indent(&result);
+    let mut data =
+        serde_json::to_string_pretty(&result).expect("serialization to String cannot fail");
     data.push('\n');
     sys::write_new(
         &sys::join(&[&request.out, "evidence/build.json"]),
@@ -201,7 +203,8 @@ pub fn record_candidate(
         ..model::Candidate::default()
     };
     record_candidate_inputs(out, &mut record)?;
-    let mut data = jsonio::to_indent(&record);
+    let mut data =
+        serde_json::to_string_pretty(&record).expect("serialization to String cannot fail");
     data.push('\n');
     sys::write_new(&sys::join(&[out, "candidate.json"]), data.as_bytes(), 0o600)
 }

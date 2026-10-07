@@ -7,7 +7,6 @@ use crate::complete;
 use crate::error::Error;
 use crate::extension;
 use crate::foreign::Production;
-use crate::jsonio;
 use crate::model;
 use crate::sys;
 
@@ -271,7 +270,8 @@ pub fn seal_candidate_payload(
         payload,
         Some(production),
     )?;
-    let mut record = jsonio::to_indent(payload);
+    let mut record =
+        serde_json::to_string_pretty(payload).expect("serialization to String cannot fail");
     record.push('\n');
     sys::write_new(&sys::join(&[out, "payload.json"]), record.as_bytes(), 0o600)
 }

@@ -4,7 +4,6 @@ use std::fs;
 
 use crate::error::Error;
 use crate::foreign::Production;
-use crate::jsonio;
 use crate::sys;
 
 const RUNTIME_COMMANDS: [(&str, &str); 9] = [
@@ -99,7 +98,8 @@ pub fn record_tool_files(
         architecture: arch,
         files: crate::jsonio::SortedPairs(&tool_files),
     };
-    let mut tool_data = jsonio::to_indent(&record);
+    let mut tool_data =
+        serde_json::to_string_pretty(&record).expect("serialization to String cannot fail");
     tool_data.push('\n');
     sys::write_new(
         &sys::join(&[artifacts, "tools.json"]),

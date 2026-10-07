@@ -3,7 +3,6 @@
 use std::fs;
 
 use crate::error::Error;
-use crate::jsonio;
 use crate::ordered_json::OrderedValue;
 use crate::sys;
 
@@ -21,12 +20,8 @@ impl ImageConfig {
         Ok(Self(OrderedValue::parse(text)?))
     }
 
-    pub fn to_compact_json(&self) -> String {
-        jsonio::to_compact(&self.0)
-    }
-
     pub(crate) fn to_pretty_json(&self) -> String {
-        jsonio::to_indent(&self.0)
+        serde_json::to_string_pretty(&self.0).expect("serialization to String cannot fail")
     }
 
     pub(crate) fn is_nonempty_object(&self) -> bool {
@@ -95,9 +90,10 @@ mod tests {
         // Oracle: Go TestMediaCompressionAdmissionAndMetadata.
         let mut config = ImageConfig::parse(&format!(
             "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-            jsonio::to_compact(&serde_json::Value::String(
+            serde_json::to_string(&serde_json::Value::String(
                 DEFAULT_ROOTFS_OPTIONS.to_string()
             ))
+            .expect("serialization to String cannot fail")
         ))
         .unwrap();
         set_media_compression(&mut config, "").unwrap();
@@ -111,9 +107,10 @@ mod tests {
         );
         let mut config = ImageConfig::parse(&format!(
             "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-            jsonio::to_compact(&serde_json::Value::String(
+            serde_json::to_string(&serde_json::Value::String(
                 DEFAULT_ROOTFS_OPTIONS.to_string()
             ))
+            .expect("serialization to String cannot fail")
         ))
         .unwrap();
         assert!(set_media_compression(&mut config, "turbo").is_err());
@@ -138,11 +135,13 @@ mod tests {
         ))
         .unwrap();
         set_media_compression(&mut config, "fast").unwrap();
+        let expected = OrderedValue::parse(&format!(
+            r#"{{"live-rootfs-fstype":"erofs","live-rootfs-fsoptions":"{FAST_ROOTFS_OPTIONS}","LIVE-rootfs-fsoptions":"keep","live-rootfs-fsoptions":"{FAST_ROOTFS_OPTIONS}"}}"#
+        ))
+        .unwrap();
         assert_eq!(
-            config.to_compact_json(),
-            format!(
-                r#"{{"live-rootfs-fstype":"erofs","live-rootfs-fsoptions":"{FAST_ROOTFS_OPTIONS}","LIVE-rootfs-fsoptions":"keep","live-rootfs-fsoptions":"{FAST_ROOTFS_OPTIONS}"}}"#
-            )
+            OrderedValue::parse(&config.to_pretty_json()).unwrap(),
+            expected
         );
     }
 }
