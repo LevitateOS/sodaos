@@ -8,12 +8,13 @@ use crate::control::Controller;
 use crate::http_wire::{error_response, success_response, HttpRequest};
 use crate::strict;
 use crate::wire::{DeliveryWire, Error, ErrorKind, Request};
+use bytes::Bytes;
+use http_body_util::Full;
+use hyper::Response;
 use std::time::Duration;
 
 pub(crate) const MAX_BODY: usize = 512 << 10;
-pub(crate) const MAX_HEADER: usize = 8192;
 pub(crate) const HEADER_TIMEOUT: Duration = Duration::from_secs(5);
-pub(crate) const BODY_TIMEOUT: Duration = Duration::from_secs(30);
 
 const REQUEST_FIELDS: &[&str] = &[
     "provider_id",
@@ -74,7 +75,7 @@ pub(crate) fn dispatch(
     request: HttpRequest,
     body: Vec<u8>,
     runtime_allowed: bool,
-) -> Vec<u8> {
+) -> Response<Full<Bytes>> {
     if request.method != "POST" || !request.query.is_empty() || !request.origin.is_empty() {
         return error_response(403, "denied");
     }

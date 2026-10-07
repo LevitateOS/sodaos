@@ -1,4 +1,5 @@
 use super::*;
+use http_body_util::BodyExt;
 
 #[test]
 fn percent_paths_decode() {
@@ -9,19 +10,40 @@ fn percent_paths_decode() {
 }
 
 #[test]
-fn error_bodies_match_go() {
+fn error_envelope_preserves_status_headers_and_lf() {
     let response = error_response(403, "denied");
-    let text = String::from_utf8(response).unwrap();
-    assert!(text.starts_with("HTTP/1.1 403 Forbidden\r\n"));
-    assert!(text.ends_with("\r\n\r\ndenied\n"));
-    assert!(text.contains("Content-Type: text/plain; charset=utf-8"));
+    assert_eq!(response.status(), hyper::StatusCode::FORBIDDEN);
+    assert_eq!(
+        response.headers()[hyper::header::CONTENT_TYPE],
+        "text/plain; charset=utf-8"
+    );
+    assert_eq!(
+        response.headers()[hyper::header::X_CONTENT_TYPE_OPTIONS],
+        "nosniff"
+    );
+    let body = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
+        .block_on(response.into_body().collect())
+        .unwrap()
+        .to_bytes();
+    assert_eq!(body, b"denied\n"[..]);
 }
 
 #[test]
-fn success_envelope_matches_go() {
+fn success_envelope_preserves_cache_policy_and_lf() {
     let response = success_response(&None);
-    let text = String::from_utf8(response).unwrap();
-    assert!(text.contains("Content-Type: application/json"));
-    assert!(text.contains("Cache-Control: no-store"));
-    assert!(text.ends_with("\r\n\r\n{}\n"));
+    assert_eq!(response.status(), hyper::StatusCode::OK);
+    assert_eq!(
+        response.headers()[hyper::header::CONTENT_TYPE],
+        "application/json"
+    );
+    assert_eq!(response.headers()[hyper::header::CACHE_CONTROL], "no-store");
+    let body = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
+        .block_on(response.into_body().collect())
+        .unwrap()
+        .to_bytes();
+    assert_eq!(body, b"{}\n"[..]);
 }

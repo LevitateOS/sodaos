@@ -341,20 +341,19 @@ fn serve(admin: UnixListener, runtime: UnixListener, broker: Arc<Controller>) {
         Arc::clone(&shutdown),
         Arc::clone(&inflight),
     );
-    std::thread::scope(|scope| {
+    let listener_failed = std::thread::scope(|scope| {
         let admin_done = scope.spawn(|| admin_server.serve(&admin));
         let runtime_done = scope.spawn(|| runtime_server.serve(&runtime));
         // Reconcile every 5s; each sweep is bounded by the store timeouts.
         let mut last = Instant::now() - Duration::from_secs(5);
-        loop {
+        let listener_failed = loop {
             if SHUTDOWN.load(Ordering::SeqCst) {
-                break;
+                break false;
             }
-            // A server ends only on shutdown or fatal listener failure;
-            // exit for supervisor restart like the Go broker's Serve error.
+            // A server ends only on shutdown or fatal listener failure.
             if admin_done.is_finished() || runtime_done.is_finished() {
                 eprintln!("soda-identity: listener failed");
-                std::process::exit(1);
+                break true;
             }
             if last.elapsed() >= Duration::from_secs(5) {
                 last = Instant::now();
@@ -363,12 +362,17 @@ fn serve(admin: UnixListener, runtime: UnixListener, broker: Arc<Controller>) {
                 }
             }
             std::thread::sleep(Duration::from_millis(100));
-        }
+        };
         shutdown.store(true, Ordering::SeqCst);
-        // Drain in-flight requests up to the 10s shutdown budget.
-        let deadline = Instant::now() + Duration::from_secs(10);
-        while inflight.load(Ordering::SeqCst) > 0 && Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(20));
-        }
+        // Server::serve owns and joins HTTP drivers and admitted backend jobs.
+        // The scoped threads below return only after that drain completes.
+        let _ = admin_done.join();
+        let _ = runtime_done.join();
+        // The signal path exits normally; the listener path restarts via
+        // the supervisor only after both servers have completed cleanup.
+        listener_failed
     });
+    if listener_failed {
+        std::process::exit(1);
+    }
 }

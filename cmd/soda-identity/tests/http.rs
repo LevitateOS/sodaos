@@ -49,10 +49,10 @@ fn http_admission_matches_go() {
                 .store(true, std::sync::atomic::Ordering::SeqCst);
         }
     }
-    let _guard = Guard {
-        shutdown: Arc::clone(&shutdown),
-    };
     std::thread::scope(|scope| {
+        let _guard = Guard {
+            shutdown: Arc::clone(&shutdown),
+        };
         scope.spawn(|| admin_server.serve(&admin));
         scope.spawn(|| runtime_server.serve(&runtime));
         let call = |path: &std::path::Path, raw: &[u8]| -> (u16, Vec<u8>) {
@@ -128,8 +128,8 @@ fn http_admission_matches_go() {
     let _ = std::fs::remove_file(&runtime_path);
 }
 
-// A dead listener ends serve() promptly for supervisor restart, like Go's
-// Serve returning a fatal error, instead of spinning deaf forever.
+// An unusable listener ends serve() promptly for supervisor restart.
+// This exercises initial listener setup failure, not the fatal accept counter.
 #[test]
 #[cfg(target_os = "linux")]
 fn dead_listener_fails_fast() {
@@ -181,4 +181,199 @@ fn dead_listener_fails_fast() {
     std::mem::forget(listener);
     drop(guards);
     let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn shutdown_joins_admitted_provider_work_without_blocking_http_runtime() {
+    use soda_identity::control::{Controller, EnrollmentSession, Provider, Runtime};
+    use soda_identity::http::Server;
+    use soda_identity::wire::{Connection, Enrollment, Error, Lease};
+    use std::collections::HashMap;
+    use std::io::{Read, Write};
+    use std::os::unix::net::{UnixListener, UnixStream};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{mpsc, Mutex};
+    use std::time::Duration;
+
+    struct BlockingProvider {
+        entered: mpsc::SyncSender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+        finished: Arc<AtomicBool>,
+    }
+    struct Session(Enrollment);
+    impl EnrollmentSession for Session {
+        fn snapshot(&self) -> Enrollment {
+            self.0.clone()
+        }
+        fn finish(&self) -> Result<(Connection, Vec<u8>), Error> {
+            Err(Error::internal("unused test session"))
+        }
+        fn close(&self) -> Result<(), Error> {
+            Ok(())
+        }
+    }
+    impl Provider for BlockingProvider {
+        fn start(&self, _owner: i64) -> Result<Box<dyn EnrollmentSession>, Error> {
+            self.entered.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            self.finished.store(true, Ordering::SeqCst);
+            Ok(Box::new(Session(Enrollment {
+                provider_id: "codex".into(),
+                id: "blocked-test".into(),
+                verification_url: String::new(),
+                user_code: String::new(),
+                state: "pending".into(),
+                error: String::new(),
+                connection: None,
+            })))
+        }
+    }
+    struct EmptyRuntime;
+    impl Runtime for EmptyRuntime {
+        fn validate(&self, _: &Lease) -> Result<(), Error> {
+            Ok(())
+        }
+        fn stop(&self, _: &Lease) -> Result<(), Error> {
+            Ok(())
+        }
+        fn finish(&self, _: &Lease) -> Result<Vec<u8>, Error> {
+            Ok(Vec::new())
+        }
+    }
+
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    let (entered_tx, entered_rx) = mpsc::sync_channel(1);
+    let (release_tx, release_rx) = mpsc::channel();
+    let finished = Arc::new(AtomicBool::new(false));
+    let mut providers: HashMap<String, Box<dyn Provider>> = HashMap::new();
+    providers.insert(
+        "codex".into(),
+        Box::new(BlockingProvider {
+            entered: entered_tx,
+            release: Mutex::new(release_rx),
+            finished: Arc::clone(&finished),
+        }),
+    );
+    let broker = Arc::new(
+        Controller::new(
+            fixture.store(&fixture_key()),
+            providers,
+            Box::new(EmptyRuntime),
+        )
+        .unwrap(),
+    );
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap()
+        .join(".artifacts/l08-l09");
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join(format!("http-drain-{}.sock", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+    let shutdown = Arc::new(AtomicBool::new(false));
+    struct ShutdownOnDrop(Arc<AtomicBool>);
+    impl Drop for ShutdownOnDrop {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+    let _shutdown_guard = ShutdownOnDrop(Arc::clone(&shutdown));
+    let server = Server::new(
+        Arc::clone(&broker),
+        false,
+        Arc::clone(&shutdown),
+        Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+    );
+    let done = Arc::new(AtomicBool::new(false));
+    let thread_done = Arc::clone(&done);
+    let server_thread = std::thread::spawn(move || {
+        server.serve(&listener);
+        thread_done.store(true, Ordering::SeqCst);
+    });
+
+    let start_request = |request_path: std::path::PathBuf, label: String| {
+        std::thread::spawn(move || {
+            let body = format!(r#"{{"owner_id":"1","provider_id":"codex","label":"{label}"}}"#);
+            let mut stream = UnixStream::connect(request_path).unwrap();
+            write!(
+                stream,
+                "POST /enrollment/start HTTP/1.1\r\nHost: x\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+            let mut response = Vec::new();
+            let _ = stream.read_to_end(&mut response);
+            response
+        })
+    };
+    let request = start_request(path.clone(), "test".to_string());
+    entered_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("provider callback admitted");
+
+    // A request that needs no Controller lock must still be serviced while
+    // the synchronous provider callback occupies a blocking backend worker.
+    let mut probe = UnixStream::connect(&path).unwrap();
+    probe
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    probe
+        .write_all(b"GET /connections HTTP/1.1\r\nHost: x\r\n\r\n")
+        .unwrap();
+    let mut response = Vec::new();
+    probe.read_to_end(&mut response).unwrap();
+    assert!(response.starts_with(b"HTTP/1.1 403"));
+
+    // Eight backend slots are available. The first provider callback holds
+    // the Controller lock, so the next seven admitted calls wait behind it;
+    // the ninth call must be rejected instead of accumulating another job.
+    let queued: Vec<_> = (0..7)
+        .map(|index| start_request(path.clone(), format!("queued-{index}")))
+        .collect();
+    std::thread::sleep(Duration::from_millis(150));
+    let mut excess = UnixStream::connect(&path).unwrap();
+    excess
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let body = r#"{"owner_id":"1","provider_id":"codex","label":"excess"}"#;
+    write!(
+        excess,
+        "POST /enrollment/start HTTP/1.1\r\nHost: x\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        body
+    )
+    .unwrap();
+    let mut excess_response = Vec::new();
+    excess.read_to_end(&mut excess_response).unwrap();
+    assert!(excess_response.starts_with(b"HTTP/1.1 503"));
+
+    let mut partial_head = UnixStream::connect(&path).unwrap();
+    partial_head
+        .write_all(b"POST /connections HTTP/1.1\r\nHost:")
+        .unwrap();
+    let mut partial_body = UnixStream::connect(&path).unwrap();
+    partial_body
+        .write_all(b"POST /connections HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{")
+        .unwrap();
+
+    shutdown.store(true, Ordering::SeqCst);
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(
+        !done.load(Ordering::SeqCst),
+        "server returned before admitted backend work finished"
+    );
+    release_tx.send(()).unwrap();
+    server_thread.join().unwrap();
+    assert!(done.load(Ordering::SeqCst));
+    let _ = request.join().unwrap();
+    for request in queued {
+        let _ = request.join().unwrap();
+    }
+    assert!(finished.load(Ordering::SeqCst));
+    let _ = std::fs::remove_file(path);
 }

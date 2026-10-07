@@ -28,3 +28,9 @@ libc = "0.2"
 soda-release-deliver = { path = "../../lib/soda-release-deliver" }
 soda-release-build = { path = "../../lib/soda-release-build" }
 soda-unix-http = { path = "../unix-http" }
+hyper = { version = "=1.12.0", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
+tokio = { version = "=1.53.2", default-features = false, features = ["rt", "net", "time", "sync", "macros", "io-util"] }
+http-body-util = "=0.1.3"
+bytes = "=1.12.1"
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
