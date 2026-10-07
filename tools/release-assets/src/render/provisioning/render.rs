@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use super::document::{
-    clear_files, dump_python, file_entry, object_mut, public_config, push_file, str_value, Node,
+    clear_files, dump_json, file_entry, object_mut, public_config, push_file, str_value,
 };
 use super::private_files::{
     derive_host_public, is_appliance_hostname, is_fixture_hostname, regular, write_exclusive,
@@ -47,31 +47,25 @@ pub fn render(source: &Path, inputs: &RenderInputs<'_>) -> Result<(), ProvError>
     if inputs.bootstrap == "minimal" {
         let entries = object_mut(&mut config)
             .ok_or_else(|| ProvError::new(ProvKind::Type, "bootstrap must be an object"))?;
-        let position = entries
-            .iter()
-            .rposition(|(k, _)| k == "systemd")
-            .ok_or_else(|| ProvError::new(ProvKind::Key, "bootstrap has no systemd"))?;
-        entries.remove(position);
+        if entries.remove("systemd").is_none() {
+            return Err(ProvError::new(ProvKind::Key, "bootstrap has no systemd"));
+        }
         clear_files(&mut config)?;
     } else if inputs.bootstrap != "extensions" {
         return Err(ProvError::value("unknown bootstrap profile"));
     }
     let entries = object_mut(&mut config)
         .ok_or_else(|| ProvError::new(ProvKind::Type, "bootstrap must be an object"))?;
-    entries.push((
+    entries.insert(
         "passwd".to_string(),
-        Node::Object(vec![(
-            "users".to_string(),
-            Node::Array(vec![Node::Object(vec![
-                ("name".to_string(), str_value("root")),
-                (
-                    "ssh_authorized_keys".to_string(),
-                    Node::Array(vec![str_value(key)]),
-                ),
-                ("password_hash".to_string(), str_value(password)),
-            ])]),
-        )]),
-    ));
+        serde_json::json!({
+            "users": [{
+                "name": str_value("root"),
+                "ssh_authorized_keys": [str_value(key)],
+                "password_hash": str_value(password),
+            }]
+        }),
+    );
     if let Some(hostname) = inputs.hostname {
         if !is_fixture_hostname(hostname) {
             return Err(ProvError::value(
@@ -101,5 +95,5 @@ pub fn render(source: &Path, inputs: &RenderInputs<'_>) -> Result<(), ProvError>
             file_entry("/etc/ssh/ssh_host_ed25519_key.pub", 0o644, &public),
         )?;
     }
-    write_exclusive(inputs.out, &dump_python(&config))
+    write_exclusive(inputs.out, &dump_json(&config))
 }

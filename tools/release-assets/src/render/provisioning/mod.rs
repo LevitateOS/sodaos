@@ -2,8 +2,8 @@
 //!
 //! Merges the public Butane bootstrap with private per-instance operator
 //! inputs. No conversion, installation, account enrollment or reboot is
-//! implicit. Rendered documents, secret handling and failure messages
-//! match the script; only the argparse envelope carries the new name.
+//! implicit. Standard Serde JSON output preserves bootstrap values and private
+//! mutations; secret custody and the established failure messages are retained.
 
 mod document;
 mod private_files;
@@ -16,8 +16,6 @@ use std::io::ErrorKind;
 
 pub use render::{render, RenderInputs};
 
-#[cfg(test)]
-use document::dump_python;
 #[cfg(test)]
 use private_files::{is_appliance_hostname, is_fixture_hostname};
 

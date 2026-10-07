@@ -2,11 +2,11 @@
 //!
 //! Ports `scripts/stage.py`, `scripts/render-provisioning.py` and
 //! `scripts/render-terminal-logo.py` to three binaries.
-//! Every success output (staged file bytes, modes, stdout lines, rendered
-//! JSON documents, branding text) and every validation message matches the
-//! owning script; only the argparse envelope (usage preface, `prog: error:`
-//! prefix) carries the new binary name, and unpinned failure text (usage
-//! errors, malformed-input tracebacks, transport errors) differs.
+//! Staged file bytes, modes, stdout lines, branding text and validation
+//! messages retain their owning contracts. Provisioning emits deterministic
+//! standard Serde JSON with the current bootstrap values and private mutations.
+//! CLI usage carries the current binary names; unpinned transport and malformed
+//! input diagnostics may differ from the retired scripts.
 //!
 //! The scripts locate the source tree from their own path; the binaries
 //! walk up from the working directory instead (see [`source_root`]), so

@@ -114,8 +114,8 @@ fn provisioning_help_and_usage() {
 }
 
 #[test]
-fn provisioning_matches_the_baked_goldens() {
-    let scratch = TempDir::new("prov-golden");
+fn provisioning_preserves_document_values_and_is_deterministic() {
+    let scratch = TempDir::new("prov-semantic");
     let root = fixture_root(&scratch);
     let (key, hash) = provisioning_inputs(&scratch);
     let key = key.to_str().unwrap().to_string();
@@ -150,12 +150,61 @@ fn provisioning_matches_the_baked_goldens() {
         let (code, _, err) = run(&provisioning_bin(), &root, &args);
         assert_eq!(code, 0, "{name}: {err}");
         assert_eq!(mode_of(&dest), 0o600, "{name}");
-        let golden = fs::read(fixtures().join(format!("{name}.bu"))).unwrap();
-        assert_eq!(
-            fs::read(&dest).unwrap(),
-            golden,
-            "{name} drifted from the baked golden"
+        let bytes = fs::read(&dest).unwrap();
+        assert!(
+            bytes.ends_with(b"\n"),
+            "{name} output ends with the writer's LF"
         );
+        let document: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(document["variant"], "fixture");
+        assert_eq!(document["version"], "0.0");
+        assert_eq!(document["empty"], serde_json::json!({}));
+        assert_eq!(document["nothing"], serde_json::Value::Null);
+        assert_eq!(document["flag"], true);
+        let files = document["storage"]["files"].as_array().unwrap();
+        let expected_count = if name == "min-host" { 1 } else { 3 };
+        assert_eq!(files.len(), expected_count, "{name}");
+        let host_file = files.last().unwrap();
+        assert_eq!(host_file["path"], "/etc/hostname");
+        assert_eq!(host_file["mode"].as_u64(), Some(420));
+        let expected_hostname = if name == "ext-product" {
+            "fixture-01.lab.example\n"
+        } else {
+            "soda-native-fixture\n"
+        };
+        assert_eq!(host_file["contents"]["inline"], expected_hostname);
+        if name != "min-host" {
+            assert_eq!(files[0]["path"], "/etc/fixture.conf");
+            assert_eq!(files[0]["mode"].as_u64(), Some(420));
+            assert_eq!(files[0]["contents"]["inline"], "line\nquote\"slash\\café");
+            let expected_svg =
+                fs::read_to_string(root.join("assets/branding/source/soda-symbol.svg")).unwrap();
+            assert_eq!(
+                files[1]["path"],
+                "/var/usrlocal/share/icons/hicolor/scalable/apps/sodaos-icon.svg"
+            );
+            assert_eq!(files[1]["mode"].as_u64(), Some(420));
+            assert_eq!(files[1]["contents"]["inline"], expected_svg);
+        }
+        assert_eq!(document["passwd"]["users"].as_array().unwrap().len(), 1);
+        assert_eq!(document["passwd"]["users"][0]["name"], "root");
+        assert_eq!(
+            document["passwd"]["users"][0]["ssh_authorized_keys"][0],
+            "ssh-ed25519 AAAA synthetic-fixture-key"
+        );
+        assert_eq!(
+            document["passwd"]["users"][0]["password_hash"],
+            "$6$synthetic$fixture-hash"
+        );
+        assert_eq!(document.get("systemd").is_some(), name != "min-host");
+
+        let second_dest = out_dir.join(format!("{name}-again.bu"));
+        let second_dest_text = second_dest.to_str().unwrap().to_string();
+        let mut repeated_args = args[..args.len() - 2].to_vec();
+        repeated_args.extend(["--out", second_dest_text.as_str()]);
+        let (repeat_code, _, repeat_err) = run(&provisioning_bin(), &root, &repeated_args);
+        assert_eq!(repeat_code, 0, "repeat {name}: {repeat_err}");
+        assert_eq!(fs::read(&second_dest).unwrap(), bytes, "{name} determinism");
     }
 }
 
@@ -187,28 +236,59 @@ fn provisioning_host_key_never_enters_argv() {
     );
     let out_dir = scratch.sub("out", 0o700);
     let dest = out_dir.join("ext-hostkey.bu");
-    let (code, _, err) = run_env(
-        &provisioning_bin(),
-        &root,
-        &[
-            "--operator-key-file",
-            key.to_str().unwrap(),
-            "--root-password-hash-file",
-            hash.to_str().unwrap(),
-            "--hostname",
-            "soda-native-fixture",
-            "--ssh-host-key-file",
-            host_key.to_str().unwrap(),
-            "--out",
-            dest.to_str().unwrap(),
-        ],
-        &[("PATH", path.as_str())],
-    );
+    let run_render = |output: &Path| {
+        run_env(
+            &provisioning_bin(),
+            &root,
+            &[
+                "--operator-key-file",
+                key.to_str().unwrap(),
+                "--root-password-hash-file",
+                hash.to_str().unwrap(),
+                "--hostname",
+                "soda-native-fixture",
+                "--ssh-host-key-file",
+                host_key.to_str().unwrap(),
+                "--out",
+                output.to_str().unwrap(),
+            ],
+            &[("PATH", path.as_str())],
+        )
+    };
+    let (code, _, err) = run_render(&dest);
     assert_eq!(code, 0, "{err}");
+    assert_eq!(mode_of(&dest), 0o600);
+    let bytes = fs::read(&dest).unwrap();
+    assert!(bytes.ends_with(b"\n"), "render writer appends its final LF");
+    let document: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(document["variant"], "fixture");
+    assert_eq!(document["empty"], serde_json::json!({}));
+    assert_eq!(document["nothing"], serde_json::Value::Null);
+    assert_eq!(document["flag"], true);
+    let files = document["storage"]["files"].as_array().unwrap();
+    assert_eq!(files.len(), 5);
+    assert_eq!(files[0]["mode"].as_u64(), Some(420));
+    assert_eq!(files[1]["mode"].as_u64(), Some(420));
+    assert_eq!(files[2]["path"], "/etc/hostname");
+    assert_eq!(files[2]["mode"].as_u64(), Some(420));
+    assert_eq!(files[2]["contents"]["inline"], "soda-native-fixture\n");
+    assert_eq!(files[3]["path"], "/etc/ssh/ssh_host_ed25519_key");
+    assert_eq!(files[3]["mode"].as_u64(), Some(384));
     assert_eq!(
-        fs::read(&dest).unwrap(),
-        fs::read(fixtures().join("ext-hostkey.bu")).unwrap()
+        files[3]["contents"]["inline"],
+        "synthetic-private-fixture\n"
     );
+    assert_eq!(files[4]["path"], "/etc/ssh/ssh_host_ed25519_key.pub");
+    assert_eq!(files[4]["mode"].as_u64(), Some(420));
+    assert_eq!(
+        files[4]["contents"]["inline"],
+        "ssh-ed25519 AAAA canned-fixture\n"
+    );
+    let second_dest = out_dir.join("ext-hostkey-again.bu");
+    let (repeat_code, _, repeat_err) = run_render(&second_dest);
+    assert_eq!(repeat_code, 0, "repeat render: {repeat_err}");
+    assert_eq!(mode_of(&second_dest), 0o600);
+    assert_eq!(fs::read(&second_dest).unwrap(), bytes);
     let argv = fs::read_to_string(&log).unwrap();
     assert!(!argv.contains("synthetic-private-fixture"), "{argv}");
     assert!(argv.contains(host_key.to_str().unwrap()), "{argv}");
