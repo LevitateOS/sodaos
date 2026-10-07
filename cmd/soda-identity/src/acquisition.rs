@@ -2,7 +2,7 @@
 use super::control::{new_id, Controller, State};
 use crate::wire::{
     acquisition_digest, AcquireRequest, Connection, Error, Execution, Lease, UnixTime,
-    EXECUTION_LIVE, EXECUTION_PENDING, EXECUTION_TERMINAL, FACTORY, READY, TERMINAL,
+    EXECUTION_PENDING, EXECUTION_TERMINAL, FACTORY, READY, TERMINAL,
 };
 
 impl Controller {
@@ -36,10 +36,7 @@ impl Controller {
         // A fresh identity, or a pending identity whose earlier reservation
         // never landed, proceeds to reserve exactly one lease for this digest.
         let lease = Self::reserve_execution_lease(&state, input)?;
-        let mut existing = existing;
-        existing.state = EXECUTION_LIVE.to_string();
-        existing.lease_id.clone_from(&lease.id);
-        state.store.observe_execution(&existing)?;
+        state.store.reserve_and_link_execution(&lease, &existing)?;
         Ok(lease)
     }
 
@@ -130,7 +127,6 @@ impl Controller {
             binding: None,
         };
         Self::authorize_reservation(state, &connection, &mut lease)?;
-        state.store.reserve(&lease)?;
         Ok(lease)
     }
 
@@ -169,11 +165,19 @@ impl Controller {
         // work continues. The last observed binding stays retained for
         // attribution.
         if !existing.lease_id.is_empty() {
-            if let Ok(lease) = state.store.lease(&existing.lease_id) {
-                if lease.binding.is_some() {
-                    existing.binding = lease.binding.clone();
+            match state.store.lease(&existing.lease_id) {
+                Ok(lease) => {
+                    if lease.binding.is_some() {
+                        existing.binding = lease.binding.clone();
+                    }
+                    if Self::end(&state, &lease).is_err() {
+                        existing.state = EXECUTION_TERMINAL.to_string();
+                        let _ = state.store.observe_execution(&existing);
+                        return Err(Error::uncertain());
+                    }
                 }
-                if Self::end(&state, &lease).is_err() {
+                Err(error) if error.is_not_found() => {}
+                Err(_) => {
                     existing.state = EXECUTION_TERMINAL.to_string();
                     let _ = state.store.observe_execution(&existing);
                     return Err(Error::uncertain());

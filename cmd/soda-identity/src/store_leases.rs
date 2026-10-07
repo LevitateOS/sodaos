@@ -1,7 +1,10 @@
 // Leases, reservation and credential maintenance, extracted from store.rs (A05.M).
 use super::store::{changed, identity_binding, Param, Store, Tx};
 use super::store_events::lease_event;
-use crate::wire::{credential_valid, provider_valid, Connection, Error, Lease};
+use crate::wire::{
+    credential_valid, provider_valid, Connection, Error, Execution, Lease, EXECUTION_LIVE,
+    EXECUTION_PENDING, EXECUTION_TERMINAL,
+};
 
 impl Store {
     pub fn leases(&self) -> Result<Vec<Lease>, Error> {
@@ -19,34 +22,55 @@ impl Store {
         Ok(serde_json::from_str(row.text(0)?)?)
     }
 
-    pub fn reserve(&self, lease: &Lease) -> Result<(), Error> {
-        if !provider_valid(&lease.provider_id) {
+    /// Reserve one lease and link it to its admitted execution in one Store
+    /// transaction. A retry after an uncertain COMMIT must first re-read the
+    /// execution mapping; this method never retries the transaction itself.
+    pub fn reserve_and_link_execution(
+        &self,
+        lease: &Lease,
+        expected: &Execution,
+    ) -> Result<(), Error> {
+        if !provider_valid(&lease.provider_id)
+            || lease.kind != expected.kind
+            || lease.execution_id != expected.execution_id
+        {
             return Err(Error::denied("identity authority denied"));
         }
-        let data = serde_json::to_string(lease)?;
         self.transaction(|tx| {
+            let row = tx.query_row(
+                "SELECT data FROM identity_executions WHERE kind=$1 AND execution_id=$2 FOR UPDATE",
+                &[Param::text(&expected.kind), Param::text(&expected.execution_id)],
+            )?;
+            let mut current: Execution = serde_json::from_str(row.text(0)?)?;
+            if current.digest != expected.digest {
+                return Err(Error::denied("identity authority denied"));
+            }
+            if current.state == EXECUTION_TERMINAL {
+                return Err(Error::denied("identity authority denied"));
+            }
+            if current.state != EXECUTION_PENDING || !current.lease_id.is_empty() {
+                return Err(Error::uncertain());
+            }
+            tx.reserve_lease(lease)?;
+            current.state = EXECUTION_LIVE.to_owned();
+            current.lease_id.clone_from(&lease.id);
+            let data = serde_json::to_string(&current)?;
             let count = tx.exec(
-                "INSERT INTO identity_leases(id,connection_id,data) SELECT $1,id,$2 FROM identity_connections WHERE id=$3 AND generation=$4 AND state='ready' AND data->>'provider_id'=$5 AND ($6='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=$7)) AND ($8='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=$9 AND connection_id=$10 AND user_id=$11 AND project_id=$12 AND revision=$13 AND revoked=FALSE))",
+                "UPDATE identity_executions SET state=$1,lease_id=$2,data=$3 WHERE kind=$4 AND execution_id=$5 AND state=$6 AND lease_id='' AND data->>'digest'=$7",
                 &[
-                    Param::text(&lease.id),
+                    Param::text(&current.state),
+                    Param::text(&current.lease_id),
                     Param::json(&data),
-                    Param::text(&lease.connection_id),
-                    Param::int(lease.generation),
-                    Param::text(&lease.provider_id),
-                    Param::text(&lease.provider_id),
-                    Param::text(&lease.connection_id),
-                    Param::text(&lease.grant_id),
-                    Param::text(&lease.grant_id),
-                    Param::text(&lease.connection_id),
-                    Param::int(lease.actor_id),
-                    Param::text(&lease.project_id),
-                    Param::int(lease.grant_revision),
+                    Param::text(&current.kind),
+                    Param::text(&current.execution_id),
+                    Param::text(EXECUTION_PENDING),
+                    Param::text(&current.digest),
                 ],
             )?;
             if count != 1 {
-                return Err(Error::busy());
+                return Err(Error::uncertain());
             }
-            tx.append_event(&lease_event(lease, "reserved"))
+            Ok(())
         })
     }
 
@@ -95,6 +119,32 @@ impl Store {
 }
 
 impl<'a> Tx<'a> {
+    fn reserve_lease(&self, lease: &Lease) -> Result<(), Error> {
+        let data = serde_json::to_string(lease)?;
+        let count = self.exec(
+            "INSERT INTO identity_leases(id,connection_id,data) SELECT $1,id,$2 FROM identity_connections WHERE id=$3 AND generation=$4 AND state='ready' AND data->>'provider_id'=$5 AND ($6='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=$7)) AND ($8='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=$9 AND connection_id=$10 AND user_id=$11 AND project_id=$12 AND revision=$13 AND revoked=FALSE))",
+            &[
+                Param::text(&lease.id),
+                Param::json(&data),
+                Param::text(&lease.connection_id),
+                Param::int(lease.generation),
+                Param::text(&lease.provider_id),
+                Param::text(&lease.provider_id),
+                Param::text(&lease.connection_id),
+                Param::text(&lease.grant_id),
+                Param::text(&lease.grant_id),
+                Param::text(&lease.connection_id),
+                Param::int(lease.actor_id),
+                Param::text(&lease.project_id),
+                Param::int(lease.grant_revision),
+            ],
+        )?;
+        if count != 1 {
+            return Err(Error::busy());
+        }
+        self.append_event(&lease_event(lease, "reserved"))
+    }
+
     pub(crate) fn maintain_credential(
         &self,
         lease: &Lease,

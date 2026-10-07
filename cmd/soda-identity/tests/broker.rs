@@ -2,6 +2,7 @@
 // tests/broker.rs (A-R02c). Fixture support lives in tests/common.
 mod common;
 
+use base64::Engine;
 use common::{
     binding, connection, controller, fixture_key, stub_provider, subscription, Ephemeral,
     StubRuntime,
@@ -127,6 +128,121 @@ fn close_execution_fences_late_registration() {
     broker.close_execution("factory", "execution-9").unwrap();
     assert!(broker.register(&lease.id, &binding("factory", 1)).is_err());
     assert!(broker.acquire(&acquire).is_err());
+}
+
+#[test]
+fn close_preserves_lease_on_non_not_found_read_error() {
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    let broker = controller(fixture.store(&fixture_key()));
+    broker.start_enrollment(1, "codex", "synthetic").unwrap();
+    let conn = broker
+        .enrollment(1, "enrollment-1")
+        .unwrap()
+        .connection
+        .unwrap();
+    let acquire = AcquireRequest {
+        repository_id: 0,
+        provider_id: "codex".to_string(),
+        execution_id: "execution-close-read-error".to_string(),
+        actor_id: 1,
+        connection_id: conn.id.clone(),
+        project_id: "project".to_string(),
+        kind: "factory".to_string(),
+        deadline: UnixTime {
+            sec: UnixTime::now().sec + 3600,
+            nanos: 0,
+        },
+        role: String::new(),
+    };
+    let lease = broker.acquire(&acquire).unwrap();
+    let serialized = serde_json::to_vec(&lease).unwrap();
+    let encoded = base64::engine::general_purpose::STANDARD.encode(serialized);
+    assert!(fixture.exec(&format!(
+        "UPDATE identity_leases SET data='null'::jsonb WHERE id='{}'",
+        lease.id
+    )));
+
+    let error = broker
+        .close_execution("factory", "execution-close-read-error")
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Uncertain);
+    let execution = broker
+        .get_execution("factory", "execution-close-read-error")
+        .unwrap();
+    assert_eq!(execution.state, "terminal");
+    assert_eq!(execution.lease_id, lease.id);
+
+    assert!(fixture.exec(&format!(
+        "UPDATE identity_leases SET data=convert_from(decode('{encoded}','base64'),'UTF8')::jsonb WHERE id='{}'",
+        lease.id
+    )));
+    broker
+        .close_execution("factory", "execution-close-read-error")
+        .unwrap();
+    let closed = broker
+        .get_execution("factory", "execution-close-read-error")
+        .unwrap();
+    assert!(closed.lease_id.is_empty());
+    assert!(broker.leases(1, &conn.id).unwrap().is_empty());
+}
+
+#[test]
+fn acquire_reservation_and_execution_link_roll_back_together() {
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    let broker = controller(fixture.store(&fixture_key()));
+    broker.start_enrollment(1, "codex", "synthetic").unwrap();
+    let conn = broker
+        .enrollment(1, "enrollment-1")
+        .unwrap()
+        .connection
+        .unwrap();
+    let acquire = AcquireRequest {
+        repository_id: 0,
+        provider_id: "codex".to_string(),
+        execution_id: "execution-atomic-reserve".to_string(),
+        actor_id: 1,
+        connection_id: conn.id.clone(),
+        project_id: "project".to_string(),
+        kind: "factory".to_string(),
+        deadline: UnixTime {
+            sec: UnixTime::now().sec + 3600,
+            nanos: 0,
+        },
+        role: String::new(),
+    };
+    assert!(fixture.exec(
+        "CREATE FUNCTION fail_live_execution_link() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.state = 'live' THEN RAISE EXCEPTION 'injected link failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_live_execution_link BEFORE UPDATE ON identity_executions FOR EACH ROW EXECUTE FUNCTION fail_live_execution_link()"
+    ));
+    assert!(broker.acquire(&acquire).is_err());
+    let pending = broker
+        .get_execution("factory", "execution-atomic-reserve")
+        .unwrap();
+    assert_eq!(pending.state, "pending");
+    assert!(pending.lease_id.is_empty());
+    assert!(broker.leases(1, &conn.id).unwrap().is_empty());
+    assert!(fixture.exec(
+        "DO $$ BEGIN IF EXISTS (SELECT 1 FROM identity_events WHERE data->>'execution_id'='execution-atomic-reserve' AND data->>'action'='reserved') THEN RAISE EXCEPTION 'reservation event escaped rollback'; END IF; END $$"
+    ));
+    assert!(fixture.exec(
+        "DROP TRIGGER fail_live_execution_link ON identity_executions; DROP FUNCTION fail_live_execution_link()"
+    ));
+
+    let lease = broker.acquire(&acquire).unwrap();
+    let execution = broker
+        .get_execution("factory", "execution-atomic-reserve")
+        .unwrap();
+    assert_eq!(execution.state, "live");
+    assert_eq!(execution.lease_id, lease.id);
+    assert_eq!(broker.leases(1, &conn.id).unwrap().len(), 1);
+    assert!(fixture.exec(
+        "DO $$ BEGIN IF (SELECT count(*) FROM identity_events WHERE data->>'execution_id'='execution-atomic-reserve' AND data->>'action'='reserved') <> 1 THEN RAISE EXCEPTION 'expected exactly one reservation event'; END IF; END $$"
+    ));
 }
 
 #[test]

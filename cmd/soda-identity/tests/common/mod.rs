@@ -114,6 +114,10 @@ impl Ephemeral {
     pub fn store(&self, key: &[u8]) -> Store {
         Store::open_encrypted(&self.dsn, key).expect("open ephemeral store")
     }
+
+    pub fn exec(&self, sql: &str) -> bool {
+        admin_command(&self.dsn, sql)
+    }
 }
 
 impl Drop for Ephemeral {
