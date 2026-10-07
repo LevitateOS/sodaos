@@ -316,6 +316,10 @@ and tcontrol DTOs, while the legacy host engine still serves pending callers;
 new strict-boundary checks and the 57-test tcontrol oracle passed.
 Remaining release, installer, guest and tool callers hold JSON01 completion and
 deletion of `lib/json`.
+The [active verification record](../../../.artifacts/l03-l04/verification.md)
+links commits to local receipt scope and retains failed/environment-limited
+attempts separately from qualifying checks. `54176eb6` adds the verified host
+account/profile DTO group; it does not complete the remaining host engine.
 
 ### L05 SSH formats
 
