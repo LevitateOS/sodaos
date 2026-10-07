@@ -122,88 +122,209 @@ fn run_with_io(
     }
 }
 
-/// `json_escape` mirrors Python `json.dumps` with `ensure_ascii`: the
-/// script generated every JSON file through it, so the bytes stay identical.
-pub(crate) fn json_escape(value: &str) -> String {
-    let mut escaped = String::with_capacity(value.len() + 2);
-    for ch in value.chars() {
-        match ch {
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            '\u{08}' => escaped.push_str("\\b"),
-            '\u{0c}' => escaped.push_str("\\f"),
-            _ if (ch < '\u{20}' || ch == '\u{7f}') => {
-                escaped.push_str(&format!("\\u{:04x}", ch as u32));
-            }
-            _ if ch > '\u{7e}' => {
-                let mut encoded = [0u16; 2];
-                for unit in ch.encode_utf16(&mut encoded) {
-                    escaped.push_str(&format!("\\u{unit:04x}"));
+#[derive(Default)]
+struct EnsureAsciiPretty {
+    indent: usize,
+    has_value: bool,
+}
+
+impl serde_json::ser::Formatter for EnsureAsciiPretty {
+    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        for ch in fragment.chars() {
+            if ch <= '\u{7e}' {
+                let mut bytes = [0; 4];
+                writer.write_all(ch.encode_utf8(&mut bytes).as_bytes())?;
+            } else {
+                let mut units = [0u16; 2];
+                for unit in ch.encode_utf16(&mut units) {
+                    write!(writer, "\\u{unit:04x}")?;
                 }
             }
-            _ => escaped.push(ch),
         }
+        Ok(())
     }
-    escaped
+
+    fn begin_array<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.indent += 1;
+        self.has_value = false;
+        writer.write_all(b"[")
+    }
+
+    fn end_array<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.indent -= 1;
+        if self.has_value {
+            writer.write_all(b"\n")?;
+            self.write_indent(writer)?;
+        }
+        writer.write_all(b"]")
+    }
+
+    fn begin_array_value<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        writer.write_all(if first { b"\n" } else { b",\n" })?;
+        self.write_indent(writer)
+    }
+
+    fn end_array_value<W>(&mut self, _: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.has_value = true;
+        Ok(())
+    }
+
+    fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.indent += 1;
+        self.has_value = false;
+        writer.write_all(b"{")
+    }
+
+    fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.indent -= 1;
+        if self.has_value {
+            writer.write_all(b"\n")?;
+            self.write_indent(writer)?;
+        }
+        writer.write_all(b"}")
+    }
+
+    fn begin_object_key<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        writer.write_all(if first { b"\n" } else { b",\n" })?;
+        self.write_indent(writer)
+    }
+
+    fn begin_object_value<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        writer.write_all(b": ")
+    }
+
+    fn end_object_value<W>(&mut self, _: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.has_value = true;
+        Ok(())
+    }
 }
 
-fn json_field(key: &str, value: &str, indent: usize) -> String {
-    format!(
-        "{:indent$}\"{}\": \"{}\"",
-        "",
-        key,
-        json_escape(value),
-        indent = indent
-    )
+impl EnsureAsciiPretty {
+    fn write_indent<W>(&self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        for _ in 0..self.indent {
+            writer.write_all(b"  ")?;
+        }
+        Ok(())
+    }
 }
 
-fn json_number_field(key: &str, value: u64, indent: usize) -> String {
-    format!("{:indent$}\"{}\": {}", "", key, value, indent = indent)
+fn pretty_json(value: &impl serde::Serialize) -> String {
+    let mut output = Vec::new();
+    {
+        let mut serializer =
+            serde_json::Serializer::with_formatter(&mut output, EnsureAsciiPretty::default());
+        serde::Serialize::serialize(value, &mut serializer)
+            .expect("serializing a JSON record to Vec cannot fail");
+    }
+    String::from_utf8(output).expect("JSON serialization emits UTF-8")
 }
 
-/// `trust_json` mirrors the `json.dumps(..., indent=2) + "\n"` trust file.
+#[derive(serde::Serialize)]
+#[allow(non_snake_case)]
+struct TrustRecord<'a> {
+    Format: u8,
+    Prefix: &'a str,
+    Epoch: u8,
+    Keys: TrustKeys<'a>,
+    NotBefore: u64,
+    MaxAgeSeconds: u16,
+    ClockSkewSeconds: u8,
+    MinimumSequence: MinimumSequence,
+}
+
+#[derive(serde::Serialize)]
+struct TrustKeys<'a> {
+    artifact: [&'a str; 1],
+    candidate: [&'a str; 1],
+    preview: [&'a str; 1],
+    stable: [&'a str; 1],
+}
+
+#[derive(serde::Serialize)]
+struct MinimumSequence {
+    candidate: u8,
+    preview: u8,
+    stable: u8,
+}
+
+#[derive(serde::Serialize)]
+#[allow(non_snake_case)]
+struct ConfigRecord {
+    Trust: &'static str,
+    Keys: ConfigKeys,
+}
+
+#[derive(serde::Serialize)]
+#[allow(non_snake_case)]
+struct ConfigKeys {
+    Key: &'static str,
+    Passphrase: &'static str,
+}
+
+/// `trust_json` mirrors Python's `json.dumps(..., indent=2) + "\n"` trust file.
 pub(crate) fn trust_json(prefix: &str, now: u64, pubs: [&str; 4]) -> String {
-    let roles = ["artifact", "candidate", "preview", "stable"];
-    let mut lines = vec![
-        "{".to_string(),
-        json_number_field("Format", 1, 2) + ",",
-        json_field("Prefix", prefix, 2) + ",",
-        json_number_field("Epoch", 1, 2) + ",",
-        "  \"Keys\": {".to_string(),
-    ];
-    for (index, (role, key)) in roles.iter().zip(pubs.iter()).enumerate() {
-        let comma = if index + 1 < roles.len() { "," } else { "" };
-        lines.push(format!("    \"{role}\": ["));
-        lines.push(format!("      \"{}\"", json_escape(key)));
-        lines.push(format!("    ]{comma}"));
-    }
-    lines.push("  },".to_string());
-    lines.push(json_number_field("NotBefore", now - 600, 2) + ",");
-    lines.push(json_number_field("MaxAgeSeconds", 3600, 2) + ",");
-    lines.push(json_number_field("ClockSkewSeconds", 10, 2) + ",");
-    lines.push("  \"MinimumSequence\": {".to_string());
-    lines.push(json_number_field("candidate", 1, 4) + ",");
-    lines.push(json_number_field("preview", 1, 4) + ",");
-    lines.push(json_number_field("stable", 1, 4));
-    lines.push("  }".to_string());
-    lines.push("}".to_string());
-    lines.join("\n") + "\n"
+    let record = TrustRecord {
+        Format: 1,
+        Prefix: prefix,
+        Epoch: 1,
+        Keys: TrustKeys {
+            artifact: [pubs[0]],
+            candidate: [pubs[1]],
+            preview: [pubs[2]],
+            stable: [pubs[3]],
+        },
+        NotBefore: now - 600,
+        MaxAgeSeconds: 3600,
+        ClockSkewSeconds: 10,
+        MinimumSequence: MinimumSequence {
+            candidate: 1,
+            preview: 1,
+            stable: 1,
+        },
+    };
+    pretty_json(&record) + "\n"
 }
 
-/// `config_json` mirrors the `json.dumps(..., indent=2) + "\n"` config file.
+/// `config_json` mirrors Python's `json.dumps(..., indent=2) + "\n"` config file.
 pub(crate) fn config_json() -> String {
-    [
-        "{".to_string(),
-        json_field("Trust", "/run/soda-media-authority/trust.json", 2) + ",",
-        "  \"Keys\": {".to_string(),
-        json_field("Key", "/run/soda-media-authority/artifact.private", 4) + ",",
-        json_field("Passphrase", "/run/soda-media-authority/passphrase", 4),
-        "  }".to_string(),
-        "}".to_string(),
-    ]
-    .join("\n")
-        + "\n"
+    pretty_json(&ConfigRecord {
+        Trust: "/run/soda-media-authority/trust.json",
+        Keys: ConfigKeys {
+            Key: "/run/soda-media-authority/artifact.private",
+            Passphrase: "/run/soda-media-authority/passphrase",
+        },
+    }) + "\n"
 }

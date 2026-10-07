@@ -205,11 +205,19 @@ fn operator_identity_encodings() {
         let args = cli("192.168.2.100", true, &fx.temp);
         let mut sys = FakeSys::new();
         let mut stdout: Vec<u8> = Vec::new();
-        assert_eq!(
-            activate(&args, &fx.paths, &mut sys, &mut stdout).is_ok(),
-            ok,
-            "{operator_id}"
-        );
+        let result = activate(&args, &fx.paths, &mut sys, &mut stdout);
+        assert_eq!(result.is_ok(), ok, "{operator_id}");
+        if !ok {
+            assert!(
+                sys.calls.is_empty(),
+                "invalid identity caused service calls"
+            );
+            assert!(
+                sys.chowns.is_empty(),
+                "invalid identity caused ownership changes"
+            );
+            assert!(!fx.paths.root.join("activated").exists());
+        }
     }
     // public_url marks a legacy separate-origin configuration.
     let fx = fixture(
@@ -225,6 +233,60 @@ fn operator_identity_encodings() {
             "legacy separate-origin configuration; use rehearsed configuration maintenance"
         ))
     );
+}
+
+#[test]
+fn dashboard_duplicate_fields_are_last_wins_and_unknown_fields_are_ignored() {
+    let json = concat!(
+        "{\"forgejo_url\":\"https://192.168.2.100\",",
+        "\"forgejo_internal_url\":\"http://127.0.0.1:3000\",",
+        "\"listen\":\"127.0.0.1:8080\",",
+        "\"grant_key_file\":\"/etc/soda/grant-key\",",
+        "\"host_socket\":\"/run/soda/host.sock\",",
+        "\"identity_socket\":\"/run/soda/identity/admin.sock\",",
+        "\"operator_id\":42,\"operator_id\":7,",
+        "\"ignored\":{\"nested\":[1,true,null]}}"
+    );
+    let fx = fixture(json, "");
+    let args = cli("192.168.2.100", true, &fx.temp);
+    let mut sys = FakeSys::new();
+    let mut stdout = Vec::new();
+    activate(&args, &fx.paths, &mut sys, &mut stdout).expect("activate");
+    assert_eq!(
+        fs::read_to_string(
+            fx.paths
+                .var_lib
+                .join("forgejo/gitea/extensions/.data/soda/operator-id")
+        )
+        .expect("operator ID"),
+        "7\n"
+    );
+}
+
+#[test]
+fn public_url_null_is_present_and_trailing_values_are_rejected_before_mutation() {
+    for (dashboard_json, expected) in [
+        (
+            "{\"forgejo_url\":\"https://192.168.2.100\",\"operator_id\":7,\"public_url\":null}",
+            usage("legacy separate-origin configuration; use rehearsed configuration maintenance"),
+        ),
+        (
+            "{\"forgejo_url\":\"https://192.168.2.100\",\"operator_id\":7} {}",
+            ActivateError::Runtime("dashboard.json is not valid JSON".to_string()),
+        ),
+    ] {
+        let fx = fixture(dashboard_json, "");
+        let args = cli("192.168.2.100", true, &fx.temp);
+        let mut sys = FakeSys::new();
+        let mut stdout = Vec::new();
+        assert_eq!(
+            activate(&args, &fx.paths, &mut sys, &mut stdout),
+            Err(expected)
+        );
+        assert!(sys.calls.is_empty());
+        assert!(sys.chowns.is_empty());
+        assert!(!fx.paths.root.join("activated").exists());
+    }
 }
 
 #[test]

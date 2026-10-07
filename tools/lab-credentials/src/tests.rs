@@ -4,30 +4,21 @@ use std::os::unix::fs::PermissionsExt;
 
 use crate::fixture_authority::random_hex_passphrase;
 use crate::inventory::{first_live_inputs, note, stat_line};
-use crate::process::{config_json, json_escape, trust_json};
-
-#[test]
-fn json_escape_matches_python_dumps() {
-    let input = "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}ké😀l\x1fm";
-    assert_eq!(
-        json_escape(input),
-        "a\\\"b\\\\c\\nd\\re\\tf\\bg\\fh\\u0001i\\u007fj\\u0080k\\u00e9\\ud83d\\ude00l\\u001fm"
-    );
-}
+use crate::process::{config_json, trust_json};
 
 #[test]
 fn trust_json_matches_python_dump_with_trailing_newline() {
     let got = trust_json(
-        "ghcr.io/levitateos/sodaos",
+        "ghcr.io/levitateos/sodaos/é😀\u{7f}",
         424242,
         [
-            "artifact-pub\n",
+            "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm",
             "candidate-pub\n",
             "preview-pub\n",
             "stable-pub\n",
         ],
     );
-    let want = "{\n  \"Format\": 1,\n  \"Prefix\": \"ghcr.io/levitateos/sodaos\",\n  \"Epoch\": 1,\n  \"Keys\": {\n    \"artifact\": [\n      \"artifact-pub\\n\"\n    ],\n    \"candidate\": [\n      \"candidate-pub\\n\"\n    ],\n    \"preview\": [\n      \"preview-pub\\n\"\n    ],\n    \"stable\": [\n      \"stable-pub\\n\"\n    ]\n  },\n  \"NotBefore\": 423642,\n  \"MaxAgeSeconds\": 3600,\n  \"ClockSkewSeconds\": 10,\n  \"MinimumSequence\": {\n    \"candidate\": 1,\n    \"preview\": 1,\n    \"stable\": 1\n  }\n}\n";
+    let want = "{\n  \"Format\": 1,\n  \"Prefix\": \"ghcr.io/levitateos/sodaos/\\u00e9\\ud83d\\ude00\\u007f\",\n  \"Epoch\": 1,\n  \"Keys\": {\n    \"artifact\": [\n      \"a\\\"b\\\\c\\nd\\re\\tf\\bg\\fh\\u0001i\\u007fj\\u0080k\\u00e9\\ud83d\\ude00l\\u001fm\"\n    ],\n    \"candidate\": [\n      \"candidate-pub\\n\"\n    ],\n    \"preview\": [\n      \"preview-pub\\n\"\n    ],\n    \"stable\": [\n      \"stable-pub\\n\"\n    ]\n  },\n  \"NotBefore\": 423642,\n  \"MaxAgeSeconds\": 3600,\n  \"ClockSkewSeconds\": 10,\n  \"MinimumSequence\": {\n    \"candidate\": 1,\n    \"preview\": 1,\n    \"stable\": 1\n  }\n}\n";
     assert_eq!(got, want);
 }
 

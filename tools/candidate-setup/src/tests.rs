@@ -3,24 +3,13 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use super::config::{config_json, json_escape, trust_json, worker_json};
+use super::config::{config_json, trust_json, worker_json};
 use super::controller::controller_cargo_argv;
 use super::fixture_authority::random_hex_passphrase;
 use super::preflight::bridge_ip;
 use super::process::{git_tree_clean, pipe2, run_in_dir, Captured};
 use super::storage::units_have_active;
 use super::{command_v_in, current_umask, env_or, stripped, write_staged, Exit, WORKER_POLICY_SRC};
-
-#[test]
-fn json_escape_matches_python_dumps() {
-    let input = "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}ké😀l\x1fm";
-    assert_eq!(
-        json_escape(input),
-        "a\\\"b\\\\c\\nd\\re\\tf\\bg\\fh\\u0001i\\u007fj\\u0080k\\u00e9\\ud83d\\ude00l\\u001fm"
-    );
-    assert_eq!(json_escape("plain / path-_name.1"), "plain / path-_name.1");
-    assert_eq!(json_escape(""), "");
-}
 
 #[test]
 fn worker_json_matches_python_dump_without_trailing_newline() {
@@ -42,16 +31,16 @@ fn worker_json_matches_python_dump_without_trailing_newline() {
 #[test]
 fn trust_json_matches_python_dump_with_trailing_newline() {
     let got = trust_json(
-        "ghcr.io/levitateos/sodaos",
+        "ghcr.io/levitateos/sodaos/é😀\u{7f}",
         424242,
         [
-            "artifact-pub\n",
+            "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm",
             "candidate-pub\n",
             "preview-pub\n",
             "stable-pub\n",
         ],
     );
-    let want = "{\n  \"Format\": 1,\n  \"Prefix\": \"ghcr.io/levitateos/sodaos\",\n  \"Epoch\": 1,\n  \"Keys\": {\n    \"artifact\": [\n      \"artifact-pub\\n\"\n    ],\n    \"candidate\": [\n      \"candidate-pub\\n\"\n    ],\n    \"preview\": [\n      \"preview-pub\\n\"\n    ],\n    \"stable\": [\n      \"stable-pub\\n\"\n    ]\n  },\n  \"NotBefore\": 423642,\n  \"MaxAgeSeconds\": 3600,\n  \"ClockSkewSeconds\": 10,\n  \"MinimumSequence\": {\n    \"candidate\": 1,\n    \"preview\": 1,\n    \"stable\": 1\n  }\n}\n";
+    let want = "{\n  \"Format\": 1,\n  \"Prefix\": \"ghcr.io/levitateos/sodaos/\\u00e9\\ud83d\\ude00\\u007f\",\n  \"Epoch\": 1,\n  \"Keys\": {\n    \"artifact\": [\n      \"a\\\"b\\\\c\\nd\\re\\tf\\bg\\fh\\u0001i\\u007fj\\u0080k\\u00e9\\ud83d\\ude00l\\u001fm\"\n    ],\n    \"candidate\": [\n      \"candidate-pub\\n\"\n    ],\n    \"preview\": [\n      \"preview-pub\\n\"\n    ],\n    \"stable\": [\n      \"stable-pub\\n\"\n    ]\n  },\n  \"NotBefore\": 423642,\n  \"MaxAgeSeconds\": 3600,\n  \"ClockSkewSeconds\": 10,\n  \"MinimumSequence\": {\n    \"candidate\": 1,\n    \"preview\": 1,\n    \"stable\": 1\n  }\n}\n";
     assert_eq!(got, want);
 }
 
