@@ -81,15 +81,48 @@ func (b *ServiceBackground) admissionForCall(ctx context.Context) (string, error
 // admission is reused.
 func (b *ServiceBackground) bootstrap(ctx context.Context, force bool) (string, error) {
 	b.mu.Lock()
-	defer b.mu.Unlock()
 	if b.socket == "" {
+		b.mu.Unlock()
 		return "", errors.New("service callback socket is not configured")
 	}
 	if !force && b.admission != "" {
-		return b.admission, nil
+		admission := b.admission
+		b.mu.Unlock()
+		return admission, nil
 	}
+	if call := b.bootstrapCall; call != nil {
+		b.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-call.done:
+			if force && !call.force {
+				return b.bootstrap(ctx, true)
+			}
+			return call.admission, call.err
+		}
+	}
+	call := &backgroundBootstrap{done: make(chan struct{}), force: force}
+	b.bootstrapCall = call
+	socket, installation, pinned := b.socket, b.installation, b.pinned
+	b.mu.Unlock()
+
+	admission, pinned, err := b.performBootstrap(ctx, socket, installation, pinned)
+	b.mu.Lock()
+	if err == nil {
+		b.pinned = pinned
+		b.admission = admission
+	}
+	call.admission, call.err = admission, err
+	b.bootstrapCall = nil
+	close(call.done)
+	b.mu.Unlock()
+	return admission, err
+}
+
+func (b *ServiceBackground) performBootstrap(ctx context.Context, socket, installation, pinned string) (string, string, error) {
 	transport := &http.Transport{DialContext: func(dialCtx context.Context, _, _ string) (net.Conn, error) {
-		conn, err := (&net.Dialer{}).DialContext(dialCtx, "unix", b.socket)
+		conn, err := (&net.Dialer{}).DialContext(dialCtx, "unix", socket)
 		if err != nil {
 			return nil, err
 		}
@@ -99,29 +132,29 @@ func (b *ServiceBackground) bootstrap(ctx context.Context, force bool) (string, 
 	client := &http.Client{Transport: transport}
 	body, err := json.Marshal(struct {
 		InstallationID string `json:"installation_id,omitempty"`
-	}{InstallationID: b.installation})
+	}{InstallationID: installation})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://extensionHost"+extensions.BackgroundBootstrapPath, bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	request.Header.Set("Content-Type", "application/json")
 	response, err := client.Do(request)
 	if err != nil {
 		if ctx.Err() != nil {
-			return "", ctx.Err()
+			return "", "", ctx.Err()
 		}
-		return "", errors.New("background bootstrap request failed")
+		return "", "", errors.New("background bootstrap request failed")
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return "", errors.New("background bootstrap rejected")
+		return "", "", errors.New("background bootstrap rejected")
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxBackgroundBodyBytes+1))
 	if err != nil || len(data) > maxBackgroundBodyBytes {
-		return "", errors.New("invalid background bootstrap response")
+		return "", "", errors.New("invalid background bootstrap response")
 	}
 	var bootstrap struct {
 		Admission      string `json:"admission"`
@@ -130,23 +163,21 @@ func (b *ServiceBackground) bootstrap(ctx context.Context, force bool) (string, 
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&bootstrap); err != nil {
-		return "", errors.New("invalid background bootstrap response")
+		return "", "", errors.New("invalid background bootstrap response")
 	}
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		return "", errors.New("invalid background bootstrap response")
+		return "", "", errors.New("invalid background bootstrap response")
 	}
 	if !validBackgroundAdmission(bootstrap.Admission) || bootstrap.InstallationID == "" {
-		return "", errors.New("invalid background bootstrap response")
+		return "", "", errors.New("invalid background bootstrap response")
 	}
-	if b.installation != "" && b.installation != bootstrap.InstallationID {
-		return "", errors.New("background bootstrap installation mismatch")
+	if installation != "" && installation != bootstrap.InstallationID {
+		return "", "", errors.New("background bootstrap installation mismatch")
 	}
-	if b.pinned != "" && b.pinned != bootstrap.InstallationID {
-		return "", errors.New("background bootstrap installation mismatch")
+	if pinned != "" && pinned != bootstrap.InstallationID {
+		return "", "", errors.New("background bootstrap installation mismatch")
 	}
-	b.pinned = bootstrap.InstallationID
-	b.admission = bootstrap.Admission
-	return b.admission, nil
+	return bootstrap.Admission, bootstrap.InstallationID, nil
 }
 
 // Every request opens a new connection. Bootstrap authenticates its own

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
 
@@ -21,12 +22,14 @@ import (
 // rotating admission: each bootstrap revokes the previous one like the
 // native host, and unknown admissions get 401.
 type scriptedBackgroundServer struct {
-	mu         sync.Mutex
-	admissions []string
-	revision   int64
-	ops        map[string]extensions.OperationRecord
-	conflict   map[string]bool
-	submits    int
+	mu               sync.Mutex
+	admissions       []string
+	revision         int64
+	ops              map[string]extensions.OperationRecord
+	conflict         map[string]bool
+	submits          int
+	bootstrapStarted chan struct{}
+	bootstrapRelease chan struct{}
 }
 
 func (f *scriptedBackgroundServer) current() string {
@@ -40,6 +43,13 @@ func (f *scriptedBackgroundServer) handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case extensions.BackgroundBootstrapPath:
+			if f.bootstrapStarted != nil {
+				select {
+				case f.bootstrapStarted <- struct{}{}:
+				default:
+				}
+				<-f.bootstrapRelease
+			}
 			f.mu.Lock()
 			token := strings.Repeat(string(rune('a'+len(f.admissions))), 43)
 			f.admissions = append(f.admissions, token)
@@ -180,7 +190,7 @@ func TestServiceBackgroundRejectsForeignNestedRecord(t *testing.T) {
 // that bind unix sockets must not build their path from it.
 func shortSocketPath(t *testing.T, name string) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("/tmp", "soda-forgejo-*")
+	dir, err := os.MkdirTemp("", "soda-forgejo-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,6 +256,52 @@ func TestServiceBackgroundSharesOneAdmission(t *testing.T) {
 	}
 	if operation != "soda-test-publish-1" || admission != fake.current() {
 		t.Fatalf("env: %q", env)
+	}
+}
+
+func TestServiceBackgroundBootstrapWaiterContextDoesNotCancelSharedBootstrap(t *testing.T) {
+	fake := &scriptedBackgroundServer{
+		admissions: []string{}, revision: 12, ops: map[string]extensions.OperationRecord{},
+		bootstrapStarted: make(chan struct{}, 1), bootstrapRelease: make(chan struct{}),
+	}
+	socket := serveScriptedBackground(t, fake)
+	background := NewServiceBackground(socket, uint32(os.Getuid()), "")
+	first := make(chan error, 1)
+	go func() {
+		_, err := background.ReadNativeRevision(context.Background())
+		first <- err
+	}()
+	<-fake.bootstrapStarted
+
+	waiterCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	waiter := make(chan error, 1)
+	go func() {
+		_, err := background.ReadNativeRevision(waiterCtx)
+		waiter <- err
+	}()
+	var waiterErr error
+	select {
+	case waiterErr = <-waiter:
+	case <-time.After(time.Second):
+		close(fake.bootstrapRelease)
+		t.Fatal("waiting caller ignored its deadline")
+	}
+	if !errors.Is(waiterErr, context.DeadlineExceeded) {
+		t.Fatalf("waiting caller did not honor its deadline: %v", waiterErr)
+	}
+	close(fake.bootstrapRelease)
+	if err := <-first; err != nil {
+		t.Fatalf("shared bootstrap was cancelled by waiter: %v", err)
+	}
+	if _, err := background.ReadNativeRevision(context.Background()); err != nil {
+		t.Fatalf("shared admission was not published: %v", err)
+	}
+	fake.mu.Lock()
+	bootstraps := len(fake.admissions)
+	fake.mu.Unlock()
+	if bootstraps != 1 {
+		t.Fatalf("bootstrap count: %d", bootstraps)
 	}
 }
 

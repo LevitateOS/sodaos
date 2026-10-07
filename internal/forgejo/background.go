@@ -17,12 +17,20 @@ import (
 // revocation. All calls are idempotent-safe under a retried admission:
 // submit replays by identity, and every other call mutates nothing new.
 type ServiceBackground struct {
-	socket       string
-	installation string
-	hostUID      uint32
-	mu           sync.Mutex
-	admission    string
-	pinned       string
+	socket        string
+	installation  string
+	hostUID       uint32
+	mu            sync.Mutex
+	admission     string
+	pinned        string
+	bootstrapCall *backgroundBootstrap
+}
+
+type backgroundBootstrap struct {
+	done      chan struct{}
+	force     bool
+	admission string
+	err       error
 }
 
 // NewServiceBackground builds the shared service transport over the
