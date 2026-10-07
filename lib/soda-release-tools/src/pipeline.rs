@@ -42,8 +42,8 @@ use soda_release_deliver::{content, document, native};
 use soda_release_image::build::ProductionInputs;
 use soda_release_image::build_runner::{Cancel, Runner};
 use soda_release_image::error::Error as ImageError;
-use soda_release_image::foreign::{Production as ImageProduction, Progress as ImageProgress};
 use soda_release_image::foreign::PackagingInputs;
+use soda_release_image::foreign::{Production as ImageProduction, Progress as ImageProgress};
 use soda_release_image::{model, request};
 
 use crate::build_spec;
@@ -428,11 +428,7 @@ impl ImageProduction for RealProduction {
             .map_err(deliver_err)
     }
 
-    fn write_document(
-        &self,
-        path: &str,
-        value: &PackagingInputs,
-    ) -> Result<String, ImageError> {
+    fn write_document(&self, path: &str, value: &PackagingInputs) -> Result<String, ImageError> {
         document::write_document(path, value).map_err(deliver_err)
     }
 }

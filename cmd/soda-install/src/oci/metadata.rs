@@ -496,10 +496,7 @@ pub(super) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifestDoc, Error> {
     {
         return Err(Error::msg("invalid OCI image manifest"));
     }
-    Ok(OciManifestDoc {
-        config,
-        layers,
-    })
+    Ok(OciManifestDoc { config, layers })
 }
 
 pub(super) struct OciConfigDoc {
