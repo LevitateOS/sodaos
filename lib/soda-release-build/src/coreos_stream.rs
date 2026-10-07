@@ -7,9 +7,9 @@
 use crate::coreos::{https_url, CoreOSImage};
 use crate::files::oci_architecture;
 use crate::http::{fetch_capped_json, HttpTransport, UreqTransport};
-use crate::json_go::Fields;
 use crate::Error;
-use soda_json::JsonValue;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
 use crate::coreos_registry::resolve_registry_digests_with;
@@ -18,6 +18,83 @@ pub use crate::live_inputs::{
     write_live_inputs, LiveInputs, ResolvedCoreOS, TailnetInputs,
 };
 pub use crate::tailnet_inputs::{resolve_tailnet_inputs, resolve_tailnet_inputs_with};
+
+type RawJson = Box<serde_json::value::RawValue>;
+
+fn decode_raw<T: serde::de::DeserializeOwned>(
+    raw: Option<RawJson>,
+) -> Result<Option<T>, serde_json::Error> {
+    match raw {
+        None => Ok(None),
+        Some(raw) => serde_json::from_str(raw.get()),
+    }
+}
+
+struct StreamDocument {
+    architectures: Option<RawJson>,
+}
+struct ArchitectureMap {
+    x86_64: Option<RawJson>,
+}
+struct ArchitectureEntry {
+    artifacts: Option<RawJson>,
+}
+struct ArtifactMap {
+    metal: Option<RawJson>,
+    qemu: Option<RawJson>,
+}
+struct Artifact {
+    formats: Option<RawJson>,
+}
+struct FormatMap {
+    iso: Option<RawJson>,
+    qcow2_xz: Option<RawJson>,
+}
+struct FormatEntry {
+    disk: Option<RawJson>,
+}
+struct Disk {
+    location: Option<RawJson>,
+    signature: Option<RawJson>,
+    sha256: Option<RawJson>,
+    uncompressed_sha256: Option<RawJson>,
+}
+
+macro_rules! raw_object {
+    ($type:ident, $visitor:ident, $expect:literal, { $($field:ident => $name:literal),+ $(,)? }) => {
+        impl<'de> Deserialize<'de> for $type {
+            fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                struct $visitor;
+                impl<'de> Visitor<'de> for $visitor {
+                    type Value = $type;
+                    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str($expect) }
+                    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                        $(let mut $field: Option<RawJson> = None;)+
+                        while let Some(key) = map.next_key::<String>()? {
+                            let mut matched = false;
+                            $(if key.eq_ignore_ascii_case($name) { $field = Some(map.next_value()?); matched = true; })+
+                            if !matched { map.next_value::<de::IgnoredAny>()?; }
+                        }
+                        Ok($type { $($field),+ })
+                    }
+                }
+                deserializer.deserialize_map($visitor)
+            }
+        }
+    };
+}
+
+raw_object!(StreamDocument, StreamDocumentVisitor, "stable stream object", { architectures => "architectures" });
+raw_object!(ArchitectureMap, ArchitectureMapVisitor, "architecture map", { x86_64 => "x86_64" });
+raw_object!(ArchitectureEntry, ArchitectureEntryVisitor, "architecture entry", { artifacts => "artifacts" });
+raw_object!(ArtifactMap, ArtifactMapVisitor, "artifact map", { metal => "metal", qemu => "qemu" });
+raw_object!(Artifact, ArtifactVisitor, "artifact object", { formats => "formats" });
+raw_object!(FormatMap, FormatMapVisitor, "format map", { iso => "iso", qcow2_xz => "qcow2.xz" });
+raw_object!(FormatEntry, FormatEntryVisitor, "format entry", { disk => "disk" });
+raw_object!(Disk, DiskVisitor, "disk object", {
+    location => "location", signature => "signature", sha256 => "sha256",
+    uncompressed_sha256 => "uncompressed-sha256"
+});
 
 pub const DEFAULT_COREOS_STREAM_URL: &str =
     "https://builds.coreos.fedoraproject.org/streams/stable.json";
@@ -67,19 +144,15 @@ pub fn tailnet_base_tags_url() -> String {
 /// Parses one stable-stream document into release + x86_64 ISO/QEMU triples.
 fn resolve_stream_build(data: &[u8]) -> Result<(String, CoreOSImage, CoreOSImage), Error> {
     let text = String::from_utf8_lossy(data);
-    let value =
-        JsonValue::parse(&text).map_err(|_| Error::msg("invalid stable stream document"))?;
-    let doc = Fields::of(&value).ok_or_else(|| Error::msg("invalid stable stream document"))?;
-    let archs = doc
-        .object("architectures")
+    let doc: StreamDocument =
+        serde_json::from_str(&text).map_err(|_| Error::msg("invalid stable stream document"))?;
+    let archs = decode_raw::<ArchitectureMap>(doc.architectures)
         .map_err(|_| Error::msg("invalid stable stream document"))?
         .ok_or_else(|| Error::msg("stable stream lacks architecture x86_64"))?;
-    let entry = archs
-        .object("x86_64")
+    let entry = decode_raw::<ArchitectureEntry>(archs.x86_64)
         .map_err(|_| Error::msg("invalid stable stream document"))?
         .ok_or_else(|| Error::msg("stable stream lacks architecture x86_64"))?;
-    let artifacts = entry
-        .object("artifacts")
+    let artifacts = decode_raw::<ArtifactMap>(entry.artifacts)
         .map_err(|_| Error::msg("invalid stable stream document"))?;
     let disk = |artifact: &str, format: &str| -> Result<CoreOSImage, Error> {
         let missing = if artifact == "metal" {
@@ -88,36 +161,52 @@ fn resolve_stream_build(data: &[u8]) -> Result<(String, CoreOSImage, CoreOSImage
             format!("stable stream lacks x86_64 {artifact} image")
         };
         let no_artifact = || Error::msg(missing.clone());
-        let art = artifacts
+        let art_raw = artifacts
             .as_ref()
-            .and_then(|a| a.object(artifact).ok().flatten())
+            .and_then(|a| match artifact {
+                "metal" => a.metal.as_deref(),
+                "qemu" => a.qemu.as_deref(),
+                _ => None,
+            })
             .ok_or_else(no_artifact)?;
-        let formats = art
-            .object("formats")
+        let art = decode_raw::<Artifact>(Some(art_raw.to_owned()))
             .ok()
             .flatten()
             .ok_or_else(no_artifact)?;
-        let entry = formats
-            .object(format)
+        let formats_raw = art.formats.as_deref().ok_or_else(no_artifact)?;
+        let formats = decode_raw::<FormatMap>(Some(formats_raw.to_owned()))
+            .ok()
+            .flatten()
+            .ok_or_else(no_artifact)?;
+        let entry_raw = match format {
+            "iso" => formats.iso.as_deref(),
+            "qcow2.xz" => formats.qcow2_xz.as_deref(),
+            _ => None,
+        }
+        .ok_or_else(no_artifact)?;
+        let entry = decode_raw::<FormatEntry>(Some(entry_raw.to_owned()))
             .ok()
             .flatten()
             .ok_or_else(no_artifact)?;
         // A missing disk decodes to the zero triple, which the shape rules
         // refuse downstream, exactly as the Go owner flows.
-        let disk = entry.object("disk").ok().flatten();
-        let get = |disk: &Option<Fields<'_>>, name: &str| -> Result<String, Error> {
-            match disk {
+        let disk = entry
+            .disk
+            .as_deref()
+            .and_then(|raw| decode_raw::<Disk>(Some(raw.to_owned())).ok().flatten());
+        let get = |raw: Option<&RawJson>| -> Result<String, Error> {
+            match raw {
                 None => Ok(String::new()),
-                Some(d) => d
-                    .string(name)
+                Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                    .map(Option::unwrap_or_default)
                     .map_err(|_| Error::msg("invalid stable stream document")),
             }
         };
         Ok(CoreOSImage {
-            url: get(&disk, "location")?,
-            signature_url: get(&disk, "signature")?,
-            sha256: get(&disk, "sha256")?,
-            uncompressed_sha256: get(&disk, "uncompressed-sha256")?,
+            url: get(disk.as_ref().and_then(|d| d.location.as_ref()))?,
+            signature_url: get(disk.as_ref().and_then(|d| d.signature.as_ref()))?,
+            sha256: get(disk.as_ref().and_then(|d| d.sha256.as_ref()))?,
+            uncompressed_sha256: get(disk.as_ref().and_then(|d| d.uncompressed_sha256.as_ref()))?,
         })
     };
     let iso = disk("metal", "iso")?;
@@ -289,6 +378,18 @@ pub(crate) mod tests {
         assert_eq!(qemu.uncompressed_sha256, "b".repeat(64));
         assert!(resolve_stream_build(b"{}").is_err());
         assert!(resolve_stream_build(b"not json").is_err());
+    }
+
+    #[test]
+    fn stream_disk_aliases_validate_only_the_final_source_spelling() {
+        let good = stream_doc().replace("\"location\":\"", "\"location\":false,\"Location\":\"");
+        assert!(resolve_stream_build(good.as_bytes()).is_ok());
+
+        let bad = stream_doc().replace("\",\"sha256\":", "\",\"LOCATION\":false,\"sha256\":");
+        assert_eq!(
+            resolve_stream_build(bad.as_bytes()).unwrap_err().message(),
+            "invalid stable stream document"
+        );
     }
 
     #[test]

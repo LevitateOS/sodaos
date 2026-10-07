@@ -1,9 +1,10 @@
 //! Native artifact support (`files.go`): validators, hashing, and
 //! private-output admission. No product policy or release qualification.
 
-use crate::json_emit::{marshal_indent, Emit};
-use crate::json_go::Strict;
+use crate::json_emit::marshal_indent;
 use crate::{io_error, sha256_hex_stream, Error};
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fs::{File as FsFile, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
@@ -23,32 +24,98 @@ pub struct File {
 }
 
 impl File {
-    pub fn emit(&self) -> Emit {
-        let mut fields = Vec::new();
-        if !self.sha256.is_empty() {
-            fields.push(("sha256".to_string(), Emit::Str(self.sha256.clone())));
-        }
-        fields.push(("mode".to_string(), Emit::UInt(self.mode)));
-        if !self.link.is_empty() {
-            fields.push(("link".to_string(), Emit::Str(self.link.clone())));
-        }
-        if self.directory {
-            fields.push(("directory".to_string(), Emit::Bool(true)));
-        }
-        Emit::Object(fields)
-    }
-
     pub fn marshal(&self) -> String {
-        marshal_indent(&self.emit())
-    }
-
-    pub fn decode(binder: &mut Strict<'_>) -> Result<File, String> {
-        Ok(File {
-            sha256: binder.string("SHA256")?,
-            mode: binder.uint32("Mode")?,
-            link: binder.string("Link")?,
-            directory: binder.boolean("Directory")?,
+        marshal_indent(&FileOutput {
+            sha256: &self.sha256,
+            mode: self.mode,
+            link: &self.link,
+            directory: self.directory,
         })
+    }
+}
+
+#[derive(Serialize)]
+struct FileOutput<'a> {
+    #[serde(rename = "sha256", skip_serializing_if = "str::is_empty")]
+    sha256: &'a str,
+    mode: u32,
+    #[serde(rename = "link", skip_serializing_if = "str::is_empty")]
+    link: &'a str,
+    #[serde(rename = "directory", skip_serializing_if = "is_false")]
+    directory: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !value
+}
+
+impl<'de> Deserialize<'de> for File {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct FileVisitor;
+
+        impl<'de> Visitor<'de> for FileVisitor {
+            type Value = File;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a file record object")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<File, A::Error> {
+                // Keep only the last spelling/value for each field before
+                // applying its typed decode, matching encoding/json structs.
+                let (mut sha256, mut mode, mut link, mut directory) = (None, None, None, None);
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("SHA256") {
+                        sha256 = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("Mode") {
+                        mode = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("Link") {
+                        link = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("Directory") {
+                        directory = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        return Err(de::Error::unknown_field(
+                            &key,
+                            &["SHA256", "Mode", "Link", "Directory"],
+                        ));
+                    }
+                }
+                fn field<T: serde::de::DeserializeOwned + Default, E: de::Error>(
+                    raw: Option<Box<serde_json::value::RawValue>>,
+                ) -> Result<T, E> {
+                    match raw {
+                        None => Ok(T::default()),
+                        Some(value) => serde_json::from_str::<Option<T>>(value.get())
+                            .map(Option::unwrap_or_default)
+                            .map_err(E::custom),
+                    }
+                }
+                fn integer_field<T, E>(
+                    raw: Option<Box<serde_json::value::RawValue>>,
+                ) -> Result<T, E>
+                where
+                    T: TryFrom<i128> + Default,
+                    <T as TryFrom<i128>>::Error: std::fmt::Display,
+                    E: de::Error,
+                {
+                    match raw {
+                        None => Ok(T::default()),
+                        Some(raw) if raw.get() == "null" => Ok(T::default()),
+                        Some(raw) => crate::json_input::parse_integer_token(&raw)
+                            .ok_or_else(|| E::custom("invalid integer token"))
+                            .and_then(|value| T::try_from(value).map_err(E::custom)),
+                    }
+                }
+                Ok(File {
+                    sha256: field(sha256)?,
+                    mode: integer_field(mode)?,
+                    link: field(link)?,
+                    directory: field(directory)?,
+                })
+            }
+        }
+
+        deserializer.deserialize_map(FileVisitor)
     }
 }
 

@@ -2,10 +2,12 @@
 //! provenance, musl binary builds, and image-context staging.
 
 use crate::files::{is_revision, oci_architecture, write_new};
-use crate::json_emit::{marshal_indent, Emit};
-use crate::json_go::Strict;
+use crate::json_emit::marshal_indent;
 use crate::production::Production;
 use crate::{io_error, Error};
+use serde::de::{self, MapAccess, Visitor};
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::path::{Path, PathBuf};
 
 pub use soda_build_tools::reader::forgejo::{
@@ -44,23 +46,61 @@ impl ForgejoToolchain {
     }
 
     pub fn marshal(&self) -> String {
-        marshal_indent(&Emit::Object(vec![
-            (
-                "CompilerImage".to_string(),
-                Emit::Str(self.compiler_image.clone()),
-            ),
-            (
-                "APKPackages".to_string(),
-                Emit::List(self.apk_packages.iter().cloned().map(Emit::Str).collect()),
-            ),
-        ]))
+        marshal_indent(self)
     }
+}
 
-    pub fn decode(binder: &mut Strict<'_>) -> Result<ForgejoToolchain, String> {
-        Ok(ForgejoToolchain {
-            compiler_image: binder.string("CompilerImage")?,
-            apk_packages: binder.string_list("APKPackages")?,
-        })
+impl Serialize for ForgejoToolchain {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut state = serializer.serialize_struct("ForgejoToolchain", 2)?;
+        state.serialize_field("CompilerImage", &self.compiler_image)?;
+        state.serialize_field("APKPackages", &self.apk_packages)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for ForgejoToolchain {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ToolchainVisitor;
+        impl<'de> Visitor<'de> for ToolchainVisitor {
+            type Value = ForgejoToolchain;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("Forgejo toolchain object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let (mut compiler_image, mut apk_packages) = (None, None);
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("CompilerImage") {
+                        compiler_image =
+                            Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("APKPackages") {
+                        apk_packages = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        return Err(de::Error::unknown_field(
+                            &key,
+                            &["CompilerImage", "APKPackages"],
+                        ));
+                    }
+                }
+                let compiler_image = match compiler_image {
+                    None => String::new(),
+                    Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                        .map(Option::unwrap_or_default)
+                        .map_err(de::Error::custom)?,
+                };
+                let apk_packages = match apk_packages {
+                    None => Vec::new(),
+                    Some(raw) => serde_json::from_str::<Option<Vec<String>>>(raw.get())
+                        .map(Option::unwrap_or_default)
+                        .map_err(de::Error::custom)?,
+                };
+                Ok(ForgejoToolchain {
+                    compiler_image,
+                    apk_packages,
+                })
+            }
+        }
+        deserializer.deserialize_map(ToolchainVisitor)
     }
 }
 
@@ -291,12 +331,8 @@ mod tests {
         assert!(!joined.contains("golang:1.26.7-alpine"));
         assert!(!joined.contains("apk add --no-cache build-base git"));
         assert!(context.join("forgejo-bin").exists());
-        let toolchain: ForgejoToolchain = crate::json_input::read_json(
-            &out.join("forgejo-toolchain.json"),
-            "build.ForgejoToolchain",
-            ForgejoToolchain::decode,
-        )
-        .unwrap();
+        let toolchain: ForgejoToolchain =
+            crate::json_input::read_json(&out.join("forgejo-toolchain.json")).unwrap();
         toolchain.validate().unwrap();
     }
 }

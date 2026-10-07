@@ -4,7 +4,6 @@
 use super::Blob;
 use crate::files::{is_digest, oci_architecture};
 use crate::{io_error, path_clean, Error};
-use soda_json::JsonValue;
 use std::collections::HashMap;
 use std::fs::File as FsFile;
 use std::io::Read;
@@ -126,10 +125,10 @@ fn is_json_bytes(data: &[u8]) -> bool {
     if data.is_empty() {
         return false;
     }
-    match std::str::from_utf8(data) {
-        Ok(text) => JsonValue::parse(text).is_ok(),
-        Err(_) => false,
-    }
+    let mut decoder = serde_json::Deserializer::from_slice(data);
+    serde::Deserialize::deserialize(&mut decoder)
+        .and_then(|_: serde::de::IgnoredAny| decoder.end())
+        .is_ok()
 }
 
 pub(crate) fn read_oci_blob(

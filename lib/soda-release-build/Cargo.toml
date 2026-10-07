@@ -13,7 +13,6 @@ path = "src/lib.rs"
 [dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
-soda-json = { path = "../json" }
 soda-build-tools = { path = "../release-inputs" }
 libc = "0.2"
 sha2 = "0.10"

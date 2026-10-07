@@ -350,3 +350,69 @@ fn outer_media_type_absence_keeps_lenient_behavior() {
         );
     }
 }
+
+#[test]
+fn index_and_descriptor_aliases_decode_only_the_final_match() {
+    let index = format!(
+        r#"{{"schemaVersion":"bad","SCHEMAVERSION":2,"manifests":[{{"digest":"{MEDIA_TYPE_DIGEST}","size":"bad","SIZE":1,"mediaType":"{MANIFEST_MEDIA_TYPE}"}}]}}"#
+    );
+    let entries = HashMap::from([
+        (
+            "oci-layout".to_string(),
+            Blob {
+                hash: String::new(),
+                size: 0,
+                data: Some(br#"{"imageLayoutVersion":"1.0.0"}"#.to_vec()),
+            },
+        ),
+        (
+            "index.json".to_string(),
+            Blob {
+                hash: String::new(),
+                size: 0,
+                data: Some(index.into_bytes()),
+            },
+        ),
+    ]);
+    let descriptors = read_oci_index(&entries).unwrap();
+    assert_eq!(descriptors[0].size, 1);
+
+    let index = format!(
+        r#"{{"schemaVersion":2,"schemaVersion":null,"manifests":[{{"digest":"{MEDIA_TYPE_DIGEST}","size":1,"SIZE":"bad","mediaType":"{MANIFEST_MEDIA_TYPE}"}}]}}"#
+    );
+    let entries = HashMap::from([
+        (
+            "oci-layout".to_string(),
+            Blob {
+                hash: String::new(),
+                size: 0,
+                data: Some(br#"{"imageLayoutVersion":"1.0.0"}"#.to_vec()),
+            },
+        ),
+        (
+            "index.json".to_string(),
+            Blob {
+                hash: String::new(),
+                size: 0,
+                data: Some(index.into_bytes()),
+            },
+        ),
+    ]);
+    assert_eq!(
+        read_oci_index(&entries).unwrap_err().message(),
+        "valid OCI index required"
+    );
+}
+
+#[test]
+fn descriptor_size_keeps_go_integer_tokens() {
+    let descriptor: Descriptor = serde_json::from_str(r#"{"size":-0}"#).unwrap();
+    assert_eq!(descriptor.size, 0);
+    for token in ["1.0", "1e0", "9223372036854775808", "-9223372036854775809"] {
+        let body = format!(r#"{{"size":{token}}}"#);
+        assert!(
+            serde_json::from_str::<Descriptor>(&body).is_err(),
+            "{token} must fail"
+        );
+    }
+}

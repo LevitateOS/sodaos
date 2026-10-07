@@ -24,7 +24,6 @@ pub mod files;
 pub mod forgejo;
 pub mod http;
 pub mod json_emit;
-pub mod json_go;
 pub mod json_input;
 pub mod live_inputs;
 pub mod oci;

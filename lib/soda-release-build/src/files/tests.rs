@@ -111,14 +111,44 @@ fn read_json_strict_round_trip() {
     let body = file.marshal() + "\n";
     std::fs::write(&path, &body).unwrap();
     let root = Root::open(&dir).unwrap();
-    let (back, digest) = read_json_at(&root, "file.json", "build.File", File::decode).unwrap();
+    let (back, digest) = read_json_at::<File>(&root, "file.json").unwrap();
     assert_eq!(back, file);
     assert_eq!(digest, crate::sha256_hex(body.as_bytes()));
     // Unknown fields and trailing data are refused.
     std::fs::write(&path, "{\"Mode\":420,\"bogus\":1}").unwrap();
-    assert!(read_json(&path, "build.File", File::decode).is_err());
+    assert!(read_json::<File>(&path).is_err());
     std::fs::write(&path, "{\"Mode\":420} {}").unwrap();
-    assert!(read_json(&path, "build.File", File::decode).is_err());
+    assert!(read_json::<File>(&path).is_err());
+}
+
+#[test]
+fn file_duplicate_fields_validate_only_the_last_match() {
+    let dir = scratch();
+    let path = dir.join("file.json");
+    std::fs::write(&path, r#"{"mode":"bad","Mode":420}"#).unwrap();
+    assert_eq!(read_json::<File>(&path).unwrap().mode, 420);
+    std::fs::write(&path, r#"{"Mode":420,"mode":"bad"}"#).unwrap();
+    assert!(read_json::<File>(&path).is_err());
+
+    std::fs::write(&path, r#"{"Mode":420,"mOdE":null}"#).unwrap();
+    assert_eq!(read_json::<File>(&path).unwrap().mode, 0);
+    std::fs::write(&path, r#"{"mOdE":null,"Mode":420}"#).unwrap();
+    assert_eq!(read_json::<File>(&path).unwrap().mode, 420);
+}
+
+#[test]
+fn file_mode_keeps_go_integer_token_edges() {
+    let dir = scratch();
+    let path = dir.join("file.json");
+    std::fs::write(&path, r#"{"mode":-0}"#).unwrap();
+    assert_eq!(read_json::<File>(&path).unwrap().mode, 0);
+    for token in ["0.0", "0e0", "4294967296", "-1"] {
+        std::fs::write(&path, format!(r#"{{"mode":{token}}}"#)).unwrap();
+        assert!(
+            read_json::<File>(&path).is_err(),
+            "mode token {token} must fail"
+        );
+    }
 }
 
 #[test]

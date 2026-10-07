@@ -3,28 +3,22 @@
 
 use crate::coreos_stream::{read_live_inputs, TailnetInputs};
 use crate::files::{is_digest, oci_architecture, write_new};
-use crate::json_emit::{marshal_indent, Emit};
+use crate::json_emit::marshal_indent;
 use crate::production::Production;
 use crate::{io_error, Error};
+use serde::Serialize;
 use soda_build_tools::reader::settings::{recipe_base, unit_image};
 use std::path::{Path, PathBuf};
 
 /// One frozen upstream input: requested ref, pinned ref, config ID.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct ResolvedInput {
+    #[serde(rename = "Requested")]
     pub requested: String,
+    #[serde(rename = "Reference")]
     pub reference: String,
+    #[serde(rename = "Config")]
     pub config: String,
-}
-
-impl ResolvedInput {
-    pub fn emit(&self) -> Emit {
-        Emit::Object(vec![
-            ("Requested".to_string(), Emit::Str(self.requested.clone())),
-            ("Reference".to_string(), Emit::Str(self.reference.clone())),
-            ("Config".to_string(), Emit::Str(self.config.clone())),
-        ])
-    }
 }
 
 pub(crate) fn parse_image_repo(reference: &str) -> String {
@@ -66,9 +60,7 @@ impl Production {
     }
 
     fn admit_resolved_input_record(&self, inputs: &[ResolvedInput]) -> Result<(), Error> {
-        let body = marshal_indent(&Emit::List(
-            inputs.iter().map(ResolvedInput::emit).collect(),
-        )) + "\n";
+        let body = marshal_indent(inputs) + "\n";
         // This private, fresh production attempt owns this growing record.
         let path = PathBuf::from(&self.out).join("app-inputs.json");
         std::fs::write(&path, body.as_bytes()).map_err(|e| io_error("open", &path, e))?;

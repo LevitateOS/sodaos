@@ -6,10 +6,91 @@ use super::{
     LAYER_TAR_GZIP, LAYER_TAR_ZSTD, MANIFEST_MEDIA_TYPE,
 };
 use crate::files::is_digest;
-use crate::json_go::{FieldError, Fields};
 use crate::Error;
-use soda_json::JsonValue;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
+
+type RawJson = Box<serde_json::value::RawValue>;
+
+#[derive(Default)]
+struct IntegerToken(i64);
+
+impl<'de> Deserialize<'de> for IntegerToken {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = RawJson::deserialize(deserializer)?;
+        let value = crate::json_input::parse_integer_token(&raw)
+            .ok_or_else(|| de::Error::custom("invalid integer token"))?;
+        i64::try_from(value)
+            .map(IntegerToken)
+            .map_err(de::Error::custom)
+    }
+}
+
+struct LayoutRecord {
+    image_layout_version: String,
+}
+struct IndexRecord {
+    schema_version: IntegerToken,
+    media_type: String,
+    manifests: Vec<Descriptor>,
+}
+struct ManifestRecord {
+    schema_version: IntegerToken,
+    media_type: String,
+    config: Option<Descriptor>,
+    layers: Vec<Descriptor>,
+}
+struct ConfigRecord {
+    rootfs: Option<RootfsRecord>,
+    os: String,
+    architecture: String,
+    config: Option<ConfigSection>,
+}
+struct RootfsRecord {
+    kind: String,
+    diff_ids: Vec<String>,
+}
+struct ConfigSection {
+    labels: super::StringPairs,
+}
+
+macro_rules! serde_record {
+    ($ty:ident, $visitor:ident, $expect:literal, { $($field:ident : $field_type:ty => $name:literal),+ $(,)? }) => {
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                struct $visitor;
+                impl<'de> Visitor<'de> for $visitor {
+                    type Value = $ty;
+                    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str($expect) }
+                    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                        $(let mut $field: Option<RawJson> = None;)+
+                        while let Some(key) = map.next_key::<String>()? {
+                            let mut matched = false;
+                            $(if key.eq_ignore_ascii_case($name) { $field = Some(map.next_value()?); matched = true; })+
+                            if !matched { map.next_value::<de::IgnoredAny>()?; }
+                        }
+                        Ok($ty { $($field: super::raw_field::<$field_type, A::Error>($field)?,)+ })
+                    }
+                }
+                deserializer.deserialize_map($visitor)
+            }
+        }
+    };
+}
+
+serde_record!(LayoutRecord, LayoutVisitor, "OCI layout object", { image_layout_version: String => "imageLayoutVersion" });
+serde_record!(IndexRecord, IndexVisitor, "OCI index object", {
+    schema_version: IntegerToken => "schemaVersion", media_type: String => "mediaType", manifests: Vec<Descriptor> => "manifests"
+});
+serde_record!(ManifestRecord, ManifestVisitor, "OCI manifest object", {
+    schema_version: IntegerToken => "schemaVersion", media_type: String => "mediaType", config: Option<Descriptor> => "config", layers: Vec<Descriptor> => "layers"
+});
+serde_record!(ConfigRecord, ConfigVisitor, "OCI config object", {
+    rootfs: Option<RootfsRecord> => "rootfs", os: String => "os", architecture: String => "architecture", config: Option<ConfigSection> => "config"
+});
+serde_record!(RootfsRecord, RootfsVisitor, "OCI rootfs object", { kind: String => "type", diff_ids: Vec<String> => "diff_ids" });
+serde_record!(ConfigSection, ConfigSectionVisitor, "OCI config section", { labels: super::StringPairs => "Labels" });
 
 /// Parses the index; both single-image archives and multi-image layouts
 /// share this gate.
@@ -17,9 +98,9 @@ pub(crate) fn read_oci_index(entries: &HashMap<String, Blob>) -> Result<Vec<Desc
     let layout_data = entries.get("oci-layout").and_then(|b| b.data.as_ref());
     let layout_ok = layout_data
         .and_then(|data| std::str::from_utf8(data).ok())
-        .and_then(|text| JsonValue::parse(text).ok())
-        .and_then(|v| Fields::of(&v).map(|f| f.string("imageLayoutVersion").unwrap_or_default()))
-        == Some("1.0.0".to_string());
+        .and_then(|text| serde_json::from_str::<LayoutRecord>(text).ok())
+        .map(|layout| layout.image_layout_version == "1.0.0")
+        .unwrap_or(false);
     if !layout_ok {
         return Err(Error::msg("missing OCI layout"));
     }
@@ -27,36 +108,14 @@ pub(crate) fn read_oci_index(entries: &HashMap<String, Blob>) -> Result<Vec<Desc
     let index_text = index_data
         .and_then(|data| std::str::from_utf8(data).ok())
         .ok_or_else(|| Error::msg("valid OCI index required"))?;
-    let index_value =
-        JsonValue::parse(index_text).map_err(|_| Error::msg("valid OCI index required"))?;
-    let index = Fields::of(&index_value).ok_or_else(|| Error::msg("valid OCI index required"))?;
-    let schema = index
-        .int("schemaVersion")
-        .map_err(|_| Error::msg("valid OCI index required"))?;
-    let media = index
-        .media_type()
-        .map_err(|_| Error::msg("valid OCI index required"))?;
-    if schema != 2 || (!media.is_empty() && media != INDEX_MEDIA_TYPE) {
+    let index: IndexRecord =
+        serde_json::from_str(index_text).map_err(|_| Error::msg("valid OCI index required"))?;
+    if index.schema_version.0 != 2
+        || (!index.media_type.is_empty() && index.media_type != INDEX_MEDIA_TYPE)
+    {
         return Err(Error::msg("valid OCI index required"));
     }
-    let manifests = index
-        .object_list("manifests")
-        .map_err(|_| Error::msg("valid OCI index required"))?;
-    manifests
-        .iter()
-        .map(Descriptor::decode)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| Error::msg("valid OCI index required"))
-}
-
-trait MediaType {
-    fn media_type(&self) -> Result<String, FieldError>;
-}
-
-impl MediaType for Fields<'_> {
-    fn media_type(&self) -> Result<String, FieldError> {
-        self.string("mediaType")
-    }
+    Ok(index.manifests)
 }
 
 pub(super) struct OciManifest {
@@ -66,35 +125,21 @@ pub(super) struct OciManifest {
 
 pub(super) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifest, Error> {
     let text = std::str::from_utf8(data).map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    let value = JsonValue::parse(text).map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    let fields = Fields::of(&value).ok_or_else(|| Error::msg("invalid OCI image manifest"))?;
-    let schema = fields
-        .int("schemaVersion")
-        .map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    let media = fields
-        .media_type()
-        .map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    let config = fields
-        .object("config")
-        .map_err(|_| Error::msg("invalid OCI image manifest"))?
+    let record: ManifestRecord =
+        serde_json::from_str(text).map_err(|_| Error::msg("invalid OCI image manifest"))?;
+    let config = record
+        .config
         .ok_or_else(|| Error::msg("invalid OCI image manifest"))?;
-    let config =
-        Descriptor::decode(&config).map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    if schema != 2
-        || (!media.is_empty() && media != MANIFEST_MEDIA_TYPE)
+    if record.schema_version.0 != 2
+        || (!record.media_type.is_empty() && record.media_type != MANIFEST_MEDIA_TYPE)
         || config.media_type != CONFIG_MEDIA_TYPE
     {
         return Err(Error::msg("invalid OCI image manifest"));
     }
-    let layers = fields
-        .object_list("layers")
-        .map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    let layers = layers
-        .iter()
-        .map(Descriptor::decode)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    Ok(OciManifest { config, layers })
+    Ok(OciManifest {
+        config,
+        layers: record.layers,
+    })
 }
 
 /// Fetches a blob by descriptor, loading it on demand for layouts.
@@ -189,44 +234,27 @@ fn inspect_oci_config(
 ) -> Result<Image, Error> {
     let text =
         std::str::from_utf8(config_data).map_err(|_| Error::msg("invalid OCI image config"))?;
-    let value = JsonValue::parse(text).map_err(|_| Error::msg("invalid OCI image config"))?;
-    let cfg = Fields::of(&value).ok_or_else(|| Error::msg("invalid OCI image config"))?;
+    let cfg: ConfigRecord =
+        serde_json::from_str(text).map_err(|_| Error::msg("invalid OCI image config"))?;
     let rootfs = cfg
-        .object("rootfs")
-        .map_err(|_| Error::msg("invalid OCI image config"))?
+        .rootfs
         .ok_or_else(|| Error::msg("invalid OCI image config"))?;
-    if rootfs
-        .string("type")
-        .map_err(|_| Error::msg("invalid OCI image config"))?
-        != "layers"
-    {
+    if rootfs.kind != "layers" {
         return Err(Error::msg("OCI rootfs/layer count mismatch"));
     }
-    let diff_ids = rootfs
-        .string_list("diff_ids")
-        .map_err(|_| Error::msg("invalid OCI image config"))?;
-    validate_oci_rootfs(&diff_ids, layers)?;
-    let os = cfg
-        .string("os")
-        .map_err(|_| Error::msg("invalid OCI image config"))?;
-    let arch = cfg
-        .string("architecture")
-        .map_err(|_| Error::msg("invalid OCI image config"))?;
+    validate_oci_rootfs(&rootfs.diff_ids, layers)?;
+    let os = cfg.os;
+    let arch = cfg.architecture;
     // Compressed layer contents are not extracted here. Their blob
     // identities are checked; native import remains the proof of
     // decompression/rootfs use.
     if os != "linux" || arch != want {
         return Err(Error::msg(format!("OCI must be linux/{want}")));
     }
-    let config_section = cfg
-        .object("config")
-        .map_err(|_| Error::msg("invalid OCI image config"))?;
-    let labels = match config_section {
-        Some(section) => section
-            .string_map("Labels")
-            .map_err(|_| Error::msg("invalid OCI image config"))?,
-        None => Vec::new(),
-    };
+    let labels = cfg
+        .config
+        .map(|section| section.labels.0)
+        .unwrap_or_default();
     validate_oci_attribution(&labels, revision)?;
     let label = |key: &str| {
         labels
@@ -269,4 +297,22 @@ pub(crate) fn inspect_oci_image(
         &image.digest,
         &manifest.config.digest,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::IndexRecord;
+
+    #[test]
+    fn schema_version_keeps_go_integer_tokens() {
+        let record: IndexRecord = serde_json::from_str(r#"{"schemaVersion":-0}"#).unwrap();
+        assert_eq!(record.schema_version.0, 0);
+        for token in ["0.0", "0e0", "9223372036854775808", "-9223372036854775809"] {
+            let body = format!(r#"{{"schemaVersion":{token}}}"#);
+            assert!(
+                serde_json::from_str::<IndexRecord>(&body).is_err(),
+                "{token} must fail"
+            );
+        }
+    }
 }

@@ -4,9 +4,9 @@
 use crate::coreos::https_url;
 use crate::files::{is_digest, oci_architecture};
 use crate::http::{get_follow, HttpTransport};
-use crate::json_go::Fields;
 use crate::Error;
-use soda_json::JsonValue;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::io::Read;
 use std::time::Duration;
@@ -59,34 +59,20 @@ pub(crate) fn resolve_registry_digests_with<T: HttpTransport>(
         return Err(Error::msg("container index exceeds size limit"));
     }
     let text = String::from_utf8_lossy(&data);
-    let value = JsonValue::parse(&text).map_err(|_| Error::msg("invalid container index"))?;
-    let index = Fields::of(&value).ok_or_else(|| Error::msg("invalid container index"))?;
-    let manifests = index
-        .object_list("manifests")
-        .map_err(|_| Error::msg("invalid container index"))?;
+    let index: ManifestIndex =
+        serde_json::from_str(&text).map_err(|_| Error::msg("invalid container index"))?;
     let oci_arch = oci_architecture("x86_64")?;
     let mut found = String::new();
-    for manifest in &manifests {
-        let platform = manifest
-            .object("platform")
-            .map_err(|_| Error::msg("invalid container index"))?;
-        let architecture = match platform {
-            Some(p) => p
-                .string("architecture")
-                .map_err(|_| Error::msg("invalid container index"))?,
-            None => String::new(),
-        };
-        if architecture != oci_arch {
+    for manifest in &index.manifests {
+        if manifest.platform.architecture != oci_arch {
             continue;
         }
-        let digest = manifest
-            .string("digest")
-            .map_err(|_| Error::msg("invalid container index"))?;
+        let digest = &manifest.digest;
         match digest.strip_prefix("sha256:") {
             Some(hex) if is_digest(hex) => {}
             _ => return Err(Error::msg("container index x86_64 digest is malformed")),
         }
-        found = digest;
+        found = digest.clone();
     }
     if found.is_empty() {
         return Err(Error::msg("container index lacks architecture x86_64"));
@@ -97,4 +83,114 @@ pub(crate) fn resolve_registry_digests_with<T: HttpTransport>(
         format!("{host}/{COREOS_CONTAINER_REPO}@{found}"),
     );
     Ok(digests)
+}
+
+struct ManifestIndex {
+    manifests: Vec<ManifestRecord>,
+}
+struct ManifestRecord {
+    platform: ManifestPlatform,
+    digest: String,
+}
+#[derive(Default)]
+struct ManifestPlatform {
+    architecture: String,
+}
+
+impl<'de> Deserialize<'de> for ManifestIndex {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ManifestIndex;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("container index object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut manifests = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("manifests") {
+                        manifests = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                let manifests = match manifests {
+                    None => Vec::new(),
+                    Some(raw) => serde_json::from_str::<Option<Vec<ManifestRecord>>>(raw.get())
+                        .map_err(de::Error::custom)?
+                        .unwrap_or_default(),
+                };
+                Ok(ManifestIndex { manifests })
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
+}
+
+impl<'de> Deserialize<'de> for ManifestRecord {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ManifestRecord;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("container manifest object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let (mut platform, mut digest) = (None, None);
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("platform") {
+                        platform = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("digest") {
+                        digest = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                let platform = match platform {
+                    None => ManifestPlatform::default(),
+                    Some(raw) => serde_json::from_str::<Option<ManifestPlatform>>(raw.get())
+                        .map_err(de::Error::custom)?
+                        .unwrap_or_default(),
+                };
+                let digest = match digest {
+                    None => String::new(),
+                    Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                        .map_err(de::Error::custom)?
+                        .unwrap_or_default(),
+                };
+                Ok(ManifestRecord { platform, digest })
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
+}
+
+impl<'de> Deserialize<'de> for ManifestPlatform {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ManifestPlatform;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("platform object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut architecture = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("architecture") {
+                        architecture = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                let architecture = match architecture {
+                    None => String::new(),
+                    Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                        .map_err(de::Error::custom)?
+                        .unwrap_or_default(),
+                };
+                Ok(ManifestPlatform { architecture })
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
 }

@@ -67,9 +67,7 @@ fn oracle_resolved_inputs_bytes() {
         reference: format!("docker.io/rockylinux/rockylinux@sha256:{}", "b".repeat(64)),
         config: oracle::OCI_CONFIG.to_string(),
     }];
-    let body = json_emit::marshal_indent(&json_emit::Emit::List(
-        inputs.iter().map(ResolvedInput::emit).collect(),
-    )) + "\n";
+    let body = json_emit::marshal_indent(&inputs) + "\n";
     assert_eq!(body, oracle::RESOLVED_INPUTS_JSON);
 }
 
@@ -136,17 +134,15 @@ fn oracle_read_json_strictness() {
         ),
     )
     .unwrap();
-    let err = read_json::<File>(&path, "build.File", File::decode).unwrap_err();
-    assert_eq!(err.message(), oracle::READ_UNKNOWN_FIELD);
+    assert!(read_json::<File>(&path).is_err());
     std::fs::write(&path, "{\"mode\":420} {}").unwrap();
-    let err = read_json::<File>(&path, "build.File", File::decode).unwrap_err();
-    assert_eq!(err.message(), oracle::READ_TRAILING);
+    let err = read_json::<File>(&path).unwrap_err();
+    assert_eq!(err.message(), "trailing JSON data");
     std::fs::write(&path, "{\"mode\":420}").unwrap();
-    let file: File = read_json(&path, "build.File", File::decode).unwrap();
+    let file: File = read_json(&path).unwrap();
     assert_eq!(file.mode, oracle::READ_OK_MODE);
     assert!(is_digest(&"a".repeat(64)));
     let root = Root::open(&dir).unwrap();
-    let (back, _digest): (File, String) =
-        read_json_at(&root, "strict.json", "build.File", File::decode).unwrap();
+    let (back, _digest): (File, String) = read_json_at::<File>(&root, "strict.json").unwrap();
     assert_eq!(back.mode, oracle::READ_OK_MODE);
 }

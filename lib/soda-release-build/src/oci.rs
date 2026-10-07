@@ -4,8 +4,10 @@
 //!
 //! Identity checks adapted from soda-os bc1d3e0 release/inspection.go.
 
-use crate::json_go::{FieldError, Fields};
+use crate::json_emit::marshal_compact;
 use crate::{io_error, Error};
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
@@ -25,14 +27,21 @@ const LAYER_TAR_GZIP: &str = "application/vnd.oci.image.layer.v1.tar+gzip";
 const LAYER_TAR_ZSTD: &str = "application/vnd.oci.image.layer.v1.tar+zstd";
 
 /// Verified image identity.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct Image {
+    #[serde(rename = "Manifest")]
     pub manifest: String,
+    #[serde(rename = "Config")]
     pub config: String,
+    #[serde(rename = "Architecture")]
     pub architecture: String,
+    #[serde(rename = "Revision")]
     pub revision: String,
+    #[serde(rename = "Source")]
     pub source: String,
+    #[serde(rename = "BaseName")]
     pub base_name: String,
+    #[serde(rename = "BaseDigest")]
     pub base_digest: String,
 }
 
@@ -42,28 +51,7 @@ impl Image {
     /// trailing newline (the calling binary's `println!` adds it, matching
     /// `json.Encoder.Encode`).
     pub fn marshal_compact(&self) -> String {
-        let mut out = String::new();
-        out.push('{');
-        let fields = [
-            ("Manifest", &self.manifest),
-            ("Config", &self.config),
-            ("Architecture", &self.architecture),
-            ("Revision", &self.revision),
-            ("Source", &self.source),
-            ("BaseName", &self.base_name),
-            ("BaseDigest", &self.base_digest),
-        ];
-        for (i, (name, value)) in fields.iter().enumerate() {
-            if i > 0 {
-                out.push(',');
-            }
-            out.push('"');
-            out.push_str(name);
-            out.push_str("\":");
-            soda_json::escape_into(&mut out, value);
-        }
-        out.push('}');
-        out
+        marshal_compact(self)
     }
 }
 
@@ -80,17 +68,96 @@ pub(crate) struct Descriptor {
     pub annotations: Vec<(String, String)>,
 }
 
-impl Descriptor {
-    fn decode(fields: &Fields<'_>) -> Result<Descriptor, FieldError> {
-        Ok(Descriptor {
-            digest: fields.string("digest")?,
-            size: fields.int("size")?,
-            media_type: fields.string("mediaType")?,
-            urls: fields.string_list("urls")?,
-            annotations: fields.string_map("annotations")?,
-        })
+impl<'de> Deserialize<'de> for Descriptor {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct DescriptorVisitor;
+        impl<'de> Visitor<'de> for DescriptorVisitor {
+            type Value = Descriptor;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("OCI descriptor object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let (mut digest, mut size, mut media_type, mut urls, mut annotations) =
+                    (None, None, None, None, None);
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("digest") {
+                        digest = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("size") {
+                        size = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("mediaType") {
+                        media_type = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("urls") {
+                        urls = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else if key.eq_ignore_ascii_case("annotations") {
+                        annotations = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(Descriptor {
+                    digest: raw_field(digest)?,
+                    size: raw_integer_field(size)?,
+                    media_type: raw_field(media_type)?,
+                    urls: raw_field(urls)?,
+                    annotations: raw_field::<StringPairs, A::Error>(annotations)?.0,
+                })
+            }
+        }
+        deserializer.deserialize_map(DescriptorVisitor)
     }
+}
 
+pub(super) fn raw_field<T: serde::de::DeserializeOwned + Default, E: de::Error>(
+    raw: Option<Box<serde_json::value::RawValue>>,
+) -> Result<T, E> {
+    match raw {
+        None => Ok(T::default()),
+        Some(raw) => serde_json::from_str::<Option<T>>(raw.get())
+            .map(Option::unwrap_or_default)
+            .map_err(E::custom),
+    }
+}
+
+pub(super) fn raw_integer_field<T, E>(raw: Option<Box<serde_json::value::RawValue>>) -> Result<T, E>
+where
+    T: TryFrom<i128> + Default,
+    <T as TryFrom<i128>>::Error: std::fmt::Display,
+    E: de::Error,
+{
+    match raw {
+        None => Ok(T::default()),
+        Some(raw) if raw.get() == "null" => Ok(T::default()),
+        Some(raw) => crate::json_input::parse_integer_token(&raw)
+            .ok_or_else(|| E::custom("invalid integer token"))
+            .and_then(|value| T::try_from(value).map_err(E::custom)),
+    }
+}
+
+#[derive(Default)]
+pub(super) struct StringPairs(pub(super) Vec<(String, String)>);
+
+impl<'de> Deserialize<'de> for StringPairs {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct PairsVisitor;
+        impl<'de> Visitor<'de> for PairsVisitor {
+            type Value = StringPairs;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("string map")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut pairs = Vec::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    let value = map.next_value::<String>()?;
+                    pairs.push((key, value));
+                }
+                Ok(StringPairs(pairs))
+            }
+        }
+        deserializer.deserialize_map(PairsVisitor)
+    }
+}
+
+impl Descriptor {
     pub fn annotation(&self, key: &str) -> Option<&str> {
         self.annotations
             .iter()

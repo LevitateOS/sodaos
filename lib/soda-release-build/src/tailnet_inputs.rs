@@ -5,10 +5,10 @@
 use crate::coreos_stream::{tailnet_base_tags_url, tailnet_index_url};
 use crate::files::oci_architecture;
 use crate::http::{fetch_capped_json, fetch_capped_text, HttpTransport, UreqTransport};
-use crate::json_go::Fields;
 use crate::live_inputs::{valid_tailnet_inputs, TailnetInputs};
 use crate::Error;
-use soda_json::JsonValue;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 /// Resolves the floating Tailnet toolchain: newest stable release, its
 /// archive checksum, and the newest upstream alpine-base tag.
@@ -111,17 +111,11 @@ fn latest_tailnet_release_with<T: HttpTransport>(transport: &T) -> Result<String
 fn latest_tailnet_base_tag_with<T: HttpTransport>(transport: &T) -> Result<String, Error> {
     let data = fetch_capped_json(transport, &tailnet_base_tags_url(), 1 << 20)?;
     let text = String::from_utf8_lossy(&data);
-    let value = JsonValue::parse(&text).map_err(|_| Error::msg("invalid Tailnet base tags"))?;
-    let doc = Fields::of(&value).ok_or_else(|| Error::msg("invalid Tailnet base tags"))?;
-    let results = doc
-        .object_list("Results")
-        .map_err(|_| Error::msg("invalid Tailnet base tags"))?;
+    let doc: TagDocument =
+        serde_json::from_str(&text).map_err(|_| Error::msg("invalid Tailnet base tags"))?;
     let mut best = String::new();
     let mut best_v = [0i64; 2];
-    for tag in &results {
-        let name = tag
-            .string("Name")
-            .map_err(|_| Error::msg("invalid Tailnet base tags"))?;
+    for name in doc.results {
         let (major_s, minor_s) = match name.split_once('.') {
             Some(pair) if !pair.0.is_empty() && !pair.1.is_empty() => pair,
             _ => continue,
@@ -146,6 +140,78 @@ fn latest_tailnet_base_tag_with<T: HttpTransport>(transport: &T) -> Result<Strin
         return Err(Error::msg("no Tailnet base tag upstream"));
     }
     Ok(format!("docker.io/tailscale/alpine-base:{best}"))
+}
+
+#[derive(Default)]
+struct TagDocument {
+    results: Vec<String>,
+}
+
+impl<'de> Deserialize<'de> for TagDocument {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct DocVisitor;
+        impl<'de> Visitor<'de> for DocVisitor {
+            type Value = TagDocument;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("Tailnet tags object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut results: Option<Box<serde_json::value::RawValue>> = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("Results") {
+                        results = Some(map.next_value()?);
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                let results = match results {
+                    None => Vec::new(),
+                    Some(raw) => serde_json::from_str::<Option<Vec<TagRecord>>>(raw.get())
+                        .map_err(de::Error::custom)?
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|r| r.name)
+                        .collect(),
+                };
+                Ok(TagDocument { results })
+            }
+        }
+        deserializer.deserialize_map(DocVisitor)
+    }
+}
+
+struct TagRecord {
+    name: String,
+}
+
+impl<'de> Deserialize<'de> for TagRecord {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct RecordVisitor;
+        impl<'de> Visitor<'de> for RecordVisitor {
+            type Value = TagRecord;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("Tailnet tag object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut name: Option<Box<serde_json::value::RawValue>> = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("Name") {
+                        name = Some(map.next_value()?);
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                let name = match name {
+                    None => String::new(),
+                    Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                        .map_err(de::Error::custom)?
+                        .unwrap_or_default(),
+                };
+                Ok(TagRecord { name })
+            }
+        }
+        deserializer.deserialize_map(RecordVisitor)
+    }
 }
 
 #[cfg(test)]
