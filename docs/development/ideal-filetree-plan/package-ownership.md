@@ -162,10 +162,14 @@ and terminal emission differences at their existing owners. Do not introduce a
 universal permissive facade or preserve lexer modules merely because they were
 previously allocated. Signed raw bytes remain raw.
 
-Installer (`595fb604`) and release-build (`d52d8ca8`) have removed their last
+Installer (`595fb604`), release-build (`d52d8ca8`) and release-image
+(`9ee0a75b`) have removed their last
 engine callers and direct dependency edges. Their current JSON responsibilities
 are bounded raw-byte custody, concrete record admission and required producer
-formatters. Pending consumers still hold shared-crate deletion; a completed
+formatters. Image additionally retains an application-local ordered metadata
+representation for duplicate/raw-number identity, required stable sorting and
+Ignition comparison, with Serde owning grammar and escaping. Pending consumers
+still hold shared-crate deletion; a completed
 owner transfer does not complete JSON01 repository-wide.
 
 Host terminal/factory/preparation records now use caller-owned Serde DTOs

@@ -263,7 +263,7 @@ Observed size: 451 lines, including tests where embedded. JSON01 replaces the cu
 
 Evidence: 14-122: FieldError/Fields lenient extraction;125-312: Strict/json_kind/type and unknown-field diagnostics; 315-389: Emit/sorted_object/marshal_indent/emit_indent/emit_value; 390-451: four existing unit cases; coreos.rs,coreos_stream.rs,files.rs,forgejo.rs,production.rs import these real semantics
 
-Open detail: Build json_go, deliver jsonx and image jsonio have different input profiles; JSON01 migrates each actual caller instead of assigning one global decoder. Required field/map ordering and signed producer bytes have focused fixtures. Obsolete byte/error parity does not justify another permanent serializer abstraction.
+Open detail: Build and image JSON01 caller transfers are complete; their distinct input profiles remain with concrete record adapters. Deliver still holds its separate profile cutover. JSON01 assigns no global decoder. Required field/map ordering and signed producer bytes have focused fixtures. Obsolete byte/error parity does not justify another permanent serializer abstraction.
 
 Build JSON01 completed in `d52d8ca8`. `json_go.rs` and its engine tests were
 deleted with the last strict/lenient callers; named DTO visitors retain final
@@ -511,6 +511,8 @@ Observed size: 1475 lines, including tests where embedded. Keep artifact records
 - `lib/soda-release-image/src/model/trust.rs` — Trust role/timing/minimum-sequence policy, library-validated P-256 key/raw-DER fingerprint, Permit and SecretFiles models; no custom DER/SPKI reader.
 - `lib/soda-release-image/src/model/live_inputs.rs` — Current CoreOSImage/ResolvedCoreOS/TailnetInputs/LiveInputs decoding, container selection and validators.
 - `lib/soda-release-image/src/model/tests.rs` — Existing primitive/URL/payload cases remain unit scoped; attach each case to its actual concerned module without exporting parser helpers for tests.
+- `lib/soda-release-image/src/jsonio.rs` — Serde admission/formatting and field-token policy for concrete image DTOs; no syntax engine or universal field binder.
+- `lib/soda-release-image/src/ordered_json.rs` — Application metadata order, duplicates, raw numeric identity and null-pruned comparison; grammar and emission use Serde. The build-context owner retains stable top-level sorting.
 
 Evidence: 12-104: current constants, identity/digest/architecture/repository gates;105-290: URL/IPv4/IPv6/loopback implementation; 291-365: Image/ProducedImage;366-608: PayloadImage/Payload JSON/load/identity/base/image/upgrade validation; 609-695: ForgejoToolchain/APK provenance;696-939: Candidate and exact payload/source/host/content binding; 940-1176: Trust and private PEM/DER/SPKI/role-key admission;1177-1244: Permit/SecretFiles; 1245-1427: admitted CoreOS/Tailnet inputs;1428-1475: three unit groups; actual consumers are build,complete,host,inspect,layout,payload_stage,prepare,record,media and foreign trait signatures
 

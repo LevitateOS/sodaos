@@ -339,8 +339,13 @@ Console/factory completed in `c8997d1d` with 12 tests, builds and review; consol
 consumes only its two configuration fields, and factory retains sorted Go
 envelope bytes including separator escaping. Dependencies remain direct cached
 Serde edges (`3909ce8a`).
-Remaining host, release-image/deliver/tools, guest and tool
-callers hold JSON01 completion and deletion of `lib/json`.
+Release-image completed in `9ee0a75b`: its dependency and generic codec surface
+are removed. Typed records retain first-exact/folded admission; ordered raw
+metadata retains duplicate and numeric identity, stable top-level sorting and
+Ignition comparison. Its 62 library checks, 12 integration oracles, final
+producer-order regression, development build and medium closure review passed.
+Remaining host, release-deliver/tools, guest and tool callers hold JSON01
+completion and deletion of `lib/json`.
 The [active verification record](../../../.artifacts/l03-l04/verification.md)
 links commits to local receipt scope and retains failed/environment-limited
 attempts separately from qualifying checks. `54176eb6` adds the verified host
