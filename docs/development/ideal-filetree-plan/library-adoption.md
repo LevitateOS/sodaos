@@ -332,7 +332,14 @@ passed with fresh local fixtures. Remaining host callers still hold its engine.
 Activation and candidate/lab credential producers completed in `eba27412`:
 54 tests, development builds and medium review passed. Typed producer records
 retain Python escaping, property order, indentation and newline contracts.
-Remaining host, release-image/deliver/tools, import, guest and tool
+Import completed in `0cd73f16`: the payload/OCI binder and dependency edge are
+removed, with final non-null alias selection, validation of every image-map
+entry, original blob custody and all 14 tests, development build and review.
+Console/factory completed in `c8997d1d` with 12 tests, builds and review; console
+consumes only its two configuration fields, and factory retains sorted Go
+envelope bytes including separator escaping. Dependencies remain direct cached
+Serde edges (`3909ce8a`).
+Remaining host, release-image/deliver/tools, guest and tool
 callers hold JSON01 completion and deletion of `lib/json`.
 The [active verification record](../../../.artifacts/l03-l04/verification.md)
 links commits to local receipt scope and retains failed/environment-limited
