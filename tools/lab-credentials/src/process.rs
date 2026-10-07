@@ -122,134 +122,8 @@ fn run_with_io(
     }
 }
 
-#[derive(Default)]
-struct EnsureAsciiPretty {
-    indent: usize,
-    has_value: bool,
-}
-
-impl serde_json::ser::Formatter for EnsureAsciiPretty {
-    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        for ch in fragment.chars() {
-            if ch <= '\u{7e}' {
-                let mut bytes = [0; 4];
-                writer.write_all(ch.encode_utf8(&mut bytes).as_bytes())?;
-            } else {
-                let mut units = [0u16; 2];
-                for unit in ch.encode_utf16(&mut units) {
-                    write!(writer, "\\u{unit:04x}")?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn begin_array<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.indent += 1;
-        self.has_value = false;
-        writer.write_all(b"[")
-    }
-
-    fn end_array<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.indent -= 1;
-        if self.has_value {
-            writer.write_all(b"\n")?;
-            self.write_indent(writer)?;
-        }
-        writer.write_all(b"]")
-    }
-
-    fn begin_array_value<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        writer.write_all(if first { b"\n" } else { b",\n" })?;
-        self.write_indent(writer)
-    }
-
-    fn end_array_value<W>(&mut self, _: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.has_value = true;
-        Ok(())
-    }
-
-    fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.indent += 1;
-        self.has_value = false;
-        writer.write_all(b"{")
-    }
-
-    fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.indent -= 1;
-        if self.has_value {
-            writer.write_all(b"\n")?;
-            self.write_indent(writer)?;
-        }
-        writer.write_all(b"}")
-    }
-
-    fn begin_object_key<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        writer.write_all(if first { b"\n" } else { b",\n" })?;
-        self.write_indent(writer)
-    }
-
-    fn begin_object_value<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        writer.write_all(b": ")
-    }
-
-    fn end_object_value<W>(&mut self, _: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.has_value = true;
-        Ok(())
-    }
-}
-
-impl EnsureAsciiPretty {
-    fn write_indent<W>(&self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        for _ in 0..self.indent {
-            writer.write_all(b"  ")?;
-        }
-        Ok(())
-    }
-}
-
 fn pretty_json(value: &impl serde::Serialize) -> String {
-    let mut output = Vec::new();
-    {
-        let mut serializer =
-            serde_json::Serializer::with_formatter(&mut output, EnsureAsciiPretty::default());
-        serde::Serialize::serialize(value, &mut serializer)
-            .expect("serializing a JSON record to Vec cannot fail");
-    }
-    String::from_utf8(output).expect("JSON serialization emits UTF-8")
+    serde_json::to_string_pretty(value).expect("serializing a JSON record cannot fail")
 }
 
 #[derive(serde::Serialize)]
@@ -294,7 +168,7 @@ struct ConfigKeys {
     Passphrase: &'static str,
 }
 
-/// `trust_json` mirrors Python's `json.dumps(..., indent=2) + "\n"` trust file.
+/// `trust_json` emits the trust record with its required final LF.
 pub(crate) fn trust_json(prefix: &str, now: u64, pubs: [&str; 4]) -> String {
     let record = TrustRecord {
         Format: 1,
@@ -318,7 +192,7 @@ pub(crate) fn trust_json(prefix: &str, now: u64, pubs: [&str; 4]) -> String {
     pretty_json(&record) + "\n"
 }
 
-/// `config_json` mirrors Python's `json.dumps(..., indent=2) + "\n"` config file.
+/// `config_json` emits the authority configuration record with its required final LF.
 pub(crate) fn config_json() -> String {
     pretty_json(&ConfigRecord {
         Trust: "/run/soda-media-authority/trust.json",

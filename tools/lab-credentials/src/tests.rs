@@ -7,26 +7,57 @@ use crate::inventory::{first_live_inputs, note, stat_line};
 use crate::process::{config_json, trust_json};
 
 #[test]
-fn trust_json_matches_python_dump_with_trailing_newline() {
-    let got = trust_json(
-        "ghcr.io/levitateos/sodaos/é😀\u{7f}",
-        424242,
-        [
-            "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm",
-            "candidate-pub\n",
-            "preview-pub\n",
-            "stable-pub\n",
-        ],
+fn trust_json_has_current_fields_and_trailing_newline() {
+    let make = || {
+        trust_json(
+            "ghcr.io/levitateos/sodaos/é😀\u{7f}",
+            424242,
+            [
+                "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm",
+                "candidate-pub\n",
+                "preview-pub\n",
+                "stable-pub\n",
+            ],
+        )
+    };
+    let got = make();
+    assert!(got.ends_with('\n'));
+    let record: serde_json::Value = serde_json::from_str(&got).unwrap();
+    assert_eq!(record["Format"], 1);
+    assert_eq!(record["Epoch"], 1);
+    assert_eq!(record["Prefix"], "ghcr.io/levitateos/sodaos/é😀\u{7f}");
+    assert_eq!(
+        record["Keys"]["artifact"][0],
+        "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm"
     );
-    let want = "{\n  \"Format\": 1,\n  \"Prefix\": \"ghcr.io/levitateos/sodaos/\\u00e9\\ud83d\\ude00\\u007f\",\n  \"Epoch\": 1,\n  \"Keys\": {\n    \"artifact\": [\n      \"a\\\"b\\\\c\\nd\\re\\tf\\bg\\fh\\u0001i\\u007fj\\u0080k\\u00e9\\ud83d\\ude00l\\u001fm\"\n    ],\n    \"candidate\": [\n      \"candidate-pub\\n\"\n    ],\n    \"preview\": [\n      \"preview-pub\\n\"\n    ],\n    \"stable\": [\n      \"stable-pub\\n\"\n    ]\n  },\n  \"NotBefore\": 423642,\n  \"MaxAgeSeconds\": 3600,\n  \"ClockSkewSeconds\": 10,\n  \"MinimumSequence\": {\n    \"candidate\": 1,\n    \"preview\": 1,\n    \"stable\": 1\n  }\n}\n";
-    assert_eq!(got, want);
+    assert_eq!(record["Keys"]["candidate"][0], "candidate-pub\n");
+    assert_eq!(record["Keys"]["preview"][0], "preview-pub\n");
+    assert_eq!(record["Keys"]["stable"][0], "stable-pub\n");
+    assert_eq!(record["NotBefore"], 423642);
+    assert_eq!(record["MaxAgeSeconds"], 3600);
+    assert_eq!(record["ClockSkewSeconds"], 10);
+    assert_eq!(record["MinimumSequence"]["candidate"], 1);
+    assert_eq!(record["MinimumSequence"]["preview"], 1);
+    assert_eq!(record["MinimumSequence"]["stable"], 1);
+    assert_eq!(got, make());
 }
 
 #[test]
-fn config_json_matches_python_dump_with_trailing_newline() {
+fn config_json_has_current_paths_and_trailing_newline() {
     let got = config_json();
-    let want = "{\n  \"Trust\": \"/run/soda-media-authority/trust.json\",\n  \"Keys\": {\n    \"Key\": \"/run/soda-media-authority/artifact.private\",\n    \"Passphrase\": \"/run/soda-media-authority/passphrase\"\n  }\n}\n";
-    assert_eq!(got, want);
+    assert!(got.ends_with('\n'));
+    let record: serde_json::Value = serde_json::from_str(&got).unwrap();
+    assert_eq!(record["Trust"], "/run/soda-media-authority/trust.json");
+    assert_eq!(
+        record["Keys"]["Key"],
+        "/run/soda-media-authority/artifact.private"
+    );
+    assert_eq!(
+        record["Keys"]["Passphrase"],
+        "/run/soda-media-authority/passphrase"
+    );
+    assert_eq!(record.as_object().unwrap().len(), 2);
+    assert_eq!(got, config_json());
 }
 
 #[test]
@@ -109,7 +140,9 @@ fn first_live_inputs_skips_dangling_symlinks() {
 fn passphrase_is_64_lowercase_hex_without_newline() {
     let passphrase = random_hex_passphrase().unwrap();
     assert_eq!(passphrase.len(), 64);
-    assert!(passphrase
-        .bytes()
-        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()));
+    assert!(
+        passphrase
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    );
 }

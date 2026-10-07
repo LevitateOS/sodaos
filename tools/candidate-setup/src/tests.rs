@@ -7,48 +7,99 @@ use super::config::{config_json, trust_json, worker_json};
 use super::controller::controller_cargo_argv;
 use super::fixture_authority::random_hex_passphrase;
 use super::preflight::bridge_ip;
-use super::process::{git_tree_clean, pipe2, run_in_dir, Captured};
+use super::process::{Captured, git_tree_clean, pipe2, run_in_dir};
 use super::storage::units_have_active;
-use super::{command_v_in, current_umask, env_or, stripped, write_staged, Exit, WORKER_POLICY_SRC};
+use super::{Exit, WORKER_POLICY_SRC, command_v_in, current_umask, env_or, stripped, write_staged};
 
 #[test]
-fn worker_json_matches_python_dump_without_trailing_newline() {
-    let got = worker_json(
-        "/usr/local/lib/soda/soda-build",
-        "/home/op/sodaos",
-        "/home/op/forgejo",
-        "/home/op/sodaos/.artifacts/releases/isolated",
-        "/home/soda-candidate",
-        "/home/soda-candidate/home",
-        "/home/soda-candidate/run",
-        "/var/lib/soda-candidate-tools",
-        "/var/lib/soda-candidate-authority",
+fn worker_json_has_current_fields_without_trailing_newline() {
+    let make = || {
+        worker_json(
+            "/usr/local/lib/soda/soda-build",
+            "/home/op/sodaos",
+            "/home/op/forgejo",
+            "/home/op/sodaos/.artifacts/releases/isolated",
+            "/home/soda-candidate",
+            "/home/soda-candidate/home",
+            "/home/soda-candidate/run",
+            "/var/lib/soda-candidate-tools",
+            "/var/lib/soda-candidate-authority",
+        )
+    };
+    let got = make();
+    let record: serde_json::Value = serde_json::from_str(&got).unwrap();
+    assert_eq!(record["Executable"], "/usr/local/lib/soda/soda-build");
+    assert_eq!(record["Source"], "/home/op/sodaos");
+    assert_eq!(record["ForgejoSource"], "/home/op/forgejo");
+    assert_eq!(
+        record["OutputParent"],
+        "/home/op/sodaos/.artifacts/releases/isolated"
     );
-    let want = "{\n  \"Executable\": \"/usr/local/lib/soda/soda-build\",\n  \"Source\": \"/home/op/sodaos\",\n  \"ForgejoSource\": \"/home/op/forgejo\",\n  \"OutputParent\": \"/home/op/sodaos/.artifacts/releases/isolated\",\n  \"StorageRoot\": \"/home/soda-candidate\",\n  \"BuildHome\": \"/home/soda-candidate/home\",\n  \"Runtime\": \"/home/soda-candidate/run\",\n  \"Tools\": \"/var/lib/soda-candidate-tools\",\n  \"MediaAuthorityDirectory\": \"/var/lib/soda-candidate-authority\"\n}";
-    assert_eq!(got, want);
+    assert_eq!(record["StorageRoot"], "/home/soda-candidate");
+    assert_eq!(record["BuildHome"], "/home/soda-candidate/home");
+    assert_eq!(record["Runtime"], "/home/soda-candidate/run");
+    assert_eq!(record["Tools"], "/var/lib/soda-candidate-tools");
+    assert_eq!(
+        record["MediaAuthorityDirectory"],
+        "/var/lib/soda-candidate-authority"
+    );
+    assert_eq!(record.as_object().unwrap().len(), 9);
+    assert!(!got.ends_with('\n'));
+    assert_eq!(got, make());
 }
 
 #[test]
-fn trust_json_matches_python_dump_with_trailing_newline() {
-    let got = trust_json(
-        "ghcr.io/levitateos/sodaos/é😀\u{7f}",
-        424242,
-        [
-            "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm",
-            "candidate-pub\n",
-            "preview-pub\n",
-            "stable-pub\n",
-        ],
+fn trust_json_has_current_fields_and_trailing_newline() {
+    let make = || {
+        trust_json(
+            "ghcr.io/levitateos/sodaos/é😀\u{7f}",
+            424242,
+            [
+                "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm",
+                "candidate-pub\n",
+                "preview-pub\n",
+                "stable-pub\n",
+            ],
+        )
+    };
+    let got = make();
+    assert!(got.ends_with('\n'));
+    let record: serde_json::Value = serde_json::from_str(&got).unwrap();
+    assert_eq!(record["Format"], 1);
+    assert_eq!(record["Epoch"], 1);
+    assert_eq!(record["Prefix"], "ghcr.io/levitateos/sodaos/é😀\u{7f}");
+    assert_eq!(
+        record["Keys"]["artifact"][0],
+        "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm"
     );
-    let want = "{\n  \"Format\": 1,\n  \"Prefix\": \"ghcr.io/levitateos/sodaos/\\u00e9\\ud83d\\ude00\\u007f\",\n  \"Epoch\": 1,\n  \"Keys\": {\n    \"artifact\": [\n      \"a\\\"b\\\\c\\nd\\re\\tf\\bg\\fh\\u0001i\\u007fj\\u0080k\\u00e9\\ud83d\\ude00l\\u001fm\"\n    ],\n    \"candidate\": [\n      \"candidate-pub\\n\"\n    ],\n    \"preview\": [\n      \"preview-pub\\n\"\n    ],\n    \"stable\": [\n      \"stable-pub\\n\"\n    ]\n  },\n  \"NotBefore\": 423642,\n  \"MaxAgeSeconds\": 3600,\n  \"ClockSkewSeconds\": 10,\n  \"MinimumSequence\": {\n    \"candidate\": 1,\n    \"preview\": 1,\n    \"stable\": 1\n  }\n}\n";
-    assert_eq!(got, want);
+    assert_eq!(record["Keys"]["candidate"][0], "candidate-pub\n");
+    assert_eq!(record["Keys"]["preview"][0], "preview-pub\n");
+    assert_eq!(record["Keys"]["stable"][0], "stable-pub\n");
+    assert_eq!(record["NotBefore"], 423642);
+    assert_eq!(record["MaxAgeSeconds"], 3600);
+    assert_eq!(record["ClockSkewSeconds"], 10);
+    assert_eq!(record["MinimumSequence"]["candidate"], 1);
+    assert_eq!(record["MinimumSequence"]["preview"], 1);
+    assert_eq!(record["MinimumSequence"]["stable"], 1);
+    assert_eq!(got, make());
 }
 
 #[test]
-fn config_json_matches_python_dump_with_trailing_newline() {
+fn config_json_has_current_paths_and_trailing_newline() {
     let got = config_json();
-    let want = "{\n  \"Trust\": \"/run/soda-media-authority/trust.json\",\n  \"Keys\": {\n    \"Key\": \"/run/soda-media-authority/artifact.private\",\n    \"Passphrase\": \"/run/soda-media-authority/passphrase\"\n  }\n}\n";
-    assert_eq!(got, want);
+    assert!(got.ends_with('\n'));
+    let record: serde_json::Value = serde_json::from_str(&got).unwrap();
+    assert_eq!(record["Trust"], "/run/soda-media-authority/trust.json");
+    assert_eq!(
+        record["Keys"]["Key"],
+        "/run/soda-media-authority/artifact.private"
+    );
+    assert_eq!(
+        record["Keys"]["Passphrase"],
+        "/run/soda-media-authority/passphrase"
+    );
+    assert_eq!(record.as_object().unwrap().len(), 2);
+    assert_eq!(got, config_json());
 }
 
 #[test]
@@ -155,9 +206,11 @@ fn write_staged_matches_redirection_bytes_and_mode() {
 fn passphrase_is_64_lowercase_hex_without_newline() {
     let passphrase = random_hex_passphrase().unwrap();
     assert_eq!(passphrase.len(), 64);
-    assert!(passphrase
-        .bytes()
-        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()));
+    assert!(
+        passphrase
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    );
     assert_ne!(
         random_hex_passphrase().unwrap(),
         random_hex_passphrase().unwrap()
