@@ -1,87 +1,28 @@
 package forgejo
 
-import "strings"
+import (
+	"strings"
+
+	extensions "forgejo.org/extension-sdk"
+)
 
 // PullEvidence is the permission-checked view of one native pull request.
-type PullEvidence struct {
-	ID           string `json:"id"`
-	IssueID      string `json:"issue_id"`
-	Number       string `json:"number"`
-	HeadRepoID   string `json:"head_repo_id,omitempty"`
-	HeadBranch   string `json:"head_branch,omitempty"`
-	HeadTip      string `json:"head_tip,omitempty"`
-	BaseBranch   string `json:"base_branch,omitempty"`
-	MergeBase    string `json:"merge_base,omitempty"`
-	HasMerged    bool   `json:"has_merged,omitempty"`
-	MergedCommit string `json:"merged_commit,omitempty"`
-	MergerID     string `json:"merger_id,omitempty"`
-	MergedUnix   int64  `json:"merged_unix,omitempty"`
-	MaintainerEd bool   `json:"allow_maintainer_edit,omitempty"`
-	Flow         string `json:"flow,omitempty"`
-	Status       string `json:"status,omitempty"`
-	Visible      bool   `json:"visible"`
-	HiddenReason string `json:"hidden_reason,omitempty"`
-	Complete     bool   `json:"complete"`
-}
+type PullEvidence = extensions.SnapshotPull
 
 // ReviewEvidence is the permission-checked view of one native review.
-type ReviewEvidence struct {
-	ID            string `json:"id"`
-	IssueID       string `json:"issue_id"`
-	Type          string `json:"type,omitempty"`
-	ReviewerID    string `json:"reviewer_id,omitempty"`
-	CommitID      string `json:"commit_id,omitempty"`
-	Official      bool   `json:"official,omitempty"`
-	Stale         bool   `json:"stale,omitempty"`
-	Dismissed     bool   `json:"dismissed,omitempty"`
-	ContentDigest string `json:"content_digest,omitempty"`
-	CreatedUnix   int64  `json:"created_unix,omitempty"`
-	UpdatedUnix   int64  `json:"updated_unix,omitempty"`
-	Visible       bool   `json:"visible"`
-	HiddenReason  string `json:"hidden_reason,omitempty"`
-	Complete      bool   `json:"complete"`
-}
+type ReviewEvidence = extensions.SnapshotReview
 
 // ReviewPage carries one bounded review list with completeness evidence.
-type ReviewPage struct {
-	IssueID  string           `json:"issue_id"`
-	Items    []ReviewEvidence `json:"items"`
-	Total    int              `json:"total"`
-	Complete bool             `json:"complete"`
-}
+type ReviewPage = extensions.SnapshotReviewPage
 
 // CheckEvidence is the permission-checked view of one native commit status.
-type CheckEvidence struct {
-	ID           string `json:"id"`
-	Index        int64  `json:"index,omitempty"`
-	SHA          string `json:"sha"`
-	Context      string `json:"context,omitempty"`
-	State        string `json:"state,omitempty"`
-	CreatorID    string `json:"creator_id,omitempty"`
-	CreatedUnix  int64  `json:"created_unix,omitempty"`
-	UpdatedUnix  int64  `json:"updated_unix,omitempty"`
-	Visible      bool   `json:"visible"`
-	HiddenReason string `json:"hidden_reason,omitempty"`
-	Complete     bool   `json:"complete"`
-}
+type CheckEvidence = extensions.SnapshotCheck
 
 // CheckSet carries one bounded check list for an exact commit.
-type CheckSet struct {
-	SHA      string          `json:"sha"`
-	Items    []CheckEvidence `json:"items"`
-	Total    int             `json:"total"`
-	Complete bool            `json:"complete"`
-}
+type CheckSet = extensions.SnapshotCheckSet
 
 // RefEvidence is the permission-checked view of one native branch tip.
-type RefEvidence struct {
-	Ref          string `json:"ref"`
-	OID          string `json:"oid,omitempty"`
-	Exists       bool   `json:"exists,omitempty"`
-	Visible      bool   `json:"visible"`
-	HiddenReason string `json:"hidden_reason,omitempty"`
-	Complete     bool   `json:"complete"`
-}
+type RefEvidence = extensions.SnapshotRef
 
 func validPull(pull *PullEvidence, req SnapshotRequest) error {
 	if !decimalID(pull.ID) || !decimalID(pull.Number) {
