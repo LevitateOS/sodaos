@@ -8,10 +8,11 @@ separately. The baseline’s 12 already modified guidance inputs retain their
 recorded working bytes. The existing **2,545 paths**, reconciled through `f8b22b0b`,
 plus **four library-caller documents, one observation-reliability chapter,
 one connected workflow-trace chapter, one adapter-challenge chapter and
-one representation chapter and one concurrency/termination chapter**
+one representation chapter, one concurrency/termination chapter and
+one authority/state chapter**
 are accounted exactly once in the [tracked-file inventories](inventory/README.md).
 No working source additions were
-present. These nine H06 documents are the explicit current documentation delta;
+present. These ten H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -25,11 +26,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including nine authored documents / missing / duplicate rows | 2,554 / 0 / 0 |
+| Current paths including ten authored documents / missing / duplicate rows | 2,555 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus nine whole-document H06 duties | 20,117 + 9 = 20,126 |
+| Existing named duties plus ten whole-document H06 duties | 20,117 + 10 = 20,127 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -50,7 +51,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 314 |
+| `docs` | 315 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |

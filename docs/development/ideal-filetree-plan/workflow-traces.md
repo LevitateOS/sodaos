@@ -5,6 +5,11 @@ state, native effects, completion and cleanup. It adds three bounded correction
 findings: **P04-F1**, **O02-F1** and **O05-F1**. Earlier source repairs remain
 complete at their recorded scope; installed qualification remains separate.
 
+The [authority and state audit](authority-and-state.md) at `88a40b5d` expands the
+current grant, transaction, custody and retry questions. It reuses these workflow
+findings and records two separate broker failure windows without advancing this
+chapter's source pin or reopening completed structural/terminal-fencing work.
+
 ## Subject and evidence
 
 | Input | Identity / scope |
