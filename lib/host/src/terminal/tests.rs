@@ -1912,6 +1912,9 @@ fn terminal_start_decode() {
     let start = TerminalStart::decode(body).unwrap();
     assert_eq!(start.actor_id, 7);
     assert_eq!(start.cols, 80);
+    let negative_zero = TerminalStart::decode(br#"{"cols":-0,"rows":-0}"#).unwrap();
+    assert_eq!((negative_zero.cols, negative_zero.rows), (0, 0));
+    assert!(TerminalStart::decode(br#"{"cols":1e0}"#).is_err());
     assert!(TerminalStart::decode(br#"{"actor_id":""}"#).is_err());
     assert!(TerminalStart::decode(br#"{"actor_id":7}"#).is_err());
     assert_eq!(TerminalStart::decode(br#"{}"#).unwrap().actor_id, 0);

@@ -1,16 +1,16 @@
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::json::{self, Kind, Spec};
-use crate::project::Executor;
-
-use super::identity::{BINDING_SPECS, LEASE_SPECS};
-use super::run::FACTORY_RUN_SPECS;
 use super::{
     factory_unit_name, valid_factory_phase, Binding, Factory, FactoryBroker, FactoryError,
     FactoryRun, FactoryState, FactoryTerminal, Lease, RunLock, FACTORY_STOPPED, FACTORY_UNCERTAIN,
     IDENTITY_FACTORY, MAX_FACTORY_OUTPUT,
 };
+use crate::json;
+use crate::project::Executor;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 // ---------- durable run receipts ----------
 
@@ -108,68 +108,119 @@ impl FactoryReceipt {
     }
 }
 
-const RECEIPT_SPECS: &[Spec] = &[
-    Spec {
-        name: "run",
-        kind: Kind::Object {
-            go_type: "project.FactoryRun",
-            struct_name: "FactoryRun",
-            specs: FACTORY_RUN_SPECS,
-        },
-    },
-    Spec {
-        name: "lease",
-        kind: Kind::OptObject {
-            go_type: "*identity.Lease",
-            struct_name: "Lease",
-            specs: LEASE_SPECS,
-        },
-    },
-    Spec {
-        name: "binding",
-        kind: Kind::OptObject {
-            go_type: "*identity.Binding",
-            struct_name: "Binding",
-            specs: BINDING_SPECS,
-        },
-    },
-    Spec {
-        name: "exit_code",
-        kind: Kind::OptInt,
-    },
-    Spec {
-        name: "generation",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "phase",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "started",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "delivered",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "credential_returned",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "output",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "retirement",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "reason",
-        kind: Kind::Str,
-    },
-];
+impl<'de> Deserialize<'de> for FactoryReceipt {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ReceiptVisitor;
+        impl<'de> Visitor<'de> for ReceiptVisitor {
+            type Value = FactoryReceipt;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a factory receipt object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = FactoryReceipt::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("run") {
+                        if let Some(v) = map.next_value::<Option<FactoryRun>>()? {
+                            out.run = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("lease") {
+                        if let Some(v) = map.next_value::<Option<Lease>>()? {
+                            out.lease = Some(v);
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("binding") {
+                        if let Some(v) = map.next_value::<Option<Binding>>()? {
+                            out.binding = Some(v);
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("exit_code") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.exit_code = Some(v.0);
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("generation") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.generation = v.0;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("phase") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.phase = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("started") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.started = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("delivered") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.delivered = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("credential_returned") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.credential_returned = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("output") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.output = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("retirement") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.retirement = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("reason") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.reason = v;
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "run",
+                            "lease",
+                            "binding",
+                            "exit_code",
+                            "generation",
+                            "phase",
+                            "started",
+                            "delivered",
+                            "credential_returned",
+                            "output",
+                            "retirement",
+                            "reason",
+                        ],
+                    ));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(ReceiptVisitor)
+    }
+}
 
 pub(in crate::factory) fn receipt_terminal(phase: &str) -> bool {
     matches!(phase, "completed" | "failed" | "stopped")
@@ -296,27 +347,8 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         if data.len() > 128 << 10 {
             return Err(FactoryError::msg("run receipt exceeds bounds"));
         }
-        let value =
-            json::decode_strict(&data).map_err(|_| FactoryError::msg("invalid run receipt"))?;
-        let bound = json::bind_root(&value, "factoryReceipt", RECEIPT_SPECS, false)
+        let receipt = json::decode_strict_as::<FactoryReceipt>(&data)
             .map_err(|_| FactoryError::msg("invalid run receipt"))?;
-        let receipt = FactoryReceipt {
-            run: FactoryRun::from_map(&bound.take_map("run")),
-            lease: match bound.take_opt_map("lease") {
-                Some(m) => Some(Lease::from_map(&m)?),
-                None => None,
-            },
-            binding: bound.take_opt_map("binding").map(|m| Binding::from_map(&m)),
-            exit_code: bound.take_opt_i64("exit_code"),
-            generation: bound.take_i64("generation"),
-            phase: bound.take_string("phase"),
-            started: bound.take_bool("started"),
-            delivered: bound.take_bool("delivered"),
-            credential_returned: bound.take_bool("credential_returned"),
-            output: bound.take_string("output"),
-            retirement: bound.take_string("retirement"),
-            reason: bound.take_string("reason"),
-        };
         if receipt.run.id != run || receipt.run.project != project {
             return Err(FactoryError::msg("run receipt identity mismatch"));
         }

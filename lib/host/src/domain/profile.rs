@@ -18,20 +18,38 @@ pub struct Profile {
 macro_rules! string_field {
     ($key:expr, $name:literal, $map:expr, $field:expr) => {
         if $key.eq_ignore_ascii_case($name) {
-            if let Some(value) = $map.next_value::<Option<String>>()? { $field = value; }
+            if let Some(value) = $map.next_value::<Option<String>>()? {
+                $field = value;
+            }
             continue;
         }
     };
 }
 
 impl<'de> Deserialize<'de> for Profile {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         struct ProfileVisitor;
         impl<'de> Visitor<'de> for ProfileVisitor {
             type Value = Profile;
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str("a creation profile object") }
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
-                let mut out = Profile { id: String::new(), distribution: String::new(), version: String::new(), interface: String::new(), architecture: String::new(), image: String::new(), revision: String::new() };
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a creation profile object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = Profile {
+                    id: String::new(),
+                    distribution: String::new(),
+                    version: String::new(),
+                    interface: String::new(),
+                    architecture: String::new(),
+                    image: String::new(),
+                    revision: String::new(),
+                };
                 while let Some(key) = map.next_key::<String>()? {
                     string_field!(key, "id", map, out.id);
                     string_field!(key, "distribution", map, out.distribution);
@@ -40,7 +58,18 @@ impl<'de> Deserialize<'de> for Profile {
                     string_field!(key, "architecture", map, out.architecture);
                     string_field!(key, "image", map, out.image);
                     string_field!(key, "revision", map, out.revision);
-                    return Err(de::Error::unknown_field(&key, &["id", "distribution", "version", "interface", "architecture", "image", "revision"]));
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "id",
+                            "distribution",
+                            "version",
+                            "interface",
+                            "architecture",
+                            "image",
+                            "revision",
+                        ],
+                    ));
                 }
                 Ok(out)
             }
@@ -118,17 +147,39 @@ pub struct Create {
 }
 
 impl<'de> Deserialize<'de> for Create {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         struct CreateVisitor;
         impl<'de> Visitor<'de> for CreateVisitor {
             type Value = Create;
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str("a project creation object") }
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
-                let mut out = Create { profile: None, id: String::new(), owner: 0 };
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a project creation object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = Create {
+                    profile: None,
+                    id: String::new(),
+                    owner: 0,
+                };
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("profile") { if let Some(v) = map.next_value::<Option<Profile>>()? { out.profile = Some(v); } continue; }
+                    if key.eq_ignore_ascii_case("profile") {
+                        if let Some(v) = map.next_value::<Option<Profile>>()? {
+                            out.profile = Some(v);
+                        }
+                        continue;
+                    }
                     string_field!(key, "id", map, out.id);
-                    if key.eq_ignore_ascii_case("owner") { if let Some(v) = map.next_value::<Option<i64>>()? { out.owner = v; } continue; }
+                    if key.eq_ignore_ascii_case("owner") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.owner = v.0;
+                        }
+                        continue;
+                    }
                     return Err(de::Error::unknown_field(&key, &["profile", "id", "owner"]));
                 }
                 Ok(out)

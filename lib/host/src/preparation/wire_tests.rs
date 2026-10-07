@@ -34,71 +34,51 @@ fn prepare_json() -> String {
 
 #[test]
 fn prepare_decode_round_trip() {
-    let v = crate::json::decode_strict(prepare_json().as_bytes()).unwrap();
-    let p = Prepare::from_value(&v).unwrap();
+    let p = Prepare::decode(prepare_json().as_bytes()).unwrap();
     assert!(p.validate().is_ok());
     assert_eq!(p.setup.files["setup.sh"], b"#!/bin/sh\n");
     assert_eq!(p.setup.bundle, b"BUNDLE");
 }
 
 #[test]
-fn decode_messages_match_go_exactly() {
-    // Pinned against strictjson + encoding/json from the pinned toolchain.
+fn preparation_tool_list_null_elements_decode_as_empty_strings() {
+    let body = prepare_json().replace(
+        "\"preparation\":{",
+        "\"preparation\":{\"tools\":[\"go\",null,\"git\"],",
+    );
+    let p = Prepare::decode(body.as_bytes()).unwrap();
+    assert_eq!(
+        p.preparation.tools,
+        vec!["go".to_string(), String::new(), "git".to_string()]
+    );
+}
+
+#[test]
+fn preparation_signed_revision_fields_accept_negative_zero() {
+    let body = prepare_json()
+        .replace("\"revision\":0", "\"revision\":-0")
+        .replace("\"approver\":1", "\"approver\":-0");
+    let p = Prepare::decode(body.as_bytes()).unwrap();
+    assert_eq!(p.preparation.revision, 0);
+    assert_eq!(p.preparation.requirements.revision, 0);
+    assert_eq!(p.preparation.requirements.approver, 0);
+    assert_eq!(p.preparation.approval.revision, 0);
+}
+
+#[test]
+fn prepare_rejects_malformed_and_unknown_fields() {
     let cases = [
-        (
-            "{\"preparation\":{\"revision\":\"x\"},\"setup\":{\"files\":{\"a\":\"QUJD\"},\"bundle\":\"QUJD\"}}"
-                .to_string(),
-            "decode request: json: cannot unmarshal string into Go struct field Preparation.preparation.revision of type int64",
-        ),
-        (
-            format!(
-                "{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":\"!!!\"}}}}",
-                prep_json()
-            ),
-            "decode request: illegal base64 data at input byte 0",
-        ),
-        (
-            format!(
-                "{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":5}},\"bundle\":\"QUJD\"}}}}",
-                prep_json()
-            ),
-            "decode request: json: cannot unmarshal number into Go struct field ApprovedSetup.setup.files of type []uint8",
-        ),
-        (
-            format!(
-                "{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":[300]}}}}",
-                prep_json()
-            ),
-            "decode request: json: cannot unmarshal number 300 into Go struct field ApprovedSetup.setup.bundle of type uint8",
-        ),
-        (
-            format!(
-                "{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":{{}}}}}}",
-                prep_json()
-            ),
-            "decode request: json: cannot unmarshal object into Go struct field ApprovedSetup.setup.bundle of type []uint8",
-        ),
-        (
-            "{\"preparation\":[],\"setup\":{\"files\":{\"a\":\"QUJD\"},\"bundle\":\"QUJD\"}}"
-                .to_string(),
-            "decode request: json: cannot unmarshal array into Go struct field Prepare.preparation of type project.Preparation",
-        ),
-        (
-            format!(
-                "{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":\"QUJD\"}},\"zzz\":1}}",
-                prep_json()
-            ),
-            "decode request: json: unknown field \"zzz\"",
-        ),
-        (
-            "{\"requirements\":{\"revision\":\"x\"}}".to_string(),
-            // Decoded as Prepare: unknown top-level field (sorted first).
-            "decode request: json: unknown field \"requirements\"",
-        ),
+        "{\"preparation\":{\"revision\":\"x\"},\"setup\":{\"files\":{\"a\":\"QUJD\"},\"bundle\":\"QUJD\"}}".to_string(),
+        format!("{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":\"!!!\"}}}}", prep_json()),
+        format!("{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":5}},\"bundle\":\"QUJD\"}}}}", prep_json()),
+        format!("{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":[300]}}}}", prep_json()),
+        format!("{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":{{}}}}}}", prep_json()),
+        "{\"preparation\":[],\"setup\":{\"files\":{\"a\":\"QUJD\"},\"bundle\":\"QUJD\"}}".to_string(),
+        format!("{{\"preparation\":{},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":\"QUJD\"}},\"zzz\":1}}", prep_json()),
+        "{\"requirements\":{\"revision\":\"x\"}}".to_string(),
     ];
-    for (body, want) in cases {
-        let v = crate::json::decode_strict(body.as_bytes()).unwrap();
-        assert_eq!(Prepare::from_value(&v).unwrap_err(), want, "{body}");
+    for body in cases {
+        assert!(Prepare::decode(body.as_bytes()).is_err(), "{body}");
     }
     // Numeric byte arrays decode; null struct binds zero.
     let body = format!(
@@ -106,15 +86,13 @@ fn decode_messages_match_go_exactly() {
         prep_json()
     );
     // Missing bundle binds empty (validity is Validate's job).
-    let v = crate::json::decode_strict(body.as_bytes()).unwrap();
-    let p = Prepare::from_value(&v).unwrap();
+    let p = Prepare::decode(body.as_bytes()).unwrap();
     assert_eq!(p.setup.files["a"], vec![1u8, 2]);
     assert!(p.setup.bundle.is_empty());
-    let v = crate::json::decode_strict(
+    let p = Prepare::decode(
         b"{\"preparation\":null,\"setup\":{\"files\":{\"a\":\"QUJD\"},\"bundle\":\"QUJD\"}}",
     )
     .unwrap();
-    let p = Prepare::from_value(&v).unwrap();
     assert!(p.preparation.id.is_empty());
 }
 

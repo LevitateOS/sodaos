@@ -1,6 +1,9 @@
 use crate::domain;
-use crate::json::{self, Kind, Spec, Value};
+use crate::json;
 use crate::preparation;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 use super::{
     takeover_destination, valid_factory_run_id, MAX_FACTORY_OUTPUT_OFFSET, MAX_FACTORY_OUTPUT_READ,
@@ -13,30 +16,11 @@ pub struct FactoryInspect {
     pub id: String,
 }
 
-const FACTORY_ADDRESS_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-];
-
 impl FactoryInspect {
-    /// Strict decode of one inspect request (`strictjson.Decode` parity).
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m =
-            json::bind_root(v, "FactoryInspect", FACTORY_ADDRESS_SPECS, false).map_err(|e| e.0)?;
-        Ok(FactoryInspect {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-        })
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
-}
 
-impl FactoryInspect {
     pub fn validate(&self) -> Result<(), String> {
         if !domain::valid_id(&self.project) || !valid_factory_run_id(&self.id) {
             return Err("invalid factory run address".to_string());
@@ -53,17 +37,10 @@ pub struct FactoryStop {
 }
 
 impl FactoryStop {
-    /// Strict decode of one stop request (`strictjson.Decode` parity).
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "FactoryStop", FACTORY_ADDRESS_SPECS, false).map_err(|e| e.0)?;
-        Ok(FactoryStop {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-        })
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
-}
 
-impl FactoryStop {
     pub fn validate(&self) -> Result<(), String> {
         if !domain::valid_id(&self.project) || !valid_factory_run_id(&self.id) {
             return Err("invalid factory run address".to_string());
@@ -81,31 +58,9 @@ pub struct FactoryTakeover {
     pub member: String,
 }
 
-const FACTORY_TAKEOVER_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "member",
-        kind: Kind::Str,
-    },
-];
-
 impl FactoryTakeover {
-    /// Strict decode of one takeover request (`strictjson.Decode` parity).
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "FactoryTakeover", FACTORY_TAKEOVER_SPECS, false)
-            .map_err(|e| e.0)?;
-        Ok(FactoryTakeover {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-            member: m.take_string("member"),
-        })
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 
@@ -167,37 +122,9 @@ pub struct FactoryOutput {
     pub limit: i64,
 }
 
-const FACTORY_OUTPUT_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "offset",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "limit",
-        kind: Kind::I64,
-    },
-];
-
 impl FactoryOutput {
-    /// Strict decode of one output request (`strictjson.Decode` parity).
-    /// Go's `limit` is `int` (64-bit); the range check lives in `validate`.
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m =
-            json::bind_root(v, "FactoryOutput", FACTORY_OUTPUT_SPECS, false).map_err(|e| e.0)?;
-        Ok(FactoryOutput {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-            offset: m.take_i64("offset"),
-            limit: m.take_i64("limit"),
-        })
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 
@@ -293,41 +220,9 @@ pub struct FactoryExport {
     pub candidate: String,
 }
 
-const FACTORY_EXPORT_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "preparation",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "candidate",
-        kind: Kind::Str,
-    },
-];
-
 impl FactoryExport {
-    /// Strict decode of one export request (`strictjson.Decode` parity).
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m =
-            json::bind_root(v, "FactoryExport", FACTORY_EXPORT_SPECS, false).map_err(|e| e.0)?;
-        Ok(FactoryExport {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-            role: m.take_string("role"),
-            preparation: m.take_string("preparation"),
-            candidate: m.take_string("candidate"),
-        })
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 
@@ -387,15 +282,68 @@ pub struct FactoryCandidateInspect {
     pub id: String,
 }
 
+macro_rules! typed_strict_object {
+    ($ty:ty, $expect:literal, {$($field:ident => $name:literal : $value:ty),+ $(,)?}) => {
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where D: serde::Deserializer<'de> {
+                struct ObjectVisitor;
+                impl<'de> Visitor<'de> for ObjectVisitor {
+                    type Value = $ty;
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str($expect) }
+                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+                    where A: MapAccess<'de> {
+                        let mut out = <$ty>::default();
+                        while let Some(key) = map.next_key::<String>()? {
+                            $(if key.eq_ignore_ascii_case($name) {
+                                if let Some(value) = map.next_value::<Option<$value>>()? { out.$field = value.into(); }
+                                continue;
+                            })+
+                            return Err(de::Error::unknown_field(&key, &[$($name),+]));
+                        }
+                        Ok(out)
+                    }
+                }
+                deserializer.deserialize_map(ObjectVisitor)
+            }
+        }
+    };
+}
+
+typed_strict_object!(FactoryInspect, "a factory inspect request", {
+    project => "project": String,
+    id => "id": String,
+});
+typed_strict_object!(FactoryStop, "a factory stop request", {
+    project => "project": String,
+    id => "id": String,
+});
+typed_strict_object!(FactoryTakeover, "a factory takeover request", {
+    project => "project": String,
+    id => "id": String,
+    member => "member": String,
+});
+typed_strict_object!(FactoryOutput, "a factory output request", {
+    project => "project": String,
+    id => "id": String,
+    offset => "offset": json::SignedInteger,
+    limit => "limit": json::SignedInteger,
+});
+typed_strict_object!(FactoryExport, "a factory export request", {
+    project => "project": String,
+    id => "id": String,
+    role => "role": String,
+    preparation => "preparation": String,
+    candidate => "candidate": String,
+});
+typed_strict_object!(FactoryCandidateInspect, "a factory candidate request", {
+    project => "project": String,
+    id => "id": String,
+});
+
 impl FactoryCandidateInspect {
-    /// Strict decode of one candidate-inspect request (`strictjson.Decode` parity).
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "FactoryCandidateInspect", FACTORY_ADDRESS_SPECS, false)
-            .map_err(|e| e.0)?;
-        Ok(FactoryCandidateInspect {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-        })
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 

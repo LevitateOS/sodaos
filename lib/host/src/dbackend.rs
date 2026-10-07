@@ -883,8 +883,7 @@ impl ExecBackend for DaemonBackend {
         // Factory routes stay off the shared mutation gate (Go comment):
         // per-run locks plus broker serialization are the control.
         let factory = self.factory()?;
-        let v = decode_native(body)?;
-        let req = pfactory::FactoryLaunch::from_value(&v).map_err(internal)?;
+        let req = pfactory::FactoryLaunch::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .launch(&req, native_deadline())
@@ -894,8 +893,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_inspect(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let v = decode_native(body)?;
-        let req = pfactory::FactoryInspect::from_value(&v).map_err(internal)?;
+        let req = pfactory::FactoryInspect::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .inspect(&req, native_deadline())
@@ -905,8 +903,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_stop(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let v = decode_native(body)?;
-        let req = pfactory::FactoryStop::from_value(&v).map_err(internal)?;
+        let req = pfactory::FactoryStop::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .stop(&req, native_deadline())
@@ -916,8 +913,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_takeover(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let v = decode_native(body)?;
-        let req = pfactory::FactoryTakeover::from_value(&v).map_err(internal)?;
+        let req = pfactory::FactoryTakeover::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .takeover(&req, native_deadline())
@@ -927,8 +923,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_output(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let v = decode_native(body)?;
-        let req = pfactory::FactoryOutput::from_value(&v).map_err(internal)?;
+        let req = pfactory::FactoryOutput::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .output(&req, native_deadline())
@@ -948,8 +943,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_export(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let v = decode_native(body)?;
-        let req = pfactory::FactoryExport::from_value(&v).map_err(internal)?;
+        let req = pfactory::FactoryExport::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .export(&req, native_deadline())
@@ -959,8 +953,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_candidate_inspect(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let v = decode_native(body)?;
-        let req = pfactory::FactoryCandidateInspect::from_value(&v).map_err(internal)?;
+        let req = pfactory::FactoryCandidateInspect::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .inspect_candidate(&req, native_deadline())

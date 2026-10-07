@@ -38,6 +38,45 @@ pub use self::specs::{Bound, BoundMap, Kind, Spec};
 
 pub const MAXIMUM_REQUEST_BYTES: usize = 1 << 20;
 
+/// A signed JSON integer token parsed from its original spelling. This keeps
+/// Go's `-0` admission while preserving the owner DTO's signed destination.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SignedInteger(pub i64);
+
+impl From<SignedInteger> for i64 {
+    fn from(value: SignedInteger) -> Self {
+        value.0
+    }
+}
+
+impl<'de> Deserialize<'de> for SignedInteger {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = Box::<serde_json::value::RawValue>::deserialize(deserializer)?;
+        let token = raw.get();
+        let bytes = token.as_bytes();
+        let digits = if bytes.first() == Some(&b'-') {
+            &bytes[1..]
+        } else {
+            bytes
+        };
+        let is_integer = match digits.first() {
+            Some(b'0') => digits.len() == 1,
+            Some(b'1'..=b'9') => digits.iter().all(|byte| byte.is_ascii_digit()),
+            _ => false,
+        };
+        if !is_integer {
+            return Err(de::Error::custom("expected a signed integer"));
+        }
+        token
+            .parse::<i64>()
+            .map(SignedInteger)
+            .map_err(de::Error::custom)
+    }
+}
+
 /// Strictly admit one host request object, then decode directly into its
 /// owner DTO. Root names are sorted before typed decoding to preserve the
 /// host's established root alias precedence; nested raw values retain their

@@ -1,4 +1,7 @@
-use crate::json::{self, Kind, Spec};
+use crate::json;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 use super::parse_string_i64;
 
@@ -16,56 +19,88 @@ pub struct TerminalStart {
     pub rows: i64,
 }
 
-const TERMINAL_START_SPECS: &[Spec] = &[
-    Spec {
-        name: "connection_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "actor_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "login",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "scope",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "cols",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "rows",
-        kind: Kind::Int,
-    },
-];
+impl<'de> Deserialize<'de> for TerminalStart {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StartVisitor;
+        impl<'de> Visitor<'de> for StartVisitor {
+            type Value = TerminalStart;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a terminal start object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = TerminalStart::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("connection_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.connection_id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("project_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.project_id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("actor_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.actor_id = parse_string_i64(&v)
+                                .ok_or_else(|| de::Error::custom("invalid actor_id"))?;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("login") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.login = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("scope") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.scope = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("cols") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.cols = v.0;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("rows") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.rows = v.0;
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "connection_id",
+                            "project_id",
+                            "actor_id",
+                            "login",
+                            "scope",
+                            "cols",
+                            "rows",
+                        ],
+                    ));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(StartVisitor)
+    }
+}
 
 impl TerminalStart {
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        let m =
-            json::bind_root(&v, "TerminalStart", TERMINAL_START_SPECS, false).map_err(|e| e.0)?;
-        let actor_id = if m.contains("actor_id") {
-            parse_string_i64(&m.take_string("actor_id"))
-                .ok_or_else(|| "invalid actor_id".to_string())?
-        } else {
-            0
-        };
-        Ok(TerminalStart {
-            connection_id: m.take_string("connection_id"),
-            project_id: m.take_string("project_id"),
-            actor_id,
-            login: m.take_string("login"),
-            scope: m.take_string("scope"),
-            cols: m.take_i64("cols"),
-            rows: m.take_i64("rows"),
-        })
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }

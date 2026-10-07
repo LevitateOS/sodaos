@@ -5,9 +5,12 @@ use std::time::Instant;
 use super::paths::{preparation_paths, prepare_id_map};
 use super::state::quote_bytes_base64;
 use crate::domain;
-use crate::json::{self, Kind, Spec};
+use crate::json;
 use crate::preparation::{self, Preparation};
 use crate::project::{Executor, Runtime};
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 const FACTORY_INSPECT_LIMIT: usize = 262144;
 
@@ -27,24 +30,180 @@ fn encode_files_object(out: &mut String, files: &HashMap<String, Vec<u8>>) {
     out.push('}');
 }
 
-const APPROVE_RESPONSE_SPECS: &[Spec] = &[
-    Spec {
-        name: "approved",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "repeated",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "checkout",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "credential_file",
-        kind: Kind::Str,
-    },
-];
+#[derive(Default)]
+struct ProjectMappings {
+    uid_map: Vec<String>,
+    gid_map: Vec<String>,
+}
+
+impl<'de> Deserialize<'de> for ProjectMappings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct MappingsVisitor;
+        impl<'de> Visitor<'de> for MappingsVisitor {
+            type Value = ProjectMappings;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an ID mappings object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = ProjectMappings::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("UidMap") {
+                        if let Some(v) = map.next_value::<Option<Vec<String>>>()? {
+                            out.uid_map = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("GidMap") {
+                        if let Some(v) = map.next_value::<Option<Vec<String>>>()? {
+                            out.gid_map = v;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(&key, &["UidMap", "GidMap"]));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(MappingsVisitor)
+    }
+}
+
+#[derive(Default)]
+struct ProjectInspection {
+    id: String,
+    running: bool,
+    project: String,
+    owner: String,
+    privileged: bool,
+    userns: String,
+    mappings: ProjectMappings,
+}
+
+impl<'de> Deserialize<'de> for ProjectInspection {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InspectionVisitor;
+        impl<'de> Visitor<'de> for InspectionVisitor {
+            type Value = ProjectInspection;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a project inspection object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = ProjectInspection::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.id = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("running") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.running = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("project") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.project = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("owner") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.owner = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("privileged") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.privileged = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("userns") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.userns = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("mappings") {
+                        if let Some(v) = map.next_value::<Option<ProjectMappings>>()? {
+                            out.mappings = v;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(
+                            &key,
+                            &[
+                                "id",
+                                "running",
+                                "project",
+                                "owner",
+                                "privileged",
+                                "userns",
+                                "mappings",
+                            ],
+                        ));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(InspectionVisitor)
+    }
+}
+
+#[derive(Default)]
+struct ApprovalResponse {
+    approved: String,
+    repeated: bool,
+    checkout: String,
+    credential_file: String,
+}
+
+impl<'de> Deserialize<'de> for ApprovalResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ApprovalVisitor;
+        impl<'de> Visitor<'de> for ApprovalVisitor {
+            type Value = ApprovalResponse;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a preparation approval response")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = ApprovalResponse::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("approved") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.approved = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("repeated") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.repeated = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("checkout") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.checkout = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("credential_file") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.credential_file = v;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(
+                            &key,
+                            &["approved", "repeated", "checkout", "credential_file"],
+                        ));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(ApprovalVisitor)
+    }
+}
 
 impl<E: Executor> Runtime<E> {
     /// `factoryHelper`: bounded JSON exchange with the in-container helper.
@@ -96,23 +255,19 @@ impl<E: Executor> Runtime<E> {
         if data.len() > 4096 {
             return Err("preparation target unavailable".to_string());
         }
-        let v = json::decode_strict(&data).map_err(|_| "invalid preparation target".to_string())?;
-        let m = json::bind_root(
-            &v,
-            "projectInspection",
-            crate::project::INSPECTION_SPECS,
-            false,
-        )
-        .map_err(|_| "invalid preparation target".to_string())?;
-        let cid = m.take_string("id");
-        let running = m.take_bool("running");
-        let project = m.take_string("project");
-        let owner = m.take_string("owner");
-        let privileged = m.take_bool("privileged");
-        let userns = m.take_string("userns");
-        let mappings = m.take_map("mappings");
-        let uid_map = mappings.take_str_list("UidMap");
-        let gid_map = mappings.take_str_list("GidMap");
+        let inspected: ProjectInspection =
+            json::decode_strict_as(&data).map_err(|_| "invalid preparation target".to_string())?;
+        let ProjectInspection {
+            id: cid,
+            running,
+            project,
+            owner,
+            privileged,
+            userns,
+            mappings,
+        } = inspected;
+        let uid_map = mappings.uid_map;
+        let gid_map = mappings.gid_map;
         let owner_num = json::parse_go_int64(&owner).unwrap_or(0);
         if owner_num <= 0
             || (require_running && !running)
@@ -155,13 +310,12 @@ impl<E: Executor> Runtime<E> {
         body.push('}');
         let raw = self.factory_helper(&prep.project, &body, deadline)?;
         const ERR: &str = "preparation approval unconfirmed";
-        let v = json::decode_strict(&raw).map_err(|_| ERR.to_string())?;
-        let m = json::bind_root(&v, "struct", APPROVE_RESPONSE_SPECS, false)
-            .map_err(|_| ERR.to_string())?;
-        if m.take_string("approved") != prep.id {
+        let response: ApprovalResponse =
+            json::decode_strict_as(&raw).map_err(|_| ERR.to_string())?;
+        if response.approved != prep.id {
             return Err(ERR.to_string());
         }
-        if m.take_bool("repeated") {
+        if response.repeated {
             return Ok(());
         }
         let want_credential = if prep.credential.is_empty() {
@@ -174,9 +328,7 @@ impl<E: Executor> Runtime<E> {
                 prep.credential
             )
         };
-        if m.take_string("checkout") != checkout
-            || m.take_string("credential_file") != want_credential
-        {
+        if response.checkout != checkout || response.credential_file != want_credential {
             return Err("preparation approval resolved unexpected paths".to_string());
         }
         Ok(())

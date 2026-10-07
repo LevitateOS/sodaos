@@ -1,6 +1,9 @@
 use crate::domain;
-use crate::json::{self, BoundMap, Kind, Spec, Value};
+use crate::json;
 use crate::preparation;
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 use super::deadline::{deadline_is_zero, parse_deadline, NANOS_PER_SEC};
 
@@ -259,75 +262,45 @@ impl FactoryRun {
         out.push_str(&json::quote(&self.connection));
         out.push('}');
     }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        FactoryRun {
-            deadline: m.take_string("deadline"),
-            actor: m.take_i64("actor"),
-            id: m.take_string("id"),
-            project: m.take_string("project"),
-            role: m.take_string("role"),
-            preparation: m.take_string("preparation"),
-            harness: m.take_string("harness"),
-            harness_vers: m.take_string("harness_version"),
-            model: m.take_string("model"),
-            assignment: m.take_string("assignment"),
-            source_commit: m.take_string("source_commit"),
-            connection: m.take_string("connection"),
-        }
-    }
 }
 
-pub(in crate::factory) const FACTORY_RUN_SPECS: &[Spec] = &[
-    Spec {
-        name: "deadline",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "actor",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "preparation",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "harness",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "harness_version",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "model",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "assignment",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "source_commit",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "connection",
-        kind: Kind::Str,
-    },
-];
+macro_rules! typed_run_fields {
+    ($ty:ty, $expect:literal, {$($field:ident => $name:literal : $value:ty),+ $(,)?}) => {
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+                struct ObjectVisitor;
+                impl<'de> Visitor<'de> for ObjectVisitor {
+                    type Value = $ty;
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str($expect) }
+                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+                        let mut out = <$ty>::default();
+                        while let Some(key) = map.next_key::<String>()? {
+                            $(if key.eq_ignore_ascii_case($name) { if let Some(v) = map.next_value::<Option<$value>>()? { out.$field = v.into(); } continue; })+
+                            return Err(de::Error::unknown_field(&key, &[$($name),+]));
+                        }
+                        Ok(out)
+                    }
+                }
+                deserializer.deserialize_map(ObjectVisitor)
+            }
+        }
+    };
+}
+
+typed_run_fields!(FactoryRun, "a factory run object", {
+    deadline => "deadline": String,
+    actor => "actor": json::SignedInteger,
+    id => "id": String,
+    project => "project": String,
+    role => "role": String,
+    preparation => "preparation": String,
+    harness => "harness": String,
+    harness_vers => "harness_version": String,
+    model => "model": String,
+    assignment => "assignment": String,
+    source_commit => "source_commit": String,
+    connection => "connection": String,
+});
 
 /// `project.FactoryLaunch`: the host run request.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -337,39 +310,102 @@ pub struct FactoryLaunch {
     pub harness_sha256: String,
 }
 
-const FACTORY_LAUNCH_SPECS: &[Spec] = &[
-    Spec {
-        name: "run",
-        kind: Kind::Object {
-            go_type: "project.FactoryRun",
-            struct_name: "FactoryRun",
-            specs: FACTORY_RUN_SPECS,
-        },
-    },
-    Spec {
-        name: "prompt",
-        kind: Kind::Bytes,
-    },
-    Spec {
-        name: "harness_sha256",
-        kind: Kind::Str,
-    },
-];
+struct PromptBytes(Vec<u8>);
+
+impl<'de> Deserialize<'de> for PromptBytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct BytesVisitor;
+        impl<'de> Visitor<'de> for BytesVisitor {
+            type Value = PromptBytes;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("base64 text or a byte array")
+            }
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                crate::ssh::b64_decode_go(value.as_bytes())
+                    .map(PromptBytes)
+                    .map_err(|_| E::custom("invalid base64 bytes"))
+            }
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                self.visit_str(&value)
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut bytes = Vec::new();
+                while let Some(value) = seq.next_element::<Option<u64>>()? {
+                    let byte = value.unwrap_or(0);
+                    if byte > u8::MAX as u64 {
+                        return Err(de::Error::custom("byte out of range"));
+                    }
+                    bytes.push(byte as u8);
+                }
+                Ok(PromptBytes(bytes))
+            }
+        }
+        deserializer.deserialize_any(BytesVisitor)
+    }
+}
+
+impl<'de> Deserialize<'de> for FactoryLaunch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct LaunchVisitor;
+        impl<'de> Visitor<'de> for LaunchVisitor {
+            type Value = FactoryLaunch;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a factory launch object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = FactoryLaunch::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("run") {
+                        if let Some(v) = map.next_value::<Option<FactoryRun>>()? {
+                            out.run = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("prompt") {
+                        if let Some(v) = map.next_value::<Option<PromptBytes>>()? {
+                            out.prompt = v.0;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("harness_sha256") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.harness_sha256 = v;
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["run", "prompt", "harness_sha256"],
+                    ));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(LaunchVisitor)
+    }
+}
 
 impl FactoryLaunch {
-    /// Strict decode of one launch request (`strictjson.Decode` parity).
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m =
-            json::bind_root(v, "FactoryLaunch", FACTORY_LAUNCH_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        FactoryLaunch {
-            run: FactoryRun::from_map(&m.take_map("run")),
-            prompt: m.take_bytes("prompt"),
-            harness_sha256: m.take_string("harness_sha256"),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 

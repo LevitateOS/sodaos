@@ -6,11 +6,14 @@
 
 use std::time::Instant;
 
-use crate::json::{self, Kind, Spec};
+use crate::json;
 use crate::preparation::{
     self, HoldState, Prepare, PrepareHold, PrepareInspect, PrepareState, PrepareStop,
 };
 use crate::project::{Executor, Runtime};
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 mod candidate;
 mod helper;
@@ -24,29 +27,92 @@ pub use self::paths::{
 };
 pub use self::state::{map_preparation_state, LauncherEvidence};
 
-const STOP_RESPONSE_SPECS: &[Spec] = &[
-    Spec {
-        name: "stopped",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "retirement",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "known",
-        kind: Kind::Bool,
-    },
-];
+#[derive(Default)]
+struct StopResponse {
+    stopped: String,
+    retirement: String,
+    known: bool,
+}
 
-const HOLD_RESPONSE_SPECS: &[Spec] = &[Spec {
-    name: "hold",
-    kind: Kind::Object {
-        go_type: "project.HoldState",
-        struct_name: "HoldState",
-        specs: preparation::HOLD_STATE_SPECS,
-    },
-}];
+impl<'de> Deserialize<'de> for StopResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StopVisitor;
+        impl<'de> Visitor<'de> for StopVisitor {
+            type Value = StopResponse;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a preparation stop response")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = StopResponse::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("stopped") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.stopped = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("retirement") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.retirement = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("known") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.known = v;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(
+                            &key,
+                            &["stopped", "retirement", "known"],
+                        ));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(StopVisitor)
+    }
+}
+
+#[derive(Default)]
+struct HoldResponse {
+    hold: HoldState,
+}
+
+impl<'de> Deserialize<'de> for HoldResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct HoldVisitor;
+        impl<'de> Visitor<'de> for HoldVisitor {
+            type Value = HoldResponse;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a maintenance hold response")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = HoldResponse::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("hold") {
+                        if let Some(v) = map.next_value::<Option<HoldState>>()? {
+                            out.hold = v;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(&key, &["hold"]));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(HoldVisitor)
+    }
+}
 
 impl<E: Executor> Runtime<E> {
     /// `inspectPreparationState`: authoritative observed state for one identity.
@@ -131,12 +197,9 @@ impl<E: Executor> Runtime<E> {
         body.push_str(",\"op\":\"stop\"}");
         let raw = self.factory_helper(&input.project, &body, deadline)?;
         const ERR: &str = "preparation stop unconfirmed";
-        let v = json::decode_strict(&raw).map_err(|_| ERR.to_string())?;
-        let m = json::bind_root(&v, "struct", STOP_RESPONSE_SPECS, false)
-            .map_err(|_| ERR.to_string())?;
-        let retirement = m.take_string("retirement");
-        if m.take_string("stopped") != input.id
-            || (retirement != "confirmed" && retirement != "uncertain")
+        let response: StopResponse = json::decode_strict_as(&raw).map_err(|_| ERR.to_string())?;
+        let retirement = response.retirement;
+        if response.stopped != input.id || (retirement != "confirmed" && retirement != "uncertain")
         {
             return Err(ERR.to_string());
         }
@@ -157,11 +220,9 @@ impl<E: Executor> Runtime<E> {
         let op = if input.hold { "hold" } else { "release" };
         let body = format!("{{\"op\":\"{op}\",\"revision\":{}}}", input.revision);
         let raw = self.factory_helper(&input.project, &body, deadline)?;
-        let v =
-            json::decode_strict(&raw).map_err(|_| "maintenance hold unconfirmed".to_string())?;
-        let m = json::bind_root(&v, "struct", HOLD_RESPONSE_SPECS, false)
-            .map_err(|_| "maintenance hold unconfirmed".to_string())?;
-        let hold = HoldState::from_map(&m.take_map("hold"));
+        let response: HoldResponse =
+            json::decode_strict_as(&raw).map_err(|_| "maintenance hold unconfirmed".to_string())?;
+        let hold = response.hold;
         if hold.active != input.hold {
             return Err("maintenance hold outcome not confirmed".to_string());
         }

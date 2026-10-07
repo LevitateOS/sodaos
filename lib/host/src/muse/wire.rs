@@ -157,14 +157,14 @@ impl<'de> Deserialize<'de> for LaunchRequest {
                         continue;
                     }
                     if key.eq_ignore_ascii_case("cols") {
-                        if let Some(v) = map.next_value::<Option<i64>>()? {
-                            cols = v;
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            cols = v.0;
                         }
                         continue;
                     }
                     if key.eq_ignore_ascii_case("rows") {
-                        if let Some(v) = map.next_value::<Option<i64>>()? {
-                            rows = v;
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            rows = v.0;
                         }
                         continue;
                     }
@@ -225,20 +225,20 @@ impl<'de> Deserialize<'de> for LaunchControl {
                 let mut rows = 0i64;
                 while let Some(key) = map.next_key::<String>()? {
                     if key.eq_ignore_ascii_case("signal") {
-                        if let Some(v) = map.next_value::<Option<i64>>()? {
-                            out.signal = v;
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.signal = v.0;
                         }
                         continue;
                     }
                     if key.eq_ignore_ascii_case("cols") {
-                        if let Some(v) = map.next_value::<Option<i64>>()? {
-                            cols = v;
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            cols = v.0;
                         }
                         continue;
                     }
                     if key.eq_ignore_ascii_case("rows") {
-                        if let Some(v) = map.next_value::<Option<i64>>()? {
-                            rows = v;
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            rows = v.0;
                         }
                         continue;
                     }

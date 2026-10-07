@@ -3,32 +3,72 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use super::paths::path_join;
-use crate::json::{self, Kind, Spec};
+use crate::json;
 use crate::preparation::{self, FactoryCandidate, Prepare, PrepareState};
 use crate::project::{Executor, Runtime};
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
-const SAVED_REQUEST_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "setup_digest",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "source_commit",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "credential",
-        kind: Kind::Str,
-    },
-];
+#[derive(Default)]
+struct SavedRequest {
+    id: String,
+    role: String,
+    setup_digest: String,
+    source_commit: String,
+    credential: String,
+}
+
+impl<'de> Deserialize<'de> for SavedRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct SavedVisitor;
+        impl<'de> Visitor<'de> for SavedVisitor {
+            type Value = SavedRequest;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a saved preparation request")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = SavedRequest::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.id = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("role") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.role = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("setup_digest") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.setup_digest = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("source_commit") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.source_commit = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("credential") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.credential = v;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(
+                            &key,
+                            &["id", "role", "setup_digest", "source_commit", "credential"],
+                        ));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(SavedVisitor)
+    }
+}
 
 impl<E: Executor> Runtime<E> {
     /// `PrepareCandidate`: fresh reviewer preparation reusing a ready
@@ -156,14 +196,12 @@ impl<E: Executor> Runtime<E> {
         let request_path = path_join(&[&dir, "request.json"]);
         let raw = self.candidate_protected_file(container, &request_path, 4096, deadline)?;
         const ERR: &str = "candidate approved snapshot differs from its recorded inputs";
-        let v = json::decode_strict(&raw).map_err(|_| ERR.to_string())?;
-        let m = json::bind_root(&v, "struct", SAVED_REQUEST_SPECS, false)
-            .map_err(|_| ERR.to_string())?;
-        if m.take_string("id") != input.source_preparation
-            || m.take_string("role") != input.preparation.role
-            || m.take_string("setup_digest") != input.preparation.setup_digest
-            || m.take_string("source_commit") != source_commit
-            || m.take_string("credential") != input.preparation.credential
+        let request: SavedRequest = json::decode_strict_as(&raw).map_err(|_| ERR.to_string())?;
+        if request.id != input.source_preparation
+            || request.role != input.preparation.role
+            || request.setup_digest != input.preparation.setup_digest
+            || request.source_commit != source_commit
+            || request.credential != input.preparation.credential
         {
             return Err(ERR.to_string());
         }

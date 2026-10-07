@@ -1,6 +1,7 @@
-use crate::json::{self, BoundMap, Kind, Spec};
-
-use super::FactoryError;
+use crate::json::{self, parse_go_int64};
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 /// `identity.Binding`: the recorded native process boundary.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -56,70 +57,49 @@ impl Binding {
         field(out, "generation", &self.generation.to_string());
         out.push('}');
     }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        Binding {
-            child_id: m.take_string("child_id"),
-            uid: m.take_i64("uid"),
-            gid: m.take_i64("gid"),
-            scope: m.take_string("scope"),
-            credential_root: m.take_string("credential_root"),
-            invocation_id: m.take_string("invocation_id"),
-            kind: m.take_string("kind"),
-            id: m.take_string("id"),
-            project: m.take_string("project"),
-            login: m.take_string("login"),
-            generation: m.take_i64("generation"),
-        }
-    }
 }
 
-pub(in crate::factory) const BINDING_SPECS: &[Spec] = &[
-    Spec {
-        name: "child_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "uid",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "gid",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "scope",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "credential_root",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "invocation_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "kind",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "login",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "generation",
-        kind: Kind::I64,
-    },
-];
+macro_rules! typed_object {
+    ($ty:ty, $expect:literal, {$($field:ident => $name:literal : $value:ty),+ $(,)?}) => {
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where D: serde::Deserializer<'de> {
+                struct ObjectVisitor;
+                impl<'de> Visitor<'de> for ObjectVisitor {
+                    type Value = $ty;
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str($expect) }
+                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+                    where A: MapAccess<'de> {
+                        let mut out = <$ty>::default();
+                        while let Some(key) = map.next_key::<String>()? {
+                            $(if key.eq_ignore_ascii_case($name) {
+                                if let Some(value) = map.next_value::<Option<$value>>()? { out.$field = value.into(); }
+                                continue;
+                            })+
+                            return Err(de::Error::unknown_field(&key, &[$($name),+]));
+                        }
+                        Ok(out)
+                    }
+                }
+                deserializer.deserialize_map(ObjectVisitor)
+            }
+        }
+    };
+}
+
+typed_object!(Binding, "an identity binding object", {
+    child_id => "child_id": String,
+    uid => "uid": json::SignedInteger,
+    gid => "gid": json::SignedInteger,
+    scope => "scope": String,
+    credential_root => "credential_root": String,
+    invocation_id => "invocation_id": String,
+    kind => "kind": String,
+    id => "id": String,
+    project => "project": String,
+    login => "login": String,
+    generation => "generation": json::SignedInteger,
+});
 
 /// `identity.Lease`: the broker execution identity for one run.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -188,34 +168,6 @@ impl Lease {
         out.push('}');
     }
 
-    pub fn from_map(m: &BoundMap) -> Result<Self, FactoryError> {
-        const ERR: &str = "invalid run receipt";
-        // `,string` decimals: missing and null bind zero like Go; a present
-        // value must be a quoted decimal.
-        let string_int = |name: &str| -> Result<i64, FactoryError> {
-            if !m.contains(name) {
-                return Ok(0);
-            }
-            json::parse_go_int64(&m.take_string(name)).ok_or_else(|| FactoryError::msg(ERR))
-        };
-        Ok(Lease {
-            repository_id: string_int("repository_id")?,
-            provider_id: m.take_string("provider_id"),
-            id: m.take_string("id"),
-            connection_id: m.take_string("connection_id"),
-            generation: m.take_i64("generation"),
-            actor_id: string_int("actor_id")?,
-            project_id: m.take_string("project_id"),
-            execution_id: m.take_string("execution_id"),
-            kind: m.take_string("kind"),
-            role: m.take_string("role"),
-            deadline: m.take_string("deadline"),
-            grant_id: m.take_string("grant_id"),
-            grant_revision: m.take_i64("grant_revision"),
-            binding: m.take_opt_map("binding").map(|b| Binding::from_map(&b)),
-        })
-    }
-
     /// `leaseWithBinding`: the lease carrying its recorded binding for one
     /// native call.
     pub fn with_binding(&self, binding: &Binding) -> Self {
@@ -225,68 +177,135 @@ impl Lease {
     }
 }
 
-pub(in crate::factory) const LEASE_SPECS: &[Spec] = &[
-    Spec {
-        name: "repository_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "provider_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "connection_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "generation",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "actor_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "execution_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "kind",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "deadline",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "grant_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "grant_revision",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "binding",
-        kind: Kind::OptObject {
-            go_type: "*identity.Binding",
-            struct_name: "Binding",
-            specs: BINDING_SPECS,
-        },
-    },
-];
+impl<'de> Deserialize<'de> for Lease {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct LeaseVisitor;
+        impl<'de> Visitor<'de> for LeaseVisitor {
+            type Value = Lease;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an identity lease object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = Lease::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("repository_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.repository_id = parse_go_int64(&v)
+                                .ok_or_else(|| de::Error::custom("invalid repository_id"))?;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("actor_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.actor_id = parse_go_int64(&v)
+                                .ok_or_else(|| de::Error::custom("invalid actor_id"))?;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("provider_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.provider_id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("connection_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.connection_id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("generation") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.generation = v.0;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("project_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.project_id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("execution_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.execution_id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("kind") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.kind = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("role") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.role = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("deadline") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.deadline = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("grant_id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.grant_id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("grant_revision") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.grant_revision = v.0;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("binding") {
+                        if let Some(v) = map.next_value::<Option<Binding>>()? {
+                            out.binding = Some(v);
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "repository_id",
+                            "provider_id",
+                            "id",
+                            "connection_id",
+                            "generation",
+                            "actor_id",
+                            "project_id",
+                            "execution_id",
+                            "kind",
+                            "role",
+                            "deadline",
+                            "grant_id",
+                            "grant_revision",
+                            "binding",
+                        ],
+                    ));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(LeaseVisitor)
+    }
+}
 
 /// `identity.AcquireRequest` as built by `acquireRunLease` (the repository
 /// field stays unset on this path, so it is not mirrored).

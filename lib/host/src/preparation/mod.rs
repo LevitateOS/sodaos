@@ -5,7 +5,10 @@
 //! durable records stay in Go).
 
 use crate::domain;
-use crate::json::{self, BoundMap, Kind, Spec, Value};
+use crate::json;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 mod candidate;
 mod decisions;
@@ -18,11 +21,6 @@ pub use self::setup::{setup_digest_of, ApprovedSetup};
 pub use self::state::{
     HoldState, PrepareHold, PrepareInspect, PrepareState, PrepareStop, ResolvedTool,
 };
-
-pub(crate) use self::state::{HOLD_STATE_SPECS, RESOLVED_TOOL_SPECS};
-
-use self::decisions::{ADMIN_APPROVAL_SPECS, REQUIREMENT_ACCEPTANCE_SPECS};
-use self::setup::APPROVED_SETUP_SPECS;
 
 pub const ROLE_CODER: &str = "soda-coder";
 pub const ROLE_REVIEWER: &str = "soda-reviewer";
@@ -112,7 +110,41 @@ pub fn valid_tool_name(name: &str) -> bool {
     })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+struct GoStringList(Vec<String>);
+
+impl From<GoStringList> for Vec<String> {
+    fn from(values: GoStringList) -> Self {
+        values.0
+    }
+}
+
+impl<'de> Deserialize<'de> for GoStringList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StringListVisitor;
+        impl<'de> Visitor<'de> for StringListVisitor {
+            type Value = GoStringList;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an array of strings")
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut values = Vec::new();
+                while let Some(value) = seq.next_element::<Option<String>>()? {
+                    values.push(value.unwrap_or_default());
+                }
+                Ok(GoStringList(values))
+            }
+        }
+        deserializer.deserialize_seq(StringListVisitor)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Preparation {
     pub id: String,
     pub project: String,
@@ -125,57 +157,6 @@ pub struct Preparation {
     pub tools: Vec<String>,
     pub credential: String,
 }
-
-pub(crate) const PREPARATION_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "requirements",
-        kind: Kind::Object {
-            go_type: "project.RequirementAcceptance",
-            struct_name: "RequirementAcceptance",
-            specs: REQUIREMENT_ACCEPTANCE_SPECS,
-        },
-    },
-    Spec {
-        name: "approval",
-        kind: Kind::Object {
-            go_type: "project.AdminApproval",
-            struct_name: "AdminApproval",
-            specs: ADMIN_APPROVAL_SPECS,
-        },
-    },
-    Spec {
-        name: "source_commit",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "setup_digest",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "tools",
-        kind: Kind::StrList,
-    },
-    Spec {
-        name: "credential",
-        kind: Kind::Str,
-    },
-];
 
 impl Preparation {
     pub fn validate(&self) -> Result<(), String> {
@@ -204,47 +185,13 @@ impl Preparation {
         }
         Ok(())
     }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        Preparation {
-            id: m.take_string("id"),
-            project: m.take_string("project"),
-            role: m.take_string("role"),
-            revision: m.take_i64("revision"),
-            requirements: RequirementAcceptance::from_map(&m.take_map("requirements")),
-            approval: AdminApproval::from_map(&m.take_map("approval")),
-            source_commit: m.take_string("source_commit"),
-            setup_digest: m.take_string("setup_digest"),
-            tools: m.take_str_list("tools"),
-            credential: m.take_string("credential"),
-        }
-    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Prepare {
     pub preparation: Preparation,
     pub setup: ApprovedSetup,
 }
-
-const PREPARE_SPECS: &[Spec] = &[
-    Spec {
-        name: "preparation",
-        kind: Kind::Object {
-            go_type: "project.Preparation",
-            struct_name: "Preparation",
-            specs: PREPARATION_SPECS,
-        },
-    },
-    Spec {
-        name: "setup",
-        kind: Kind::Object {
-            go_type: "project.ApprovedSetup",
-            struct_name: "ApprovedSetup",
-            specs: APPROVED_SETUP_SPECS,
-        },
-    },
-];
 
 impl Prepare {
     pub fn validate(&self) -> Result<(), String> {
@@ -256,18 +203,57 @@ impl Prepare {
         Ok(())
     }
 
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "Prepare", PREPARE_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        Prepare {
-            preparation: Preparation::from_map(&m.take_map("preparation")),
-            setup: ApprovedSetup::from_map(&m.take_map("setup")),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
+
+macro_rules! typed_preparation_object {
+    ($ty:ident, $expect:literal, {$($field:ident => $name:literal : $value:ty),+ $(,)?}) => {
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where D: serde::Deserializer<'de> {
+                struct ObjectVisitor;
+                impl<'de> Visitor<'de> for ObjectVisitor {
+                    type Value = $ty;
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str($expect) }
+                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+                    where A: MapAccess<'de> {
+                        let mut out = $ty { $($field: Default::default()),+ };
+                        while let Some(key) = map.next_key::<String>()? {
+                            let mut recognized = false;
+                            $(if key.eq_ignore_ascii_case($name) {
+                                if let Some(value) = map.next_value::<Option<$value>>()? { out.$field = value.into(); }
+                                recognized = true;
+                            })+
+                            if !recognized { return Err(de::Error::unknown_field(&key, &[$($name),+])); }
+                        }
+                        Ok(out)
+                    }
+                }
+                deserializer.deserialize_map(ObjectVisitor)
+            }
+        }
+    };
+}
+
+typed_preparation_object!(Preparation, "a preparation object", {
+    id => "id": String,
+    project => "project": String,
+    role => "role": String,
+    revision => "revision": json::SignedInteger,
+    requirements => "requirements": RequirementAcceptance,
+    approval => "approval": AdminApproval,
+    source_commit => "source_commit": String,
+    setup_digest => "setup_digest": String,
+    tools => "tools": GoStringList,
+    credential => "credential": String,
+});
+
+typed_preparation_object!(Prepare, "a prepare request object", {
+    preparation => "preparation": Preparation,
+    setup => "setup": ApprovedSetup,
+});
 
 #[cfg(test)]
 mod validation_tests;

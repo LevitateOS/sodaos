@@ -127,14 +127,18 @@ fn os_release_validation_matches_go() {
 fn account_dto_strict_shape() {
     let a = Account::decode(
         br#"{"project":"p0123456789abcdef01234567","login":"alice","identity":1,"keys":["a","b"]}"#,
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(a.login, "alice");
     assert_eq!(a.identity, 1);
     assert_eq!(a.keys, vec!["a".to_string(), "b".to_string()]);
     // Missing keys decodes as empty (browser-only account).
     assert!(Account::decode(
         br#"{"project":"p0123456789abcdef01234567","login":"alice","identity":1}"#,
-    ).unwrap().keys.is_empty());
+    )
+    .unwrap()
+    .keys
+    .is_empty());
     // Unknown fields rejected.
     assert!(Account::decode(br#"{"project":"p","login":"a","identity":1,"admin":true}"#).is_err());
     // Non-integer identity rejected.
@@ -142,10 +146,24 @@ fn account_dto_strict_shape() {
 }
 
 #[test]
+fn signed_json_integer_fields_keep_negative_zero_and_reject_other_number_tokens() {
+    let account = Account::decode(br#"{"identity":-0}"#).unwrap();
+    assert_eq!(account.identity, 0);
+    for token in ["1.0", "1e0", "9223372036854775808"] {
+        let body = format!("{{\"identity\":{token}}}");
+        assert!(Account::decode(body.as_bytes()).is_err(), "{token}");
+    }
+    let create = Create::decode(br#"{"owner":-0}"#).unwrap();
+    assert_eq!(create.owner, 0);
+    assert!(Create::decode(br#"{"owner":1e0}"#).is_err());
+}
+
+#[test]
 fn access_keys_dto_strict_shape() {
     let a = AccessKeys::decode(
         br#"{"project":"p","login":"a","identity":7,"revision":"r","keys":["k"],"apply":true}"#,
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(a.identity, 7);
     assert!(a.apply);
     assert_eq!(a.keys, vec!["k".to_string()]);

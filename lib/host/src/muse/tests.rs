@@ -360,6 +360,12 @@ fn launch_decode_matrix() {
     assert_eq!(req.register.as_ref().unwrap().actor_id, 7);
     assert_eq!((req.cols, req.rows), (80, 24));
     assert!(req.tty);
+    let negative_zero = LaunchRequest::decode(br#"{"cols":-0,"rows":-0}"#).unwrap();
+    assert_eq!((negative_zero.cols, negative_zero.rows), (0, 0));
+    let negative_zero_control = LaunchControl::decode(br#"{"signal":-0}"#).unwrap();
+    assert_eq!(negative_zero_control.signal, 0);
+    assert!(LaunchRequest::decode(br#"{"cols":1.0}"#).is_err());
+    assert!(LaunchRequest::decode(br#"{"rows":1e0}"#).is_err());
     assert!(LaunchRequest::decode(br#"{"cols":70000}"#).is_err());
     assert!(LaunchRequest::decode(br#"{"cols":-1}"#).is_err());
     assert!(LaunchRequest::decode(br#"{"bogus":1}"#).is_err());

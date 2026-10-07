@@ -116,7 +116,6 @@
 use std::time::Instant;
 
 use crate::domain;
-use crate::json;
 use crate::preparation;
 use crate::project;
 
@@ -149,8 +148,7 @@ pub struct PrepareReq(pub preparation::Prepare);
 impl PrepareReq {
     /// Strict decode of one request body (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        Ok(Self(preparation::Prepare::from_value(&v)?))
+        Ok(Self(preparation::Prepare::decode(body)?))
     }
 }
 
@@ -161,8 +159,7 @@ pub struct PrepareCandidateReq(pub preparation::FactoryCandidate);
 impl PrepareCandidateReq {
     /// Strict decode of one request body (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        Ok(Self(preparation::FactoryCandidate::from_value(&v)?))
+        Ok(Self(preparation::FactoryCandidate::decode(body)?))
     }
 }
 
@@ -173,8 +170,7 @@ pub struct InspectPreparationReq(pub preparation::PrepareInspect);
 impl InspectPreparationReq {
     /// Strict decode of one request body (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        Ok(Self(preparation::PrepareInspect::from_value(&v)?))
+        Ok(Self(preparation::PrepareInspect::decode(body)?))
     }
 }
 
@@ -185,8 +181,7 @@ pub struct StopPreparationReq(pub preparation::PrepareStop);
 impl StopPreparationReq {
     /// Strict decode of one request body (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        Ok(Self(preparation::PrepareStop::from_value(&v)?))
+        Ok(Self(preparation::PrepareStop::decode(body)?))
     }
 }
 
@@ -197,8 +192,7 @@ pub struct HoldPreparationReq(pub preparation::PrepareHold);
 impl HoldPreparationReq {
     /// Strict decode of one request body (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        Ok(Self(preparation::PrepareHold::from_value(&v)?))
+        Ok(Self(preparation::PrepareHold::decode(body)?))
     }
 }
 

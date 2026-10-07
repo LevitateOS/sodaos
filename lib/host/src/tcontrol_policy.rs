@@ -122,8 +122,8 @@ impl<'de> Deserialize<'de> for EnrollmentPolicy {
                 let mut out = EnrollmentPolicy::default();
                 while let Some(key) = map.next_key::<String>()? {
                     if key.eq_ignore_ascii_case("version") {
-                        if let Some(v) = map.next_value::<Option<i64>>()? {
-                            out.version = v;
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.version = v.0;
                         }
                         continue;
                     }
@@ -227,8 +227,8 @@ impl<'de> Deserialize<'de> for ProjectPolicyEntry {
                 let mut out = ProjectPolicyEntry::default();
                 while let Some(key) = map.next_key::<String>()? {
                     if key.eq_ignore_ascii_case("version") {
-                        if let Some(v) = map.next_value::<Option<i64>>()? {
-                            out.version = v;
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.version = v.0;
                         }
                         continue;
                     }
@@ -964,6 +964,13 @@ impl PolicyStore {
 #[cfg(test)]
 mod entropy_tests {
     use super::*;
+
+    #[test]
+    fn signed_policy_version_keeps_negative_zero_and_rejects_fraction() {
+        let policy = decode_enrollment_policy(br#"{"version":-0}"#).unwrap();
+        assert_eq!(policy.version, 0);
+        assert!(decode_enrollment_policy(br#"{"version":1e0}"#).is_err());
+    }
 
     #[test]
     fn revision_generation_propagates_partial_entropy_failure() {

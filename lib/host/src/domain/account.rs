@@ -17,7 +17,9 @@ pub struct Account {
 macro_rules! string_field {
     ($key:expr, $name:literal, $map:expr, $field:expr) => {
         if $key.eq_ignore_ascii_case($name) {
-            if let Some(value) = $map.next_value::<Option<String>>()? { $field = value; }
+            if let Some(value) = $map.next_value::<Option<String>>()? {
+                $field = value;
+            }
             continue;
         }
     };
@@ -35,19 +37,40 @@ macro_rules! string_list_field {
 }
 
 impl<'de> Deserialize<'de> for Account {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         struct AccountVisitor;
         impl<'de> Visitor<'de> for AccountVisitor {
             type Value = Account;
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str("an account object") }
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
-                let mut out = Account { project: String::new(), login: String::new(), identity: 0, keys: Vec::new() };
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an account object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = Account {
+                    project: String::new(),
+                    login: String::new(),
+                    identity: 0,
+                    keys: Vec::new(),
+                };
                 while let Some(key) = map.next_key::<String>()? {
                     string_field!(key, "project", map, out.project);
                     string_field!(key, "login", map, out.login);
-                    if key.eq_ignore_ascii_case("identity") { if let Some(v) = map.next_value::<Option<i64>>()? { out.identity = v; } continue; }
+                    if key.eq_ignore_ascii_case("identity") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.identity = v.0;
+                        }
+                        continue;
+                    }
                     string_list_field!(key, "keys", map, out.keys);
-                    return Err(de::Error::unknown_field(&key, &["project", "login", "identity", "keys"]));
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["project", "login", "identity", "keys"],
+                    ));
                 }
                 Ok(out)
             }
@@ -74,21 +97,49 @@ pub struct AccessKeys {
 }
 
 impl<'de> Deserialize<'de> for AccessKeys {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         struct AccessKeysVisitor;
         impl<'de> Visitor<'de> for AccessKeysVisitor {
             type Value = AccessKeys;
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str("an access keys object") }
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
-                let mut out = AccessKeys { project: String::new(), login: String::new(), identity: 0, revision: String::new(), keys: Vec::new(), apply: false };
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an access keys object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = AccessKeys {
+                    project: String::new(),
+                    login: String::new(),
+                    identity: 0,
+                    revision: String::new(),
+                    keys: Vec::new(),
+                    apply: false,
+                };
                 while let Some(key) = map.next_key::<String>()? {
                     string_field!(key, "project", map, out.project);
                     string_field!(key, "login", map, out.login);
-                    if key.eq_ignore_ascii_case("identity") { if let Some(v) = map.next_value::<Option<i64>>()? { out.identity = v; } continue; }
+                    if key.eq_ignore_ascii_case("identity") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.identity = v.0;
+                        }
+                        continue;
+                    }
                     string_field!(key, "revision", map, out.revision);
                     string_list_field!(key, "keys", map, out.keys);
-                    if key.eq_ignore_ascii_case("apply") { if let Some(v) = map.next_value::<Option<bool>>()? { out.apply = v; } continue; }
-                    return Err(de::Error::unknown_field(&key, &["project", "login", "identity", "revision", "keys", "apply"]));
+                    if key.eq_ignore_ascii_case("apply") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.apply = v;
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["project", "login", "identity", "revision", "keys", "apply"],
+                    ));
                 }
                 Ok(out)
             }
@@ -117,7 +168,9 @@ impl AccessKeyState {
         out.push_str(&json::quote(&self.revision));
         out.push_str(",\"keys\":[");
         for (i, k) in self.keys.iter().enumerate() {
-            if i > 0 { out.push(','); }
+            if i > 0 {
+                out.push(',');
+            }
             out.push_str(&json::quote(k));
         }
         out.push_str("]}");

@@ -1,5 +1,8 @@
 use crate::domain;
-use crate::json::{self, Kind, Spec};
+use crate::json;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 // ---------- container inspection ----------
 
@@ -19,69 +22,134 @@ pub struct TerminalInspection {
     pub gid_map: Vec<String>,
 }
 
-const MAPPINGS_SPECS: &[Spec] = &[
-    Spec {
-        name: "UidMap",
-        kind: Kind::StrList,
-    },
-    Spec {
-        name: "GidMap",
-        kind: Kind::StrList,
-    },
-];
+#[derive(Default)]
+struct Mappings {
+    uid_map: Vec<String>,
+    gid_map: Vec<String>,
+}
 
-const INSPECTION_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "running",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "owner",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "privileged",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "userns",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "mappings",
-        kind: Kind::Object {
-            go_type: "struct",
-            struct_name: "struct",
-            specs: MAPPINGS_SPECS,
-        },
-    },
-];
+impl<'de> Deserialize<'de> for Mappings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct MappingsVisitor;
+        impl<'de> Visitor<'de> for MappingsVisitor {
+            type Value = Mappings;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an ID mappings object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = Mappings::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("UidMap") {
+                        if let Some(v) = map.next_value::<Option<Vec<Option<String>>>>()? {
+                            out.uid_map = v.into_iter().map(Option::unwrap_or_default).collect();
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("GidMap") {
+                        if let Some(v) = map.next_value::<Option<Vec<Option<String>>>>()? {
+                            out.gid_map = v.into_iter().map(Option::unwrap_or_default).collect();
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(&key, &["UidMap", "GidMap"]));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(MappingsVisitor)
+    }
+}
+
+impl<'de> Deserialize<'de> for TerminalInspection {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InspectionVisitor;
+        impl<'de> Visitor<'de> for InspectionVisitor {
+            type Value = TerminalInspection;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a terminal inspection object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = TerminalInspection::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.id = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("running") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.running = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("project") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.project = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("owner") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.owner = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("privileged") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.privileged = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("userns") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.userns = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("mappings") {
+                        if let Some(v) = map.next_value::<Option<Mappings>>()? {
+                            out.uid_map = v.uid_map;
+                            out.gid_map = v.gid_map;
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "id",
+                            "running",
+                            "project",
+                            "owner",
+                            "privileged",
+                            "userns",
+                            "mappings",
+                        ],
+                    ));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(InspectionVisitor)
+    }
+}
 
 impl TerminalInspection {
     /// Strict decode (`strictjson.Decode` in Go).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        let m =
-            json::bind_root(&v, "terminalInspection", INSPECTION_SPECS, false).map_err(|e| e.0)?;
-        let mappings = m.take_map("mappings");
-        Ok(TerminalInspection {
-            id: m.take_string("id"),
-            running: m.take_bool("running"),
-            project: m.take_string("project"),
-            owner: m.take_string("owner"),
-            privileged: m.take_bool("privileged"),
-            userns: m.take_string("userns"),
-            uid_map: mappings.take_str_list("UidMap"),
-            gid_map: mappings.take_str_list("GidMap"),
-        })
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 

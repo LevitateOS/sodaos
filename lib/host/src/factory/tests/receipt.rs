@@ -6,6 +6,27 @@ use crate::factory::receipt::FactoryReceipt;
 use crate::factory::*;
 
 #[test]
+fn signed_factory_numbers_preserve_negative_zero_and_nullable_exit_code() {
+    let null = crate::json::decode_strict_as::<FactoryReceipt>(br#"{"exit_code":null}"#).unwrap();
+    assert_eq!(null.exit_code, None);
+    let zero =
+        crate::json::decode_strict_as::<FactoryReceipt>(br#"{"exit_code":-0,"generation":-0}"#)
+            .unwrap();
+    assert_eq!(zero.exit_code, Some(0));
+    assert_eq!(zero.generation, 0);
+
+    for token in ["1.0", "1e0", "9223372036854775808"] {
+        let body = format!("{{\"generation\":{token}}}");
+        assert!(
+            crate::json::decode_strict_as::<FactoryReceipt>(body.as_bytes()).is_err(),
+            "{token}"
+        );
+    }
+    // Byte arrays are unsigned in the original host binder.
+    assert!(FactoryLaunch::decode(br#"{"prompt":[-0]}"#).is_err());
+}
+
+#[test]
 fn receipt_bytes_match_go_marshal() {
     let dir = test_state_dir("receipt-bytes");
     let factory = dummy_factory(&dir);

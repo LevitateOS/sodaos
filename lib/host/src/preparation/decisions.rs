@@ -1,8 +1,11 @@
 // Preparation decision records: requirement acceptance and admin approval.
 use super::{valid_commit, valid_decision_id, valid_digest};
-use crate::json::{BoundMap, Kind, Spec};
+use crate::json::SignedInteger;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RequirementAcceptance {
     pub id: String,
     pub revision: i64,
@@ -10,29 +13,6 @@ pub struct RequirementAcceptance {
     pub source_commit: String,
     pub digest: String,
 }
-
-pub(crate) const REQUIREMENT_ACCEPTANCE_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "approver",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "source_commit",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "digest",
-        kind: Kind::Str,
-    },
-];
 
 impl RequirementAcceptance {
     pub fn validate(&self) -> Result<(), String> {
@@ -46,44 +26,15 @@ impl RequirementAcceptance {
         }
         Ok(())
     }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        RequirementAcceptance {
-            id: m.take_string("id"),
-            revision: m.take_i64("revision"),
-            approver: m.take_i64("approver"),
-            source_commit: m.take_string("source_commit"),
-            digest: m.take_string("digest"),
-        }
-    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AdminApproval {
     pub id: String,
     pub revision: i64,
     pub approver: i64,
     pub effects_digest: String,
 }
-
-pub(crate) const ADMIN_APPROVAL_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "approver",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "effects_digest",
-        kind: Kind::Str,
-    },
-];
 
 impl AdminApproval {
     pub fn validate(&self) -> Result<(), String> {
@@ -96,13 +47,40 @@ impl AdminApproval {
         }
         Ok(())
     }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        AdminApproval {
-            id: m.take_string("id"),
-            revision: m.take_i64("revision"),
-            approver: m.take_i64("approver"),
-            effects_digest: m.take_string("effects_digest"),
-        }
-    }
 }
+
+macro_rules! typed_decision {
+    ($ty:ident, $expect:literal, {$($field:ident : $kind:ty),+ $(,)?}) => {
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where D: serde::Deserializer<'de> {
+                struct ObjectVisitor;
+                impl<'de> Visitor<'de> for ObjectVisitor {
+                    type Value = $ty;
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str($expect) }
+                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+                    where A: MapAccess<'de> {
+                        let mut out = $ty { $($field: Default::default()),+ };
+                        while let Some(key) = map.next_key::<String>()? {
+                            let mut recognized = false;
+                            $(if key.eq_ignore_ascii_case(stringify!($field)) {
+                                if let Some(value) = map.next_value::<Option<$kind>>()? { out.$field = value.into(); }
+                                recognized = true;
+                            })+
+                            if !recognized { return Err(de::Error::unknown_field(&key, &[$(stringify!($field)),+])); }
+                        }
+                        Ok(out)
+                    }
+                }
+                deserializer.deserialize_map(ObjectVisitor)
+            }
+        }
+    };
+}
+
+typed_decision!(RequirementAcceptance, "a requirement acceptance object", {
+    id: String, revision: SignedInteger, approver: SignedInteger, source_commit: String, digest: String
+});
+typed_decision!(AdminApproval, "an admin approval object", {
+    id: String, revision: SignedInteger, approver: SignedInteger, effects_digest: String
+});

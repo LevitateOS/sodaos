@@ -1,111 +1,135 @@
-// Helper-inspection decoding: spec tables, launcher evidence, state map.
-use crate::json::{self, Kind, Spec};
+// Helper-inspection DTO: only these observations cross the JSON boundary.
+use crate::json;
 use crate::preparation::{self, PrepareState, ResolvedTool};
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
-const INSPECTION_HOLD_SPECS: &[Spec] = &[
-    Spec {
-        name: "active",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-];
+#[derive(Default)]
+struct HelperInspection {
+    known: bool,
+    phase: String,
+    role: String,
+    setup_digest: String,
+    source_commit: String,
+    tools: Vec<ResolvedTool>,
+    missing: String,
+    stopped: bool,
+    ready: bool,
+    setup_exit: Option<i64>,
+    check_exit: Option<i64>,
+    setup_log: String,
+    check_log: String,
+    hold: preparation::HoldState,
+    verified: LauncherEvidence,
+}
 
-const INSPECTION_VERIFIED_SPECS: &[Spec] = &[
-    Spec {
-        name: "uid",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "login",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "groups",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "refusal",
-        kind: Kind::Str,
-    },
-];
-
-const HELPER_INSPECTION_SPECS: &[Spec] = &[
-    Spec {
-        name: "hold",
-        kind: Kind::Object {
-            go_type: "struct",
-            struct_name: "struct",
-            specs: INSPECTION_HOLD_SPECS,
-        },
-    },
-    Spec {
-        name: "known",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "phase",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "setup_digest",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "source_commit",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "tools",
-        kind: Kind::StructList {
-            go_type: "[]project.ResolvedTool",
-            struct_name: "ResolvedTool",
-            specs: preparation::RESOLVED_TOOL_SPECS,
-        },
-    },
-    Spec {
-        name: "verified",
-        kind: Kind::Object {
-            go_type: "struct",
-            struct_name: "struct",
-            specs: INSPECTION_VERIFIED_SPECS,
-        },
-    },
-    Spec {
-        name: "missing",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "stopped",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "ready",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "setup_exit",
-        kind: Kind::OptInt,
-    },
-    Spec {
-        name: "check_exit",
-        kind: Kind::OptInt,
-    },
-    Spec {
-        name: "setup_log",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "check_log",
-        kind: Kind::Str,
-    },
-];
+impl<'de> Deserialize<'de> for HelperInspection {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InspectionVisitor;
+        impl<'de> Visitor<'de> for InspectionVisitor {
+            type Value = HelperInspection;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a preparation inspection object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = HelperInspection::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("known") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.known = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("phase") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.phase = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("role") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.role = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("setup_digest") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.setup_digest = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("source_commit") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.source_commit = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("tools") {
+                        if let Some(v) = map.next_value::<Option<Vec<ResolvedTool>>>()? {
+                            out.tools = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("missing") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.missing = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("stopped") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.stopped = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("ready") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.ready = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("setup_exit") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.setup_exit = Some(v.0);
+                        }
+                    } else if key.eq_ignore_ascii_case("check_exit") {
+                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+                            out.check_exit = Some(v.0);
+                        }
+                    } else if key.eq_ignore_ascii_case("setup_log") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.setup_log = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("check_log") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.check_log = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("hold") {
+                        if let Some(v) = map.next_value::<Option<preparation::HoldState>>()? {
+                            out.hold = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("verified") {
+                        if let Some(v) = map.next_value::<Option<LauncherEvidence>>()? {
+                            out.verified = v;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(
+                            &key,
+                            &[
+                                "known",
+                                "phase",
+                                "role",
+                                "setup_digest",
+                                "source_commit",
+                                "tools",
+                                "missing",
+                                "stopped",
+                                "ready",
+                                "setup_exit",
+                                "check_exit",
+                                "setup_log",
+                                "check_log",
+                                "hold",
+                                "verified",
+                            ],
+                        ));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(InspectionVisitor)
+    }
+}
 
 /// Launcher evidence: observed role identity plus any refusal reason.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -116,6 +140,53 @@ pub struct LauncherEvidence {
     pub refusal: String,
 }
 
+impl<'de> Deserialize<'de> for LauncherEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct EvidenceVisitor;
+        impl<'de> Visitor<'de> for EvidenceVisitor {
+            type Value = LauncherEvidence;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("launcher evidence object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = LauncherEvidence::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("uid") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.uid = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("login") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.login = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("groups") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.groups = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("refusal") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.refusal = v;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(
+                            &key,
+                            &["uid", "login", "groups", "refusal"],
+                        ));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(EvidenceVisitor)
+    }
+}
+
 pub(crate) fn quote_bytes_base64(out: &mut String, bytes: &[u8]) {
     out.push_str(&json::quote(&crate::ssh::b64_encode(bytes)));
 }
@@ -124,14 +195,24 @@ pub(crate) fn quote_bytes_base64(out: &mut String, bytes: &[u8]) {
 /// ID and project are filled in by the caller.
 pub fn map_preparation_state(container: &str, raw: &[u8]) -> Result<PrepareState, String> {
     const ERR: &str = "invalid preparation observation";
-    let v = json::decode_strict(raw).map_err(|_| ERR.to_string())?;
-    let m = json::bind_root(&v, "helperInspection", HELPER_INSPECTION_SPECS, false)
-        .map_err(|_| ERR.to_string())?;
-    let known = m.take_bool("known");
-    let phase = m.take_string("phase");
-    let role = m.take_string("role");
-    let setup_digest = m.take_string("setup_digest");
-    let source_commit = m.take_string("source_commit");
+    let observed: HelperInspection = json::decode_strict_as(raw).map_err(|_| ERR.to_string())?;
+    let HelperInspection {
+        known,
+        phase,
+        role,
+        setup_digest,
+        source_commit,
+        tools,
+        missing,
+        stopped,
+        ready,
+        setup_exit,
+        check_exit,
+        setup_log,
+        check_log,
+        hold: _,
+        verified: _,
+    } = observed;
     if !known
         || !preparation::valid_prepare_phase(&phase)
         || !preparation::valid_factory_role(&role)
@@ -140,16 +221,9 @@ pub fn map_preparation_state(container: &str, raw: &[u8]) -> Result<PrepareState
     {
         return Err(ERR.to_string());
     }
-    let setup_log = m.take_string("setup_log");
-    let check_log = m.take_string("check_log");
     if setup_log.len() > 66560 || check_log.len() > 66560 {
         return Err("preparation observation exceeds the bounded size".to_string());
     }
-    let tools = m
-        .take_struct_list("tools")
-        .iter()
-        .map(ResolvedTool::from_map)
-        .collect();
     let mut state = PrepareState {
         role,
         phase,
@@ -157,11 +231,11 @@ pub fn map_preparation_state(container: &str, raw: &[u8]) -> Result<PrepareState
         source_commit,
         setup_digest,
         tools,
-        missing: m.take_string("missing"),
-        setup_exit: m.take_opt_i64("setup_exit"),
-        check_exit: m.take_opt_i64("check_exit"),
-        ready: m.take_bool("ready"),
-        stopped: m.take_bool("stopped"),
+        missing,
+        setup_exit,
+        check_exit,
+        ready,
+        stopped,
         ..Default::default()
     };
     if !setup_log.is_empty() || !check_log.is_empty() {

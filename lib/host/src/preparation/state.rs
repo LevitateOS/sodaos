@@ -1,39 +1,19 @@
 // Observed preparation states: resolved tools, inspect/stop/hold wire shapes.
 use super::valid_preparation_id;
 use crate::domain;
-use crate::json::{self, BoundMap, Kind, Spec, Value};
+use crate::json;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ResolvedTool {
     pub name: String,
     pub path: String,
     pub version: String,
 }
 
-pub(crate) const RESOLVED_TOOL_SPECS: &[Spec] = &[
-    Spec {
-        name: "name",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "path",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "version",
-        kind: Kind::Str,
-    },
-];
-
 impl ResolvedTool {
-    pub fn from_map(m: &BoundMap) -> Self {
-        ResolvedTool {
-            name: m.take_string("name"),
-            path: m.take_string("path"),
-            version: m.take_string("version"),
-        }
-    }
-
     pub fn encode_into(&self, out: &mut String) {
         out.push_str("{\"name\":");
         out.push_str(&json::quote(&self.name));
@@ -44,6 +24,39 @@ impl ResolvedTool {
         out.push('}');
     }
 }
+
+macro_rules! typed_state_object {
+    ($ty:ident, $expect:literal, {$($field:ident => $name:literal : $value:ty),+ $(,)?}) => {
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where D: serde::Deserializer<'de> {
+                struct ObjectVisitor;
+                impl<'de> Visitor<'de> for ObjectVisitor {
+                    type Value = $ty;
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str($expect) }
+                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+                    where A: MapAccess<'de> {
+                        let mut out = $ty { $($field: Default::default()),+ };
+                        while let Some(key) = map.next_key::<String>()? {
+                            let mut recognized = false;
+                            $(if key.eq_ignore_ascii_case($name) {
+                                if let Some(value) = map.next_value::<Option<$value>>()? { out.$field = value.into(); }
+                                recognized = true;
+                            })+
+                            if !recognized { return Err(de::Error::unknown_field(&key, &[$($name),+])); }
+                        }
+                        Ok(out)
+                    }
+                }
+                deserializer.deserialize_map(ObjectVisitor)
+            }
+        }
+    };
+}
+
+typed_state_object!(ResolvedTool, "a resolved tool object", {
+    name => "name": String, path => "path": String, version => "version": String
+});
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PrepareState {
@@ -120,22 +133,11 @@ impl PrepareState {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PrepareInspect {
     pub project: String,
     pub id: String,
 }
-
-const PREPARE_INSPECT_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-];
 
 impl PrepareInspect {
     pub fn validate(&self) -> Result<(), String> {
@@ -145,21 +147,12 @@ impl PrepareInspect {
         Ok(())
     }
 
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m =
-            json::bind_root(v, "PrepareInspect", PREPARE_INSPECT_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        PrepareInspect {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PrepareStop {
     pub project: String,
     pub id: String,
@@ -173,18 +166,17 @@ impl PrepareStop {
         Ok(())
     }
 
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "PrepareStop", PREPARE_INSPECT_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        PrepareStop {
-            project: m.take_string("project"),
-            id: m.take_string("id"),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
+
+typed_state_object!(PrepareInspect, "a preparation inspection object", {
+    project => "project": String, id => "id": String
+});
+typed_state_object!(PrepareStop, "a preparation stop object", {
+    project => "project": String, id => "id": String
+});
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HoldState {
@@ -200,47 +192,18 @@ impl HoldState {
             self.revision
         )
     }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        HoldState {
-            active: m.take_bool("active"),
-            revision: m.take_i64("revision"),
-        }
-    }
 }
 
-pub(crate) const HOLD_STATE_SPECS: &[Spec] = &[
-    Spec {
-        name: "active",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-];
+typed_state_object!(HoldState, "a maintenance hold object", {
+    active => "active": bool, revision => "revision": json::SignedInteger
+});
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PrepareHold {
     pub project: String,
     pub hold: bool,
     pub revision: i64,
 }
-
-const PREPARE_HOLD_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "hold",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::I64,
-    },
-];
 
 impl PrepareHold {
     pub fn validate(&self) -> Result<(), String> {
@@ -250,16 +213,11 @@ impl PrepareHold {
         Ok(())
     }
 
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "PrepareHold", PREPARE_HOLD_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        PrepareHold {
-            project: m.take_string("project"),
-            hold: m.take_bool("hold"),
-            revision: m.take_i64("revision"),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
+
+typed_state_object!(PrepareHold, "a maintenance hold request object", {
+    project => "project": String, hold => "hold": bool, revision => "revision": json::SignedInteger
+});
