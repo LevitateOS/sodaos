@@ -25,15 +25,10 @@ func Decode(reader io.Reader, destination any) error {
 	if !utf8.Valid(contents) {
 		return errors.New("request must contain valid UTF-8")
 	}
-	object, err := decodeUniqueObject(contents)
-	if err != nil {
+	if err = validateUniqueObject(contents); err != nil {
 		return err
 	}
-	normalized, err := json.Marshal(object)
-	if err != nil {
-		return err
-	}
-	decoder := json.NewDecoder(bytes.NewReader(normalized))
+	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(destination); err != nil {
 		return fmt.Errorf("decode request: %w", err)
@@ -41,19 +36,18 @@ func Decode(reader io.Reader, destination any) error {
 	return nil
 }
 
-func decodeUniqueObject(contents []byte) (map[string]json.RawMessage, error) {
+func validateUniqueObject(contents []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	if err := requireObject(decoder); err != nil {
-		return nil, err
+		return err
 	}
-	object, err := decodeFields(decoder)
-	if err != nil {
-		return nil, err
+	if err := scanObject(decoder, "", 0); err != nil {
+		return err
 	}
-	if err = finishObject(decoder); err != nil {
-		return nil, err
+	if err := finishInput(decoder); err != nil {
+		return err
 	}
-	return object, nil
+	return nil
 }
 
 func requireObject(decoder *json.Decoder) error {
@@ -68,26 +62,28 @@ func requireObject(decoder *json.Decoder) error {
 	return nil
 }
 
-func decodeFields(decoder *json.Decoder) (map[string]json.RawMessage, error) {
-	object := map[string]json.RawMessage{}
+func scanObject(decoder *json.Decoder, field string, depth int) error {
+	seen := map[string]struct{}{}
 	for decoder.More() {
-		field, err := decodeFieldName(decoder, object)
+		name, err := decodeFieldName(decoder, seen)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		var value json.RawMessage
-		if err = decoder.Decode(&value); err != nil {
-			return nil, fmt.Errorf("decode request field %q: %w", field, err)
+		if err = scanValue(decoder, name, depth); err != nil {
+			return err
 		}
-		if err = rejectDuplicateKeys(field, value, 0); err != nil {
-			return nil, err
-		}
-		object[field] = value
 	}
-	return object, nil
+	token, err := decoder.Token()
+	if err != nil {
+		return fmt.Errorf("decode request field %q: %w", field, err)
+	}
+	if delimiter, ok := token.(json.Delim); !ok || delimiter != '}' {
+		return errors.New("request object is not closed")
+	}
+	return nil
 }
 
-func decodeFieldName(decoder *json.Decoder, object map[string]json.RawMessage) (string, error) {
+func decodeFieldName(decoder *json.Decoder, seen map[string]struct{}) (string, error) {
 	token, err := decoder.Token()
 	if err != nil {
 		return "", fmt.Errorf("decode request: %w", err)
@@ -96,21 +92,20 @@ func decodeFieldName(decoder *json.Decoder, object map[string]json.RawMessage) (
 	if !valid {
 		return "", errors.New("request field name must be a string")
 	}
-	if _, duplicate := object[field]; duplicate {
+	if _, duplicate := seen[field]; duplicate {
 		return "", fmt.Errorf("duplicate request field %q", field)
 	}
+	seen[field] = struct{}{}
 	return field, nil
 }
 
-// rejectDuplicateKeys extends the top-level duplicate ban to every nested
-// object and array element: encoding/json keeps the last of any nested
-// duplicates, so values must be scanned before they are accepted. Depth is
-// capped because request bodies are small API objects, never deep documents.
-func rejectDuplicateKeys(field string, raw json.RawMessage, depth int) error {
+// scanValue extends the duplicate ban to every nested object and array.
+// encoding/json keeps the last duplicate, so scan the bounded body once before
+// its typed decode. The root object is excluded from the 100 nested levels.
+func scanValue(decoder *json.Decoder, field string, depth int) error {
 	if depth > 100 {
 		return fmt.Errorf("decode request field %q: request is nested too deeply", field)
 	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
 	token, err := decoder.Token()
 	if err != nil {
 		return fmt.Errorf("decode request field %q: %w", field, err)
@@ -121,65 +116,26 @@ func rejectDuplicateKeys(field string, raw json.RawMessage, depth int) error {
 	}
 	switch delimiter {
 	case '{':
-		if err = rejectObjectDuplicates(decoder, field, depth); err != nil {
-			return err
-		}
+		return scanObject(decoder, field, depth+1)
 	case '[':
 		for decoder.More() {
-			var element json.RawMessage
-			if err = decoder.Decode(&element); err != nil {
-				return fmt.Errorf("decode request field %q: %w", field, err)
-			}
-			if err = rejectDuplicateKeys(field, element, depth+1); err != nil {
+			if err = scanValue(decoder, field, depth+1); err != nil {
 				return err
 			}
 		}
-		if _, err = decoder.Token(); err != nil {
-			return fmt.Errorf("decode request field %q: %w", field, err)
+		closeToken, closeErr := decoder.Token()
+		if closeErr != nil {
+			return fmt.Errorf("decode request field %q: %w", field, closeErr)
+		}
+		if closing, ok := closeToken.(json.Delim); !ok || closing != ']' {
+			return fmt.Errorf("decode request field %q: array is not closed", field)
 		}
 	}
 	return nil
 }
 
-func rejectObjectDuplicates(decoder *json.Decoder, field string, depth int) error {
-	seen := map[string]bool{}
-	for decoder.More() {
-		token, err := decoder.Token()
-		if err != nil {
-			return fmt.Errorf("decode request field %q: %w", field, err)
-		}
-		name, valid := token.(string)
-		if !valid {
-			return fmt.Errorf("decode request field %q: request field name must be a string", field)
-		}
-		if seen[name] {
-			return fmt.Errorf("duplicate request field %q", name)
-		}
-		seen[name] = true
-		var value json.RawMessage
-		if err = decoder.Decode(&value); err != nil {
-			return fmt.Errorf("decode request field %q: %w", field, err)
-		}
-		if err = rejectDuplicateKeys(field, value, depth+1); err != nil {
-			return err
-		}
-	}
-	if _, err := decoder.Token(); err != nil {
-		return fmt.Errorf("decode request field %q: %w", field, err)
-	}
-	return nil
-}
-
-func finishObject(decoder *json.Decoder) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return fmt.Errorf("decode request: %w", err)
-	}
-	delimiter, ok := token.(json.Delim)
-	if !ok || delimiter != '}' {
-		return errors.New("request object is not closed")
-	}
-	if _, err = decoder.Token(); err == io.EOF {
+func finishInput(decoder *json.Decoder) error {
+	if _, err := decoder.Token(); err == io.EOF {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("decode request: %w", err)

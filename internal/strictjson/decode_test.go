@@ -2,6 +2,7 @@ package strictjson
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
@@ -59,6 +60,29 @@ func TestDecodeRejectsNestedDuplicateFields(t *testing.T) {
 	})
 }
 
+func TestDecodeNestedDepthBoundary(t *testing.T) {
+	input := func(levels int) string {
+		return `{"meta":` + strings.Repeat(`{"k":`, levels) + `0` + strings.Repeat(`}`, levels) + `}`
+	}
+	var accepted map[string]any
+	if err := Decode(strings.NewReader(input(100)), &accepted); err != nil {
+		t.Fatalf("100 nested value levels refused: %v", err)
+	}
+	var tooDeep map[string]any
+	if err := Decode(strings.NewReader(input(101)), &tooDeep); err == nil || !strings.Contains(err.Error(), "nested too deeply") {
+		t.Fatalf("101 nested value levels were not refused: %v", err)
+	}
+}
+
+func TestDecodePreservesNumberTokenAdmission(t *testing.T) {
+	var request struct {
+		ID string `json:"id"`
+	}
+	if err := Decode(strings.NewReader(`{"id":1e999}`), &request); err == nil {
+		t.Fatal("out-of-range number accepted during duplicate scan")
+	}
+}
+
 func TestDecodeAcceptsUniqueNestedFields(t *testing.T) {
 	var request nestedRequest
 	require.NoError(t, Decode(strings.NewReader(`{"id":"one","meta":{"first":"1","second":"2"}}`), &request))
@@ -73,4 +97,24 @@ func TestDecodeRejectsInvalidUTF8AndOversizedRequests(t *testing.T) {
 
 	oversized := strings.NewReader(`{"id":"` + strings.Repeat("a", maximumRequestBytes) + `"}`)
 	require.ErrorContains(t, Decode(oversized, &request), "exceeds 1 MiB")
+}
+
+type brokenReader struct {
+	data []byte
+}
+
+func (r *brokenReader) Read(p []byte) (int, error) {
+	if len(r.data) != 0 {
+		n := copy(p, r.data)
+		r.data = r.data[n:]
+		return n, nil
+	}
+	return 0, errors.New("fixture read failure")
+}
+
+func TestDecodePropagatesInputReadFailure(t *testing.T) {
+	var request testRequest
+	err := Decode(&brokenReader{data: []byte(`{"id":"one"}`)}, &request)
+	require.ErrorContains(t, err, "read request")
+	require.ErrorContains(t, err, "fixture read failure")
 }

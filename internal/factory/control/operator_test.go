@@ -96,6 +96,21 @@ func TestOperatorRequiresPrincipalAndEnvelope(t *testing.T) {
 	}
 }
 
+func TestOperatorUsesEncodingJSONFieldCaseAndDocumentOrder(t *testing.T) {
+	c := coordinatorFixture(t, nil, nil)
+	for _, body := range []string{
+		`{"Type":"status"}`,
+		`{"type":"launch","Type":"status"}`,
+	} {
+		if w := operatorRequest(t, c, "os-uid:0", body); w.Code != http.StatusOK {
+			t.Fatalf("typed field binding rejected %s: status=%d body=%q", body, w.Code, w.Body.String())
+		}
+	}
+	if w := operatorRequest(t, c, "os-uid:0", `{"type":"status","commandId":"not-a-tag-alias"}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("non-tag alias accepted: status=%d body=%q", w.Code, w.Body.String())
+	}
+}
+
 func TestOperatorStatusAndStopRoundTrip(t *testing.T) {
 	host := &stubHost{}
 	c := coordinatorFixture(t, host, &stubBroker{
