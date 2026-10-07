@@ -31,6 +31,7 @@ name = "cli"
 path = "tests/cli/main.rs"
 
 [dependencies]
+clap = { version = "=4.6.7", default-features = false, features = ["std", "help", "usage", "error-context"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 getrandom = { version = "=0.4.3", features = ["std"] }
