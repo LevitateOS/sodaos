@@ -2,8 +2,7 @@
 //! `internal/release/build` `FetchMuse`).
 
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 use std::time::Duration;
 
 use serde::de::{MapAccess, Visitor};
@@ -19,8 +18,6 @@ pub const USER_AGENT: &str = "Go-http-client/1.1";
 const TIMEOUT: Duration = Duration::from_secs(600);
 /// The owner reads the manifest through an 8 KiB capped stream.
 const MANIFEST_LIMIT: usize = 8192;
-
-static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// The endpoint consumes named form pairs; retain its established key order.
 fn download_url(base: &str, version: &str, file: &str) -> String {
@@ -159,24 +156,6 @@ fn current_digest(dest: &Path) -> Option<String> {
     crate::fetch::sha256_hex_stream(&mut file).ok()
 }
 
-fn create_temp(dir: &Path) -> Result<(PathBuf, std::fs::File), String> {
-    let pid = std::process::id();
-    for _ in 0..100 {
-        let id = TEMP_COUNTER.fetch_add(1, Ordering::SeqCst);
-        let path = dir.join(format!(".muse-{pid}-{id}"));
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-        {
-            Ok(file) => return Ok((path, file)),
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(e) => return Err(e.to_string()),
-        }
-    }
-    Err(format!("cannot stage Muse download in {}", dir.display()))
-}
-
 /// Stream the body into a sibling temp file, verifying size and digest
 /// before the atomic rename (`stageMuseArtifact`).
 fn stage(body: &mut dyn Read, artifact: &MuseArtifact, dest: &Path) -> Result<(), String> {
@@ -193,10 +172,13 @@ fn stage(body: &mut dyn Read, artifact: &MuseArtifact, dest: &Path) -> Result<()
         .recursive(true)
         .create(parent)
         .map_err(|e| e.to_string())?;
-    let (temp_path, temp_file) = create_temp(parent)?;
+    let mut staged = tempfile::Builder::new()
+        .prefix(".muse-")
+        .tempfile_in(parent)
+        .map_err(|e| e.to_string())?;
     let result = (|| -> Result<(), String> {
         use sha2::Digest;
-        let mut file = temp_file;
+        let file = staged.as_file_mut();
         let mut hasher = sha2::Sha256::new();
         let cap = (artifact.size as u64).saturating_add(1);
         let mut taken = (&mut *body).take(cap);
@@ -211,7 +193,6 @@ fn stage(body: &mut dyn Read, artifact: &MuseArtifact, dest: &Path) -> Result<()
             hasher.update(&buf[..n]);
             size += n as u64;
         }
-        drop(file);
         let mut hex = String::with_capacity(64);
         for byte in hasher.finalize() {
             hex.push_str(&format!("{byte:02x}"));
@@ -219,13 +200,14 @@ fn stage(body: &mut dyn Read, artifact: &MuseArtifact, dest: &Path) -> Result<()
         if size != artifact.size as u64 || hex != artifact.sha256 {
             return Err("muse release checksum or size mismatch".to_string());
         }
-        crate::fetch::chmod(&temp_path, 0o755)?;
-        std::fs::rename(&temp_path, dest).map_err(|e| e.to_string())?;
+        use std::os::unix::fs::PermissionsExt;
+        staged
+            .as_file()
+            .set_permissions(std::fs::Permissions::from_mode(0o755))
+            .map_err(|e| e.to_string())?;
+        staged.persist(dest).map_err(|e| e.error.to_string())?;
         Ok(())
     })();
-    if result.is_err() {
-        let _ = std::fs::remove_file(&temp_path);
-    }
     result
 }
 

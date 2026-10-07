@@ -2,6 +2,7 @@
 
 use std::io::Read;
 use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -129,40 +130,104 @@ pub(crate) fn derive_host_public(host_key: &Path) -> Result<String, ProvError> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| ProvError::io(&e, "cannot run ssh-keygen"))?;
-    let stderr = child.stderr.take().map(|mut pipe| {
-        std::thread::spawn(move || {
-            let mut sink = Vec::new();
-            let _ = std::io::Read::read_to_end(&mut pipe, &mut sink);
-        })
-    });
     let deadline = Instant::now() + Duration::from_secs(10);
+    let mut stdout_pipe = child.stdout.take();
+    let mut stderr_pipe = child.stderr.take();
+    if let Err(error) =
+        set_nonblocking(stdout_pipe.as_ref()).and_then(|()| set_nonblocking(stderr_pipe.as_ref()))
+    {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(ProvError::io(&error, "cannot run ssh-keygen"));
+    }
+    let mut stdout = Vec::new();
+    const PUBLIC_LIMIT: usize = 1024 * 1024;
+    let mut buf = [0u8; 8192];
+    let mut child_status = None;
+    let mut exited_at = None;
+    let mut stdout_eof = stdout_pipe.is_none();
+    let mut stderr_eof = stderr_pipe.is_none();
     let status = loop {
-        match child
-            .try_wait()
-            .map_err(|e| ProvError::io(&e, "cannot run ssh-keygen"))?
-        {
-            Some(status) => break status,
-            None => {
-                if Instant::now() >= deadline {
+        let now = Instant::now();
+        if now >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(ProvError::new(ProvKind::Timeout, "ssh-keygen timed out"));
+        }
+        if child_status.is_none() {
+            match child.try_wait() {
+                Ok(Some(done)) => {
+                    child_status = Some(done);
+                    exited_at = Some(now);
+                }
+                Ok(None) => {}
+                Err(e) => {
                     let _ = child.kill();
                     let _ = child.wait();
-                    if let Some(handle) = stderr {
-                        let _ = handle.join();
-                    }
-                    return Err(ProvError::new(ProvKind::Timeout, "ssh-keygen timed out"));
+                    return Err(ProvError::io(&e, "cannot run ssh-keygen"));
                 }
-                std::thread::sleep(Duration::from_millis(5));
             }
         }
+        let mut close_stdout = false;
+        if let Some(pipe) = stdout_pipe.as_mut() {
+            match pipe.read(&mut buf) {
+                Ok(0) => close_stdout = true,
+                Ok(n) => {
+                    if stdout.len().saturating_add(n) > PUBLIC_LIMIT {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(ProvError::value(
+                            "unencrypted per-instance Ed25519 host key required",
+                        ));
+                    }
+                    stdout.extend_from_slice(&buf[..n]);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(ProvError::io(&e, "cannot run ssh-keygen"));
+                }
+            }
+        }
+        if close_stdout {
+            stdout_eof = true;
+            stdout_pipe = None;
+        }
+        let mut close_stderr = false;
+        if let Some(pipe) = stderr_pipe.as_mut() {
+            match pipe.read(&mut buf) {
+                Ok(0) => close_stderr = true,
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(ProvError::io(&e, "cannot run ssh-keygen"));
+                }
+            }
+        }
+        if close_stderr {
+            stderr_eof = true;
+            stderr_pipe = None;
+        }
+        if let Some(done) = child_status {
+            if stdout_eof && stderr_eof {
+                break done;
+            }
+            if exited_at.is_some_and(|at| at.elapsed() >= Duration::from_secs(2)) {
+                stdout_pipe.take();
+                stderr_pipe.take();
+                return Err(ProvError::new(
+                    ProvKind::Timeout,
+                    "ssh-keygen output pipes did not close",
+                ));
+            }
+        }
+        std::thread::sleep(Duration::from_millis(5));
     };
-    let mut stdout = Vec::new();
-    if let Some(mut pipe) = child.stdout.take() {
-        std::io::Read::read_to_end(&mut pipe, &mut stdout)
-            .map_err(|e| ProvError::io(&e, "cannot run ssh-keygen"))?;
-    }
-    if let Some(handle) = stderr {
-        let _ = handle.join();
-    }
     if !status.success() {
         return Err(ProvError::value(
             "unencrypted per-instance Ed25519 host key required",
@@ -176,6 +241,16 @@ pub(crate) fn derive_host_public(host_key: &Path) -> Result<String, ProvError> {
         ));
     }
     Ok(text)
+}
+
+fn set_nonblocking<T: AsRawFd>(pipe: Option<&T>) -> Result<(), std::io::Error> {
+    let Some(pipe) = pipe else { return Ok(()) };
+    let fd = pipe.as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
 }
 
 /// The script's `dest.parent.resolve() != dest.parent` gate: no symlinked
