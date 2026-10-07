@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 func (fx *st15Fixture) st09() nativeST09Config {
@@ -133,5 +131,5 @@ func (fx *st15Fixture) readComment(commentID int64) string {
 
 func (fx *st15Fixture) insertEdge(blockedID, blockerID int64) {
 	fx.t.Helper()
-	nativeMust(fx.t, store.SeedStagedDependencyEdge(fx.cfg.FountainDB, fx.cfg.CreatorID, blockedID, blockerID))
+	nativeMust(fx.t, seedStagedDependencyEdge(fx.cfg.FountainDB, fx.cfg.CreatorID, blockedID, blockerID))
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 // nativeMergeSetup seeds one assignment with the reviewer binding
@@ -246,7 +245,7 @@ func nativeMergeSeedPublication(t *testing.T, c nativeST12Config, fx *nativeFixt
 // so the proved observation path stays native.
 func nativeMergeInsertEdge(t *testing.T, c nativeST12Config, blockedID, blockerID int64) {
 	t.Helper()
-	nativeMust(t, store.SeedStagedDependencyEdge(c.FountainDB, c.CreatorID, blockedID, blockerID))
+	nativeMust(t, seedStagedDependencyEdge(c.FountainDB, c.CreatorID, blockedID, blockerID))
 }
 
 // nativeMergeGit runs one git command with retries: the shared fixture

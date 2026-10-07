@@ -1,4 +1,4 @@
-package store
+package control_test
 
 import (
 	"database/sql"
@@ -6,19 +6,15 @@ import (
 	"strings"
 	"time"
 
-	// The staged Forgejo database file is SQLite; the Soda store itself is
-	// PostgreSQL. This import serves only the external staging seeder below.
 	_ "modernc.org/sqlite"
 )
 
-// SeedStagedDependencyEdge records one blocked-by-blocker edge in a staged
-// Forgejo (fountain) database file. This is native-test seeding of an
-// EXTERNAL database, never product SQLite: the staged build serves
-// dependency reads but exposes no working REST writer (24 variants
-// probed, all rejected), so the edge is inserted directly and Soda
-// observes it back through production snapshots. Production code must
-// never call this.
-func SeedStagedDependencyEdge(fountainDB string, creatorID, blockedID, blockerID int64) error {
+// seedStagedDependencyEdge records one blocked-by-blocker edge in a staged
+// Forgejo database. The staged external database serves dependency reads but
+// exposes no working REST writer, so native fixture setup inserts the edge
+// directly and Soda observes it through production snapshots. This helper is
+// test-only; product Store remains PostgreSQL-only.
+func seedStagedDependencyEdge(fountainDB string, creatorID, blockedID, blockerID int64) error {
 	db, err := sql.Open("sqlite", "file:"+fountainDB+"?_pragma=busy_timeout(10000)")
 	if err != nil {
 		return err
@@ -59,6 +55,7 @@ func SeedStagedDependencyEdge(fountainDB string, creatorID, blockedID, blockerID
 		}
 	}
 	placeholders := strings.Repeat("?,", len(names))
-	_, err = db.Exec(`INSERT INTO issue_dependency(`+strings.Join(names, ",")+`) VALUES(`+placeholders[:len(placeholders)-1]+`)`, values...)
+	_, err = db.Exec(`INSERT INTO issue_dependency(`+strings.Join(names, ",")+
+		`) VALUES(`+placeholders[:len(placeholders)-1]+`)`, values...)
 	return err
 }
