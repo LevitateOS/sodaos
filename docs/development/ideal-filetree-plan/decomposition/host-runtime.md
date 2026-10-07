@@ -468,7 +468,7 @@ Disposition: retained at `lib/host/` under the decided language policy; pending 
 
 Evidence: 38-101,207-315,390-437: role/phase/ID validators, Preparation and Prepare -> preparation.rs; 102-206: RequirementAcceptance/AdminApproval and validation -> preparation_decisions.rs; 316-388: ApprovedSetup allowed files/bundle and setup_digest_of -> preparation_setup.rs; 438-698: ResolvedTool, PrepareState/Inspect/Stop, HoldState/PrepareHold -> preparation_state.rs; 699-755: FactoryCandidate validation/from_value/from_map -> preparation_candidate.rs; 756-1044: current record fixtures and validator/setup-digest/candidate cases -> preparation_validation_tests.rs; 1045-1209: prep_json/prepare_json, exact decoding messages and omitempty state output -> preparation_wire_tests.rs.
 
-Current JSON01 checkpoint `df4b2cf5` also transfers terminal stream/inspection, factory identity/receipt/request/run, and native preparation helper/state records. Their typed adapters retain alias timing, strict request preflight, output order, protected snapshots and original digest inputs. Remaining host clients still hold engine retirement, and the historical scanner allocation above is not a new split task.
+Current JSON01 checkpoint `df4b2cf5` also transfers terminal stream/inspection, factory identity/receipt/request/run, and native preparation helper/state records. Their typed adapters retain alias timing, strict request preflight, output order, protected snapshots and original digest inputs. Final host engine retirement completed in `3bf7e75b`; the historical scanner allocation above is not a new split task. The remaining JSON duties are strict admission, caller DTO policy and required producer formatting over Serde.
 
 ## Current P06/P12 native preparation defining seams
 

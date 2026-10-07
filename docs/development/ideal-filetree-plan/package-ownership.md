@@ -174,7 +174,9 @@ owner transfer does not complete JSON01 repository-wide.
 
 Host terminal/factory/preparation records now use caller-owned Serde DTOs
 (`df4b2cf5`), with signed token and byte adapters preserving their distinct
-admission policies. Untransferred host clients still hold the legacy engine.
+admission policies. The final host callers and custom scanner/string/binder engine are retired in
+`3bf7e75b`; strict admission, scalar/byte policy and producer formatting remain
+small Serde adapters at their existing owners.
 Activation and candidate/lab credential producers (`eba27412`) retain only
 configuration validation and required Python-compatible output formatters;
 their removed JSON machinery has no pending structural split.

@@ -328,7 +328,7 @@ and preparation/helper records to owner DTOs. Its signed token adapter preserves
 `-0`, nullable exits and per-occurrence alias validation; unsigned bytes retain
 their separate refusal policy. All 325 host library tests, 198 private Muse
 oracles, 58 native-control oracles, the development build and medium review
-passed with fresh local fixtures. Remaining host callers still hold its engine.
+passed with fresh local fixtures. The final host caller transfer and engine removal completed in `3bf7e75b`: 317 library tests, 286 integration checks, the development build and medium closure review passed. The lower library count reflects retired engine tests, not skipped application checks.
 Activation and candidate/lab credential producers completed in `eba27412`:
 54 tests, development builds and medium review passed. Typed producer records
 retain Python escaping, property order, indentation and newline contracts.
@@ -346,18 +346,27 @@ Ignition comparison. Its 62 library checks, 12 integration oracles, final
 producer-order regression, development build and medium closure review passed.
 Delivery checkpoint `c5fef89a` removes `jsonx` and its dependency with 34
 library tests, 13 producer/admission oracles and downstream development builds.
-The raw-number/order policy merge and exact strict-depth follow-up remain
-unresolved until their focused review and checks close. Release-assets completed
+The raw-number/order policy merge and exact strict-depth follow-up closed in
+`02a788be`: 34 library tests, 14 oracles, the development build and medium
+review passed. Policy merge keeps ordered raw values behind the existing
+strict depth-100 admission. Release-assets completed
 in `b67d9d97`: typed exact-last raw slots and the ordered Butane application
 document retain original downloaded hashes and Python producer bytes. Its 83
 library tests, 31 integration checks, development build and medium review
 passed with home-disk fixtures; the missing-checkout case requires fixtures
-outside the source checkout. Host, delivery follow-up, release-tools, guest and
+outside the source checkout. Release-tools completed its remaining typed consumers and dependency removal
+in `b35ae13c`, with 94 library and 11 CLI checks and medium review. Guest and
 acceptance callers still hold JSON01 completion and deletion of `lib/json`.
+Dynamic image and provisioning documents now admit at most 127 nested
+containers (`f038a5fc`), matching ordinary Serde admission; the root container
+counts as one and scalar roots as zero. Their focused boundary checks and
+medium review passed. This intentionally replaces the old parser's incidental
+10,000-container allowance; raw numbers, duplicates and producer bytes remain
+preserved for admitted inputs. Deliver retains its separate strict depth rule.
 The [active verification record](../../../.artifacts/l03-l04/verification.md)
 links commits to local receipt scope and retains failed/environment-limited
 attempts separately from qualifying checks. `54176eb6` adds the verified host
-account/profile DTO group; it does not complete the remaining host engine.
+account/profile DTO group; its earlier partial scope remains distinct from the final host engine removal.
 
 ### L05 SSH formats
 

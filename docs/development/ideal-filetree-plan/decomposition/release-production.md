@@ -263,7 +263,7 @@ Observed size: 451 lines, including tests where embedded. JSON01 replaces the cu
 
 Evidence: 14-122: FieldError/Fields lenient extraction;125-312: Strict/json_kind/type and unknown-field diagnostics; 315-389: Emit/sorted_object/marshal_indent/emit_indent/emit_value; 390-451: four existing unit cases; coreos.rs,coreos_stream.rs,files.rs,forgejo.rs,production.rs import these real semantics
 
-Open detail: Build and image JSON01 caller transfers are complete; their distinct input profiles remain with concrete record adapters. Delivery has retired jsonx; its ordered/raw policy merge and exact strict-depth follow-up remain open. JSON01 assigns no global decoder. Required field/map ordering and signed producer bytes have focused fixtures. Obsolete byte/error parity does not justify another permanent serializer abstraction.
+Open detail: Build and image JSON01 caller transfers are complete; their distinct input profiles remain with concrete record adapters. Delivery has retired jsonx; `02a788be` closes its ordered/raw policy merge and exact strict-depth preservation with focused producer/admission checks and review. JSON01 assigns no global decoder. Required field/map ordering and signed producer bytes have focused fixtures. Obsolete byte/error parity does not justify another permanent serializer abstraction.
 
 Build JSON01 completed in `d52d8ca8`. `json_go.rs` and its engine tests were
 deleted with the last strict/lenient callers; named DTO visitors retain final
@@ -372,7 +372,7 @@ Open detail: Preserve crate::fetch::{discover,fetch_document,lock_state,save_sta
 
 Historical source size: 623 lines, including tests. Checkpoint `c5fef89a` removes jsonx/decode/emit/tests and their generic Binder/Soft/Emit surfaces. Their pending engine splits are superseded by the caller transfer.
 
-- `lib/soda-release-deliver/src/json_serde.rs` — Strict object/decoded duplicate/depth/cap admission and raw scalar policy over Serde. The exact depth and arbitrary-number preflight follow-up remains open.
+- `lib/soda-release-deliver/src/json_serde.rs` — Strict object/decoded duplicate/depth/cap admission and raw scalar policy over Serde. The strict depth-100 and arbitrary-number preflight preservation is verified in `02a788be`.
 - Existing model/payload/OCI/fetch/publication record owners — Concrete exact-field DTOs, last-winner raw slots where lenient callers require them, and original signed/hash custody.
 - `lib/soda-release-deliver/src/document.rs` — OCI document custody and actual Go two-space/newline producer formatter. Five frozen byte goldens and the captured Channel manifest digest remain verification requirements.
 - `lib/soda-release-deliver/src/native/policy.rs` — Generated trust requirements and proposed policy merging. Retained arbitrary scope values still require ordered/raw-number preservation before this follow-up can close.
