@@ -3,6 +3,8 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,13 +18,56 @@ import (
 
 func operatorRequest(t *testing.T, c *Coordinator, principal, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	r := httptest.NewRequest(http.MethodPost, OperatorPath, strings.NewReader(body))
+	return operatorRequestReader(t, c, principal, io.NopCloser(strings.NewReader(body)))
+}
+
+func operatorRequestReader(t *testing.T, c *Coordinator, principal string, body io.ReadCloser) *httptest.ResponseRecorder {
+	t.Helper()
+	r := httptest.NewRequest(http.MethodPost, OperatorPath, nil)
+	r.Body = body
 	if principal != "" {
 		r = r.WithContext(WithOperatorPrincipal(r.Context(), principal))
 	}
 	w := httptest.NewRecorder()
 	c.OperatorHandler().ServeHTTP(w, r)
 	return w
+}
+
+type errorAfterReader struct {
+	data []byte
+	err  error
+}
+
+func (r *errorAfterReader) Read(p []byte) (int, error) {
+	if len(r.data) > 0 {
+		n := copy(p, r.data)
+		r.data = r.data[n:]
+		return n, nil
+	}
+	return 0, r.err
+}
+
+func (*errorAfterReader) Close() error { return nil }
+
+func TestOperatorBodyLimitReadsThroughEOF(t *testing.T) {
+	c := coordinatorFixture(t, nil, nil)
+	base := `{"type":"status"}`
+	exact := base + strings.Repeat(" ", operatorBodyLimit-len(base))
+	w := operatorRequest(t, c, "os-uid:0", exact)
+	if w.Code != http.StatusOK {
+		t.Fatalf("exact %d-byte body rejected: status=%d body=%q", operatorBodyLimit, w.Code, w.Body.String())
+	}
+
+	over := exact + " "
+	w = operatorRequest(t, c, "os-uid:0", over)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("%d-byte body admitted: status=%d", len(over), w.Code)
+	}
+
+	w = operatorRequestReader(t, c, "os-uid:0", &errorAfterReader{data: []byte(base), err: errors.New("late body read failed")})
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("body read failure admitted: status=%d", w.Code)
+	}
 }
 
 func TestOperatorRequiresPrincipalAndEnvelope(t *testing.T) {

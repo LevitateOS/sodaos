@@ -1,6 +1,7 @@
 package control
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 // OperatorPath serves the private operator commands on the backend's Unix
 // socket. It is never reachable through the public HTTP mux.
 const OperatorPath = "/operator/factory"
+const operatorBodyLimit = 4096
 
 type principalKey struct{}
 
@@ -59,7 +61,12 @@ func (c *Coordinator) serveOperator(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in OperatorRequest
-	if err := strictjson.Decode(io.LimitReader(r.Body, 4096), &in); err != nil {
+	body, err := io.ReadAll(io.LimitReader(r.Body, operatorBodyLimit+1))
+	if err != nil || len(body) > operatorBodyLimit {
+		http.Error(w, "invalid operator command", http.StatusBadRequest)
+		return
+	}
+	if err := strictjson.Decode(bytes.NewReader(body), &in); err != nil {
 		http.Error(w, "invalid operator command", http.StatusBadRequest)
 		return
 	}
