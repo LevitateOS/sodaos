@@ -35,6 +35,56 @@ fn success_revokes_and_failure_keeps_retry_token() {
 }
 
 #[test]
+fn revoke_failure_after_publication_is_unconfirmed_without_retry() {
+    const TOKEN: &str = "synthetic-bootstrap-token-not-for-retention";
+    let lost = stub_server_applies_delete_then_drops_response(true, TOKEN);
+    let refused = stub_server_rejects_delete(true, TOKEN);
+
+    for (name, stub, delete_applied) in [
+        ("lost response", &lost, true),
+        ("explicit refusal", &refused, false),
+    ] {
+        let root = test_root();
+        let dir = root.join("soda");
+        fs::create_dir(&dir).expect("soda dir");
+        let token_path = write_token(&root);
+        let out = dir.join("dashboard.json");
+        let mut stdout = Vec::new();
+        let err = setup(
+            "https://forgejo.test/",
+            &stub.url,
+            &token_path.to_string_lossy(),
+            &out,
+            &root.join("postgres"),
+            &mut stdout,
+        )
+        .expect_err("revoke error must fail setup");
+
+        assert!(err.contains("revocation was not confirmed"), "{err}");
+        assert!(
+            err.contains("inspect Forgejo Settings > Applications"),
+            "{err}"
+        );
+        assert!(!err.contains(TOKEN), "token leaked in error");
+        assert!(stdout.is_empty(), "unexpected success output: {stdout:?}");
+        let config = fs::read_to_string(&out).expect("published config remains");
+        assert!(config.contains("\"operator_id\":42"), "{config}");
+        assert!(!config.contains(TOKEN), "token leaked in config");
+        assert!(
+            stub.delete_applied
+                .load(std::sync::atomic::Ordering::SeqCst)
+                == delete_applied,
+            "{name}: fixture application state mismatch"
+        );
+        assert_eq!(
+            stub.calls.lock().expect("calls").as_slice(),
+            ["GET /api/v1/user", "DELETE /api/v1/user/token"],
+            "{name}: setup must issue one DELETE and must not retry"
+        );
+    }
+}
+
+#[test]
 fn preserves_pre_existing_secrets_and_cleans_own_key() {
     let root = test_root();
     let dir = root.join("soda");

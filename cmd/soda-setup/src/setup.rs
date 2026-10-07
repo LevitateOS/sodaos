@@ -65,7 +65,7 @@ pub(crate) fn setup(
     // the bootstrap token so the operator can retry with it.
     if let Err(err) = forgejo_revoke_token(internal.trim_end_matches('/'), &token) {
         return Err(format!(
-            "dashboard configuration written, but the bootstrap token is still live; revoke it in Forgejo Settings > Applications, then continue activation with the installed soda-activate command: {err}"
+            "dashboard configuration written, but bootstrap-token revocation was not confirmed; inspect Forgejo Settings > Applications and revoke the token if it is still active, then continue activation with the installed soda-activate command: {err}"
         ));
     }
     let _ = writeln!(

@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -20,13 +20,40 @@ pub(crate) fn test_root() -> std::path::PathBuf {
 pub(crate) struct Stub {
     pub(crate) url: String,
     pub(crate) calls: Arc<Mutex<Vec<String>>>,
+    pub(crate) delete_applied: Arc<AtomicBool>,
 }
 
 pub(crate) fn stub_server(admin: bool, deny_current: bool, token: &str) -> Stub {
+    stub_server_with_revoke_response(admin, deny_current, token, RevokeResponse::Success)
+}
+
+pub(crate) fn stub_server_applies_delete_then_drops_response(admin: bool, token: &str) -> Stub {
+    stub_server_with_revoke_response(admin, false, token, RevokeResponse::ApplyThenDrop)
+}
+
+pub(crate) fn stub_server_rejects_delete(admin: bool, token: &str) -> Stub {
+    stub_server_with_revoke_response(admin, false, token, RevokeResponse::Reject)
+}
+
+#[derive(Clone, Copy)]
+enum RevokeResponse {
+    Success,
+    ApplyThenDrop,
+    Reject,
+}
+
+fn stub_server_with_revoke_response(
+    admin: bool,
+    deny_current: bool,
+    token: &str,
+    revoke_response: RevokeResponse,
+) -> Stub {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind stub");
     let url = format!("http://{}", listener.local_addr().expect("stub addr"));
     let calls: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let calls_clone = Arc::clone(&calls);
+    let delete_applied = Arc::new(AtomicBool::new(false));
+    let delete_applied_clone = Arc::clone(&delete_applied);
     let token = token.to_string();
     let token_clone = token.clone();
     thread::spawn(move || {
@@ -72,6 +99,21 @@ pub(crate) fn stub_server(admin: bool, deny_current: bool, token: &str) -> Stub 
                 .lock()
                 .expect("calls")
                 .push(format!("{method} {path}"));
+            if authorized && method == "DELETE" && path == "/api/v1/user/token" {
+                match revoke_response {
+                    RevokeResponse::ApplyThenDrop => {
+                        delete_applied_clone.store(true, Ordering::SeqCst);
+                        drop(stream);
+                        continue;
+                    }
+                    RevokeResponse::Reject => {
+                        // The server rejects this request without applying it.
+                    }
+                    RevokeResponse::Success => {
+                        delete_applied_clone.store(true, Ordering::SeqCst);
+                    }
+                }
+            }
             let (code, body) = if !authorized {
                 (401, "unauthorized".to_string())
             } else {
@@ -83,7 +125,12 @@ pub(crate) fn stub_server(admin: bool, deny_current: bool, token: &str) -> Stub 
                             (200, format!("{{\"id\": 42, \"login\": \"soda-tester\", \"is_admin\": {admin}}}"))
                         }
                     }
-                    "DELETE /api/v1/user/token" => (204, String::new()),
+                    "DELETE /api/v1/user/token" => match revoke_response {
+                        RevokeResponse::Reject => (403, "rejected".to_string()),
+                        RevokeResponse::Success | RevokeResponse::ApplyThenDrop => {
+                            (204, String::new())
+                        }
+                    },
                     _ => (404, "unexpected endpoint".to_string()),
                 }
             };
@@ -101,7 +148,11 @@ pub(crate) fn stub_server(admin: bool, deny_current: bool, token: &str) -> Stub 
             let _ = stream.write_all(response.as_bytes());
         }
     });
-    Stub { url, calls }
+    Stub {
+        url,
+        calls,
+        delete_applied,
+    }
 }
 
 pub(crate) fn write_token(dir: &Path) -> std::path::PathBuf {

@@ -262,8 +262,8 @@ pub(super) fn configure_private_install(
 fn write_setup_file(path: &str, data: &[u8]) -> Result<(), Error> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
-    // Single write, byte count ignored, close still attempted: write error
-    // wins over close error, like Go's writeSetupFile.
+    // Complete every requested byte before the caller can consume the file.
+    // Still attempt close and preserve write-error precedence.
     let mut file = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -271,7 +271,7 @@ fn write_setup_file(path: &str, data: &[u8]) -> Result<(), Error> {
         .open(path)
         .map_err(|e| errors::path_error("open", path, e))?;
     let write_err = file
-        .write(data)
+        .write_all(data)
         .err()
         .map(|e| errors::path_error("write", path, e));
     use std::os::unix::io::IntoRawFd;
