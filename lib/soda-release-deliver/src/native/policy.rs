@@ -3,8 +3,11 @@ use crate::json_serde::strict;
 use crate::model::Trust;
 use crate::Error;
 use base64::Engine;
-use serde::Serialize;
+use serde::de::{MapAccess, SeqAccess, Visitor};
+use serde::ser::{SerializeMap, SerializeSeq};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
+use std::fmt;
 
 #[derive(Debug, Clone, Default, Serialize)]
 struct Requirement {
@@ -26,8 +29,131 @@ pub(crate) struct PolicyDocument {
 #[derive(Serialize)]
 #[serde(untagged)]
 enum ScopeValue {
-    Existing(serde_json::Value),
+    Existing(PolicyValue),
     Generated(Vec<Requirement>),
+}
+
+// Arbitrary policy objects retain pair order, while numeric leaves retain
+// their original valid token instead of being rounded through f64.
+enum PolicyValue {
+    Null,
+    Bool(bool),
+    Number(Box<serde_json::value::RawValue>),
+    String(String),
+    Array(Vec<PolicyValue>),
+    Object(Vec<(String, PolicyValue)>),
+}
+
+struct PolicyPairs(Vec<(String, Box<serde_json::value::RawValue>)>);
+impl<'de> Deserialize<'de> for PolicyPairs {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PolicyPairs;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a policy object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<PolicyPairs, M::Error> {
+                let mut entries = Vec::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    entries.push((key, map.next_value::<Box<serde_json::value::RawValue>>()?));
+                }
+                Ok(PolicyPairs(entries))
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+struct PolicyItems(Vec<Box<serde_json::value::RawValue>>);
+impl<'de> Deserialize<'de> for PolicyItems {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PolicyItems;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a policy array")
+            }
+            fn visit_seq<S: SeqAccess<'de>>(self, mut seq: S) -> Result<PolicyItems, S::Error> {
+                let mut values = Vec::new();
+                while let Some(value) = seq.next_element::<Box<serde_json::value::RawValue>>()? {
+                    values.push(value);
+                }
+                Ok(PolicyItems(values))
+            }
+        }
+        d.deserialize_seq(V)
+    }
+}
+
+impl PolicyValue {
+    fn from_raw<E: serde::de::Error>(raw: Box<serde_json::value::RawValue>) -> Result<Self, E> {
+        let Some(raw) = serde_json::from_str::<Option<Box<serde_json::value::RawValue>>>(raw.get())
+            .map_err(E::custom)?
+        else {
+            return Ok(Self::Null);
+        };
+        match raw.get().as_bytes().first().copied() {
+            Some(b'{') => {
+                let PolicyPairs(entries) = serde_json::from_str(raw.get()).map_err(E::custom)?;
+                entries
+                    .into_iter()
+                    .map(|(key, value)| Self::from_raw::<E>(value).map(|value| (key, value)))
+                    .collect::<Result<Vec<_>, E>>()
+                    .map(Self::Object)
+            }
+            Some(b'[') => {
+                let PolicyItems(values) = serde_json::from_str(raw.get()).map_err(E::custom)?;
+                values
+                    .into_iter()
+                    .map(Self::from_raw::<E>)
+                    .collect::<Result<Vec<_>, E>>()
+                    .map(Self::Array)
+            }
+            Some(b'"') => serde_json::from_str::<String>(raw.get())
+                .map(Self::String)
+                .map_err(E::custom),
+            Some(b't' | b'f') => serde_json::from_str::<bool>(raw.get())
+                .map(Self::Bool)
+                .map_err(E::custom),
+            _ => Ok(Self::Number(raw)),
+        }
+    }
+
+    fn is_null(&self) -> bool {
+        matches!(self, Self::Null)
+    }
+}
+
+impl<'de> Deserialize<'de> for PolicyValue {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Self::from_raw::<D::Error>(Box::<serde_json::value::RawValue>::deserialize(d)?)
+    }
+}
+
+impl Serialize for PolicyValue {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Null => serializer.serialize_unit(),
+            Self::Bool(value) => serializer.serialize_bool(*value),
+            Self::Number(raw) => raw.serialize(serializer),
+            Self::String(value) => serializer.serialize_str(value),
+            Self::Array(values) => {
+                let mut seq = serializer.serialize_seq(Some(values.len()))?;
+                for value in values {
+                    seq.serialize_element(value)?;
+                }
+                seq.end()
+            }
+            Self::Object(entries) => {
+                let mut map = serializer.serialize_map(Some(entries.len()))?;
+                for (key, value) in entries {
+                    map.serialize_entry(key, value)?;
+                }
+                map.end()
+            }
+        }
+    }
 }
 
 fn simple_rule(kind: &str) -> Requirement {
@@ -142,9 +268,9 @@ fn apply_soda_trust(t: &Trust, docker: &mut BTreeMap<String, ScopeValue>) -> Res
 #[serde(deny_unknown_fields)]
 struct PolicyInput {
     #[serde(rename = "default")]
-    default_policy: serde_json::Value,
+    default_policy: PolicyValue,
     #[serde(default, deserialize_with = "crate::json_serde::null_default")]
-    transports: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
+    transports: BTreeMap<String, BTreeMap<String, PolicyValue>>,
 }
 
 /// `MergePolicy`: emit a proposed policy; never installs it.
@@ -173,7 +299,7 @@ pub fn merge_policy(t: &Trust, original: &[u8]) -> Result<Vec<u8>, Error> {
     #[derive(Serialize)]
     struct MergedPolicy {
         #[serde(rename = "default")]
-        default_policy: serde_json::Value,
+        default_policy: PolicyValue,
         transports: BTreeMap<String, BTreeMap<String, ScopeValue>>,
     }
     let merged = MergedPolicy {

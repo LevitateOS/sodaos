@@ -298,6 +298,23 @@ fn merge_policy_matches_oracle_semantically() {
     assert_eq!(result.unwrap_err().0, err);
 }
 
+#[test]
+fn merge_policy_preserves_arbitrary_object_order_and_number_tokens() {
+    let trust = decode_trust(&goldens());
+    let original = br#"{"default":{"z":1e2,"a":{"y":-0,"x":1e400}},"transports":{"z-transport":{"scope":[{"second":-0,"first":1e400}]}}}"#;
+    let merged = merge_policy(&trust, original).expect("policy.merge");
+    let text = String::from_utf8(merged).unwrap();
+
+    let default_start = text.find("\"default\": {").unwrap();
+    let transports_start = text.find("\"transports\": {").unwrap();
+    let default = &text[default_start..transports_start];
+    assert!(default.find("\"z\": 1e2").unwrap() < default.find("\"a\": {").unwrap());
+    assert!(default.find("\"y\": -0").unwrap() < default.find("\"x\": 1e400").unwrap());
+
+    let custom = &text[text.find("\"z-transport\"").unwrap()..];
+    assert!(custom.find("\"second\": -0").unwrap() < custom.find("\"first\": 1e400").unwrap());
+}
+
 /// Canonicalize a JSON DOM by sorting every object level.
 fn dom_sort(value: JsonValue) -> JsonValue {
     match value {

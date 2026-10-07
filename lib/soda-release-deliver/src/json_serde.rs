@@ -44,7 +44,8 @@ impl<'de> DeserializeSeed<'de> for RootSeed {
                     if !names.insert(name) {
                         return Err(serde::de::Error::custom("duplicate object member"));
                     }
-                    map.next_value_seed(UniqueSeed { depth: 0 })?;
+                    let raw = map.next_value::<Box<serde_json::value::RawValue>>()?;
+                    check_raw_value::<M::Error>(&raw, 1)?;
                 }
                 Ok(())
             }
@@ -53,77 +54,78 @@ impl<'de> DeserializeSeed<'de> for RootSeed {
     }
 }
 
-struct UniqueSeed {
-    depth: u32,
-}
-impl<'de> DeserializeSeed<'de> for UniqueSeed {
-    type Value = ();
-    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<(), D::Error> {
-        if self.depth > 100 {
-            return Err(serde::de::Error::custom("maximum JSON depth exceeded"));
-        }
-        struct AnyVisitor {
-            depth: u32,
-        }
-        impl<'de> Visitor<'de> for AnyVisitor {
-            type Value = ();
+struct RawObject(Vec<(String, Box<serde_json::value::RawValue>)>);
+impl<'de> Deserialize<'de> for RawObject {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawObject;
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("a JSON value")
+                f.write_str("a JSON object")
             }
-            fn visit_bool<E: serde::de::Error>(self, _: bool) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_i64<E: serde::de::Error>(self, _: i64) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_u64<E: serde::de::Error>(self, _: u64) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_i128<E: serde::de::Error>(self, _: i128) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_u128<E: serde::de::Error>(self, _: u128) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_f64<E: serde::de::Error>(self, _: f64) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_str<E: serde::de::Error>(self, _: &str) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_string<E: serde::de::Error>(self, _: String) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_unit<E: serde::de::Error>(self) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_none<E: serde::de::Error>(self) -> Result<(), E> {
-                Ok(())
-            }
-            fn visit_seq<S: SeqAccess<'de>>(self, mut seq: S) -> Result<(), S::Error> {
-                while seq
-                    .next_element_seed(UniqueSeed {
-                        depth: self.depth + 1,
-                    })?
-                    .is_some()
-                {}
-                Ok(())
-            }
-            fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<(), M::Error> {
-                let mut names = HashSet::new();
+            fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<RawObject, M::Error> {
+                let mut entries = Vec::new();
                 while let Some(name) = map.next_key::<String>()? {
-                    if !names.insert(name) {
-                        return Err(serde::de::Error::custom("duplicate object member"));
-                    }
-                    map.next_value_seed(UniqueSeed {
-                        depth: self.depth + 1,
-                    })?;
+                    entries.push((name, map.next_value::<Box<serde_json::value::RawValue>>()?));
                 }
-                Ok(())
+                Ok(RawObject(entries))
             }
         }
-        d.deserialize_any(AnyVisitor { depth: self.depth })
+        d.deserialize_map(V)
     }
+}
+
+struct RawArray(Vec<Box<serde_json::value::RawValue>>);
+impl<'de> Deserialize<'de> for RawArray {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawArray;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a JSON array")
+            }
+            fn visit_seq<S: SeqAccess<'de>>(self, mut seq: S) -> Result<RawArray, S::Error> {
+                let mut values = Vec::new();
+                while let Some(value) = seq.next_element::<Box<serde_json::value::RawValue>>()? {
+                    values.push(value);
+                }
+                Ok(RawArray(values))
+            }
+        }
+        d.deserialize_seq(V)
+    }
+}
+
+fn check_raw_value<E: serde::de::Error>(
+    raw: &serde_json::value::RawValue,
+    depth: u32,
+) -> Result<(), E> {
+    if depth > 100 {
+        return Err(E::custom("maximum JSON depth exceeded"));
+    }
+    // RawValue already validated the whole token; only containers need a
+    // structural walk here, so numeric leaves never pass through f64.
+    let first = raw.get().as_bytes().first().copied();
+    match first {
+        Some(b'{') => {
+            let RawObject(entries) = serde_json::from_str(raw.get()).map_err(E::custom)?;
+            let mut names = HashSet::new();
+            for (name, value) in entries {
+                if !names.insert(name) {
+                    return Err(E::custom("duplicate object member"));
+                }
+                check_raw_value::<E>(&value, depth + 1)?;
+            }
+        }
+        Some(b'[') => {
+            let RawArray(values) = serde_json::from_str(raw.get()).map_err(E::custom)?;
+            for value in values {
+                check_raw_value::<E>(&value, depth + 1)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 pub(crate) fn null_default<'de, D, T>(d: D) -> Result<T, D::Error>
@@ -199,14 +201,29 @@ fn parse_integer(token: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::strict;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct RawDocument {
+        value: Box<serde_json::value::RawValue>,
+    }
 
     #[test]
-    fn strict_admission_checks_decoded_duplicates_depth_and_full_input() {
-        assert!(strict::<serde_json::Value>(br#"{"unknown":[{"\u0061":1,"a":2}]}"#).is_err());
-        assert!(strict::<serde_json::Value>(br#"{"a":1} {"b":2}"#).is_err());
-        let at_limit = format!("{{\"v\":{}}}", "[".repeat(100) + "0" + &"]".repeat(100));
-        let over_limit = format!("{{\"v\":{}}}", "[".repeat(101) + "0" + &"]".repeat(101));
-        assert!(strict::<serde_json::Value>(at_limit.as_bytes()).is_ok());
-        assert!(strict::<serde_json::Value>(over_limit.as_bytes()).is_err());
+    fn strict_raw_values_preserve_numbers_and_reject_duplicates_and_depth() {
+        let doc: RawDocument =
+            strict(br#"{"value":{"z":1e2,"negative_zero":-0,"wide":1e400}}"#).unwrap();
+        assert_eq!(
+            doc.value.get(),
+            r#"{"z":1e2,"negative_zero":-0,"wide":1e400}"#
+        );
+        assert!(strict::<RawDocument>(br#"{"value":{"nested":{"\u0061":1,"a":2}}}"#).is_err());
+        assert!(strict::<RawDocument>(br#"{"value":1} {"value":2}"#).is_err());
+
+        // Root object is depth 0; its value starts at depth 1. A scalar at
+        // depth 100 is accepted and one at depth 101 is refused.
+        let at_limit = format!("{{\"value\":{}}}", "[".repeat(99) + "0" + &"]".repeat(99));
+        let over_limit = format!("{{\"value\":{}}}", "[".repeat(100) + "0" + &"]".repeat(100));
+        assert!(strict::<RawDocument>(at_limit.as_bytes()).is_ok());
+        assert!(strict::<RawDocument>(over_limit.as_bytes()).is_err());
     }
 }
