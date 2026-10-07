@@ -214,7 +214,6 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         &self,
         execution: &MuseExecution,
         stdin_fd: RawFd,
-        child_pid: Option<i32>,
         control: &LaunchControl,
         deadline: Instant,
     ) -> Result<(), String> {
@@ -241,12 +240,6 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             return Err(terminal::err_denied());
         }
         muse_resize(stdin_fd, control)?;
-        if let Some(pid) = child_pid {
-            // SAFETY: kill with a valid signal number; ESRCH is ignored.
-            unsafe {
-                libc::kill(pid, libc::SIGWINCH);
-            }
-        }
         Ok(())
     }
 }

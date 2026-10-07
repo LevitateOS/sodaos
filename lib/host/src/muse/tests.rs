@@ -22,7 +22,9 @@ fn deadline() -> Instant {
 
 fn test_tmp(slug: &str) -> std::path::PathBuf {
     let n = TMP_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let dir = std::env::temp_dir().join(format!("t26m-{}-{n}-{slug}", std::process::id()));
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("target/tmp/muse-tests")
+        .join(format!("t26m-{}-{n}-{slug}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -1549,7 +1551,6 @@ fn control_execution_flows() {
     rt.control_execution(
         &execution,
         -1,
-        None,
         &LaunchControl {
             signal: 15,
             cols: 0,
@@ -1575,7 +1576,6 @@ fn control_execution_flows() {
         .control_execution(
             &execution,
             -1,
-            None,
             &LaunchControl {
                 signal: 15,
                 cols: 80,
@@ -1588,7 +1588,6 @@ fn control_execution_flows() {
         .control_execution(
             &execution,
             -1,
-            None,
             &LaunchControl {
                 signal: 9,
                 cols: 0,
@@ -1603,7 +1602,6 @@ fn control_execution_flows() {
         .control_execution(
             &execution,
             -1,
-            None,
             &LaunchControl {
                 signal: 0,
                 cols: 80,
@@ -1627,7 +1625,6 @@ fn control_execution_flows() {
     rt.control_execution(
         &tty,
         master,
-        None,
         &LaunchControl {
             signal: 0,
             cols: 100,
@@ -1648,7 +1645,6 @@ fn control_execution_flows() {
         .control_execution(
             &tty,
             fds.0,
-            None,
             &LaunchControl {
                 signal: 0,
                 cols: 80,
@@ -1815,6 +1811,42 @@ fn seqpacket_pair() -> (RawFd, RawFd) {
         unsafe { libc::socketpair(libc::AF_UNIX, libc::SOCK_SEQPACKET, 0, fds.as_mut_ptr()) };
     assert_eq!(result, 0, "socketpair unavailable");
     (fds[0], fds[1])
+}
+
+fn seqpacket_listener(path: &std::path::Path, backlog: i32) -> RawFd {
+    use std::os::unix::ffi::OsStrExt;
+    let fd = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_SEQPACKET, 0) };
+    assert!(fd >= 0);
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    addr.sun_family = libc::AF_UNIX as _;
+    let bytes = path.as_os_str().as_bytes();
+    assert!(bytes.len() < addr.sun_path.len());
+    addr.sun_path[..bytes.len()]
+        .copy_from_slice(unsafe { std::mem::transmute::<&[u8], &[libc::c_char]>(bytes) });
+    let addr_len = (std::mem::size_of::<libc::sa_family_t>() + bytes.len() + 1) as libc::socklen_t;
+    unsafe {
+        assert_eq!(
+            libc::bind(fd, &addr as *const _ as *const libc::sockaddr, addr_len),
+            0
+        );
+        assert_eq!(libc::listen(fd, backlog), 0);
+    }
+    fd
+}
+
+fn seqpacket_connect(path: &std::path::Path) -> RawFd {
+    use std::os::unix::ffi::OsStrExt;
+    let fd = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_SEQPACKET, 0) };
+    assert!(fd >= 0);
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    addr.sun_family = libc::AF_UNIX as _;
+    let bytes = path.as_os_str().as_bytes();
+    addr.sun_path[..bytes.len()]
+        .copy_from_slice(unsafe { std::mem::transmute::<&[u8], &[libc::c_char]>(bytes) });
+    let addr_len = (std::mem::size_of::<libc::sa_family_t>() + bytes.len() + 1) as libc::socklen_t;
+    let result = unsafe { libc::connect(fd, &addr as *const _ as *const libc::sockaddr, addr_len) };
+    assert_eq!(result, 0);
+    fd
 }
 
 fn send_with_fds(fd: RawFd, body: &[u8], fds: &[RawFd]) {
@@ -2138,11 +2170,17 @@ fn control_loop_matrix() {
     let (master, slave) = open_pty_pair();
     let peer_service = service.clone();
     let execution_clone = execution.clone();
+    let control_cancel = Arc::new(AtomicBool::new(false));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let control_cancel_worker = control_cancel.clone();
+    let shutdown_worker = shutdown.clone();
     let worker = std::thread::spawn(move || {
         peer_service.control_loop(
             b,
             master,
             424242,
+            &control_cancel_worker,
+            &shutdown_worker,
             &execution_clone,
             Instant::now() + Duration::from_secs(30),
         );
@@ -2183,11 +2221,15 @@ fn control_loop_matrix() {
     let service = Arc::new(MuseLaunch::new(rt));
     let (a, b) = seqpacket_pair();
     let peer_service = service.clone();
+    let control_cancel = AtomicBool::new(false);
+    let shutdown = AtomicBool::new(false);
     let worker = std::thread::spawn(move || {
         peer_service.control_loop(
             b,
             -1,
             424242,
+            &control_cancel,
+            &shutdown,
             &execution,
             Instant::now() + Duration::from_secs(30),
         );
@@ -2269,6 +2311,162 @@ fn serve_shutdown_and_listener_setup() {
         libc::close(listen_fd);
     }
     std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn pidfd_signal_stays_bound_after_child_reap() {
+    let mut finished = std::process::Command::new("/bin/sh")
+        .args(["-c", "exit 0"])
+        .spawn()
+        .unwrap();
+    let identity = super::launch::pidfd_open(finished.id()).unwrap();
+    assert!(finished.wait().unwrap().success());
+
+    let mut later = std::process::Command::new("/bin/sh")
+        .args(["-c", "sleep 5"])
+        .spawn()
+        .unwrap();
+    let error = super::launch::pidfd_send_signal(identity.as_raw_fd(), libc::SIGKILL).unwrap_err();
+    assert_eq!(error.raw_os_error(), Some(libc::ESRCH));
+    assert!(
+        later.try_wait().unwrap().is_none(),
+        "reaped identity signaled a later child"
+    );
+    let _ = later.kill();
+    let _ = later.wait();
+}
+
+#[test]
+fn control_loop_shutdown_cancels_idle_peer() {
+    use std::sync::Arc;
+    let service = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let execution = MuseExecution {
+        caller: caller(),
+        request: LaunchRequest::default(),
+        lease: lease_fixture(),
+        binding: lease_fixture().binding.clone().unwrap(),
+        path: format!("/run/soda-muse/{TID}"),
+        unit: format!("soda-muse-{TID}.service"),
+    };
+    let (client, control) = seqpacket_pair();
+    let control_cancel = Arc::new(AtomicBool::new(false));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker_service = service.clone();
+    let worker_cancel = control_cancel.clone();
+    let worker_shutdown = shutdown.clone();
+    let worker = std::thread::spawn(move || {
+        worker_service.control_loop(
+            control,
+            -1,
+            -1,
+            &worker_cancel,
+            &worker_shutdown,
+            &execution,
+            Instant::now() + Duration::from_secs(3600),
+        );
+        unsafe { libc::close(control) };
+    });
+    std::thread::sleep(Duration::from_millis(20));
+    shutdown.store(true, Ordering::SeqCst);
+    let start = Instant::now();
+    worker.join().unwrap();
+    assert!(start.elapsed() < Duration::from_millis(500));
+    unsafe { libc::close(client) };
+}
+
+#[test]
+fn listener_reclaims_completed_workers_during_churn() {
+    use std::sync::Arc;
+    let dir = test_tmp("worker-churn");
+    let path = dir.join("launch.sock");
+    let listener = seqpacket_listener(&path, 256);
+    let service = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker_service = service.clone();
+    let worker_shutdown = shutdown.clone();
+    let worker = std::thread::spawn(move || worker_service.serve(listener, &worker_shutdown));
+
+    // More than the worker cap of short-lived malformed requests must keep
+    // succeeding; stale completed handles would otherwise fill admission.
+    for _ in 0..160 {
+        let client = seqpacket_connect(&path);
+        let body = b"not-json";
+        let sent = unsafe {
+            libc::send(
+                client,
+                body.as_ptr() as *const libc::c_void,
+                body.len(),
+                libc::MSG_NOSIGNAL,
+            )
+        };
+        assert_eq!(sent as usize, body.len());
+        let mut response = [0u8; 256];
+        let received = unsafe {
+            libc::recv(
+                client,
+                response.as_mut_ptr() as *mut libc::c_void,
+                response.len(),
+                0,
+            )
+        };
+        assert!(
+            received > 0,
+            "worker admission stopped during completed-request churn"
+        );
+        unsafe { libc::close(client) };
+    }
+    shutdown.store(true, Ordering::SeqCst);
+    assert!(worker.join().unwrap().is_ok());
+    unsafe { libc::close(listener) };
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn listener_caps_silent_peers_and_joins_them_on_shutdown() {
+    use std::sync::Arc;
+    let dir = test_tmp("silent-cap");
+    let path = dir.join("launch.sock");
+    let listener = seqpacket_listener(&path, 256);
+    let service = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker_service = service.clone();
+    let worker_shutdown = shutdown.clone();
+    let worker = std::thread::spawn(move || worker_service.serve(listener, &worker_shutdown));
+
+    let mut peers = Vec::new();
+    for _ in 0..128 {
+        peers.push(seqpacket_connect(&path));
+    }
+    let overflow = seqpacket_connect(&path);
+    let mut pfd = libc::pollfd {
+        fd: overflow,
+        events: libc::POLLIN,
+        revents: 0,
+    };
+    assert!(
+        unsafe { libc::poll(&mut pfd, 1, 2000) } > 0,
+        "overflow peer was not refused promptly"
+    );
+    let mut byte = 0u8;
+    assert_eq!(
+        unsafe { libc::recv(overflow, &mut byte as *mut u8 as *mut libc::c_void, 1, 0) },
+        0
+    );
+    unsafe { libc::close(overflow) };
+
+    shutdown.store(true, Ordering::SeqCst);
+    let start = Instant::now();
+    let joined = worker.join();
+    assert!(joined.unwrap().is_ok());
+    assert!(
+        start.elapsed() < Duration::from_secs(6),
+        "silent request workers were not bounded at shutdown"
+    );
+    for peer in peers {
+        unsafe { libc::close(peer) };
+    }
+    unsafe { libc::close(listener) };
+    let _ = std::fs::remove_file(path);
 }
 
 #[test]
