@@ -3,6 +3,8 @@
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
+Store-list and typed-PostgreSQL selectors below include the focused
+`37dc05fd` refresh; other source spans retain their recorded snapshot.
 One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
@@ -96,8 +98,9 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–5, 62–72, 83–132; current module/import/attribute shell; declaration credential; declaration available; declaration set_state | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/store_connections.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
-| 6–61, 73–82; declaration save_connection; declaration connection; declaration connections | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | save_connection: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in store_connections.rs.; connection: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in store_connections.rs.; connections: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in store_connections.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–17, 159–190; current module/import/attribute shell and list limits; declaration set_state | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Keep connection-state policy and the existing module boundary. — Current source selectors inspected |
+| 121–157; declaration available | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Paginate the complete actor/Project availability result; validate row identity and omit private email from delegated records. — Actual Store and controller callers inspected |
+| 18–119, 193–246; connection save/read/credential/list queries, shared ListJson and bounded writer, focused limit test | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Bound each row before decode and the complete serialized list before return; preserve JSONB/relational identity checks and the response LF budget. — `37dc05fd` has actual exact-limit/overflow, page and relational-mismatch PG cases |
 
 <a id="coverage-25088ea64b41"></a>
 
@@ -139,9 +142,9 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–10; module/import shell | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Store module wiring. — current source cmd/soda-identity/src/store_leases.rs |
-| 157–195; declaration maintain_credential | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Credential maintenance remains part of the Identity store duty. — current function inspected |
-| 11–156; declaration leases; declaration lease; declaration reserve_and_link_execution; declaration register; declaration return_lease; declaration forget_lease; declaration reserve_lease | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | One transaction reserves the lease, appends its reserved event and links the execution. Uncertain COMMIT is re-read rather than automatically replayed. — Current named units/source consumers; typed rows/parameters inspected |
+| 1–12, 252–290; module/import shell and credential maintenance | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Store module wiring and credential maintenance remain with Identity. — current source selectors inspected |
+| 13–108, 163–212; paged lease scans, connection lease listing, lease lookup/registration/return/forget | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | Complete keyset scans preserve filtering, row binding and bounded per-page decode; incomplete or oversized lists fail closed. — `37dc05fd` actual PG cases cover page churn, bounds and malformed relational/JSON selectors |
+| 109–162, 213–251; declaration reserve_and_link_execution; lease decode/reservation helpers | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | One transaction reserves the lease, appends its reserved event and links the execution. Uncertain COMMIT is re-read rather than automatically replayed. — Typed rows/parameters and transaction custody retained |
 
 <a id="coverage-57fc1a9afdb9"></a>
 

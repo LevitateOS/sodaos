@@ -3,6 +3,8 @@
 Each current tracked path appears once. Kind and per-duty owner/disposition are
 separate; detailed mixed/oversized units link to current responsibility maps.
 Source snapshot, reuse and limits: [coverage index](../README.md).
+The selective source follow-ups in the linked execution findings modify existing
+tracked paths only; inventory path counts and row cardinality were not regenerated.
 
 The source-root grouping describes current paths rather than target packages.
 Former navigation filenames remain stable: `native-packages.md` covers `lib/`,
