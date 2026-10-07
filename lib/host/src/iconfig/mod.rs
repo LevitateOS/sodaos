@@ -11,9 +11,8 @@
 //! last-wins, and invalid UTF-8 decodes lossy; only the per-byte versus
 //! per-sequence replacement nuance differs from `encoding/json`.
 //!
-//! `apply_release_images` uses the landed crates:
-//! `soda_release_deliver::payload::load` plus
-//! `soda_release_build::files::require_native` and the payload image table.
+//! `apply_release_images` uses the landed release payload reader, native
+//! platform predicate, and payload image table.
 
 use crate::{domain, net, pfactory};
 use serde::de::{self, MapAccess, Visitor};
@@ -138,7 +137,7 @@ fn apply_release_images(c: &mut Config, release_path: &str) -> Result<(), String
         Ok(p) => p,
         Err(_) => return Err(UNAVAILABLE.to_string()),
     };
-    if soda_release_build::files::require_native(&payload.architecture).is_err() {
+    if !host_payload_architecture_is_native(&payload.architecture) {
         return Err(UNAVAILABLE.to_string());
     }
     let project_image = payload
@@ -164,6 +163,12 @@ fn apply_release_images(c: &mut Config, release_path: &str) -> Result<(), String
         c.tailnet_image = companion_image.to_string();
     }
     Ok(())
+}
+
+fn host_payload_architecture_is_native(architecture: &str) -> bool {
+    soda_build_tools::reader::oci_architecture(architecture).is_ok()
+        && cfg!(target_os = "linux")
+        && std::env::consts::ARCH == "x86_64"
 }
 
 /// `filepath.Base`: trailing slashes stripped, then the final element.

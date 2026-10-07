@@ -27,7 +27,6 @@ sha2 = "=0.10.9"
 getrandom = { version = "=0.4.3", features = ["std"] }
 libc = "0.2"
 soda-release-deliver = { path = "../../lib/soda-release-deliver" }
-soda-release-build = { path = "../../lib/soda-release-build" }
 soda-unix-http = { path = "../unix-http" }
 hyper = { version = "=1.12.0", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }

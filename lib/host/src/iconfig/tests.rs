@@ -119,6 +119,13 @@ fn golden_release_overlay() {
 }
 
 #[test]
+fn host_payload_architecture_matches_native_policy() {
+    assert!(host_payload_architecture_is_native("x86_64"));
+    assert!(!host_payload_architecture_is_native(""));
+    assert!(!host_payload_architecture_is_native("X86_64"));
+}
+
+#[test]
 fn golden_validators() {
     const MUSE: &str = "explicit muse socket, broker socket and release digest required";
     const IDENTITY: &str = "explicit identity runtime socket and verified harness required";
