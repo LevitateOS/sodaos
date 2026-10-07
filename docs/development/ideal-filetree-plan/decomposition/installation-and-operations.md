@@ -347,7 +347,7 @@ Observed size: 1731 lines, including tests where embedded. Keep CLI/origin admis
 - `cmd/soda-setup/src/cli.rs`
 - `cmd/soda-setup/src/origin.rs`
 - `cmd/soda-setup/src/forgejo.rs`
-- `cmd/soda-setup/src/json.rs` — Narrow input-policy adapter over serde, retired if the DTO owners make it unnecessary.
+- `cmd/soda-setup/src/json.rs` — Go-compatible Serde output formatter for the configuration producer; Forgejo response admission lives with its typed DTO in `forgejo.rs`.
 - `cmd/soda-setup/src/config.rs`
 - `cmd/soda-setup/src/secrets.rs`
 - `cmd/soda-setup/src/setup.rs`
@@ -360,5 +360,11 @@ Observed size: 1731 lines, including tests where embedded. Keep CLI/origin admis
 - `cmd/soda-setup/src/tests/encoding.rs`
 
 Evidence: rust/soda-setup/src/main.rs:79-246 entry and Go-style CLI parsing; rust/soda-setup/src/main.rs:247-333 origin and bootstrap credential admission; rust/soda-setup/src/main.rs:334-563 Forgejo user/token HTTP path; rust/soda-setup/src/main.rs:567-843 local JSON parse and string emission; rust/soda-setup/src/main.rs:845-905 dashboard config encoding; rust/soda-setup/src/main.rs:907-1067 randomness/encoding/PostgreSQL secret generation/reuse; rust/soda-setup/src/main.rs:1090-1187 setup publication/revocation and exclusive output; rust/soda-setup/src/main.rs:1190-1731 HTTP fixtures, secret/admission/encoding tests.
+
+JSON01 completed Setup's typed response and configuration transfer in
+`ae09f634`, and CF-04 completed its Base64 transfer in `26493cf2`. The parser
+and codec engines in the historical ranges are retired. The response cap,
+scalar admission, configuration field order, escaping and newline remain local
+policy, with four encoding checks and the development build recorded.
 
 Open detail: JSON01 keeps distinct caller profiles instead of one global acceptance configuration. N3 retains status/body bounds, deadline/error secrecy and bootstrap uncertainty outside ureq. CLI01 retains the small admitted selector instead of a foreign flag emulator. Preserve private token custody, exclusive outputs, native account ownership and revocation after uncertain setup effects; library adoption does not reorder those operations.

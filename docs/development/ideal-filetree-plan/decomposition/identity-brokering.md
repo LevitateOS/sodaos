@@ -45,13 +45,16 @@ Observed size: 910 lines, including tests where embedded. Keep main as the expli
 - `cmd/soda-identity-compose/src/compose.rs`
 - `cmd/soda-identity-compose/src/registration.rs`
 - `cmd/soda-identity-compose/src/launch_wire.rs`
+- `cmd/soda-identity-compose/src/launch_json.rs` — Go-compatible Serde output formatter; the scalar/skip parser is retired.
 - `cmd/soda-identity-compose/src/compose_tests.rs`
 
 Evidence at f7: 20–47 explicit sequence/load-options→main.rs; Options derive12 and struct13–18 plus complete flag/validation/usage49–165→options.rs; launch_compose245–287, write_override316–345 and child-attribution comments697/function698–750→compose.rs; root/random/mkdir166–244, account288–315 and complete registration626–694 (including its internal FD Guard/Drop)→registration.rs; string codec346–371, single NestedRegistration373–378, request/comment380–396 and exit-decode/comment397–469→launch_wire.rs; scalar/skip helpers471–624→launch_json.rs; cfg(test)751/module752 and all real cases753–909→compose_tests.rs, with original910 closing that test root. Keep one MUSE_LAUNCH_SOCKET9 in the common main owner, imported by compose and registration; TMPFS_MAGIC10 belongs registration. NestedRegistration and its fields use bounded parent-only imports for main/registration, with no duplicate DTO or public API. Tests import the actual moved subjects privately. [I09](../reviews/I09.md) records the independent defining-fit challenge and preserves canonical H03 parser corrections; Go-parity comments do not override the required wire semantics. No Compose, socket or test operation was run.
 
 The historical launch_json allocation above records the completed seam only.
-Its replacement follows JSON01's actual launch-record profile and coupled
-caller/test closure; foreign error wording is not an independent requirement.
+JSON01 completed this caller transfer in `22c858fc`: typed request, exit and
+override records use Serde, with a small Go-compatible output formatter.
+Missing defaults, recognized duplicate fields, ignored nested values and packet
+framing remain application policy; the old scalar/skip parser is deleted.
 
 ## rust/soda-identity/src/control.rs
 
@@ -115,6 +118,12 @@ Observed size: 402 lines, including tests where embedded. JSON01 replaces the le
 
 Evidence: 1-86: decode/remap_case/check_known_fields and declared strict request semantics; 87-314: Scanner lexical handling/check_unique_keys/check_value recursion; 315-402: strict shape/size/casefold/decoded-Unicode duplicate vectors -> strict_tests.rs.
 
+JSON01 completed scanner retirement in `ae09f634`. Serde owns grammar, while
+the local admission seed and schema remapping retain recursive decoded-key
+uniqueness, depth, size, aliases and unknown-field policy. The four strict
+boundary checks and development build passed; the historical ranges above do
+not describe an unresolved extraction.
+
 ## rust/soda-identity/src/wire.rs
 
 Observed size: 981 lines, including tests where embedded. Retain the record responsibilities already extracted from the historical 833-line production mirror and 147-line tests: Request/DeliveryWire, shared provider types, grant/acquisition and lease/binding/execution validators/digests, and fixed error taxonomy. JSON01 retains small integer/null/bytes adapters for admitted records; selected Base64 and N9 time libraries replace generic codec/calendar engines in wire_scalars/wire_time after their actual profiles are fixed. Preserve field semantics and the acquisition-digest contract, rather than assuming every incidental Go formatting quirk is required. Library types do not create forwarding DTOs or duplicate provider definitions.
@@ -130,6 +139,10 @@ Observed size: 981 lines, including tests where embedded. Retain the record resp
 Evidence: 1-23,578-631,655-661: existing provider record reuse/constants, Request including its derive/credential field and DeliveryWire including its derive -> wire.rs; preserve the single Connection/Enrollment definitions under providers/types.rs; 24-219: UnixTime/civil date math/parse_rfc3339_nano/format_rfc3339_nano -> wire_time.rs; scalar-codec documentation starts separately at221; 221-354,462-464,633-653: complete int-string/null/base64 serde modules, is_zero_i32 and complete base64_bytes_option module -> wire_scalars.rs; 356-410,747-775,817-832: Grant/GrantRequest/AcquireRequest including derive attributes, validation and acquisition_digest -> wire_grants.rs; 412-460,466-576,777-815: Binding/Lease/Execution/Event including derive attributes and binding/execution validation -> wire_execution.rs; 663-745: ErrorKind/Error including derive attributes, mapping and conversions -> wire_errors.rs; 834-981: cfg(test) descendant module for Go time/wire/base64/null/provider ID/acquisition digest vectors -> wire_tests.rs.
 
 Open detail: Module imports and serde with/deserialize_with/skip_serializing_if paths must follow each complete codec declaration. Keep tests as a descendant of the owning wire module and preserve one Rust definition per existing record; moving codecs does not authorize a new wire shape or forwarding DTO.
+
+CF-04 completed Base64 adoption in `26493cf2`; `wire_scalars.rs` retains only
+the bytes-field profile and delegates encoding/decoding to the library. N9 time
+adoption remains pending and is independent of that completed codec transfer.
 
 ## rust/soda-identity/tests/broker.rs
 
