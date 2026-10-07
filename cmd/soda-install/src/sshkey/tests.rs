@@ -1,4 +1,32 @@
+use super::wire::parse_public_key;
 use super::*;
+
+fn put_string(out: &mut Vec<u8>, value: &[u8]) {
+    out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+    out.extend_from_slice(value);
+}
+
+fn marshal_string(value: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_string(&mut out, value);
+    out
+}
+
+fn mpint(value: &[u8]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(value.len() + 1);
+    if value.first().is_some_and(|byte| byte & 0x80 != 0) {
+        bytes.push(0);
+    }
+    bytes.extend_from_slice(value);
+    marshal_string(&bytes)
+}
+
+fn rsa_line(exponent: &[u8], modulus: &[u8]) -> String {
+    let mut wire = marshal_string(b"ssh-rsa");
+    wire.extend(mpint(exponent));
+    wire.extend(mpint(modulus));
+    format!("ssh-rsa {}", b64_encode(&wire))
+}
 
 const ED25519: &str =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKQ0MsA1tWa7risZNVfq58qNB9BByJfSJUQpWI9KvglV";
@@ -13,6 +41,23 @@ fn sk_ed25519_wire(extra: &[u8]) -> String {
     wire.extend(marshal_string(b"ssh:"));
     wire.extend_from_slice(extra);
     format!("sk-ssh-ed25519@openssh.com {}", b64_encode(&wire))
+}
+
+fn sk_ecdsa_wire(curve: &[u8], point: &[u8]) -> String {
+    let mut wire = marshal_string(b"sk-ecdsa-sha2-nistp256@openssh.com");
+    wire.extend(marshal_string(curve));
+    wire.extend(marshal_string(point));
+    wire.extend(marshal_string(b"ssh:"));
+    format!("sk-ecdsa-sha2-nistp256@openssh.com {}", b64_encode(&wire))
+}
+
+fn ordinary_p256_point() -> Vec<u8> {
+    let wire = b64_decode_go(ECDSA256.split(' ').nth(1).unwrap().as_bytes()).unwrap();
+    let key = ssh_key::PublicKey::from_bytes(&wire).unwrap();
+    match key.key_data() {
+        ssh_key::public::KeyData::Ecdsa(key) => key.as_sec1_bytes().to_vec(),
+        _ => panic!("ECDSA fixture decoded to another key family"),
+    }
 }
 
 #[test]
@@ -33,6 +78,15 @@ fn real_keys_parse_and_normalize() {
         .unwrap()
         .key;
     assert_eq!(key.key_type(), "ssh-ed25519");
+}
+
+#[test]
+fn rsa_exponent_and_modulus_bounds_remain_installer_policy() {
+    let modulus = vec![0x80; 256];
+    assert!(public_key(&rsa_line(&[3], &modulus)).is_ok());
+    assert!(public_key(&rsa_line(&[4], &modulus)).is_err());
+    assert!(public_key(&rsa_line(&[1, 0, 0, 1], &modulus)).is_err());
+    assert!(public_key(&rsa_line(&[3], &vec![0x80; 2049])).is_err());
 }
 
 #[test]
@@ -105,34 +159,15 @@ fn unsupported_types_reported() {
         .chain(vec![0u8; 127])
         .collect::<Vec<u8>>();
     let mut wire = marshal_string(b"ssh-dss");
-    wire.extend(marshal_mpint(false, &p));
-    wire.extend(marshal_mpint(false, &[0x81; 20]));
-    wire.extend(marshal_mpint(false, &[0x02]));
-    wire.extend(marshal_mpint(false, &[0x03]));
+    wire.extend(mpint(&p));
+    wire.extend(mpint(&[0x81; 20]));
+    wire.extend(mpint(&[0x02]));
+    wire.extend(mpint(&[0x03]));
     let dss = format!("ssh-dss {}", b64_encode(&wire));
     assert_eq!(
         public_key(&dss).unwrap_err(),
         "unsupported operator SSH key type"
     );
-}
-
-#[test]
-fn rsa_canonicalizes_padded_mpints() {
-    // Oracle: RSA-PADDED accepted with marshal_clean=true.
-    let wire = b64_decode_go(RSA.split(' ').nth(1).unwrap().as_bytes()).unwrap();
-    let (_, rest) = parse_string(&wire).unwrap();
-    let (_, e_mag, rest) = parse_mpint(rest).unwrap();
-    let (_, n_mag, _) = parse_mpint(rest).unwrap();
-    let mut padded = marshal_string(b"ssh-rsa");
-    padded.extend(marshal_string(&[vec![0, 0, 0], e_mag].concat()));
-    padded.extend(marshal_string(&[vec![0, 0], n_mag].concat()));
-    let line = format!("ssh-rsa {}", b64_encode(&padded));
-    assert_eq!(public_key(&line).unwrap(), RSA);
-    // Even exponent and oversized exponent are refused.
-    let mut bad = marshal_string(b"ssh-rsa");
-    bad.extend(marshal_string(&[4]));
-    bad.extend(marshal_string(&[9u8; 64]));
-    assert!(public_key(&format!("ssh-rsa {}", b64_encode(&bad))).is_err());
 }
 
 #[test]
@@ -145,6 +180,22 @@ fn sk_keys_match_go_truncation_rule() {
     full.extend(marshal_string(b"handle"));
     full.extend(marshal_string(b""));
     assert!(public_key(&sk_ed25519_wire(&full)).is_err());
+}
+
+#[test]
+fn sk_ecdsa_keeps_uncompressed_valid_point_policy() {
+    let point = ordinary_p256_point();
+    let expected = sk_ecdsa_wire(b"nistp256", &point);
+    assert_eq!(public_key(&expected).unwrap(), expected);
+
+    let mut compressed = vec![2; 33];
+    compressed[0] = 2;
+    assert!(public_key(&sk_ecdsa_wire(b"nistp256", &compressed)).is_err());
+    assert!(public_key(&sk_ecdsa_wire(b"nistp384", &point)).is_err());
+
+    let mut off_curve = vec![0; 65];
+    off_curve[0] = 4;
+    assert!(public_key(&sk_ecdsa_wire(b"nistp256", &off_curve)).is_err());
 }
 
 #[test]
@@ -165,18 +216,11 @@ fn base64_matches_go_decode() {
 }
 
 #[test]
-fn mpint_round_trip() {
-    for (neg, mag) in [
-        (false, vec![]),
-        (false, vec![1]),
-        (false, vec![0x80]),
-        (true, vec![1]),
-        (true, vec![0x80]),
-    ] {
-        let encoded = marshal_mpint(neg, &mag);
-        let (n, m, rest) = parse_mpint(&encoded).unwrap();
-        assert!(rest.is_empty());
-        assert_eq!((n, m.clone()), (neg, mag));
-        assert_eq!(marshal_mpint(n, &m), encoded);
-    }
+fn malformed_mpint_and_trailing_wire_bytes_are_rejected() {
+    let mut truncated = marshal_string(b"ssh-rsa");
+    truncated.extend_from_slice(&[0, 0, 0, 4, 1]);
+    assert!(parse_public_key(&truncated).is_err());
+    let mut trailing = b64_decode_go(RSA.split(' ').nth(1).unwrap().as_bytes()).unwrap();
+    trailing.push(0);
+    assert!(parse_public_key(&trailing).is_err());
 }

@@ -1,66 +1,7 @@
-use sha2::{Digest, Sha256};
-
 use super::base64::{b64_decode_go, b64_encode, b64_encode_raw};
-use super::wire::parse_public_key;
+use super::wire::{parse_public_key, Kind};
 use super::Key;
-
-use crate::fmtx::go_trim_space;
-
-// ---------------------------------------------------------------------------
-// Authorized-line parsing: exact port of x/crypto `ParseAuthorizedKey` for
-// single-line input (callers pre-reject `\r\n\x00`).
-// ---------------------------------------------------------------------------
-
-fn parse_key_field(line: &[u8]) -> Result<(Key, String), ()> {
-    let line = go_trim_space(std::str::from_utf8(line).map_err(|_| ())?);
-    let split = line.find([' ', '\t']).unwrap_or(line.len());
-    let (encoded, comment) = (&line.as_bytes()[..split], go_trim_space(&line[split..]));
-    let wire = b64_decode_go(encoded)?;
-    let key = parse_public_key(&wire)?;
-    Ok((key, comment.to_string()))
-}
-
-fn scan_options(line: &str) -> Option<(Vec<String>, &str)> {
-    // Exact port of the x/crypto options scan: commas split outside quotes,
-    // the first unquoted space/tab ends the options field.
-    let bytes = line.as_bytes();
-    let mut in_quote = false;
-    let mut options = Vec::new();
-    let mut start = 0;
-    let mut i = 0;
-    let mut ended = false;
-    while i < bytes.len() {
-        let b = bytes[i];
-        let is_end = !in_quote && (b == b' ' || b == b'\t');
-        if (b == b',' && !in_quote) || is_end {
-            if i > start {
-                options.push(line[start..i].to_string());
-            }
-            start = i + 1;
-        }
-        if is_end {
-            ended = true;
-            break;
-        }
-        // Go toggles on `"` unless backslash-escaped (first byte counts).
-        if b == b'"' && (i == 0 || bytes[i - 1] != b'\\') {
-            in_quote = !in_quote;
-        }
-        i += 1;
-    }
-    if !ended {
-        // Go's range loop leaves `i` at the last index; unmatched quotes or
-        // a missing key field both fail below.
-        i = bytes.len().wrapping_sub(1);
-    }
-    while i < bytes.len() && (bytes[i] == b' ' || bytes[i] == b'\t') {
-        i += 1;
-    }
-    if i >= bytes.len() {
-        return None;
-    }
-    Some((options, &line[i..]))
-}
+use sha2::{Digest, Sha256};
 
 pub struct AuthorizedKey {
     pub key: Key,
@@ -70,44 +11,30 @@ pub struct AuthorizedKey {
 /// Parse one authorized-key line: `(key, options)` or an error. The trailing
 /// `rest` of multi-line input cannot occur (callers pre-reject newlines).
 pub fn parse_authorized_key(line: &str) -> Result<AuthorizedKey, ()> {
-    let trimmed = go_trim_space(line);
+    let trimmed = line.trim();
     if trimmed.is_empty() || trimmed.starts_with('#') {
         return Err(());
     }
-    let split = match trimmed.find([' ', '\t']) {
-        Some(i) => i,
-        None => return Err(()),
-    };
-    let (declared, after) = (&trimmed[..split], &trimmed[split..]);
-    if let Ok((key, _)) = parse_key_field(after.as_bytes()) {
-        if declared == key.key_type() {
-            return Ok(AuthorizedKey {
-                key,
-                options_empty: true,
-            });
-        }
+    let fields: Vec<_> = trimmed.split_whitespace().collect();
+    let offset = usize::from(
+        fields
+            .first()
+            .is_some_and(|field| !field.is_empty() && field.bytes().all(|byte| byte == b',')),
+    );
+    let (declared, encoded) = fields.get(offset).zip(fields.get(offset + 1)).ok_or(())?;
+    let wire = b64_decode_go(encoded.as_bytes())?;
+    let key = parse_public_key(&wire)?;
+    if key.key_type() != *declared {
+        return Err(());
     }
-    // Options field at the beginning.
-    let (options, rest) = scan_options(trimmed).ok_or(())?;
-    let split = match rest.find([' ', '\t']) {
-        Some(i) => i,
-        None => return Err(()),
-    };
-    let (declared, after) = (&rest[..split], &rest[split..]);
-    match parse_key_field(after.as_bytes()) {
-        Ok((key, _)) if declared == key.key_type() => Ok(AuthorizedKey {
-            key,
-            options_empty: options.is_empty(),
-        }),
-        _ => Err(()),
-    }
+    Ok(AuthorizedKey {
+        key,
+        options_empty: true,
+    })
 }
 
-/// x/crypto `ParseAuthorizedKey` over raw bytes: blank and comment lines
-/// are skipped and the first parseable line wins. Carriage returns
-/// truncate the line, as in Go. Lossy decoding is outcome-equivalent
-/// here: only ASCII bytes take part in trimming, splitting, option
-/// scanning, and base64, and the comment is discarded by every caller.
+/// Parse raw tool output line by line, skipping blank/comment/malformed lines
+/// and truncating each line at its first carriage return. Comments are unused.
 pub fn parse_authorized_key_bytes(mut input: &[u8]) -> Result<AuthorizedKey, ()> {
     loop {
         let line;
@@ -143,13 +70,9 @@ pub fn public_key(value: &str) -> Result<String, &'static str> {
     if !parsed.options_empty {
         return Err("valid SSH public key without authorized_keys options required");
     }
-    match parsed.key {
-        Key::Rsa { .. }
-        | Key::Ecdsa { .. }
-        | Key::Ed25519 { .. }
-        | Key::SkEcdsa { .. }
-        | Key::SkEd25519 { .. } => {}
-        Key::Dss | Key::Cert { .. } => return Err("unsupported operator SSH key type"),
+    match parsed.key.kind() {
+        Kind::Rsa | Kind::Ecdsa | Kind::Ed25519 | Kind::SkEcdsa | Kind::SkEd25519 => {}
+        Kind::Dsa | Kind::Certificate => return Err("unsupported operator SSH key type"),
     }
     Ok(format!(
         "{} {}",

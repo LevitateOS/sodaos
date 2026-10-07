@@ -1,5 +1,155 @@
-use super::mpint::{put_string, read_string};
 use super::*;
+
+fn put_string(out: &mut Vec<u8>, value: &[u8]) {
+    out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+    out.extend_from_slice(value);
+}
+
+fn read_string(input: &[u8]) -> (&[u8], &[u8]) {
+    let len = u32::from_be_bytes(input[..4].try_into().unwrap()) as usize;
+    (&input[4..4 + len], &input[4 + len..])
+}
+
+fn push_u32(out: &mut Vec<u8>, value: u32) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+fn push_u64(out: &mut Vec<u8>, value: u64) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+
+fn certificate_blob(cert_type: &str, fields: &[Vec<u8>]) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_string(&mut out, cert_type.as_bytes());
+    put_string(&mut out, b"nonce");
+    for field in fields {
+        out.extend_from_slice(field);
+    }
+    push_u64(&mut out, 0);
+    push_u32(&mut out, 1);
+    put_string(&mut out, b"expired-test-certificate");
+    put_string(&mut out, b"");
+    // Expired but representable: parsing must not decide certificate trust.
+    push_u64(&mut out, 0);
+    push_u64(&mut out, 1);
+    put_string(&mut out, b"");
+    put_string(&mut out, b"");
+    put_string(&mut out, b"");
+    let mut ca = Vec::new();
+    put_string(&mut ca, b"ssh-ed25519");
+    put_string(&mut ca, &[0x37; 32]);
+    put_string(&mut out, &ca);
+    let mut sig = Vec::new();
+    put_string(&mut sig, b"ssh-ed25519");
+    put_string(&mut sig, &[0; 64]);
+    put_string(&mut out, &sig);
+    out
+}
+
+fn string_field(value: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_string(&mut out, value);
+    out
+}
+
+fn mpint_field(value: &[u8]) -> Vec<u8> {
+    let mut encoded = Vec::new();
+    if value.first().is_some_and(|byte| byte & 0x80 != 0) {
+        encoded.push(0);
+    }
+    encoded.extend_from_slice(value);
+    string_field(&encoded)
+}
+
+fn rsa_blob(exponent: &[u8], modulus: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_string(&mut out, b"ssh-rsa");
+    out.extend(
+        [mpint_field(exponent), mpint_field(modulus)]
+            .into_iter()
+            .flatten(),
+    );
+    out
+}
+
+fn dsa_blob(p: &[u8], q: &[u8], g: &[u8], y: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_string(&mut out, b"ssh-dss");
+    out.extend(
+        [
+            mpint_field(p),
+            mpint_field(q),
+            mpint_field(g),
+            mpint_field(y),
+        ]
+        .into_iter()
+        .flatten(),
+    );
+    out
+}
+
+fn ecdsa_fields(curve: &[u8], point: &[u8]) -> Vec<Vec<u8>> {
+    vec![string_field(curve), string_field(point)]
+}
+
+fn ordinary_ecdsa_point(line: &str, algorithm: &str, curve: &[u8]) -> Vec<u8> {
+    let raw = b64_decode(line.split_once(' ').unwrap().1).unwrap();
+    let (actual_algorithm, fields) = read_string(&raw);
+    assert_eq!(actual_algorithm, algorithm.as_bytes());
+    let (actual_curve, fields) = read_string(fields);
+    assert_eq!(actual_curve, curve);
+    let (point, rest) = read_string(fields);
+    assert!(rest.is_empty());
+    point.to_vec()
+}
+
+fn certificate_families() -> Vec<Vec<u8>> {
+    let p256 = ordinary_p256_point();
+    let p384 = ordinary_ecdsa_point(ECDSA384, ALGO_ECDSA384, b"nistp384");
+    let p521 = ordinary_ecdsa_point(ECDSA521, ALGO_ECDSA521, b"nistp521");
+    let rsa = vec![mpint_field(&[3]), mpint_field(&[0x80, 1])];
+    let dsa = vec![
+        mpint_field(&[0x80; 128]),
+        mpint_field(&[0x80; 20]),
+        mpint_field(&[2]),
+        mpint_field(&[3]),
+    ];
+    let cases = vec![
+        ("ssh-rsa-cert-v01@openssh.com", rsa),
+        ("ssh-dss-cert-v01@openssh.com", dsa),
+        (
+            "ecdsa-sha2-nistp256-cert-v01@openssh.com",
+            ecdsa_fields(b"nistp256", &p256),
+        ),
+        (
+            "ecdsa-sha2-nistp384-cert-v01@openssh.com",
+            ecdsa_fields(b"nistp384", &p384),
+        ),
+        (
+            "ecdsa-sha2-nistp521-cert-v01@openssh.com",
+            ecdsa_fields(b"nistp521", &p521),
+        ),
+        (
+            "ssh-ed25519-cert-v01@openssh.com",
+            vec![string_field(&[0x41; 32])],
+        ),
+        (
+            "sk-ecdsa-sha2-nistp256-cert-v01@openssh.com",
+            vec![
+                string_field(b"nistp256"),
+                string_field(&p256),
+                string_field(b"ssh:"),
+            ],
+        ),
+        (
+            "sk-ssh-ed25519-cert-v01@openssh.com",
+            vec![string_field(&[0x42; 32]), string_field(b"ssh:")],
+        ),
+    ];
+    cases
+        .into_iter()
+        .map(|(cert, fields)| certificate_blob(cert, &fields))
+        .collect()
+}
 
 // Public-key fixtures only (comments stripped). RSA/ECDSA/Ed25519 from
 // ssh-keygen, DSA and the OpenSSH certificate from Go's x/crypto.
@@ -17,14 +167,7 @@ fn canonical(line: &str) -> (String, bool) {
 }
 
 fn ordinary_p256_point() -> Vec<u8> {
-    let raw = b64_decode(ECDSA256.split_once(' ').unwrap().1).unwrap();
-    let (algorithm, fields) = read_string(&raw).unwrap();
-    assert_eq!(algorithm, ALGO_ECDSA256.as_bytes());
-    let (curve, fields) = read_string(fields).unwrap();
-    assert_eq!(curve, b"nistp256");
-    let (point, rest) = read_string(fields).unwrap();
-    assert!(rest.is_empty());
-    point.to_vec()
+    ordinary_ecdsa_point(ECDSA256, ALGO_ECDSA256, b"nistp256")
 }
 
 #[test]
@@ -34,6 +177,70 @@ fn all_types_round_trip_canonically() {
         assert_eq!(back, format!("{line}\n"));
         assert!(!opts);
     }
+}
+
+#[test]
+fn real_forever_certificate_preserves_raw_validity_and_signed_wire() {
+    let encoded = CERT.split_once(' ').unwrap().1;
+    let wire = b64_decode(encoded).unwrap();
+    let cert = Certificate::from_bytes(&wire).expect("forever sentinel is valid wire data");
+    assert_eq!(cert.valid_before(), u64::MAX);
+    assert_eq!(cert.to_bytes().unwrap(), wire);
+    let parsed = parse_public_key(&wire).unwrap();
+    assert_eq!(parsed.blob, wire);
+}
+
+#[test]
+fn redundant_leading_zero_mpint_is_rejected() {
+    let modulus = [0x80, 0x01];
+    let mut noncanonical = Vec::new();
+    put_string(&mut noncanonical, b"ssh-rsa");
+    put_string(&mut noncanonical, &[0x00, 0x03]);
+    noncanonical.extend(mpint_field(&modulus));
+
+    assert!(
+        parse_public_key(&noncanonical).is_err(),
+        "the pinned decoder rejects a redundant MPINT sign byte"
+    );
+}
+
+#[test]
+fn all_certificate_families_parse_without_trust_or_validity_checks() {
+    let families = certificate_families();
+    assert_eq!(families.len(), 8);
+    let names = [
+        "RSA",
+        "DSA",
+        "ECDSA P-256",
+        "ECDSA P-384",
+        "ECDSA P-521",
+        "Ed25519",
+        "SK-ECDSA P-256",
+        "SK-Ed25519",
+    ];
+    for (name, cert) in names.into_iter().zip(families) {
+        let parsed = parse_public_key(&cert).unwrap_or_else(|error| panic!("{name}: {error}"));
+        assert!(parsed.key_type.ends_with("-cert-v01@openssh.com"));
+        assert_eq!(parse_public_key(&parsed.blob).unwrap(), parsed, "{name}");
+    }
+}
+
+#[test]
+fn rsa_sha2_certificate_alias_is_refused_when_library_normalizes_it() {
+    let mut families = certificate_families();
+    let legacy = families.remove(0);
+    let (_, body) = read_string(&legacy);
+    let mut alias = Vec::new();
+    put_string(&mut alias, b"rsa-sha2-256-cert-v01@openssh.com");
+    alias.extend_from_slice(body);
+
+    let parsed = Certificate::from_bytes(&alias).expect("library recognizes RSA SHA-2 alias");
+    assert_eq!(parsed.to_bytes().unwrap(), legacy);
+    assert_ne!(
+        parsed.algorithm().to_certificate_type(),
+        "rsa-sha2-256-cert-v01@openssh.com"
+    );
+    assert!(parse_public_key(&alias).is_err());
 }
 
 #[test]
@@ -112,12 +319,9 @@ fn comments_and_whitespace_tolerated_but_not_canonical() {
 }
 
 #[test]
-fn options_detected_and_multiline_rules_match() {
-    let (_, opts) = parse_authorized_key(format!("no-pty {ED}\n").as_bytes()).unwrap();
-    assert!(opts);
-    let (_, opts) =
-        parse_authorized_key(format!("command=\"echo hi\",no-pty {ED}\n").as_bytes()).unwrap();
-    assert!(opts);
+fn options_are_refused_and_multiline_key_selection_stays_bounded() {
+    assert!(parse_authorized_key(format!("no-pty {ED}\n").as_bytes()).is_err());
+    assert!(parse_authorized_key(format!("command=\"echo hi\",no-pty {ED}\n").as_bytes()).is_err());
     // Garbage lines are skipped; trailing data after the key rejects.
     assert!(parse_authorized_key(format!("garbage\n{ED}\n").as_bytes()).is_ok());
     assert!(parse_authorized_key(format!("{ED}\n{ED}\n").as_bytes()).is_err());
@@ -148,9 +352,26 @@ fn invalid_keys_rejected() {
         parse_authorized_key(format!("ecdsa-sha2-nistp256 {}\n", b64_encode(&raw)).as_bytes())
             .is_err()
     );
-    // Cert signed by a cert.
-    let mut cert = b64_decode(CERT.split(' ').nth(1).unwrap()).unwrap();
-    let _ = &mut cert;
+}
+
+#[test]
+fn rsa_exponent_and_modulus_bounds_remain_host_policy() {
+    let modulus = vec![0x80; 256];
+    assert!(parse_public_key(&rsa_blob(&[3], &modulus)).is_ok());
+    assert!(parse_public_key(&rsa_blob(&[4], &modulus)).is_err());
+    assert!(parse_public_key(&rsa_blob(&[1, 0, 0, 1], &modulus)).is_err());
+    assert!(parse_public_key(&rsa_blob(&[3], &vec![0x80; 2049])).is_err());
+}
+
+#[test]
+fn dsa_width_and_positive_in_range_parameters_remain_host_policy() {
+    let p = vec![0x80; 128];
+    let q = vec![0x80; 20];
+    assert!(parse_public_key(&dsa_blob(&p, &q, &[2], &[3])).is_ok());
+    assert!(parse_public_key(&dsa_blob(&p, &q, &[], &[3])).is_err());
+    assert!(parse_public_key(&dsa_blob(&p, &q, &p, &[3])).is_err());
+    assert!(parse_public_key(&dsa_blob(&p, &q, &[2], &p)).is_err());
+    assert!(parse_public_key(&dsa_blob(&p, &[0x40; 20], &[2], &[3])).is_err());
 }
 
 #[test]
