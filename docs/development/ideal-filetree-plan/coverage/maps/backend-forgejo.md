@@ -332,7 +332,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–84; file scaffold; Source; BranchRevision; sourceRepository | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–7; file scaffold; 8–23 declaration sourceRepository | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | `Config.Source` and `Config.BranchRevision` were removed in `8dbc0989` after whole-workspace reference closure. `sourceRepository` remains the repository source used by `ObserveForPublish`; three real Git/loopback publisher tests cover the retained observation path. |
 
 <a id="coverage-dc86ad39fbe5"></a>
 
