@@ -1,6 +1,10 @@
 //! Worker configuration: paths, identity, admission, and config decode.
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
+
 use crate::build_spec::Request;
 use crate::digest::hash_file;
 
@@ -230,17 +234,43 @@ pub fn private_file(path: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn strict_string_field(
-    entries: &[(String, soda_json::JsonValue)],
-    key: &str,
-) -> Result<String, String> {
-    let mut found: Option<String> = None;
-    for (k, v) in entries {
-        if k == key {
-            match v.as_str() {
-                Some(s) => found = Some(s.to_owned()),
-                None => return Err(format!("invalid {key}")),
+struct ConfigFields(Vec<(String, Box<RawValue>)>);
+
+impl<'de> Deserialize<'de> for ConfigFields {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FieldsVisitor;
+        impl<'de> Visitor<'de> for FieldsVisitor {
+            type Value = ConfigFields;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a worker configuration object")
             }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut fields = Vec::with_capacity(map.size_hint().unwrap_or(0));
+                while let Some((key, value)) = map.next_entry::<String, Box<RawValue>>()? {
+                    fields.push((key, value));
+                }
+                Ok(ConfigFields(fields))
+            }
+        }
+        deserializer.deserialize_map(FieldsVisitor)
+    }
+}
+
+fn strict_string_field(entries: &ConfigFields, key: &str) -> Result<String, String> {
+    let mut found: Option<String> = None;
+    for (k, raw) in &entries.0 {
+        if k == key {
+            found = Some(
+                serde_json::from_str::<String>(raw.get()).map_err(|_| format!("invalid {key}"))?,
+            );
         }
     }
     found.ok_or_else(|| format!("missing {key}"))
@@ -259,26 +289,28 @@ fn decode_worker_config(data: &[u8]) -> Result<WorkerConfig, String> {
         "MediaAuthorityDirectory",
     ];
     let text = std::str::from_utf8(data).map_err(|e| e.to_string())?;
-    let value =
-        soda_json::JsonValue::parse(text).map_err(|_| "invalid worker configuration".to_owned())?;
-    let soda_json::JsonValue::Object(entries) = &value else {
+    let root: Box<RawValue> =
+        serde_json::from_str(text).map_err(|_| "invalid worker configuration".to_owned())?;
+    if root.get().as_bytes()[0] != b'{' {
         return Err("invalid worker configuration".to_owned());
-    };
-    for (k, _) in entries {
+    }
+    let entries: ConfigFields =
+        serde_json::from_str(root.get()).map_err(|_| "invalid worker configuration".to_owned())?;
+    for (k, _) in &entries.0 {
         if !KNOWN.contains(&k.as_str()) {
             return Err(format!("unknown worker configuration field {k:?}"));
         }
     }
     Ok(WorkerConfig {
-        executable: strict_string_field(entries, "Executable").unwrap_or_default(),
-        source: strict_string_field(entries, "Source").unwrap_or_default(),
-        forgejo_source: strict_string_field(entries, "ForgejoSource").unwrap_or_default(),
-        output_parent: strict_string_field(entries, "OutputParent").unwrap_or_default(),
-        storage_root: strict_string_field(entries, "StorageRoot").unwrap_or_default(),
-        build_home: strict_string_field(entries, "BuildHome").unwrap_or_default(),
-        runtime: strict_string_field(entries, "Runtime").unwrap_or_default(),
-        tools: strict_string_field(entries, "Tools").unwrap_or_default(),
-        media_authority_directory: strict_string_field(entries, "MediaAuthorityDirectory")
+        executable: strict_string_field(&entries, "Executable").unwrap_or_default(),
+        source: strict_string_field(&entries, "Source").unwrap_or_default(),
+        forgejo_source: strict_string_field(&entries, "ForgejoSource").unwrap_or_default(),
+        output_parent: strict_string_field(&entries, "OutputParent").unwrap_or_default(),
+        storage_root: strict_string_field(&entries, "StorageRoot").unwrap_or_default(),
+        build_home: strict_string_field(&entries, "BuildHome").unwrap_or_default(),
+        runtime: strict_string_field(&entries, "Runtime").unwrap_or_default(),
+        tools: strict_string_field(&entries, "Tools").unwrap_or_default(),
+        media_authority_directory: strict_string_field(&entries, "MediaAuthorityDirectory")
             .unwrap_or_default(),
     })
 }
@@ -314,4 +346,25 @@ pub fn load_worker_config(path: &str, r: &Request) -> Result<WorkerConfig, Strin
         valid_worker_path(&p)?;
     }
     Ok(c)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decode_worker_config;
+
+    #[test]
+    fn configuration_checks_every_known_occurrence_and_rejects_unknown_fields() {
+        let config = decode_worker_config(
+            br#"{"Executable":1e400,"Executable":"later","Source":"/source"}"#,
+        )
+        .unwrap();
+        assert!(config.executable.is_empty());
+        assert_eq!(config.source, "/source");
+
+        assert_eq!(
+            decode_worker_config(br#"{"Ignored":{"large":1e400}}"#).unwrap_err(),
+            "unknown worker configuration field \"Ignored\""
+        );
+        assert!(decode_worker_config(br#"{"Source":"/source"} false"#).is_err());
+    }
 }

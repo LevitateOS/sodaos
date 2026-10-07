@@ -401,6 +401,16 @@ fn decode_image_result_round_trip() {
     assert!(decode_image_result(b"[1,2]").is_err());
 }
 
+#[test]
+fn image_result_uses_last_exact_raw_slot_and_ignores_unknown_large_numbers() {
+    let result = decode_image_result(
+        br#"{"Revision":1e400,"Revision":"new","Candidate":"old","Candidate":null,"Unknown":{"number":1e400}}"#,
+    )
+    .unwrap();
+    assert_eq!(result.revision, "new");
+    assert!(result.candidate.is_empty());
+}
+
 fn argv_executable() -> String {
     for candidate in ["/usr/bin/true", "/bin/true"] {
         if trusted_executable(candidate).is_ok() {

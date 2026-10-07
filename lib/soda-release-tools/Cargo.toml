@@ -34,7 +34,6 @@ path = "tests/cli/main.rs"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 getrandom = { version = "=0.4.3", features = ["std"] }
-soda-json = { path = "../json" }
 soda-release-build = { path = "../soda-release-build" }
 soda-release-deliver = { path = "../soda-release-deliver" }
 soda-release-image = { path = "../soda-release-image" }

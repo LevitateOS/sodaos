@@ -2,6 +2,10 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
+
 use crate::build_spec::{ImageResult, Request};
 use crate::digest::hash_file;
 use crate::progress::BuildProgress;
@@ -256,31 +260,95 @@ pub fn validate_worker_result(r: &Request, result: &mut ImageResult) -> Result<(
 /// Decode `evidence/build.json` (the fields result validation reads).
 pub fn decode_image_result(data: &[u8]) -> Result<ImageResult, String> {
     let text = std::str::from_utf8(data).map_err(|e| e.to_string())?;
-    let value = soda_json::JsonValue::parse(text).map_err(|_| "invalid build result".to_owned())?;
-    if !value.is_object() {
+    let root: Box<RawValue> =
+        serde_json::from_str(text).map_err(|_| "invalid build result".to_owned())?;
+    if root.get().as_bytes()[0] != b'{' {
         return Err("invalid build result".to_owned());
     }
-    let field = |key: &str| {
-        value
-            .get(key)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_owned()
-    };
+    let slots: ImageResultSlots =
+        serde_json::from_str(root.get()).map_err(|_| "invalid build result".to_owned())?;
     Ok(ImageResult {
-        revision: field("Revision"),
-        architecture: field("Architecture"),
-        candidate: field("Candidate"),
-        candidate_sha256: field("CandidateSHA256"),
-        host_manifest: field("HostManifest"),
-        payload_sha256: field("PayloadSHA256"),
-        scope: field("Scope"),
-        media: field("Media"),
-        purpose: field("Purpose"),
-        requested_target: field("RequestedTarget"),
-        completed_target: field("CompletedTarget"),
-        media_compression: field("MediaCompression"),
+        revision: raw_string(slots.revision),
+        architecture: raw_string(slots.architecture),
+        candidate: raw_string(slots.candidate),
+        candidate_sha256: raw_string(slots.candidate_sha256),
+        host_manifest: raw_string(slots.host_manifest),
+        payload_sha256: raw_string(slots.payload_sha256),
+        scope: raw_string(slots.scope),
+        media: raw_string(slots.media),
+        purpose: raw_string(slots.purpose),
+        requested_target: raw_string(slots.requested_target),
+        completed_target: raw_string(slots.completed_target),
+        media_compression: raw_string(slots.media_compression),
     })
+}
+
+fn raw_string(value: Option<Box<RawValue>>) -> String {
+    value
+        .and_then(|raw| serde_json::from_str::<String>(raw.get()).ok())
+        .unwrap_or_default()
+}
+
+#[derive(Default)]
+struct ImageResultSlots {
+    revision: Option<Box<RawValue>>,
+    architecture: Option<Box<RawValue>>,
+    candidate: Option<Box<RawValue>>,
+    candidate_sha256: Option<Box<RawValue>>,
+    host_manifest: Option<Box<RawValue>>,
+    payload_sha256: Option<Box<RawValue>>,
+    scope: Option<Box<RawValue>>,
+    media: Option<Box<RawValue>>,
+    purpose: Option<Box<RawValue>>,
+    requested_target: Option<Box<RawValue>>,
+    completed_target: Option<Box<RawValue>>,
+    media_compression: Option<Box<RawValue>>,
+}
+
+impl<'de> Deserialize<'de> for ImageResultSlots {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ResultVisitor;
+        impl<'de> Visitor<'de> for ResultVisitor {
+            type Value = ImageResultSlots;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a build result object")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut slots = ImageResultSlots::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    let target = match key.as_str() {
+                        "Revision" => &mut slots.revision,
+                        "Architecture" => &mut slots.architecture,
+                        "Candidate" => &mut slots.candidate,
+                        "CandidateSHA256" => &mut slots.candidate_sha256,
+                        "HostManifest" => &mut slots.host_manifest,
+                        "PayloadSHA256" => &mut slots.payload_sha256,
+                        "Scope" => &mut slots.scope,
+                        "Media" => &mut slots.media,
+                        "Purpose" => &mut slots.purpose,
+                        "RequestedTarget" => &mut slots.requested_target,
+                        "CompletedTarget" => &mut slots.completed_target,
+                        "MediaCompression" => &mut slots.media_compression,
+                        _ => {
+                            let _: Box<RawValue> = map.next_value()?;
+                            continue;
+                        }
+                    };
+                    *target = Some(map.next_value()?);
+                }
+                Ok(slots)
+            }
+        }
+        deserializer.deserialize_map(ResultVisitor)
+    }
 }
 
 pub fn read_image_result(path: &str) -> Result<ImageResult, String> {
