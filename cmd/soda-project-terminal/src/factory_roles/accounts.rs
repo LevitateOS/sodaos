@@ -167,7 +167,7 @@ fn test_account(ctx: &crate::Ctx, login: &str) -> Result<Option<Account>, Error>
         Ok(raw) => {
             let text =
                 std::str::from_utf8(&raw).map_err(|_| Error::fail("unsupported test account"))?;
-            let value = soda_json::JsonValue::parse(text)
+            let value = crate::state_json::StateValue::parse(text)
                 .map_err(|_| Error::fail("unsupported test account"))?;
             match value.get("shell") {
                 None => {}

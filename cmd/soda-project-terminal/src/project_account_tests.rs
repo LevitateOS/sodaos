@@ -170,7 +170,7 @@ fn key_length_counts_characters_not_bytes() {
 }
 
 fn parse_doc(doc: &str) -> Option<Request> {
-    parse_request(&soda_json::JsonValue::parse(doc).expect("test json"))
+    parse_request(doc)
 }
 
 #[test]
@@ -191,6 +191,14 @@ fn request_shape_matrix() {
     let dup = parse_doc(r#"{"login":"alice","identity":1,"admin":false,"keys":[],"login":"op"}"#)
         .expect("dup login wins");
     assert_eq!(dup.login, "op");
+    let overwritten_unrepresentable =
+        parse_doc(r#"{"login":"op","identity":1e400,"admin":true,"keys":[],"identity":7}"#)
+            .expect("only the final duplicate is typed");
+    assert_eq!(overwritten_unrepresentable.identity, 7);
+    assert!(
+        parse_doc(r#"{"login":"op","identity":7,"admin":true,"keys":[],"identity":1e400}"#)
+            .is_none()
+    );
     for doc in [
         r#"{"login":"alice","identity":1,"admin":false}"#,
         r#"{"login":"alice","identity":1,"admin":false,"keys":[],"extra":0}"#,
@@ -216,6 +224,7 @@ fn request_scalar_matrix() {
     );
     for doc in [
         r#"{"login":"op","identity":0,"admin":false,"keys":[]}"#,
+        r#"{"login":"op","identity":-0,"admin":false,"keys":[]}"#,
         r#"{"login":"op","identity":-1,"admin":false,"keys":[]}"#,
         r#"{"login":"op","identity":9223372036854775808,"admin":false,"keys":[]}"#,
         r#"{"login":"op","identity":99999999999999999999999999,"admin":false,"keys":[]}"#,

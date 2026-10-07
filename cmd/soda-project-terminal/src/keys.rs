@@ -20,12 +20,12 @@
 
 use std::io::Read;
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account;
 use crate::fs;
 use crate::key_lines::{canonical_lines, KEY_FILE_LIMIT, STDIN_LIMIT};
-use crate::key_request::{decode_key_request, json_truthy, state_object, KeyRequest};
+use crate::key_request::{decode_key_request, state_object, KeyRequest};
 use crate::pyemit;
 use crate::sha;
 use crate::sys;
@@ -103,7 +103,7 @@ pub fn candidate_name(uuid: &str) -> Option<String> {
 }
 
 /// Preview or replace the managed key file (the `.py` `update`).
-pub fn update(request: &KeyRequest) -> Result<JsonValue, String> {
+pub fn update(request: &KeyRequest) -> Result<StateValue, String> {
     if unsafe { libc::geteuid() } != 0 {
         return Err("project-local root required".to_string());
     }
@@ -117,12 +117,12 @@ pub fn update(request: &KeyRequest) -> Result<JsonValue, String> {
     let (raw, installed, old) = read_keys(&dir, &request.login)?;
     let revision = sha::hex_digest(&raw);
     if !request.apply {
-        if json_truthy(&request.revision) || !request.keys.is_empty() {
+        if request.revision.is_truthy() || !request.keys.is_empty() {
             return Err("invalid preview".to_string());
         }
         return Ok(state_object(&revision, &installed));
     }
-    if request.revision.as_str() != Some(revision.as_str()) {
+    if request.revision.as_string().as_deref() != Some(revision.as_str()) {
         return Err("key file changed since preview".to_string());
     }
     let uuid = sys::read_uuid().map_err(|e| e.to_string())?;
@@ -153,7 +153,7 @@ fn replace_inner(
     raw: &[u8],
     old: &FileId,
     candidate: &str,
-) -> Result<JsonValue, String> {
+) -> Result<StateValue, String> {
     use std::io::Write as _;
     let mut sink: &std::fs::File = out;
     sink.write_all(&request.desired)

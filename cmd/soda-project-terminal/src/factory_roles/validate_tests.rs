@@ -1,8 +1,8 @@
 use super::*;
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
-fn val(text: &str) -> JsonValue {
-    JsonValue::parse(text).expect("parse")
+fn val(text: &str) -> StateValue {
+    StateValue::parse(text).expect("parse")
 }
 
 #[test]

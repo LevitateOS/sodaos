@@ -1,12 +1,12 @@
 use super::*;
+use crate::state_json::StateValue;
 use crate::testutil::{approve_default, assert_fail, op_value, record_value, Scratch, PID, PID2};
-use soda_json::JsonValue;
 
-fn tool(name: &str, path: &str, version: &str) -> JsonValue {
-    JsonValue::Object(vec![
-        ("name".to_string(), JsonValue::Str(name.to_string())),
-        ("path".to_string(), JsonValue::Str(path.to_string())),
-        ("version".to_string(), JsonValue::Str(version.to_string())),
+fn tool(name: &str, path: &str, version: &str) -> StateValue {
+    StateValue::Object(vec![
+        ("name".to_string(), StateValue::Str(name.to_string())),
+        ("path".to_string(), StateValue::Str(path.to_string())),
+        ("version".to_string(), StateValue::Str(version.to_string())),
     ])
 }
 
@@ -21,43 +21,43 @@ fn tool_entry_matrix() {
     // Non-ASCII counts in chars, not bytes.
     assert!(check_tool_entry(&tool("go", &"é".repeat(256), "v")).is_ok());
     assert!(check_tool_entry(&tool("go", &"é".repeat(257), "v")).is_err());
-    assert!(check_tool_entry(&JsonValue::Object(vec![
-        ("name".to_string(), JsonValue::Str("go".to_string())),
-        ("path".to_string(), JsonValue::Str("/bin/x".to_string())),
+    assert!(check_tool_entry(&StateValue::Object(vec![
+        ("name".to_string(), StateValue::Str("go".to_string())),
+        ("path".to_string(), StateValue::Str("/bin/x".to_string())),
     ]))
     .is_err());
-    assert!(check_tool_entry(&JsonValue::Object(vec![
-        ("name".to_string(), JsonValue::Number("1".to_string())),
-        ("path".to_string(), JsonValue::Str("/bin/x".to_string())),
-        ("version".to_string(), JsonValue::Str("v".to_string())),
+    assert!(check_tool_entry(&StateValue::Object(vec![
+        ("name".to_string(), StateValue::Number("1".to_string())),
+        ("path".to_string(), StateValue::Str("/bin/x".to_string())),
+        ("version".to_string(), StateValue::Str("v".to_string())),
     ]))
     .is_err());
-    assert!(check_tool_entry(&JsonValue::Array(Vec::new())).is_err());
+    assert!(check_tool_entry(&StateValue::Array(Vec::new())).is_err());
 }
 
 #[test]
 fn verified_matrix() {
-    let good = JsonValue::parse("{\"uid\": \"1\", \"login\": \"a\", \"groups\": \"a\"}").unwrap();
+    let good = StateValue::parse("{\"uid\": \"1\", \"login\": \"a\", \"groups\": \"a\"}").unwrap();
     assert!(check_verified(&good).is_ok());
-    let refused = JsonValue::parse(
+    let refused = StateValue::parse(
         "{\"uid\": \"1\", \"login\": \"a\", \"groups\": \"a\", \"refusal\": \"x\"}",
     )
     .unwrap();
     assert!(check_verified(&refused).is_ok());
     // Values are untyped except the refusal.
-    let untyped = JsonValue::parse("{\"uid\": 1, \"login\": null, \"groups\": [1]}").unwrap();
+    let untyped = StateValue::parse("{\"uid\": 1, \"login\": null, \"groups\": [1]}").unwrap();
     assert!(check_verified(&untyped).is_ok());
     // Missing keys, extra keys, long/non-string refusals fail.
     assert!(
-        check_verified(&JsonValue::parse("{\"uid\": \"1\", \"login\": \"a\"}").unwrap()).is_err()
+        check_verified(&StateValue::parse("{\"uid\": \"1\", \"login\": \"a\"}").unwrap()).is_err()
     );
     assert!(check_verified(
-        &JsonValue::parse("{\"uid\": \"1\", \"login\": \"a\", \"groups\": \"a\", \"zz\": 1}")
+        &StateValue::parse("{\"uid\": \"1\", \"login\": \"a\", \"groups\": \"a\", \"zz\": 1}")
             .unwrap()
     )
     .is_err());
     assert!(check_verified(
-        &JsonValue::parse(&format!(
+        &StateValue::parse(&format!(
             "{{\"uid\": \"1\", \"login\": \"a\", \"groups\": \"a\", \"refusal\": \"{}\"}}",
             "r".repeat(257)
         ))
@@ -65,11 +65,11 @@ fn verified_matrix() {
     )
     .is_err());
     assert!(check_verified(
-        &JsonValue::parse("{\"uid\": \"1\", \"login\": \"a\", \"groups\": \"a\", \"refusal\": 5}")
+        &StateValue::parse("{\"uid\": \"1\", \"login\": \"a\", \"groups\": \"a\", \"refusal\": 5}")
             .unwrap()
     )
     .is_err());
-    assert!(check_verified(&JsonValue::Array(Vec::new())).is_err());
+    assert!(check_verified(&StateValue::Array(Vec::new())).is_err());
 }
 
 #[test]
@@ -90,16 +90,16 @@ fn record_reports_waiting_and_locks_evidence() {
         "preparation already carries different tool evidence",
     );
     // Nine tools are refused.
-    let tools: Vec<JsonValue> = (0..9)
+    let tools: Vec<StateValue> = (0..9)
         .map(|i| tool("t", &format!("/bin/t{i}"), "v"))
         .collect();
     let mut nine = record_value(PID, "", None);
-    if let JsonValue::Object(entries) = &mut nine {
+    if let StateValue::Object(entries) = &mut nine {
         let slot = entries
             .iter_mut()
             .find(|(k, _)| k == "tools")
             .expect("tools");
-        slot.1 = JsonValue::Array(tools);
+        slot.1 = StateValue::Array(tools);
     }
     assert_fail(do_record(&ctx, &nine), "unsupported tool evidence");
     assert_fail(

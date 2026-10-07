@@ -2,7 +2,10 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 
 use crate::account::{self, Account};
 use crate::fs;
@@ -30,70 +33,98 @@ pub struct Reservation {
     pub scope: String,
 }
 
+struct RawObject(std::collections::HashMap<String, Box<RawValue>>);
+
+fn raw<'a>(fields: &'a RawObject, key: &str) -> Result<&'a str, String> {
+    fields
+        .0
+        .get(key)
+        .map(|value| value.get())
+        .ok_or_else(|| "terminal binding".to_string())
+}
+
+impl<'de> Deserialize<'de> for RawObject {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ObjectVisitor;
+        impl<'de> Visitor<'de> for ObjectVisitor {
+            type Value = RawObject;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a JSON object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut fields = std::collections::HashMap::new();
+                while let Some(name) = map.next_key::<String>()? {
+                    fields.insert(name, map.next_value::<Box<RawValue>>()?);
+                }
+                Ok(RawObject(fields))
+            }
+        }
+        deserializer.deserialize_map(ObjectVisitor)
+    }
+}
+
 /// Validate a `binding` record (dup-tolerant like `json.loads`, unlike the
 /// control-frame decoder). Uid/gid widen to `u32` at most: larger JSON ints
 /// error here instead of failing later comparisons, a deliberate hardening
 /// delta confined to corrupt root-owned files.
-pub fn validate_binding(value: &JsonValue) -> Result<BindingRecord, String> {
-    let entries = match value {
-        JsonValue::Object(entries) => entries,
-        _ => return Err("terminal binding".to_string()),
-    };
-    let keys: HashSet<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
+pub fn validate_binding(text: &str) -> Result<BindingRecord, String> {
+    let fields: RawObject =
+        serde_json::from_str(text).map_err(|_| "terminal binding".to_string())?;
+    let keys: HashSet<&str> = fields.0.keys().map(String::as_str).collect();
     let want: HashSet<&str> = ["account", "identity", "cols", "rows", "created_at"]
         .into_iter()
         .collect();
     if keys != want {
         return Err("terminal binding".to_string());
     }
-    let get = |key: &str| value.get(key).ok_or_else(|| "terminal binding".to_string());
-    let items = match get("account")? {
-        JsonValue::Array(items) if items.len() == 5 => items,
-        _ => return Err("terminal binding values".to_string()),
-    };
-    let login = items[0]
-        .as_str()
+    let (login, uid_raw, gid_raw, home, shell): (
+        String,
+        Box<RawValue>,
+        Box<RawValue>,
+        String,
+        String,
+    ) = serde_json::from_str(raw(&fields, "account")?)
+        .map_err(|_| "terminal binding values".to_string())?;
+    let uid_raw: i128 = uid_raw
+        .get()
+        .parse()
+        .map_err(|_| "terminal binding values".to_string())?;
+    let gid_raw: i128 = gid_raw
+        .get()
+        .parse()
+        .map_err(|_| "terminal binding values".to_string())?;
+    let uid = u32::try_from(uid_raw)
+        .ok()
+        .filter(|uid| *uid > 0)
         .ok_or_else(|| "terminal binding values".to_string())?;
-    if !account::valid_login(login) || login == "root" {
+    let gid = u32::try_from(gid_raw).map_err(|_| "terminal binding values".to_string())?;
+    let integer = |key: &str| -> Result<i64, String> {
+        raw(&fields, key)?
+            .parse()
+            .map_err(|_| "terminal binding values".to_string())
+    };
+    let identity = integer("identity")?;
+    let cols = integer("cols")?;
+    let rows = integer("rows")?;
+    let created_at = integer("created_at")?;
+    if !account::valid_login(&login) || login == "root" {
         return Err("terminal binding values".to_string());
     }
-    let uid = items[1]
-        .as_integer()
-        .and_then(|n| u32::try_from(n).ok())
-        .filter(|n| *n > 0)
-        .ok_or_else(|| "terminal binding values".to_string())?;
-    let gid = items[2]
-        .as_integer()
-        .and_then(|n| u32::try_from(n).ok())
-        .ok_or_else(|| "terminal binding values".to_string())?;
-    let home = items[3]
-        .as_str()
-        .ok_or_else(|| "terminal binding values".to_string())?;
-    let shell = items[4]
-        .as_str()
-        .ok_or_else(|| "terminal binding values".to_string())?;
     if !home.starts_with('/') || !shell.starts_with('/') {
         return Err("terminal binding values".to_string());
     }
-    let identity = pyemit::as_int(get("identity")?)
-        .filter(|n| *n > 0)
-        .ok_or_else(|| "terminal binding values".to_string())?;
-    let cols = pyemit::as_int(get("cols")?).ok_or_else(|| "terminal binding values".to_string())?;
-    let rows = pyemit::as_int(get("rows")?).ok_or_else(|| "terminal binding values".to_string())?;
-    if !proto::dimensions(cols, rows) {
+    if identity <= 0 || !proto::dimensions(cols, rows) {
         return Err("terminal binding values".to_string());
     }
-    let created_at =
-        pyemit::as_int(get("created_at")?).ok_or_else(|| "terminal binding values".to_string())?;
     if !(1..=9007199254740991).contains(&created_at) {
         return Err("terminal binding values".to_string());
     }
     Ok(BindingRecord {
-        login: login.to_string(),
+        login,
         uid,
         gid,
-        home: home.to_string(),
-        shell: shell.to_string(),
+        home,
+        shell,
         identity,
         cols,
         rows,
@@ -115,15 +146,15 @@ pub fn binding_record(
     account: Option<&Account>,
     identity: i64,
 ) -> Result<BindingRecord, String> {
-    let record = validate_binding(&fs::read_record(dir, "binding")?)?;
+    let record = validate_binding(&fs::read_record_text_at(dir, "binding")?)?;
     if let Some(held) = account {
         // Exact `.py` comparison: stored vector vs `account_binding`.
-        let stored = JsonValue::Array(vec![
-            JsonValue::Str(record.login.clone()),
-            JsonValue::Number(record.uid.to_string()),
-            JsonValue::Number(record.gid.to_string()),
-            JsonValue::Str(record.home.clone()),
-            JsonValue::Str(record.shell.clone()),
+        let stored = StateValue::Array(vec![
+            StateValue::Str(record.login.clone()),
+            StateValue::Number(record.uid.to_string()),
+            StateValue::Number(record.gid.to_string()),
+            StateValue::Str(record.home.clone()),
+            StateValue::Str(record.shell.clone()),
         ]);
         if record.identity != identity || stored != account::account_binding(held) {
             return Err("terminal account changed".to_string());
@@ -133,32 +164,33 @@ pub fn binding_record(
 }
 
 /// Validate a `reservation` record.
-pub fn validate_reservation(value: &JsonValue) -> Result<Reservation, String> {
-    let entries = match value {
-        JsonValue::Object(entries) => entries,
-        _ => return Err("invalid creation reservation".to_string()),
-    };
-    let keys: HashSet<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
+pub fn validate_reservation(text: &str) -> Result<Reservation, String> {
+    let fields: RawObject =
+        serde_json::from_str(text).map_err(|_| "invalid creation reservation".to_string())?;
+    let keys: HashSet<&str> = fields.0.keys().map(String::as_str).collect();
     let want: HashSet<&str> = ["expires", "scope"].into_iter().collect();
     if keys != want {
         return Err("invalid creation reservation".to_string());
     }
-    let expires = value
+    let expires: i64 = fields
+        .0
         .get("expires")
-        .and_then(pyemit::as_int)
-        .filter(|n| *n > 0)
-        .ok_or_else(|| "invalid creation reservation".to_string())?;
-    let scope = value
-        .get("scope")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "invalid creation reservation".to_string())?;
-    if !proto::valid_scope(scope) {
+        .ok_or_else(|| "invalid creation reservation".to_string())?
+        .get()
+        .parse()
+        .map_err(|_| "invalid creation reservation".to_string())?;
+    let scope: String = serde_json::from_str(
+        fields
+            .0
+            .get("scope")
+            .ok_or_else(|| "invalid creation reservation".to_string())?
+            .get(),
+    )
+    .map_err(|_| "invalid creation reservation".to_string())?;
+    if expires <= 0 || !proto::valid_scope(&scope) {
         return Err("invalid creation reservation".to_string());
     }
-    Ok(Reservation {
-        expires,
-        scope: scope.to_string(),
-    })
+    Ok(Reservation { expires, scope })
 }
 
 /// Read the reservation, if any (missing file → `None`).
@@ -166,7 +198,7 @@ pub(crate) fn read_reservation(dir: &File) -> Result<Option<Reservation>, String
     if !record_exists(dir, "reservation")? {
         return Ok(None);
     }
-    validate_reservation(&fs::read_record(dir, "reservation")?).map(Some)
+    validate_reservation(&fs::read_record_text_at(dir, "reservation")?).map(Some)
 }
 
 pub(crate) fn permit_live(permit: Option<&Reservation>) -> bool {
@@ -175,44 +207,44 @@ pub(crate) fn permit_live(permit: Option<&Reservation>) -> bool {
         .unwrap_or(false)
 }
 
-pub(crate) fn binding_object(record: &BindingRecord) -> JsonValue {
-    JsonValue::Object(vec![
+pub(crate) fn binding_object(record: &BindingRecord) -> StateValue {
+    StateValue::Object(vec![
         (
             "account".to_string(),
-            JsonValue::Array(vec![
-                JsonValue::Str(record.login.clone()),
-                JsonValue::Number(record.uid.to_string()),
-                JsonValue::Number(record.gid.to_string()),
-                JsonValue::Str(record.home.clone()),
-                JsonValue::Str(record.shell.clone()),
+            StateValue::Array(vec![
+                StateValue::Str(record.login.clone()),
+                StateValue::Number(record.uid.to_string()),
+                StateValue::Number(record.gid.to_string()),
+                StateValue::Str(record.home.clone()),
+                StateValue::Str(record.shell.clone()),
             ]),
         ),
         (
             "identity".to_string(),
-            JsonValue::Number(record.identity.to_string()),
+            StateValue::Number(record.identity.to_string()),
         ),
         (
             "cols".to_string(),
-            JsonValue::Number(record.cols.to_string()),
+            StateValue::Number(record.cols.to_string()),
         ),
         (
             "rows".to_string(),
-            JsonValue::Number(record.rows.to_string()),
+            StateValue::Number(record.rows.to_string()),
         ),
         (
             "created_at".to_string(),
-            JsonValue::Number(record.created_at.to_string()),
+            StateValue::Number(record.created_at.to_string()),
         ),
     ])
 }
 
-pub(crate) fn reservation_object(expires: i64, scope: &str) -> JsonValue {
-    JsonValue::Object(vec![
+pub(crate) fn reservation_object(expires: i64, scope: &str) -> StateValue {
+    StateValue::Object(vec![
         (
             "expires".to_string(),
-            JsonValue::Number(expires.to_string()),
+            StateValue::Number(expires.to_string()),
         ),
-        ("scope".to_string(), JsonValue::Str(scope.to_string())),
+        ("scope".to_string(), StateValue::Str(scope.to_string())),
     ])
 }
 
@@ -240,7 +272,7 @@ pub(crate) fn write_name(directory: &File, name: &str) -> Result<(), String> {
     fs::new_file(
         directory,
         "name.next",
-        &pyemit::line(&JsonValue::Str(name.to_string())),
+        &pyemit::line(&StateValue::Str(name.to_string())),
         0o600,
     )?;
     fs::replace_at(directory, "name.next", "name").map_err(|e| e.to_string())?;

@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account::Account;
 use crate::broker::CREDENTIAL_LIMIT;
@@ -38,7 +38,7 @@ pub(crate) fn is_regular(mode: u32) -> bool {
 
 /// `subscription_auth_directory`: the `model/auth` dir must be owned by the
 /// account with no group/other permission bits.
-pub fn subscription_auth_directory(lease: &JsonValue, account: &Account) -> Result<File, String> {
+pub fn subscription_auth_directory(lease: &StateValue, account: &Account) -> Result<File, String> {
     let identifier = lease_execution_id(lease)?.to_string();
     let model = term::checked_chain(&subscription_path(&identifier)?)?;
     let directory = sys::open_child_dir(&model, "auth").map_err(|e| e.to_string())?;
@@ -53,7 +53,7 @@ pub fn subscription_auth_directory(lease: &JsonValue, account: &Account) -> Resu
 /// `subscription_seed`: validated credential bytes become the account-owned
 /// `auth.json` (exclusive create: a second stage fails, like the `.py`).
 pub fn subscription_seed(
-    lease: &JsonValue,
+    lease: &StateValue,
     account: &Account,
     encoded: &str,
 ) -> Result<(), String> {
@@ -62,7 +62,7 @@ pub fn subscription_seed(
         return Err("credential size".to_string());
     }
     let text = std::str::from_utf8(&state).map_err(|_| "credential json".to_string())?;
-    JsonValue::parse(text).map_err(|_| "credential json".to_string())?;
+    StateValue::parse(text).map_err(|_| "credential json".to_string())?;
     let directory = subscription_auth_directory(lease, account)?;
     fs::new_file(&directory, "auth.json", &state, 0o600)?;
     fchownat_no_follow(&directory, "auth.json", account.pw_uid, account.pw_gid)
@@ -72,11 +72,11 @@ pub fn subscription_seed(
 
 /// `subscription_stage`: deadline, liveness, then seed.
 pub fn subscription_stage(
-    request: &JsonValue,
-    lease: &JsonValue,
-    profile: &JsonValue,
+    request: &StateValue,
+    lease: &StateValue,
+    profile: &StateValue,
     account: &Account,
-) -> Result<JsonValue, String> {
+) -> Result<StateValue, String> {
     live_deadline(profile)?;
     subscription_check_unit(lease, account, true)?;
     let encoded = request
@@ -91,7 +91,7 @@ pub fn subscription_stage(
 /// `subscription_capture`: validated read-back of the account-owned
 /// credential file (regular, account uid, one link, `0o077`-clean,
 /// bounded JSON).
-pub fn subscription_capture(lease: &JsonValue, account: &Account) -> Result<Vec<u8>, String> {
+pub fn subscription_capture(lease: &StateValue, account: &Account) -> Result<Vec<u8>, String> {
     let directory = subscription_auth_directory(lease, account)?;
     let fd = sys::open_at(
         &directory,
@@ -114,6 +114,6 @@ pub fn subscription_capture(lease: &JsonValue, account: &Account) -> Result<Vec<
         return Err("credential size".to_string());
     }
     let text = std::str::from_utf8(&state).map_err(|_| "credential json".to_string())?;
-    JsonValue::parse(text).map_err(|_| "credential json".to_string())?;
+    StateValue::parse(text).map_err(|_| "credential json".to_string())?;
     Ok(state)
 }

@@ -3,103 +3,35 @@
 //! writes is emitted exactly so. Plus Python `==` over parsed values for the
 //! idempotency comparisons (`saved != request`).
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 /// Build an object preserving insertion order (response key order matters).
-pub fn obj(pairs: Vec<(&str, JsonValue)>) -> JsonValue {
-    JsonValue::Object(pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect())
+pub fn obj(pairs: Vec<(&str, StateValue)>) -> StateValue {
+    StateValue::Object(pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect())
 }
 
-pub fn str_value(text: &str) -> JsonValue {
-    JsonValue::Str(text.to_string())
+pub fn str_value(text: &str) -> StateValue {
+    StateValue::Str(text.to_string())
 }
 
 /// Emit one compact document with default separators, byte-identical to
 /// CPython `json.dumps`.
-pub fn dumps_default(value: &JsonValue) -> String {
-    let mut out = String::new();
-    emit(&mut out, value);
-    out
-}
-
-fn emit(out: &mut String, value: &JsonValue) {
-    match value {
-        JsonValue::Null => out.push_str("null"),
-        JsonValue::Bool(true) => out.push_str("true"),
-        JsonValue::Bool(false) => out.push_str("false"),
-        JsonValue::Number(raw) => out.push_str(raw),
-        JsonValue::Str(text) => escape_py(out, text),
-        JsonValue::Array(items) => {
-            out.push('[');
-            for (i, item) in items.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(", ");
-                }
-                emit(out, item);
-            }
-            out.push(']');
-        }
-        JsonValue::Object(entries) => {
-            out.push('{');
-            for (i, (key, item)) in entries.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(", ");
-                }
-                escape_py(out, key);
-                out.push_str(": ");
-                emit(out, item);
-            }
-            out.push('}');
-        }
-    }
-}
-
-/// CPython `ensure_ascii` string quoting: short escapes, `\uXXXX`
-/// (lowercase hex) for other controls/DEL/non-ASCII with surrogate pairs
-/// for astral characters. `/`, `<`, `>`, `&` stay raw.
-pub fn escape_py(out: &mut String, text: &str) {
-    out.push('"');
-    for ch in text.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '\x08' => out.push_str("\\b"),
-            '\x0c' => out.push_str("\\f"),
-            c if (c as u32) < 0x20 || c as u32 == 0x7f => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
-            }
-            c if (c as u32) < 0x80 => out.push(c),
-            c if (c as u32) < 0x10000 => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
-            }
-            c => {
-                let v = c as u32 - 0x10000;
-                out.push_str(&format!(
-                    "\\u{:04x}\\u{:04x}",
-                    0xd800 + (v >> 10),
-                    0xdc00 + (v & 0x3ff)
-                ));
-            }
-        }
-    }
-    out.push('"');
+pub fn dumps_default(value: &StateValue) -> String {
+    crate::pyemit::dumps_default_serde(value)
 }
 
 /// Python `==` over two parsed values: objects compare order-insensitive
 /// with last-wins duplicates, and numbers compare numerically (`1 == 1.0`,
 /// `True == 1`, unbounded ints exact).
-pub fn json_equal(left: &JsonValue, right: &JsonValue) -> bool {
+pub fn json_equal(left: &StateValue, right: &StateValue) -> bool {
     match (left, right) {
-        (JsonValue::Null, JsonValue::Null) => true,
-        (JsonValue::Bool(a), JsonValue::Bool(b)) => a == b,
-        (JsonValue::Str(a), JsonValue::Str(b)) => a == b,
-        (JsonValue::Array(a), JsonValue::Array(b)) => {
+        (StateValue::Null, StateValue::Null) => true,
+        (StateValue::Bool(a), StateValue::Bool(b)) => a == b,
+        (StateValue::Str(a), StateValue::Str(b)) => a == b,
+        (StateValue::Array(a), StateValue::Array(b)) => {
             a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| json_equal(x, y))
         }
-        (JsonValue::Object(a), JsonValue::Object(b)) => {
+        (StateValue::Object(a), StateValue::Object(b)) => {
             let keys_a = unique_keys(a);
             let keys_b = unique_keys(b);
             if keys_a != keys_b {
@@ -115,14 +47,18 @@ pub fn json_equal(left: &JsonValue, right: &JsonValue) -> bool {
                 json_equal(x, y)
             })
         }
-        (JsonValue::Number(a), JsonValue::Number(b)) => numbers_equal(a, b),
-        (JsonValue::Bool(a), JsonValue::Number(b)) => numbers_equal(if *a { "1" } else { "0" }, b),
-        (JsonValue::Number(a), JsonValue::Bool(b)) => numbers_equal(a, if *b { "1" } else { "0" }),
+        (StateValue::Number(a), StateValue::Number(b)) => numbers_equal(a, b),
+        (StateValue::Bool(a), StateValue::Number(b)) => {
+            numbers_equal(if *a { "1" } else { "0" }, b)
+        }
+        (StateValue::Number(a), StateValue::Bool(b)) => {
+            numbers_equal(a, if *b { "1" } else { "0" })
+        }
         _ => false,
     }
 }
 
-fn unique_keys(entries: &[(String, JsonValue)]) -> Vec<String> {
+fn unique_keys(entries: &[(String, StateValue)]) -> Vec<String> {
     let mut keys: Vec<String> = Vec::new();
     for (key, _) in entries {
         if !keys.contains(key) {
@@ -168,19 +104,19 @@ fn numbers_equal(left: &str, right: &str) -> bool {
 mod tests {
     use super::*;
 
-    fn parse(text: &str) -> JsonValue {
-        JsonValue::parse(text).expect("parse")
+    fn parse(text: &str) -> StateValue {
+        StateValue::parse(text).expect("parse")
     }
 
     #[test]
     fn emit_matches_reference() {
         // Baked against CPython json.dumps (default separators, ensure_ascii).
         let value = obj(vec![
-            ("roles", JsonValue::Array(vec![str_value("soda-coder")])),
-            ("n", JsonValue::Number("-12".to_string())),
-            ("t", JsonValue::Bool(true)),
-            ("f", JsonValue::Bool(false)),
-            ("z", JsonValue::Null),
+            ("roles", StateValue::Array(vec![str_value("soda-coder")])),
+            ("n", StateValue::Number("-12".to_string())),
+            ("t", StateValue::Bool(true)),
+            ("f", StateValue::Bool(false)),
+            ("z", StateValue::Null),
             ("s", str_value("a+b/c<d>&\"q\"\\é\0\x1f\x7f😀")),
         ]);
         assert_eq!(
@@ -194,20 +130,20 @@ mod tests {
     fn emit_state_files() {
         assert_eq!(
             dumps_default(&obj(vec![
-                ("pid", JsonValue::Number("999".to_string())),
-                ("pgid", JsonValue::Number("999".to_string())),
+                ("pid", StateValue::Number("999".to_string())),
+                ("pgid", StateValue::Number("999".to_string())),
             ])),
             "{\"pid\": 999, \"pgid\": 999}"
         );
         assert_eq!(
             dumps_default(&obj(vec![
-                ("setup_exit", JsonValue::Number("0".to_string())),
-                ("check_exit", JsonValue::Null),
+                ("setup_exit", StateValue::Number("0".to_string())),
+                ("check_exit", StateValue::Null),
             ])),
             "{\"setup_exit\": 0, \"check_exit\": null}"
         );
         assert_eq!(
-            dumps_default(&obj(vec![("stopped", JsonValue::Bool(true))])),
+            dumps_default(&obj(vec![("stopped", StateValue::Bool(true))])),
             "{\"stopped\": true}"
         );
         assert_eq!(dumps_default(&obj(vec![])), "{}");

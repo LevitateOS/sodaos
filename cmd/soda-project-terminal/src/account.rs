@@ -157,13 +157,13 @@ fn lookup_passwd(login: &str) -> Result<Account, String> {
 }
 
 /// `[name, uid, gid, dir, shell]` binding vector.
-pub fn account_binding(a: &Account) -> soda_json::JsonValue {
-    soda_json::JsonValue::Array(vec![
-        soda_json::JsonValue::Str(a.pw_name.clone()),
-        soda_json::JsonValue::Number(a.pw_uid.to_string()),
-        soda_json::JsonValue::Number(a.pw_gid.to_string()),
-        soda_json::JsonValue::Str(a.pw_dir.clone()),
-        soda_json::JsonValue::Str(a.pw_shell.clone()),
+pub fn account_binding(a: &Account) -> crate::state_json::StateValue {
+    crate::state_json::StateValue::Array(vec![
+        crate::state_json::StateValue::Str(a.pw_name.clone()),
+        crate::state_json::StateValue::Number(a.pw_uid.to_string()),
+        crate::state_json::StateValue::Number(a.pw_gid.to_string()),
+        crate::state_json::StateValue::Str(a.pw_dir.clone()),
+        crate::state_json::StateValue::Str(a.pw_shell.clone()),
     ])
 }
 

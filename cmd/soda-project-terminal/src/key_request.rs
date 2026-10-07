@@ -1,46 +1,110 @@
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
+use serde::de::{MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 
 use crate::key_lines::canonical_lines;
-use crate::pyemit;
 
 /// Python truthiness over JSON values (only used for the `revision` preview
 /// gate: `if data['revision'] or keys`).
-pub fn json_truthy(value: &JsonValue) -> bool {
-    match value {
-        JsonValue::Null => false,
-        JsonValue::Bool(b) => *b,
-        JsonValue::Number(raw) => {
-            if let Some(n) = value.as_integer() {
-                return n != 0;
+#[derive(Debug, Clone, PartialEq)]
+pub struct RevisionValue(String);
+
+impl RevisionValue {
+    pub(crate) fn from_raw(raw: &str) -> Self {
+        Self(raw.to_string())
+    }
+
+    pub fn as_string(&self) -> Option<String> {
+        serde_json::from_str(&self.0).ok()
+    }
+
+    pub fn is_truthy(&self) -> bool {
+        let raw = self.0.trim();
+        match raw.as_bytes().first() {
+            Some(b'n' | b'f') => false,
+            Some(b't') => true,
+            Some(b'"') => serde_json::from_str::<String>(raw)
+                .map(|value| !value.is_empty())
+                .unwrap_or(true),
+            Some(b'[' | b'{') => {
+                let open = raw.find(|ch| ch == '[' || ch == '{').unwrap_or(0);
+                let close = raw.rfind(|ch| ch == ']' || ch == '}').unwrap_or(raw.len());
+                !raw[open + 1..close].trim().is_empty()
             }
-            raw.parse::<f64>().map(|n| n != 0.0).unwrap_or(true)
+            Some(b'-' | b'0'..=b'9') => raw.parse::<f64>().map(|n| n != 0.0).unwrap_or(true),
+            _ => true,
         }
-        JsonValue::Str(s) => !s.is_empty(),
-        JsonValue::Array(items) => !items.is_empty(),
-        JsonValue::Object(entries) => !entries.is_empty(),
     }
 }
 
-/// Duplicate-key rejection at EVERY object level (the `.py`
-/// `object_pairs_hook=unique` fires for nested objects too).
-pub fn reject_duplicates(value: &JsonValue) -> Result<(), String> {
-    match value {
-        JsonValue::Object(entries) => {
-            for i in 0..entries.len() {
-                for other in entries.iter().skip(i + 1) {
-                    if other.0 == entries[i].0 {
-                        return Err("duplicate field".to_string());
+/// Deserialize one JSON value while rejecting duplicate decoded object names
+/// recursively, matching Python's `object_pairs_hook=unique` boundary.
+fn check_unique_raw(raw: &str, parent_depth: usize) -> Result<(), String> {
+    match raw.as_bytes().first() {
+        Some(b'{') => {
+            let depth = parent_depth + 1;
+            if depth > 127 {
+                return Err("invalid key operation".to_string());
+            }
+            struct ObjectVisitor;
+            impl<'de> Visitor<'de> for ObjectVisitor {
+                type Value = Vec<(String, Box<RawValue>)>;
+                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    f.write_str("a JSON object")
+                }
+                fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                    let mut entries = Vec::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        entries.push((key, map.next_value::<Box<RawValue>>()?));
                     }
+                    Ok(entries)
                 }
             }
-            for (_, item) in entries {
-                reject_duplicates(item)?;
+            let mut decoder = serde_json::Deserializer::from_str(raw);
+            let entries = decoder
+                .deserialize_map(ObjectVisitor)
+                .map_err(|_| "invalid key operation".to_string())?;
+            decoder
+                .end()
+                .map_err(|_| "invalid key operation".to_string())?;
+            let mut names = std::collections::HashSet::new();
+            for (key, value) in entries {
+                if !names.insert(key) {
+                    return Err("duplicate field".to_string());
+                }
+                check_unique_raw(value.get(), depth)?;
             }
             Ok(())
         }
-        JsonValue::Array(items) => {
-            for item in items {
-                reject_duplicates(item)?;
+        Some(b'[') => {
+            let depth = parent_depth + 1;
+            if depth > 127 {
+                return Err("invalid key operation".to_string());
+            }
+            struct ArrayVisitor;
+            impl<'de> Visitor<'de> for ArrayVisitor {
+                type Value = Vec<Box<RawValue>>;
+                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    f.write_str("a JSON array")
+                }
+                fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                    let mut values = Vec::new();
+                    while let Some(value) = seq.next_element::<Box<RawValue>>()? {
+                        values.push(value);
+                    }
+                    Ok(values)
+                }
+            }
+            let mut decoder = serde_json::Deserializer::from_str(raw);
+            let values = decoder
+                .deserialize_seq(ArrayVisitor)
+                .map_err(|_| "invalid key operation".to_string())?;
+            decoder
+                .end()
+                .map_err(|_| "invalid key operation".to_string())?;
+            for value in values {
+                check_unique_raw(value.get(), depth)?;
             }
             Ok(())
         }
@@ -55,77 +119,65 @@ pub struct KeyRequest {
     pub login: String,
     pub identity: i64,
     pub apply: bool,
-    pub revision: JsonValue,
+    pub revision: RevisionValue,
     pub keys: Vec<String>,
     pub desired: Vec<u8>,
 }
 
-/// Pure request decode: JSON parse plus `key_operation` shape validation.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct KeyRequestWire {
+    login: String,
+    identity: Box<RawValue>,
+    apply: bool,
+    revision: Box<RawValue>,
+    keys: Vec<String>,
+}
+
+/// Pure request decode: duplicate validation followed by typed Serde binding.
 pub fn decode_key_request(body: &[u8]) -> Result<KeyRequest, String> {
     let text = std::str::from_utf8(body).map_err(|_| "invalid key operation".to_string())?;
-    let data = JsonValue::parse(text).map_err(|_| "invalid key operation".to_string())?;
-    reject_duplicates(&data)?;
-    let entries = match &data {
-        JsonValue::Object(entries) => entries,
-        _ => return Err("invalid key operation".to_string()),
-    };
-    let fields = pyemit::shape(entries, &["login", "identity", "apply", "revision", "keys"])
-        .ok_or_else(|| "invalid key operation".to_string())?;
-    let get = |key: &str| {
-        fields
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| *v)
-            .ok_or_else(|| "invalid key operation".to_string())
-    };
-    // Strict `type(x) is bool` / `type(x) is int`: no float/str coercion.
-    let apply = get("apply")?
-        .as_bool()
-        .ok_or_else(|| "invalid key operation".to_string())?;
-    let identity =
-        pyemit::as_int(get("identity")?).ok_or_else(|| "invalid key operation".to_string())?;
-    let login = get("login")?
-        .as_str()
-        .ok_or_else(|| "invalid key operation".to_string())?;
-    let items = match get("keys")? {
-        JsonValue::Array(items) => items,
-        _ => return Err("invalid keys".to_string()),
-    };
-    let mut keys = Vec::with_capacity(items.len());
-    for item in items {
-        keys.push(
-            item.as_str()
-                .ok_or_else(|| "invalid keys".to_string())?
-                .to_string(),
-        );
-    }
-    let mut desired = keys.join("\n").into_bytes();
-    if !keys.is_empty() {
+    let mut checker = serde_json::Deserializer::from_str(text);
+    let raw = Box::<RawValue>::deserialize(&mut checker)
+        .map_err(|_| "invalid key operation".to_string())?;
+    checker
+        .end()
+        .map_err(|_| "invalid key operation".to_string())?;
+    check_unique_raw(raw.get(), 0)?;
+    let wire: KeyRequestWire =
+        serde_json::from_str(text).map_err(|_| "invalid key operation".to_string())?;
+    let identity: i64 = wire
+        .identity
+        .get()
+        .parse()
+        .map_err(|_| "invalid key operation".to_string())?;
+    let mut desired = wire.keys.join("\n").into_bytes();
+    if !wire.keys.is_empty() {
         desired.push(b'\n');
     }
-    if !desired.is_ascii() {
-        return Err("invalid keys".to_string());
-    }
-    if canonical_lines(&desired)? != keys {
+    if !desired.is_ascii() || canonical_lines(&desired)? != wire.keys {
         return Err("invalid keys".to_string());
     }
     Ok(KeyRequest {
-        login: login.to_string(),
+        login: wire.login,
         identity,
-        apply,
-        revision: get("revision")?.clone(),
-        keys,
+        apply: wire.apply,
+        revision: RevisionValue::from_raw(wire.revision.get()),
+        keys: wire.keys,
         desired,
     })
 }
 
 /// `{"revision","keys"}` result object in `.py` key order.
-pub fn state_object(revision: &str, keys: &[String]) -> JsonValue {
-    JsonValue::Object(vec![
-        ("revision".to_string(), JsonValue::Str(revision.to_string())),
+pub fn state_object(revision: &str, keys: &[String]) -> StateValue {
+    StateValue::Object(vec![
+        (
+            "revision".to_string(),
+            StateValue::Str(revision.to_string()),
+        ),
         (
             "keys".to_string(),
-            JsonValue::Array(keys.iter().map(|k| JsonValue::Str(k.clone())).collect()),
+            StateValue::Array(keys.iter().map(|k| StateValue::Str(k.clone())).collect()),
         ),
     ])
 }

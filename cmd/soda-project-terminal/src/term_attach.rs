@@ -89,7 +89,7 @@ fn attach_inner(
     binding_record(&directory, Some(account), identity)?;
     let screen = checked_chain(&format!("{path}/screen"))?;
     drop(screen);
-    let ready = parse_ready(&fs::read_record(&directory, "ready")?)?;
+    let ready = parse_ready(&fs::read_record_text_at(&directory, "ready")?)?;
     let sock = format!("{path}/screen/socket");
     if svc::service_state(identifier, Some(account))? != "active" {
         return Err("terminal absent".to_string());

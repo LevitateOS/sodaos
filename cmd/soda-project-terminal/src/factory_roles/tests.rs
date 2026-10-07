@@ -90,79 +90,98 @@ pub fn approve_value(
     files: &[(String, Vec<u8>)],
     bundle: &[u8],
     credential: &str,
-) -> soda_json::JsonValue {
+) -> crate::state_json::StateValue {
     let digest = crate::sha::approved_digest(files);
-    let files_obj: Vec<(String, soda_json::JsonValue)> = files
+    let files_obj: Vec<(String, crate::state_json::StateValue)> = files
         .iter()
         .map(|(name, contents)| {
             (
                 name.clone(),
-                soda_json::JsonValue::Str(b64_encode(contents)),
+                crate::state_json::StateValue::Str(b64_encode(contents)),
             )
         })
         .collect();
     crate::emit::obj(vec![
-        ("op", soda_json::JsonValue::Str("approve".to_string())),
-        ("id", soda_json::JsonValue::Str(pid.to_string())),
-        ("role", soda_json::JsonValue::Str(role.to_string())),
-        ("setup_digest", soda_json::JsonValue::Str(digest)),
+        (
+            "op",
+            crate::state_json::StateValue::Str("approve".to_string()),
+        ),
+        ("id", crate::state_json::StateValue::Str(pid.to_string())),
+        ("role", crate::state_json::StateValue::Str(role.to_string())),
+        ("setup_digest", crate::state_json::StateValue::Str(digest)),
         (
             "source_commit",
-            soda_json::JsonValue::Str(COMMIT.to_string()),
+            crate::state_json::StateValue::Str(COMMIT.to_string()),
         ),
-        ("files", soda_json::JsonValue::Object(files_obj)),
-        ("bundle", soda_json::JsonValue::Str(b64_encode(bundle))),
+        ("files", crate::state_json::StateValue::Object(files_obj)),
+        (
+            "bundle",
+            crate::state_json::StateValue::Str(b64_encode(bundle)),
+        ),
         (
             "credential",
-            soda_json::JsonValue::Str(credential.to_string()),
+            crate::state_json::StateValue::Str(credential.to_string()),
         ),
     ])
 }
 
-pub fn approve_default(pid: &str) -> soda_json::JsonValue {
+pub fn approve_default(pid: &str) -> crate::state_json::StateValue {
     approve_value(pid, "soda-coder", &fixture_files(), b"bundle", "")
 }
 
-pub fn record_value(pid: &str, missing: &str, refusal: Option<&str>) -> soda_json::JsonValue {
+pub fn record_value(
+    pid: &str,
+    missing: &str,
+    refusal: Option<&str>,
+) -> crate::state_json::StateValue {
     let mut verified = vec![
         (
             "uid".to_string(),
-            soda_json::JsonValue::Str("1000".to_string()),
+            crate::state_json::StateValue::Str("1000".to_string()),
         ),
         (
             "login".to_string(),
-            soda_json::JsonValue::Str("soda-coder".to_string()),
+            crate::state_json::StateValue::Str("soda-coder".to_string()),
         ),
         (
             "groups".to_string(),
-            soda_json::JsonValue::Str("soda-coder".to_string()),
+            crate::state_json::StateValue::Str("soda-coder".to_string()),
         ),
     ];
     if let Some(text) = refusal {
         verified.push((
             "refusal".to_string(),
-            soda_json::JsonValue::Str(text.to_string()),
+            crate::state_json::StateValue::Str(text.to_string()),
         ));
     }
     crate::emit::obj(vec![
-        ("op", soda_json::JsonValue::Str("record".to_string())),
-        ("id", soda_json::JsonValue::Str(pid.to_string())),
-        ("tools", soda_json::JsonValue::Array(Vec::new())),
-        ("missing", soda_json::JsonValue::Str(missing.to_string())),
-        ("verified", soda_json::JsonValue::Object(verified)),
+        (
+            "op",
+            crate::state_json::StateValue::Str("record".to_string()),
+        ),
+        ("id", crate::state_json::StateValue::Str(pid.to_string())),
+        ("tools", crate::state_json::StateValue::Array(Vec::new())),
+        (
+            "missing",
+            crate::state_json::StateValue::Str(missing.to_string()),
+        ),
+        ("verified", crate::state_json::StateValue::Object(verified)),
     ])
 }
 
-pub fn op_value(op: &str, pid: Option<&str>) -> soda_json::JsonValue {
-    let mut pairs = vec![("op", soda_json::JsonValue::Str(op.to_string()))];
+pub fn op_value(op: &str, pid: Option<&str>) -> crate::state_json::StateValue {
+    let mut pairs = vec![("op", crate::state_json::StateValue::Str(op.to_string()))];
     if let Some(pid) = pid {
-        pairs.push(("id", soda_json::JsonValue::Str(pid.to_string())));
+        pairs.push(("id", crate::state_json::StateValue::Str(pid.to_string())));
     }
     crate::emit::obj(pairs)
 }
 
 /// Assert a `Fail` carrying the exact `.py` message.
-pub fn assert_fail(result: Result<soda_json::JsonValue, crate::error::Error>, message: &str) {
+pub fn assert_fail(
+    result: Result<crate::state_json::StateValue, crate::error::Error>,
+    message: &str,
+) {
     match result {
         Err(crate::error::Error::Fail(text)) => assert_eq!(text, message),
         other => panic!("expected Fail({message:?}), got {other:?}"),

@@ -39,8 +39,8 @@ pub(crate) mod sha;
 pub(crate) mod testutil;
 pub(crate) mod validate;
 
+use crate::state_json::StateValue;
 use error::{fail, Error};
-use soda_json::JsonValue;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -136,7 +136,7 @@ fn read_stdin_capped() -> Result<Vec<u8>, Error> {
     Ok(body)
 }
 
-fn dispatch_op(ctx: &Ctx, op: &str, data: &JsonValue) -> Result<JsonValue, Error> {
+fn dispatch_op(ctx: &Ctx, op: &str, data: &StateValue) -> Result<StateValue, Error> {
     match op {
         "ensure" => ops_approve::do_ensure(ctx, data),
         "approve" => ops_approve::do_approve(ctx, data),
@@ -159,7 +159,7 @@ fn main_inner(ctx: &Ctx) -> Result<(), Error> {
         return fail("oversized request");
     }
     let text = std::str::from_utf8(&body).map_err(|_| Error::fail("undecodable request"))?;
-    let data = JsonValue::parse(text).map_err(|_| Error::fail("unsupported factory operation"))?;
+    let data = StateValue::parse(text).map_err(|_| Error::fail("unsupported factory operation"))?;
     if validate::as_object(&data).is_none() {
         return fail("unsupported factory operation");
     }

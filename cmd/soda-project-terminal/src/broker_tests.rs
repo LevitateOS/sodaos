@@ -8,8 +8,8 @@ use crate::subscription_wire::{
     profile_object,
 };
 
-fn parse(text: &str) -> JsonValue {
-    JsonValue::parse(text).unwrap()
+fn parse(text: &str) -> StateValue {
+    StateValue::parse(text).unwrap()
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn request_decode_matrix() {
     body[0] = b'5';
     assert_eq!(
         decode_request(&body).unwrap(),
-        JsonValue::Number("5".to_string())
+        StateValue::Number("5".to_string())
     );
 }
 

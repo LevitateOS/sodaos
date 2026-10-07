@@ -1,6 +1,6 @@
 use super::*;
 use crate::key_lines::{canonical_key_ok, canonical_lines, KEY_FILE_LIMIT};
-use crate::key_request::{decode_key_request, json_truthy, state_object};
+use crate::key_request::{decode_key_request, state_object, RevisionValue};
 
 const KEY_A: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqu7mMCw5R";
 const KEY_B: &str = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY=";
@@ -76,22 +76,33 @@ fn canonical_lines_matrix() {
 
 #[test]
 fn truthiness_matrix() {
-    let parse = |t: &str| JsonValue::parse(t).unwrap();
-    assert!(!json_truthy(&parse("null")));
-    assert!(!json_truthy(&parse("false")));
-    assert!(json_truthy(&parse("true")));
-    assert!(!json_truthy(&parse("0")));
-    assert!(!json_truthy(&parse("0.0")));
-    assert!(json_truthy(&parse("1")));
-    assert!(json_truthy(&parse("-2.5")));
-    assert!(json_truthy(&parse("1e3")));
-    assert!(json_truthy(&parse("99999999999999999999999")));
-    assert!(!json_truthy(&parse("\"\"")));
-    assert!(json_truthy(&parse("\"0\"")));
-    assert!(!json_truthy(&parse("[]")));
-    assert!(!json_truthy(&parse("{}")));
-    assert!(json_truthy(&parse("[0]")));
-    assert!(json_truthy(&parse("{\"a\":0}")));
+    let truthy = |raw: &str| RevisionValue::from_raw(raw).is_truthy();
+    assert!(!truthy("null"));
+    assert!(!truthy("false"));
+    assert!(truthy("true"));
+    assert!(!truthy("0"));
+    assert!(!truthy("0.0"));
+    assert!(truthy("1"));
+    assert!(truthy("-2.5"));
+    assert!(truthy("1e3"));
+    assert!(truthy("99999999999999999999999"));
+    assert!(!truthy("\"\""));
+    assert!(truthy("\"0\""));
+    assert!(!truthy("[]"));
+    assert!(!truthy("{}"));
+    assert!(truthy("[0]"));
+    assert!(truthy("{\"a\":0}"));
+    assert!(truthy("1e400"));
+    let request = decode_key_request(
+        br#"{"login":"op","identity":7,"apply":false,"revision":1e400,"keys":[]}"#,
+    )
+    .unwrap();
+    assert!(request.revision.is_truthy());
+    let nested_large = decode_key_request(
+        br#"{"login":"op","identity":7,"apply":false,"revision":{"x":1e400},"keys":[]}"#,
+    )
+    .unwrap();
+    assert!(nested_large.revision.is_truthy());
 }
 
 fn request(login: &str, identity: &str, apply: &str, revision: &str, keys: &str) -> Vec<u8> {
@@ -105,6 +116,8 @@ fn decode_matrix() {
     let req = decode_key_request(&body).unwrap();
     assert_eq!(req.login, "op");
     assert_eq!(req.identity, 7);
+    let negative_zero = request("\"op\"", "-0", "false", "null", "[]");
+    assert_eq!(decode_key_request(&negative_zero).unwrap().identity, 0);
     assert!(req.apply);
     assert_eq!(req.desired, format!("{KEY_A}\n").into_bytes());
     // Empty set preview shape.
@@ -130,6 +143,22 @@ fn decode_matrix() {
     assert!(decode_key_request(b"{\"login\":\"op\",\"login\":\"x\",\"identity\":7,\"apply\":true,\"revision\":\"\",\"keys\":[]}").is_err());
     // Nested duplicates rejected too.
     assert!(decode_key_request(b"{\"login\":{\"a\":1,\"a\":2},\"identity\":7,\"apply\":true,\"revision\":\"\",\"keys\":[]}").is_err());
+    let nested = |depth: usize| format!("{}0{}", "[".repeat(depth), "]".repeat(depth));
+    let within_limit = format!(
+        r#"{{"login":"op","identity":7,"apply":false,"revision":{},"keys":[]}}"#,
+        nested(126)
+    );
+    assert!(decode_key_request(within_limit.as_bytes()).is_ok());
+    let over_limit = format!(
+        r#"{{"login":"op","identity":7,"apply":false,"revision":{},"keys":[]}}"#,
+        nested(127)
+    );
+    assert!(decode_key_request(over_limit.as_bytes()).is_err());
+    let deeper = format!(
+        r#"{{"login":"op","identity":7,"apply":false,"revision":{},"keys":[]}}"#,
+        nested(128)
+    );
+    assert!(decode_key_request(deeper.as_bytes()).is_err());
     // Extra field rejected (exact set).
     assert!(decode_key_request(
         b"{\"login\":\"op\",\"identity\":7,\"apply\":true,\"revision\":\"\",\"keys\":[],\"z\":1}"

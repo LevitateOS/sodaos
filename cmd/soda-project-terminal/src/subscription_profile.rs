@@ -1,4 +1,4 @@
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account::{self, Account};
 use crate::fs;
@@ -27,28 +27,28 @@ fn path_missing(path: &str) -> Result<bool, String> {
     }
 }
 
-pub(crate) fn lease_execution_id(lease: &JsonValue) -> Result<&str, String> {
+pub(crate) fn lease_execution_id(lease: &StateValue) -> Result<&str, String> {
     lease
         .get("execution_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "subscription lease".to_string())
 }
 
-pub(crate) fn lease_actor_id(lease: &JsonValue) -> Result<i64, String> {
+pub(crate) fn lease_actor_id(lease: &StateValue) -> Result<i64, String> {
     lease
         .get("actor_id")
         .and_then(json_int)
         .ok_or_else(|| "subscription lease".to_string())
 }
 
-fn profile_deadline(profile: &JsonValue) -> Result<i64, String> {
+fn profile_deadline(profile: &StateValue) -> Result<i64, String> {
     profile
         .get("deadline")
         .and_then(pyemit::as_int)
         .ok_or_else(|| "subscription deadline".to_string())
 }
 
-pub(crate) fn live_deadline(profile: &JsonValue) -> Result<(), String> {
+pub(crate) fn live_deadline(profile: &StateValue) -> Result<(), String> {
     if profile_deadline(profile)? <= sys::now_secs() {
         return Err("session expired".to_string());
     }
@@ -59,13 +59,13 @@ pub(crate) fn live_deadline(profile: &JsonValue) -> Result<(), String> {
 /// `FileNotFoundError` path (absent locator, subscription, or binding).
 pub enum ProfileHit {
     Found {
-        profile: JsonValue,
+        profile: StateValue,
         account: Account,
     },
     Missing,
 }
 
-pub fn subscription_profile(lease: &JsonValue) -> Result<ProfileHit, String> {
+pub fn subscription_profile(lease: &StateValue) -> Result<ProfileHit, String> {
     let identifier = lease_execution_id(lease)?.to_string();
     let path = term::terminal_path(&identifier)?;
     if path_missing(&path)? {
@@ -114,7 +114,7 @@ fn subscription_invocation(identifier: &str) -> Result<String, String> {
 /// `subscription_check_unit`: incarnation pin plus liveness classification.
 /// Returns `false` for a confirmed-absent unit when `running` is false.
 pub fn subscription_check_unit(
-    lease: &JsonValue,
+    lease: &StateValue,
     account: &Account,
     running: bool,
 ) -> Result<bool, String> {
@@ -159,7 +159,7 @@ pub fn subscription_check_unit(
 
 /// `subscription_lookup`: binding-checked observation, or the empty lease
 /// for an absent locator or a locator without a subscription.
-pub fn subscription_lookup(request: &JsonValue) -> Result<JsonValue, String> {
+pub fn subscription_lookup(request: &StateValue) -> Result<StateValue, String> {
     let lease = request
         .get("delivery")
         .and_then(|d| d.get("lease"))
@@ -210,8 +210,8 @@ pub fn subscription_lookup(request: &JsonValue) -> Result<JsonValue, String> {
 /// terminated `stop` (inactive/failed unit plus an empty cgroup).
 pub fn subscription_resolve(
     action: &str,
-    lease: &JsonValue,
-) -> Result<Option<(JsonValue, Account)>, String> {
+    lease: &StateValue,
+) -> Result<Option<(StateValue, Account)>, String> {
     match subscription_profile(lease)? {
         ProfileHit::Found { profile, account } => Ok(Some((profile, account))),
         ProfileHit::Missing => {

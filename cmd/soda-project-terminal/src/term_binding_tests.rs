@@ -30,8 +30,8 @@ pub(crate) fn good_account() -> String {
     r#"["op",1001,1002,"/home/op","/bin/bash"]"#.to_string()
 }
 
-pub(crate) fn parse(text: &str) -> JsonValue {
-    JsonValue::parse(text).unwrap()
+pub(crate) fn parse(text: &str) -> String {
+    text.to_string()
 }
 
 #[test]
@@ -57,6 +57,11 @@ fn binding_matrix() {
         (record.identity, record.cols, record.rows, record.created_at),
         (7, 80, 24, 1700000000)
     );
+    let negative_zero_gid = validate_binding(&parse(
+        r#"{"account":["op",1001,-0,"/home/op","/bin/bash"],"identity":7,"cols":80,"rows":24,"created_at":1700000000}"#,
+    ))
+    .unwrap();
+    assert_eq!(negative_zero_gid.gid, 0);
     // Shape violations.
     assert!(validate_binding(&parse("[1,2]")).is_err());
     assert!(
@@ -70,6 +75,12 @@ fn binding_matrix() {
     let dup = binding_doc(&good_account(), "7", "80", "24", "1");
     let dup = dup.replace("\"created_at\":1", "\"created_at\":1,\"created_at\":9");
     assert_eq!(validate_binding(&parse(&dup)).unwrap().created_at, 9);
+    let overwritten_bad = binding_doc(&good_account(), "7", "80", "24", "1700000000")
+        .replace("\"cols\":80", "\"cols\":1e400,\"cols\":80");
+    assert!(validate_binding(&parse(&overwritten_bad)).is_ok());
+    let final_bad = binding_doc(&good_account(), "7", "80", "24", "1700000000")
+        .replace("\"cols\":80", "\"cols\":80,\"cols\":1e400");
+    assert!(validate_binding(&parse(&final_bad)).is_err());
     // Account vector violations.
     for bad in [
         r#"["Root",1001,1002,"/home/op","/bin/bash"]"#, // login case
@@ -99,6 +110,8 @@ fn binding_matrix() {
         ("7", "80", "301", "1700000000"),      // rows big
         ("7", "\"80\"", "24", "1700000000"),   // cols string
         ("7", "80", "24", "0"),                // created 0
+        ("7", "80", "24", "-0"),               // created negative zero
+        ("7e0", "80", "24", "1700000000"),     // identity exponent
         ("7", "80", "24", "-1"),               // created negative
         ("7", "80", "24", "9007199254740992"), // created > 2^53-1
         ("7", "80", "24", "true"),             // created bool
@@ -155,8 +168,10 @@ fn reservation_matrix() {
     for bad in [
         r#"{"expires":9999999999}"#.to_string(),
         r#"{"expires":0,"scope":""}"#.to_string(),
+        format!("{{\"expires\":-0,\"scope\":\"{}\"}}", "c".repeat(64)),
         format!("{{\"expires\":-1,\"scope\":\"{}\"}}", "c".repeat(64)),
         format!("{{\"expires\":99.5,\"scope\":\"{}\"}}", "c".repeat(64)),
+        format!("{{\"expires\":9e1,\"scope\":\"{}\"}}", "c".repeat(64)),
         r#"{"expires":99,"scope":"short"}"#.to_string(),
         format!("{{\"expires\":99,\"scope\":\"{}\"}}", "C".repeat(64)),
         format!(

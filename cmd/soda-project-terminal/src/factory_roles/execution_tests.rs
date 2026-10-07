@@ -1,7 +1,7 @@
 use super::*;
 use crate::records::{do_inspect, read_log};
+use crate::state_json::StateValue;
 use crate::testutil::{approve_default, assert_fail, op_value, record_value, Scratch, PID, PID2};
-use soda_json::JsonValue;
 use std::path::Path;
 
 #[test]
@@ -111,12 +111,12 @@ fn signal_group_confirms_dead_groups() {
     );
 }
 
-fn hold_request(revision: &str) -> JsonValue {
-    JsonValue::parse(&format!("{{\"op\": \"hold\", \"revision\": {revision}}}")).unwrap()
+fn hold_request(revision: &str) -> StateValue {
+    StateValue::parse(&format!("{{\"op\": \"hold\", \"revision\": {revision}}}")).unwrap()
 }
 
-fn release_request(revision: &str) -> JsonValue {
-    JsonValue::parse(&format!(
+fn release_request(revision: &str) -> StateValue {
+    StateValue::parse(&format!(
         "{{\"op\": \"release\", \"revision\": {revision}}}"
     ))
     .unwrap()

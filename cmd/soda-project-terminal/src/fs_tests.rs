@@ -93,29 +93,29 @@ fn record_size_and_json_limits() {
     let exact = format!("\"{}\"", "a".repeat(4094));
     assert_eq!(exact.len(), 4096);
     std::fs::write(dir.join("exact"), &exact).unwrap();
-    let value = read_record_inner(std::fs::File::open(dir.join("exact")).unwrap()).unwrap();
-    assert_eq!(value, soda_json::JsonValue::Str("a".repeat(4094)));
+    let value = read_record_value(std::fs::File::open(dir.join("exact")).unwrap()).unwrap();
+    assert_eq!(value, crate::state_json::StateValue::Str("a".repeat(4094)));
     // 4097 bytes trips the limit even when the JSON is valid.
     let over = format!("\"{}\"", "b".repeat(4095));
     std::fs::write(dir.join("over"), &over).unwrap();
     assert_eq!(
-        read_record_inner(std::fs::File::open(dir.join("over")).unwrap()).unwrap_err(),
+        read_record_value(std::fs::File::open(dir.join("over")).unwrap()).unwrap_err(),
         "terminal record size"
     );
     // Malformed, empty, and non-UTF8 bodies share the fixed JSON string.
     std::fs::write(dir.join("bad"), b"{oops").unwrap();
     assert_eq!(
-        read_record_inner(std::fs::File::open(dir.join("bad")).unwrap()).unwrap_err(),
+        read_record_value(std::fs::File::open(dir.join("bad")).unwrap()).unwrap_err(),
         "terminal record json"
     );
     std::fs::write(dir.join("empty"), b"").unwrap();
     assert_eq!(
-        read_record_inner(std::fs::File::open(dir.join("empty")).unwrap()).unwrap_err(),
+        read_record_value(std::fs::File::open(dir.join("empty")).unwrap()).unwrap_err(),
         "terminal record json"
     );
     std::fs::write(dir.join("bin"), [0xff, 0xfe, 0x00]).unwrap();
     assert_eq!(
-        read_record_inner(std::fs::File::open(dir.join("bin")).unwrap()).unwrap_err(),
+        read_record_value(std::fs::File::open(dir.join("bin")).unwrap()).unwrap_err(),
         "terminal record json"
     );
     let _ = std::fs::remove_dir_all(&dir);

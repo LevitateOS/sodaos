@@ -1,171 +1,25 @@
-//! Python `json.dumps(value, separators=(',', ':'), ensure_ascii=True)`
-//! over [`soda_json::JsonValue`], plus strict object-shape validation with
-//! duplicate-key rejection (the `.py` decoders' `object_pairs_hook=unique`).
+//! Python JSON output profiles and strict object-shape helpers.
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 /// Emit one compact ASCII JSON document, byte-identical to CPython.
-pub fn dumps(value: &JsonValue) -> String {
-    let mut out = String::new();
-    emit(&mut out, value);
-    out
+#[cfg(test)]
+pub fn dumps(value: &StateValue) -> String {
+    dumps_serde(value)
 }
 
-/// `line()`: compact document plus `\n`.
-pub fn line(value: &JsonValue) -> Vec<u8> {
-    let mut doc = dumps(value);
-    doc.push('\n');
-    doc.into_bytes()
+/// Compact document plus `\n`.
+pub fn line(value: &StateValue) -> Vec<u8> {
+    line_serde(value)
 }
 
-/// Plain `json.dumps(value)` (default `(', ', ': ')` separators,
-/// `ensure_ascii=True`): the identity broker writes its result exactly so,
-/// with no trailing newline.
-pub fn dumps_default(value: &JsonValue) -> String {
-    let mut out = String::new();
-    emit_default(&mut out, value);
-    out
+/// Plain Python `json.dumps` separators and `ensure_ascii=True`.
+pub fn dumps_default(value: &StateValue) -> String {
+    dumps_default_serde(value)
 }
 
-fn emit_default(out: &mut String, value: &JsonValue) {
-    match value {
-        JsonValue::Null => out.push_str("null"),
-        JsonValue::Bool(true) => out.push_str("true"),
-        JsonValue::Bool(false) => out.push_str("false"),
-        JsonValue::Number(raw) => out.push_str(raw),
-        JsonValue::Str(text) => escape_py(out, text),
-        JsonValue::Array(items) => {
-            out.push('[');
-            for (i, item) in items.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(", ");
-                }
-                emit_default(out, item);
-            }
-            out.push(']');
-        }
-        JsonValue::Object(entries) => {
-            out.push('{');
-            for (i, (key, item)) in entries.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(", ");
-                }
-                escape_py(out, key);
-                out.push_str(": ");
-                emit_default(out, item);
-            }
-            out.push('}');
-        }
-    }
-}
-
-fn emit(out: &mut String, value: &JsonValue) {
-    match value {
-        JsonValue::Null => out.push_str("null"),
-        JsonValue::Bool(true) => out.push_str("true"),
-        JsonValue::Bool(false) => out.push_str("false"),
-        JsonValue::Number(raw) => out.push_str(raw),
-        JsonValue::Str(text) => escape_py(out, text),
-        JsonValue::Array(items) => {
-            out.push('[');
-            for (i, item) in items.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                emit(out, item);
-            }
-            out.push(']');
-        }
-        JsonValue::Object(entries) => {
-            out.push('{');
-            for (i, (key, item)) in entries.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                escape_py(out, key);
-                out.push(':');
-                emit(out, item);
-            }
-            out.push('}');
-        }
-    }
-}
-
-/// CPython `ensure_ascii` string quoting: short escapes, `\uXXXX`
-/// (lowercase hex) for other controls/DEL/non-ASCII with surrogate pairs
-/// for astral characters. `/`, `<`, `>`, `&` stay raw.
-pub fn escape_py(out: &mut String, text: &str) {
-    out.push('"');
-    for ch in text.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '\x08' => out.push_str("\\b"),
-            '\x0c' => out.push_str("\\f"),
-            c if (c as u32) < 0x20 || c as u32 == 0x7f => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
-            }
-            c if (c as u32) < 0x80 => out.push(c),
-            c if (c as u32) < 0x10000 => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
-            }
-            c => {
-                let v = c as u32 - 0x10000;
-                out.push_str(&format!(
-                    "\\u{:04x}\\u{:04x}",
-                    0xd800 + (v >> 10),
-                    0xdc00 + (v & 0x3ff)
-                ));
-            }
-        }
-    }
-    out.push('"');
-}
-
-/// Strict object entries: duplicate keys rejected like the `.py` hook.
-pub fn unique_entries(value: &JsonValue) -> Option<&Vec<(String, JsonValue)>> {
-    match value {
-        JsonValue::Object(entries) => {
-            for i in 0..entries.len() {
-                for other in entries.iter().skip(i + 1) {
-                    if other.0 == entries[i].0 {
-                        return None;
-                    }
-                }
-            }
-            Some(entries)
-        }
-        _ => None,
-    }
-}
-
-/// Exact key set plus lookup over unique entries.
-pub fn shape<'a>(
-    entries: &'a [(String, JsonValue)],
-    keys: &[&str],
-) -> Option<Vec<(String, &'a JsonValue)>> {
-    if entries.len() != keys.len() {
-        return None;
-    }
-    let mut out = Vec::with_capacity(keys.len());
-    for key in keys {
-        let found = entries.iter().find(|(k, _)| k == key)?;
-        out.push((found.0.clone(), &found.1));
-    }
-    // Exact set: every entry key must be wanted (lengths match, so a miss
-    // means an unwanted key).
-    if entries.iter().any(|(k, _)| !keys.contains(&k.as_str())) {
-        return None;
-    }
-    Some(out)
-}
-
-/// Strict JSON integer as i64 (no fraction/exponent, like `type(x) is int`
-/// after `json.loads` for in-range values).
-pub fn as_int(value: &JsonValue) -> Option<i64> {
+/// Strict JSON integer as i64 (no fraction/exponent).
+pub fn as_int(value: &StateValue) -> Option<i64> {
     value.as_integer().and_then(|n| i64::try_from(n).ok())
 }
 
@@ -173,26 +27,26 @@ pub fn as_int(value: &JsonValue) -> Option<i64> {
 mod tests {
     use super::*;
 
-    fn obj(pairs: Vec<(&str, JsonValue)>) -> JsonValue {
-        JsonValue::Object(pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect())
+    fn obj(pairs: Vec<(&str, StateValue)>) -> StateValue {
+        StateValue::Object(pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect())
     }
 
     #[test]
     fn emit_matches_cpython() {
         // Baked against CPython json.dumps(separators=(',',':'), ensure_ascii=True).
         let value = obj(vec![
-            ("type", JsonValue::Str("output".to_string())),
+            ("type", StateValue::Str("output".to_string())),
             (
                 "data",
-                JsonValue::Str("a+b/c<d>&\"q\"\\é\0\x1f\x7f😀".to_string()),
+                StateValue::Str("a+b/c<d>&\"q\"\\é\0\x1f\x7f😀".to_string()),
             ),
-            ("n", JsonValue::Number("-12".to_string())),
-            ("t", JsonValue::Bool(true)),
-            ("f", JsonValue::Bool(false)),
-            ("z", JsonValue::Null),
+            ("n", StateValue::Number("-12".to_string())),
+            ("t", StateValue::Bool(true)),
+            ("f", StateValue::Bool(false)),
+            ("z", StateValue::Null),
             (
                 "a",
-                JsonValue::Array(vec![JsonValue::Number("1".to_string())]),
+                StateValue::Array(vec![StateValue::Number("1".to_string())]),
             ),
         ]);
         assert_eq!(
@@ -208,17 +62,17 @@ mod tests {
             (
                 "lease",
                 obj(vec![
-                    ("a", JsonValue::Number("1".to_string())),
+                    ("a", StateValue::Number("1".to_string())),
                     (
                         "b",
-                        JsonValue::Array(vec![
-                            JsonValue::Number("1".to_string()),
-                            JsonValue::Number("2".to_string()),
+                        StateValue::Array(vec![
+                            StateValue::Number("1".to_string()),
+                            StateValue::Number("2".to_string()),
                         ]),
                     ),
                 ]),
             ),
-            ("credential", JsonValue::Str(String::new())),
+            ("credential", StateValue::Str(String::new())),
         ]);
         assert_eq!(
             dumps_default(&value),
@@ -226,7 +80,7 @@ mod tests {
         );
         assert_eq!(dumps_default(&obj(vec![])), "{}");
         assert_eq!(
-            dumps_default(&JsonValue::Str("é".to_string())),
+            dumps_default(&StateValue::Str("é".to_string())),
             "\"\\u00e9\""
         );
     }
@@ -234,43 +88,154 @@ mod tests {
     #[test]
     fn emit_short_escapes() {
         assert_eq!(
-            dumps(&JsonValue::Str("\x08\x0c\n\r\t".to_string())),
+            dumps(&StateValue::Str("\x08\x0c\n\r\t".to_string())),
             "\"\\b\\f\\n\\r\\t\""
         );
-        assert_eq!(dumps(&JsonValue::Str("/".to_string())), "\"/\"");
+        assert_eq!(dumps(&StateValue::Str("/".to_string())), "\"/\"");
     }
 
     #[test]
-    fn duplicates_rejected() {
-        let dup = JsonValue::parse("{\"a\":1,\"a\":2}").unwrap();
-        assert!(unique_entries(&dup).is_none());
-        let ok = JsonValue::parse("{\"a\":1,\"b\":2}").unwrap();
-        assert!(unique_entries(&ok).is_some());
-        assert!(unique_entries(&JsonValue::Number("1".to_string())).is_none());
-    }
-
-    #[test]
-    fn exact_shape() {
-        let value = JsonValue::parse("{\"type\":\"close\"}").unwrap();
-        let entries = unique_entries(&value).unwrap();
-        assert!(shape(entries, &["type"]).is_some());
-        assert!(shape(entries, &["type", "data"]).is_none());
-        assert!(shape(entries, &["other"]).is_none());
-        let value = JsonValue::parse("{\"type\":\"x\",\"z\":1}").unwrap();
-        let entries = unique_entries(&value).unwrap();
-        assert!(shape(entries, &["type", "data"]).is_none());
+    fn ordinary_dictionary_duplicates_keep_last_value_and_first_position() {
+        let value = StateValue::parse(r#"{"a":1,"b":2,"a":3}"#).unwrap();
+        assert_eq!(dumps(&value), r#"{"a":3,"b":2}"#);
     }
 
     #[test]
     fn int_shapes() {
-        assert_eq!(as_int(&JsonValue::Number("42".to_string())), Some(42));
-        assert_eq!(as_int(&JsonValue::Number("-1".to_string())), Some(-1));
-        assert_eq!(as_int(&JsonValue::Number("4.0".to_string())), None);
-        assert_eq!(as_int(&JsonValue::Number("1e3".to_string())), None);
-        assert_eq!(as_int(&JsonValue::Bool(true)), None);
+        assert_eq!(as_int(&StateValue::Number("42".to_string())), Some(42));
+        assert_eq!(as_int(&StateValue::Number("-1".to_string())), Some(-1));
+        assert_eq!(as_int(&StateValue::Number("4.0".to_string())), None);
+        assert_eq!(as_int(&StateValue::Number("1e3".to_string())), None);
+        assert_eq!(as_int(&StateValue::Bool(true)), None);
         assert_eq!(
-            as_int(&JsonValue::Number("9223372036854775808".to_string())),
+            as_int(&StateValue::Number("9223372036854775808".to_string())),
             None
+        );
+    }
+}
+
+/// Serialize a Serde-owned value using Python `ensure_ascii=True` and compact
+/// separators. Ordered application values supply their own ordered map view.
+pub fn dumps_serde<T: serde::Serialize + ?Sized>(value: &T) -> String {
+    dumps_with_profile(value, false)
+}
+
+/// Serialize a Serde-owned value using Python `json.dumps` default separators.
+pub fn dumps_default_serde<T: serde::Serialize + ?Sized>(value: &T) -> String {
+    dumps_with_profile(value, true)
+}
+
+pub fn line_serde<T: serde::Serialize + ?Sized>(value: &T) -> Vec<u8> {
+    let mut text = dumps_serde(value);
+    text.push('\n');
+    text.into_bytes()
+}
+
+fn dumps_with_profile<T: serde::Serialize + ?Sized>(value: &T, spaced: bool) -> String {
+    let mut bytes = Vec::new();
+    let mut serializer =
+        serde_json::Serializer::with_formatter(&mut bytes, PythonFormatter { spaced });
+    value
+        .serialize(&mut serializer)
+        .expect("serialize JSON output");
+    String::from_utf8(bytes).expect("JSON output is UTF-8")
+}
+
+struct PythonFormatter {
+    spaced: bool,
+}
+
+impl serde_json::ser::Formatter for PythonFormatter {
+    fn write_string_fragment<W: ?Sized + std::io::Write>(
+        &mut self,
+        writer: &mut W,
+        fragment: &str,
+    ) -> std::io::Result<()> {
+        for character in fragment.chars() {
+            let code = character as u32;
+            if code == 0x7f || code >= 0x80 {
+                if code <= 0xffff {
+                    write!(writer, "\\u{code:04x}")?;
+                } else {
+                    let value = code - 0x10000;
+                    write!(
+                        writer,
+                        "\\u{:04x}\\u{:04x}",
+                        0xd800 + (value >> 10),
+                        0xdc00 + (value & 0x3ff)
+                    )?;
+                }
+            } else {
+                let mut buffer = [0; 4];
+                writer.write_all(character.encode_utf8(&mut buffer).as_bytes())?;
+            }
+        }
+        Ok(())
+    }
+
+    fn begin_array_value<W: ?Sized + std::io::Write>(
+        &mut self,
+        writer: &mut W,
+        first: bool,
+    ) -> std::io::Result<()> {
+        if first {
+            Ok(())
+        } else if self.spaced {
+            writer.write_all(b", ")
+        } else {
+            writer.write_all(b",")
+        }
+    }
+
+    fn begin_object_key<W: ?Sized + std::io::Write>(
+        &mut self,
+        writer: &mut W,
+        first: bool,
+    ) -> std::io::Result<()> {
+        if first {
+            Ok(())
+        } else if self.spaced {
+            writer.write_all(b", ")
+        } else {
+            writer.write_all(b",")
+        }
+    }
+
+    fn begin_object_value<W: ?Sized + std::io::Write>(
+        &mut self,
+        writer: &mut W,
+    ) -> std::io::Result<()> {
+        if self.spaced {
+            writer.write_all(b": ")
+        } else {
+            writer.write_all(b":")
+        }
+    }
+}
+
+#[cfg(test)]
+mod serde_output_tests {
+    use super::{dumps_default_serde, dumps_serde};
+
+    #[derive(serde::Serialize)]
+    struct Reply<'a> {
+        value: &'a str,
+        items: [i64; 2],
+    }
+
+    #[test]
+    fn python_ascii_and_separator_profiles() {
+        let value = Reply {
+            value: "é😀\x7f",
+            items: [1, 2],
+        };
+        assert_eq!(
+            dumps_serde(&value),
+            r#"{"value":"\u00e9\ud83d\ude00\u007f","items":[1,2]}"#
+        );
+        assert_eq!(
+            dumps_default_serde(&value),
+            r#"{"value": "\u00e9\ud83d\ude00\u007f", "items": [1, 2]}"#
         );
     }
 }

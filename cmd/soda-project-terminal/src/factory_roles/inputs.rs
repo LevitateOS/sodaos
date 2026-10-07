@@ -3,13 +3,14 @@
 
 use crate::account;
 use crate::b64;
-use crate::emit::{self, obj, str_value};
+use crate::emit::{obj, str_value};
 use crate::error::{fail, Error};
 use crate::fsx;
 use crate::ops_inspect;
 use crate::sha;
+use crate::state_json::StateValue;
 use crate::validate;
-use soda_json::JsonValue;
+use serde::Serialize;
 use std::os::unix::fs::DirBuilderExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::OpenOptionsExt;
@@ -22,7 +23,7 @@ pub const MAX_APPROVED_TOTAL: usize = 128 * 1024;
 pub const MAX_SOURCE_BUNDLE: usize = 512 * 1024;
 
 /// Validated `request.json` fields, in file order.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReqFields {
     pub id: String,
     pub role: String,
@@ -32,19 +33,9 @@ pub struct ReqFields {
 }
 
 impl ReqFields {
-    pub fn to_json(&self) -> JsonValue {
-        obj(vec![
-            ("id", str_value(&self.id)),
-            ("role", str_value(&self.role)),
-            ("setup_digest", str_value(&self.setup_digest)),
-            ("source_commit", str_value(&self.source_commit)),
-            ("credential", str_value(&self.credential)),
-        ])
-    }
-
     /// Strict re-validation of stored fields (the helper wrote them, so
     /// this only trips on root-corrupted state).
-    pub fn from_stored(value: &JsonValue) -> Result<ReqFields, Error> {
+    pub fn from_stored(value: &StateValue) -> Result<ReqFields, Error> {
         let entries =
             validate::as_object(value).ok_or_else(|| Error::fail("unsafe factory metadata"))?;
         if !validate::key_set(
@@ -73,7 +64,7 @@ impl ReqFields {
     }
 }
 
-pub fn do_ensure(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
+pub fn do_ensure(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     if !validate::as_object(data).is_some_and(|e| validate::key_set(e, &["op"])) {
         return fail("unsupported ensure request");
     }
@@ -82,12 +73,12 @@ pub fn do_ensure(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error>
     for login in validate::ROLES {
         roles.push(str_value(&account::ensure_role(ctx, login)?.name));
     }
-    Ok(obj(vec![("roles", JsonValue::Array(roles))]))
+    Ok(obj(vec![("roles", StateValue::Array(roles))]))
 }
 
 /// Last-wins collapse of a JSON object, like `json.loads` into a dict.
-fn collapse(entries: &[(String, JsonValue)]) -> Vec<(&str, &JsonValue)> {
-    let mut out: Vec<(&str, &JsonValue)> = Vec::new();
+fn collapse(entries: &[(String, StateValue)]) -> Vec<(&str, &StateValue)> {
+    let mut out: Vec<(&str, &StateValue)> = Vec::new();
     for (key, value) in entries {
         if let Some(slot) = out.iter_mut().find(|(k, _)| *k == key) {
             slot.1 = value;
@@ -100,9 +91,9 @@ fn collapse(entries: &[(String, JsonValue)]) -> Vec<(&str, &JsonValue)> {
 
 /// Bounded approved-file intake: both entry points required, per-file and
 /// total caps enforced.
-pub fn decode_files(raw: &JsonValue) -> Result<Vec<(String, Vec<u8>)>, Error> {
+pub fn decode_files(raw: &StateValue) -> Result<Vec<(String, Vec<u8>)>, Error> {
     let entries = match raw {
-        JsonValue::Object(entries) => entries,
+        StateValue::Object(entries) => entries,
         _ => return fail("unsupported approved file set"),
     };
     let files_in = collapse(entries);
@@ -232,7 +223,7 @@ pub struct ApprovedInputs {
 
 /// Pure request validation: no effects before every refusal, so rejected
 /// inputs touch neither accounts nor git.
-pub fn approve_inputs(data: &JsonValue) -> Result<ApprovedInputs, Error> {
+pub fn approve_inputs(data: &StateValue) -> Result<ApprovedInputs, Error> {
     if !validate::as_object(data).is_some_and(|e| {
         validate::key_set(
             e,
@@ -250,12 +241,12 @@ pub fn approve_inputs(data: &JsonValue) -> Result<ApprovedInputs, Error> {
     }) {
         return fail("unsupported approve request");
     }
-    let pid = validate::check_id(data.get("id").unwrap_or(&JsonValue::Null))?.to_string();
-    let role = validate::check_role(data.get("role").unwrap_or(&JsonValue::Null))?.to_string();
+    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
+    let role = validate::check_role(data.get("role").unwrap_or(&StateValue::Null))?.to_string();
     let setup_digest =
-        validate::check_digest(data.get("setup_digest").unwrap_or(&JsonValue::Null))?.to_string();
+        validate::check_digest(data.get("setup_digest").unwrap_or(&StateValue::Null))?.to_string();
     let source_commit =
-        validate::check_commit(data.get("source_commit").unwrap_or(&JsonValue::Null))?.to_string();
+        validate::check_commit(data.get("source_commit").unwrap_or(&StateValue::Null))?.to_string();
     let credential = match data.get("credential").and_then(|v| v.as_str()) {
         Some(text) => text,
         None => return fail("unsupported credential reference"),
@@ -273,7 +264,7 @@ pub fn approve_inputs(data: &JsonValue) -> Result<ApprovedInputs, Error> {
     if bundle.is_empty() || bundle.len() > MAX_SOURCE_BUNDLE {
         return fail("unsupported source bundle size");
     }
-    let files = decode_files(data.get("files").unwrap_or(&JsonValue::Null))?;
+    let files = decode_files(data.get("files").unwrap_or(&StateValue::Null))?;
     if sha::approved_digest(&files) != setup_digest {
         return fail("approved inputs do not match their digest");
     }
@@ -466,12 +457,12 @@ pub fn write_snapshot(
     // approve can never report success over an unpublished checkout. A
     // receipt failure here preserves the published name by construction:
     // cleanup only ever removes invocation preparation state.
-    let receipt = emit::dumps_default(&inputs.fields.to_json());
+    let receipt = crate::pyemit::dumps_default_serde(&inputs.fields);
     fsx::write_new(&directory.join("request.json"), receipt.as_bytes(), 0o644)?;
     Ok((checkout, credential_path))
 }
 
-pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
+pub fn do_approve(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     let inputs = approve_inputs(data)?;
     fsx::ensure_layout(ctx)?;
     let directory = fsx::prep_dir(ctx, &inputs.fields.id)?;
@@ -482,12 +473,13 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
         Err(err) => return Err(err),
     };
     if let Some(saved) = saved {
-        if !emit::json_equal(&saved, &inputs.fields.to_json()) {
+        let saved = ReqFields::from_stored(&saved)?;
+        if saved != inputs.fields {
             return fail("preparation identity already carries different approved inputs");
         }
         return Ok(obj(vec![
             ("approved", str_value(&inputs.fields.id)),
-            ("repeated", JsonValue::Bool(true)),
+            ("repeated", StateValue::Bool(true)),
         ]));
     }
     let account = account::ensure_role(ctx, &inputs.fields.role)?;
@@ -498,7 +490,7 @@ pub fn do_approve(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
     match write_snapshot(ctx, &directory, &inputs, &account) {
         Ok((checkout, credential_path)) => Ok(obj(vec![
             ("approved", str_value(&inputs.fields.id)),
-            ("repeated", JsonValue::Bool(false)),
+            ("repeated", StateValue::Bool(false)),
             ("checkout", str_value(&checkout.to_string_lossy())),
             ("credential_file", str_value(&credential_path)),
         ])),

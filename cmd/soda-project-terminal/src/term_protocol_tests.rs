@@ -163,5 +163,8 @@ fn emission_bytes_exact() {
         r#"{"account":["op",1001,1002,"/home/op","/bin/bash"],"identity":7,"cols":80,"rows":24,"created_at":1700000000}"#
     );
     // Name docs are bare JSON strings.
-    assert_eq!(pyemit::line(&JsonValue::Str("nm".to_string())), b"\"nm\"\n");
+    assert_eq!(
+        pyemit::line(&StateValue::Str("nm".to_string())),
+        b"\"nm\"\n"
+    );
 }

@@ -1,4 +1,4 @@
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account::{self, Account};
 use crate::fs;
@@ -28,7 +28,7 @@ pub(crate) fn mount_argv(path: &str, options: &str) -> Vec<String> {
 /// `subscription_prepare`: deadline gate, reserve, provision; provision
 /// failures stop the unit and retire before propagating (reserve failures
 /// propagate without cleanup, exactly like the `.py`).
-pub fn subscription_prepare(request: &JsonValue) -> Result<JsonValue, String> {
+pub fn subscription_prepare(request: &StateValue) -> Result<StateValue, String> {
     let lease = request
         .get("delivery")
         .and_then(|d| d.get("lease"))
@@ -109,14 +109,14 @@ pub fn subscription_prepare(request: &JsonValue) -> Result<JsonValue, String> {
 
 #[allow(clippy::too_many_arguments)]
 fn subscription_provision(
-    request: &JsonValue,
-    lease: &JsonValue,
+    request: &StateValue,
+    lease: &StateValue,
     account: &Account,
     deadline: i64,
     cols: i64,
     rows: i64,
     scope: &str,
-) -> Result<JsonValue, String> {
+) -> Result<StateValue, String> {
     let identifier = lease_execution_id(lease)?.to_string();
     let actor_id = lease_actor_id(lease)?;
     let path = term::terminal_path(&identifier)?;

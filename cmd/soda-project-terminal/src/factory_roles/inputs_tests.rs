@@ -1,9 +1,9 @@
 use super::*;
+use crate::state_json::StateValue;
 use crate::testutil::{
     approve_default, approve_value, assert_fail, fixture_files, op_value, Scratch, COMMIT, PID,
     PID2,
 };
-use soda_json::JsonValue;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
@@ -124,10 +124,10 @@ fn approve_writes_protected_snapshot_and_verifies_bundle() {
         Some(true)
     );
     let mut conflict = approve_default(PID);
-    if let JsonValue::Object(entries) = &mut conflict {
+    if let StateValue::Object(entries) = &mut conflict {
         for (key, value) in entries.iter_mut() {
             if key == "setup_digest" {
-                *value = JsonValue::Str("e".repeat(64));
+                *value = StateValue::Str("e".repeat(64));
             }
         }
     }
@@ -143,43 +143,43 @@ fn approve_rejects_untrusted_inputs_before_effects() {
     let (git, record) = scratch.git_script("git-ok", 0);
     let ctx = scratch.ctx(&git);
     let files_b64 = |contents: &[u8]| crate::testutil::b64_encode(contents);
-    type Mutate<'a> = dyn Fn(&mut Vec<(String, JsonValue)>) + 'a;
+    type Mutate<'a> = dyn Fn(&mut Vec<(String, StateValue)>) + 'a;
     let base = |mutate: &Mutate<'_>| {
         let mut value = approve_value(PID, "soda-coder", &fixture_files(), b"bundle", "");
         // Rebuild with the caller's mutation over canonical fields.
-        let JsonValue::Object(entries) = &mut value else {
+        let StateValue::Object(entries) = &mut value else {
             panic!("object");
         };
         mutate(entries);
         value
     };
-    let set = |entries: &mut Vec<(String, JsonValue)>, key: &str, value: JsonValue| match entries
+    let set = |entries: &mut Vec<(String, StateValue)>, key: &str, value: StateValue| match entries
         .iter_mut()
         .find(|(k, _)| k == key)
     {
         Some(slot) => slot.1 = value,
         None => entries.push((key.to_string(), value)),
     };
-    let cases: Vec<(&str, JsonValue)> = vec![
+    let cases: Vec<(&str, StateValue)> = vec![
         (
             "role",
-            base(&|e| set(e, "role", JsonValue::Str("root".to_string()))),
+            base(&|e| set(e, "role", StateValue::Str("root".to_string()))),
         ),
         (
             "id",
-            base(&|e| set(e, "id", JsonValue::Str("../escape".to_string()))),
+            base(&|e| set(e, "id", StateValue::Str("../escape".to_string()))),
         ),
         (
             "digest",
-            base(&|e| set(e, "setup_digest", JsonValue::Str("zz".to_string()))),
+            base(&|e| set(e, "setup_digest", StateValue::Str("zz".to_string()))),
         ),
         (
             "commit",
-            base(&|e| set(e, "source_commit", JsonValue::Str("short".to_string()))),
+            base(&|e| set(e, "source_commit", StateValue::Str("short".to_string()))),
         ),
         (
             "credential",
-            base(&|e| set(e, "credential", JsonValue::Str("../x".to_string()))),
+            base(&|e| set(e, "credential", StateValue::Str("../x".to_string()))),
         ),
         (
             "files",
@@ -187,20 +187,20 @@ fn approve_rejects_untrusted_inputs_before_effects() {
                 set(
                     e,
                     "files",
-                    JsonValue::Object(vec![(
+                    StateValue::Object(vec![(
                         "setup.sh".to_string(),
-                        JsonValue::Str(files_b64(b"x")),
+                        StateValue::Str(files_b64(b"x")),
                     )]),
                 )
             }),
         ),
         (
             "bundle",
-            base(&|e| set(e, "bundle", JsonValue::Str("!!!".to_string()))),
+            base(&|e| set(e, "bundle", StateValue::Str("!!!".to_string()))),
         ),
         (
             "extra",
-            base(&|e| set(e, "extra", JsonValue::Number("1".to_string()))),
+            base(&|e| set(e, "extra", StateValue::Number("1".to_string()))),
         ),
     ];
     for (name, bad) in &cases {

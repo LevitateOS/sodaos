@@ -29,7 +29,7 @@
 
 use std::io::{Read, Write};
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::pyemit;
 use crate::sys;
@@ -56,14 +56,14 @@ use crate::subscription_wire::{decode_request, result_object};
 
 /// `subscription_dispatch`: op routing in `.py` order (prepare/lookup first,
 /// then lease resolution, then stage/start/validate/finish/stop).
-pub fn subscription_dispatch(request: &JsonValue) -> Result<JsonValue, String> {
+pub fn subscription_dispatch(request: &StateValue) -> Result<StateValue, String> {
     let action = request
         .get("action")
         .ok_or_else(|| "subscription request".to_string())?;
-    if action == &JsonValue::Str("prepare".to_string()) {
+    if action == &StateValue::Str("prepare".to_string()) {
         return subscription_prepare(request);
     }
-    if action == &JsonValue::Str("lookup".to_string()) {
+    if action == &StateValue::Str("lookup".to_string()) {
         return subscription_lookup(request);
     }
     let lease = request

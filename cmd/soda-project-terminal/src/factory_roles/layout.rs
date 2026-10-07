@@ -5,8 +5,8 @@
 use super::fsx;
 use crate::emit::obj;
 use crate::error::{fail, Error};
+use crate::state_json::StateValue;
 use crate::validate;
-use soda_json::JsonValue;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
@@ -67,7 +67,7 @@ pub fn open_ro(path: &Path, nonblock: bool) -> Result<File, Error> {
 
 /// Hardened metadata read: regular file, privileged owner, single link,
 /// bounded size, valid JSON.
-pub fn read_json(ctx: &crate::Ctx, path: &Path, limit: usize) -> Result<JsonValue, Error> {
+pub fn read_json(ctx: &crate::Ctx, path: &Path, limit: usize) -> Result<StateValue, Error> {
     let file = open_ro(path, true)?;
     let meta = file.metadata().map_err(Error::classify)?;
     if !meta.is_file() || meta.uid() != ctx.priv_uid() || meta.nlink() != 1 {
@@ -82,7 +82,7 @@ pub fn read_json(ctx: &crate::Ctx, path: &Path, limit: usize) -> Result<JsonValu
     }
     let text =
         std::str::from_utf8(&raw).map_err(|_| Error::fail("undecodable factory metadata"))?;
-    JsonValue::parse(text).map_err(|_| Error::fail("undecodable factory metadata"))
+    StateValue::parse(text).map_err(|_| Error::fail("undecodable factory metadata"))
 }
 
 /// Exclusive create (`O_EXCL | O_NOFOLLOW`), `0o600` at creation, then
@@ -162,10 +162,10 @@ pub struct Hold {
     pub revision: String,
 }
 
-pub fn hold_json(hold: &Hold) -> JsonValue {
+pub fn hold_json(hold: &Hold) -> StateValue {
     obj(vec![
-        ("active", JsonValue::Bool(hold.active)),
-        ("revision", JsonValue::Number(hold.revision.clone())),
+        ("active", StateValue::Bool(hold.active)),
+        ("revision", StateValue::Number(hold.revision.clone())),
     ])
 }
 
@@ -183,7 +183,7 @@ pub fn hold_state(ctx: &crate::Ctx) -> Result<Hold, Error> {
     if !validate::as_object(&held).is_some_and(|e| validate::key_set(e, &["revision"])) {
         return fail("unsafe maintenance hold");
     }
-    match validate::as_int_text(held.get("revision").unwrap_or(&JsonValue::Null)) {
+    match validate::as_int_text(held.get("revision").unwrap_or(&StateValue::Null)) {
         Some(revision) => Ok(Hold {
             active: true,
             revision,

@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account::Account;
 use crate::fs;
@@ -77,7 +77,7 @@ pub fn is_mount(path: &str) -> bool {
 
 /// `subscription_retire`: unmount the model mounts, remove the model tree
 /// and the exact run-owned files.
-pub fn subscription_retire(lease: &JsonValue, account: &Account) -> Result<(), String> {
+pub fn subscription_retire(lease: &StateValue, account: &Account) -> Result<(), String> {
     let identifier = lease_execution_id(lease)?.to_string();
     let path = term::terminal_path(&identifier)?;
     let model = subscription_path(&identifier)?;
@@ -100,10 +100,10 @@ pub fn subscription_retire(lease: &JsonValue, account: &Account) -> Result<(), S
 /// error.
 pub fn subscription_finish(
     action: &str,
-    lease: &JsonValue,
-    _profile: &JsonValue,
+    lease: &StateValue,
+    _profile: &StateValue,
     account: &Account,
-) -> Result<JsonValue, String> {
+) -> Result<StateValue, String> {
     let identifier = lease_execution_id(lease)?.to_string();
     let live = subscription_check_unit(lease, account, false)?;
     let group = if live {

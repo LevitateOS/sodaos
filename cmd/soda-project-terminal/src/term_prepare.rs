@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io;
 use std::os::unix::io::AsRawFd;
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account;
 use crate::fs;
@@ -65,9 +65,9 @@ fn subscription_session(directory: &File) -> Result<Vec<String>, String> {
     if !proto::valid_scope(&invocation) {
         return Err("missing terminal incarnation".to_string());
     }
-    let record = JsonValue::Object(vec![(
+    let record = StateValue::Object(vec![(
         "invocation_id".to_string(),
-        JsonValue::Str(invocation),
+        StateValue::Str(invocation),
     )]);
     fs::new_file(
         directory,

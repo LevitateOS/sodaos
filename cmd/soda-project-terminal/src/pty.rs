@@ -56,36 +56,36 @@ fn restore_handlers(saved: &[(libc::c_int, libc::sigaction)]) {
 
 /// `{"type":"ready"}` line.
 pub fn ready_line() -> Vec<u8> {
-    pyemit::line(&soda_json::JsonValue::Object(vec![(
+    pyemit::line(&crate::state_json::StateValue::Object(vec![(
         "type".to_string(),
-        soda_json::JsonValue::Str("ready".to_string()),
+        crate::state_json::StateValue::Str("ready".to_string()),
     )]))
 }
 
 /// `{"type":"output","data":<base64>}` line.
 pub fn output_line(data: &[u8]) -> Vec<u8> {
-    pyemit::line(&soda_json::JsonValue::Object(vec![
+    pyemit::line(&crate::state_json::StateValue::Object(vec![
         (
             "type".to_string(),
-            soda_json::JsonValue::Str("output".to_string()),
+            crate::state_json::StateValue::Str("output".to_string()),
         ),
         (
             "data".to_string(),
-            soda_json::JsonValue::Str(b64::encode(data)),
+            crate::state_json::StateValue::Str(b64::encode(data)),
         ),
     ]))
 }
 
 /// `{"type":"closed","reason":<reason>}` line.
 pub fn closed_line(reason: &str) -> Vec<u8> {
-    pyemit::line(&soda_json::JsonValue::Object(vec![
+    pyemit::line(&crate::state_json::StateValue::Object(vec![
         (
             "type".to_string(),
-            soda_json::JsonValue::Str("closed".to_string()),
+            crate::state_json::StateValue::Str("closed".to_string()),
         ),
         (
             "reason".to_string(),
-            soda_json::JsonValue::Str(reason.to_string()),
+            crate::state_json::StateValue::Str(reason.to_string()),
         ),
     ]))
 }

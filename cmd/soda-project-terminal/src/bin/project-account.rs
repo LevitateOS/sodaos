@@ -81,11 +81,7 @@ fn run() -> i32 {
         Ok(text) => text,
         Err(_) => return fail(),
     };
-    let value = match soda_json::JsonValue::parse(text) {
-        Ok(value) => value,
-        Err(_) => return fail(),
-    };
-    let request = match parse_request(&value) {
+    let request = match parse_request(text) {
         Some(request) => request,
         None => return fail(),
     };

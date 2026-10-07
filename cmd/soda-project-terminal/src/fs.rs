@@ -79,7 +79,7 @@ pub fn root_file(dir: &std::fs::File, name: &str, writable: bool) -> Result<std:
     Ok(file)
 }
 
-fn read_record_inner(file: std::fs::File) -> Result<soda_json::JsonValue, String> {
+fn read_record_text(file: std::fs::File) -> Result<String, String> {
     use std::io::Read as _;
     let mut buf = Vec::new();
     file.take(4097)
@@ -88,16 +88,28 @@ fn read_record_inner(file: std::fs::File) -> Result<soda_json::JsonValue, String
     if buf.len() > 4096 {
         return Err("terminal record size".to_string());
     }
-    let text = std::str::from_utf8(&buf).map_err(|_| "terminal record json".to_string())?;
-    soda_json::JsonValue::parse(text).map_err(|_| "terminal record json".to_string())
+    String::from_utf8(buf).map_err(|_| "terminal record json".to_string())
+}
+
+pub(crate) fn read_record_text_at(dir: &std::fs::File, name: &str) -> Result<String, String> {
+    read_record_text(root_file(dir, name, false)?)
 }
 
 /// `root_file` (read-only) plus bounded read: over 4096 bytes is
 /// `Err("terminal record size")`; non-UTF-8 or malformed JSON is
 /// `Err("terminal record json")` (fixed strings, never record content).
-pub fn read_record(dir: &std::fs::File, name: &str) -> Result<soda_json::JsonValue, String> {
-    let file = root_file(dir, name, false)?;
-    read_record_inner(file)
+pub(crate) fn read_record_value(
+    file: std::fs::File,
+) -> Result<crate::state_json::StateValue, String> {
+    let text = read_record_text(file)?;
+    crate::state_json::StateValue::parse(&text).map_err(|_| "terminal record json".to_string())
+}
+
+pub fn read_record(
+    dir: &std::fs::File,
+    name: &str,
+) -> Result<crate::state_json::StateValue, String> {
+    read_record_value(root_file(dir, name, false)?)
 }
 
 /// Create `name` in `dir` (`O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW`), `fchmod` to

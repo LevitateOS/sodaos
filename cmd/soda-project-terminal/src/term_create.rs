@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io;
 use std::os::unix::io::AsRawFd;
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account::{self, Account};
 use crate::fs;
@@ -89,7 +89,7 @@ pub fn reserve_terminal(
     name: &str,
     source_hash: &str,
     scope: &str,
-) -> Result<JsonValue, String> {
+) -> Result<StateValue, String> {
     verify_program(source_hash)?;
     for term in ["xterm-256color", "screen-256color"] {
         sys::run_checked(&svc::infocmp_argv(term), 2)
@@ -224,7 +224,7 @@ pub fn create_terminal(
     rows: i64,
     name: &str,
     scope: &str,
-) -> Result<JsonValue, String> {
+) -> Result<StateValue, String> {
     let path = terminal_path(identifier)?;
     let directory = checked_chain(&path)?; // no creation on a missing/ended locator
     let record = binding_record(&directory, Some(account), identity)?;

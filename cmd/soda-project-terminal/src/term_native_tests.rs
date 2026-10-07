@@ -43,6 +43,15 @@ fn ready_matrix() {
         parse_ready(&parse(r#"{"pid":7,"socket":[8,9],"x":1}"#)).unwrap(),
         (7, 8, 9)
     );
+    assert_eq!(
+        parse_ready(&parse(r#"{"pid":-0,"socket":[-0,9]}"#)).unwrap(),
+        (0, 0, 9)
+    );
+    assert_eq!(
+        parse_ready(&parse(r#"{"pid":1e400,"pid":7,"socket":[8,9]}"#)).unwrap(),
+        (7, 8, 9)
+    );
+    assert!(parse_ready(&parse(r#"{"pid":7,"pid":1e400,"socket":[8,9]}"#)).is_err());
     for bad in [
         r#"{"socket":[8,9]}"#,
         r#"{"pid":7}"#,

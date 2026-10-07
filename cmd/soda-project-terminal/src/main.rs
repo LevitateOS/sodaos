@@ -31,6 +31,7 @@ mod pty_relay;
 mod pyemit;
 mod sha;
 mod socket;
+mod state_json;
 mod subscription_cgroup;
 mod subscription_credentials;
 mod subscription_prepare;
@@ -142,12 +143,15 @@ fn control_main(args: &[String]) -> i32 {
         Err(_) => return emit_closed(),
     };
     // The alarm stays armed across the immediate exit, like the `.py`.
-    let doc = soda_json::JsonValue::Object(vec![
+    let doc = crate::state_json::StateValue::Object(vec![
         (
             "type".to_string(),
-            soda_json::JsonValue::Str("metadata".to_string()),
+            crate::state_json::StateValue::Str("metadata".to_string()),
         ),
-        ("terminals".to_string(), soda_json::JsonValue::Array(values)),
+        (
+            "terminals".to_string(),
+            crate::state_json::StateValue::Array(values),
+        ),
     ]);
     match write_stdout_all(&pyemit::line(&doc)) {
         Ok(()) => 0,

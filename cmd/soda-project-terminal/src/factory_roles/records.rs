@@ -7,8 +7,8 @@ use crate::error::{fail, Error};
 use crate::fsx;
 use crate::ops_approve::ReqFields;
 use crate::ops_inspect;
+use crate::state_json::StateValue;
 use crate::validate;
-use soda_json::JsonValue;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
@@ -19,7 +19,7 @@ fn char_len(text: &str) -> usize {
     text.chars().count()
 }
 
-pub fn check_tool_entry(tool: &JsonValue) -> Result<(), Error> {
+pub fn check_tool_entry(tool: &StateValue) -> Result<(), Error> {
     let ok = validate::as_object(tool).is_some_and(|entries| {
         if !validate::key_set(entries, &["name", "path", "version"]) {
             return false;
@@ -39,7 +39,7 @@ pub fn check_tool_entry(tool: &JsonValue) -> Result<(), Error> {
     }
 }
 
-pub fn check_verified(verified: &JsonValue) -> Result<(), Error> {
+pub fn check_verified(verified: &StateValue) -> Result<(), Error> {
     let entries = match validate::as_object(verified) {
         Some(entries) => entries,
         None => return fail("unsupported launcher evidence"),
@@ -68,16 +68,16 @@ pub fn check_verified(verified: &JsonValue) -> Result<(), Error> {
     }
 }
 
-pub fn do_record(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
+pub fn do_record(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     if !validate::as_object(data)
         .is_some_and(|e| validate::key_set(e, &["op", "id", "tools", "missing", "verified"]))
     {
         return fail("unsupported record request");
     }
-    let pid = validate::check_id(data.get("id").unwrap_or(&JsonValue::Null))?.to_string();
-    let tools = data.get("tools").unwrap_or(&JsonValue::Null);
+    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
+    let tools = data.get("tools").unwrap_or(&StateValue::Null);
     let items = match tools {
-        JsonValue::Array(items) if items.len() <= MAX_TOOLS => items,
+        StateValue::Array(items) if items.len() <= MAX_TOOLS => items,
         _ => return fail("unsupported tool evidence"),
     };
     for tool in items {
@@ -87,7 +87,7 @@ pub fn do_record(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error>
         Some(text) if char_len(text) <= MAX_TOOL_TEXT => text,
         _ => return fail("unsupported missing requirement"),
     };
-    let verified = data.get("verified").unwrap_or(&JsonValue::Null);
+    let verified = data.get("verified").unwrap_or(&StateValue::Null);
     check_verified(verified)?;
     fsx::ensure_layout(ctx)?;
     let directory = fsx::prep_dir(ctx, &pid)?;
@@ -108,7 +108,7 @@ pub fn do_record(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error>
         Ok(()) => {}
         Err(Error::Exists) => {
             let saved = fsx::read_json(ctx, &target, 65536)?;
-            let fresh = JsonValue::parse(&payload).expect("emitted JSON parses");
+            let fresh = StateValue::parse(&payload).expect("emitted JSON parses");
             if !emit::json_equal(&saved, &fresh) {
                 return fail("preparation already carries different tool evidence");
             }
@@ -117,14 +117,14 @@ pub fn do_record(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error>
     }
     Ok(obj(vec![
         ("recorded", str_value(&pid)),
-        ("waiting", JsonValue::Bool(!missing.is_empty())),
+        ("waiting", StateValue::Bool(!missing.is_empty())),
     ]))
 }
 
 #[derive(Debug)]
 pub struct Prestate {
     pub fields: ReqFields,
-    pub tools: Vec<JsonValue>,
+    pub tools: Vec<StateValue>,
 }
 
 /// Launch preconditions: known identity, recorded evidence, no missing
@@ -145,7 +145,7 @@ pub fn start_prestate(ctx: &crate::Ctx, directory: &std::path::Path) -> Result<P
         Some(missing) => return fail(format!("missing prerequisite bars setup: {missing}")),
         None => return fail("missing prerequisite bars setup"),
     }
-    let verified = tools_doc.get("verified").unwrap_or(&JsonValue::Null);
+    let verified = tools_doc.get("verified").unwrap_or(&StateValue::Null);
     let refusal = match validate::as_object(verified) {
         Some(_) => verified
             .get("refusal")
@@ -161,7 +161,7 @@ pub fn start_prestate(ctx: &crate::Ctx, directory: &std::path::Path) -> Result<P
     }
     let fields = ReqFields::from_stored(&request)?;
     let tools = match tools_doc.get("tools") {
-        Some(JsonValue::Array(items)) => items.clone(),
+        Some(StateValue::Array(items)) => items.clone(),
         _ => return Err(Error::fail("unsafe factory metadata")),
     };
     Ok(Prestate { fields, tools })
@@ -187,28 +187,28 @@ pub fn read_log(ctx: &crate::Ctx, path: &Path) -> Result<String, Error> {
 }
 
 /// `started.json` process group the helper recorded itself.
-pub fn started_pgid(started: &JsonValue) -> Result<i32, Error> {
-    match validate::as_i64(started.get("pgid").unwrap_or(&JsonValue::Null)) {
+pub fn started_pgid(started: &StateValue) -> Result<i32, Error> {
+    match validate::as_i64(started.get("pgid").unwrap_or(&StateValue::Null)) {
         Some(pgid) => i32::try_from(pgid).map_err(|_| Error::fail("unsafe factory metadata")),
         None => Err(Error::fail("unsafe factory metadata")),
     }
 }
 
-pub fn started_pid(started: &JsonValue) -> Result<i32, Error> {
-    match validate::as_i64(started.get("pid").unwrap_or(&JsonValue::Null)) {
+pub fn started_pid(started: &StateValue) -> Result<i32, Error> {
+    match validate::as_i64(started.get("pid").unwrap_or(&StateValue::Null)) {
         Some(pid) => i32::try_from(pid).map_err(|_| Error::fail("unsafe factory metadata")),
         None => Err(Error::fail("unsafe factory metadata")),
     }
 }
 
-fn exit_is_zero(value: &JsonValue, key: &str) -> bool {
-    validate::as_int_text(value.get(key).unwrap_or(&JsonValue::Null)).as_deref() == Some("0")
+fn exit_is_zero(value: &StateValue, key: &str) -> bool {
+    validate::as_int_text(value.get(key).unwrap_or(&StateValue::Null)).as_deref() == Some("0")
 }
 
 /// `(phase, finished?)`: completion decides `ready`/`failed` first, then
 /// evidence, then supervisor liveness. A dead supervisor without
 /// completion is `interrupted`, never resurrected.
-pub fn phase_of(ctx: &crate::Ctx, directory: &Path) -> Result<(String, Option<JsonValue>), Error> {
+pub fn phase_of(ctx: &crate::Ctx, directory: &Path) -> Result<(String, Option<StateValue>), Error> {
     let finished = match fsx::read_json(ctx, &directory.join("finished.json"), 1024) {
         Ok(value) => Some(value),
         Err(Error::Missing) => None,
@@ -250,7 +250,7 @@ pub fn phase_of(ctx: &crate::Ctx, directory: &Path) -> Result<(String, Option<Js
     Ok(("running".to_string(), None))
 }
 
-pub fn do_inspect(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
+pub fn do_inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     let shape_ok = validate::as_object(data)
         .is_some_and(|e| validate::key_set(e, &["op"]) || validate::key_set(e, &["op", "id"]));
     if !shape_ok {
@@ -261,14 +261,14 @@ pub fn do_inspect(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
     if data.get("id").is_none() {
         return Ok(obj(vec![("hold", hold_json(&hold))]));
     }
-    let pid = validate::check_id(data.get("id").unwrap_or(&JsonValue::Null))?.to_string();
+    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
     let directory = fsx::prep_dir(ctx, &pid)?;
     let request = match fsx::read_json(ctx, &directory.join("request.json"), 4096) {
         Ok(value) => value,
         Err(Error::Missing) => {
             return Ok(obj(vec![
                 ("hold", hold_json(&hold)),
-                ("known", JsonValue::Bool(false)),
+                ("known", StateValue::Bool(false)),
             ]));
         }
         Err(err) => return Err(err),
@@ -277,7 +277,7 @@ pub fn do_inspect(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
     let tools = match fsx::read_json(ctx, &directory.join("tools.json"), 65536) {
         Ok(value) => value,
         Err(Error::Missing) => obj(vec![
-            ("tools", JsonValue::Array(Vec::new())),
+            ("tools", StateValue::Array(Vec::new())),
             ("missing", str_value("")),
             ("verified", obj(vec![])),
         ]),
@@ -293,25 +293,25 @@ pub fn do_inspect(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
     };
     let mut result = vec![
         ("hold", hold_json(&hold)),
-        ("known", JsonValue::Bool(true)),
+        ("known", StateValue::Bool(true)),
         ("phase", str_value(&phase)),
         ("role", get_str("role")?),
         ("setup_digest", get_str("setup_digest")?),
         ("source_commit", get_str("source_commit")?),
         (
             "tools",
-            tools.get("tools").cloned().unwrap_or(JsonValue::Null),
+            tools.get("tools").cloned().unwrap_or(StateValue::Null),
         ),
         (
             "missing",
-            tools.get("missing").cloned().unwrap_or(JsonValue::Null),
+            tools.get("missing").cloned().unwrap_or(StateValue::Null),
         ),
         (
             "verified",
-            tools.get("verified").cloned().unwrap_or(JsonValue::Null),
+            tools.get("verified").cloned().unwrap_or(StateValue::Null),
         ),
-        ("stopped", JsonValue::Bool(stopped)),
-        ("ready", JsonValue::Bool(phase == "ready")),
+        ("stopped", StateValue::Bool(stopped)),
+        ("ready", StateValue::Bool(phase == "ready")),
         (
             "setup_log",
             str_value(&read_log(ctx, &directory.join("setup.log"))?),
@@ -327,14 +327,14 @@ pub fn do_inspect(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error
             finished
                 .get("setup_exit")
                 .cloned()
-                .unwrap_or(JsonValue::Null),
+                .unwrap_or(StateValue::Null),
         ));
         result.push((
             "check_exit",
             finished
                 .get("check_exit")
                 .cloned()
-                .unwrap_or(JsonValue::Null),
+                .unwrap_or(StateValue::Null),
         ));
     }
     Ok(obj(result))

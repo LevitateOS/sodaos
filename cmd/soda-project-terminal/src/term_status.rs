@@ -1,12 +1,14 @@
 use std::fs::File;
 use std::io;
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 
 use crate::account::Account;
 use crate::fs;
 use crate::proto;
-use crate::pyemit;
 use crate::svc;
 use crate::sys;
 use crate::term_binding::{binding_record, permit_live, read_reservation, Reservation};
@@ -54,46 +56,71 @@ pub fn status_object(
     ready: bool,
     attached: bool,
     state: &str,
-) -> JsonValue {
-    JsonValue::Object(vec![
-        ("id".to_string(), JsonValue::Str(identifier.to_string())),
-        ("name".to_string(), JsonValue::Str(name.to_string())),
+) -> StateValue {
+    StateValue::Object(vec![
+        ("id".to_string(), StateValue::Str(identifier.to_string())),
+        ("name".to_string(), StateValue::Str(name.to_string())),
         (
             "created_at".to_string(),
-            JsonValue::Number(created_at.to_string()),
+            StateValue::Number(created_at.to_string()),
         ),
-        ("ready".to_string(), JsonValue::Bool(ready)),
-        ("attached".to_string(), JsonValue::Bool(attached)),
-        ("state".to_string(), JsonValue::Str(state.to_string())),
+        ("ready".to_string(), StateValue::Bool(ready)),
+        ("attached".to_string(), StateValue::Bool(attached)),
+        ("state".to_string(), StateValue::Str(state.to_string())),
     ])
 }
 
-pub(crate) fn status_state(value: &JsonValue) -> Result<&str, String> {
-    value
-        .get("state")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "terminal status".to_string())
+/// `(pid, dev, ino)` from a `ready` record.
+struct ReadyFields(std::collections::HashMap<String, Box<RawValue>>);
+
+impl<'de> Deserialize<'de> for ReadyFields {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ReadyVisitor;
+        impl<'de> Visitor<'de> for ReadyVisitor {
+            type Value = ReadyFields;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a terminal ready record")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut fields = std::collections::HashMap::new();
+                while let Some(name) = map.next_key::<String>()? {
+                    fields.insert(name, map.next_value::<Box<RawValue>>()?);
+                }
+                Ok(ReadyFields(fields))
+            }
+        }
+        deserializer.deserialize_map(ReadyVisitor)
+    }
 }
 
-/// `(pid, dev, ino)` from a `ready` record.
-pub(crate) fn parse_ready(value: &JsonValue) -> Result<(i32, u64, u64), String> {
-    let pid = value
+pub(crate) fn parse_ready(text: &str) -> Result<(i32, u64, u64), String> {
+    let fields: ReadyFields =
+        serde_json::from_str(text).map_err(|_| "terminal ready".to_string())?;
+    let pid_raw = fields
+        .0
         .get("pid")
-        .and_then(pyemit::as_int)
         .ok_or_else(|| "terminal ready".to_string())?;
+    let pid: i64 = pid_raw
+        .get()
+        .parse()
+        .map_err(|_| "terminal ready".to_string())?;
     let pid = i32::try_from(pid).map_err(|_| "terminal ready".to_string())?;
-    let socket = match value.get("socket") {
-        Some(JsonValue::Array(items)) if items.len() == 2 => items,
-        _ => return Err("terminal ready".to_string()),
-    };
-    let dev = socket[0]
-        .as_integer()
-        .and_then(|n| u64::try_from(n).ok())
+    let socket_raw = fields
+        .0
+        .get("socket")
         .ok_or_else(|| "terminal ready".to_string())?;
-    let ino = socket[1]
-        .as_integer()
-        .and_then(|n| u64::try_from(n).ok())
-        .ok_or_else(|| "terminal ready".to_string())?;
+    let (dev, ino): (Box<RawValue>, Box<RawValue>) =
+        serde_json::from_str(socket_raw.get()).map_err(|_| "terminal ready".to_string())?;
+    let dev: i128 = dev
+        .get()
+        .parse()
+        .map_err(|_| "terminal ready".to_string())?;
+    let ino: i128 = ino
+        .get()
+        .parse()
+        .map_err(|_| "terminal ready".to_string())?;
+    let dev = u64::try_from(dev).map_err(|_| "terminal ready".to_string())?;
+    let ino = u64::try_from(ino).map_err(|_| "terminal ready".to_string())?;
     Ok((pid, dev, ino))
 }
 
@@ -105,7 +132,7 @@ fn writer_attached(directory: &File) -> Result<bool, String> {
 }
 
 fn observe_ready_terminal(path: &str, directory: &File, account: &Account) -> Result<bool, String> {
-    let ready = parse_ready(&fs::read_record(directory, "ready")?)?;
+    let ready = parse_ready(&fs::read_record_text_at(directory, "ready")?)?;
     let screen = checked_chain(&format!("{path}/screen"))?;
     drop(screen);
     let sock = format!("{path}/screen/socket");
@@ -142,7 +169,7 @@ pub fn terminal_status(
     identifier: &str,
     account: &Account,
     identity: i64,
-) -> Result<Option<JsonValue>, String> {
+) -> Result<Option<StateValue>, String> {
     let path = terminal_path(identifier)?;
     // Absence probe first: `checked_chain` cannot report `NotFound` through
     // `String`, and this always runs under the parent lock.
@@ -184,14 +211,14 @@ pub fn terminal_status(
     )))
 }
 
-pub(crate) fn ready_object(pid: i64, dev: u64, ino: u64) -> JsonValue {
-    JsonValue::Object(vec![
-        ("pid".to_string(), JsonValue::Number(pid.to_string())),
+pub(crate) fn ready_object(pid: i64, dev: u64, ino: u64) -> StateValue {
+    StateValue::Object(vec![
+        ("pid".to_string(), StateValue::Number(pid.to_string())),
         (
             "socket".to_string(),
-            JsonValue::Array(vec![
-                JsonValue::Number(dev.to_string()),
-                JsonValue::Number(ino.to_string()),
+            StateValue::Array(vec![
+                StateValue::Number(dev.to_string()),
+                StateValue::Number(ino.to_string()),
             ]),
         ),
     ])

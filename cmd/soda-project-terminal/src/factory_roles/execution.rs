@@ -11,8 +11,8 @@ use crate::fsx;
 use crate::ops_approve::ReqFields;
 use crate::ops_inspect;
 use crate::proc;
+use crate::state_json::StateValue;
 use crate::validate;
-use soda_json::JsonValue;
 use std::ffi::CString;
 use std::fs::File;
 use std::io::Write;
@@ -354,7 +354,7 @@ pub fn run_preparation(
     ctx: &crate::Ctx,
     directory: &Path,
     fields: &ReqFields,
-    tools: &[JsonValue],
+    tools: &[StateValue],
     account: &Account,
 ) -> Result<(), Error> {
     let checkout = account.dir.join("checkouts").join(&fields.id);
@@ -416,12 +416,12 @@ pub fn run_preparation(
         )?);
     }
     let finished = obj(vec![
-        ("setup_exit", JsonValue::Number(setup_exit.to_string())),
+        ("setup_exit", StateValue::Number(setup_exit.to_string())),
         (
             "check_exit",
             check_exit
-                .map(|code| JsonValue::Number(code.to_string()))
-                .unwrap_or(JsonValue::Null),
+                .map(|code| StateValue::Number(code.to_string()))
+                .unwrap_or(StateValue::Null),
         ),
     ]);
     let payload = crate::emit::dumps_default(&finished);
@@ -436,8 +436,8 @@ pub fn spawn_detached(
     ctx: &crate::Ctx,
     directory: &Path,
     fields: &ReqFields,
-    tools: &[JsonValue],
-) -> Result<JsonValue, Error> {
+    tools: &[StateValue],
+) -> Result<StateValue, Error> {
     let account = crate::account::role_record(ctx, &fields.role)?;
     let first = unsafe { libc::fork() };
     if first < 0 {
@@ -483,7 +483,7 @@ fn grandchild_body(
     ctx: &crate::Ctx,
     directory: &Path,
     fields: &ReqFields,
-    tools: &[JsonValue],
+    tools: &[StateValue],
     account: Option<&Account>,
 ) -> Result<(), Error> {
     unsafe {
@@ -517,11 +517,11 @@ fn grandchild_body(
     }
 }
 
-pub fn do_start(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
+pub fn do_start(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     if !validate::as_object(data).is_some_and(|e| validate::key_set(e, &["op", "id"])) {
         return fail("unsupported start request");
     }
-    let pid = validate::check_id(data.get("id").unwrap_or(&JsonValue::Null))?.to_string();
+    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
     fsx::ensure_layout(ctx)?;
     let directory = fsx::prep_dir(ctx, &pid)?;
     ops_inspect::refuse_barred(ctx, &directory)?;
@@ -538,15 +538,15 @@ pub fn do_start(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> 
         }
         return Ok(obj(vec![
             ("started", str_value(&pid)),
-            ("repeated", JsonValue::Bool(true)),
+            ("repeated", StateValue::Bool(true)),
         ]));
     }
     let started = proc::spawn_detached(ctx, &directory, &prestate.fields, &prestate.tools)?;
     let pgid = ops_inspect::started_pgid(&started)?;
     Ok(obj(vec![
         ("started", str_value(&pid)),
-        ("repeated", JsonValue::Bool(false)),
-        ("pgid", JsonValue::Number(pgid.to_string())),
+        ("repeated", StateValue::Bool(false)),
+        ("pgid", StateValue::Number(pgid.to_string())),
     ]))
 }
 
@@ -738,11 +738,11 @@ pub fn retire_group(ctx: &crate::Ctx, directory: &Path, role: &str) -> Result<St
     signal_group(pgid, proot)
 }
 
-pub fn do_stop(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
+pub fn do_stop(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     if !validate::as_object(data).is_some_and(|e| validate::key_set(e, &["op", "id"])) {
         return fail("unsupported stop request");
     }
-    let pid = validate::check_id(data.get("id").unwrap_or(&JsonValue::Null))?.to_string();
+    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
     fsx::ensure_layout(ctx)?;
     let directory = fsx::prep_dir(ctx, &pid)?;
     let request = match fsx::read_json(ctx, &directory.join("request.json"), 4096) {
@@ -767,7 +767,7 @@ pub fn do_stop(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
         None => Ok(obj(vec![
             ("stopped", str_value(&pid)),
             ("retirement", str_value("confirmed")),
-            ("known", JsonValue::Bool(false)),
+            ("known", StateValue::Bool(false)),
         ])),
         Some(request) => {
             // P07-F1: a launch-error (or unreadable) receipt never
@@ -783,7 +783,7 @@ pub fn do_stop(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
                 return Ok(obj(vec![
                     ("stopped", str_value(&pid)),
                     ("retirement", str_value("confirmed")),
-                    ("known", JsonValue::Bool(true)),
+                    ("known", StateValue::Bool(true)),
                 ]));
             }
             let role = match request.get("role").and_then(|v| v.as_str()) {
@@ -794,7 +794,7 @@ pub fn do_stop(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
             Ok(obj(vec![
                 ("stopped", str_value(&pid)),
                 ("retirement", str_value(&retirement)),
-                ("known", JsonValue::Bool(true)),
+                ("known", StateValue::Bool(true)),
             ]))
         }
     }
@@ -828,14 +828,14 @@ pub fn any_running(ctx: &crate::Ctx) -> Result<bool, Error> {
     Ok(false)
 }
 
-fn hold_revision(data: &JsonValue) -> Option<String> {
+fn hold_revision(data: &StateValue) -> Option<String> {
     if !validate::as_object(data).is_some_and(|e| validate::key_set(e, &["op", "revision"])) {
         return None;
     }
-    validate::as_int_text(data.get("revision").unwrap_or(&JsonValue::Null))
+    validate::as_int_text(data.get("revision").unwrap_or(&StateValue::Null))
 }
 
-pub fn do_hold(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
+pub fn do_hold(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     let Some(revision) = hold_revision(data) else {
         return fail("unsupported hold request");
     };
@@ -847,7 +847,7 @@ pub fn do_hold(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
             let current = fsx::read_json(ctx, &ctx.hold, 1024)?;
             let same = validate::as_object(&current)
                 .is_some_and(|e| validate::key_set(e, &["revision"]))
-                && validate::as_int_text(current.get("revision").unwrap_or(&JsonValue::Null))
+                && validate::as_int_text(current.get("revision").unwrap_or(&StateValue::Null))
                     .as_deref()
                     == Some(revision.as_str());
             if !same {
@@ -859,7 +859,7 @@ pub fn do_hold(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
     Ok(obj(vec![("hold", hold_json(&hold_state(ctx)?))]))
 }
 
-pub fn do_release(ctx: &crate::Ctx, data: &JsonValue) -> Result<JsonValue, Error> {
+pub fn do_release(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     let Some(revision) = hold_revision(data) else {
         return fail("unsupported release request");
     };

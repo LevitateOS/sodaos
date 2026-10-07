@@ -3,7 +3,7 @@
 //! `prepare`).
 //!
 //! Merge-safe: uses only the brief-pinned `sys`/`fs`/`timex` signatures plus
-//! the scaffold (`proto`/`pyemit`/`b64`/`sha`), `libc`, and `soda_json`.
+//! the scaffold (`proto`/`pyemit`/`b64`/`sha`), `libc`, and Serde JSON.
 //!
 //! Two deliberate deltas from the `.py`, both documented at their sites:
 //! 1. `reserve` streams the whole `project-terminal` binary for the
@@ -15,7 +15,7 @@
 
 use std::io;
 
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account::Account;
 use crate::svc;
@@ -29,13 +29,13 @@ pub(crate) use crate::term_create::{create_terminal, file_sha256_hex, reserve_te
 use crate::term_paths::list_dir_names;
 pub(crate) use crate::term_paths::{checked_chain, record_exists, terminal_path, TERMINALS};
 pub(crate) use crate::term_prepare::prepare;
-use crate::term_status::{status_state, terminal_status};
+use crate::term_status::terminal_status;
 
 // ---------------------------------------------------------------------------
 // List / mutate / control.
 // ---------------------------------------------------------------------------
 
-fn list_owned_terminals(account: &Account, identity: i64) -> Result<Vec<JsonValue>, String> {
+fn list_owned_terminals(account: &Account, identity: i64) -> Result<Vec<StateValue>, String> {
     let mut values = Vec::new();
     for identifier in terminal_directories()? {
         let path = format!("{TERMINALS}/{identifier}");
@@ -48,7 +48,7 @@ fn list_owned_terminals(account: &Account, identity: i64) -> Result<Vec<JsonValu
             && binding_matches_account(&record, account)
         {
             if let Some(value) = terminal_status(&identifier, account, identity)? {
-                if status_state(&value)? != "ended" {
+                if value.get("state").and_then(|state| state.as_str()) != Some("ended") {
                     values.push(value);
                 }
             }
@@ -63,7 +63,7 @@ fn mutate_terminal(
     account: &Account,
     identity: i64,
     name: &str,
-) -> Result<Vec<JsonValue>, String> {
+) -> Result<Vec<StateValue>, String> {
     let path = terminal_path(identifier)?;
     // Absence probe first (always under the parent lock, like above).
     if let Err(err) = std::fs::symlink_metadata(&path) {
@@ -112,7 +112,7 @@ pub fn control_terminal(
     name: &str,
     source_hash: &str,
     scope: &str,
-) -> Result<Vec<JsonValue>, String> {
+) -> Result<Vec<StateValue>, String> {
     let parent = checked_chain(TERMINALS)?;
     if action == "list" || action == "inspect" {
         sys::flock_shared(&parent).map_err(|e| e.to_string())?;

@@ -1,10 +1,11 @@
 //! Control-plane protocol: dimensions, control frames, names, argv.
 //! Vectored against CPython behavior.
 
-use soda_json::JsonValue;
+use serde::de::{Error as DeError, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 
 use crate::b64;
-use crate::pyemit::{as_int, shape, unique_entries};
 
 pub const FRAME_LIMIT: usize = 32768;
 pub const QUEUE_LIMIT: usize = 262144;
@@ -22,38 +23,71 @@ pub enum ControlFrame {
     Close,
 }
 
+struct FrameFields(Vec<(String, Box<RawValue>)>);
+
+impl<'de> Deserialize<'de> for FrameFields {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct FieldsVisitor;
+        impl<'de> Visitor<'de> for FieldsVisitor {
+            type Value = FrameFields;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a terminal control frame object")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut fields: Vec<(String, Box<RawValue>)> = Vec::new();
+                while let Some(name) = map.next_key::<String>()? {
+                    let value = map.next_value::<Box<RawValue>>()?;
+                    if fields.iter().any(|(seen, _)| seen == &name) {
+                        return Err(A::Error::custom("duplicate frame field"));
+                    }
+                    fields.push((name, value));
+                }
+                Ok(FrameFields(fields))
+            }
+        }
+        deserializer.deserialize_map(FieldsVisitor)
+    }
+}
+
+fn has_fields(fields: &[(String, Box<RawValue>)], names: &[&str]) -> bool {
+    fields.len() == names.len()
+        && fields
+            .iter()
+            .all(|(name, _)| names.contains(&name.as_str()))
+}
+
+fn field<'a>(fields: &'a [(String, Box<RawValue>)], name: &str) -> Option<&'a RawValue> {
+    fields
+        .iter()
+        .find(|(key, _)| key == name)
+        .map(|(_, value)| value.as_ref())
+}
+
 /// `decode_frame`: strict shapes over unique-key objects.
 pub fn decode_frame(raw: &[u8]) -> Option<ControlFrame> {
-    let text = std::str::from_utf8(raw).ok()?;
-    let value = JsonValue::parse(text).ok()?;
-    let entries = unique_entries(&value)?;
-    let kind = entries.iter().find(|(k, _)| k == "type")?.1.as_str()?;
-    match kind {
-        "input" => {
-            let fields = shape(entries, &["type", "data"])?;
-            let data = fields.iter().find(|(k, _)| k == "data")?.1.as_str()?;
-            let decoded = b64::decode(data)?;
+    let FrameFields(fields) = serde_json::from_slice(raw).ok()?;
+    let kind: String = serde_json::from_str(field(&fields, "type")?.get()).ok()?;
+    match kind.as_str() {
+        "input" if has_fields(&fields, &["type", "data"]) => {
+            let data: String = serde_json::from_str(field(&fields, "data")?.get()).ok()?;
+            let decoded = b64::decode(&data)?;
             if decoded.is_empty() || decoded.len() > 16384 {
                 return None;
             }
             Some(ControlFrame::Input(decoded))
         }
-        "resize" => {
-            let fields = shape(entries, &["type", "cols", "rows"])?;
-            let cols = as_int(fields.iter().find(|(k, _)| k == "cols")?.1)?;
-            let rows = as_int(fields.iter().find(|(k, _)| k == "rows")?.1)?;
+        "resize" if has_fields(&fields, &["type", "cols", "rows"]) => {
+            let cols: i64 = field(&fields, "cols")?.get().parse().ok()?;
+            let rows: i64 = field(&fields, "rows")?.get().parse().ok()?;
             if !dimensions(cols, rows) {
                 return None;
             }
             Some(ControlFrame::Resize { cols, rows })
         }
-        "heartbeat" | "close" if shape(entries, &["type"]).is_some() => {
-            if kind == "heartbeat" {
-                Some(ControlFrame::Heartbeat)
-            } else {
-                Some(ControlFrame::Close)
-            }
-        }
+        "heartbeat" if has_fields(&fields, &["type"]) => Some(ControlFrame::Heartbeat),
+        "close" if has_fields(&fields, &["type"]) => Some(ControlFrame::Close),
         _ => None,
     }
 }
@@ -250,6 +284,10 @@ mod tests {
         );
         assert_eq!(
             decode_frame(br#"{"type":"resize","cols":80,"rows":24.0}"#),
+            None
+        );
+        assert_eq!(
+            decode_frame(br#"{"type":"resize","cols":8e1,"rows":24}"#),
             None
         );
         assert_eq!(decode_frame(br#"{"type":"nope"}"#), None);

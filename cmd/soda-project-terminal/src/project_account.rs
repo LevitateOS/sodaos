@@ -8,6 +8,9 @@
 //! Python messages for traceability; the binary only ever prints the one
 //! unconfirmed line (see `main`).
 
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 use std::ffi::{CStr, CString};
 use std::fs::File;
 use std::io::{Read as _, Write as _};
@@ -168,42 +171,53 @@ pub fn valid_key(key: &str) -> bool {
 
 /// Strict request decode: exact key set (duplicates collapse last-wins,
 /// like `json.loads`), typed fields, validated values.
-pub fn parse_request(value: &soda_json::JsonValue) -> Option<Request> {
-    let entries = match value {
-        soda_json::JsonValue::Object(entries) => entries,
-        _ => return None,
-    };
-    let mut seen = std::collections::BTreeSet::new();
-    for (key, _) in entries {
-        seen.insert(key.as_str());
+struct RequestFields(std::collections::HashMap<String, Box<RawValue>>);
+
+impl<'de> Deserialize<'de> for RequestFields {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct FieldsVisitor;
+        impl<'de> Visitor<'de> for FieldsVisitor {
+            type Value = RequestFields;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a project account request object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut fields = std::collections::HashMap::new();
+                while let Some(name) = map.next_key::<String>()? {
+                    fields.insert(name, map.next_value::<Box<RawValue>>()?);
+                }
+                Ok(RequestFields(fields))
+            }
+        }
+        deserializer.deserialize_map(FieldsVisitor)
     }
-    if seen.len() != 4
-        || !seen.contains("login")
-        || !seen.contains("identity")
-        || !seen.contains("admin")
-        || !seen.contains("keys")
+}
+
+pub fn parse_request(text: &str) -> Option<Request> {
+    let fields: RequestFields = serde_json::from_str(text).ok()?;
+    if fields.0.len() != 4
+        || !["login", "identity", "admin", "keys"]
+            .iter()
+            .all(|key| fields.0.contains_key(*key))
     {
         return None;
     }
-    let login = value.get("login")?.as_str()?;
+    let login: String = serde_json::from_str(fields.0.get("login")?.get()).ok()?;
+    let identity: i64 = fields.0.get("identity")?.get().parse().ok()?;
+    let admin: bool = serde_json::from_str(fields.0.get("admin")?.get()).ok()?;
+    let keys: Vec<String> = serde_json::from_str(fields.0.get("keys")?.get()).ok()?;
+    let login = login.as_str();
     if login == "root" || !valid_login(login) {
         return None;
     }
-    let identity = value.get("identity")?.as_integer()?;
-    if identity < 1 || identity > i64::MAX as i128 {
+    if identity < 1 {
         return None;
     }
-    let admin = value.get("admin")?.as_bool()?;
-    let keys = match value.get("keys")? {
-        soda_json::JsonValue::Array(keys) => keys,
-        _ => return None,
-    };
     if keys.len() > 32 {
         return None;
     }
     let mut out = Vec::with_capacity(keys.len());
-    for key in keys {
-        let text = key.as_str()?;
+    for text in &keys {
         if !valid_key(text) {
             return None;
         }
@@ -211,7 +225,7 @@ pub fn parse_request(value: &soda_json::JsonValue) -> Option<Request> {
     }
     Some(Request {
         login: login.to_string(),
-        identity: identity as i64,
+        identity,
         admin,
         keys: out,
     })

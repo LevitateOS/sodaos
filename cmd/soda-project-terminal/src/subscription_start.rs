@@ -1,4 +1,4 @@
-use soda_json::JsonValue;
+use crate::state_json::StateValue;
 
 use crate::account::Account;
 use crate::fs;
@@ -48,11 +48,11 @@ pub fn respawn_argv(path: &str, home: &str) -> Vec<String> {
 /// binding recheck, liveness, one-shot `subscription-started` marker,
 /// respawn the pane into the harness, liveness again.
 pub fn subscription_start(
-    request: &JsonValue,
-    lease: &JsonValue,
-    profile: &JsonValue,
+    request: &StateValue,
+    lease: &StateValue,
+    profile: &StateValue,
     account: &Account,
-) -> Result<JsonValue, String> {
+) -> Result<StateValue, String> {
     live_deadline(profile)?;
     let identifier = lease_execution_id(lease)?.to_string();
     let actor_id = lease_actor_id(lease)?;
