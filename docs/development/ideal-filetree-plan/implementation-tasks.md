@@ -21,9 +21,9 @@ below; shared duties route through their physical writer in the lane schedule.
 Current dispatch priority is [library adoption](library-adoption.md), initially
 reconciled at source `72e4bb9015b6d6a622b45638104c74851a137473` and selectively
 refreshed after L01 at `4b02122b`. L00 initial preparation, L01, and L02 are
-complete at their documented scopes, as is L07 (`d12bf6d3`). The RNG01 portion
-of L03 is complete; CF-01 and CF-02 remain for step 4, while L04 remains
-unchecked and undispatched. Other unchecked work remains undispatched.
+complete at their documented scopes, as are L03 (`a84447ff`, `52eee7ee`) and
+L07 (`d12bf6d3`). L04 is dispatched and in progress, with profile decisions
+preceding caller transfers. Other unchecked work remains undispatched.
 L00–L18 below are bounded subpackets of
 these existing owners, not new slices. Their scope, finding allocation and
 acceptance are defined once in the chapter. Completed M/C/V entries remain
@@ -272,8 +272,8 @@ affected build/offline qualification.
 - [x] **L00** Coordinator: initial compiler/dependency/license/local cache/archive inventory, nine boundary/API probes and affected L02 package/caller offline checks complete. tokio-postgres deadline facade selected; production cutover/native/profile gates remain with their named packets. At that checkpoint L02 had not started; it is now complete. [Defined boundary](library-adoption.md#l00-admission-and-boundary-preparation).
 - [x] **L01** C: repair acceptance deadlines and evidence completion/confidentiality. Phase fix `9fda53fe` preserved; CoreOS finalization `3873614f`, evidence/pump bounds and failure propagation `d80aec93`, QMP/VM ownership `4c87f5e9`. All 126 acceptance library tests and three binary compile checks pass. Local shell/socket evidence only; N13 library parser adoption remains in L11 and L16 matching stays separate. [Defined boundary](library-adoption.md#l01-deadline-and-evidence-repair).
 - [x] **L02** C: complete in `743dde17`; shared strict on-curve P-256 SPKI trust adapter plus strict ECDSA DER on all four installer curves, retaining original DER/TBS and role boundaries. Trust foundation 24; image and delivery models 5 each; installer X.509 26 passed. No installed/native-worker qualification. [Defined boundary](library-adoption.md#l02-trust-key-and-signature-repair).
-- [ ] **L03** A: partial in `a84447ff`: RNG01 fail-closed entropy complete across ten production packages; PID/time fallback and zero-revision paths removed, four revision callers propagate errors. CF-01 seven SHA definitions and CF-02 host NIST engines remain for step 4. Host/identity and caller evidence plus offline builds are recorded in the chapter; no installed/native-worker qualification. [Defined boundary](library-adoption.md#l03-hash-curve-and-randomness-owners).
-- [ ] **L04** C: explicit JSON/Base64 profiles and complete engine retirement. [Defined boundary](library-adoption.md#l04-json-and-base64-profiles).
+- [x] **L03** A: source scope complete in `a84447ff` (fail-closed entropy across ten packages) and `52eee7ee` (all seven SHA definitions and host NIST engines replaced). Fingerprints, input recipes, point admission and failure propagation remain with callers. Focused SHA tests, 319 host tests and affected offline builds passed; no installed/native-worker qualification. [Defined boundary](library-adoption.md#l03-hash-curve-and-randomness-owners).
+- [ ] **L04** C: in progress; medium JSON/Base64 profiles settled, selected dependencies admitted in `ec2e0a80`, low caller transfers dispatched. Each source packet requires its producer/refusal checks and independent review; remaining callers hold complete engine retirement. [Defined boundary](library-adoption.md#l04-json-and-base64-profiles).
 - [ ] **L05** A: complete SSH format ownership with separate product policy. [Defined boundary](library-adoption.md#l05-ssh-formats).
 - [ ] **L06** C: local CA parser with raw DER/TBS and pinned Caddy gate. [Defined boundary](library-adoption.md#l06-local-ca-parsing).
 - [x] **L07** B, with explicit A Rust handoff: complete in `d12bf6d3`. Native `$n` parameters cover Go and Rust product queries; both translators and Go's rebind-only wrappers are removed, while Rust's encoding/query helpers remain. Fresh PG17.11 fixture: 68 Go store tests, eight Rust broker/enrollment tests and the bytea unit test pass; architecture checks and affected builds pass. No SQLite seed, dependency, manifest, lock or schema change. The latent Rust transaction-lock gate remains with L08. [Defined boundary and limits](library-adoption.md#l07-native-sql-parameters).

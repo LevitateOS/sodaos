@@ -5,9 +5,9 @@ handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and
 [lane schedule](implementation-lanes.md) remain the execution plan. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
-L00 initial preparation, L01, L02, and L07 are complete at their recorded
-source scopes. The RNG01 portion of L03 is complete; its CF-01 SHA and CF-02
-host NIST owners remain for step 4, and L04 remains undispatched. Later cutovers
+L00 initial preparation, L01, L02, L03, and L07 are complete at their recorded
+source scopes. L04 is in progress: medium profile decisions precede low caller
+transfers, and completion requires retirement of every selected engine. Later cutovers
 retain their scoped authorization and admission checks.
 
 Planning reconciliation uses source `72e4bb9015b6d6a622b45638104c74851a137473`
@@ -32,8 +32,8 @@ L identifiers are subpackets of the existing A/B/C tasks. Each has one lead;
 physical writers remain the exclusive owners in the lane schedule. A lead sends
 cross-owner changes through named handoffs rather than editing another owner's
 files. The coordinator owns manifests/locks and integration. Packet state is
-recorded in the task list: L00 initial preparation, L01, L02, and L07 are
-complete; L03 is partial as described below. Later unchecked packets remain
+recorded in the task list: L00 initial preparation, L01, L02, L03, and L07 are
+complete; L04 is in progress as described below. Later unchecked packets remain
 undispatched subject to their exact gates below.
 
 | Packet | Lead | Existing task joins | Sequence and required output |
@@ -41,8 +41,8 @@ undispatched subject to their exact gates below.
 | L00 Admission and boundary preparation | Coordinator | R00/R01, C01/C02/C08 | Finish initial preparation before L02; retain admission per selected dependency/contract |
 | L01 Deadline and evidence repair | C | C11.C/V | Immediate; preserves the existing small lifecycle/evidence owners |
 | L02 Trust-key and signature repair | C | C07/C10 | Complete after L00; existing curve/DER libraries and raw-byte contracts preserved |
-| L03 Hash, curve and randomness owners | A | A03/A05/A06, C10/C11 | RNG01 fail-closed entropy complete; CF-01 SHA and CF-02 host NIST owners remain for step 4 |
-| L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | Define the selected caller profile before replacing that owner |
+| L03 Hash, curve and randomness owners | A | A03/A05/A06, C10/C11 | Complete: RNG01 in `a84447ff`; CF-01 and CF-02 in `52eee7ee` |
+| L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | In progress: settle each selected caller profile before its transfer; retire every engine with its last callers |
 | L05 SSH formats | A | A01/A07, C07 | Requires its CF-01/02/04 profiles from L03/L04 |
 | L06 Local CA parsing | C | C05/C07 | L02 and required L04 PEM/Base64 profile; no L05 dependency |
 | L07 Native SQL parameters | B | C02, B01 | Complete in `d12bf6d3`; can overlap driver preparation and precedes L08 cutover |
@@ -236,12 +236,23 @@ host NIST curves with explicit uncompressed policy; acquisition failure cannot
 return a usable predictable token or zero revision. Migrate one crate owner and
 all its callers, then delete its engine. WS-only SHA-1 deletion belongs to L09.
 
-Progress: **partial**. RNG01 is complete in `a84447ff`: A changed host and
+Progress: **complete at the source scope**. RNG01 is complete in `a84447ff`: A changed host and
 identity; C changed the remaining callers. All ten production packages now use
 `getrandom::fill`; PID/time fallbacks and zero-revision defaults were removed,
-and all four policy-revision callers propagate acquisition errors. L03 remains
-open for the seven CF-01 SHA-256 definitions and CF-02 host NIST validation,
-planned for step 4; no further L03 work is dispatched as step 3.
+and all four policy-revision callers propagate acquisition errors. `52eee7ee`
+replaces all seven CF-01 SHA-256 definitions with sha2 and the CF-02 field
+arithmetic with typed p256/p384/p521 point validation. Callers retain raw
+fingerprints, sorted input recipes, read-error propagation and explicit
+uncompressed-point admission. No selected SHA/NIST engine remains.
+
+The primitive refresh passed eight focused SHA tests across six owners, all
+319 host library tests, and locked offline development builds for all six
+affected packages. Host coverage includes all three curves, wrong-curve and
+off-curve refusal, coordinate bounds, point forms and SK-ECDSA admission.
+Independent Luna medium review closed the initial coverage gaps; implementation
+used Luna low. See the [primitive review](../../../.artifacts/l03-l04/primitive-review.md)
+and coordinator receipts under `.artifacts/l03-l04/receipts`. These are local
+source/development checks; installed and native-worker qualification remain open.
 
 | RNG01 completed evidence | Result |
 | --- | --- |
@@ -283,6 +294,17 @@ signed inputs without reserialization. Go encoding/json admission remains
 JSON02. Test consequential profile examples and current producer/consumer
 round trips, then delete each replaced lexer/binder/emitter/codec owner. No
 universal permissive decoder or foreign-diagnostic compatibility layer.
+
+Progress: **in progress**. Luna medium settled the
+[JSON caller profiles](../../../.artifacts/l03-l04/json-profiles.md),
+[host details](../../../.artifacts/l03-l04/host-json-profile.md), and
+[encoding profiles](../../../.artifacts/l03-l04/encoding-profiles.md).
+`ec2e0a80` admits existing cached serde/base64 versions and the host RawValue
+feature; locked offline dependency checks passed. Luna low writers own disjoint
+host, strict-identity/Setup, launch and codec transfers; the coordinator owns
+manifests, checks, reviews and commits. Completed source packets are recorded
+separately as they pass verification. Remaining release, installer, guest and
+tool callers hold JSON01 completion and deletion of `lib/json`.
 
 ### L05 SSH formats
 
