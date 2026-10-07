@@ -1106,6 +1106,13 @@ Parked A `fe23ec933fb0880bee07d2dc0b5b4fea3f9880e9`, B
 `b3c9e23b2b6b8c7a8e3b5cdb93af00321888fae8` remain at exactly those branch tips.
 No checkpoint replay, merge, reset, restart or timer change was performed.
 
+The 2026-10-07 cleanup removed the three inactive lane worktrees while retaining
+`run/20261006-a`, `run/20261006-b` and `run/20261006-c` at those exact tips.
+Ignored lane artifacts were moved intact to
+`.artifacts/cleanup-20261007/parked-lanes/{a,b,c}/` in the canonical checkout.
+Checkpoint assessment and retained duties below remain applicable; removing a
+worktree did not integrate its branch or close its pending work.
+
 | Checkpoint / exact comparison | Retained application duty and current defining owner | Disposition within existing tasks |
 | --- | --- | --- |
 | A34: eight exclusive commits, ten-path delta from merge-base `f253b96ddf235b6c5b6935730f0ebc713c8b3b45` | `tcontrol.rs` still owns project/run-binding/enroll-run bridges called by the companion and `dbackend`; policy/provider/enrollment/retry remain local. All seven moved tests already exist in `tests/tcontrol_oracle.rs` | C04.M retains policy/provider/enrollment and optional caller/test ownership seams; A07.M/V retains host/companion binding/lifetime. Library-local test placement is optional, not missing behavior. L09/L11 already own transport and selected time/IP/URL adapters. Preserve the checkpoint; any later split must consume current adapter bodies |
