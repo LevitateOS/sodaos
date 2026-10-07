@@ -16,60 +16,6 @@ use std::time::Duration;
 pub(crate) const MAX_BODY: usize = 512 << 10;
 pub(crate) const HEADER_TIMEOUT: Duration = Duration::from_secs(5);
 
-const REQUEST_FIELDS: &[&str] = &[
-    "provider_id",
-    "owner_id",
-    "id",
-    "label",
-    "project_id",
-    "kind",
-    "execution_id",
-    "grant",
-    "acquire",
-    "binding",
-    "credential",
-];
-
-const GRANT_FIELDS: &[&str] = &[
-    "connection_id",
-    "user_id",
-    "project_id",
-    "confirm_subscription",
-    "confirm_credential_exposure",
-];
-
-const ACQUIRE_FIELDS: &[&str] = &[
-    "repository_id",
-    "provider_id",
-    "execution_id",
-    "actor_id",
-    "connection_id",
-    "project_id",
-    "kind",
-    "deadline",
-    "role",
-];
-
-const BINDING_FIELDS: &[&str] = &[
-    "child_id",
-    "uid",
-    "gid",
-    "scope",
-    "credential_root",
-    "invocation_id",
-    "kind",
-    "id",
-    "project",
-    "login",
-    "generation",
-];
-
-const NESTED: &[(&str, &[&str])] = &[
-    ("grant", GRANT_FIELDS),
-    ("acquire", ACQUIRE_FIELDS),
-    ("binding", BINDING_FIELDS),
-];
-
 pub(crate) fn dispatch(
     controller: &Controller,
     request: HttpRequest,
@@ -79,7 +25,7 @@ pub(crate) fn dispatch(
     if request.method != "POST" || !request.query.is_empty() || !request.origin.is_empty() {
         return error_response(403, "denied");
     }
-    let input: Request = match strict::decode(&body, MAX_BODY, REQUEST_FIELDS, NESTED) {
+    let input: Request = match strict::decode_typed(&body, MAX_BODY) {
         Ok(input) => input,
         Err(_) => return error_response(400, "invalid request"),
     };

@@ -22,6 +22,48 @@ fn decode_envelope(input: &str) -> Result<Envelope, String> {
 }
 
 #[test]
+fn typed_http_request_preserves_wire_codecs_and_rejects_unknowns() {
+    let request: crate::wire::Request = decode_typed(
+        r#"{"owner_id":"42","id":"quoted \"id\" é","credential":"Zm8=","binding":{"child_id":null,"uid":17,"generation":4}}"#.as_bytes(),
+        MAX_DOCUMENT,
+    )
+    .unwrap();
+    assert_eq!(request.owner_id, 42);
+    assert_eq!(request.id, "quoted \"id\" é");
+    assert_eq!(request.credential.as_deref(), Some(b"fo".as_slice()));
+    let binding = request.binding.unwrap();
+    assert_eq!(binding.child_id, "");
+    assert_eq!(binding.uid, 17);
+    assert_eq!(binding.generation, 4);
+
+    let nested: crate::wire::Request = decode_typed(
+        br#"{"grant":{"connection_id":"conn","user_id":"8","project_id":"project","confirm_subscription":true,"confirm_credential_exposure":true},"acquire":{"repository_id":"7","provider_id":"codex","execution_id":"exec","actor_id":"8","connection_id":"conn","project_id":"project","kind":"factory","deadline":"2030-01-02T03:04:05Z"}}"#,
+        MAX_DOCUMENT,
+    )
+    .unwrap();
+    assert_eq!(nested.grant.unwrap().user_id, 8);
+    assert_eq!(nested.acquire.unwrap().repository_id, 7);
+
+    for input in [
+        r#"{"Owner_id":"42"}"#,
+        r#"{"binding":{"child_id":"x","future":true}}"#,
+        r#"{"grant":{"connection_id":"x","future":true}}"#,
+        r#"{"acquire":{"provider_id":"codex","future":true}}"#,
+        r#"{"id":"a","id":"b"}"#,
+        r#"{"binding":{"uid":1,"uid":2}}"#,
+        r#"{"id":"ok"} {"id":"second"}"#,
+    ] {
+        assert!(
+            decode_typed::<crate::wire::Request>(input.as_bytes(), MAX_DOCUMENT).is_err(),
+            "accepted {input}"
+        );
+    }
+    assert!(decode_typed::<crate::wire::Request>(&[b'{', b'"', 0xff], MAX_DOCUMENT).is_err());
+    let too_deep = format!("{{\"id\":{}0{}}}", "[".repeat(101), "]".repeat(101));
+    assert!(decode_typed::<crate::wire::Request>(too_deep.as_bytes(), MAX_DOCUMENT).is_err());
+}
+
+#[test]
 fn strict_vectors_match_go() {
     // Mirrors scripts/fixtures/portcontracts/strictjson_vectors.json.
     for (input, ok) in [

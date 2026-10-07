@@ -35,6 +35,7 @@ pub struct Grant {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GrantRequest {
     #[serde(
         default,
@@ -61,6 +62,7 @@ pub struct GrantRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AcquireRequest {
     #[serde(
         default,

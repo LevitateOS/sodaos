@@ -1,14 +1,26 @@
 // Bounded strict JSON admission, mirroring internal/strictjson: exactly one
-// object, valid UTF-8, no duplicate fields at any depth (depth cap 100),
-// no unknown fields (with Go's case-insensitive fallback), and null
-// tolerated for scalar fields. Every rejection maps to the same client
-// response (`invalid request`), so only the accept/reject direction must
-// match; messages stay close for operators.
+// object, valid UTF-8, no duplicate fields at any depth (depth cap 100).
+// Settings uses `decode` with its Go-compatible case-folding projection;
+// private HTTP wire DTOs use `decode_typed` and their exact field names.
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use std::collections::HashSet;
 use std::fmt;
 
 pub const MAX_DOCUMENT: usize = 1 << 20;
+
+/// Decode one bounded HTTP protocol DTO without rewriting its JSON keys.
+/// The owning wire structs enforce their exact field names with
+/// `deny_unknown_fields`; Settings continues to use the profile-aware
+/// `decode` path below.
+pub fn decode_typed<T: serde::de::DeserializeOwned>(input: &[u8], max: usize) -> Result<T, String> {
+    if input.len() > max {
+        return Err("request exceeds size limit".to_string());
+    }
+    let text =
+        std::str::from_utf8(input).map_err(|_| "request must contain valid UTF-8".to_string())?;
+    check_unique_keys(text)?;
+    serde_json::from_str(text).map_err(|e| format!("decode request: {e}"))
+}
 
 pub fn decode<T: serde::de::DeserializeOwned>(
     input: &[u8],

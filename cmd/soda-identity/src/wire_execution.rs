@@ -4,6 +4,7 @@ use crate::wire_errors::Error;
 use crate::wire_time::UnixTime;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Binding {
     #[serde(
         deserialize_with = "crate::wire_scalars::null_tolerant::string",

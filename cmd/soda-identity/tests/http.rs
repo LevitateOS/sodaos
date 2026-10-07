@@ -113,6 +113,45 @@ fn http_admission_matches_go() {
             &post("/connections", r#"{"owner_id":"1","bogus":true}"#, ""),
         );
         assert_eq!(status, 400);
+        // The route uses the canonical Go-shaped names while preserving the
+        // existing integer-string, null-scalar and base64 wire codecs.
+        let (status, _) = call(
+            &runtime_path,
+            &post(
+                "/register",
+                r#"{"id":"missing-lease","binding":{"child_id":null,"uid":17,"gid":18,"scope":"terminal","credential_root":"root","invocation_id":"invocation","kind":"factory","generation":1}}"#,
+                "",
+            ),
+        );
+        assert_eq!(status, 404, "canonical binding reached the broker route");
+        for (path, body) in [
+            (
+                "/register",
+                r#"{"id":"missing-lease","binding":{"child_id":"x","future":true}}"#,
+            ),
+            (
+                "/grant/create",
+                r#"{"owner_id":"1","grant":{"connection_id":"missing","user_id":"2","project_id":"project","confirm_subscription":true,"confirm_credential_exposure":true,"future":true}}"#,
+            ),
+            (
+                "/acquire",
+                r#"{"acquire":{"provider_id":"codex","future":true}}"#,
+            ),
+            ("/connections", r#"{"Owner_id":"1"}"#),
+        ] {
+            let (status, response) = call(&runtime_path, &post(path, body, ""));
+            assert_eq!(
+                (status, response.as_slice()),
+                (400, b"invalid request\n".as_slice())
+            );
+        }
+        for body in [
+            r#"{"owner_id":"1","owner_id":"1"}"#.to_string(),
+            format!("{{\"id\":{}0{}}}", "[".repeat(101), "]".repeat(101)),
+        ] {
+            let (status, _) = call(&runtime_path, &post("/connections", &body, ""));
+            assert_eq!(status, 400, "strict body accepted: {body}");
+        }
         // Runtime paths are denied on the admin socket.
         let (status, _) = call(
             &admin_path,

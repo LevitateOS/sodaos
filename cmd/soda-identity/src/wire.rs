@@ -32,6 +32,7 @@ pub use crate::wire_time::{format_rfc3339_nano, parse_rfc3339_nano, UnixTime};
 
 /// The private Unix HTTP protocol. Browser handlers never accept it.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Request {
     #[serde(
         deserialize_with = "null_tolerant::string",
