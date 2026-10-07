@@ -1,5 +1,5 @@
-use std::io::{self, Read, Write};
-use std::net::TcpStream;
+use std::io::Read;
+use std::time::Duration;
 
 use crate::system::{FORGEJO_RESPONSE_LIMIT, FORGEJO_TIMEOUT};
 use serde::Deserialize;
@@ -77,173 +77,47 @@ fn forgejo_request(
     path: &str,
     token: &str,
 ) -> Result<(u16, Vec<u8>), String> {
+    forgejo_request_with_timeout(base, method, path, token, FORGEJO_TIMEOUT)
+}
+
+fn forgejo_request_with_timeout(
+    base: &str,
+    method: &str,
+    path: &str,
+    token: &str,
+    timeout: Duration,
+) -> Result<(u16, Vec<u8>), String> {
     let base = base.trim_end_matches('/');
-    let host = base
-        .strip_prefix("http://")
-        .ok_or_else(|| "forgejo could not be reached".to_string())?;
-    if host.is_empty() || host.contains('/') {
-        return Err("forgejo could not be reached".to_string());
-    }
-    let (host_only, port) = match host.rsplit_once(':') {
-        Some((h, p)) if !p.contains(']') => {
-            let port: u16 = p
-                .parse()
-                .map_err(|_| "forgejo could not be reached".to_string())?;
-            (h, port)
-        }
-        _ => (host, 80),
-    };
-    let addr: std::net::SocketAddr = match format!("{host_only}:{port}").parse() {
-        Ok(addr) => addr,
-        Err(_) => {
-            dns_lookup(host_only, port).map_err(|_| "forgejo could not be reached".to_string())?
-        }
-    };
-    let mut stream = TcpStream::connect_timeout(&addr, FORGEJO_TIMEOUT)
-        .map_err(|_| "forgejo could not be reached".to_string())?;
-    stream
-        .set_read_timeout(Some(FORGEJO_TIMEOUT))
-        .map_err(|_| "forgejo could not be reached".to_string())?;
-    stream
-        .set_write_timeout(Some(FORGEJO_TIMEOUT))
-        .map_err(|_| "forgejo could not be reached".to_string())?;
-    let request = format!(
-        "{method} {path} HTTP/1.1\r\nHost: {host}\r\nAccept: application/json\r\nContent-Type: application/json\r\nAuthorization: token {token}\r\nConnection: close\r\n\r\n"
-    );
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|_| "forgejo could not be reached".to_string())?;
-    read_http_response(&mut stream)
-}
-
-fn dns_lookup(host: &str, port: u16) -> io::Result<std::net::SocketAddr> {
-    use std::net::ToSocketAddrs;
-    (host, port)
-        .to_socket_addrs()?
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no address"))
-}
-
-fn read_http_response(stream: &mut TcpStream) -> Result<(u16, Vec<u8>), String> {
-    let mut raw: Vec<u8> = Vec::new();
-    let mut byte = [0u8; 1];
-    loop {
-        match stream.read(&mut byte) {
-            Ok(0) => return Err("forgejo could not be reached".to_string()),
-            Ok(_) => raw.push(byte[0]),
-            Err(_) => return Err("forgejo could not be reached".to_string()),
-        }
-        if raw.len() >= 4 && raw[raw.len() - 4..] == *b"\r\n\r\n" {
-            break;
-        }
-    }
-    let head = String::from_utf8(raw).map_err(|_| "forgejo could not be reached".to_string())?;
-    let mut lines = head.split("\r\n");
-    let status_line = lines
-        .next()
-        .ok_or_else(|| "forgejo could not be reached".to_string())?;
-    let status: u16 = status_line
-        .split_whitespace()
-        .nth(1)
-        .and_then(|code| code.parse().ok())
-        .ok_or_else(|| "forgejo could not be reached".to_string())?;
-    let mut content_length: Option<usize> = None;
-    let mut chunked = false;
-    for line in lines {
-        if line.is_empty() {
-            break;
-        }
-        let (name, value) = line
-            .split_once(':')
-            .ok_or_else(|| "forgejo could not be reached".to_string())?;
-        if name.trim().eq_ignore_ascii_case("content-length") {
-            content_length = value.trim().parse().ok();
-        } else if name.trim().eq_ignore_ascii_case("transfer-encoding")
-            && value.to_ascii_lowercase().contains("chunked")
-        {
-            chunked = true;
-        }
-    }
-    let data = if chunked {
-        read_chunked(stream)?
-    } else if let Some(len) = content_length {
-        let want = len.min(FORGEJO_RESPONSE_LIMIT + 1);
-        let mut data = vec![0u8; want];
-        stream
-            .read_exact(&mut data)
-            .map_err(|_| "forgejo could not be reached".to_string())?;
-        if len > FORGEJO_RESPONSE_LIMIT {
-            return Err("forgejo response exceeds the supported size".to_string());
-        }
-        data
-    } else {
-        read_to_end_limited(stream)?
-    };
-    Ok((status, data))
-}
-
-fn read_to_end_limited(stream: &mut TcpStream) -> Result<Vec<u8>, String> {
-    let mut data: Vec<u8> = Vec::new();
-    let mut chunk = [0u8; 8192];
-    loop {
-        match stream.read(&mut chunk) {
-            Ok(0) => break,
-            Ok(n) => {
-                data.extend_from_slice(&chunk[..n]);
-                if data.len() > FORGEJO_RESPONSE_LIMIT + 1 {
-                    return Err("forgejo response exceeds the supported size".to_string());
-                }
-            }
-            Err(_) => return Err("forgejo could not be reached".to_string()),
-        }
-    }
-    if data.len() > FORGEJO_RESPONSE_LIMIT {
-        return Err("forgejo response exceeds the supported size".to_string());
-    }
-    Ok(data)
-}
-
-fn read_chunked(stream: &mut TcpStream) -> Result<Vec<u8>, String> {
-    let mut data: Vec<u8> = Vec::new();
-    loop {
-        let line = read_line(stream)?;
-        let size = usize::from_str_radix(line.split(';').next().unwrap_or("").trim(), 16)
-            .map_err(|_| "invalid Forgejo response".to_string())?;
-        if size == 0 {
-            let _ = read_line(stream);
-            break;
-        }
-        if data.len() + size > FORGEJO_RESPONSE_LIMIT {
-            return Err("forgejo response exceeds the supported size".to_string());
-        }
-        let mut chunk = vec![0u8; size];
-        stream
-            .read_exact(&mut chunk)
-            .map_err(|_| "forgejo could not be reached".to_string())?;
-        data.extend_from_slice(&chunk);
-        let _ = read_line(stream);
-    }
-    Ok(data)
-}
-
-fn read_line(stream: &mut TcpStream) -> Result<String, String> {
-    let mut line: Vec<u8> = Vec::new();
-    let mut byte = [0u8; 1];
-    loop {
-        match stream.read(&mut byte) {
-            Ok(0) => return Err("forgejo could not be reached".to_string()),
-            Ok(_) => line.push(byte[0]),
-            Err(_) => return Err("forgejo could not be reached".to_string()),
-        }
-        if line.len() >= 2 && line[line.len() - 2..] == *b"\r\n" {
-            line.truncate(line.len() - 2);
-            break;
-        }
-        if line.len() > 65536 {
+    let url = format!("{base}{path}");
+    let agent = ureq::AgentBuilder::new()
+        .timeout(timeout)
+        .redirects(0)
+        .try_proxy_from_env(false)
+        .build();
+    let response = match agent
+        .request(method, &url)
+        .set("Accept", "application/json")
+        .set("Content-Type", "application/json")
+        .set("Authorization", &format!("token {token}"))
+        .call()
+    {
+        Ok(response) => response,
+        Err(ureq::Error::Status(_, response)) => response,
+        Err(ureq::Error::Transport(_)) => {
             return Err("forgejo could not be reached".to_string());
         }
+    };
+    let status = response.status();
+    let mut body = Vec::new();
+    response
+        .into_reader()
+        .take((FORGEJO_RESPONSE_LIMIT + 1) as u64)
+        .read_to_end(&mut body)
+        .map_err(|_| "forgejo could not be reached".to_string())?;
+    if body.len() > FORGEJO_RESPONSE_LIMIT {
+        return Err("forgejo response exceeds the supported size".to_string());
     }
-    String::from_utf8(line).map_err(|_| "forgejo could not be reached".to_string())
+    Ok((status, body))
 }
 
 // decode_user mirrors the forgejo client's decodeResponse into User: the body
@@ -267,4 +141,240 @@ pub(crate) fn decode_user(body: &[u8]) -> Result<ForgejoUser, String> {
         id: user.id,
         admin: user.admin,
     })
+}
+
+#[cfg(test)]
+mod http_tests {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread::{self, JoinHandle};
+    use std::time::Duration;
+
+    fn read_request(stream: &mut std::net::TcpStream) -> Vec<u8> {
+        let mut request = Vec::new();
+        let mut byte = [0u8; 1];
+        while !request.ends_with(b"\r\n\r\n") {
+            stream.read_exact(&mut byte).expect("read request");
+            request.push(byte[0]);
+            assert!(request.len() <= 65536, "request headers bounded");
+        }
+        request
+    }
+
+    fn serve(response: &'static [u8]) -> (String, JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind fixture");
+        let address = listener.local_addr().expect("fixture address");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept fixture");
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .expect("request timeout");
+            stream
+                .set_write_timeout(Some(Duration::from_secs(2)))
+                .expect("response timeout");
+            read_request(&mut stream);
+            stream.write_all(response).expect("write response");
+        });
+        (format!("http://{address}"), handle)
+    }
+
+    #[test]
+    fn request_reads_chunked_and_eof_bodies() {
+        let (chunked, server) = serve(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n2\r\nok\r\n0\r\n\r\n",
+        );
+        assert_eq!(
+            forgejo_request(&chunked, "GET", "/api/v1/user", "secret").unwrap(),
+            (200, b"ok".to_vec())
+        );
+        server.join().expect("chunked fixture joined");
+
+        let (eof, server) = serve(b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nend");
+        assert_eq!(
+            forgejo_request(&eof, "GET", "/api/v1/user", "secret").unwrap(),
+            (200, b"end".to_vec())
+        );
+        server.join().expect("EOF fixture joined");
+    }
+
+    #[test]
+    fn request_returns_error_status_body_and_does_not_follow_redirects() {
+        let (denied, server) = serve(
+            b"HTTP/1.1 403 Forbidden\r\nContent-Length: 6\r\nConnection: close\r\n\r\ndenied",
+        );
+        assert_eq!(
+            forgejo_request(&denied, "GET", "/api/v1/user", "secret").unwrap(),
+            (403, b"denied".to_vec())
+        );
+        server.join().expect("denied fixture joined");
+
+        let (redirect, server) = serve(b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:1/\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        assert_eq!(
+            forgejo_request(&redirect, "GET", "/api/v1/user", "secret").unwrap(),
+            (302, Vec::new())
+        );
+        server.join().expect("redirect fixture joined");
+    }
+
+    #[test]
+    fn request_sends_the_literal_authorization_scheme() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind fixture");
+        let address = listener.local_addr().expect("fixture address");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept request");
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .expect("request timeout");
+            stream
+                .set_write_timeout(Some(Duration::from_secs(2)))
+                .expect("response timeout");
+            let request = read_request(&mut stream);
+            stream
+                .write_all(
+                    b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )
+                .expect("write response");
+            String::from_utf8(request).expect("request headers")
+        });
+        let url = format!("http://{address}");
+        assert_eq!(
+            forgejo_request(&url, "DELETE", "/api/v1/user/token", "fixture-token").unwrap(),
+            (204, Vec::new())
+        );
+        let request = handle.join().expect("authorization fixture joined");
+        assert!(request.contains("Authorization: token fixture-token\r\n"));
+        assert!(!url.contains("fixture-token"));
+    }
+
+    #[test]
+    fn request_caps_success_and_error_status_bodies() {
+        for status in [200, 403] {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("bind fixture");
+            let address = listener.local_addr().expect("fixture address");
+            let handle = thread::spawn(move || {
+                let (mut stream, _) = listener.accept().expect("accept request");
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .expect("request timeout");
+                stream
+                    .set_write_timeout(Some(Duration::from_secs(2)))
+                    .expect("response timeout");
+                read_request(&mut stream);
+                write!(
+                    stream,
+                    "HTTP/1.1 {status} Test\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    FORGEJO_RESPONSE_LIMIT + 1
+                )
+                .expect("write headers");
+                stream
+                    .write_all(&vec![b'x'; FORGEJO_RESPONSE_LIMIT + 1])
+                    .expect("write body");
+            });
+            let url = format!("http://{address}");
+            assert_eq!(
+                forgejo_request(&url, "GET", "/api/v1/user", "secret").unwrap_err(),
+                "forgejo response exceeds the supported size"
+            );
+            handle.join().expect("oversized fixture joined");
+        }
+    }
+
+    #[test]
+    fn request_rejects_malformed_and_truncated_responses_neutrally() {
+        let (malformed, server) = serve(b"not an HTTP response\r\n\r\n");
+        assert_eq!(
+            forgejo_request(&malformed, "GET", "/api/v1/user", "private-token").unwrap_err(),
+            "forgejo could not be reached"
+        );
+        server.join().expect("malformed fixture joined");
+
+        let (truncated, server) =
+            serve(b"HTTP/1.1 200 OK\r\nContent-Length: 9\r\nConnection: close\r\n\r\nshort");
+        let error =
+            forgejo_request(&truncated, "GET", "/api/v1/user", "private-token").unwrap_err();
+        assert_eq!(error, "forgejo could not be reached");
+        assert!(!error.contains("private-token"));
+        server.join().expect("truncated fixture joined");
+
+        let (malformed_chunk, server) = serve(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\nnope\r\n",
+        );
+        let error =
+            forgejo_request(&malformed_chunk, "GET", "/api/v1/user", "private-token").unwrap_err();
+        assert_eq!(error, "forgejo could not be reached");
+        assert!(!error.contains("private-token"));
+        server.join().expect("malformed chunk fixture joined");
+
+        let error = forgejo_request(
+            "http://127.0.0.1:1",
+            "GET",
+            "/api/v1/user",
+            "fixture-token\r\nInjected: private-token",
+        )
+        .unwrap_err();
+        assert_eq!(error, "forgejo could not be reached");
+        assert!(!error.contains("private-token"));
+    }
+
+    #[test]
+    fn request_timeout_covers_headers_and_body_together() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind fixture");
+        let address = listener.local_addr().expect("fixture address");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept request");
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .expect("request timeout");
+            stream
+                .set_write_timeout(Some(Duration::from_secs(2)))
+                .expect("response timeout");
+            read_request(&mut stream);
+            thread::sleep(Duration::from_millis(70));
+            let _ = stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n");
+            thread::sleep(Duration::from_millis(70));
+            let _ = stream.write_all(b"ok");
+        });
+        let url = format!("http://{address}");
+        let error = forgejo_request_with_timeout(
+            &url,
+            "GET",
+            "/api/v1/user",
+            "secret",
+            Duration::from_millis(110),
+        )
+        .unwrap_err();
+        assert_eq!(error, "forgejo could not be reached");
+        handle.join().expect("delayed response fixture joined");
+    }
+
+    #[test]
+    fn request_rejects_plaintext_from_https_peer_neutrally() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind fixture");
+        let address = listener.local_addr().expect("fixture address");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept TLS request");
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .expect("TLS read timeout");
+            stream
+                .set_write_timeout(Some(Duration::from_secs(2)))
+                .expect("TLS write timeout");
+            let mut hello = [0u8; 5];
+            let _ = stream.read(&mut hello);
+            let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");
+        });
+        let url = format!("https://{address}");
+        let error = forgejo_request_with_timeout(
+            &url,
+            "GET",
+            "/api/v1/user",
+            "secret",
+            Duration::from_millis(300),
+        )
+        .unwrap_err();
+        assert_eq!(error, "forgejo could not be reached");
+        handle.join().expect("plaintext TLS fixture joined");
+    }
 }

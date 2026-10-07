@@ -15,6 +15,14 @@ fn admits_only_valid_setup_paths() {
     assert!(admit_setup_paths("http://forgejo.test", "http://127.0.0.1:3000", &out).is_err());
     assert!(admit_setup_paths("https://forgejo.test/x", "http://127.0.0.1:3000", &out).is_err());
     assert!(admit_setup_paths("https://forgejo.test", "http://127.0.0.1:3000/x", &out).is_err());
+    assert!(admit_setup_paths("https://forgejo.test/..", "http://127.0.0.1:3000", &out).is_err());
+    assert!(admit_setup_paths("https://forgejo.test:0", "http://127.0.0.1:0", &out).is_ok());
+    assert!(
+        admit_setup_paths("https://forgejo.test:65535", "http://127.0.0.1:65535", &out).is_ok()
+    );
+    assert!(
+        admit_setup_paths("https://forgejo.test:65536", "http://127.0.0.1:3000", &out).is_err()
+    );
     assert!(admit_setup_paths("https://user@forgejo.test", "http://127.0.0.1:3000", &out).is_err());
     assert!(admit_setup_paths(
         "https://forgejo.test",

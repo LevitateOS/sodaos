@@ -2,50 +2,70 @@ use std::fs;
 use std::io::{self, Read};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use url::Url;
 
-// base_url mirrors config.BaseURL: an HTTP(S) origin without credentials,
-// path, query or fragment. It follows Go url.Parse admission for origins:
-// exact lowercase scheme, non-empty host, no userinfo, path "" or "/".
+// base_url admits the setup origin while retaining the entered literal.
 fn base_url(value: &str) -> Result<(), String> {
-    if value.bytes().any(|b| b < 0x20 || b == 0x7f || b == b' ') {
-        return Err(
-            "must be an HTTP(S) origin without credentials, path, query or fragment".to_string(),
-        );
+    let reject =
+        || "must be an HTTP(S) origin without credentials, path, query or fragment".to_string();
+    if value.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\')
+        || !valid_percent_escapes(value)
+        || !(value.starts_with("http://") || value.starts_with("https://"))
+    {
+        return Err(reject());
     }
-    // Go's url.Parse lowercases the scheme before matching.
-    let lower = value.to_ascii_lowercase();
-    let rest = if lower.starts_with("http://") {
-        &value["http://".len()..]
-    } else if lower.starts_with("https://") {
-        &value["https://".len()..]
+    let rest = value.split_once("://").map(|(_, rest)| rest).unwrap_or("");
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.is_empty()
+        || authority.contains('@')
+        || authority.starts_with('[')
+            && authority
+                .split_once(']')
+                .is_some_and(|(inside, _)| inside.contains('%'))
+    {
+        return Err(reject());
+    }
+    let after_authority = rest.strip_prefix(authority).unwrap_or("");
+    let raw_path = if after_authority.starts_with('/') {
+        after_authority.split(['?', '#']).next().unwrap_or("")
     } else {
-        return Err(
-            "must be an HTTP(S) origin without credentials, path, query or fragment".to_string(),
-        );
+        ""
     };
-    if rest.is_empty() {
-        return Err(
-            "must be an HTTP(S) origin without credentials, path, query or fragment".to_string(),
-        );
+    if !matches!(raw_path, "" | "/") {
+        return Err(reject());
     }
-    let authority_end = rest.find(&['/', '?', '#'][..]).unwrap_or(rest.len());
-    let (authority, remainder) = rest.split_at(authority_end);
-    if authority.is_empty() || authority.contains('@') {
-        return Err(
-            "must be an HTTP(S) origin without credentials, path, query or fragment".to_string(),
-        );
+    let parsed = Url::parse(value).map_err(|_| reject())?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none_or(str::is_empty)
+        || !matches!(parsed.path(), "" | "/")
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(reject());
     }
-    if !remainder.is_empty() && remainder != "/" {
-        return Err(
-            "must be an HTTP(S) origin without credentials, path, query or fragment".to_string(),
-        );
-    }
-    if !valid_percent_escapes(value) {
-        return Err(
-            "must be an HTTP(S) origin without credentials, path, query or fragment".to_string(),
-        );
+    // Keep explicit port zero syntactic and retain it in the input literal.
+    // Empty explicit ports follow Url's parser behavior and are not defaulted.
+    if let Some(port) = raw_port(authority) {
+        if !port.is_empty()
+            && (!port.bytes().all(|b| b.is_ascii_digit())
+                || port.parse::<u32>().map_or(true, |p| p > 65535))
+        {
+            return Err(reject());
+        }
     }
     Ok(())
+}
+
+fn raw_port(authority: &str) -> Option<&str> {
+    let host_port = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host);
+    if let Some(bracketed) = host_port.strip_prefix('[') {
+        let (_, tail) = bracketed.split_once(']')?;
+        tail.strip_prefix(':')
+    } else {
+        host_port.rsplit_once(':').map(|(_, port)| port)
+    }
 }
 
 fn valid_percent_escapes(value: &str) -> bool {
