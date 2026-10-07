@@ -20,6 +20,11 @@ This is source inspection and documentation. No tests, builds, database/provider
 network or native qualification ran. Findings establish missing application bounds,
 not an observed exhaustion event, hostile producer or production population size.
 
+The later [file/descriptor/process custody audit](file-and-process-custody.md)
+at `1d8c4e11` adds Identity settings admission before its existing cap and
+Project snapshot stream-bound enforcement. These have separate IDs and owners;
+the four producer-side packets here retain their original scope.
+
 ## Boundary ledger
 
 For each representation, distinguish input admission, allocation/append, expansion,

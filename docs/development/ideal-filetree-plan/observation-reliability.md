@@ -16,6 +16,10 @@ L16.G collection admission and OBS-G01/R01 capture/diagnostic retention precisel
 separately from optional matcher replacement. It records four additional producer
 result/capture gaps under their own IDs and preserves these earlier findings.
 
+The later [custody audit](file-and-process-custody.md) at `1d8c4e11` adds
+Project snapshot admission and enrollment/Butane cleanup-report corrections,
+while preserving completed capture and same-descriptor repairs.
+
 ## Subject, authority and evidence
 
 | Input | Identity / scope |

@@ -15,6 +15,10 @@ This extends [workflow tracing](workflow-traces.md),
 [library caller challenges](library-integrations/adapter-challenges.md).
 Product/native authority remains in the owning guides and domain slices.
 
+The later [file/descriptor/process custody audit](file-and-process-custody.md)
+at `1d8c4e11` checks file admission and cleanup result joins. Its four additional
+source gaps remain separate from these runtime/task/child custody findings.
+
 ## Budgets and evidence
 
 One operation deadline must cover its lock/admission wait, connection,

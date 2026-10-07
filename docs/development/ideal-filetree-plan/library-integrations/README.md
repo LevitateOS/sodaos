@@ -20,6 +20,10 @@ The [resource-bounds audit](../resource-bounds.md) at `88a40b5d` distinguishes
 pre-allocation admission from downstream refusal, retained/expanded copies and
 aggregate producer results. Its four correction packets refine existing owners.
 
+The [file/descriptor/process custody audit](../file-and-process-custody.md) at
+`1d8c4e11` checks opened-file admission, confinement and cleanup result ownership.
+It assigns four bounded corrections and a dormant-method retention decision.
+
 The subsequent [selected-version adapter challenge](adapter-challenges.md) at
 `2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
 It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON

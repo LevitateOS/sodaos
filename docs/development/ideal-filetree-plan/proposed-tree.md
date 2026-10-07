@@ -30,7 +30,8 @@ document allocated below. The current [library caller maps](library-integrations
 [representation audit](data-representations.md) and
 [concurrency audit](concurrency-and-termination.md) and
 [authority/state audit](authority-and-state.md) and
-[resource-bounds audit](resource-bounds.md) are also H06 audit documents
+[resource-bounds audit](resource-bounds.md) and
+[custody audit](file-and-process-custody.md) are also H06 audit documents
 allocated below. These additions do not regenerate the historical
 target allocation or refresh R02 counts.
 
@@ -840,6 +841,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── concurrency-and-termination.md
 │   │   │   ├── authority-and-state.md
 │   │   │   ├── resource-bounds.md
+│   │   │   ├── file-and-process-custody.md
 │   │   │   ├── implementation-lanes.md
 │   │   │   ├── implementation-tasks.md
 │   │   │   ├── integration.md
