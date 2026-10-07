@@ -24,11 +24,16 @@
 //! without vendoring (`cargo build`). Behavior, exit codes and
 //! output lines match the shell original exactly.
 
+use rustix::fd::OwnedFd;
+use rustix::fs::{
+    fchmod, fstat, ftruncate, mkdirat, open, openat, openat2, FileType, Mode, OFlags, ResolveFlags,
+};
+use std::collections::HashMap;
 use std::env;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-use std::path::{Path, PathBuf};
+use std::fs::{self, File, Permissions};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -102,55 +107,186 @@ fn read_urandom(buf: &mut [u8]) -> Result<(), String> {
 
 /// `mktemp -d "${TMPDIR:-/tmp}/soda-pg-fixture.XXXXXX"` (mode 0700), or the
 /// caller-owned SODA_PG_FIXTURE_DIR created like `mkdir -p`.
-fn secret_dir() -> Result<PathBuf, String> {
-    if let Ok(dir) = env::var("SODA_PG_FIXTURE_DIR") {
-        let path = PathBuf::from(&dir);
-        fs::create_dir_all(&path).map_err(|e| format!("{dir}: {e}"))?;
-        return Ok(path);
-    }
-    let base = env::var("TMPDIR").unwrap_or_else(|_| "/tmp".to_string());
-    for _ in 0..100 {
-        let mut rand = [0u8; 6];
-        read_urandom(&mut rand)?;
-        let suffix: String = rand
-            .iter()
-            .map(|b| {
-                const ALPHABET: &[u8] =
-                    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-                ALPHABET[(b % 62) as usize] as char
-            })
-            .collect();
-        let cand = PathBuf::from(format!("{base}/soda-pg-fixture.{suffix}"));
-        match fs::create_dir(&cand) {
-            Ok(()) => {
-                fs::set_permissions(&cand, fs::Permissions::from_mode(0o700))
-                    .map_err(|e| format!("{}: {e}", cand.display()))?;
-                return Ok(cand);
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(e) => return Err(format!("{}: {e}", cand.display())),
+struct SecretDir {
+    path: PathBuf,
+    fd: OwnedFd,
+    auto_owner: Option<tempfile::TempDir>,
+}
+
+impl SecretDir {
+    fn handoff(mut self) -> PathBuf {
+        if let Some(owner) = self.auto_owner.take() {
+            owner.keep()
+        } else {
+            self.path
         }
     }
-    Err("mktemp: too many attempts".to_string())
+}
+
+fn secret_dir() -> Result<SecretDir, String> {
+    if let Ok(dir) = env::var("SODA_PG_FIXTURE_DIR") {
+        let path = PathBuf::from(&dir);
+        if path.as_os_str().is_empty() {
+            return Err("fixture directory path is empty".to_owned());
+        }
+        let fd = open_secret_dir(&path, true)?;
+        return Ok(SecretDir {
+            path,
+            fd,
+            auto_owner: None,
+        });
+    }
+    let base = env::var("TMPDIR").unwrap_or_else(|_| "/tmp".to_string());
+    let owner = tempfile::Builder::new()
+        .prefix("soda-pg-fixture.")
+        .permissions(fs::Permissions::from_mode(0o700))
+        .tempdir_in(&base)
+        .map_err(|e| format!("{base}: {e}"))?;
+    let path = owner.path().to_path_buf();
+    let fd = open_secret_dir(&path, false)?;
+    Ok(SecretDir {
+        path,
+        fd,
+        auto_owner: Some(owner),
+    })
+}
+
+/// Open or create a directory by walking from `/` through directory FDs only.
+/// Every component is resolved beneath the held root with all symlinks denied.
+fn open_secret_dir(path: &Path, create_missing: bool) -> Result<OwnedFd, String> {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        env::current_dir()
+            .map_err(|e| format!("cannot resolve fixture directory: {e}"))?
+            .join(path)
+    };
+    let mut parts = Vec::new();
+    for component in absolute.components() {
+        match component {
+            Component::RootDir | Component::CurDir => {}
+            Component::Normal(name) => parts.push(name.to_os_string()),
+            Component::ParentDir => {
+                return Err("fixture directory must not contain parent components".to_owned())
+            }
+            Component::Prefix(_) => return Err("invalid fixture directory path".to_owned()),
+        }
+    }
+    if parts.is_empty() {
+        return Err("fixture directory must be a private owned directory".to_owned());
+    }
+
+    let resolve = ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS;
+    let mut current = open(
+        "/",
+        OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(|e| format!("cannot open fixture path root: {e}"))?;
+    for component in &parts {
+        let opened = openat2(
+            &current,
+            component,
+            OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+            resolve,
+        );
+        let next = match opened {
+            Ok(fd) => fd,
+            Err(e) if create_missing && e == rustix::io::Errno::NOENT => {
+                match mkdir_private_at(&current, component) {
+                    Ok(()) => {}
+                    Err(create_error) if create_error == rustix::io::Errno::EXIST => {}
+                    Err(create_error) => {
+                        return Err(format!(
+                            "cannot create fixture directory component: {create_error}"
+                        ));
+                    }
+                };
+                let fd = openat2(
+                    &current,
+                    component,
+                    OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
+                    Mode::empty(),
+                    resolve,
+                )
+                .map_err(|e| format!("cannot open fixture directory component: {e}"))?;
+                fd
+            }
+            Err(e) => return Err(format!("cannot open fixture directory component: {e}")),
+        };
+        current = next;
+    }
+
+    let stat = fstat(&current).map_err(|e| format!("cannot inspect fixture directory: {e}"))?;
+    let mode = stat.st_mode as u32;
+    if stat.st_uid != unsafe { libc::geteuid() } as u32
+        || FileType::from_raw_mode(stat.st_mode) != FileType::Directory
+        || mode & 0o077 != 0
+        || mode & 0o700 != 0o700
+    {
+        return Err(
+            "fixture directory must be current-user-owned and private (mode 0700)".to_owned(),
+        );
+    }
+    Ok(current)
+}
+
+// Ambient umask can only restrict this private creation. Admission fails
+// closed if the resulting directory is unusable; never change process umask.
+fn mkdir_private_at(parent: &OwnedFd, name: &std::ffi::OsStr) -> rustix::io::Result<()> {
+    mkdirat(parent, name, Mode::from_raw_mode(0o700))
 }
 
 /// `head -c 33 /dev/urandom | od -An -tx1 | tr -d ' \n'`: 66 lowercase hex
 /// chars, no trailing newline, then `chmod 600`.
-fn write_password(dir: &Path, role: &str) -> Result<(), String> {
+fn write_password(dir: &SecretDir, role: &str) -> Result<String, String> {
     let mut bytes = [0u8; 33];
     read_urandom(&mut bytes)?;
     let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
-    let path = dir.join(format!("{role}.passwd"));
-    OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&path)
-        .and_then(|mut f| f.write_all(hex.as_bytes()))
-        .map_err(|e| format!("{}: {e}", path.display()))?;
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
-        .map_err(|e| format!("{}: {e}", path.display()))
+    let name = format!("{role}.passwd");
+    let fd = openat(
+        &dir.fd,
+        name.as_str(),
+        OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
+        Mode::from_raw_mode(0o600),
+    )
+    .map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))?;
+    let stat = fstat(&fd).map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))?;
+    let mode = stat.st_mode as u32;
+    if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile
+        || stat.st_uid != unsafe { libc::geteuid() } as u32
+        || stat.st_nlink != 1
+        || mode & 0o077 != 0
+    {
+        return Err(format!(
+            "{}/{}: refusing non-private password file",
+            dir.path.display(),
+            name
+        ));
+    }
+    fchmod(&fd, Mode::from_raw_mode(0o600))
+        .map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))?;
+    ftruncate(&fd, 0).map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))?;
+    let mut file = File::from(fd);
+    file.write_all(hex.as_bytes())
+        .map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))?;
+    file.sync_all()
+        .map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))?;
+    file.seek(SeekFrom::Start(0))
+        .map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))?;
+    let mut readback = Vec::with_capacity(67);
+    file.take(67)
+        .read_to_end(&mut readback)
+        .map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))?;
+    if readback.len() != 66 || readback.as_slice() != hex.as_bytes() {
+        return Err(format!(
+            "{}/{}: invalid password file contents",
+            dir.path.display(),
+            name
+        ));
+    }
+    String::from_utf8(readback).map_err(|e| format!("{}/{}: {e}", dir.path.display(), name))
 }
 
 fn role_sql(db: &str, password: &str) -> String {
@@ -214,10 +350,16 @@ fn cmd_start() -> i32 {
     };
     let mut roles = vec!["postgres"];
     roles.extend(list.iter().copied());
+    let mut passwords = HashMap::new();
     for role in &roles {
-        if let Err(e) = write_password(&dir, role) {
-            eprintln!("{e}");
-            return 1;
+        match write_password(&dir, role) {
+            Ok(password) => {
+                passwords.insert((*role).to_owned(), password);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return 1;
+            }
         }
     }
 
@@ -231,7 +373,7 @@ fn cmd_start() -> i32 {
     let name = format!("soda-pg-test-{}-{random}", std::process::id());
     let super_secret = format!(
         "{}/postgres.passwd:/run/secrets/soda-pg-super:ro,z",
-        dir.display()
+        dir.path.display()
     );
     match Command::new("podman")
         .args([
@@ -283,16 +425,12 @@ fn cmd_start() -> i32 {
 
     let mut sql = String::new();
     for db in &list {
-        let password = match fs::read_to_string(dir.join(format!("{db}.passwd"))) {
-            Ok(password) => password,
-            Err(e) => {
-                eprintln!("{e}");
-                cleanup(&name);
-                return 1;
-            }
+        let Some(password) = passwords.get(*db) else {
+            eprintln!("password generation did not return a value for {db}");
+            cleanup(&name);
+            return 1;
         };
-        // `$(...)` strips trailing newlines; the file holds bare hex.
-        sql.push_str(&role_sql(db, password.trim_end_matches('\n')));
+        sql.push_str(&role_sql(db, password));
     }
     let mut child = match Command::new("podman")
         .args([
@@ -328,7 +466,7 @@ fn cmd_start() -> i32 {
         (true, Ok(status)) if status.success() => {}
         (_, Ok(status)) => {
             cleanup(&name);
-            return status.code().unwrap_or(1);
+            return status.code().filter(|code| *code != 0).unwrap_or(1);
         }
         (_, Err(e)) => {
             eprintln!("{e}");
@@ -345,27 +483,45 @@ fn cmd_start() -> i32 {
         Ok(output) if output.status.success() => {
             first_port(&String::from_utf8_lossy(&output.stdout))
         }
-        Ok(output) => return output.status.code().unwrap_or(1),
+        Ok(output) => {
+            cleanup(&name);
+            return output.status.code().unwrap_or(1);
+        }
         Err(e) => {
             eprintln!("{e}");
+            cleanup(&name);
             return 1;
         }
     };
-    println!("SODA_PG_CONTAINER={name}");
-    println!("SODA_PG_HOST=127.0.0.1");
-    println!("SODA_PG_PORT={port}");
-    println!("SODA_PG_DATABASES=\"{databases}\"");
-    println!("SODA_PG_DIR={}", dir.display());
-    println!(
-        "SODA_PG_SUPER_PASSWORD_FILE={}/postgres.passwd",
-        dir.display()
+    // Keep ownership until the complete handoff is written. A closed stdout
+    // must not leave auto-created secrets behind with no caller receiving the
+    // path needed to remove them.
+    let output = format!(
+        "SODA_PG_CONTAINER={name}\nSODA_PG_HOST=127.0.0.1\nSODA_PG_PORT={port}\nSODA_PG_DATABASES=\"{databases}\"\nSODA_PG_DIR={}\nSODA_PG_SUPER_PASSWORD_FILE={}/postgres.passwd\n",
+        dir.path.display(),
+        dir.path.display()
     );
+    if let Err(e) = std::io::stdout().write_all(output.as_bytes()) {
+        eprintln!("cannot write fixture handoff: {e}");
+        cleanup(&name);
+        return 1;
+    }
+    let _caller_owned_dir = dir.handoff();
     0
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::symlink;
+
+    fn admitted_secret_dir(path: &Path) -> SecretDir {
+        SecretDir {
+            path: path.to_path_buf(),
+            fd: open_secret_dir(path, false).unwrap(),
+            auto_owner: None,
+        }
+    }
 
     #[test]
     fn db_names_match_shell_case() {
@@ -390,6 +546,76 @@ mod tests {
         assert_eq!(
             role_sql("soda", "ab12"),
             "CREATE ROLE \"soda\" LOGIN PASSWORD 'ab12'; CREATE DATABASE \"soda\" OWNER \"soda\";"
+        );
+    }
+
+    #[test]
+    fn fixture_root_rejects_symlink_ancestors_and_non_private_leaf() {
+        let parent = tempfile::tempdir().unwrap();
+        let actual = parent.path().join("actual");
+        fs::create_dir(&actual).unwrap();
+        fs::set_permissions(&actual, Permissions::from_mode(0o700)).unwrap();
+        let link = parent.path().join("link");
+        symlink(&actual, &link).unwrap();
+        assert!(open_secret_dir(&link.join("nested"), true).is_err());
+        assert!(!actual.join("nested").exists());
+        assert!(open_secret_dir(&link.join("../escaped"), true).is_err());
+        assert!(!parent.path().join("escaped").exists());
+
+        let created = actual.join("created").join("leaf");
+        let _fd = open_secret_dir(&created, true).unwrap();
+        assert_eq!(
+            fs::metadata(actual.join("created"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(&created).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+
+        fs::set_permissions(&actual, Permissions::from_mode(0o755)).unwrap();
+        assert!(open_secret_dir(&actual, false).is_err());
+    }
+
+    #[test]
+    fn password_file_rejects_symlink_and_fifo_without_touching_target() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("private");
+        fs::create_dir(&root).unwrap();
+        fs::set_permissions(&root, Permissions::from_mode(0o700)).unwrap();
+        let dir = admitted_secret_dir(&root);
+
+        let target = parent.path().join("target");
+        fs::write(&target, b"preserve").unwrap();
+        symlink(&target, root.join("symlink.passwd")).unwrap();
+        assert!(write_password(&dir, "symlink").is_err());
+        assert_eq!(fs::read(&target).unwrap(), b"preserve");
+
+        rustix::fs::mkfifoat(&dir.fd, "fifo.passwd", Mode::from_raw_mode(0o600)).unwrap();
+        assert!(write_password(&dir, "fifo").is_err());
+    }
+
+    #[test]
+    fn password_file_is_private_and_uses_the_admitted_fd_contents() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("private");
+        fs::create_dir(&root).unwrap();
+        fs::set_permissions(&root, Permissions::from_mode(0o700)).unwrap();
+        let dir = admitted_secret_dir(&root);
+        let password = write_password(&dir, "soda").unwrap();
+        assert_eq!(password.len(), 66);
+        assert!(password.bytes().all(|b| b.is_ascii_hexdigit()));
+        assert_eq!(
+            fs::metadata(root.join("soda.passwd"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
         );
     }
 }
