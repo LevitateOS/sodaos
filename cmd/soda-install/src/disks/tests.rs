@@ -180,3 +180,16 @@ fn scan_decodes_and_blocks() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn lsblk_size_requires_unsigned_integer_token_but_accepts_negative_zero() {
+    let decoded = decode_tree(br#"{"blockdevices":[{"size":-0}]}"#).unwrap();
+    assert_eq!(decoded[0].size, 0);
+    for token in ["-1", "1.0", "1e0", "18446744073709551616"] {
+        let input = format!(r#"{{"blockdevices":[{{"size":{token}}}]}}"#);
+        assert!(
+            decode_tree(input.as_bytes()).is_err(),
+            "accepted size token {token}"
+        );
+    }
+}

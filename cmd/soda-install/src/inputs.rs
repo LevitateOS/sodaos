@@ -1,12 +1,12 @@
 //! Provisioning input validation and Ignition destination assembly:
 //! `Hostname`, `ProjectSubnet`, and `Destination`.
 
-use soda_json::JsonValue;
-
 use crate::errors::Error;
-use crate::jsongo::{self, Soft};
 use crate::netip;
 use crate::sshkey;
+use serde_json::ser::Formatter;
+use serde_json::{Map, Value};
+use std::io::{self, Write};
 
 /// Hostname labels: 1-63 lowercase alphanumerics/dashes, starting and
 /// ending alphanumeric; the full name is 1-253 bytes.
@@ -59,73 +59,60 @@ fn valid_provisioning_inputs(hostname_value: &str, password_hash: &str, subnet: 
     hostname(hostname_value) && project_subnet(subnet).is_ok() && valid_password_hash(password_hash)
 }
 
-fn template_storage(template: &[u8]) -> Result<(JsonValue, JsonValue, Vec<JsonValue>), Error> {
-    let config =
-        jsongo::parse(template).map_err(|_| Error::msg("invalid public destination template"))?;
+fn template_storage(template: &[u8]) -> Result<(Value, Value, Vec<Value>), Error> {
+    let text = String::from_utf8_lossy(template);
+    let config: Value = serde_json::from_str(&text)
+        .map_err(|_| Error::msg("invalid public destination template"))?;
     // Go decodes `null` into a nil map without error; the missing ignition
     // below then reports the Ignition error, not a template error.
-    let empty: Vec<(String, JsonValue)> = Vec::new();
+    let empty = Map::new();
     let entries = match &config {
-        JsonValue::Object(entries) => entries,
-        JsonValue::Null => &empty,
+        Value::Object(entries) => entries,
+        Value::Null => &empty,
         _ => return Err(Error::msg("invalid public destination template")),
     };
-    let ignition = entries
-        .iter()
-        .rev()
-        .find(|(k, _)| k == "ignition")
-        .map(|(_, v)| v);
-    let version = match ignition {
-        Some(value) => Soft::new(value)
-            .map_err(|_| Error::msg("expected converted Ignition 3.5.0 template"))?
-            .string("version")
-            .map_err(|_| Error::msg("expected converted Ignition 3.5.0 template"))?,
-        None => None,
-    };
-    if version.as_deref() != Some("3.5.0") {
+    let ignition = entries.get("ignition");
+    let version = ignition
+        .and_then(Value::as_object)
+        .and_then(|o| o.get("version"));
+    if version.and_then(Value::as_str) != Some("3.5.0")
+        || matches!(ignition, Some(v) if !v.is_object())
+    {
         return Err(Error::msg("expected converted Ignition 3.5.0 template"));
     }
-    if entries.iter().any(|(k, _)| k == "passwd") {
+    if entries.contains_key("passwd") {
         return Err(Error::msg("public template must not contain accounts"));
     }
-    let storage_value = entries
-        .iter()
-        .rev()
-        .find(|(k, _)| k == "storage")
-        .map(|(_, v)| v);
+    let storage_value = entries.get("storage");
     let storage = match storage_value {
-        Some(JsonValue::Object(_)) => storage_value.unwrap().clone(),
+        Some(Value::Object(_)) => storage_value.unwrap().clone(),
         _ => return Err(Error::msg("invalid public storage template")),
     };
-    let files_value = match &storage {
-        JsonValue::Object(entries) => entries
-            .iter()
-            .rev()
-            .find(|(k, _)| k == "files")
-            .map(|(_, v)| v),
-        _ => None,
-    };
+    let files_value = storage.get("files");
     let files = match files_value {
         None => return Err(Error::msg("invalid public files template")),
-        Some(JsonValue::Null) => Vec::new(),
-        Some(JsonValue::Array(items)) => items.clone(),
+        Some(Value::Null) => Vec::new(),
+        Some(Value::Array(items)) => items.clone(),
         Some(_) => return Err(Error::msg("invalid public files template")),
     };
     Ok((config, storage, files))
 }
 
-fn admit_provisioning_files(files: &[JsonValue]) -> Result<(), Error> {
+fn admit_provisioning_files(files: &[Value]) -> Result<(), Error> {
     for file in files {
         // Go decodes `null` into a zero entry without error; it carries no
         // path and passes through untouched.
-        if matches!(file, JsonValue::Null) {
+        if matches!(file, Value::Null) {
             continue;
         }
-        let path = Soft::new(file)
-            .map_err(|_| Error::msg("provisioning path collision"))?
-            .string("path")
-            .map_err(|_| Error::msg("provisioning path collision"))?
-            .unwrap_or_default();
+        let object = file
+            .as_object()
+            .ok_or_else(|| Error::msg("provisioning path collision"))?;
+        let path = match object.get("path") {
+            None | Some(Value::Null) => String::new(),
+            Some(Value::String(path)) => path.clone(),
+            _ => return Err(Error::msg("provisioning path collision")),
+        };
         if path == "/etc/hostname" || path == "/etc/soda-installer/project-subnet" {
             return Err(Error::msg("provisioning path collision"));
         }
@@ -133,28 +120,51 @@ fn admit_provisioning_files(files: &[JsonValue]) -> Result<(), Error> {
     Ok(())
 }
 
-fn file_entry(path: &str, contents: &str) -> JsonValue {
-    JsonValue::Object(vec![
-        ("path".to_string(), JsonValue::Str(path.to_string())),
-        ("mode".to_string(), JsonValue::Number("384".to_string())),
-        (
-            "contents".to_string(),
-            JsonValue::Object(vec![(
-                "source".to_string(),
-                JsonValue::Str(format!(
-                    "data:;base64,{}",
-                    crate::sshkey::b64_encode(contents.as_bytes())
-                )),
-            )]),
-        ),
-    ])
+fn file_entry(path: &str, contents: &str) -> Value {
+    serde_json::json!({"path":path,"mode":384,"contents":{"source":format!("data:;base64,{}", crate::sshkey::b64_encode(contents.as_bytes()))}})
 }
 
-fn set_field(object: &mut JsonValue, key: &str, value: JsonValue) {
-    if let JsonValue::Object(entries) = object {
-        entries.retain(|(k, _)| k != key);
-        entries.push((key.to_string(), value));
+fn set_field(object: &mut Value, key: &str, value: Value) {
+    if let Value::Object(entries) = object {
+        entries.insert(key.to_string(), value);
     }
+}
+
+struct GoHtmlFormatter;
+impl Formatter for GoHtmlFormatter {
+    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
+        let mut start = 0;
+        for (index, ch) in fragment.char_indices() {
+            let escape: Option<&[u8]> = match ch {
+                '<' => Some(b"\\u003c"),
+                '>' => Some(b"\\u003e"),
+                '&' => Some(b"\\u0026"),
+                '\u{2028}' => Some(b"\\u2028"),
+                '\u{2029}' => Some(b"\\u2029"),
+                _ => None,
+            };
+            if let Some(escape) = escape {
+                writer.write_all(&fragment.as_bytes()[start..index])?;
+                writer.write_all(escape)?;
+                start = index + ch.len_utf8();
+            }
+        }
+        writer.write_all(&fragment.as_bytes()[start..])
+    }
+}
+
+pub(crate) fn serialize_ignition<T: serde::Serialize + ?Sized>(
+    value: &T,
+) -> Result<Vec<u8>, Error> {
+    let mut out = Vec::new();
+    let mut serializer = serde_json::Serializer::with_formatter(&mut out, GoHtmlFormatter);
+    value
+        .serialize(&mut serializer)
+        .map_err(|_| Error::msg("cannot encode destination"))?;
+    Ok(out)
 }
 
 /// `Destination`: extend the public template with the hostname file, the
@@ -182,30 +192,26 @@ pub fn destination(
         "/etc/soda-installer/project-subnet",
         &format!("{subnet}\n"),
     ));
-    set_field(&mut storage, "files", JsonValue::Array(files));
+    set_field(&mut storage, "files", Value::Array(files));
     set_field(&mut config, "storage", storage);
-    let mut root = vec![
-        ("name".to_string(), JsonValue::Str("root".to_string())),
-        (
-            "passwordHash".to_string(),
-            JsonValue::Str(password_hash.to_string()),
-        ),
-    ];
+    let mut root = serde_json::Map::new();
+    root.insert("name".to_string(), Value::String("root".to_string()));
+    root.insert(
+        "passwordHash".to_string(),
+        Value::String(password_hash.to_string()),
+    );
     if !normalized.is_empty() {
-        root.push((
+        root.insert(
             "sshAuthorizedKeys".to_string(),
-            JsonValue::Array(vec![JsonValue::Str(normalized)]),
-        ));
+            Value::Array(vec![Value::String(normalized)]),
+        );
     }
     set_field(
         &mut config,
         "passwd",
-        JsonValue::Object(vec![(
-            "users".to_string(),
-            JsonValue::Array(vec![JsonValue::Object(root)]),
-        )]),
+        serde_json::json!({"users":[Value::Object(root)]}),
     );
-    Ok(jsongo::serialize(&config).into_bytes())
+    serialize_ignition(&config)
 }
 
 #[cfg(test)]

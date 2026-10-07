@@ -101,13 +101,12 @@ fn hash() -> String {
 fn destination_assembles_config() {
     let out = destination(TEMPLATE.as_bytes(), "soda-01", KEY, &hash(), "10.89.0.0/24").unwrap();
     let text = String::from_utf8(out).unwrap();
-    let parsed = jsongo::parse(text.as_bytes()).unwrap();
-    let config = Soft::new(&parsed).unwrap();
-    let storage = config.object("storage").unwrap().unwrap();
-    let files = storage.array("files").unwrap().unwrap();
+    let config: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let storage = config.get("storage").unwrap();
+    let files = storage.get("files").unwrap().as_array().unwrap();
     assert_eq!(files.len(), 3);
-    let passwd = config.object("passwd").unwrap().unwrap();
-    let users = passwd.array("users").unwrap().unwrap();
+    let passwd = config.get("passwd").unwrap();
+    let users = passwd.get("users").unwrap().as_array().unwrap();
     assert_eq!(users.len(), 1);
     // Deterministic key order and exact byte shape.
     assert!(
@@ -126,6 +125,16 @@ fn destination_without_key_omits_authorized_keys() {
     let text = String::from_utf8(out).unwrap();
     assert!(!text.contains("sshAuthorizedKeys"));
     assert!(text.contains("passwordHash"));
+}
+
+#[test]
+fn destination_keeps_go_safe_compact_json_shape() {
+    let template =
+        br#"{"ignition":{"version":"3.5.0","label":"<>&\u2028\u2029"},"storage":{"files":[]}}"#;
+    let out = destination(template, "soda-01", "", &hash(), "10.89.0.0/24").unwrap();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains(r#"\u003c\u003e\u0026\u2028\u2029"#));
+    assert!(!text.ends_with('\n'));
 }
 
 #[test]

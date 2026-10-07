@@ -12,7 +12,6 @@ mod execute;
 mod fmtx;
 mod hostadmit;
 mod inputs;
-mod jsongo;
 mod netip;
 mod oci;
 mod pathx;

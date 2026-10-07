@@ -5,7 +5,6 @@ use crate::command::Runner;
 use crate::console::Console;
 use crate::errors::Error;
 use crate::fmtx::Arg;
-use crate::jsongo::{parse, Soft};
 use crate::signal::Ctx;
 
 fn valid_installed_https_origin(origin: &crate::urlx::Url, raw: &str) -> bool {
@@ -25,13 +24,17 @@ fn valid_installed_https_origin(origin: &crate::urlx::Url, raw: &str) -> bool {
 fn installed_forgejo_origin(root: &str) -> Result<(crate::urlx::Url, String), Error> {
     let data = crate::execute::read_regular(&format!("{root}/dashboard.json"), 65536)
         .map_err(|_| Error::msg("cannot read installed browser address"))?;
-    let value = parse(&data).map_err(|_| Error::msg("invalid installed browser configuration"))?;
-    let config =
-        Soft::new(&value).map_err(|_| Error::msg("invalid installed browser configuration"))?;
-    let url = config
-        .string("forgejo_url")
-        .map_err(|_| Error::msg("invalid installed browser configuration"))?
-        .unwrap_or_default();
+    let text = String::from_utf8_lossy(&data);
+    let config: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|_| Error::msg("invalid installed browser configuration"))?;
+    let config = config
+        .as_object()
+        .ok_or_else(|| Error::msg("invalid installed browser configuration"))?;
+    let url = match config.get("forgejo_url") {
+        None | Some(serde_json::Value::Null) => String::new(),
+        Some(serde_json::Value::String(value)) => value.clone(),
+        Some(_) => return Err(Error::msg("invalid installed browser configuration")),
+    };
     let origin =
         crate::urlx::parse(&url).map_err(|_| Error::msg("invalid installed HTTPS address"))?;
     if !valid_installed_https_origin(&origin, &url) {

@@ -5,12 +5,13 @@
 
 use std::collections::BTreeMap;
 
-use soda_json::JsonValue;
-
 use crate::buildx;
 use crate::errors::Error;
-use crate::jsongo::{parse, Binder};
 use crate::oci;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
+use std::fmt;
 
 pub const PATH: &str = "/usr/share/soda/release.json";
 pub const IMAGES_PATH: &str = "/usr/share/soda/images";
@@ -174,68 +175,209 @@ impl Payload {
     }
 }
 
-fn decode_image(value: &JsonValue) -> Result<Image, ()> {
-    // A null image decodes to the zero value but stays present, like Go.
-    if matches!(value, JsonValue::Null) {
-        return Ok(Image::default());
-    }
-    let mut binder = Binder::new(value)?;
-    let image = Image {
-        reference: binder.string("Reference")?.unwrap_or_default(),
-        config: binder.string("Config")?.unwrap_or_default(),
-        manifest: binder.string("Manifest")?.unwrap_or_default(),
-        archive_sha256: binder.string("ArchiveSHA256")?.unwrap_or_default(),
-    };
-    binder.finish()?;
-    Ok(image)
-}
-
-fn decode_payload(value: &JsonValue) -> Result<Payload, ()> {
-    let mut binder = Binder::new(value)?;
-    let mut payload = Payload {
-        format: binder.integer("Format")?.unwrap_or(0),
-        id: binder.string("ID")?.unwrap_or_default(),
-        revision: binder.string("Revision")?.unwrap_or_default(),
-        architecture: binder.string("Architecture")?.unwrap_or_default(),
-        core_os: binder.string("CoreOS")?.unwrap_or_default(),
-        base: binder.string("Base")?.unwrap_or_default(),
-        repository_prefix: binder.string("RepositoryPrefix")?.unwrap_or_default(),
-        schema: binder.integer("Schema")?.unwrap_or(0),
-        presentation_sha256: binder.string("PresentationSHA256")?.unwrap_or_default(),
-        host_packages_sha256: binder.string("HostPackagesSHA256")?.unwrap_or_default(),
-        images: BTreeMap::new(),
-        upgrade_from: Vec::new(),
-    };
-    // Images decode entry by entry so null values stay present.
-    if let Some(entries) = binder.raw_object("Images")? {
-        // Last key wins, like Go map decoding.
-        let mut names: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
-        names.sort_unstable();
-        names.dedup();
-        for name in names {
-            let value = entries.iter().rev().find(|(k, _)| k == name).unwrap();
-            payload
-                .images
-                .insert(name.to_string(), decode_image(&value.1)?);
-        }
-    }
-    if let Some(items) = binder.array("UpgradeFrom")? {
-        for item in items {
-            match item {
-                JsonValue::Str(s) => payload.upgrade_from.push(s.clone()),
-                JsonValue::Null => payload.upgrade_from.push(String::new()),
-                _ => return Err(()),
+struct ImageFields([Option<Box<RawValue>>; 4]);
+impl<'de> Deserialize<'de> for ImageFields {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ImageFields;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an image object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<ImageFields, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut fields: [Option<Box<RawValue>>; 4] = [None, None, None, None];
+                while let Some(key) = map.next_key::<String>()? {
+                    let slot = image_slot(&key)
+                        .ok_or_else(|| de::Error::unknown_field(&key, IMAGE_FIELDS))?;
+                    fields[slot] = Some(map.next_value()?);
+                }
+                Ok(ImageFields(fields))
             }
         }
+        d.deserialize_map(V)
     }
-    binder.finish()?;
-    Ok(payload)
+}
+
+const IMAGE_FIELDS: &[&str] = &["Reference", "Config", "Manifest", "ArchiveSHA256"];
+fn image_slot(key: &str) -> Option<usize> {
+    field_slot(key, IMAGE_FIELDS)
+}
+fn field_slot(key: &str, fields: &[&str]) -> Option<usize> {
+    if let Some(i) = fields.iter().position(|field| *field == key) {
+        return Some(i);
+    }
+    fields
+        .iter()
+        .position(|field| key.len() == field.len() && key.eq_ignore_ascii_case(field))
+}
+fn raw_string(raw: &Option<Box<RawValue>>) -> Result<String, ()> {
+    match raw {
+        None => Ok(String::new()),
+        Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+            .map(|v| v.unwrap_or_default())
+            .map_err(|_| ()),
+    }
+}
+fn decode_image(raw: &RawValue) -> Result<Image, ()> {
+    if raw.get() == "null" {
+        return Ok(Image::default());
+    }
+    let fields: ImageFields = serde_json::from_str(raw.get()).map_err(|_| ())?;
+    Ok(Image {
+        reference: raw_string(&fields.0[0])?,
+        config: raw_string(&fields.0[1])?,
+        manifest: raw_string(&fields.0[2])?,
+        archive_sha256: raw_string(&fields.0[3])?,
+    })
+}
+
+struct PayloadFields([Option<Box<RawValue>>; 12]);
+impl<'de> Deserialize<'de> for PayloadFields {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PayloadFields;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a payload object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<PayloadFields, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut fields: [Option<Box<RawValue>>; 12] = std::array::from_fn(|_| None);
+                while let Some(key) = map.next_key::<String>()? {
+                    let slot = payload_slot(&key)
+                        .ok_or_else(|| de::Error::unknown_field(&key, PAYLOAD_FIELDS))?;
+                    fields[slot] = Some(map.next_value()?);
+                }
+                Ok(PayloadFields(fields))
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+const PAYLOAD_FIELDS: &[&str] = &[
+    "Format",
+    "ID",
+    "Revision",
+    "Architecture",
+    "CoreOS",
+    "Base",
+    "RepositoryPrefix",
+    "Schema",
+    "PresentationSHA256",
+    "HostPackagesSHA256",
+    "Images",
+    "UpgradeFrom",
+];
+fn payload_slot(key: &str) -> Option<usize> {
+    field_slot(key, PAYLOAD_FIELDS)
+}
+fn raw_i64(raw: &Option<Box<RawValue>>) -> Result<i64, ()> {
+    match raw {
+        None => Ok(0),
+        Some(raw) if raw.get() == "null" => Ok(0),
+        Some(raw) => raw.get().parse::<i64>().map_err(|_| ()),
+    }
+}
+fn raw_string_list(raw: &Option<Box<RawValue>>) -> Result<Vec<String>, ()> {
+    match raw {
+        None => Ok(Vec::new()),
+        Some(raw) => serde_json::from_str::<Option<Vec<Option<String>>>>(raw.get())
+            .map(|v| {
+                v.unwrap_or_default()
+                    .into_iter()
+                    .map(|s| s.unwrap_or_default())
+                    .collect()
+            })
+            .map_err(|_| ()),
+    }
+}
+
+struct PayloadImages(BTreeMap<String, Image>);
+
+impl<'de> Deserialize<'de> for PayloadImages {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ImagesVisitor;
+        impl<'de> Visitor<'de> for ImagesVisitor {
+            type Value = PayloadImages;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("payload image bindings")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut images = BTreeMap::new();
+                while let Some(name) = map.next_key::<String>()? {
+                    let raw = map.next_value::<Box<RawValue>>()?;
+                    let image = decode_image(&raw)
+                        .map_err(|_| de::Error::custom("invalid payload image binding"))?;
+                    images.insert(name, image);
+                }
+                Ok(PayloadImages(images))
+            }
+        }
+        deserializer.deserialize_map(ImagesVisitor)
+    }
+}
+
+fn decode_payload(raw: &RawValue) -> Result<Payload, ()> {
+    let fields: PayloadFields = serde_json::from_str(raw.get()).map_err(|_| ())?;
+    let strings = [
+        &fields.0[1],
+        &fields.0[2],
+        &fields.0[3],
+        &fields.0[4],
+        &fields.0[5],
+        &fields.0[6],
+        &fields.0[8],
+        &fields.0[9],
+    ];
+    let mut values = Vec::with_capacity(strings.len());
+    for value in strings {
+        values.push(raw_string(value)?);
+    }
+    let mut images = BTreeMap::new();
+    if let Some(raw_images) = &fields.0[10] {
+        if raw_images.get() != "null" {
+            images = serde_json::from_str::<PayloadImages>(raw_images.get())
+                .map_err(|_| ())?
+                .0;
+        }
+    }
+    Ok(Payload {
+        format: raw_i64(&fields.0[0])?,
+        id: values[0].clone(),
+        revision: values[1].clone(),
+        architecture: values[2].clone(),
+        core_os: values[3].clone(),
+        base: values[4].clone(),
+        repository_prefix: values[5].clone(),
+        schema: raw_i64(&fields.0[7])?,
+        presentation_sha256: values[6].clone(),
+        host_packages_sha256: values[7].clone(),
+        images,
+        upgrade_from: raw_string_list(&fields.0[11])?,
+    })
 }
 
 pub fn load(path: &str) -> Result<Payload, Error> {
     let data = buildx::read_json_bytes(path)?;
-    let value = parse(&data).map_err(|_| Error::msg("invalid payload document"))?;
-    let payload = decode_payload(&value).map_err(|_| Error::msg("invalid payload document"))?;
+    let text = String::from_utf8_lossy(&data);
+    let mut deserializer = serde_json::Deserializer::from_str(&text);
+    let raw = Box::<RawValue>::deserialize(&mut deserializer)
+        .map_err(|_| Error::msg("invalid payload document"))?;
+    deserializer
+        .end()
+        .map_err(|_| Error::msg("invalid payload document"))?;
+    let payload = decode_payload(&raw).map_err(|_| Error::msg("invalid payload document"))?;
     payload.validate()?;
     Ok(payload)
 }

@@ -9,8 +9,11 @@ use crate::console::Console;
 use crate::errors::Error;
 use crate::execute;
 use crate::hostadmit;
-use crate::jsongo::{parse, Binder};
 use crate::signal::Ctx;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
+use std::fmt;
 
 pub const DATA_DIR: &str = "/usr/local/share/soda-installer";
 pub const DISK_ATTEMPT_MARKER: &str = "/run/soda-installer-disk-started";
@@ -54,42 +57,77 @@ impl MediaIdentity {
 }
 
 pub fn decode_media_identity(data: &[u8]) -> Result<MediaIdentity, Error> {
-    let value = parse(data).map_err(|_| Error::msg("invalid media identity document"))?;
-    let mut binder =
-        Binder::new(&value).map_err(|_| Error::msg("invalid media identity document"))?;
+    struct Fields(Vec<(String, Box<RawValue>)>);
+    impl<'de> Deserialize<'de> for Fields {
+        fn deserialize<D>(d: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            struct FieldsVisitor;
+            impl<'de> Visitor<'de> for FieldsVisitor {
+                type Value = Fields;
+                fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    f.write_str("a media identity object")
+                }
+                fn visit_map<A>(self, mut map: A) -> Result<Fields, A::Error>
+                where
+                    A: MapAccess<'de>,
+                {
+                    let mut fields = Vec::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        if ![
+                            "Architecture",
+                            "Release",
+                            "InstallerVersion",
+                            "Revision",
+                            "HostManifest",
+                            "PayloadSHA256",
+                            "ConsoleSHA256",
+                        ]
+                        .iter()
+                        .any(|name| {
+                            key == *name
+                                || (key.len() == name.len() && key.eq_ignore_ascii_case(name))
+                        }) {
+                            return Err(de::Error::custom("unknown field"));
+                        }
+                        fields.push((key, map.next_value::<Box<RawValue>>()?));
+                    }
+                    Ok(Fields(fields))
+                }
+            }
+            d.deserialize_map(FieldsVisitor)
+        }
+    }
+    let invalid = || Error::msg("invalid media identity document");
+    let text = String::from_utf8_lossy(data);
+    let mut de = serde_json::Deserializer::from_str(&text);
+    let Fields(fields) = Fields::deserialize(&mut de).map_err(|_| invalid())?;
+    de.end().map_err(|_| invalid())?;
+    fn get(fields: &[(String, Box<RawValue>)], name: &str) -> Result<String, ()> {
+        let raw = fields
+            .iter()
+            .rev()
+            .find(|(key, _)| {
+                key == name || (key.len() == name.len() && key.eq_ignore_ascii_case(name))
+            })
+            .map(|(_, raw)| raw.get());
+        match raw {
+            None => Ok(String::new()),
+            Some(raw) => serde_json::from_str::<Option<String>>(raw)
+                .map(|s| s.unwrap_or_default())
+                .map_err(|_| ()),
+        }
+    }
     let media = MediaIdentity {
-        architecture: binder
-            .string("Architecture")
-            .map_err(|_| Error::msg("invalid media identity document"))?
-            .unwrap_or_default(),
-        release: binder
-            .string("Release")
-            .map_err(|_| Error::msg("invalid media identity document"))?
-            .unwrap_or_default(),
-        installer_version: binder
-            .string("InstallerVersion")
-            .map_err(|_| Error::msg("invalid media identity document"))?
-            .unwrap_or_default(),
-        revision: binder
-            .string("Revision")
-            .map_err(|_| Error::msg("invalid media identity document"))?
-            .unwrap_or_default(),
-        host_manifest: binder
-            .string("HostManifest")
-            .map_err(|_| Error::msg("invalid media identity document"))?
-            .unwrap_or_default(),
-        payload_sha256: binder
-            .string("PayloadSHA256")
-            .map_err(|_| Error::msg("invalid media identity document"))?
-            .unwrap_or_default(),
-        console_sha256: binder
-            .string("ConsoleSHA256")
-            .map_err(|_| Error::msg("invalid media identity document"))?
-            .unwrap_or_default(),
+        architecture: get(&fields, "Architecture").map_err(|_| invalid())?,
+        release: get(&fields, "Release").map_err(|_| invalid())?,
+        installer_version: get(&fields, "InstallerVersion").map_err(|_| invalid())?,
+        revision: get(&fields, "Revision").map_err(|_| invalid())?,
+        host_manifest: get(&fields, "HostManifest").map_err(|_| invalid())?,
+        payload_sha256: get(&fields, "PayloadSHA256").map_err(|_| invalid())?,
+        console_sha256: get(&fields, "ConsoleSHA256").map_err(|_| invalid())?,
     };
-    binder
-        .finish()
-        .map_err(|_| Error::msg("invalid media identity document"))?;
     Ok(media)
 }
 
@@ -239,6 +277,24 @@ mod tests {
         assert!(decode_media_identity(doc.as_bytes()).is_err());
         let doc = doc.replace(r#","Bogus":1"#, "");
         assert_eq!(decode_media_identity(doc.as_bytes()).unwrap(), media);
+        let overwritten = doc.replacen(
+            r#""Architecture":"x86_64""#,
+            r#""Architecture":false,"architecture":"x86_64""#,
+            1,
+        );
+        assert_eq!(
+            decode_media_identity(overwritten.as_bytes()).unwrap(),
+            media
+        );
+        let nulled = doc.replacen(
+            r#""Architecture":"x86_64""#,
+            r#""Architecture":"x86_64","architecture":null"#,
+            1,
+        );
+        assert!(decode_media_identity(nulled.as_bytes())
+            .unwrap()
+            .architecture
+            .is_empty());
     }
 
     #[test]

@@ -1,295 +1,505 @@
 use std::collections::BTreeMap;
+use std::fmt;
 
-use soda_json::JsonValue;
+use serde::de::{IgnoredAny, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 
 use super::layout::{Blob, Descriptor};
 use super::{CONFIG_MEDIA_TYPE, INDEX_MEDIA_TYPE, MANIFEST_MEDIA_TYPE};
 use crate::errors::Error;
-use crate::jsongo::parse;
 
-// ---------------------------------------------------------------------------
-// Tolerant decode (index/layout): unknown fields ignored, only success or
-// failure escapes through mapped errors.
-// ---------------------------------------------------------------------------
-
-fn soft_string(value: &JsonValue) -> Result<String, ()> {
-    match value {
-        JsonValue::Str(s) => Ok(s.clone()),
-        JsonValue::Null => Ok(String::new()),
-        _ => Err(()),
-    }
+fn raw_document(data: &[u8]) -> Result<Box<RawValue>, Error> {
+    let text = String::from_utf8_lossy(data);
+    let mut de = serde_json::Deserializer::from_str(&text);
+    let raw = Box::<RawValue>::deserialize(&mut de)
+        .map_err(|_| Error::msg("unexpected end of JSON input"))?;
+    de.end()
+        .map_err(|_| Error::msg("unexpected end of JSON input"))?;
+    Ok(raw)
 }
 
-fn soft_field<'a>(entries: &'a [(String, JsonValue)], name: &str) -> Option<&'a JsonValue> {
-    // Go matches struct fields exactly first, then by ASCII/Unicode fold.
-    // Index and descriptor keys are fixed camelCase; exact match wins and a
-    // folded duplicate loses to it, per key order.
-    let mut found: Option<&JsonValue> = None;
-    for (key, value) in entries {
-        if key == name || (key.len() == name.len() && key.eq_ignore_ascii_case(name)) {
-            found = Some(value);
+fn is_null(raw: &RawValue) -> bool {
+    raw.get() == "null"
+}
+
+fn type_error(raw: &RawValue, go_type: &str) -> Error {
+    let token = raw.get().trim_start();
+    let kind = match token.as_bytes().first() {
+        Some(b'n') => "null".to_string(),
+        Some(b't' | b'f') => "bool".to_string(),
+        Some(b'"') => "string".to_string(),
+        Some(b'[') => "array".to_string(),
+        Some(b'{') => "object".to_string(),
+        _ => format!("number {token}"),
+    };
+    Error::msg(format!(
+        "json: cannot unmarshal {kind} into Go value of type {go_type}"
+    ))
+}
+
+fn raw_string(raw: Option<&RawValue>) -> Result<String, Error> {
+    match raw {
+        None => Ok(String::new()),
+        Some(raw) if is_null(raw) => Ok(String::new()),
+        Some(raw) => {
+            serde_json::from_str::<String>(raw.get()).map_err(|_| type_error(raw, "string"))
         }
     }
-    found
 }
 
-fn soft_entries(value: &JsonValue) -> Result<&[(String, JsonValue)], ()> {
-    match value {
-        JsonValue::Object(entries) => Ok(entries),
-        _ => Err(()),
+fn raw_integer(raw: Option<&RawValue>, ty: &str) -> Result<i64, Error> {
+    match raw {
+        None => Ok(0),
+        Some(raw) if is_null(raw) => Ok(0),
+        Some(raw) => raw
+            .get()
+            .parse::<i128>()
+            .ok()
+            .and_then(|n| i64::try_from(n).ok())
+            .ok_or_else(|| type_error(raw, ty)),
     }
 }
 
-fn decode_descriptor_soft(value: &JsonValue) -> Result<Descriptor, ()> {
+fn folded(key: &str, name: &str) -> bool {
+    key.len() == name.len() && key.eq_ignore_ascii_case(name)
+}
+
+#[derive(Default)]
+struct RawLayout {
+    image_layout_version: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawLayout {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawLayout;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI layout object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<RawLayout, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawLayout::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if folded(&key, "imageLayoutVersion") {
+                        dto.image_layout_version = Some(map.next_value()?);
+                    } else {
+                        let _: IgnoredAny = map.next_value()?;
+                    }
+                }
+                Ok(dto)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct RawIndex {
+    schema_version: Option<Box<RawValue>>,
+    media_type: Option<Box<RawValue>>,
+    manifests: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawIndex {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawIndex;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI index object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<RawIndex, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawIndex::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if folded(&key, "schemaVersion") {
+                        dto.schema_version = Some(map.next_value()?);
+                    } else if folded(&key, "mediaType") {
+                        dto.media_type = Some(map.next_value()?);
+                    } else if folded(&key, "manifests") {
+                        dto.manifests = Some(map.next_value()?);
+                    } else {
+                        let _: IgnoredAny = map.next_value()?;
+                    }
+                }
+                Ok(dto)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct RawDescriptor {
+    digest: Option<Box<RawValue>>,
+    size: Option<Box<RawValue>>,
+    media_type: Option<Box<RawValue>>,
+    urls: Option<Box<RawValue>>,
+    annotations: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawDescriptor {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawDescriptor;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI descriptor object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<RawDescriptor, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawDescriptor::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if folded(&key, "digest") {
+                        dto.digest = Some(map.next_value()?);
+                    } else if folded(&key, "size") {
+                        dto.size = Some(map.next_value()?);
+                    } else if folded(&key, "mediaType") {
+                        dto.media_type = Some(map.next_value()?);
+                    } else if folded(&key, "urls") {
+                        dto.urls = Some(map.next_value()?);
+                    } else if folded(&key, "annotations") {
+                        dto.annotations = Some(map.next_value()?);
+                    } else {
+                        let _: IgnoredAny = map.next_value()?;
+                    }
+                }
+                Ok(dto)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+struct RawDescriptorList(Vec<Box<RawValue>>);
+impl<'de> Deserialize<'de> for RawDescriptorList {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawDescriptorList;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an array of OCI descriptors")
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<RawDescriptorList, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut values = Vec::new();
+                while let Some(value) = seq.next_element::<Box<RawValue>>()? {
+                    values.push(value);
+                }
+                Ok(RawDescriptorList(values))
+            }
+        }
+        d.deserialize_seq(V)
+    }
+}
+
+#[derive(Default)]
+struct RawManifest {
+    schema_version: Option<Box<RawValue>>,
+    media_type: Option<Box<RawValue>>,
+    config: Option<Box<RawValue>>,
+    layers: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawManifest {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawManifest;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI manifest object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<RawManifest, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawManifest::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if folded(&key, "schemaVersion") {
+                        dto.schema_version = Some(map.next_value()?);
+                    } else if folded(&key, "mediaType") {
+                        dto.media_type = Some(map.next_value()?);
+                    } else if folded(&key, "config") {
+                        dto.config = Some(map.next_value()?);
+                    } else if folded(&key, "layers") {
+                        dto.layers = Some(map.next_value()?);
+                    } else {
+                        let _: IgnoredAny = map.next_value()?;
+                    }
+                }
+                Ok(dto)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct RawRootfs {
+    kind: Option<Box<RawValue>>,
+    diff_ids: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawRootfs {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawRootfs;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI rootfs object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<RawRootfs, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawRootfs::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if folded(&key, "type") {
+                        dto.kind = Some(map.next_value()?);
+                    } else if folded(&key, "diff_ids") {
+                        dto.diff_ids = Some(map.next_value()?);
+                    } else {
+                        let _: IgnoredAny = map.next_value()?;
+                    }
+                }
+                Ok(dto)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct RawImageConfig {
+    labels: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawImageConfig {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawImageConfig;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI config metadata object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<RawImageConfig, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawImageConfig::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if folded(&key, "Labels") {
+                        dto.labels = Some(map.next_value()?);
+                    } else {
+                        let _: IgnoredAny = map.next_value()?;
+                    }
+                }
+                Ok(dto)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct RawConfig {
+    os: Option<Box<RawValue>>,
+    architecture: Option<Box<RawValue>>,
+    rootfs: Option<Box<RawValue>>,
+    config: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawConfig {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawConfig;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI image config object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<RawConfig, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawConfig::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if folded(&key, "os") {
+                        dto.os = Some(map.next_value()?);
+                    } else if folded(&key, "architecture") {
+                        dto.architecture = Some(map.next_value()?);
+                    } else if folded(&key, "rootfs") {
+                        dto.rootfs = Some(map.next_value()?);
+                    } else if folded(&key, "config") {
+                        dto.config = Some(map.next_value()?);
+                    } else {
+                        let _: IgnoredAny = map.next_value()?;
+                    }
+                }
+                Ok(dto)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+fn descriptor_fields(raw: &RawValue, go_type: &str) -> Result<RawDescriptor, Error> {
+    if is_null(raw) {
+        return Ok(RawDescriptor::default());
+    }
+    serde_json::from_str(raw.get()).map_err(|_| type_error(raw, go_type))
+}
+
+fn descriptor_strings(dto: &RawDescriptor) -> Result<Descriptor, Error> {
     let mut desc = Descriptor::default();
-    if matches!(value, JsonValue::Null) {
-        return Ok(desc);
-    }
-    let entries = soft_entries(value)?;
-    if let Some(v) = soft_field(entries, "digest") {
-        desc.digest = soft_string(v)?;
-    }
-    if let Some(v) = soft_field(entries, "size") {
-        match v {
-            JsonValue::Null => {}
-            JsonValue::Number(_) => {
-                desc.size = v
-                    .as_integer()
-                    .and_then(|n| i64::try_from(n).ok())
-                    .ok_or(())?;
-            }
-            _ => return Err(()),
+    desc.digest = raw_string(dto.digest.as_deref())?;
+    desc.media_type = raw_string(dto.media_type.as_deref())?;
+    desc.size = raw_integer(dto.size.as_deref(), "int64")?;
+    if let Some(raw) = dto.urls.as_deref() {
+        if !is_null(raw) {
+            let values: Vec<Option<String>> =
+                serde_json::from_str(raw.get()).map_err(|_| type_error(raw, "[]string"))?;
+            desc.urls
+                .extend(values.into_iter().map(Option::unwrap_or_default));
         }
     }
-    if let Some(v) = soft_field(entries, "mediaType") {
-        desc.media_type = soft_string(v)?;
-    }
-    if let Some(v) = soft_field(entries, "urls") {
-        match v {
-            JsonValue::Null => {}
-            JsonValue::Array(items) => {
-                for item in items {
-                    desc.urls.push(soft_string(item)?);
-                }
-            }
-            _ => return Err(()),
-        }
-    }
-    if let Some(v) = soft_field(entries, "annotations") {
-        match v {
-            JsonValue::Null => {}
-            JsonValue::Object(map) => {
-                for (key, val) in map {
-                    desc.annotations.insert(key.clone(), soft_string(val)?);
-                }
-            }
-            _ => return Err(()),
+    if let Some(raw) = dto.annotations.as_deref() {
+        if !is_null(raw) {
+            let annotations: BTreeMap<String, Option<String>> = serde_json::from_str(raw.get())
+                .map_err(|_| type_error(raw, "map[string]string"))?;
+            desc.annotations = annotations
+                .into_iter()
+                .map(|(key, value)| (key, value.unwrap_or_default()))
+                .collect();
         }
     }
     Ok(desc)
+}
+
+fn decode_descriptor_soft(raw: &RawValue) -> Result<Descriptor, ()> {
+    let dto = descriptor_fields(raw, "build.descriptor").map_err(|_| ())?;
+    descriptor_strings(&dto).map_err(|_| ())
+}
+
+fn decode_descriptor_hard(raw: &RawValue) -> Result<Descriptor, Error> {
+    let dto = descriptor_fields(raw, "build.descriptor")?;
+    descriptor_strings(&dto)
 }
 
 pub(super) fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Descriptor>, Error> {
     let layout_data = entries
         .get("oci-layout")
-        .and_then(|b| b.data.as_deref())
+        .and_then(|blob| blob.data.as_deref())
         .unwrap_or(b"");
-    let layout_value = parse(layout_data).map_err(|_| Error::msg("missing OCI layout"))?;
-    let version = soft_entries(&layout_value)
-        .ok()
-        .and_then(|fields| soft_field(fields, "imageLayoutVersion"))
-        .and_then(|v| soft_string(v).ok())
-        .unwrap_or_default();
-    if version != "1.0.0" {
+    let layout_raw = raw_document(layout_data).map_err(|_| Error::msg("missing OCI layout"))?;
+    let layout: RawLayout =
+        serde_json::from_str(layout_raw.get()).map_err(|_| Error::msg("missing OCI layout"))?;
+    if raw_string(layout.image_layout_version.as_deref()).unwrap_or_default() != "1.0.0" {
         return Err(Error::msg("missing OCI layout"));
     }
+
     let index_data = entries
         .get("index.json")
-        .and_then(|b| b.data.as_deref())
+        .and_then(|blob| blob.data.as_deref())
         .unwrap_or(b"");
-    let index_value = parse(index_data).map_err(|_| Error::msg("valid OCI index required"))?;
-    let fields = soft_entries(&index_value).map_err(|_| Error::msg("valid OCI index required"))?;
-    let schema = match soft_field(fields, "schemaVersion") {
-        None | Some(JsonValue::Null) => 0i64,
-        Some(v @ JsonValue::Number(_)) => v
-            .as_integer()
-            .and_then(|n| i64::try_from(n).ok())
-            .ok_or_else(|| Error::msg("valid OCI index required"))?,
-        Some(_) => return Err(Error::msg("valid OCI index required")),
-    };
-    let media = match soft_field(fields, "mediaType") {
-        None | Some(JsonValue::Null) => String::new(),
-        Some(v) => soft_string(v).map_err(|_| Error::msg("valid OCI index required"))?,
-    };
-    if schema != 2 || (!media.is_empty() && media != INDEX_MEDIA_TYPE) {
+    let index_raw = raw_document(index_data).map_err(|_| Error::msg("valid OCI index required"))?;
+    let index: RawIndex = serde_json::from_str(index_raw.get())
+        .map_err(|_| Error::msg("valid OCI index required"))?;
+    if raw_integer(index.schema_version.as_deref(), "int64")
+        .map_err(|_| Error::msg("valid OCI index required"))?
+        != 2
+    {
         return Err(Error::msg("valid OCI index required"));
     }
-    let manifests = match soft_field(fields, "manifests") {
-        None | Some(JsonValue::Null) => Vec::new(),
-        Some(JsonValue::Array(items)) => items
-            .iter()
-            .map(decode_descriptor_soft)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_| Error::msg("valid OCI index required"))?,
-        Some(_) => return Err(Error::msg("valid OCI index required")),
-    };
+    let media = raw_string(index.media_type.as_deref())
+        .map_err(|_| Error::msg("valid OCI index required"))?;
+    if !media.is_empty() && media != INDEX_MEDIA_TYPE {
+        return Err(Error::msg("valid OCI index required"));
+    }
+    let mut manifests = Vec::new();
+    if let Some(raw) = index.manifests.as_deref() {
+        if !is_null(raw) {
+            let items: RawDescriptorList = serde_json::from_str(raw.get())
+                .map_err(|_| type_error(raw, "[]build.descriptor"))
+                .map_err(|_| Error::msg("valid OCI index required"))?;
+            for item in items.0 {
+                manifests.push(
+                    decode_descriptor_soft(&item)
+                        .map_err(|_| Error::msg("valid OCI index required"))?,
+                );
+            }
+        }
+    }
     Ok(manifests)
 }
 
-// ---------------------------------------------------------------------------
-// Manifest/config decode: Go `UnmarshalTypeError` strings escape raw, so the
-// decoder reproduces them exactly.
-// ---------------------------------------------------------------------------
-
-fn json_type_name(value: &JsonValue) -> String {
-    match value {
-        JsonValue::Null => "null".to_string(),
-        JsonValue::Bool(_) => "bool".to_string(),
-        JsonValue::Str(_) => "string".to_string(),
-        JsonValue::Number(raw) => format!("number {raw}"),
-        JsonValue::Array(_) => "array".to_string(),
-        JsonValue::Object(_) => "object".to_string(),
-    }
-}
-
-fn type_error(value: &JsonValue, go_type: &str) -> Error {
-    Error::msg(format!(
-        "json: cannot unmarshal {} into Go value of type {go_type}",
-        json_type_name(value)
-    ))
-}
-
-fn hard_string(value: &JsonValue) -> Result<String, Error> {
-    match value {
-        JsonValue::Str(s) => Ok(s.clone()),
-        JsonValue::Null => Ok(String::new()),
-        _ => Err(type_error(value, "string")),
-    }
-}
-
-fn hard_int(value: &JsonValue) -> Result<i64, Error> {
-    match value {
-        JsonValue::Null => Ok(0),
-        v @ JsonValue::Number(_) => v
-            .as_integer()
-            .and_then(|n| i64::try_from(n).ok())
-            .ok_or_else(|| type_error(value, "int")),
-        _ => Err(type_error(value, "int")),
-    }
-}
-
-fn hard_int64(value: &JsonValue) -> Result<i64, Error> {
-    match value {
-        JsonValue::Null => Ok(0),
-        v @ JsonValue::Number(_) => v
-            .as_integer()
-            .and_then(|n| i64::try_from(n).ok())
-            .ok_or_else(|| type_error(value, "int64")),
-        _ => Err(type_error(value, "int64")),
-    }
-}
-
-fn hard_field<'a>(entries: &'a [(String, JsonValue)], name: &str) -> Option<&'a JsonValue> {
-    soft_field(entries, name)
-}
-
-fn decode_descriptor_hard(value: &JsonValue) -> Result<Descriptor, Error> {
-    let mut desc = Descriptor::default();
-    if matches!(value, JsonValue::Null) {
-        return Ok(desc);
-    }
-    let entries = match value {
-        JsonValue::Object(entries) => entries,
-        _ => return Err(type_error(value, "build.descriptor")),
-    };
-    if let Some(v) = hard_field(entries, "digest") {
-        desc.digest = hard_string(v)?;
-    }
-    if let Some(v) = hard_field(entries, "size") {
-        desc.size = hard_int64(v)?;
-    }
-    if let Some(v) = hard_field(entries, "mediaType") {
-        desc.media_type = hard_string(v)?;
-    }
-    if let Some(v) = hard_field(entries, "urls") {
-        match v {
-            JsonValue::Null => {}
-            JsonValue::Array(items) => {
-                for item in items {
-                    desc.urls.push(hard_string(item)?);
-                }
-            }
-            _ => return Err(type_error(v, "[]string")),
-        }
-    }
-    if let Some(v) = hard_field(entries, "annotations") {
-        match v {
-            JsonValue::Null => {}
-            JsonValue::Object(map) => {
-                for (key, val) in map {
-                    desc.annotations.insert(key.clone(), hard_string(val)?);
-                }
-            }
-            _ => return Err(type_error(v, "map[string]string")),
-        }
-    }
-    Ok(desc)
-}
-
 pub(super) struct OciManifestDoc {
-    schema_version: i64,
-    media_type: String,
     pub(super) config: Descriptor,
     pub(super) layers: Vec<Descriptor>,
 }
 
 pub(super) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifestDoc, Error> {
-    let value = parse(data).map_err(|_| Error::msg("unexpected end of JSON input"))?;
-    if matches!(value, JsonValue::Null) {
+    let raw = raw_document(data)?;
+    if is_null(&raw) {
         return Ok(OciManifestDoc {
-            schema_version: 0,
-            media_type: String::new(),
             config: Descriptor::default(),
             layers: Vec::new(),
         });
     }
-    let entries = match &value {
-        JsonValue::Object(entries) => entries,
-        _ => return Err(type_error(&value, "build.ociManifest")),
+    let dto: RawManifest =
+        serde_json::from_str(raw.get()).map_err(|_| type_error(&raw, "build.ociManifest"))?;
+    let schema_version = raw_integer(dto.schema_version.as_deref(), "int")?;
+    let media_type = raw_string(dto.media_type.as_deref())?;
+    let config = match dto.config.as_deref() {
+        None => Descriptor::default(),
+        Some(raw) => decode_descriptor_hard(raw)?,
     };
-    let mut doc = OciManifestDoc {
-        schema_version: 0,
-        media_type: String::new(),
-        config: Descriptor::default(),
-        layers: Vec::new(),
-    };
-    if let Some(v) = hard_field(entries, "schemaVersion") {
-        doc.schema_version = hard_int(v)?;
-    }
-    if let Some(v) = hard_field(entries, "mediaType") {
-        doc.media_type = hard_string(v)?;
-    }
-    if let Some(v) = hard_field(entries, "config") {
-        doc.config = decode_descriptor_hard(v)?;
-    }
-    if let Some(v) = hard_field(entries, "layers") {
-        match v {
-            JsonValue::Null => {}
-            JsonValue::Array(items) => {
-                for item in items {
-                    doc.layers.push(decode_descriptor_hard(item)?);
-                }
+    let mut layers = Vec::new();
+    if let Some(raw) = dto.layers.as_deref() {
+        if !is_null(raw) {
+            let items: RawDescriptorList = serde_json::from_str(raw.get())
+                .map_err(|_| type_error(raw, "[]build.descriptor"))?;
+            for item in items.0 {
+                layers.push(decode_descriptor_hard(&item)?);
             }
-            _ => return Err(type_error(v, "[]build.descriptor")),
         }
     }
-    if doc.schema_version != 2
-        || (!doc.media_type.is_empty() && doc.media_type != MANIFEST_MEDIA_TYPE)
-        || doc.config.media_type != CONFIG_MEDIA_TYPE
+    if schema_version != 2
+        || (!media_type.is_empty() && media_type != MANIFEST_MEDIA_TYPE)
+        || config.media_type != CONFIG_MEDIA_TYPE
     {
         return Err(Error::msg("invalid OCI image manifest"));
     }
-    Ok(doc)
+    Ok(OciManifestDoc {
+        config,
+        layers,
+    })
 }
 
 pub(super) struct OciConfigDoc {
@@ -301,7 +511,7 @@ pub(super) struct OciConfigDoc {
 }
 
 pub(super) fn parse_oci_config(data: &[u8]) -> Result<OciConfigDoc, Error> {
-    let value = parse(data).map_err(|_| Error::msg("unexpected end of JSON input"))?;
+    let raw = raw_document(data)?;
     let mut doc = OciConfigDoc {
         os: String::new(),
         arch: String::new(),
@@ -309,58 +519,43 @@ pub(super) fn parse_oci_config(data: &[u8]) -> Result<OciConfigDoc, Error> {
         diff_ids: Vec::new(),
         labels: BTreeMap::new(),
     };
-    if matches!(value, JsonValue::Null) {
+    if is_null(&raw) {
         return Ok(doc);
     }
-    let entries = match &value {
-        JsonValue::Object(entries) => entries,
-        _ => return Err(type_error(&value, "build.ociConfig")),
-    };
-    if let Some(v) = hard_field(entries, "os") {
-        doc.os = hard_string(v)?;
-    }
-    if let Some(v) = hard_field(entries, "architecture") {
-        doc.arch = hard_string(v)?;
-    }
-    if let Some(v) = hard_field(entries, "rootfs") {
-        match v {
-            JsonValue::Null => {}
-            JsonValue::Object(rootfs) => {
-                if let Some(t) = hard_field(rootfs, "type") {
-                    doc.rootfs_type = hard_string(t)?;
-                }
-                if let Some(d) = hard_field(rootfs, "diff_ids") {
-                    match d {
-                        JsonValue::Null => {}
-                        JsonValue::Array(items) => {
-                            for item in items {
-                                doc.diff_ids.push(hard_string(item)?);
-                            }
-                        }
-                        _ => return Err(type_error(d, "[]string")),
-                    }
+    let dto: RawConfig =
+        serde_json::from_str(raw.get()).map_err(|_| type_error(&raw, "build.ociConfig"))?;
+    doc.os = raw_string(dto.os.as_deref())?;
+    doc.arch = raw_string(dto.architecture.as_deref())?;
+    if let Some(raw) = dto.rootfs.as_deref() {
+        if !is_null(raw) {
+            let rootfs: RawRootfs = serde_json::from_str(raw.get())
+                .map_err(|_| type_error(raw, "struct { Type string; DiffIDs []string }"))?;
+            doc.rootfs_type = raw_string(rootfs.kind.as_deref())?;
+            if let Some(ids) = rootfs.diff_ids.as_deref() {
+                if !is_null(ids) {
+                    let values: Vec<Option<String>> =
+                        serde_json::from_str(ids.get()).map_err(|_| type_error(ids, "[]string"))?;
+                    doc.diff_ids
+                        .extend(values.into_iter().map(Option::unwrap_or_default));
                 }
             }
-            _ => return Err(type_error(v, "struct { Type string; DiffIDs []string }")),
         }
     }
-    if let Some(v) = hard_field(entries, "config") {
-        match v {
-            JsonValue::Null => {}
-            JsonValue::Object(config) => {
-                if let Some(l) = hard_field(config, "Labels") {
-                    match l {
-                        JsonValue::Null => {}
-                        JsonValue::Object(map) => {
-                            for (key, val) in map {
-                                doc.labels.insert(key.clone(), hard_string(val)?);
-                            }
-                        }
-                        _ => return Err(type_error(l, "map[string]string")),
-                    }
+    if let Some(raw) = dto.config.as_deref() {
+        if !is_null(raw) {
+            let config: RawImageConfig = serde_json::from_str(raw.get())
+                .map_err(|_| type_error(raw, "struct { Labels map[string]string }"))?;
+            if let Some(labels) = config.labels.as_deref() {
+                if !is_null(labels) {
+                    let labels: BTreeMap<String, Option<String>> =
+                        serde_json::from_str(labels.get())
+                            .map_err(|_| type_error(labels, "map[string]string"))?;
+                    doc.labels = labels
+                        .into_iter()
+                        .map(|(key, value)| (key, value.unwrap_or_default()))
+                        .collect();
                 }
             }
-            _ => return Err(type_error(v, "struct { Labels map[string]string }")),
         }
     }
     Ok(doc)

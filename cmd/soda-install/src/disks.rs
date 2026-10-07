@@ -1,14 +1,15 @@
 //! Block-device inventory: `lsblk` decoding, use/refusal checks, kernel
 //! identity (`diskseq`, holders), live-media exclusion, and summaries.
 
-use soda_json::JsonValue;
-
 use crate::command::Runner;
 use crate::errors::Error;
 use crate::fmtx::{fold_eq_ascii, go_fields, go_trim_space, sprintf, Arg};
-use crate::jsongo::Soft;
 use crate::pathx;
 use crate::signal::Ctx;
+use serde::de::{IgnoredAny, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct BlockDevice {
@@ -106,65 +107,213 @@ fn unused(d: &BlockDevice) -> String {
     unused_children(d)
 }
 
-fn decode_device(value: &JsonValue) -> Result<BlockDevice, ()> {
-    let soft = Soft::new(value)?;
-    let mountpoints = match soft.array("mountpoints")? {
-        None => None,
-        Some(items) => {
-            let mut out = Vec::new();
-            for item in items {
-                match item {
-                    JsonValue::Null => out.push(None),
-                    JsonValue::Str(s) => out.push(Some(s.clone())),
-                    _ => return Err(()),
-                }
+#[derive(Default)]
+struct RawBlockRoot {
+    blockdevices: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawBlockRoot {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawBlockRoot;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an lsblk root object")
             }
-            Some(out)
+            fn visit_map<A>(self, mut map: A) -> Result<RawBlockRoot, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawBlockRoot::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "blockdevices" {
+                        dto.blockdevices = Some(map.next_value()?);
+                    } else {
+                        let _: IgnoredAny = map.next_value()?;
+                    }
+                }
+                Ok(dto)
+            }
         }
+        d.deserialize_map(V)
+    }
+}
+
+struct RawBlockList(Vec<Box<RawValue>>);
+impl<'de> Deserialize<'de> for RawBlockList {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawBlockList;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an array of block devices")
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<RawBlockList, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut items = Vec::new();
+                while let Some(item) = seq.next_element::<Box<RawValue>>()? {
+                    items.push(item);
+                }
+                Ok(RawBlockList(items))
+            }
+        }
+        d.deserialize_seq(V)
+    }
+}
+
+#[derive(Default)]
+struct RawBlockDevice {
+    name: Option<Box<RawValue>>,
+    kname: Option<Box<RawValue>>,
+    kind: Option<Box<RawValue>>,
+    tran: Option<Box<RawValue>>,
+    size: Option<Box<RawValue>>,
+    model: Option<Box<RawValue>>,
+    serial: Option<Box<RawValue>>,
+    wwn: Option<Box<RawValue>>,
+    major_minor: Option<Box<RawValue>>,
+    ro: Option<Box<RawValue>>,
+    mountpoints: Option<Box<RawValue>>,
+    fstype: Option<Box<RawValue>>,
+    uuid: Option<Box<RawValue>>,
+    partuuid: Option<Box<RawValue>>,
+    children: Option<Box<RawValue>>,
+}
+impl<'de> Deserialize<'de> for RawBlockDevice {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RawBlockDevice;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a block-device object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<RawBlockDevice, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut dto = RawBlockDevice::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "name" => dto.name = Some(map.next_value()?),
+                        "kname" => dto.kname = Some(map.next_value()?),
+                        "type" => dto.kind = Some(map.next_value()?),
+                        "tran" => dto.tran = Some(map.next_value()?),
+                        "size" => dto.size = Some(map.next_value()?),
+                        "model" => dto.model = Some(map.next_value()?),
+                        "serial" => dto.serial = Some(map.next_value()?),
+                        "wwn" => dto.wwn = Some(map.next_value()?),
+                        "maj:min" => dto.major_minor = Some(map.next_value()?),
+                        "ro" => dto.ro = Some(map.next_value()?),
+                        "mountpoints" => dto.mountpoints = Some(map.next_value()?),
+                        "fstype" => dto.fstype = Some(map.next_value()?),
+                        "uuid" => dto.uuid = Some(map.next_value()?),
+                        "partuuid" => dto.partuuid = Some(map.next_value()?),
+                        "children" => dto.children = Some(map.next_value()?),
+                        _ => {
+                            let _: IgnoredAny = map.next_value()?;
+                        }
+                    }
+                }
+                Ok(dto)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+fn block_string(raw: Option<&RawValue>) -> Result<String, ()> {
+    match raw {
+        None => Ok(String::new()),
+        Some(raw) if raw.get() == "null" => Ok(String::new()),
+        Some(raw) => serde_json::from_str(raw.get()).map_err(|_| ()),
+    }
+}
+fn block_size(raw: Option<&RawValue>) -> Result<u64, ()> {
+    match raw {
+        None => Ok(0),
+        Some(raw) if raw.get() == "null" => Ok(0),
+        Some(raw) => raw
+            .get()
+            .parse::<i128>()
+            .ok()
+            .and_then(|n| u64::try_from(n).ok())
+            .ok_or(()),
+    }
+}
+fn decode_device(raw: &RawValue) -> Result<BlockDevice, ()> {
+    let dto: RawBlockDevice = serde_json::from_str(raw.get()).map_err(|_| ())?;
+    let size = block_size(dto.size.as_deref())?;
+    let read_only = match dto.ro.as_deref() {
+        None => false,
+        Some(raw) if raw.get() == "null" => false,
+        Some(raw) => serde_json::from_str(raw.get()).map_err(|_| ())?,
+    };
+    let mountpoints = match dto.mountpoints.as_deref() {
+        None => None,
+        Some(raw) if raw.get() == "null" => None,
+        Some(raw) => Some(serde_json::from_str::<Vec<Option<String>>>(raw.get()).map_err(|_| ())?),
     };
     let mut children = Vec::new();
-    if let Some(items) = soft.array("children")? {
-        for item in items {
-            children.push(decode_device(item)?);
+    if let Some(raw) = dto.children.as_deref() {
+        if raw.get() != "null" {
+            let items: RawBlockList = serde_json::from_str(raw.get()).map_err(|_| ())?;
+            for item in items.0 {
+                children.push(decode_device(&item)?);
+            }
         }
     }
     Ok(BlockDevice {
-        name: soft.string("name")?.unwrap_or_default(),
-        kname: soft.string("kname")?.unwrap_or_default(),
-        device_type: soft.string("type")?.unwrap_or_default(),
-        tran: soft.string("tran")?.unwrap_or_default(),
-        size: soft.unsigned("size")?.unwrap_or(0),
-        model: soft.string("model")?.unwrap_or_default(),
-        serial: soft.string("serial")?.unwrap_or_default(),
-        wwn: soft.string("wwn")?.unwrap_or_default(),
-        major_minor: soft.string("maj:min")?.unwrap_or_default(),
-        read_only: soft.boolean("ro")?.unwrap_or(false),
+        name: block_string(dto.name.as_deref())?,
+        kname: block_string(dto.kname.as_deref())?,
+        device_type: block_string(dto.kind.as_deref())?,
+        tran: block_string(dto.tran.as_deref())?,
+        size,
+        model: block_string(dto.model.as_deref())?,
+        serial: block_string(dto.serial.as_deref())?,
+        wwn: block_string(dto.wwn.as_deref())?,
+        major_minor: block_string(dto.major_minor.as_deref())?,
+        read_only,
         mountpoints,
-        fstype: soft.string("fstype")?.unwrap_or_default(),
-        uuid: soft.string("uuid")?.unwrap_or_default(),
-        partuuid: soft.string("partuuid")?.unwrap_or_default(),
+        fstype: block_string(dto.fstype.as_deref())?,
+        uuid: block_string(dto.uuid.as_deref())?,
+        partuuid: block_string(dto.partuuid.as_deref())?,
         children,
     })
 }
 
 fn decode_tree(data: &[u8]) -> Result<Vec<BlockDevice>, Error> {
-    let value = crate::jsongo::parse(data)
+    let text = String::from_utf8_lossy(data);
+    let mut de = serde_json::Deserializer::from_str(&text);
+    let raw = Box::<RawValue>::deserialize(&mut de)
         .map_err(|_| Error::msg("cannot decode block device inventory"))?;
-    // Go decodes `null` into a zero tree without error: no devices.
-    if matches!(value, JsonValue::Null) {
+    de.end()
+        .map_err(|_| Error::msg("cannot decode block device inventory"))?;
+    if raw.get() == "null" {
         return Ok(Vec::new());
     }
-    let soft = Soft::new(&value).map_err(|_| Error::msg("cannot decode block device inventory"))?;
-    let items = soft
-        .array("blockdevices")
+    let dto: RawBlockRoot = serde_json::from_str(raw.get())
         .map_err(|_| Error::msg("cannot decode block device inventory"))?;
     let mut devices = Vec::new();
-    if let Some(items) = items {
-        for item in items {
-            devices.push(
-                decode_device(item)
-                    .map_err(|_| Error::msg("cannot decode block device inventory"))?,
-            );
+    if let Some(raw) = dto.blockdevices {
+        if raw.get() != "null" {
+            let items: RawBlockList = serde_json::from_str(raw.get())
+                .map_err(|_| Error::msg("cannot decode block device inventory"))?;
+            for item in items.0 {
+                devices.push(
+                    decode_device(&item)
+                        .map_err(|_| Error::msg("cannot decode block device inventory"))?,
+                );
+            }
         }
     }
     Ok(devices)

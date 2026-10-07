@@ -6,7 +6,6 @@ use std::os::unix::io::AsRawFd;
 
 use crate::buildx;
 use crate::errors::{self, Error};
-use crate::jsongo::parse;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct OciImage {
@@ -179,8 +178,11 @@ fn copy_oci_blob(
     if name.starts_with("blobs/") && *name != format!("blobs/sha256/{sum}") {
         return Err(Error::msg("OCI blob checksum mismatch"));
     }
-    let body = if retain && parse(&body).is_ok() {
-        Some(body)
+    let body = if retain {
+        let text = String::from_utf8_lossy(&body);
+        serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .map(|_| body)
     } else {
         None
     };

@@ -2,10 +2,7 @@ use super::test_support::*;
 use super::*;
 use std::collections::BTreeMap;
 
-use soda_json::JsonValue;
-
 use crate::buildx;
-use crate::jsongo::parse;
 
 #[test]
 fn layout_preserves_identities_and_counts_once() {
@@ -86,72 +83,69 @@ fn layout_refuses_substitution() {
             _ => {
                 let path = format!("{dir}/index.json");
                 let data = std::fs::read(&path).unwrap();
-                let value = parse(&data).unwrap();
-                let mut entries = match value {
-                    JsonValue::Object(entries) => entries,
-                    _ => panic!("index shape"),
-                };
-                let manifests = entries.iter_mut().find(|(k, _)| k == "manifests").unwrap();
-                let items = match &mut manifests.1 {
-                    JsonValue::Array(items) => items,
-                    _ => panic!("manifests shape"),
-                };
+                let mut value: serde_json::Value = serde_json::from_slice(&data).unwrap();
+                let entries = value.as_object_mut().expect("index shape");
+                let items = entries
+                    .get_mut("manifests")
+                    .and_then(serde_json::Value::as_array_mut)
+                    .expect("manifests shape");
                 let first = items[0].clone();
                 match kind {
                     "duplicate-ref" => items[1] = first,
                     "wrong-ref" => {
-                        if let JsonValue::Object(fields) = &mut items[0] {
-                            fields.retain(|(k, _)| k != "annotations");
-                            fields.push((
-                                "annotations".to_string(),
-                                JsonValue::Object(vec![(
-                                    "org.opencontainers.image.ref.name".to_string(),
-                                    JsonValue::Str("latest".to_string()),
-                                )]),
-                            ));
-                        }
+                        let fields = items[0].as_object_mut().unwrap();
+                        fields.insert(
+                            "annotations".to_string(),
+                            serde_json::json!({"org.opencontainers.image.ref.name":"latest"}),
+                        );
                     }
                     "wrong-size" => {
-                        if let JsonValue::Object(fields) = &mut items[0] {
-                            for (k, v) in fields.iter_mut() {
-                                if k == "size" {
-                                    *v = JsonValue::Number("1".to_string());
-                                }
-                            }
-                        }
+                        items[0]
+                            .as_object_mut()
+                            .unwrap()
+                            .insert("size".to_string(), serde_json::json!(1));
                     }
                     "external-url" => {
-                        if let JsonValue::Object(fields) = &mut items[0] {
-                            fields.push((
-                                "urls".to_string(),
-                                JsonValue::Array(vec![JsonValue::Str(
-                                    "https://example.invalid/layer".to_string(),
-                                )]),
-                            ));
-                        }
+                        items[0].as_object_mut().unwrap().insert(
+                            "urls".to_string(),
+                            serde_json::json!(["https://example.invalid/layer"]),
+                        );
                     }
-                    "empty-index" => *items = Vec::new(),
+                    "empty-index" => items.clear(),
                     "nested-index" => {
-                        if let JsonValue::Object(fields) = &mut items[0] {
-                            for (k, v) in fields.iter_mut() {
-                                if k == "mediaType" {
-                                    *v = JsonValue::Str(INDEX_MEDIA_TYPE.to_string());
-                                }
-                            }
-                        }
+                        items[0]
+                            .as_object_mut()
+                            .unwrap()
+                            .insert("mediaType".to_string(), serde_json::json!(INDEX_MEDIA_TYPE));
                     }
                     _ => unreachable!(),
                 }
-                std::fs::write(
-                    &path,
-                    crate::jsongo::serialize(&JsonValue::Object(entries)).as_bytes(),
-                )
-                .unwrap();
+                std::fs::write(&path, serde_json::to_vec(&value).unwrap().as_slice()).unwrap();
             }
         }
         assert!(
             inspect_oci_layout(&dir, "x86_64", &revisions).is_err(),
             "{kind} accepted"
+        );
+    }
+}
+
+#[test]
+fn descriptor_size_accepts_negative_zero_but_rejects_noninteger_tokens() {
+    for (token, accepted) in [
+        ("-0", true),
+        ("-1", true),
+        ("1.0", false),
+        ("1e0", false),
+        ("9223372036854775808", false),
+    ] {
+        let data = format!(
+            r#"{{"schemaVersion":2,"config":{{"mediaType":"{CONFIG_MEDIA_TYPE}","size":{token}}}}}"#
+        );
+        assert_eq!(
+            super::metadata::parse_oci_manifest(data.as_bytes()).is_ok(),
+            accepted,
+            "token {token}"
         );
     }
 }

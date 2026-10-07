@@ -83,76 +83,59 @@ fn payload_validation_matrix() {
 
 #[test]
 fn load_refuses_trailing_data() {
-    let dir = std::env::temp_dir().join(format!("soda-deliver-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("release.json");
-    let mut raw = crate::jsongo::serialize(&payload_json(&fixture())).into_bytes();
+    let dir = crate::oci::test_support::temp_dir("soda-deliver-trailing");
+    let path = std::path::PathBuf::from(format!("{dir}/release.json"));
+    let mut raw = serde_json::to_vec(&payload_json(&fixture())).unwrap();
     raw.extend_from_slice(br#" {"unexpected":true}"#);
     std::fs::write(&path, &raw).unwrap();
     assert!(load(path.to_str().unwrap()).is_err());
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-fn payload_json(payload: &Payload) -> JsonValue {
-    let mut images = Vec::new();
-    for (name, image) in &payload.images {
-        images.push((
-            name.clone(),
-            JsonValue::Object(vec![
-                (
-                    "Reference".to_string(),
-                    JsonValue::Str(image.reference.clone()),
-                ),
-                ("Config".to_string(), JsonValue::Str(image.config.clone())),
-                (
-                    "Manifest".to_string(),
-                    JsonValue::Str(image.manifest.clone()),
-                ),
-                (
-                    "ArchiveSHA256".to_string(),
-                    JsonValue::Str(image.archive_sha256.clone()),
-                ),
-            ]),
-        ));
+#[test]
+fn payload_chooses_raw_alias_before_type_conversion() {
+    let encoded = serde_json::to_string(&payload_json(&fixture())).unwrap();
+    let overridden = encoded.replacen("\"Format\":3", "\"Format\":\"bad\",\"format\":3", 1);
+    let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&overridden).unwrap();
+    assert_eq!(decode_payload(&raw).unwrap().format, 3);
+    let nulled = encoded.replacen("\"Format\":3", "\"Format\":3,\"format\":null", 1);
+    let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&nulled).unwrap();
+    assert_eq!(decode_payload(&raw).unwrap().format, 0);
+    for number in ["3.0", "3e0", "9223372036854775808"] {
+        let invalid = encoded.replacen("\"Format\":3", &format!("\"Format\":{number}"), 1);
+        let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&invalid).unwrap();
+        assert!(decode_payload(&raw).is_err(), "accepted Format {number}");
     }
-    JsonValue::Object(vec![
-        (
-            "Format".to_string(),
-            JsonValue::Number(payload.format.to_string()),
-        ),
-        ("ID".to_string(), JsonValue::Str(payload.id.clone())),
-        (
-            "Revision".to_string(),
-            JsonValue::Str(payload.revision.clone()),
-        ),
-        (
-            "Architecture".to_string(),
-            JsonValue::Str(payload.architecture.clone()),
-        ),
-        (
-            "CoreOS".to_string(),
-            JsonValue::Str(payload.core_os.clone()),
-        ),
-        ("Base".to_string(), JsonValue::Str(payload.base.clone())),
-        (
-            "RepositoryPrefix".to_string(),
-            JsonValue::Str(payload.repository_prefix.clone()),
-        ),
-        (
-            "Schema".to_string(),
-            JsonValue::Number(payload.schema.to_string()),
-        ),
-        (
-            "PresentationSHA256".to_string(),
-            JsonValue::Str(payload.presentation_sha256.clone()),
-        ),
-        (
-            "HostPackagesSHA256".to_string(),
-            JsonValue::Str(payload.host_packages_sha256.clone()),
-        ),
-        ("Images".to_string(), JsonValue::Object(images)),
-        ("UpgradeFrom".to_string(), JsonValue::Array(Vec::new())),
-    ])
+    let mut value = payload_json(&fixture());
+    value["Images"]["dashboard"] = serde_json::Value::Null;
+    value["UpgradeFrom"] = serde_json::json!([null]);
+    let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&value.to_string()).unwrap();
+    let decoded = decode_payload(&raw).unwrap();
+    assert_eq!(decoded.images["dashboard"], Image::default());
+    assert_eq!(decoded.upgrade_from, vec![String::new()]);
+}
+
+#[test]
+fn payload_validates_each_duplicate_image_value() {
+    for earlier in ["[]", "{\"Reference\":false}"] {
+        let text = format!("{{\"Images\":{{\"dashboard\":{earlier},\"dashboard\":{{}}}}}}");
+        let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&text).unwrap();
+        assert!(decode_payload(&raw).is_err());
+    }
+    let raw: Box<serde_json::value::RawValue> = serde_json::from_str(
+        r#"{"Images":{"dashboard":{"Reference":"first"},"dashboard":{"Reference":"last"}},"Schema":-0}"#,
+    ).unwrap();
+    let payload = decode_payload(&raw).unwrap();
+    assert_eq!(payload.images["dashboard"].reference, "last");
+    assert_eq!(payload.schema, 0);
+}
+
+fn payload_json(payload: &Payload) -> serde_json::Value {
+    let mut images = serde_json::Map::new();
+    for (name, image) in &payload.images {
+        images.insert(name.clone(), serde_json::json!({"Reference":image.reference,"Config":image.config,"Manifest":image.manifest,"ArchiveSHA256":image.archive_sha256}));
+    }
+    serde_json::json!({"Format":payload.format,"ID":payload.id,"Revision":payload.revision,"Architecture":payload.architecture,"CoreOS":payload.core_os,"Base":payload.base,"RepositoryPrefix":payload.repository_prefix,"Schema":payload.schema,"PresentationSHA256":payload.presentation_sha256,"HostPackagesSHA256":payload.host_packages_sha256,"Images":images,"UpgradeFrom":[]})
 }
 
 fn payload_fixture() -> (Payload, String) {
@@ -166,44 +149,24 @@ fn payload_fixture() -> (Payload, String) {
     // Fetch each manifest digest from the written index via the fixture
     // annotation add_image records.
     let index = std::fs::read(format!("{layout}/index.json")).unwrap();
-    let value = parse(&index).unwrap();
-    if let JsonValue::Object(entries) = &value {
-        for (key, val) in entries {
-            if key != "manifests" {
-                continue;
-            }
-            if let JsonValue::Array(items) = val {
-                for item in items {
-                    if let JsonValue::Object(item_entries) = item {
-                        let mut digest = String::new();
-                        let mut config = String::new();
-                        for (field, field_value) in item_entries {
-                            if field == "digest" {
-                                if let JsonValue::Str(text) = field_value {
-                                    digest = text.clone();
-                                }
-                            }
-                            if field == "annotations" {
-                                if let JsonValue::Object(annotations) = field_value {
-                                    for (name, text) in annotations {
-                                        if name == "org.opencontainers.image.ref.name" {
-                                            if let JsonValue::Str(text) = text {
-                                                config = text.clone();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if let Some(name) = configs.get(&config) {
-                            let prefix = payload.repository_prefix.clone();
-                            let image = payload.images.get_mut(name.as_str()).unwrap();
-                            image.reference = format!("{prefix}-{name}@{digest}");
-                            image.config = config.clone();
-                            image.manifest = digest;
-                        }
-                    }
-                }
+    let value: serde_json::Value = serde_json::from_slice(&index).unwrap();
+    if let Some(items) = value.get("manifests").and_then(serde_json::Value::as_array) {
+        for item in items {
+            let digest = item
+                .get("digest")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let config = item
+                .get("annotations")
+                .and_then(|v| v.get("org.opencontainers.image.ref.name"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            if let Some(name) = configs.get(config) {
+                let prefix = payload.repository_prefix.clone();
+                let image = payload.images.get_mut(name.as_str()).unwrap();
+                image.reference = format!("{prefix}-{name}@{digest}");
+                image.config = config.to_string();
+                image.manifest = digest.to_string();
             }
         }
     }

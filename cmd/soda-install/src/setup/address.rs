@@ -1,5 +1,4 @@
 use crate::errors::Error;
-use crate::jsongo::{parse, Soft};
 use crate::netip;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,55 +63,47 @@ pub fn private_setup_origin(value: &str) -> Result<String, Error> {
 }
 
 pub(super) fn setup_addresses(data: &[u8]) -> Result<Vec<SetupAddress>, Error> {
-    let value = parse(data).map_err(|_| Error::msg("cannot inspect private setup addresses"))?;
+    let text = String::from_utf8_lossy(data);
+    let value: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|_| Error::msg("cannot inspect private setup addresses"))?;
     let interfaces = match &value {
-        soda_json::JsonValue::Array(items) => items,
+        serde_json::Value::Array(items) => items,
         _ => return Err(Error::msg("cannot inspect private setup addresses")),
     };
     let mut choices = Vec::new();
     let mut excluded = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for item in interfaces {
-        let network =
-            Soft::new(item).map_err(|_| Error::msg("cannot inspect private setup addresses"))?;
-        let name = network
-            .string("ifname")
-            .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
-            .unwrap_or_default();
-        let flags: Vec<String> = match network
-            .array("flags")
-            .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
-        {
-            None => Vec::new(),
-            Some(items) => {
-                let mut flags = Vec::new();
-                for item in items {
-                    match item {
-                        soda_json::JsonValue::Str(flag) => flags.push(flag.clone()),
-                        _ => return Err(Error::msg("cannot inspect private setup addresses")),
-                    }
-                }
-                flags
-            }
+        let network = item
+            .as_object()
+            .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))?;
+        let name = optional_string(network.get("ifname"))?;
+        let flags: Vec<String> = match network.get("flags") {
+            None | Some(serde_json::Value::Null) => Vec::new(),
+            Some(serde_json::Value::Array(items)) => items
+                .iter()
+                .map(|item| {
+                    item.as_str()
+                        .map(str::to_owned)
+                        .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))
+                })
+                .collect::<Result<_, _>>()?,
+            Some(_) => return Err(Error::msg("cannot inspect private setup addresses")),
         };
         if skip_setup_interface(&name, &flags) {
             continue;
         }
-        let addr_info = network
-            .array("addr_info")
-            .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
-            .unwrap_or(&[]);
+        let addr_info: &[serde_json::Value] = match network.get("addr_info") {
+            None | Some(serde_json::Value::Null) => &[],
+            Some(serde_json::Value::Array(items)) => items,
+            Some(_) => return Err(Error::msg("cannot inspect private setup addresses")),
+        };
         for entry in addr_info {
-            let address = Soft::new(entry)
-                .map_err(|_| Error::msg("cannot inspect private setup addresses"))?;
-            let local = address
-                .string("local")
-                .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
-                .unwrap_or_default();
-            let scope = address
-                .string("scope")
-                .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
-                .unwrap_or_default();
+            let address = entry
+                .as_object()
+                .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))?;
+            let local = optional_string(address.get("local"))?;
+            let scope = optional_string(address.get("scope"))?;
             append_setup_address(
                 &mut choices,
                 &mut seen,
@@ -137,4 +128,12 @@ pub(super) fn setup_addresses(data: &[u8]) -> Result<Vec<SetupAddress>, Error> {
         )));
     }
     Ok(choices)
+}
+
+fn optional_string(value: Option<&serde_json::Value>) -> Result<String, Error> {
+    match value {
+        None | Some(serde_json::Value::Null) => Ok(String::new()),
+        Some(serde_json::Value::String(value)) => Ok(value.clone()),
+        Some(_) => Err(Error::msg("cannot inspect private setup addresses")),
+    }
 }

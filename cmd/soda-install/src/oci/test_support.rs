@@ -2,18 +2,24 @@ use super::*;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use soda_json::JsonValue;
-
 use crate::buildx;
-use crate::jsongo::parse;
+use serde_json::Value;
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub fn temp_dir(prefix: &str) -> String {
-    let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-    let dir = std::env::temp_dir().join(format!("{prefix}-{}-{id}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    dir.to_str().unwrap().to_string()
+    let parent = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.artifacts/l03-l04/tmp/installer");
+    std::fs::create_dir_all(&parent).unwrap();
+    loop {
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = parent.join(format!("{prefix}-{}-{id}", std::process::id()));
+        match std::fs::create_dir(&dir) {
+            Ok(()) => return dir.to_str().unwrap().to_string(),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => panic!("cannot create test directory: {error}"),
+        }
+    }
 }
 
 fn write_blob(layout: &str, data: &[u8]) -> String {
@@ -28,12 +34,8 @@ fn write_blob(layout: &str, data: &[u8]) -> String {
     format!("sha256:{sum}")
 }
 
-fn desc(digest: &str, size: usize, media: &str) -> JsonValue {
-    JsonValue::Object(vec![
-        ("mediaType".to_string(), JsonValue::Str(media.to_string())),
-        ("digest".to_string(), JsonValue::Str(digest.to_string())),
-        ("size".to_string(), JsonValue::Number(size.to_string())),
-    ])
+fn desc(digest: &str, size: usize, media: &str) -> Value {
+    serde_json::json!({"mediaType":media,"digest":digest,"size":size})
 }
 
 /// Mirror of `testoci.Archive` + `Add`, written directly as a layout:
@@ -43,85 +45,30 @@ pub fn add_image(layout: &str, name: &str, arch: &str, revision: &str) -> String
     let layer = vec![0u8; 1024];
     let layer_digest = write_blob(layout, &layer);
     let ld = desc(&layer_digest, layer.len(), LAYER_TAR);
-    let config = crate::jsongo::serialize(&JsonValue::Object(vec![
-        ("architecture".to_string(), JsonValue::Str(arch.to_string())),
-        (
-            "config".to_string(),
-            JsonValue::Object(vec![(
-                "Labels".to_string(),
-                JsonValue::Object(vec![
-                    (
-                        "org.opencontainers.image.revision".to_string(),
-                        JsonValue::Str(revision.to_string()),
-                    ),
-                    (
-                        "org.opencontainers.image.source".to_string(),
-                        JsonValue::Str("https://github.com/LevitateOS/sodaos".to_string()),
-                    ),
-                    (
-                        "org.opencontainers.image.base.name".to_string(),
-                        JsonValue::Str("synthetic-base".to_string()),
-                    ),
-                    (
-                        "org.opencontainers.image.base.digest".to_string(),
-                        JsonValue::Str(format!("sha256:{}", "b".repeat(64))),
-                    ),
-                    (
-                        "io.soda.fixture".to_string(),
-                        JsonValue::Str(name.to_string()),
-                    ),
-                ]),
-            )]),
-        ),
-        ("os".to_string(), JsonValue::Str("linux".to_string())),
-        (
-            "rootfs".to_string(),
-            JsonValue::Object(vec![
-                ("type".to_string(), JsonValue::Str("layers".to_string())),
-                (
-                    "diff_ids".to_string(),
-                    JsonValue::Array(vec![JsonValue::Str(layer_digest.clone())]),
-                ),
-            ]),
-        ),
-    ]));
-    let config_digest = write_blob(layout, config.as_bytes());
+    let config_value = serde_json::json!({"architecture":arch,"config":{"Labels":{
+        "org.opencontainers.image.revision":revision,
+        "org.opencontainers.image.source":"https://github.com/LevitateOS/sodaos",
+        "org.opencontainers.image.base.name":"synthetic-base",
+        "org.opencontainers.image.base.digest":format!("sha256:{}", "b".repeat(64)),
+        "io.soda.fixture":name
+    }},"os":"linux","rootfs":{"type":"layers","diff_ids":[layer_digest]}});
+    let config = serde_json::to_vec(&config_value).unwrap();
+    let config_digest = write_blob(layout, &config);
     let cd = desc(&config_digest, config.len(), CONFIG_MEDIA_TYPE);
-    let manifest = crate::jsongo::serialize(&JsonValue::Object(vec![
-        (
-            "schemaVersion".to_string(),
-            JsonValue::Number("2".to_string()),
-        ),
-        (
-            "mediaType".to_string(),
-            JsonValue::Str(MANIFEST_MEDIA_TYPE.to_string()),
-        ),
-        ("config".to_string(), cd),
-        ("layers".to_string(), JsonValue::Array(vec![ld])),
-    ]));
-    let manifest_digest = write_blob(layout, manifest.as_bytes());
+    let manifest_value = serde_json::json!({"schemaVersion":2,"mediaType":MANIFEST_MEDIA_TYPE,"config":cd,"layers":[ld]});
+    let manifest = serde_json::to_vec(&manifest_value).unwrap();
+    let manifest_digest = write_blob(layout, &manifest);
     let mut md = desc(&manifest_digest, manifest.len(), MANIFEST_MEDIA_TYPE);
-    if let JsonValue::Object(entries) = &mut md {
-        entries.push((
-            "annotations".to_string(),
-            JsonValue::Object(vec![(
-                "org.opencontainers.image.ref.name".to_string(),
-                JsonValue::Str(config_digest.clone()),
-            )]),
-        ));
-    }
+    md.as_object_mut().unwrap().insert(
+        "annotations".to_string(),
+        serde_json::json!({"org.opencontainers.image.ref.name":config_digest}),
+    );
     let index_path = format!("{layout}/index.json");
-    let mut manifests: Vec<JsonValue> = Vec::new();
+    let mut manifests: Vec<Value> = Vec::new();
     if let Ok(previous) = std::fs::read(&index_path) {
-        let value = parse(&previous).unwrap();
-        if let JsonValue::Object(entries) = &value {
-            for (key, val) in entries {
-                if key == "manifests" {
-                    if let JsonValue::Array(items) = val {
-                        manifests.extend(items.iter().cloned());
-                    }
-                }
-            }
+        let value: Value = serde_json::from_slice(&previous).unwrap();
+        if let Some(items) = value.get("manifests").and_then(Value::as_array) {
+            manifests.extend(items.iter().cloned());
         }
     } else {
         std::fs::write(
@@ -131,18 +78,11 @@ pub fn add_image(layout: &str, name: &str, arch: &str, revision: &str) -> String
         .unwrap();
     }
     manifests.push(md);
-    let index = crate::jsongo::serialize(&JsonValue::Object(vec![
-        (
-            "schemaVersion".to_string(),
-            JsonValue::Number("2".to_string()),
-        ),
-        (
-            "mediaType".to_string(),
-            JsonValue::Str(INDEX_MEDIA_TYPE.to_string()),
-        ),
-        ("manifests".to_string(), JsonValue::Array(manifests)),
-    ]));
-    std::fs::write(&index_path, index.as_bytes()).unwrap();
+    let index = serde_json::to_vec(
+        &serde_json::json!({"schemaVersion":2,"mediaType":INDEX_MEDIA_TYPE,"manifests":manifests}),
+    )
+    .unwrap();
+    std::fs::write(&index_path, &index).unwrap();
     config_digest
 }
 

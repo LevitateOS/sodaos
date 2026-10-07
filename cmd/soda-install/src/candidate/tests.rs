@@ -1,6 +1,5 @@
 use super::*;
 use crate::deliver::NAMES;
-use crate::jsongo::Soft;
 use std::collections::BTreeMap;
 
 pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
@@ -14,24 +13,20 @@ pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
         let reference = crate::oci::test_support::add_image(&images, name, "amd64", &revision);
         // Fetch the manifest digest from the written index.
         let index = std::fs::read(format!("{images}/index.json")).unwrap();
-        let value = parse(&index).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&index).unwrap();
         let mut manifest = String::new();
-        if let JsonValue::Object(entries) = &value {
-            for (key, val) in entries {
-                if key == "manifests" {
-                    if let JsonValue::Array(items) = val {
-                        for item in items {
-                            let soft = Soft::new(item).unwrap();
-                            let annotations = soft.object("annotations").unwrap().unwrap();
-                            let got = annotations
-                                .string("org.opencontainers.image.ref.name")
-                                .unwrap()
-                                .unwrap();
-                            if got == reference {
-                                manifest = soft.string("digest").unwrap().unwrap();
-                            }
-                        }
-                    }
+        if let Some(items) = value.get("manifests").and_then(serde_json::Value::as_array) {
+            for item in items {
+                let got = item
+                    .get("annotations")
+                    .and_then(|v| v.get("org.opencontainers.image.ref.name"))
+                    .and_then(serde_json::Value::as_str);
+                if got == Some(reference.as_str()) {
+                    manifest = item
+                        .get("digest")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+                        .to_string();
                 }
             }
         }
@@ -61,65 +56,14 @@ pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
     };
     payload.validate().unwrap();
     // Serialize through the deliver test helper shape.
-    let mut image_entries = Vec::new();
+    let mut image_entries = serde_json::Map::new();
     for (name, image) in &payload.images {
-        image_entries.push((
-            name.clone(),
-            JsonValue::Object(vec![
-                (
-                    "Reference".to_string(),
-                    JsonValue::Str(image.reference.clone()),
-                ),
-                ("Config".to_string(), JsonValue::Str(image.config.clone())),
-                (
-                    "Manifest".to_string(),
-                    JsonValue::Str(image.manifest.clone()),
-                ),
-                (
-                    "ArchiveSHA256".to_string(),
-                    JsonValue::Str(image.archive_sha256.clone()),
-                ),
-            ]),
-        ));
+        image_entries.insert(name.clone(), serde_json::json!({"Reference":image.reference,"Config":image.config,"Manifest":image.manifest,"ArchiveSHA256":image.archive_sha256}));
     }
-    let raw = serialize(&JsonValue::Object(vec![
-        ("Format".to_string(), JsonValue::Number("3".to_string())),
-        ("ID".to_string(), JsonValue::Str(payload.id.clone())),
-        (
-            "Revision".to_string(),
-            JsonValue::Str(payload.revision.clone()),
-        ),
-        (
-            "Architecture".to_string(),
-            JsonValue::Str(payload.architecture.clone()),
-        ),
-        (
-            "CoreOS".to_string(),
-            JsonValue::Str(payload.core_os.clone()),
-        ),
-        ("Base".to_string(), JsonValue::Str(payload.base.clone())),
-        (
-            "RepositoryPrefix".to_string(),
-            JsonValue::Str(payload.repository_prefix.clone()),
-        ),
-        (
-            "Schema".to_string(),
-            JsonValue::Number(payload.schema.to_string()),
-        ),
-        (
-            "PresentationSHA256".to_string(),
-            JsonValue::Str(payload.presentation_sha256.clone()),
-        ),
-        (
-            "HostPackagesSHA256".to_string(),
-            JsonValue::Str(payload.host_packages_sha256.clone()),
-        ),
-        ("Images".to_string(), JsonValue::Object(image_entries)),
-        ("UpgradeFrom".to_string(), JsonValue::Array(Vec::new())),
-    ]));
+    let raw = serde_json::to_vec(&serde_json::json!({"Format":payload.format,"ID":payload.id,"Revision":payload.revision,"Architecture":payload.architecture,"CoreOS":payload.core_os,"Base":payload.base,"RepositoryPrefix":payload.repository_prefix,"Schema":payload.schema,"PresentationSHA256":payload.presentation_sha256,"HostPackagesSHA256":payload.host_packages_sha256,"Images":image_entries,"UpgradeFrom":[]})).unwrap();
     let release_path = format!("{root}{}", deliver::PATH);
     std::fs::create_dir_all(std::path::Path::new(&release_path).parent().unwrap()).unwrap();
-    std::fs::write(&release_path, raw.as_bytes()).unwrap();
+    std::fs::write(&release_path, &raw).unwrap();
     let console_path = format!("{root}{CANDIDATE_INSTALLER_BINARY}");
     std::fs::create_dir_all(std::path::Path::new(&console_path).parent().unwrap()).unwrap();
     std::fs::write(&console_path, b"prebuilt fixture").unwrap();
@@ -189,37 +133,50 @@ fn destination_keeps_password_only_provisioning() {
         ..DiskInstallChoices::default()
     };
     let data = candidate_destination(template, factory, &choices).unwrap();
-    let value = parse(&data).unwrap();
-    let config = Soft::new(&value).unwrap();
-    let passwd = config.object("passwd").unwrap().unwrap();
-    let users = passwd.array("users").unwrap().unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&data).unwrap();
+    let passwd = value.get("passwd").unwrap();
+    let users = passwd.get("users").unwrap().as_array().unwrap();
     assert_eq!(users.len(), 1);
-    let root = Soft::new(&users[0]).unwrap();
-    assert_eq!(root.string("name").unwrap().unwrap(), "root");
+    let root = users[0].as_object().unwrap();
     assert_eq!(
-        root.string("passwordHash").unwrap().unwrap(),
-        choices.password_hash
+        root.get("name").and_then(serde_json::Value::as_str),
+        Some("root")
     );
-    assert!(root.field("sshAuthorizedKeys").unwrap().is_none());
-    let storage = config.object("storage").unwrap().unwrap();
-    let files = storage.array("files").unwrap().unwrap();
+    assert_eq!(
+        root.get("passwordHash").and_then(serde_json::Value::as_str),
+        Some(choices.password_hash.as_str())
+    );
+    assert!(root.get("sshAuthorizedKeys").is_none());
+    let storage = value.get("storage").unwrap();
+    let files = storage.get("files").unwrap().as_array().unwrap();
     let mut seen = false;
     for file in files {
-        let entry = Soft::new(file).unwrap();
-        let path = entry.string("path").unwrap().unwrap();
+        let entry = file.as_object().unwrap();
+        let path = entry
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .unwrap();
         assert_ne!(path, "/etc/soda-installer/project-subnet");
         if path == "/etc/soda/host.json" {
             seen = true;
-            assert_eq!(entry.integer("mode").unwrap().unwrap(), 0o600);
-            let contents = entry.object("contents").unwrap().unwrap();
-            let source = contents.string("source").unwrap().unwrap();
+            assert_eq!(
+                entry.get("mode").and_then(serde_json::Value::as_u64),
+                Some(0o600)
+            );
+            let contents = entry.get("contents").unwrap();
+            let source = contents
+                .get("source")
+                .and_then(serde_json::Value::as_str)
+                .unwrap();
             let encoded = source.strip_prefix("data:;base64,").unwrap();
             let raw = crate::sshkey::b64_decode_go(encoded.as_bytes()).unwrap();
-            let machine = parse(&raw).unwrap();
-            let fields = Soft::new(&machine).unwrap();
-            assert_eq!(fields.string("subnet").unwrap().unwrap(), choices.subnet);
-            assert!(fields.field("image").unwrap().is_none());
-            assert!(fields.field("tailnet_image").unwrap().is_none());
+            let machine: serde_json::Value = serde_json::from_slice(&raw).unwrap();
+            assert_eq!(
+                machine.get("subnet").and_then(serde_json::Value::as_str),
+                Some(choices.subnet.as_str())
+            );
+            assert!(machine.get("image").is_none());
+            assert!(machine.get("tailnet_image").is_none());
         }
     }
     assert!(seen);
@@ -233,4 +190,31 @@ fn destination_keeps_password_only_provisioning() {
     )
     .is_err());
     assert!(candidate_destination(template, br#"{"subnet":"10.0.0.0/24"}"#, &choices).is_err());
+    assert!(candidate_destination(
+        template,
+        br#"{"network":"first","network":"last","bridge":"soda0","subnet":"","tailnet_management":false}"#,
+        &choices,
+    ).is_err());
+
+    let escaped = candidate_destination(
+        template,
+        br#"{"network":"<>&","bridge":"soda0","subnet":"","tailnet_management":false}"#,
+        &choices,
+    )
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&escaped).unwrap();
+    let file = value["storage"]["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|file| file["path"] == "/etc/soda/host.json")
+        .unwrap();
+    let source = file["contents"]["source"].as_str().unwrap();
+    let machine =
+        crate::sshkey::b64_decode_go(source.strip_prefix("data:;base64,").unwrap().as_bytes())
+            .unwrap();
+    assert_eq!(
+        String::from_utf8(machine).unwrap(),
+        r#"{"bridge":"soda0","network":"\u003c\u003e\u0026","subnet":"10.89.0.0/24","tailnet_management":false}"#
+    );
 }
