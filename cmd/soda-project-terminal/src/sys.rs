@@ -14,6 +14,8 @@ use std::process::{Command, Output, Stdio};
 use std::sync::OnceLock;
 use std::time::Instant;
 
+pub use rustix::fs::OFlags;
+
 /// Process-local monotonic elapsed seconds, used for relative deadlines.
 pub fn monotonic() -> f64 {
     static ORIGIN: OnceLock<Instant> = OnceLock::new();
@@ -245,8 +247,12 @@ fn check_component(name: &str) -> std::io::Result<()> {
 
 /// `openat(dir, name, O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)`.
 pub fn open_child_dir(dir: &std::fs::File, name: &str) -> std::io::Result<std::fs::File> {
-    check_component(name)?;
-    open_at(dir, name, libc::O_RDONLY | libc::O_DIRECTORY, 0)
+    open_at(
+        dir,
+        name,
+        OFlags::RDONLY | OFlags::DIRECTORY,
+        rustix::fs::Mode::empty(),
+    )
 }
 
 /// `open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC)`.
@@ -264,20 +270,13 @@ pub fn open_root() -> std::io::Result<std::fs::File> {
 pub fn open_at(
     dir: &std::fs::File,
     name: &str,
-    flags: libc::c_int,
-    mode: libc::mode_t,
+    flags: OFlags,
+    mode: rustix::fs::Mode,
 ) -> std::io::Result<std::fs::File> {
     check_component(name)?;
-    rustix::fs::openat(
-        dir,
-        name,
-        rustix::fs::OFlags::from_bits_retain(flags as u32)
-            | rustix::fs::OFlags::CLOEXEC
-            | rustix::fs::OFlags::NOFOLLOW,
-        rustix::fs::Mode::from_bits_retain(mode),
-    )
-    .map(std::fs::File::from)
-    .map_err(Into::into)
+    rustix::fs::openat(dir, name, flags | OFlags::CLOEXEC | OFlags::NOFOLLOW, mode)
+        .map(std::fs::File::from)
+        .map_err(Into::into)
 }
 
 pub fn flock_exclusive_nb(file: &std::fs::File) -> std::io::Result<bool> {
@@ -448,7 +447,7 @@ mod tests {
         for bad in ["", ".", "..", "a/b", "/bin", "a\0b"] {
             assert!(open_child_dir(&root, bad).is_err(), "component {bad:?}");
             assert!(
-                open_at(&root, bad, libc::O_RDONLY, 0).is_err(),
+                open_at(&root, bad, OFlags::RDONLY, rustix::fs::Mode::empty()).is_err(),
                 "open_at {bad:?}"
             );
         }
@@ -457,7 +456,7 @@ mod tests {
         let dir = test_dir("symlink");
         std::os::unix::fs::symlink("target", dir.join("link")).unwrap();
         let tmp_fd = std::fs::File::open(&dir).unwrap();
-        let err = open_at(&tmp_fd, "link", libc::O_RDONLY, 0).unwrap_err();
+        let err = open_at(&tmp_fd, "link", OFlags::RDONLY, rustix::fs::Mode::empty()).unwrap_err();
         assert_eq!(err.raw_os_error(), Some(libc::ELOOP));
         let _ = std::fs::remove_dir_all(&dir);
     }

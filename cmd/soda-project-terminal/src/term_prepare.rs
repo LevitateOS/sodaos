@@ -101,8 +101,13 @@ fn prepare_inner(identifier: &str) -> Result<(), String> {
     if uid != 0 || mode & 0o022 != 0 {
         return Err("unsafe terminal cgroup".to_string());
     }
-    let procs = sys::open_at(&group, "cgroup.procs", libc::O_RDONLY | libc::O_NOFOLLOW, 0)
-        .map_err(|e| e.to_string())?;
+    let procs = sys::open_at(
+        &group,
+        "cgroup.procs",
+        sys::OFlags::RDONLY | sys::OFlags::NOFOLLOW,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(|e| e.to_string())?;
     drop(group);
     let mut content = vec![0u8; 16384];
     let got = loop {

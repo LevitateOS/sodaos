@@ -244,8 +244,8 @@ pub fn cgroup_empty(identifier: &str) -> Result<bool, String> {
     let fd = sys::open_at(
         &directory,
         "cgroup.events",
-        libc::O_RDONLY | libc::O_NOFOLLOW,
-        0,
+        sys::OFlags::RDONLY | sys::OFlags::NOFOLLOW,
+        rustix::fs::Mode::empty(),
     )
     .map_err(|e| format!("open cgroup.events: {e}"))?;
     let mut content = vec![0u8; 4096];

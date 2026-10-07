@@ -8,7 +8,7 @@ use crate::fs;
 use crate::sys;
 
 fn s_isreg(mode: u32) -> bool {
-    mode & libc::S_IFMT == libc::S_IFREG
+    rustix::fs::FileType::from_raw_mode(mode).is_file()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,15 +63,12 @@ pub fn account_for(login: &str, identity: i64) -> Result<Account, String> {
     let marker: File = sys::open_at(
         &fd,
         login,
-        libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK,
-        0,
+        sys::OFlags::RDONLY | sys::OFlags::NOFOLLOW | sys::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
     )
     .map_err(|e| format!("open marker: {e}"))?;
     drop(fd);
-    let mut info: libc::stat = unsafe { std::mem::zeroed() };
-    if unsafe { libc::fstat(marker.as_raw_fd(), &mut info) } != 0 {
-        return Err(format!("stat marker: {}", std::io::Error::last_os_error()));
-    }
+    let info = rustix::fs::fstat(&marker).map_err(|e| format!("stat marker: {e}"))?;
     if !s_isreg(info.st_mode) || info.st_uid != 0 || info.st_mode & 0o077 != 0 {
         return Err("unsafe identity marker".to_string());
     }

@@ -18,11 +18,11 @@ fn am_root() -> bool {
     unsafe { libc::getuid() == 0 }
 }
 
-fn fake_stat(mode: u32, uid: u32, nlink: u64) -> libc::stat {
-    let mut st: libc::stat = unsafe { std::mem::zeroed() };
+fn fake_stat(mode: u32, uid: u32, nlink: u64) -> rustix::fs::Stat {
+    let mut st: rustix::fs::Stat = unsafe { std::mem::zeroed() };
     st.st_mode = mode;
     st.st_uid = uid;
-    st.st_nlink = nlink as libc::nlink_t;
+    st.st_nlink = nlink as _;
     st
 }
 
@@ -169,13 +169,14 @@ fn wrapper_matrix() {
     assert!(mkdir_at(&fd, "sub", 0o755).is_err()); // EEXIST
     assert!(mkdir_at(&fd, "../esc", 0o755).is_err());
     assert!(mkdir_at(&fd, "", 0o755).is_err());
+    assert!(mkdir_at(&fd, "nul\0name", 0o755).is_err());
 
     std::fs::write(dir.join("f"), b"data").unwrap();
     let f = std::fs::File::open(dir.join("f")).unwrap();
     fchmod(&f, 0o640).unwrap();
     let (uid, mode) = fstat_uid_mode(&f).unwrap();
     assert_eq!(uid, unsafe { libc::getuid() });
-    assert!(s_isreg(mode));
+    assert!(rustix::fs::FileType::from_raw_mode(mode).is_file());
     assert_eq!(mode & 0o7777, 0o640);
     fsync_file(&f).unwrap();
 
@@ -189,6 +190,7 @@ fn wrapper_matrix() {
     assert!(!dir.join("g").exists());
     assert!(unlink_at(&fd, "g").is_err()); // already gone
     assert!(unlink_at(&fd, ".").is_err());
+    assert!(unlink_at(&fd, "nul\0name").is_err());
 
     rmdir_at(&fd, "sub").unwrap();
     assert!(!dir.join("sub").exists());
@@ -236,7 +238,7 @@ fn stat_all_and_single_read() {
     assert_eq!(st.st_uid, unsafe { libc::getuid() });
     assert_eq!(st.st_gid, unsafe { libc::getgid() });
     assert_eq!(st.st_nlink, 1);
-    assert!(s_isreg(st.st_mode));
+    assert!(rustix::fs::FileType::from_raw_mode(st.st_mode).is_file());
     assert_eq!(st.st_size, 5);
     // Single bounded read: exact bytes, EOF on the second call.
     assert_eq!(read_up_to(&f, 65537).unwrap(), b"hello");

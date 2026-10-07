@@ -21,7 +21,13 @@ pub fn subscription_cgroup(identifier: &str) -> Result<File, String> {
 
 /// `subscription_kernel_write`: one full write to a cgroup control file.
 pub fn subscription_kernel_write(directory: &File, name: &str, value: &[u8]) -> Result<(), String> {
-    let fd = sys::open_at(directory, name, libc::O_WRONLY, 0).map_err(|e| e.to_string())?;
+    let fd = sys::open_at(
+        directory,
+        name,
+        sys::OFlags::WRONLY,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(|e| e.to_string())?;
     let wrote = loop {
         let wrote = unsafe {
             libc::write(
@@ -75,8 +81,13 @@ pub fn subscription_freeze(group: &File) -> Result<(), String> {
         if sys::monotonic() >= until {
             return Err("freeze unconfirmed".to_string());
         }
-        let fd =
-            sys::open_at(group, "cgroup.events", libc::O_RDONLY, 0).map_err(|e| e.to_string())?;
+        let fd = sys::open_at(
+            group,
+            "cgroup.events",
+            sys::OFlags::RDONLY,
+            rustix::fs::Mode::empty(),
+        )
+        .map_err(|e| e.to_string())?;
         let content = fs::read_up_to(&fd, 4096).map_err(|e| e.to_string())?;
         drop(fd);
         let values = parse_cgroup_events(&content)?;

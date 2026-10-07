@@ -6,10 +6,9 @@
 //! is not a root-owned regular file with `nlink == 1` and no group/other
 //! permission bits is refused with `"unsafe terminal file"`.
 
+use crate::sys;
 use std::ffi::CString;
 use std::os::unix::io::AsRawFd;
-
-use crate::sys;
 
 fn cstr(text: &str) -> std::io::Result<CString> {
     CString::new(text)
@@ -18,7 +17,7 @@ fn cstr(text: &str) -> std::io::Result<CString> {
 
 /// Same single-component rule as `sys` (names here never reach `sys`).
 fn check_component(name: &str) -> std::io::Result<()> {
-    if name.is_empty() || name == "." || name == ".." || name.contains('/') {
+    if name.is_empty() || name == "." || name == ".." || name.contains('/') || name.contains('\0') {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "invalid name component",
@@ -27,25 +26,10 @@ fn check_component(name: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-fn cvt(rc: libc::c_int) -> std::io::Result<()> {
-    if rc != 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(())
-}
-
-fn s_isreg(mode: u32) -> bool {
-    mode & libc::S_IFMT == libc::S_IFREG
-}
-
-fn s_islnk(mode: u32) -> bool {
-    mode & libc::S_IFMT == libc::S_IFLNK
-}
-
 /// The record-file safety predicate: regular file, uid 0, `nlink == 1`,
 /// no group/other permission bits.
-fn stat_is_safe(st: &libc::stat) -> bool {
-    if !s_isreg(st.st_mode) {
+fn stat_is_safe(st: &rustix::fs::Stat) -> bool {
+    if !rustix::fs::FileType::from_raw_mode(st.st_mode).is_file() {
         return false;
     }
     if st.st_uid != 0 {
@@ -66,14 +50,19 @@ fn stat_is_safe(st: &libc::stat) -> bool {
 /// error text so callers can tell "absent" from "unsafe".
 pub fn root_file(dir: &std::fs::File, name: &str, writable: bool) -> Result<std::fs::File, String> {
     let base = if writable {
-        libc::O_RDWR
+        sys::OFlags::RDWR
     } else {
-        libc::O_RDONLY
+        sys::OFlags::RDONLY
     };
-    let file = sys::open_at(dir, name, base | libc::O_NONBLOCK, 0).map_err(|e| e.to_string())?;
-    let mut st: libc::stat = unsafe { std::mem::zeroed() };
-    let rc = unsafe { libc::fstat(file.as_raw_fd(), &mut st) };
-    if rc != 0 || !stat_is_safe(&st) {
+    let file = sys::open_at(
+        dir,
+        name,
+        base | sys::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(|e| e.to_string())?;
+    let st = rustix::fs::fstat(&file).map_err(|_| "unsafe terminal file".to_string())?;
+    if !stat_is_safe(&st) {
         return Err("unsafe terminal file".to_string());
     }
     Ok(file)
@@ -122,8 +111,8 @@ pub fn new_file(dir: &std::fs::File, name: &str, data: &[u8], mode: u32) -> Resu
     let mut file = sys::open_at(
         dir,
         name,
-        libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
-        mode as libc::mode_t,
+        sys::OFlags::WRONLY | sys::OFlags::CREATE | sys::OFlags::EXCL,
+        rustix::fs::Mode::from_bits_retain(mode),
     )
     .map_err(|e| e.to_string())?;
     fchmod(&file, mode).map_err(|e| e.to_string())?;
@@ -135,98 +124,89 @@ pub fn new_file(dir: &std::fs::File, name: &str, data: &[u8], mode: u32) -> Resu
 /// `mkdirat(dir, name, mode)`.
 pub fn mkdir_at(dir: &std::fs::File, name: &str, mode: u32) -> std::io::Result<()> {
     check_component(name)?;
-    let c = cstr(name)?;
-    cvt(unsafe { libc::mkdirat(dir.as_raw_fd(), c.as_ptr(), mode as libc::mode_t) })
+    rustix::fs::mkdirat(dir, name, rustix::fs::Mode::from_bits_retain(mode)).map_err(Into::into)
 }
 
 /// `fchmod(file, mode)`.
 pub fn fchmod(file: &std::fs::File, mode: u32) -> std::io::Result<()> {
-    cvt(unsafe { libc::fchmod(file.as_raw_fd(), mode as libc::mode_t) })
+    rustix::fs::fchmod(file, rustix::fs::Mode::from_bits_retain(mode)).map_err(Into::into)
 }
 
 /// `unlinkat(dir, name, 0)`.
 pub fn unlink_at(dir: &std::fs::File, name: &str) -> std::io::Result<()> {
     check_component(name)?;
-    let c = cstr(name)?;
-    cvt(unsafe { libc::unlinkat(dir.as_raw_fd(), c.as_ptr(), 0) })
+    rustix::fs::unlinkat(dir, name, rustix::fs::AtFlags::empty()).map_err(Into::into)
 }
 
 /// `unlinkat(dir, name, AT_REMOVEDIR)`.
 pub fn rmdir_at(dir: &std::fs::File, name: &str) -> std::io::Result<()> {
     check_component(name)?;
-    let c = cstr(name)?;
-    cvt(unsafe { libc::unlinkat(dir.as_raw_fd(), c.as_ptr(), libc::AT_REMOVEDIR) })
+    rustix::fs::unlinkat(dir, name, rustix::fs::AtFlags::REMOVEDIR).map_err(Into::into)
 }
 
 /// `chown` (`lchown` when `no_follow`) on an absolute or cwd-relative path.
 pub fn chown_path(path: &str, uid: u32, gid: u32, no_follow: bool) -> std::io::Result<()> {
     let c = cstr(path)?;
-    cvt(unsafe {
+    let result = unsafe {
         if no_follow {
             libc::lchown(c.as_ptr(), uid as libc::uid_t, gid as libc::gid_t)
         } else {
             libc::chown(c.as_ptr(), uid as libc::uid_t, gid as libc::gid_t)
         }
-    })
+    };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
 }
 
 /// `chmod` on an absolute or cwd-relative path. Linux cannot chmod a symlink
 /// itself (`fchmodat` + `AT_SYMLINK_NOFOLLOW` is unsupported), so `no_follow`
 /// refuses symlinks (`InvalidInput`) instead of following them.
 pub fn chmod_path(path: &str, mode: u32, no_follow: bool) -> std::io::Result<()> {
-    let c = cstr(path)?;
     if no_follow {
-        let mut st: libc::stat = unsafe { std::mem::zeroed() };
-        cvt(unsafe { libc::lstat(c.as_ptr(), &mut st) })?;
-        if s_islnk(st.st_mode) {
+        let st = rustix::fs::statat(rustix::fs::CWD, path, rustix::fs::AtFlags::SYMLINK_NOFOLLOW)?;
+        if rustix::fs::FileType::from_raw_mode(st.st_mode).is_symlink() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "refusing to chmod symlink",
             ));
         }
     }
-    cvt(unsafe { libc::chmod(c.as_ptr(), mode as libc::mode_t) })
+    rustix::fs::chmod(path, rustix::fs::Mode::from_bits_retain(mode)).map_err(Into::into)
 }
 
 /// `renameat(dir, from, dir, to)`.
 pub fn replace_at(dir: &std::fs::File, from: &str, to: &str) -> std::io::Result<()> {
     check_component(from)?;
     check_component(to)?;
-    let f = cstr(from)?;
-    let t = cstr(to)?;
-    cvt(unsafe { libc::renameat(dir.as_raw_fd(), f.as_ptr(), dir.as_raw_fd(), t.as_ptr()) })
+    rustix::fs::renameat(dir, from, dir, to).map_err(Into::into)
 }
 
 /// `fsync(file)` (retries `EINTR`).
 pub fn fsync_file(file: &std::fs::File) -> std::io::Result<()> {
     loop {
-        let rc = unsafe { libc::fsync(file.as_raw_fd()) };
-        if rc == 0 {
-            return Ok(());
+        match rustix::fs::fsync(file) {
+            Ok(()) => return Ok(()),
+            Err(rustix::io::Errno::INTR) => continue,
+            Err(err) => return Err(err.into()),
         }
-        let err = std::io::Error::last_os_error();
-        if err.raw_os_error() == Some(libc::EINTR) {
-            continue;
-        }
-        return Err(err);
     }
 }
 
 /// `(st_uid, st_mode)` of `file` (`st_mode` is the full mode incl. file-type
 /// bits; callers mask with `0o7777`/`0o077` as needed).
 pub fn fstat_uid_mode(file: &std::fs::File) -> std::io::Result<(u32, u32)> {
-    let mut st: libc::stat = unsafe { std::mem::zeroed() };
-    cvt(unsafe { libc::fstat(file.as_raw_fd(), &mut st) })?;
-    Ok((st.st_uid as u32, st.st_mode as u32))
+    let st = rustix::fs::fstat(file)?;
+    Ok((st.st_uid, st.st_mode))
 }
 
 /// Full `fstat` of `file` for the broker/keys ownership checks that also need
 /// the group, link count, device/inode identity, or nanosecond mtime (the
 /// `.py` compares `(st_dev, st_ino, st_mtime_ns)` tuples and exact modes).
-pub fn fstat_all(file: &std::fs::File) -> std::io::Result<libc::stat> {
-    let mut st: libc::stat = unsafe { std::mem::zeroed() };
-    cvt(unsafe { libc::fstat(file.as_raw_fd(), &mut st) })?;
-    Ok(st)
+pub fn fstat_all(file: &std::fs::File) -> std::io::Result<rustix::fs::Stat> {
+    rustix::fs::fstat(file).map_err(Into::into)
 }
 
 /// One `read(2)` of up to `limit` bytes (`EINTR` retried, like PEP 475).

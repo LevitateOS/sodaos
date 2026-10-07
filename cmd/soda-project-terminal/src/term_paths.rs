@@ -11,11 +11,11 @@ pub const TERMINALS: &str = "/run/soda-terminals";
 pub const PROGRAM: &str = "/usr/libexec/soda/project-terminal";
 
 pub(crate) fn s_isreg(mode: u32) -> bool {
-    mode & libc::S_IFMT == libc::S_IFREG
+    rustix::fs::FileType::from_raw_mode(mode).is_file()
 }
 
 pub(crate) fn s_issock(mode: u32) -> bool {
-    mode & libc::S_IFMT == libc::S_IFSOCK
+    rustix::fs::FileType::from_raw_mode(mode).is_socket()
 }
 
 pub const TMUX_CONFIG: &str = "set -g status off
@@ -69,22 +69,8 @@ pub(crate) fn list_dir_names(dir: &File) -> Result<Vec<String>, String> {
     Ok(names)
 }
 
-pub(crate) fn fstatat(dir: &File, name: &str) -> io::Result<libc::stat> {
-    let target = std::ffi::CString::new(name)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "nul byte in name"))?;
-    let mut info: libc::stat = unsafe { std::mem::zeroed() };
-    if unsafe {
-        libc::fstatat(
-            dir.as_raw_fd(),
-            target.as_ptr(),
-            &mut info,
-            libc::AT_SYMLINK_NOFOLLOW,
-        )
-    } != 0
-    {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(info)
+pub(crate) fn fstatat(dir: &File, name: &str) -> io::Result<rustix::fs::Stat> {
+    rustix::fs::statat(dir, name, rustix::fs::AtFlags::SYMLINK_NOFOLLOW).map_err(Into::into)
 }
 
 pub(crate) fn record_exists(dir: &File, name: &str) -> Result<bool, String> {

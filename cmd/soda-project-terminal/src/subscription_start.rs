@@ -15,8 +15,13 @@ use crate::term;
 /// root-owned regular file with one link and no group/other write bits.
 pub fn subscription_harness_digest(harness: &str) -> Result<String, String> {
     let directory = term::checked_chain(&format!("{harness}/bin"))?;
-    let codex = sys::open_at(&directory, "codex", libc::O_RDONLY | libc::O_NONBLOCK, 0)
-        .map_err(|e| e.to_string())?;
+    let codex = sys::open_at(
+        &directory,
+        "codex",
+        sys::OFlags::RDONLY | sys::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(|e| e.to_string())?;
     drop(directory);
     let info = fs::fstat_all(&codex).map_err(|e| e.to_string())?;
     if !is_regular(info.st_mode)

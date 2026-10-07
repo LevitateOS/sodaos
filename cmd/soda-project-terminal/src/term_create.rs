@@ -60,14 +60,11 @@ fn verify_program(source_hash: &str) -> Result<(), String> {
     let program = sys::open_at(
         &parent,
         "project-terminal",
-        libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK,
-        0,
+        sys::OFlags::RDONLY | sys::OFlags::NOFOLLOW | sys::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
     )
     .map_err(|e| format!("open program: {e}"))?;
-    let mut info: libc::stat = unsafe { std::mem::zeroed() };
-    if unsafe { libc::fstat(program.as_raw_fd(), &mut info) } != 0 {
-        return Err(io::Error::last_os_error().to_string());
-    }
+    let info = rustix::fs::fstat(&program).map_err(|e| e.to_string())?;
     if !program_stat_ok(info.st_uid, info.st_mode, s_isreg(info.st_mode)) {
         return Err("unsafe terminal program".to_string());
     }

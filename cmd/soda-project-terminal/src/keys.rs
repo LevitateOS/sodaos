@@ -56,23 +56,28 @@ struct FileId {
     mtime_nsec: i64,
 }
 
-fn file_id(info: &libc::stat) -> FileId {
+fn file_id(info: &rustix::fs::Stat) -> FileId {
     FileId {
         dev: info.st_dev,
         ino: info.st_ino,
         // `st_mtime`/`st_mtime_nsec`: POSIX.1 names for the nanosecond mtime.
         mtime_sec: info.st_mtime,
-        mtime_nsec: info.st_mtime_nsec,
+        mtime_nsec: info.st_mtime_nsec as i64,
     }
 }
 
 /// Open plus safety check plus bounded single read of one managed key file:
 /// regular, uid/gid 0, `nlink == 1`, mode exactly `0o644`.
 fn read_keys(dir: &std::fs::File, login: &str) -> Result<(Vec<u8>, Vec<String>, FileId), String> {
-    let key = sys::open_at(dir, login, libc::O_RDONLY | libc::O_NONBLOCK, 0)
-        .map_err(|e| e.to_string())?;
+    let key = sys::open_at(
+        dir,
+        login,
+        sys::OFlags::RDONLY | sys::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(|e| e.to_string())?;
     let info = fs::fstat_all(&key).map_err(|e| e.to_string())?;
-    if info.st_mode & libc::S_IFMT != libc::S_IFREG
+    if !rustix::fs::FileType::from_raw_mode(info.st_mode).is_file()
         || info.st_uid != 0
         || info.st_gid != 0
         || info.st_nlink != 1
@@ -134,8 +139,8 @@ pub fn update(request: &KeyRequest) -> Result<StateValue, String> {
     let out = sys::open_at(
         &dir,
         &candidate,
-        libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
-        0o600,
+        sys::OFlags::WRONLY | sys::OFlags::CREATE | sys::OFlags::EXCL,
+        rustix::fs::Mode::from_bits_retain(0o600),
     )
     .map_err(|e| e.to_string())?;
     let result = replace_inner(&dir, &out, request, &raw, &old, &candidate);

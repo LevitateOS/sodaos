@@ -33,7 +33,7 @@ fn fchownat_no_follow(dir: &File, name: &str, uid: u32, gid: u32) -> std::io::Re
 }
 
 pub(crate) fn is_regular(mode: u32) -> bool {
-    mode & libc::S_IFMT == libc::S_IFREG
+    rustix::fs::FileType::from_raw_mode(mode).is_file()
 }
 
 /// `subscription_auth_directory`: the `model/auth` dir must be owned by the
@@ -96,8 +96,8 @@ pub fn subscription_capture(lease: &StateValue, account: &Account) -> Result<Vec
     let fd = sys::open_at(
         &directory,
         "auth.json",
-        libc::O_RDONLY | libc::O_NONBLOCK,
-        0,
+        sys::OFlags::RDONLY | sys::OFlags::NONBLOCK,
+        rustix::fs::Mode::empty(),
     )
     .map_err(|e| e.to_string())?;
     drop(directory);
