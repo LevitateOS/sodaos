@@ -2,8 +2,65 @@ use super::{go_arch, Executor};
 use std::collections::HashMap;
 
 use crate::domain;
-use crate::json::{self, Value};
+use crate::json;
+use serde::de::{MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 use std::time::Instant;
+
+#[derive(Default)]
+struct ImageInspection {
+    id: String,
+    architecture: String,
+    os: String,
+    labels: HashMap<String, Option<String>>,
+}
+
+impl<'de> Deserialize<'de> for ImageInspection {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ImageVisitor;
+        impl<'de> Visitor<'de> for ImageVisitor {
+            type Value = ImageInspection;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an image inspection object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = ImageInspection::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("Id") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.id = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("Architecture") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.architecture = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("Os") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.os = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("Labels") {
+                        if let Some(v) =
+                            map.next_value::<Option<HashMap<String, Option<String>>>>()?
+                        {
+                            out.labels = v;
+                        }
+                    } else {
+                        map.next_value::<serde::de::IgnoredAny>()?;
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(ImageVisitor)
+    }
+}
 
 pub const PROFILE_INSPECT_FORMAT: &str =
     "{\"Id\":{{json .ID}},\"Architecture\":{{json .Architecture}},\"Os\":{{json .Os}},\"Labels\":{{json .Labels}}}";
@@ -25,45 +82,16 @@ impl<E: Executor> super::Runtime<E> {
         if raw.len() > 65536 {
             return Err("invalid installed image inspection".to_string());
         }
-        let v = json::decode_tolerant(&raw)
+        let inspect: ImageInspection = json::decode_tolerant_as(&raw)
             .map_err(|_| "invalid installed image inspection".to_string())?;
-        let id = json::tolerant_get(&v, "Id")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        let architecture = json::tolerant_get(&v, "Architecture")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        let os = json::tolerant_get(&v, "Os")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        // encoding/json would fail the whole unmarshal on mistyped fields.
-        for key in ["Id", "Architecture", "Os"] {
-            if let Some(got) = json::tolerant_get(&v, key) {
-                if got.as_str().is_none() {
-                    return Err("invalid installed image inspection".to_string());
-                }
-            }
-        }
-        let labels = match json::tolerant_get(&v, "Labels") {
-            None | Some(Value::Null) => HashMap::new(),
-            Some(Value::Object(fields)) => {
-                let mut map = HashMap::new();
-                for (k, val) in fields {
-                    match val {
-                        Value::Str(s) => {
-                            map.insert(k.clone(), s.clone());
-                        }
-                        Value::Null => {}
-                        _ => return Err("invalid installed image inspection".to_string()),
-                    }
-                }
-                map
-            }
-            Some(_) => return Err("invalid installed image inspection".to_string()),
-        };
+        let id = inspect.id;
+        let architecture = inspect.architecture;
+        let os = inspect.os;
+        let labels: HashMap<String, String> = inspect
+            .labels
+            .into_iter()
+            .filter_map(|(k, value)| value.map(|v| (k, v)))
+            .collect();
         let mut image_id = id;
         if !image_id.starts_with("sha256:") {
             image_id = format!("sha256:{image_id}");

@@ -216,23 +216,20 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if body.len() > 4096 {
             return Err(terminal::err_denied());
         }
-        let v = json::decode_tolerant(&body).map_err(|_| terminal::err_denied())?;
-        let Some(fields) = v.as_object() else {
-            return Err(terminal::err_denied());
-        };
-        let get = |name: &str| {
-            fields
-                .iter()
-                .find(|(k, _)| k == name)
-                .and_then(|(_, v)| v.as_str())
-                .unwrap_or("")
-                .to_string()
-        };
-        let username = get("Username");
+        #[derive(serde::Deserialize, Default)]
+        struct AccountWire {
+            #[serde(rename = "Username")]
+            username: Option<String>,
+            #[serde(rename = "HomeDir")]
+            home_dir: Option<String>,
+        }
+        let account: AccountWire =
+            json::decode_tolerant_as(&body).map_err(|_| terminal::err_denied())?;
+        let username = account.username.unwrap_or_default();
         if !domain::valid_login(&username) || username == "root" {
             return Err(terminal::err_denied());
         }
-        Ok((username, get("HomeDir")))
+        Ok((username, account.home_dir.unwrap_or_default()))
     }
 
     pub(in crate::muse) fn nested_caller(

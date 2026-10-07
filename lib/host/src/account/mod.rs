@@ -8,9 +8,12 @@
 use std::time::Instant;
 
 use crate::domain::{self, AccessKeyState, AccessKeys, Account};
-use crate::json::{self, Kind, Spec};
+use crate::json::{self, SignedInteger};
 use crate::project::{Executor, Runtime};
 use crate::ssh;
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 /// Fixed in-container terminal agent, mirroring Go `terminal.AgentProgram`.
 pub const AGENT_PROGRAM: &str = "/usr/libexec/soda/project-terminal";
@@ -40,27 +43,56 @@ pub fn canonicalize_account_keys(values: &[String]) -> Result<Vec<String>, Strin
 
 /// `confirmAccount`: the helper must echo the login identity back; every
 /// shape mismatch collapses into one confirmation error.
-const CONFIRM_SPECS: &[Spec] = &[
-    Spec {
-        name: "login",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "identity",
-        kind: Kind::I64,
-    },
-];
+#[derive(Default)]
+struct AccountConfirmation {
+    login: String,
+    identity: i64,
+}
+
+impl<'de> Deserialize<'de> for AccountConfirmation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ConfirmationVisitor;
+        impl<'de> Visitor<'de> for ConfirmationVisitor {
+            type Value = AccountConfirmation;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an account confirmation object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = AccountConfirmation::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("login") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.login = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("identity") {
+                        if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                            out.identity = v.0;
+                        }
+                    } else {
+                        return Err(de::Error::unknown_field(&key, &["login", "identity"]));
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(ConfirmationVisitor)
+    }
+}
 
 fn confirm_account(out: &[u8], login: &str, identity: i64) -> Result<(), String> {
     const ERR: &str = "native account identity was not confirmed";
     if out.len() > 4096 {
         return Err(ERR.to_string());
     }
-    let v = json::decode_strict(out).map_err(|_| ERR.to_string())?;
-    let m = json::bind_root(&v, "struct", CONFIRM_SPECS, false).map_err(|_| ERR.to_string())?;
-    let got_login = m.take_string("login");
-    let got_identity = m.take_i64("identity");
-    if got_login != login || got_identity != identity {
+    let confirmation: AccountConfirmation =
+        json::decode_strict_as(out).map_err(|_| ERR.to_string())?;
+    if confirmation.login != login || confirmation.identity != identity {
         return Err(ERR.to_string());
     }
     Ok(())
@@ -109,31 +141,92 @@ fn valid_access_keys_request(input: &AccessKeys) -> bool {
 /// `decodeAccessKeyState`: plain `encoding/json` semantics (unknown fields
 /// ignored, last duplicate wins); only the revision shape, key presence and
 /// key canonicality are enforced.
-const KEY_STATE_SPECS: &[Spec] = &[
-    Spec {
-        name: "revision",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "keys",
-        kind: Kind::StrList,
-    },
-];
+struct AccountKeyList(Vec<String>);
+
+impl<'de> Deserialize<'de> for AccountKeyList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ListVisitor;
+        impl<'de> Visitor<'de> for ListVisitor {
+            type Value = AccountKeyList;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an array of strings")
+            }
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Err(E::custom("keys must be an array"))
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut out = Vec::new();
+                while let Some(value) = seq.next_element::<Option<String>>()? {
+                    out.push(value.unwrap_or_default());
+                }
+                Ok(AccountKeyList(out))
+            }
+        }
+        deserializer.deserialize_any(ListVisitor)
+    }
+}
+
+#[derive(Default)]
+struct AccessKeyStateWire {
+    revision: String,
+    keys: Option<Vec<String>>,
+}
+
+impl<'de> Deserialize<'de> for AccessKeyStateWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StateVisitor;
+        impl<'de> Visitor<'de> for StateVisitor {
+            type Value = AccessKeyStateWire;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an access key state object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = AccessKeyStateWire::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("revision") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.revision = v;
+                        }
+                    } else if key.eq_ignore_ascii_case("keys") {
+                        if let Some(value) = map.next_value::<Option<AccountKeyList>>()? {
+                            out.keys = Some(value.0);
+                        }
+                    } else {
+                        map.next_value::<serde::de::IgnoredAny>()?;
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(StateVisitor)
+    }
+}
 
 pub fn decode_access_key_state(data: &[u8]) -> Result<AccessKeyState, String> {
     if data.len() > 65536 {
         return Err("native key operation not confirmed".to_string());
     }
     const ERR: &str = "invalid native key observation";
-    let v = json::decode_tolerant(data).map_err(|_| ERR.to_string())?;
-    // Tolerant binding: plain Unmarshal ignores unknown fields.
-    let m = json::bind_root(&v, "AccessKeyState", KEY_STATE_SPECS, true)
-        .map_err(|_| ERR.to_string())?;
-    if !m.contains("keys") {
+    let state: AccessKeyStateWire = json::decode_tolerant_as(data).map_err(|_| ERR.to_string())?;
+    let Some(keys) = state.keys else {
         return Err(ERR.to_string());
-    }
-    let revision = m.take_string("revision");
-    let keys = m.take_str_list("keys");
+    };
+    let revision = state.revision;
     if !valid_key_revision(&revision) {
         return Err(ERR.to_string());
     }

@@ -1,44 +1,88 @@
-use crate::json::{bind_root, decode_strict, Kind, Spec};
+use crate::json::{self, SignedInteger};
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use crate::tailnet_domain::{go_escape, RunTarget, ERR_CONFLICT};
 
 use super::{unavailable, ProcessIdentity, ProjectRun, ProjectRunInspect};
 
-const RUN_INSPECT_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "running",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "pid",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "started",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "resolver",
-        kind: Kind::Str,
-    },
-];
+#[derive(Default)]
+struct RunInspectWire {
+    id: Option<String>,
+    running: Option<bool>,
+    pid: Option<SignedInteger>,
+    started: Option<String>,
+    resolver: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for RunInspectWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RunInspectWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("project run inspection")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = RunInspectWire::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.to_ascii_lowercase().as_str() {
+                        "id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.id = Some(v);
+                            }
+                        }
+                        "running" => {
+                            if let Some(v) = map.next_value::<Option<bool>>()? {
+                                out.running = Some(v);
+                            }
+                        }
+                        "pid" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.pid = Some(v);
+                            }
+                        }
+                        "started" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.started = Some(v);
+                            }
+                        }
+                        "resolver" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.resolver = Some(v);
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &key,
+                                &["id", "running", "pid", "started", "resolver"],
+                            ))
+                        }
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
+}
 
 /// Strict-decode one run snapshot, binding it to the expected container.
 pub fn decode_project_run_inspect(data: &[u8], cid: &str) -> Result<ProjectRunInspect, String> {
     let conflict = || ERR_CONFLICT.to_string();
-    let value = decode_strict(data).map_err(|_| conflict())?;
-    let bound =
-        bind_root(&value, "projectRunInspect", RUN_INSPECT_SPECS, false).map_err(|_| conflict())?;
+    let bound: RunInspectWire = json::decode_strict_as(data).map_err(|_| conflict())?;
     let raw = ProjectRunInspect {
-        id: bound.take_string("id"),
-        running: bound.take_bool("running"),
-        pid: bound.take_i64("pid"),
-        started: bound.take_string("started"),
-        resolver: bound.take_string("resolver"),
+        id: bound.id.unwrap_or_default(),
+        running: bound.running.unwrap_or_default(),
+        pid: bound.pid.map(Into::into).unwrap_or_default(),
+        started: bound.started.unwrap_or_default(),
+        resolver: bound.resolver.unwrap_or_default(),
     };
     if raw.id != cid || !raw.running || raw.pid <= 1 {
         return Err(conflict());
@@ -63,79 +107,166 @@ pub fn marshal_project_run(run: &ProjectRun) -> String {
     )
 }
 
-const RUN_TARGET_SPECS: &[Spec] = &[
-    Spec {
-        name: "Project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "Container",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "Run",
-        kind: Kind::Str,
-    },
-];
+#[derive(Default)]
+struct RunTargetWire {
+    project: Option<String>,
+    container: Option<String>,
+    run: Option<String>,
+}
 
-const PROJECT_RUN_SPECS: &[Spec] = &[
-    Spec {
-        name: "Target",
-        kind: Kind::Object {
-            go_type: "tailnet.RunTarget",
-            struct_name: "RunTarget",
-            specs: RUN_TARGET_SPECS,
-        },
-    },
-    Spec {
-        name: "PID",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "Started",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "UserNS",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "NetNS",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "UID",
-        kind: Kind::U32,
-    },
-    Spec {
-        name: "GID",
-        kind: Kind::U32,
-    },
-    Spec {
-        name: "Resolver",
-        kind: Kind::Str,
-    },
-];
+impl<'de> Deserialize<'de> for RunTargetWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RunTargetWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("run target")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = RunTargetWire::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.to_ascii_lowercase().as_str() {
+                        "project" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.project = Some(v);
+                            }
+                        }
+                        "container" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.container = Some(v);
+                            }
+                        }
+                        "run" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.run = Some(v);
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &key,
+                                &["Project", "Container", "Run"],
+                            ))
+                        }
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct ProjectRunWire {
+    target: Option<RunTargetWire>,
+    pid: Option<SignedInteger>,
+    started: Option<String>,
+    userns: Option<String>,
+    netns: Option<String>,
+    uid: Option<u32>,
+    gid: Option<u32>,
+    resolver: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for ProjectRunWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ProjectRunWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("project run record")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = ProjectRunWire::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.to_ascii_lowercase().as_str() {
+                        "target" => {
+                            if let Some(v) = map.next_value::<Option<RunTargetWire>>()? {
+                                out.target = Some(v);
+                            }
+                        }
+                        "pid" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.pid = Some(v);
+                            }
+                        }
+                        "started" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.started = Some(v);
+                            }
+                        }
+                        "userns" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.userns = Some(v);
+                            }
+                        }
+                        "netns" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.netns = Some(v);
+                            }
+                        }
+                        "uid" => {
+                            if let Some(v) = map.next_value::<Option<u32>>()? {
+                                out.uid = Some(v);
+                            }
+                        }
+                        "gid" => {
+                            if let Some(v) = map.next_value::<Option<u32>>()? {
+                                out.gid = Some(v);
+                            }
+                        }
+                        "resolver" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.resolver = Some(v);
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &key,
+                                &[
+                                    "Target", "PID", "Started", "UserNS", "NetNS", "UID", "GID",
+                                    "Resolver",
+                                ],
+                            ))
+                        }
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
+}
 
 /// Strict-decode a persisted run record (caller validates identity fields).
 pub fn decode_project_run(data: &[u8]) -> Result<ProjectRun, String> {
-    let value = decode_strict(data).map_err(|_| unavailable())?;
-    let bound =
-        bind_root(&value, "projectRun", PROJECT_RUN_SPECS, false).map_err(|_| unavailable())?;
-    let target = bound.take_map("Target");
+    let bound: ProjectRunWire = json::decode_strict_as(data).map_err(|_| unavailable())?;
+    let target = bound.target.unwrap_or_default();
     Ok(ProjectRun {
         target: RunTarget {
-            project: target.take_string("Project"),
-            container: target.take_string("Container"),
-            run: target.take_string("Run"),
+            project: target.project.unwrap_or_default(),
+            container: target.container.unwrap_or_default(),
+            run: target.run.unwrap_or_default(),
         },
-        pid: bound.take_i64("PID"),
-        started: bound.take_string("Started"),
-        userns: bound.take_string("UserNS"),
-        netns: bound.take_string("NetNS"),
-        uid: bound.take_u32("UID"),
-        gid: bound.take_u32("GID"),
-        resolver: bound.take_string("Resolver"),
+        pid: bound.pid.map(Into::into).unwrap_or_default(),
+        started: bound.started.unwrap_or_default(),
+        userns: bound.userns.unwrap_or_default(),
+        netns: bound.netns.unwrap_or_default(),
+        uid: bound.uid.unwrap_or_default(),
+        gid: bound.gid.unwrap_or_default(),
+        resolver: bound.resolver.unwrap_or_default(),
     })
 }
 

@@ -24,11 +24,6 @@ pub(super) const GO_KEYS_BODY_APPLY: &str = "{\"apply\":true,\"identity\":7,\"ke
 pub(super) const GO_ACCOUNT_BODY: &str = "{\"admin\":true,\"identity\":7,\"keys\":[\"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBMdFel81xfpdgYZN9cIZY6DmqOAt/QOzaSujzaIrcre\\n\"],\"login\":\"alice\"}";
 pub(super) const GO_HELPER_INSPECT: &str =
     "{\"id\":\"f0123456789abcdef01234567\",\"op\":\"inspect\"}";
-// strictjson failures, captured verbatim.
-pub(super) const GO_UNKNOWN_FIELD: &str = "decode request: json: unknown field \"bogus\"";
-pub(super) const GO_NESTED_TYPE_ERROR: &str = "decode request: json: cannot unmarshal number into Go struct field Preparation.preparation.id of type string";
-pub(super) const GO_BAD_BASE64: &str = "decode request: illegal base64 data at input byte 0";
-
 // ---------- fake executor ----------
 type MockCall = (Vec<u8>, String, Vec<String>);
 

@@ -270,6 +270,9 @@ fn marshal_and_decode_round_trip() {
     let back = decode_project_run(text.as_bytes()).unwrap();
     assert_eq!(back, run);
     assert!(decode_project_run(b"{\"Target\":{},\"PID\":1,\"bogus\":true}").is_err());
+    let folded = decode_project_run(br#"{"target":{"pRoJeCt":"p0123456789abcdef01234567","Container":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","Run":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"pid":1,"uid":0,"GID":0}"#).unwrap();
+    assert_eq!(folded.target.project, run.target.project);
+    assert_eq!(folded.pid, 1);
 }
 
 #[test]
@@ -281,6 +284,8 @@ fn decode_run_inspect_binds_container() {
     // Missing optional snapshot fields still bind (admission checks them).
     let sparse = br#"{"id":"abc","running":true,"pid":123}"#;
     assert!(decode_project_run_inspect(sparse, "abc").is_ok());
+    let folded = br#"{"ID":"abc","RUNNING":true,"PID":123,"Started":"s","Resolver":"r"}"#;
+    assert!(decode_project_run_inspect(folded, "abc").is_ok());
     for bad in [
         br#"{"id":"other","running":true,"pid":123,"started":"s","resolver":"r"}"#.as_slice(),
         br#"{"id":"abc","running":false,"pid":123,"started":"s","resolver":"r"}"#.as_slice(),

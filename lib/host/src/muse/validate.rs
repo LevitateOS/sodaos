@@ -2,8 +2,11 @@ use std::ffi::OsString;
 
 use super::NestedRegistration;
 use crate::domain;
-use crate::json::{self, Value};
+use crate::json::{self, SignedInteger};
 use crate::terminal::{self, Binding, Delivery};
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 // ---------- pure resolution helpers (muse_linux.go) ----------
 
@@ -106,24 +109,323 @@ pub fn muse_child_pid(body: &[u8], failed: bool, id: &str) -> Result<i32, String
     if failed || body.len() > 4096 {
         return Err(terminal::err_denied());
     }
-    let v = json::decode_strict(body).map_err(|_| terminal::err_denied())?;
-    let Some(fields) = v.as_object() else {
-        return Err(terminal::err_denied());
-    };
-    let get = |name: &str| fields.iter().find(|(k, _)| k == name).map(|(_, v)| v);
-    let (Some(Value::Str(got)), Some(pid), Some(Value::Bool(running))) =
-        (get("id"), get("pid"), get("running"))
+    let inspection: ChildInspection =
+        json::decode_strict_as(body).map_err(|_| terminal::err_denied())?;
+    let (Some(got), Some(pid), Some(running)) = (inspection.id, inspection.pid, inspection.running)
     else {
         return Err(terminal::err_denied());
     };
-    let pid = match pid {
-        Value::Number(lit) => terminal::parse_go_int(lit).unwrap_or(0),
-        _ => 0,
-    };
+    let pid = pid.0;
     if got != id || !running || pid <= 0 || pid > i32::MAX as i64 {
         return Err(terminal::err_denied());
     }
     Ok(pid as i32)
+}
+
+#[derive(Default)]
+struct ChildInspection {
+    id: Option<String>,
+    pid: Option<SignedInteger>,
+    running: Option<bool>,
+}
+
+impl<'de> Deserialize<'de> for ChildInspection {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ChildVisitor;
+        impl<'de> Visitor<'de> for ChildVisitor {
+            type Value = ChildInspection;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a child inspection object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = ChildInspection::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "id" {
+                        out.id = map.next_value()?;
+                    } else if key == "pid" {
+                        out.pid = map.next_value()?;
+                    } else if key == "running" {
+                        out.running = map.next_value()?;
+                    } else {
+                        map.next_value::<serde::de::IgnoredAny>()?;
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(ChildVisitor)
+    }
+}
+
+#[derive(Default)]
+struct SoftString(Option<String>);
+impl<'de> Deserialize<'de> for SoftString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct SoftStringVisitor;
+        impl<'de> Visitor<'de> for SoftStringVisitor {
+            type Value = SoftString;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("any JSON value")
+            }
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftString(Some(value.to_string())))
+            }
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftString(Some(value)))
+            }
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftString(None))
+            }
+            fn visit_bool<E>(self, _: bool) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftString(None))
+            }
+            fn visit_i64<E>(self, _: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftString(None))
+            }
+            fn visit_u64<E>(self, _: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftString(None))
+            }
+            fn visit_f64<E>(self, _: f64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftString(None))
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+                Ok(SoftString(None))
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                while map.next_key::<serde::de::IgnoredAny>()?.is_some() {
+                    map.next_value::<serde::de::IgnoredAny>()?;
+                }
+                Ok(SoftString(None))
+            }
+        }
+        deserializer.deserialize_any(SoftStringVisitor)
+    }
+}
+
+struct SoftBool(Option<bool>);
+impl<'de> Deserialize<'de> for SoftBool {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct SoftBoolVisitor;
+        impl<'de> Visitor<'de> for SoftBoolVisitor {
+            type Value = SoftBool;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("any JSON value")
+            }
+            fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftBool(Some(value)))
+            }
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftBool(None))
+            }
+            fn visit_str<E>(self, _: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftBool(None))
+            }
+            fn visit_string<E>(self, _: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftBool(None))
+            }
+            fn visit_i64<E>(self, _: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftBool(None))
+            }
+            fn visit_u64<E>(self, _: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftBool(None))
+            }
+            fn visit_f64<E>(self, _: f64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(SoftBool(None))
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+                Ok(SoftBool(None))
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                while map.next_key::<serde::de::IgnoredAny>()?.is_some() {
+                    map.next_value::<serde::de::IgnoredAny>()?;
+                }
+                Ok(SoftBool(None))
+            }
+        }
+        deserializer.deserialize_any(SoftBoolVisitor)
+    }
+}
+
+#[derive(Default)]
+struct Mount {
+    source: Option<String>,
+    destination: Option<String>,
+    rw: Option<bool>,
+}
+
+impl<'de> Deserialize<'de> for Mount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct MountVisitor;
+        impl<'de> Visitor<'de> for MountVisitor {
+            type Value = Mount;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a mount object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = Mount::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "Source" {
+                        out.source = Some(map.next_value::<SoftString>()?.0).flatten();
+                    } else if key == "Destination" {
+                        out.destination = Some(map.next_value::<SoftString>()?.0).flatten();
+                    } else if key == "RW" {
+                        out.rw = Some(map.next_value::<SoftBool>()?.0).flatten();
+                    } else {
+                        map.next_value::<serde::de::IgnoredAny>()?;
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(MountVisitor)
+    }
+}
+
+struct MountItem(Option<Mount>);
+impl<'de> Deserialize<'de> for MountItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ItemVisitor;
+        impl<'de> Visitor<'de> for ItemVisitor {
+            type Value = MountItem;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a JSON value")
+            }
+            fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                Mount::deserialize(de::value::MapAccessDeserializer::new(map))
+                    .map(|m| MountItem(Some(m)))
+            }
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MountItem(None))
+            }
+            fn visit_bool<E>(self, _: bool) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MountItem(None))
+            }
+            fn visit_i64<E>(self, _: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MountItem(None))
+            }
+            fn visit_u64<E>(self, _: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MountItem(None))
+            }
+            fn visit_f64<E>(self, _: f64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MountItem(None))
+            }
+            fn visit_str<E>(self, _: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MountItem(None))
+            }
+            fn visit_string<E>(self, _: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MountItem(None))
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+                Ok(MountItem(None))
+            }
+        }
+        deserializer.deserialize_any(ItemVisitor)
+    }
 }
 
 /// `museReadonlyMount`: the required read-only nested credential mount.
@@ -137,22 +439,17 @@ pub fn muse_readonly_mount(
     if failed || body.len() > 32768 {
         return Err(terminal::err_denied());
     }
-    let v = json::decode_tolerant(body).map_err(|_| terminal::err_denied())?;
-    let Some(mounts) = v.as_array() else {
-        return Err(terminal::err_denied());
-    };
-    for mount in mounts {
-        let Some(fields) = mount.as_object() else {
+    let mounts: Vec<MountItem> =
+        json::decode_tolerant_as(body).map_err(|_| terminal::err_denied())?;
+    for MountItem(item) in mounts {
+        let Some(mount) = item else {
             continue;
         };
-        let get = |name: &str| fields.iter().find(|(k, _)| k == name).map(|(_, v)| v);
-        match (get("Source"), get("Destination"), get("RW")) {
-            (Some(Value::Str(s)), Some(Value::Str(d)), Some(Value::Bool(rw)))
-                if s == source && d == destination && !rw =>
-            {
-                return Ok(())
-            }
-            _ => {}
+        if mount.source.as_deref() == Some(source)
+            && mount.destination.as_deref() == Some(destination)
+            && mount.rw == Some(false)
+        {
+            return Ok(());
         }
     }
     Err(terminal::err_denied())

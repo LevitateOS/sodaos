@@ -1,4 +1,6 @@
-use crate::json::{self, BoundMap, Kind, Spec, Value};
+use crate::json::{self, BytesField, SignedInteger};
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use super::{err_denied, parse_rfc3339, KIND_FACTORY, KIND_TERMINAL};
 
@@ -20,52 +22,120 @@ pub struct Binding {
     pub generation: i64,
 }
 
-const BINDING_SPECS: &[Spec] = &[
-    Spec {
-        name: "child_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "uid",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "gid",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "scope",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "credential_root",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "invocation_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "kind",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "login",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "generation",
-        kind: Kind::I64,
-    },
-];
+#[derive(Default)]
+struct BindingWire {
+    child_id: Option<String>,
+    uid: Option<SignedInteger>,
+    gid: Option<SignedInteger>,
+    scope: Option<String>,
+    credential_root: Option<String>,
+    invocation_id: Option<String>,
+    kind: Option<String>,
+    id: Option<String>,
+    project: Option<String>,
+    login: Option<String>,
+    generation: Option<SignedInteger>,
+}
+
+impl<'de> Deserialize<'de> for BindingWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = BindingWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("identity binding")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = BindingWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.to_ascii_lowercase().as_str() {
+                        "child_id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.child_id = Some(v)
+                            }
+                        }
+                        "uid" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                o.uid = Some(v)
+                            }
+                        }
+                        "gid" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                o.gid = Some(v)
+                            }
+                        }
+                        "scope" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.scope = Some(v)
+                            }
+                        }
+                        "credential_root" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.credential_root = Some(v)
+                            }
+                        }
+                        "invocation_id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.invocation_id = Some(v)
+                            }
+                        }
+                        "kind" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.kind = Some(v)
+                            }
+                        }
+                        "id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.id = Some(v)
+                            }
+                        }
+                        "project" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.project = Some(v)
+                            }
+                        }
+                        "login" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.login = Some(v)
+                            }
+                        }
+                        "generation" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                o.generation = Some(v)
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &k,
+                                &[
+                                    "child_id",
+                                    "uid",
+                                    "gid",
+                                    "scope",
+                                    "credential_root",
+                                    "invocation_id",
+                                    "kind",
+                                    "id",
+                                    "project",
+                                    "login",
+                                    "generation",
+                                ],
+                            ))
+                        }
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
 
 /// `,string` int64 decoding, probed against `encoding/json`: the JSON value
 /// must be a quoted string starting with `-` or a digit, holding a plain
@@ -104,120 +174,199 @@ pub struct Lease {
     pub binding: Option<Binding>,
 }
 
-const LEASE_SPECS: &[Spec] = &[
-    Spec {
-        name: "repository_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "provider_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "connection_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "generation",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "actor_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "execution_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "kind",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "deadline",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "grant_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "grant_revision",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "binding",
-        kind: Kind::OptObject {
-            go_type: "*identity.Binding",
-            struct_name: "Binding",
-            specs: BINDING_SPECS,
-        },
-    },
-];
+#[derive(Default)]
+struct LeaseWire {
+    repository_id: Option<String>,
+    provider_id: Option<String>,
+    id: Option<String>,
+    connection_id: Option<String>,
+    generation: Option<SignedInteger>,
+    actor_id: Option<String>,
+    project_id: Option<String>,
+    execution_id: Option<String>,
+    kind: Option<String>,
+    role: Option<String>,
+    deadline: Option<String>,
+    grant_id: Option<String>,
+    grant_revision: Option<SignedInteger>,
+    binding: Option<BindingWire>,
+    repository_id_seen: bool,
+    actor_id_seen: bool,
+    deadline_seen: bool,
+}
 
-fn binding_from_map(m: &BoundMap) -> Binding {
-    Binding {
-        child_id: m.take_string("child_id"),
-        uid: m.take_i64("uid"),
-        gid: m.take_i64("gid"),
-        scope: m.take_string("scope"),
-        credential_root: m.take_string("credential_root"),
-        invocation_id: m.take_string("invocation_id"),
-        kind: m.take_string("kind"),
-        id: m.take_string("id"),
-        project: m.take_string("project"),
-        login: m.take_string("login"),
-        generation: m.take_i64("generation"),
+impl<'de> Deserialize<'de> for LeaseWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = LeaseWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("identity lease")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = LeaseWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.to_ascii_lowercase().as_str() {
+                        "repository_id" => {
+                            o.repository_id_seen = true;
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.repository_id = Some(v)
+                            }
+                        }
+                        "provider_id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.provider_id = Some(v)
+                            }
+                        }
+                        "id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.id = Some(v)
+                            }
+                        }
+                        "connection_id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.connection_id = Some(v)
+                            }
+                        }
+                        "generation" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                o.generation = Some(v)
+                            }
+                        }
+                        "actor_id" => {
+                            o.actor_id_seen = true;
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.actor_id = Some(v)
+                            }
+                        }
+                        "project_id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.project_id = Some(v)
+                            }
+                        }
+                        "execution_id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.execution_id = Some(v)
+                            }
+                        }
+                        "kind" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.kind = Some(v)
+                            }
+                        }
+                        "role" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.role = Some(v)
+                            }
+                        }
+                        "deadline" => {
+                            o.deadline_seen = true;
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.deadline = Some(v)
+                            }
+                        }
+                        "grant_id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.grant_id = Some(v)
+                            }
+                        }
+                        "grant_revision" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                o.grant_revision = Some(v)
+                            }
+                        }
+                        "binding" => {
+                            if let Some(v) = map.next_value::<Option<BindingWire>>()? {
+                                o.binding = Some(v)
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &k,
+                                &[
+                                    "repository_id",
+                                    "provider_id",
+                                    "id",
+                                    "connection_id",
+                                    "generation",
+                                    "actor_id",
+                                    "project_id",
+                                    "execution_id",
+                                    "kind",
+                                    "role",
+                                    "deadline",
+                                    "grant_id",
+                                    "grant_revision",
+                                    "binding",
+                                ],
+                            ))
+                        }
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
     }
 }
 
-fn lease_from_map(m: &BoundMap) -> Result<Lease, String> {
-    let repository_id = if m.contains("repository_id") {
-        parse_string_i64(&m.take_string("repository_id"))
-            .ok_or_else(|| "invalid repository_id".to_string())?
+fn binding_from_wire(m: BindingWire) -> Binding {
+    Binding {
+        child_id: m.child_id.unwrap_or_default(),
+        uid: m.uid.map(Into::into).unwrap_or_default(),
+        gid: m.gid.map(Into::into).unwrap_or_default(),
+        scope: m.scope.unwrap_or_default(),
+        credential_root: m.credential_root.unwrap_or_default(),
+        invocation_id: m.invocation_id.unwrap_or_default(),
+        kind: m.kind.unwrap_or_default(),
+        id: m.id.unwrap_or_default(),
+        project: m.project.unwrap_or_default(),
+        login: m.login.unwrap_or_default(),
+        generation: m.generation.map(Into::into).unwrap_or_default(),
+    }
+}
+
+fn lease_from_wire(m: LeaseWire) -> Result<Lease, String> {
+    let repository_id = if m.repository_id_seen {
+        let value = m.repository_id.as_deref().unwrap_or_default();
+        parse_string_i64(value).ok_or_else(|| "invalid repository_id".to_string())?
     } else {
         0
     };
-    let actor_id = if m.contains("actor_id") {
-        parse_string_i64(&m.take_string("actor_id"))
-            .ok_or_else(|| "invalid actor_id".to_string())?
+    let actor_id = if m.actor_id_seen {
+        let value = m.actor_id.as_deref().unwrap_or_default();
+        parse_string_i64(value).ok_or_else(|| "invalid actor_id".to_string())?
     } else {
         0
     };
-    let deadline_raw = m.take_string("deadline");
-    let deadline = if m.contains("deadline") {
+    let deadline_raw = m.deadline.unwrap_or_default();
+    let deadline = if m.deadline_seen {
         Some(parse_rfc3339(&deadline_raw).ok_or_else(|| "invalid deadline".to_string())?)
     } else {
         None
     };
     Ok(Lease {
         repository_id,
-        provider_id: m.take_string("provider_id"),
-        id: m.take_string("id"),
-        connection_id: m.take_string("connection_id"),
-        generation: m.take_i64("generation"),
+        provider_id: m.provider_id.unwrap_or_default(),
+        id: m.id.unwrap_or_default(),
+        connection_id: m.connection_id.unwrap_or_default(),
+        generation: m.generation.map(Into::into).unwrap_or_default(),
         actor_id,
-        project_id: m.take_string("project_id"),
-        execution_id: m.take_string("execution_id"),
-        kind: m.take_string("kind"),
-        role: m.take_string("role"),
+        project_id: m.project_id.unwrap_or_default(),
+        execution_id: m.execution_id.unwrap_or_default(),
+        kind: m.kind.unwrap_or_default(),
+        role: m.role.unwrap_or_default(),
         deadline_raw,
         deadline,
-        grant_id: m.take_string("grant_id"),
-        grant_revision: m.take_i64("grant_revision"),
-        binding: m.take_opt_map("binding").map(|b| binding_from_map(&b)),
+        grant_id: m.grant_id.unwrap_or_default(),
+        grant_revision: m.grant_revision.map(Into::into).unwrap_or_default(),
+        binding: m.binding.map(binding_from_wire),
     })
 }
 
@@ -282,10 +431,10 @@ impl Binding {
 }
 
 impl Lease {
-    /// Strict decode of one lease object.
-    pub fn decode_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_struct(v, "Lease", &[], LEASE_SPECS, false).map_err(|e| e.0)?;
-        lease_from_map(&m)
+    /// Decode one complete identity lease object using the host JSON profile.
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        let wire: LeaseWire = json::decode_strict_as(body).map_err(|e| e.0)?;
+        lease_from_wire(wire)
     }
 
     pub fn encode_into(&self, out: &mut String) {
@@ -354,37 +503,56 @@ pub struct Delivery {
     pub credential: Option<Vec<u8>>,
 }
 
-const DELIVERY_SPECS: &[Spec] = &[
-    Spec {
-        name: "lease",
-        kind: Kind::Object {
-            go_type: "identity.Lease",
-            struct_name: "Lease",
-            specs: LEASE_SPECS,
-        },
-    },
-    Spec {
-        name: "credential",
-        kind: Kind::Bytes,
-    },
-];
+#[derive(Default)]
+struct DeliveryWire {
+    lease: Option<LeaseWire>,
+    credential: Option<BytesField>,
+}
+impl<'de> Deserialize<'de> for DeliveryWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = DeliveryWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("identity delivery")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = DeliveryWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.to_ascii_lowercase().as_str() {
+                        "lease" => {
+                            if let Some(v) = map.next_value::<Option<LeaseWire>>()? {
+                                o.lease = Some(v)
+                            }
+                        }
+                        "credential" => {
+                            if let Some(value) = map.next_value::<Option<BytesField>>()? {
+                                o.credential = Some(value);
+                            }
+                        }
+                        _ => return Err(de::Error::unknown_field(&k, &["lease", "credential"])),
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
 
 impl Delivery {
     /// Strict decode of one delivery object. `,string` and deadline fields
     /// are re-validated after the shared binder runs.
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        Self::decode_value(&v)
-    }
-
-    pub fn decode_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "DeliveryWire", DELIVERY_SPECS, false).map_err(|e| e.0)?;
-        let lease = lease_from_map(&m.take_map("lease"))?;
-        let credential = if m.contains("credential") {
-            Some(m.take_bytes("credential"))
-        } else {
-            None
-        };
+        let m: DeliveryWire = json::decode_strict_as(body).map_err(|e| e.0)?;
+        let lease = lease_from_wire(m.lease.unwrap_or_default())?;
+        let credential = m.credential.map(|value| value.0);
         Ok(Delivery { lease, credential })
     }
 

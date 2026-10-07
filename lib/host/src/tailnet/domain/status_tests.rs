@@ -243,6 +243,11 @@ fn status_case_fold_binding() {
         project_status(body.as_bytes(), &[], &RunBinding::default()).unwrap_err(),
         ERR_UNAVAILABLE
     );
+    let body = r#"{"BackendState":"Running","haveNodeKey":true,"HaveNodeKey":null}"#;
+    assert_eq!(
+        project_status(body.as_bytes(), &[], &RunBinding::default()).unwrap_err(),
+        ERR_UNAVAILABLE
+    );
 }
 
 #[test]

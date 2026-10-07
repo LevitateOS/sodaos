@@ -8,7 +8,7 @@ use soda_host::pops::{
     AccessKeysReq, AccountReq, HoldPreparationReq, InspectPreparationReq, Ops, PrepareCandidateReq,
     PrepareReq, StopPreparationReq,
 };
-use soda_host::{account, json, project};
+use soda_host::{account, project};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};

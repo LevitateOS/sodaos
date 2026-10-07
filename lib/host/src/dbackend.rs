@@ -16,6 +16,8 @@
 // All lane modules are integrated (iclient, tcontrol, mserve, pops,
 // tcodex); no scaffold remains. `HAS_SCAFFOLDS` reads false and the
 // `scaffold:` error mapping below is defensive only: no producer remains.
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use std::os::unix::net::UnixStream;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -46,20 +48,53 @@ fn internal(err: String) -> BackendError {
 
 /// `strictjson.Decode` failure inside a native dispatch: Go returns the
 /// error and ServeHTTP renders 500.
-fn decode_native(body: &[u8]) -> Result<json::Value, BackendError> {
-    json::decode_strict(body).map_err(|e| internal(e.0))
-}
-
 /// Empty-object body (`dispatchProfile`, `/factory-harness`): Go decodes
 /// into `struct{}`, so `{}` (and JSON `null`, which decodes into any Go
 /// value) passes and anything else fails.
 fn decode_empty(body: &[u8]) -> Result<(), BackendError> {
-    let v = decode_native(body)?;
-    match &v {
-        json::Value::Null => Ok(()),
-        json::Value::Object(fields) if fields.is_empty() => Ok(()),
-        _ => Err(BackendError::Internal),
+    decode_empty_or_null(body).map_err(|e| internal(e))
+}
+
+fn decode_empty_or_null(body: &[u8]) -> Result<(), String> {
+    use serde::de::{self, MapAccess, Visitor};
+    use serde::Deserialize;
+    struct Empty;
+    impl<'de> Deserialize<'de> for Empty {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            struct EmptyVisitor;
+            impl<'de> Visitor<'de> for EmptyVisitor {
+                type Value = Empty;
+                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    f.write_str("null or an empty object")
+                }
+                fn visit_unit<E>(self) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+                {
+                    Ok(Empty)
+                }
+                fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+                where
+                    A: MapAccess<'de>,
+                {
+                    if map.next_key::<String>()?.is_some() {
+                        return Err(de::Error::custom("expected an empty object"));
+                    }
+                    Ok(Empty)
+                }
+            }
+            deserializer.deserialize_any(EmptyVisitor)
+        }
     }
+    if body.len() > json::MAXIMUM_REQUEST_BYTES {
+        return Err("request exceeds 1 MiB".to_string());
+    }
+    let mut input = serde_json::Deserializer::from_slice(body);
+    Empty::deserialize(&mut input).map_err(|e| e.to_string())?;
+    input.end().map_err(|e| e.to_string())
 }
 
 /// `FactoryError` to wire mapping. `stale` is per-method: output reads map
@@ -1058,12 +1093,7 @@ impl ExecBackend for DaemonBackend {
 /// Tailnet decode failure: Go's `decodeTailnetBody` reports `ErrInvalid`
 /// (400), unlike the native 500.
 fn decode_tailnet_empty(body: &[u8]) -> Result<(), BackendError> {
-    let v = json::decode_strict(body).map_err(|_| BackendError::Invalid)?;
-    match &v {
-        json::Value::Null => Ok(()),
-        json::Value::Object(fields) if fields.is_empty() => Ok(()),
-        _ => Err(BackendError::Invalid),
-    }
+    decode_empty_or_null(body).map_err(|_| BackendError::Invalid)
 }
 
 /// Lane T error substrings to wire mapping. The mux renders tailnet
@@ -1096,42 +1126,83 @@ fn valid_revision(v: &str) -> bool {
                 .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()))
 }
 
-const TAILNET_PROJECT_SPECS: &[json::Spec] = &[
-    json::Spec {
-        name: "project",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "action",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "revision",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "binding",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "confirm_id",
-        kind: json::Kind::Str,
-    },
-];
+#[derive(Default)]
+struct TailnetProjectWire {
+    project: Option<String>,
+    action: Option<String>,
+    revision: Option<String>,
+    binding: Option<String>,
+    confirm_id: Option<String>,
+}
+impl<'de> Deserialize<'de> for TailnetProjectWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = TailnetProjectWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("Tailnet project request")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = TailnetProjectWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.to_ascii_lowercase().as_str() {
+                        "project" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.project = Some(v)
+                            }
+                        }
+                        "action" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.action = Some(v)
+                            }
+                        }
+                        "revision" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.revision = Some(v)
+                            }
+                        }
+                        "binding" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.binding = Some(v)
+                            }
+                        }
+                        "confirm_id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.confirm_id = Some(v)
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &k,
+                                &["project", "action", "revision", "binding", "confirm_id"],
+                            ))
+                        }
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
 
 /// Strict decode of one project/policy request (Go `ProjectRequest` shape).
 fn decode_project_request(
     body: &[u8],
 ) -> Result<crate::tailnet_domain::ProjectRequest, BackendError> {
-    let v = json::decode_strict(body).map_err(|_| BackendError::Invalid)?;
-    let m = json::bind_root(&v, "ProjectRequest", TAILNET_PROJECT_SPECS, false)
-        .map_err(|_| BackendError::Invalid)?;
+    let m: TailnetProjectWire = json::decode_strict_as(body).map_err(|_| BackendError::Invalid)?;
     Ok(crate::tailnet_domain::ProjectRequest {
-        project: m.take_string("project"),
-        action: m.take_string("action"),
-        revision: m.take_string("revision"),
-        binding: m.take_string("binding"),
-        confirm_id: m.take_string("confirm_id"),
+        project: m.project.unwrap_or_default(),
+        action: m.action.unwrap_or_default(),
+        revision: m.revision.unwrap_or_default(),
+        binding: m.binding.unwrap_or_default(),
+        confirm_id: m.confirm_id.unwrap_or_default(),
     })
 }
 

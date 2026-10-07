@@ -14,8 +14,10 @@ use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use crate::json::Value;
+use crate::json;
 use crate::tcontrol_wire as wire;
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 pub const HOST_SOCKET: &str = "/var/run/tailscale/tailscaled.sock";
 pub const DEFAULT_CLI: &str = "/usr/bin/tailscale";
@@ -143,101 +145,6 @@ fn fold_eq(a: &str, b: &str) -> bool {
     }
 }
 
-/// Strict validation plus the document-order value for last-wins binding
-/// (strict success implies tolerant success: same grammar, fewer bans).
-fn native_object(data: &[u8], required: &[&str]) -> Result<Value, String> {
-    if crate::json::decode_strict(data).is_err() {
-        return Err(wire::err_unavailable());
-    }
-    let v = match crate::json::decode_tolerant(data) {
-        Ok(v) => v,
-        Err(_) => return Err(wire::err_unavailable()),
-    };
-    let fields = match v.as_object() {
-        Some(f) => f,
-        None => return Err(wire::err_unavailable()),
-    };
-    for key in required {
-        let present = match fields.iter().find(|(k, _)| k == key) {
-            None => {
-                // `haveNodeKeyOmitted`: an absent field is false on a fresh,
-                // unenrolled daemon; case-aliased fields fail closed.
-                if *key != "HaveNodeKey" {
-                    return Err(wire::err_unavailable());
-                }
-                if fields.iter().any(|(k, _)| fold_eq(k, key)) {
-                    return Err(wire::err_unavailable());
-                }
-                continue;
-            }
-            Some((_, v)) => v,
-        };
-        if present.is_null() && *key != "AdvertiseRoutes" {
-            return Err(wire::err_unavailable());
-        }
-    }
-    Ok(v)
-}
-
-fn bound_values<'a>(fields: &'a [(String, Value)], name: &str) -> Vec<&'a Value> {
-    fields
-        .iter()
-        .filter(|(k, _)| fold_eq(k, name))
-        .map(|(_, v)| v)
-        .collect()
-}
-
-fn bind_string_into(
-    fields: &[(String, Value)],
-    name: &str,
-    out: &mut String,
-) -> Result<(), String> {
-    for v in bound_values(fields, name) {
-        match v {
-            Value::Null => {}
-            Value::Str(s) => *out = s.clone(),
-            _ => return Err(wire::err_unavailable()),
-        }
-    }
-    Ok(())
-}
-
-fn bind_bool_into(fields: &[(String, Value)], name: &str, out: &mut bool) -> Result<(), String> {
-    for v in bound_values(fields, name) {
-        match v {
-            Value::Null => {}
-            Value::Bool(b) => *out = *b,
-            _ => return Err(wire::err_unavailable()),
-        }
-    }
-    Ok(())
-}
-
-fn bind_list_into(
-    fields: &[(String, Value)],
-    name: &str,
-    out: &mut Vec<String>,
-) -> Result<(), String> {
-    for v in bound_values(fields, name) {
-        match v {
-            Value::Null => {}
-            Value::Array(items) => {
-                let mut next = Vec::with_capacity(items.len());
-                for item in items {
-                    match item {
-                        Value::Null => next.push(String::new()),
-                        Value::Str(s) => next.push(s.clone()),
-                        _ => return Err(wire::err_unavailable()),
-                    }
-                }
-                *out = next;
-            }
-            _ => return Err(wire::err_unavailable()),
-        }
-    }
-    Ok(())
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct NativePeer {
     pub id: String,
@@ -246,16 +153,6 @@ pub struct NativePeer {
     pub online: bool,
     pub exit_node_option: bool,
     pub expired: bool,
-}
-
-fn bind_native_peer_into(fields: &[(String, Value)], p: &mut NativePeer) -> Result<(), String> {
-    bind_string_into(fields, "ID", &mut p.id)?;
-    bind_string_into(fields, "DNSName", &mut p.dns_name)?;
-    bind_list_into(fields, "TailscaleIPs", &mut p.ips)?;
-    bind_bool_into(fields, "Online", &mut p.online)?;
-    bind_bool_into(fields, "ExitNodeOption", &mut p.exit_node_option)?;
-    bind_bool_into(fields, "Expired", &mut p.expired)?;
-    Ok(())
 }
 
 #[derive(Debug, Clone, Default)]
@@ -271,79 +168,250 @@ pub struct NativeStatus {
     pub auth_url: String,
 }
 
-pub fn decode_native_status(data: &[u8]) -> Result<NativeStatus, String> {
-    let v = native_object(data, &["BackendState", "HaveNodeKey"])?;
-    let fields = v.as_object().ok_or_else(wire::err_unavailable)?;
-    let mut s = NativeStatus::default();
-    bind_string_into(fields, "BackendState", &mut s.backend_state)?;
-    bind_bool_into(fields, "HaveNodeKey", &mut s.have_node_key)?;
-    bind_string_into(fields, "AuthURL", &mut s.auth_url)?;
-    // Pointer-struct and map bindings merge across case-variant keys into
-    // one value, like `encoding/json`; null is a no-op, mistyped fails.
-    for v in bound_values(fields, "CurrentTailnet") {
-        match v {
-            Value::Null => {}
-            Value::Object(inner) => {
-                s.has_tailnet = true;
-                bind_string_into(inner, "Name", &mut s.tailnet_name)?;
-                bind_bool_into(inner, "MagicDNSEnabled", &mut s.tailnet_magic_dns)?;
+#[derive(Default)]
+struct GoStringList(Vec<String>);
+impl<'de> Deserialize<'de> for GoStringList {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = GoStringList;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("string list")
             }
-            _ => return Err(wire::err_unavailable()),
-        }
-    }
-    for v in bound_values(fields, "Self") {
-        match v {
-            Value::Null => {}
-            Value::Object(inner) => {
-                let peer = s.self_peer.get_or_insert_with(NativePeer::default);
-                bind_native_peer_into(inner, peer)?;
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(GoStringList::default())
             }
-            _ => return Err(wire::err_unavailable()),
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut values = Vec::new();
+                while let Some(v) = seq.next_element::<Option<String>>()? {
+                    values.push(v.unwrap_or_default());
+                }
+                Ok(GoStringList(values))
+            }
         }
+        d.deserialize_any(V)
     }
-    // `Peer` is a map: entries merge by key across values, keys are
-    // otherwise ignored, and null values bind the zero peer.
-    let mut peer_keys: Vec<String> = Vec::new();
-    for v in bound_values(fields, "Peer") {
-        match v {
-            Value::Null => {}
-            Value::Object(entries) => {
-                for (key, peer) in entries {
-                    let mut decoded = NativePeer::default();
-                    match peer {
-                        Value::Null => {}
-                        Value::Object(inner) => bind_native_peer_into(inner, &mut decoded)?,
-                        _ => return Err(wire::err_unavailable()),
+}
+
+#[derive(Default)]
+struct PeerWire {
+    id: Option<String>,
+    dns_name: Option<String>,
+    ips: Option<GoStringList>,
+    online: Option<bool>,
+    exit_node_option: Option<bool>,
+    expired: Option<bool>,
+}
+impl<'de> Deserialize<'de> for PeerWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PeerWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("native peer")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = PeerWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "ID") {
+                        out.id = map.next_value()?;
+                    } else if fold_eq(&k, "DNSName") {
+                        out.dns_name = map.next_value()?;
+                    } else if fold_eq(&k, "TailscaleIPs") {
+                        out.ips = map.next_value()?;
+                    } else if fold_eq(&k, "Online") {
+                        out.online = map.next_value()?;
+                    } else if fold_eq(&k, "ExitNodeOption") {
+                        out.exit_node_option = map.next_value()?;
+                    } else if fold_eq(&k, "Expired") {
+                        out.expired = map.next_value()?;
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
                     }
-                    match peer_keys.iter().position(|k| k == key) {
-                        Some(at) => s.peers[at] = decoded,
-                        None => {
-                            peer_keys.push(key.clone());
-                            s.peers.push(decoded);
+                }
+                Ok(out)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+impl From<PeerWire> for NativePeer {
+    fn from(v: PeerWire) -> Self {
+        Self {
+            id: v.id.unwrap_or_default(),
+            dns_name: v.dns_name.unwrap_or_default(),
+            ips: v.ips.map(|x| x.0).unwrap_or_default(),
+            online: v.online.unwrap_or_default(),
+            exit_node_option: v.exit_node_option.unwrap_or_default(),
+            expired: v.expired.unwrap_or_default(),
+        }
+    }
+}
+fn merge_peer(out: &mut NativePeer, v: PeerWire) {
+    if let Some(x) = v.id {
+        out.id = x;
+    }
+    if let Some(x) = v.dns_name {
+        out.dns_name = x;
+    }
+    if let Some(x) = v.ips {
+        out.ips = x.0;
+    }
+    if let Some(x) = v.online {
+        out.online = x;
+    }
+    if let Some(x) = v.exit_node_option {
+        out.exit_node_option = x;
+    }
+    if let Some(x) = v.expired {
+        out.expired = x;
+    }
+}
+
+#[derive(Default)]
+struct TailnetWire {
+    name: Option<String>,
+    magic: Option<bool>,
+}
+impl<'de> Deserialize<'de> for TailnetWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = TailnetWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("current tailnet")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = TailnetWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "Name") {
+                        o.name = map.next_value()?;
+                    } else if fold_eq(&k, "MagicDNSEnabled") {
+                        o.magic = map.next_value()?;
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct NativeStatusWire {
+    value: NativeStatus,
+    exact_backend: bool,
+    exact_key_seen: bool,
+    exact_key: bool,
+    folded_key_seen: bool,
+}
+impl<'de> Deserialize<'de> for NativeStatusWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = NativeStatusWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("native status")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = NativeStatusWire::default();
+                let mut peer_keys: Vec<String> = Vec::new();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "BackendState") {
+                        let v: Option<String> = map.next_value()?;
+                        if k == "BackendState" {
+                            o.exact_backend = v.is_some();
                         }
+                        if let Some(v) = v {
+                            o.value.backend_state = v;
+                        }
+                    } else if fold_eq(&k, "HaveNodeKey") {
+                        let v: Option<bool> = map.next_value()?;
+                        o.folded_key_seen = true;
+                        if k == "HaveNodeKey" {
+                            o.exact_key_seen = true;
+                            o.exact_key = v.is_some();
+                        }
+                        if let Some(v) = v {
+                            o.value.have_node_key = v;
+                        }
+                    } else if fold_eq(&k, "AuthURL") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            o.value.auth_url = v;
+                        }
+                    } else if fold_eq(&k, "CurrentTailnet") {
+                        if let Some(v) = map.next_value::<Option<TailnetWire>>()? {
+                            o.value.has_tailnet = true;
+                            if let Some(x) = v.name {
+                                o.value.tailnet_name = x;
+                            }
+                            if let Some(x) = v.magic {
+                                o.value.tailnet_magic_dns = x;
+                            }
+                        }
+                    } else if fold_eq(&k, "Self") {
+                        if let Some(v) = map.next_value::<Option<PeerWire>>()? {
+                            let p = o.value.self_peer.get_or_insert_with(NativePeer::default);
+                            merge_peer(p, v);
+                        }
+                    } else if fold_eq(&k, "Peer") {
+                        if let Some(entries)=map.next_value::<Option<std::collections::BTreeMap<String,Option<PeerWire>>>>()?{for (key,v) in entries{let decoded=v.map(NativePeer::from).unwrap_or_default();match peer_keys.iter().position(|old|old==&key){Some(i)=>o.value.peers[i]=decoded,None=>{peer_keys.push(key);o.value.peers.push(decoded);}}}}
+                    } else if fold_eq(&k, "Health") {
+                        if let Some(v) = map.next_value::<Option<GoStringList>>()? {
+                            o.value.health_count = v.0.len();
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
                     }
                 }
-            }
-            _ => return Err(wire::err_unavailable()),
-        }
-    }
-    // `Health` contributes only its length, but must bind as `[]string`.
-    for v in bound_values(fields, "Health") {
-        match v {
-            Value::Null => {}
-            Value::Array(items) => {
-                for item in items {
-                    match item {
-                        Value::Null | Value::Str(_) => {}
-                        _ => return Err(wire::err_unavailable()),
-                    }
+                if !o.exact_backend
+                    || (o.exact_key_seen && !o.exact_key)
+                    || (o.folded_key_seen && !o.exact_key_seen)
+                {
+                    return Err(de::Error::custom(
+                        "required exact native status field missing",
+                    ));
                 }
-                s.health_count = items.len();
+                Ok(o)
             }
-            _ => return Err(wire::err_unavailable()),
         }
+        d.deserialize_map(V)
     }
-    Ok(s)
+}
+
+pub fn decode_native_status(data: &[u8]) -> Result<NativeStatus, String> {
+    let wire: NativeStatusWire =
+        json::decode_strict_as(data).map_err(|_| wire::err_unavailable())?;
+    Ok(wire.value)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -355,41 +423,85 @@ pub struct NativePrefs {
     pub advertise_routes: Option<Vec<String>>,
 }
 
-pub fn decode_native_prefs(data: &[u8]) -> Result<NativePrefs, String> {
-    let v = native_object(
-        data,
-        &[
-            "WantRunning",
-            "ExitNodeID",
-            "ExitNodeIP",
-            "ExitNodeAllowLANAccess",
-            "AdvertiseRoutes",
-        ],
-    )?;
-    let fields = v.as_object().ok_or_else(wire::err_unavailable)?;
-    let mut p = NativePrefs::default();
-    bind_bool_into(fields, "WantRunning", &mut p.want_running)?;
-    bind_string_into(fields, "ExitNodeID", &mut p.exit_node_id)?;
-    bind_string_into(fields, "ExitNodeIP", &mut p.exit_node_ip)?;
-    bind_bool_into(fields, "ExitNodeAllowLANAccess", &mut p.allow_lan)?;
-    for v in bound_values(fields, "AdvertiseRoutes") {
-        match v {
-            Value::Null => p.advertise_routes = None,
-            Value::Array(items) => {
-                let mut next = Vec::with_capacity(items.len());
-                for item in items {
-                    match item {
-                        Value::Null => next.push(String::new()),
-                        Value::Str(s) => next.push(s.clone()),
-                        _ => return Err(wire::err_unavailable()),
+#[derive(Default)]
+struct NativePrefsWire {
+    value: NativePrefs,
+    required: [bool; 5],
+}
+impl<'de> Deserialize<'de> for NativePrefsWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = NativePrefsWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("native preferences")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = NativePrefsWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "WantRunning") {
+                        let v: Option<bool> = map.next_value()?;
+                        if k == "WantRunning" {
+                            o.required[0] = v.is_some();
+                        }
+                        if let Some(v) = v {
+                            o.value.want_running = v;
+                        }
+                    } else if fold_eq(&k, "ExitNodeID") {
+                        let v: Option<String> = map.next_value()?;
+                        if k == "ExitNodeID" {
+                            o.required[1] = v.is_some();
+                        }
+                        if let Some(v) = v {
+                            o.value.exit_node_id = v;
+                        }
+                    } else if fold_eq(&k, "ExitNodeIP") {
+                        let v: Option<String> = map.next_value()?;
+                        if k == "ExitNodeIP" {
+                            o.required[2] = v.is_some();
+                        }
+                        if let Some(v) = v {
+                            o.value.exit_node_ip = v;
+                        }
+                    } else if fold_eq(&k, "ExitNodeAllowLANAccess") {
+                        let v: Option<bool> = map.next_value()?;
+                        if k == "ExitNodeAllowLANAccess" {
+                            o.required[3] = v.is_some();
+                        }
+                        if let Some(v) = v {
+                            o.value.allow_lan = v;
+                        }
+                    } else if fold_eq(&k, "AdvertiseRoutes") {
+                        let v: Option<GoStringList> = map.next_value()?;
+                        if k == "AdvertiseRoutes" {
+                            o.required[4] = true;
+                        }
+                        o.value.advertise_routes = v.map(|x| x.0);
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
                     }
                 }
-                p.advertise_routes = Some(next);
+                if !o.required.iter().all(|v| *v) {
+                    return Err(de::Error::custom(
+                        "missing required exact native preference field",
+                    ));
+                }
+                Ok(o)
             }
-            _ => return Err(wire::err_unavailable()),
         }
+        d.deserialize_map(V)
     }
-    Ok(p)
+}
+pub fn decode_native_prefs(data: &[u8]) -> Result<NativePrefs, String> {
+    let wire: NativePrefsWire =
+        json::decode_strict_as(data).map_err(|_| wire::err_unavailable())?;
+    Ok(wire.value)
 }
 
 // ---------- Observation ----------
@@ -584,29 +696,46 @@ pub fn run_command(
 /// error text.
 pub fn decode_up_notifications(data: &[u8]) -> Result<(), String> {
     for extent in split_json_values(data)? {
-        let v = crate::json::decode_tolerant(&extent).map_err(|_| wire::err_unconfirmed())?;
-        let fields = match v.as_object() {
-            Some(f) => f,
-            None => return Err(wire::err_unconfirmed()),
-        };
-        // Struct binding, like Go: every occurrence binds in order, any
-        // mistyped occurrence fails, and any error text fails the decode.
-        let mut error = String::new();
-        for (k, v) in fields {
-            if fold_eq(k, "Error") {
-                match v {
-                    Value::Null => {}
-                    Value::Str(s) => error = s.clone(),
-                    _ => return Err(wire::err_unconfirmed()),
+        #[derive(Default)]
+        struct NotificationWire {
+            error: String,
+        }
+        impl<'de> Deserialize<'de> for NotificationWire {
+            fn deserialize<D>(d: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                struct V;
+                impl<'de> Visitor<'de> for V {
+                    type Value = NotificationWire;
+                    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        f.write_str("native notification")
+                    }
+                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+                    where
+                        A: MapAccess<'de>,
+                    {
+                        let mut out = NotificationWire::default();
+                        while let Some(k) = map.next_key::<String>()? {
+                            if fold_eq(&k, "Error") {
+                                if let Some(v) = map.next_value::<Option<String>>()? {
+                                    out.error = v;
+                                }
+                            } else if fold_eq(&k, "AuthURL") {
+                                map.next_value::<Option<String>>()?;
+                            } else {
+                                map.next_value::<de::IgnoredAny>()?;
+                            }
+                        }
+                        Ok(out)
+                    }
                 }
-            } else if fold_eq(k, "AuthURL") {
-                match v {
-                    Value::Null | Value::Str(_) => {}
-                    _ => return Err(wire::err_unconfirmed()),
-                }
+                d.deserialize_map(V)
             }
         }
-        if !error.is_empty() {
+        let value: NotificationWire =
+            json::decode_tolerant_as(&extent).map_err(|_| wire::err_unconfirmed())?;
+        if !value.error.is_empty() {
             return Err(wire::err_unconfirmed());
         }
     }
@@ -898,75 +1027,140 @@ pub struct CliEndpoint {
     pub ipv4: String,
 }
 
-fn last_field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
-    fields
-        .iter()
-        .rev()
-        .find(|(k, _)| fold_eq(k, name))
-        .map(|(_, v)| v)
+#[derive(Default)]
+struct CliTailnetWire {
+    magic: bool,
 }
-
-fn tolerant_string(fields: &[(String, Value)], name: &str) -> Result<String, String> {
-    match last_field(fields, name) {
-        None | Some(Value::Null) => Ok(String::new()),
-        Some(Value::Str(s)) => Ok(s.clone()),
-        Some(_) => Err(wire::err_unavailable()),
-    }
-}
-
-fn tolerant_bool(fields: &[(String, Value)], name: &str) -> Result<bool, String> {
-    match last_field(fields, name) {
-        None | Some(Value::Null) => Ok(false),
-        Some(Value::Bool(b)) => Ok(*b),
-        Some(_) => Err(wire::err_unavailable()),
-    }
-}
-
-fn tolerant_object(fields: &[(String, Value)], name: &str) -> Result<Vec<(String, Value)>, String> {
-    match last_field(fields, name) {
-        None | Some(Value::Null) => Ok(Vec::new()),
-        Some(Value::Object(inner)) => Ok(inner.clone()),
-        Some(_) => Err(wire::err_unavailable()),
-    }
-}
-
-fn tolerant_str_list(fields: &[(String, Value)], name: &str) -> Result<Vec<String>, String> {
-    match last_field(fields, name) {
-        None | Some(Value::Null) => Ok(Vec::new()),
-        Some(Value::Array(items)) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                match item {
-                    Value::Null => out.push(String::new()),
-                    Value::Str(s) => out.push(s.clone()),
-                    _ => return Err(wire::err_unavailable()),
-                }
+impl<'de> Deserialize<'de> for CliTailnetWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = CliTailnetWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("tailnet status")
             }
-            Ok(out)
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = CliTailnetWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "MagicDNSEnabled") {
+                        o.magic = map.next_value::<Option<bool>>()?.unwrap_or_default();
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
         }
-        Some(_) => Err(wire::err_unavailable()),
+        d.deserialize_map(V)
+    }
+}
+#[derive(Default)]
+struct CliPeerWire {
+    dns: String,
+    expired: bool,
+    ips: Vec<String>,
+}
+impl<'de> Deserialize<'de> for CliPeerWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = CliPeerWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("self peer status")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = CliPeerWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "DNSName") {
+                        o.dns = map.next_value::<Option<String>>()?.unwrap_or_default();
+                    } else if fold_eq(&k, "Expired") {
+                        o.expired = map.next_value::<Option<bool>>()?.unwrap_or_default();
+                    } else if fold_eq(&k, "TailscaleIPs") {
+                        o.ips = map
+                            .next_value::<Option<GoStringList>>()?
+                            .map(|v| v.0)
+                            .unwrap_or_default();
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+#[derive(Default)]
+struct CliStatusWire {
+    backend: String,
+    auth: String,
+    tailnet: CliTailnetWire,
+    peer: CliPeerWire,
+}
+impl<'de> Deserialize<'de> for CliStatusWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = CliStatusWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("CLI status")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = CliStatusWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "BackendState") {
+                        o.backend = map.next_value::<Option<String>>()?.unwrap_or_default();
+                    } else if fold_eq(&k, "AuthURL") {
+                        o.auth = map.next_value::<Option<String>>()?.unwrap_or_default();
+                    } else if fold_eq(&k, "CurrentTailnet") {
+                        o.tailnet = map
+                            .next_value::<Option<CliTailnetWire>>()?
+                            .unwrap_or_default();
+                    } else if fold_eq(&k, "Self") {
+                        o.peer = map.next_value::<Option<CliPeerWire>>()?.unwrap_or_default();
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
     }
 }
 
 fn parse_cli_status(data: &[u8]) -> Result<CliStatus, String> {
     // Go uses plain `encoding/json.Unmarshal`: unknown fields ignored, last
     // duplicate wins, mistyped values fail.
-    let v = crate::json::decode_tolerant(data).map_err(|_| wire::err_unavailable())?;
-    let fields = match v.as_object() {
-        Some(f) => f,
-        None => return Err(wire::err_unavailable()),
-    };
-    let backend = tolerant_string(fields, "BackendState")?;
+    let decoded: CliStatusWire =
+        json::decode_tolerant_as(data).map_err(|_| wire::err_unavailable())?;
+    let backend = decoded.backend;
     if backend.is_empty() {
         return Err(wire::err_unavailable());
     }
-    let auth_pending = !tolerant_string(fields, "AuthURL")?.is_empty();
-    let tailnet = tolerant_object(fields, "CurrentTailnet")?;
-    let magic = tolerant_bool(&tailnet, "MagicDNSEnabled")?;
-    let peer = tolerant_object(fields, "Self")?;
-    let dns = tolerant_string(&peer, "DNSName")?;
-    let expired = tolerant_bool(&peer, "Expired")?;
-    let ips = tolerant_str_list(&peer, "TailscaleIPs")?;
+    let auth_pending = !decoded.auth.is_empty();
+    let magic = decoded.tailnet.magic;
+    let dns = decoded.peer.dns;
+    let expired = decoded.peer.expired;
+    let ips = decoded.peer.ips;
     let mut status = CliStatus {
         backend_state: backend,
         magic_dns_enabled: magic,

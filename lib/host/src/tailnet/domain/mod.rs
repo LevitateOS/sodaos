@@ -87,10 +87,7 @@ pub use time::{go_escape, parse_rfc3339_nano};
 
 mod native;
 
-use native::{
-    bind_bool_into, bind_string_into, decode_native_prefs, decode_native_status, lower_char,
-    native_object, NativeStatus, SelfPeer,
-};
+use native::{decode_native_prefs, decode_native_status, lower_char, NativeStatus, SelfPeer};
 
 mod addresses;
 

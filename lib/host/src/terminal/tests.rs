@@ -768,6 +768,14 @@ fn strict_decode_matrix() {
         None
     );
     assert_eq!(
+        Delivery::decode(
+            br#"{"lease":{"provider_id":"x"},"CREDENTIAL":"aGk=","Credential":null}"#
+        )
+        .unwrap()
+        .credential,
+        Some(b"hi".to_vec())
+    );
+    assert_eq!(
         Delivery::decode(br#"{"lease":{"provider_id":"x"},"credential":""}"#)
             .unwrap()
             .credential,

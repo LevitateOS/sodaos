@@ -90,9 +90,7 @@ mod stop;
 pub(in crate::muse) use self::socket::close_fds;
 pub use self::socket::{muse_peer_from_fd, parse_unix_rights};
 
-pub(in crate::muse) use self::inspect::{
-    muse_peer_alive, sleep_until, MuseInspection, MUSE_INSPECTION_SPECS,
-};
+pub(in crate::muse) use self::inspect::{muse_peer_alive, sleep_until, MuseInspection};
 
 #[cfg(test)]
 mod tests;

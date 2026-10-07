@@ -1,54 +1,44 @@
-//! JSON wire compatibility with the Go host daemon.
+//! Host JSON admission and Go-compatible output string formatting.
 //!
-//! Port of `internal/strictjson` (request decode) plus the output encoding
-//! rules of `encoding/json` used for daemon responses and the
-//! `org.soda.creation-profile` container label:
-//!
-//! * requests: exactly one top-level object, valid UTF-8, at most 1 MiB,
-//!   duplicate fields rejected at every nesting level, unknown fields
-//!   rejected by the typed decoders;
-//! * output: struct field order, `omitempty` elision, HTML escaping
-//!   (`<`, `>`, `&`), `\u2028`/`\u2029` escaping, trailing newline for the
-//!   HTTP encoder only.
+//! Concrete request and response shapes live in their owning modules as
+//! Serde DTOs. This module supplies only strict recursive admission, the
+//! signed JSON integer token adapter, byte-field adapter, and output quoting.
 
-use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
 
 use serde::de::{self, DeserializeOwned, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 
-mod bind;
 mod number;
-mod scan;
-mod specs;
-mod string;
-
-#[cfg(test)]
-mod binding_tests;
 #[cfg(test)]
 mod strict_tests;
 
-pub use self::bind::{bind_root, bind_struct};
-// `muse_serve_oracle` compiles this root through a private `#[path]` copy
-// that never touches some re-exported names; they serve the real library.
-#[allow(unused_imports)]
 pub use self::number::{parse_go_int64, parse_go_uint32};
-#[allow(unused_imports)]
-pub use self::specs::{Bound, BoundMap, Kind, Spec};
 
 pub const MAXIMUM_REQUEST_BYTES: usize = 1 << 20;
 
-/// A signed JSON integer token parsed from its original spelling. This keeps
-/// Go's `-0` admission while preserving the owner DTO's signed destination.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Error(pub String);
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for Error {}
+fn err(message: impl Into<String>) -> Error {
+    Error(message.into())
+}
+
+/// Signed integer spelling adapter. Go's integer binder accepts JSON `-0`;
+/// native integer visitors in serde_json classify that token as floating point.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SignedInteger(pub i64);
-
 impl From<SignedInteger> for i64 {
     fn from(value: SignedInteger) -> Self {
         value.0
     }
 }
-
 impl<'de> Deserialize<'de> for SignedInteger {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -62,12 +52,12 @@ impl<'de> Deserialize<'de> for SignedInteger {
         } else {
             bytes
         };
-        let is_integer = match digits.first() {
+        let integer = match digits.first() {
             Some(b'0') => digits.len() == 1,
-            Some(b'1'..=b'9') => digits.iter().all(|byte| byte.is_ascii_digit()),
+            Some(b'1'..=b'9') => digits.iter().all(u8::is_ascii_digit),
             _ => false,
         };
-        if !is_integer {
+        if !integer {
             return Err(de::Error::custom("expected a signed integer"));
         }
         token
@@ -77,10 +67,63 @@ impl<'de> Deserialize<'de> for SignedInteger {
     }
 }
 
-/// Strictly admit one host request object, then decode directly into its
-/// owner DTO. Root names are sorted before typed decoding to preserve the
-/// host's established root alias precedence; nested raw values retain their
-/// source order.
+/// Go `[]uint8` JSON binding: base64 strings, numeric arrays, null bytes as
+/// zero, and null/missing slices as empty at the containing DTO.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct BytesField(pub Vec<u8>);
+impl<'de> Deserialize<'de> for BytesField {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = BytesField;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("base64 text or an unsigned byte array")
+            }
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                crate::ssh::b64_decode_go(value.as_bytes())
+                    .map(BytesField)
+                    .map_err(E::custom)
+            }
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                self.visit_str(&value)
+            }
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BytesField(Vec::new()))
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut bytes = Vec::new();
+                while let Some(value) = seq.next_element::<Option<u64>>()? {
+                    let byte = value.unwrap_or(0);
+                    if byte > u8::MAX as u64 {
+                        return Err(de::Error::custom("byte out of range"));
+                    }
+                    bytes.push(byte as u8);
+                }
+                Ok(BytesField(bytes))
+            }
+        }
+        deserializer.deserialize_any(V)
+    }
+}
+
+/// Strictly admit a complete root object and deserialize it into its owner
+/// DTO. Root names are sorted before typed decoding; nested RawValue bytes keep
+/// source order for alias selection.
 pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
     if body.len() > MAXIMUM_REQUEST_BYTES {
         return Err(err("request exceeds 1 MiB"));
@@ -93,13 +136,13 @@ pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
         where
             D: Deserializer<'de>,
         {
-            struct RootVisitor;
-            impl<'de> Visitor<'de> for RootVisitor {
+            struct V;
+            impl<'de> Visitor<'de> for V {
                 type Value = Root;
                 fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     f.write_str("a JSON object")
                 }
-                fn visit_map<A>(self, mut map: A) -> Result<Root, A::Error>
+                fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
                 where
                     A: MapAccess<'de>,
                 {
@@ -108,13 +151,12 @@ pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
                         if members.contains_key(&key) {
                             return Err(de::Error::custom("duplicate object key"));
                         }
-                        let value = map.next_value::<Box<serde_json::value::RawValue>>()?;
-                        members.insert(key, value);
+                        members.insert(key, map.next_value::<Box<serde_json::value::RawValue>>()?);
                     }
                     Ok(Root(members))
                 }
             }
-            deserializer.deserialize_map(RootVisitor)
+            deserializer.deserialize_map(V)
         }
     }
 
@@ -202,9 +244,9 @@ pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
         where
             A: MapAccess<'de>,
         {
-            let mut names = HashSet::new();
+            let mut keys = HashSet::new();
             while let Some(key) = map.next_key::<String>()? {
-                if !names.insert(key) {
+                if !keys.insert(key) {
                     return Err(de::Error::custom("duplicate object key"));
                 }
                 map.next_value_seed(UniqueSeed(self.0 + 1))?;
@@ -213,9 +255,9 @@ pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
         }
     }
 
-    let mut deserializer = serde_json::Deserializer::from_slice(body);
-    let Root(root) = Root::deserialize(&mut deserializer).map_err(|e| err(e.to_string()))?;
-    deserializer.end().map_err(|e| err(e.to_string()))?;
+    let mut original = serde_json::Deserializer::from_slice(body);
+    let Root(root) = Root::deserialize(&mut original).map_err(|e| err(e.to_string()))?;
+    original.end().map_err(|e| err(e.to_string()))?;
     for raw in root.values() {
         let mut value = serde_json::Deserializer::from_str(raw.get());
         UniqueSeed(0)
@@ -225,13 +267,12 @@ pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
     }
     let ordered = serde_json::to_vec(&root).map_err(|e| err(e.to_string()))?;
     let mut input = serde_json::Deserializer::from_slice(&ordered);
-    let value = T::deserialize(&mut input).map_err(|e| err(e.to_string()))?;
+    let decoded = T::deserialize(&mut input).map_err(|e| err(e.to_string()))?;
     input.end().map_err(|e| err(e.to_string()))?;
-    Ok(value)
+    Ok(decoded)
 }
 
-/// Decode one complete machine response into its owner DTO. Unknown-field
-/// behavior is chosen by that DTO's Serde implementation.
+/// Decode one complete machine response into its owner DTO.
 pub fn decode_tolerant_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
     let mut input = serde_json::Deserializer::from_slice(body);
     let value = T::deserialize(&mut input).map_err(|e| err(e.to_string()))?;
@@ -239,246 +280,8 @@ pub fn decode_tolerant_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> 
     Ok(value)
 }
 
-/// Nesting depth limit matching strictjson's per-level duplicate scan: a
-/// value nested more than 101 levels below the top-level object is refused.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Null,
-    Bool(bool),
-    Number(String),
-    Str(String),
-    Array(Vec<Value>),
-    Object(Vec<(String, Value)>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Error(pub String);
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for Error {}
-
-fn err(msg: impl Into<String>) -> Error {
-    Error(msg.into())
-}
-
-struct Parser<'a> {
-    bytes: &'a [u8],
-    pos: usize,
-    /// None = tolerant (podman output): last duplicate wins. Some = strict
-    /// duplicate rejection with the top-level field name for messages.
-    strict_field: Option<Option<String>>,
-    /// First nested duplicate/depth finding in walk order, flushed when the
-    /// enclosing top-level value completes (strict only).
-    deferred: Option<Error>,
-}
-
-enum Frame {
-    Object {
-        fields: Vec<(String, Value)>,
-        pending: Option<String>,
-    },
-    Array {
-        items: Vec<Value>,
-    },
-}
-
-fn close_frame(frame: Frame) -> Value {
-    match frame {
-        Frame::Object { fields, .. } => Value::Object(fields),
-        Frame::Array { items } => Value::Array(items),
-    }
-}
-
-/// Strict request decode: exactly one JSON object, at most 1 MiB, valid
-/// UTF-8, no duplicate fields at any depth. Mirrors `strictjson.Decode`
-/// up to the typed struct binding, which each DTO decoder performs with
-/// `Object::get_*` so unknown fields are rejected there.
-pub fn decode_strict(body: &[u8]) -> Result<Value, Error> {
-    if body.len() > MAXIMUM_REQUEST_BYTES {
-        return Err(err("request exceeds 1 MiB"));
-    }
-    let text = std::str::from_utf8(body).map_err(|_| err("request must contain valid UTF-8"))?;
-    let mut p = Parser::new(text.as_bytes(), true);
-    let mut v = p.parse_object(0)?;
-    p.skip_ws();
-    if !p.eof() {
-        // Trailing `Token`: a second complete token is excess data, but a
-        // token scan error surfaces instead.
-        match p.peek() {
-            Some(b'{') | Some(b'[') => {
-                return Err(err("request must contain exactly one JSON object"));
-            }
-            Some(b'"') => {
-                p.parse_string()?;
-                return Err(err("request must contain exactly one JSON object"));
-            }
-            Some(b't') => {
-                p.parse_literal("true", Value::Bool(true))?;
-                return Err(err("request must contain exactly one JSON object"));
-            }
-            Some(b'f') => {
-                p.parse_literal("false", Value::Bool(false))?;
-                return Err(err("request must contain exactly one JSON object"));
-            }
-            Some(b'n') => {
-                p.parse_literal("null", Value::Null)?;
-                return Err(err("request must contain exactly one JSON object"));
-            }
-            Some(b'-') | Some(b'0'..=b'9') => {
-                let lit = p.parse_number()?;
-                // `finishObject` takes one trailing `Token`, which converts
-                // the number: overflow fails before the excess-data verdict.
-                if !lit.parse::<f64>().is_ok_and(|v| v.is_finite()) {
-                    return Err(err(format!(
-                        "decode request: json: cannot unmarshal number {lit} into Go value of type float64"
-                    )));
-                }
-                return Err(err("request must contain exactly one JSON object"));
-            }
-            Some(c) => {
-                return Err(err(format!(
-                    "decode request: invalid character {} looking for beginning of value",
-                    Parser::quote_byte(c)
-                )));
-            }
-            None => {}
-        }
-    }
-    // strictjson re-marshals the top-level map before struct binding, which
-    // sorts top-level keys; nested raw values keep document order. The
-    // binding driver relies on this for exact first-error ordering.
-    if let Value::Object(fields) = &mut v {
-        fields.sort_by(|a, b| a.0.cmp(&b.0));
-    }
-    Ok(v)
-}
-
-/// Tolerant decode for machine-generated podman output: mirrors
-/// `encoding/json.Unmarshal` (unknown fields ignored, last duplicate wins).
-pub fn decode_tolerant(body: &[u8]) -> Result<Value, Error> {
-    let text = std::str::from_utf8(body).map_err(|_| err("invalid UTF-8"))?;
-    let mut p = Parser::new(text.as_bytes(), false);
-    let v = p.parse_value(0)?;
-    p.skip_ws();
-    if !p.eof() {
-        return Err(err("trailing data"));
-    }
-    Ok(v)
-}
-
-impl Value {
-    pub fn as_object(&self) -> Option<&Vec<(String, Value)>> {
-        match self {
-            Value::Object(fields) => Some(fields),
-            _ => None,
-        }
-    }
-
-    pub fn as_array(&self) -> Option<&Vec<Value>> {
-        match self {
-            Value::Array(items) => Some(items),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            Value::Str(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    pub fn as_bool(&self) -> Option<bool> {
-        match self {
-            Value::Bool(b) => Some(*b),
-            _ => None,
-        }
-    }
-
-    /// Go `encoding/json` number-to-int64 binding: the raw literal must
-    /// parse as a base-10 64-bit integer (`1e3`, `1.5` are rejected).
-    pub fn as_i64(&self) -> Option<i64> {
-        match self {
-            Value::Number(lit) => lit.parse::<i64>().ok(),
-            _ => None,
-        }
-    }
-
-    pub fn is_null(&self) -> bool {
-        matches!(self, Value::Null)
-    }
-}
-
-/// `strconv.Quote` for ASCII input: exact for all ASCII bytes, UTF-8 passed
-/// through. Used for `unknown field` names (ASCII in practice).
-pub(crate) fn go_quote(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '\u{07}' => out.push_str("\\a"),
-            '\u{08}' => out.push_str("\\b"),
-            '\u{0C}' => out.push_str("\\f"),
-            '\u{0B}' => out.push_str("\\v"),
-            c if (c as u32) < 0x20 || (c as u32) == 0x7f => {
-                out.push_str(&format!("\\x{:02x}", c as u32));
-            }
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
-}
-
-pub fn tolerant_get<'a>(v: &'a Value, name: &str) -> Option<&'a Value> {
-    let fields = v.as_object()?;
-    if let Some((_, v)) = fields.iter().find(|(k, _)| k == name) {
-        return if v.is_null() { None } else { Some(v) };
-    }
-    let mut found = None;
-    for (k, v) in fields {
-        if k.eq_ignore_ascii_case(name) {
-            if found.is_some() {
-                return None;
-            }
-            found = Some(v);
-        }
-    }
-    found.filter(|v| !v.is_null())
-}
-
-pub fn tolerant_string_map(v: &Value) -> HashMap<String, String> {
-    let mut out = HashMap::new();
-    if let Some(fields) = v.as_object() {
-        for (k, v) in fields {
-            if let Value::Str(s) = v {
-                out.insert(k.clone(), s.clone());
-            }
-        }
-    }
-    out
-}
-
-// ---------- Go-compatible output encoding ----------
-
-/// Escape a string exactly like `encoding/json`: short escapes, HTML
-/// escaping for `<`, `>` and `&`, `\u2028`/`\u2029` escaping, and
-/// `\u00xx` for other C0 controls. Lowercase hex, like Go.
-pub fn escape_into(out: &mut String, s: &str) {
-    let quoted = quote(s);
-    out.push_str(&quoted[1..quoted.len() - 1]);
-}
-
+/// Go `encoding/json` string encoding, including HTML and JS-separator
+/// escapes. Field order and omission remain the responsibility of each DTO.
 pub fn quote(s: &str) -> String {
     use serde::Serialize;
     let mut out = Vec::with_capacity(s.len() + 2);
@@ -488,11 +291,7 @@ pub fn quote(s: &str) -> String {
     String::from_utf8(out).expect("JSON string is UTF-8")
 }
 
-/// Go `encoding/json`'s string policy layered onto serde_json's compact
-/// formatter. Controls are escaped by the upstream formatter; this method
-/// adds Go's HTML and JavaScript-separator escapes.
 struct GoFormatter;
-
 impl serde_json::ser::Formatter for GoFormatter {
     fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> std::io::Result<()>
     where

@@ -1,6 +1,8 @@
 use crate::domain;
-use crate::json::{self, Kind, Spec};
+use crate::json::{self, SignedInteger};
 use crate::terminal;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 // ---------- factory domain (internal/project) ----------
 
@@ -77,56 +79,128 @@ pub struct FactoryRun {
     pub connection: String,
 }
 
-const FACTORY_RUN_SPECS: &[Spec] = &[
-    Spec {
-        name: "deadline",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "actor",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "role",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "preparation",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "harness",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "harness_version",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "model",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "assignment",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "source_commit",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "connection",
-        kind: Kind::Str,
-    },
-];
+#[derive(Default)]
+struct FactoryRunWire {
+    deadline: Option<String>,
+    actor: Option<SignedInteger>,
+    id: Option<String>,
+    project: Option<String>,
+    role: Option<String>,
+    preparation: Option<String>,
+    harness: Option<String>,
+    harness_version: Option<String>,
+    model: Option<String>,
+    assignment: Option<String>,
+    source_commit: Option<String>,
+    connection: Option<String>,
+    deadline_seen: bool,
+}
+impl<'de> Deserialize<'de> for FactoryRunWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = FactoryRunWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("factory run")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = FactoryRunWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.to_ascii_lowercase().as_str() {
+                        "deadline" => {
+                            o.deadline_seen = true;
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.deadline = Some(v)
+                            }
+                        }
+                        "actor" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                o.actor = Some(v)
+                            }
+                        }
+                        "id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.id = Some(v)
+                            }
+                        }
+                        "project" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.project = Some(v)
+                            }
+                        }
+                        "role" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.role = Some(v)
+                            }
+                        }
+                        "preparation" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.preparation = Some(v)
+                            }
+                        }
+                        "harness" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.harness = Some(v)
+                            }
+                        }
+                        "harness_version" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.harness_version = Some(v)
+                            }
+                        }
+                        "model" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.model = Some(v)
+                            }
+                        }
+                        "assignment" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.assignment = Some(v)
+                            }
+                        }
+                        "source_commit" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.source_commit = Some(v)
+                            }
+                        }
+                        "connection" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.connection = Some(v)
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &k,
+                                &[
+                                    "deadline",
+                                    "actor",
+                                    "id",
+                                    "project",
+                                    "role",
+                                    "preparation",
+                                    "harness",
+                                    "harness_version",
+                                    "model",
+                                    "assignment",
+                                    "source_commit",
+                                    "connection",
+                                ],
+                            ))
+                        }
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
 
 impl FactoryRun {
     /// `FactoryRun.Validate()` with exact error strings.
@@ -168,25 +242,25 @@ impl FactoryRun {
 
     /// Strict decode of one run object.
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        let m = json::bind_root(&v, "FactoryRun", FACTORY_RUN_SPECS, false).map_err(|e| e.0)?;
-        let deadline_raw = m.take_string("deadline");
-        if m.contains("deadline") {
+        let wire: FactoryRunWire = json::decode_strict_as(body).map_err(|e| e.0)?;
+        let deadline_present = wire.deadline_seen;
+        let deadline_raw = wire.deadline.unwrap_or_default();
+        if deadline_present {
             terminal::parse_rfc3339(&deadline_raw).ok_or_else(|| "invalid deadline".to_string())?;
         }
         Ok(FactoryRun {
             deadline_raw,
-            actor: m.take_i64("actor"),
-            id: m.take_string("id"),
-            project: m.take_string("project"),
-            role: m.take_string("role"),
-            preparation: m.take_string("preparation"),
-            harness: m.take_string("harness"),
-            harness_vers: m.take_string("harness_version"),
-            model: m.take_string("model"),
-            assignment: m.take_string("assignment"),
-            source_commit: m.take_string("source_commit"),
-            connection: m.take_string("connection"),
+            actor: wire.actor.map(Into::into).unwrap_or_default(),
+            id: wire.id.unwrap_or_default(),
+            project: wire.project.unwrap_or_default(),
+            role: wire.role.unwrap_or_default(),
+            preparation: wire.preparation.unwrap_or_default(),
+            harness: wire.harness.unwrap_or_default(),
+            harness_vers: wire.harness_version.unwrap_or_default(),
+            model: wire.model.unwrap_or_default(),
+            assignment: wire.assignment.unwrap_or_default(),
+            source_commit: wire.source_commit.unwrap_or_default(),
+            connection: wire.connection.unwrap_or_default(),
         })
     }
 }

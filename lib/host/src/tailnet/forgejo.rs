@@ -10,7 +10,8 @@ use std::os::unix::io::{IntoRawFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use soda_host::json::{decode_tolerant, Value};
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use soda_host::project::{Executor, NativeStatusOnly};
 use soda_host::tcontrol_native;
 
@@ -63,64 +64,232 @@ fn inspect_forgejo(exec: &dyn Executor, deadline: Instant) -> Result<Vec<u8>, St
         })
 }
 
-/// Last matching object field (exact or ASCII case-insensitive) for
-/// object-valued intermediaries; null counts as absent. Scalar fields use
-/// the sequential binders below instead, like Go's struct decoding.
-fn field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
-    fields
-        .iter()
-        .rev()
-        .find(|(k, _)| k == name || k.eq_ignore_ascii_case(name))
-        .map(|(_, v)| v)
-        .filter(|v| !v.is_null())
+#[derive(Clone, Default)]
+struct PodBinding {
+    host_ip: Option<String>,
+    host_port: Option<String>,
 }
 
-/// Sequential scalar binding like Go's struct decoding: every matching key
-/// (exact or ASCII case-insensitive) binds in document order, null is a
-/// no-op retaining the prior value, and any mistyped occurrence fails the
-/// decode — a later valid value never hides the initial type error.
-fn scalar_str(fields: &[(String, Value)], name: &str) -> Option<Option<String>> {
-    let mut out: Option<String> = None;
-    for (key, value) in fields {
-        if key != name && !key.eq_ignore_ascii_case(name) {
-            continue;
+impl<'de> Deserialize<'de> for PodBinding {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PodBinding;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("port binding")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = PodBinding::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if k.eq_ignore_ascii_case("HostIp") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            o.host_ip = Some(v)
+                        }
+                    } else if k.eq_ignore_ascii_case("HostPort") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            o.host_port = Some(v)
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
         }
-        match value {
-            Value::Null => {}
-            Value::Str(s) => out = Some(s.clone()),
-            _ => return None,
-        }
+        d.deserialize_map(V)
     }
-    Some(out)
 }
 
-fn scalar_bool(fields: &[(String, Value)], name: &str) -> Option<Option<bool>> {
-    let mut out: Option<bool> = None;
-    for (key, value) in fields {
-        if key != name && !key.eq_ignore_ascii_case(name) {
-            continue;
+#[derive(Default)]
+struct HostConfig {
+    port_bindings: Option<std::collections::BTreeMap<String, Option<Vec<PodBinding>>>>,
+}
+
+impl<'de> Deserialize<'de> for HostConfig {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = HostConfig;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("podman host config")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = HostConfig::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if k.eq_ignore_ascii_case("PortBindings") {
+                        o.port_bindings = map.next_value()?;
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
         }
-        match value {
-            Value::Null => {}
-            Value::Bool(b) => out = Some(*b),
-            _ => return None,
-        }
+        d.deserialize_map(V)
     }
-    Some(out)
+}
+
+#[derive(Default)]
+struct PodConfig {
+    env: Option<Vec<Option<String>>>,
+}
+
+impl<'de> Deserialize<'de> for PodConfig {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PodConfig;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("podman config")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = PodConfig::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if k.eq_ignore_ascii_case("Env") {
+                        o.env = map.next_value()?;
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct PodState {
+    running: Option<bool>,
+}
+
+impl<'de> Deserialize<'de> for PodState {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PodState;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("podman state")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = PodState::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if k.eq_ignore_ascii_case("Running") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            o.running = Some(v)
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct PodInspect {
+    host_config: Option<HostConfig>,
+    config: Option<PodConfig>,
+    state: Option<PodState>,
+}
+impl<'de> Deserialize<'de> for PodInspect {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PodInspect;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("podman inspection")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = PodInspect::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if k.eq_ignore_ascii_case("HostConfig") {
+                        o.host_config = map.next_value()?;
+                    } else if k.eq_ignore_ascii_case("Config") {
+                        o.config = map.next_value()?;
+                    } else if k.eq_ignore_ascii_case("State") {
+                        o.state = map.next_value()?;
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
 }
 
 fn published_state(data: &[u8], ip: &str) -> Result<(String, bool), String> {
     let invalid = || String::from("cannot read native Forgejo network state");
-    let value = decode_tolerant(data).map_err(|_| invalid())?;
-    let items = value.as_array().ok_or_else(|| invalid())?;
+    let items: Vec<Option<PodInspect>> =
+        soda_host::json::decode_tolerant_as(data).map_err(|_| invalid())?;
     if items.len() != 1 {
         return Err(invalid());
     }
-    let root = items[0].as_object().ok_or_else(|| invalid())?;
-    // Go unmarshals the whole struct before the listener check, so shape
-    // errors anywhere refuse as unreadable even when unbound.
-    let bindings = port_bindings(root).ok_or_else(|| invalid())?;
-    let (domain, running) = ssh_domain_state(root).ok_or_else(|| invalid())?;
+    let root = items
+        .into_iter()
+        .next()
+        .flatten()
+        .ok_or_else(|| invalid())?;
+    let bindings = root
+        .host_config
+        .and_then(|host| host.port_bindings)
+        .and_then(|map| map.get("22/tcp").cloned().flatten())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|entry| {
+            (
+                entry.host_ip.unwrap_or_default(),
+                entry.host_port.unwrap_or_default(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let domain = root
+        .config
+        .and_then(|cfg| cfg.env)
+        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .find_map(|line| line.strip_prefix(SSH_DOMAIN_KEY).map(str::to_owned))
+        .unwrap_or_default();
+    let running = root
+        .state
+        .and_then(|state| state.running)
+        .unwrap_or_default();
     if !ssh_bound_to_ip(&bindings, ip) {
         return Err(format!(
             "forgejo Git SSH is not bound to Tailnet IP {ip}:2222; configure the intended private native listener before refreshing its advertised address"
@@ -129,81 +298,10 @@ fn published_state(data: &[u8], ip: &str) -> Result<(String, bool), String> {
     Ok((domain, running))
 }
 
-/// (HostIp, HostPort) pairs for `22/tcp`. Every map value is validated
-/// like Go's whole-struct unmarshal, so a malformed `80/tcp` refuses even
-/// beside a valid `22/tcp`; the last exact `22/tcp` key wins like Go's map
-/// binding, absent values stay empty.
-fn port_bindings(root: &[(String, Value)]) -> Option<Vec<(String, String)>> {
-    let host_config = match field(root, "HostConfig") {
-        None => return Some(Vec::new()),
-        Some(v) => v.as_object()?,
-    };
-    let map = match field(host_config, "PortBindings") {
-        None => return Some(Vec::new()),
-        Some(v) => v.as_object()?,
-    };
-    let mut out = Vec::new();
-    for (key, value) in map {
-        let pairs = binding_entries(value)?;
-        if key == "22/tcp" {
-            out = pairs;
-        }
-    }
-    Some(out)
-}
-
-fn binding_entries(value: &Value) -> Option<Vec<(String, String)>> {
-    let entries = match value {
-        Value::Null => return Some(Vec::new()),
-        v => v.as_array()?,
-    };
-    let mut out = Vec::new();
-    for entry in entries {
-        let fields = entry.as_object()?;
-        let host_ip = scalar_str(fields, "HostIp")?.unwrap_or_default();
-        let host_port = scalar_str(fields, "HostPort")?.unwrap_or_default();
-        out.push((host_ip, host_port));
-    }
-    Some(out)
-}
-
 fn ssh_bound_to_ip(bindings: &[(String, String)], ip: &str) -> bool {
     bindings.iter().any(|(host_ip, host_port)| {
         host_port == "2222" && (host_ip == ip || host_ip == "0.0.0.0" || host_ip.is_empty())
     })
-}
-
-fn ssh_domain_state(root: &[(String, Value)]) -> Option<(String, bool)> {
-    let mut domain = String::new();
-    if let Some(config) = field(root, "Config") {
-        let fields = config.as_object()?;
-        if let Some(env_value) = field(fields, "Env") {
-            // Every item is typed like Go's unmarshal, but the first key
-            // match still wins even when later items follow.
-            let mut found = false;
-            for value in env_value.as_array()? {
-                let line = match value {
-                    Value::Null => continue,
-                    Value::Str(s) => s,
-                    _ => return None,
-                };
-                if !found {
-                    if let Some(stripped) = line.strip_prefix(SSH_DOMAIN_KEY) {
-                        domain = stripped.to_string();
-                        found = true;
-                    }
-                }
-            }
-        }
-    }
-    let running = match field(root, "State") {
-        None => false,
-        Some(v) => {
-            let state = v.as_object()?;
-            scalar_bool(state, "Running")?.unwrap_or(false)
-        }
-    };
-    Some((domain, running))
 }
 
 fn valid_endpoint_name(endpoint: &str) -> bool {

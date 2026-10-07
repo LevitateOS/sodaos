@@ -1,6 +1,9 @@
 use std::os::unix::fs::MetadataExt;
 
-use crate::json::{bind_root, decode_strict, Kind, Spec};
+use crate::json::{self, SignedInteger};
+use crate::project::GoStringList;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use crate::tailnet_domain::{
     parse_rfc3339_nano, valid_container_id, ERR_CONFLICT, ERR_UNAVAILABLE,
@@ -20,48 +23,96 @@ pub struct CompanionRecord {
     pub execs: Vec<String>,
 }
 
-const COMPANION_SPECS: &[Spec] = &[
-    Spec {
-        name: "ID",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "Image",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "Command",
-        kind: Kind::StrList,
-    },
-    Spec {
-        name: "Running",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "PID",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "Started",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "Execs",
-        kind: Kind::StrList,
-    },
-];
+#[derive(Default)]
+struct CompanionWire {
+    id: Option<String>,
+    image: Option<String>,
+    command: Option<GoStringList>,
+    running: Option<bool>,
+    pid: Option<SignedInteger>,
+    started: Option<String>,
+    execs: Option<GoStringList>,
+}
+impl<'de> Deserialize<'de> for CompanionWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = CompanionWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("companion inspection")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = CompanionWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.to_ascii_lowercase().as_str() {
+                        "id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.id = Some(v)
+                            }
+                        }
+                        "image" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.image = Some(v)
+                            }
+                        }
+                        "command" => {
+                            if let Some(v) = map.next_value::<Option<GoStringList>>()? {
+                                o.command = Some(v)
+                            }
+                        }
+                        "running" => {
+                            if let Some(v) = map.next_value::<Option<bool>>()? {
+                                o.running = Some(v)
+                            }
+                        }
+                        "pid" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                o.pid = Some(v)
+                            }
+                        }
+                        "started" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                o.started = Some(v)
+                            }
+                        }
+                        "execs" => {
+                            if let Some(v) = map.next_value::<Option<GoStringList>>()? {
+                                o.execs = Some(v)
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &k,
+                                &[
+                                    "ID", "Image", "Command", "Running", "PID", "Started", "Execs",
+                                ],
+                            ))
+                        }
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
 
 pub(crate) fn decode_companion_record(data: &[u8]) -> Result<CompanionRecord, String> {
-    let value = decode_strict(data).map_err(|e| e.0)?;
-    let bound = bind_root(&value, "companion", COMPANION_SPECS, false).map_err(|e| e.0)?;
+    let bound: CompanionWire = json::decode_strict_as(data).map_err(|e| e.0)?;
     Ok(CompanionRecord {
-        id: bound.take_string("ID"),
-        image: bound.take_string("Image"),
-        command: bound.take_str_list("Command"),
-        running: bound.take_bool("Running"),
-        pid: bound.take_i64("PID"),
-        started: bound.take_string("Started"),
-        execs: bound.take_str_list("Execs"),
+        id: bound.id.unwrap_or_default(),
+        image: bound.image.unwrap_or_default(),
+        command: bound.command.map(|value| value.0).unwrap_or_default(),
+        running: bound.running.unwrap_or_default(),
+        pid: bound.pid.map(Into::into).unwrap_or_default(),
+        started: bound.started.unwrap_or_default(),
+        execs: bound.execs.map(|value| value.0).unwrap_or_default(),
     })
 }
 

@@ -195,6 +195,11 @@ fn access_key_state_decode_uses_plain_json_semantics() {
     let state = decode_access_key_state(format!("{{\"revision\":{rev:?},\"keys\":[]}}").as_bytes())
         .unwrap();
     assert!(state.keys.is_empty());
+    let body = format!(
+        "{{\"revision\":{rev:?},\"keys\":[{ED:?}],\"Keys\":null}}"
+    );
+    let state = decode_access_key_state(body.as_bytes()).unwrap();
+    assert_eq!(state.keys, vec![ED.to_string()]);
     // Unknown fields ignored, last duplicate wins (plain Unmarshal).
     let body =
         format!("{{\"revision\":{rev:?},\"extra\":1,\"keys\":[{ED:?}],\"revision\":{rev:?}}}");

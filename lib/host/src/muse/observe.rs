@@ -1,8 +1,6 @@
 use std::time::Instant;
 
-use super::{
-    MuseCaller, MuseHooks, MuseInspection, MuseRuntime, MUSE_INSPECT, MUSE_INSPECTION_SPECS,
-};
+use super::{MuseCaller, MuseHooks, MuseInspection, MuseRuntime, MUSE_INSPECT};
 use crate::domain;
 use crate::json;
 use crate::project::Executor;
@@ -71,17 +69,9 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if body.len() > 4096 {
             return Err(terminal::err_denied());
         }
-        let v = json::decode_strict(&body).map_err(|_| terminal::err_denied())?;
-        let m = json::bind_root(&v, "museInspection", MUSE_INSPECTION_SPECS, false)
-            .map_err(|_| terminal::err_denied())?;
-        let raw_pid = m.take_i64("pid");
-        let inspection = MuseInspection {
-            id: m.take_string("id"),
-            project: m.take_string("project"),
-            running: m.take_bool("running"),
-            privileged: m.take_bool("privileged"),
-            userns: m.take_string("userns"),
-        };
+        let inspection: MuseInspection =
+            json::decode_strict_as(&body).map_err(|_| terminal::err_denied())?;
+        let raw_pid = inspection.pid;
         if inspection.id != container
             || !inspection.running
             || raw_pid <= 0

@@ -31,126 +31,6 @@ fn encode_files_object(out: &mut String, files: &HashMap<String, Vec<u8>>) {
 }
 
 #[derive(Default)]
-struct ProjectMappings {
-    uid_map: Vec<String>,
-    gid_map: Vec<String>,
-}
-
-impl<'de> Deserialize<'de> for ProjectMappings {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct MappingsVisitor;
-        impl<'de> Visitor<'de> for MappingsVisitor {
-            type Value = ProjectMappings;
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("an ID mappings object")
-            }
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut out = ProjectMappings::default();
-                while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("UidMap") {
-                        if let Some(v) = map.next_value::<Option<Vec<String>>>()? {
-                            out.uid_map = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("GidMap") {
-                        if let Some(v) = map.next_value::<Option<Vec<String>>>()? {
-                            out.gid_map = v;
-                        }
-                    } else {
-                        return Err(de::Error::unknown_field(&key, &["UidMap", "GidMap"]));
-                    }
-                }
-                Ok(out)
-            }
-        }
-        deserializer.deserialize_map(MappingsVisitor)
-    }
-}
-
-#[derive(Default)]
-struct ProjectInspection {
-    id: String,
-    running: bool,
-    project: String,
-    owner: String,
-    privileged: bool,
-    userns: String,
-    mappings: ProjectMappings,
-}
-
-impl<'de> Deserialize<'de> for ProjectInspection {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct InspectionVisitor;
-        impl<'de> Visitor<'de> for InspectionVisitor {
-            type Value = ProjectInspection;
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("a project inspection object")
-            }
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut out = ProjectInspection::default();
-                while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("running") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.running = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("project") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.project = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("owner") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.owner = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("privileged") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.privileged = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("userns") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.userns = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("mappings") {
-                        if let Some(v) = map.next_value::<Option<ProjectMappings>>()? {
-                            out.mappings = v;
-                        }
-                    } else {
-                        return Err(de::Error::unknown_field(
-                            &key,
-                            &[
-                                "id",
-                                "running",
-                                "project",
-                                "owner",
-                                "privileged",
-                                "userns",
-                                "mappings",
-                            ],
-                        ));
-                    }
-                }
-                Ok(out)
-            }
-        }
-        deserializer.deserialize_map(InspectionVisitor)
-    }
-}
-
-#[derive(Default)]
 struct ApprovalResponse {
     approved: String,
     repeated: bool,
@@ -255,19 +135,16 @@ impl<E: Executor> Runtime<E> {
         if data.len() > 4096 {
             return Err("preparation target unavailable".to_string());
         }
-        let inspected: ProjectInspection =
-            json::decode_strict_as(&data).map_err(|_| "invalid preparation target".to_string())?;
-        let ProjectInspection {
-            id: cid,
-            running,
-            project,
-            owner,
-            privileged,
-            userns,
-            mappings,
-        } = inspected;
-        let uid_map = mappings.uid_map;
-        let gid_map = mappings.gid_map;
+        let inspected = crate::project::decode_project_container_inspection(&data)
+            .map_err(|_| "invalid preparation target".to_string())?;
+        let cid = inspected.id;
+        let running = inspected.running;
+        let project = inspected.project;
+        let owner = inspected.owner;
+        let privileged = inspected.privileged;
+        let userns = inspected.userns;
+        let uid_map = inspected.mappings.uid_map;
+        let gid_map = inspected.mappings.gid_map;
         let owner_num = json::parse_go_int64(&owner).unwrap_or(0);
         if owner_num <= 0
             || (require_running && !running)

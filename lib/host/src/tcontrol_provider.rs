@@ -12,8 +12,10 @@
 
 use std::time::{Instant, SystemTime};
 
-use crate::json::Value;
+use crate::json;
 use crate::tcontrol_wire as wire;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 pub const TOKEN_URL: &str = "https://api.tailscale.com/api/v2/oauth/token";
 pub const API_HOST: &str = "api.tailscale.com";
@@ -223,40 +225,86 @@ pub fn create_key(
 
 // ---------- Token responses ----------
 
-fn last_str(fields: &[(String, Value)], name: &str) -> Option<String> {
-    fields
-        .iter()
-        .rev()
-        .find(|(k, _)| k == name)
-        .and_then(|(_, v)| match v {
-            Value::Null => None,
-            Value::Str(s) => Some(s.clone()),
-            _ => Some(String::new()),
-        })
+#[derive(Debug, Clone)]
+enum ExpirationWire {
+    Null,
+    Number(String),
+    Text(String),
 }
 
-/// Mirror of `expirationTime.UnmarshalJSON`: a JSON number or a numeric
-/// string, integer only, wrapping to `i32` exactly like Go's conversion.
-fn expires_in(fields: &[(String, Value)]) -> Option<i64> {
-    let v = fields
-        .iter()
-        .rev()
-        .find(|(k, _)| k == "expires_in")?
-        .1
-        .clone();
-    let lit = match v {
-        Value::Null => return Some(0),
-        Value::Number(lit) => lit,
-        Value::Str(s) => s,
-        _ => return None,
-    };
-    let neg = lit.strip_prefix('-').unwrap_or(&lit);
-    if neg.is_empty() || !neg.bytes().all(|b| b.is_ascii_digit()) {
-        // Go's `json.Number.Int64` also rejects `+`, fractions, exponents.
-        return None;
+impl<'de> Deserialize<'de> for ExpirationWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = Box::<serde_json::value::RawValue>::deserialize(deserializer)?;
+        if raw.get() == "null" {
+            return Ok(Self::Null);
+        }
+        if raw.get().starts_with('"') {
+            return serde_json::from_str::<String>(raw.get())
+                .map(Self::Text)
+                .map_err(serde::de::Error::custom);
+        }
+        Ok(Self::Number(raw.get().to_string()))
     }
-    let n: i64 = lit.parse().ok()?;
-    Some((n as i32) as i64)
+}
+
+impl ExpirationWire {
+    fn seconds(&self) -> Option<i64> {
+        let lit = match self {
+            Self::Null => return Some(0),
+            Self::Number(v) | Self::Text(v) => v,
+        };
+        let digits = lit.strip_prefix('-').unwrap_or(lit);
+        if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        let value = lit.parse::<i64>().ok()?;
+        Some((value as i32) as i64)
+    }
+}
+
+#[derive(Default)]
+struct TokenWire {
+    access_token: Option<String>,
+    token_type: Option<String>,
+    expires_in: Option<ExpirationWire>,
+}
+
+impl<'de> Deserialize<'de> for TokenWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = TokenWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("OAuth token response")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = TokenWire::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "access_token" => out.access_token = map.next_value::<Option<String>>()?,
+                        "token_type" => out.token_type = map.next_value::<Option<String>>()?,
+                        "expires_in" => {
+                            out.expires_in = map.next_value::<Option<ExpirationWire>>()?
+                        }
+                        _ => {
+                            map.next_value::<de::IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
 }
 
 /// Validate an OAuth token response, returning the bearer token. Mirrors
@@ -276,23 +324,23 @@ pub fn validate_token(
     let decoded_at = system_nanos(SystemTime::now());
     // Go decodes with `encoding/json`: unknown fields ignored, last
     // duplicate wins, mistyped values fail.
-    let v = crate::json::decode_tolerant(body).map_err(|_| failure())?;
-    let fields = match v.as_object() {
-        Some(f) => f,
-        None => return Err(failure()),
-    };
-    let token = last_str(fields, "access_token").unwrap_or_default();
+    let value: TokenWire = json::decode_tolerant_as(body).map_err(|_| failure())?;
+    let token = value.access_token.unwrap_or_default();
     if token.is_empty() {
         return Err(failure());
     }
     if strict_bearer && token.contains(['\r', '\n', '\0']) {
         return Err(failure());
     }
-    let token_type = last_str(fields, "token_type").unwrap_or_default();
+    let token_type = value.token_type.unwrap_or_default();
     if !token_type.eq_ignore_ascii_case("bearer") {
         return Err(failure());
     }
-    let skew = expires_in(fields).ok_or_else(failure)?;
+    let skew = value
+        .expires_in
+        .as_ref()
+        .and_then(ExpirationWire::seconds)
+        .ok_or_else(failure)?;
     if decoded_at + skew as i128 * 1_000_000_000 <= system_nanos(SystemTime::now()) {
         return Err(failure());
     }
@@ -441,80 +489,91 @@ pub fn system_nanos(t: SystemTime) -> i128 {
 
 // ---------- Key responses ----------
 
-fn exact_field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
-    fields.iter().find(|(k, _)| k == name).map(|(_, v)| v)
+#[derive(Deserialize, Default)]
+struct KeyBindingWire {
+    #[serde(rename = "reusable")]
+    reusable: Option<bool>,
+    ephemeral: Option<bool>,
+    preauthorized: Option<bool>,
+    tags: Option<Vec<Option<String>>>,
+}
+#[derive(Deserialize, Default)]
+struct KeyCreateDeviceWire {
+    create: Option<KeyBindingWire>,
+}
+#[derive(Deserialize, Default)]
+struct KeyCreateCapabilitiesWire {
+    devices: Option<KeyCreateDeviceWire>,
+}
+#[derive(Default)]
+struct KeyResponseWire {
+    id: Option<String>,
+    key: Option<String>,
+    created: Option<String>,
+    expires: Option<String>,
+    capabilities: Option<KeyCreateCapabilitiesWire>,
+    invalid: Option<Option<bool>>,
+    revoked: Option<Option<String>>,
 }
 
-// `strings.EqualFold` for ASCII field names (see the native module): ASCII
-// case plus ſ (U+017F, with S/s) and K (U+212A, with K/k).
-fn fold_char(c: char) -> char {
-    match c {
+fn fold_ascii_go(a: &str, b: &str) -> bool {
+    if a.eq_ignore_ascii_case(b) {
+        return true;
+    }
+    let fold = |c: char| match c {
         'ſ' => 's',
         '\u{212a}' => 'k',
         x if x.is_ascii_alphabetic() => x.to_ascii_lowercase(),
         x => x,
-    }
-}
-
-fn fold_eq(a: &str, b: &str) -> bool {
-    if a == b {
-        return true;
-    }
-    let mut ai = a.chars();
-    let mut bi = b.chars();
+    };
+    let mut x = a.chars();
+    let mut y = b.chars();
     loop {
-        match (ai.next(), bi.next()) {
+        match (x.next(), y.next()) {
             (None, None) => return true,
-            (Some(x), Some(y)) => {
-                if x != y && fold_char(x) != fold_char(y) {
-                    return false;
-                }
-            }
-            (None, Some(_)) | (Some(_), None) => return false,
+            (Some(a), Some(b)) if fold(a) == fold(b) => {}
+            (Some(_), Some(_)) | (None, Some(_)) | (Some(_), None) => return false,
         }
     }
 }
-
-/// Last fold-matching value, for SDK-bound fields without a required-name
-/// check (`invalid`, `revoked`).
-fn fold_field<'a>(fields: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
-    fields
-        .iter()
-        .rev()
-        .find(|(k, _)| fold_eq(k, name))
-        .map(|(_, v)| v)
-}
-
-fn require_str(fields: &[(String, Value)], name: &str) -> Result<String, String> {
-    match exact_field(fields, name) {
-        Some(Value::Str(s)) => Ok(s.clone()),
-        _ => Err(wire::err_unconfirmed()),
-    }
-}
-
-fn require_object<'a>(
-    fields: &'a [(String, Value)],
-    name: &str,
-) -> Result<&'a [(String, Value)], String> {
-    match exact_field(fields, name) {
-        Some(Value::Object(inner)) => Ok(inner),
-        _ => Err(wire::err_unconfirmed()),
-    }
-}
-
-fn require_bool(fields: &[(String, Value)], name: &str) -> Result<bool, String> {
-    match exact_field(fields, name) {
-        Some(Value::Bool(b)) => Ok(*b),
-        _ => Err(wire::err_unconfirmed()),
-    }
-}
-
-fn optional_bool(fields: &[(String, Value)], name: &str) -> Result<bool, String> {
-    // Fold-matched, like the SDK binding (no required-name check governs).
-    match fold_field(fields, name) {
-        None | Some(Value::Null) => Ok(false),
-        Some(Value::Bool(b)) => Ok(*b),
-        Some(_) => Err(wire::err_unconfirmed()),
+impl<'de> Deserialize<'de> for KeyResponseWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = KeyResponseWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("auth key response")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut o = KeyResponseWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.as_str() {
+                        "id" => o.id = map.next_value()?,
+                        "key" => o.key = map.next_value()?,
+                        "created" => o.created = map.next_value()?,
+                        "expires" => o.expires = map.next_value()?,
+                        "capabilities" => o.capabilities = map.next_value()?,
+                        _ if fold_ascii_go(&k, "invalid") => {
+                            o.invalid = Some(map.next_value::<Option<bool>>()?)
+                        }
+                        _ if fold_ascii_go(&k, "revoked") => {
+                            o.revoked = Some(map.next_value::<Option<String>>()?)
+                        }
+                        _ => {
+                            map.next_value::<de::IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(o)
+            }
+        }
+        d.deserialize_map(V)
     }
 }
 
@@ -535,56 +594,38 @@ pub fn validate_key(
     }
     // Strict validation at every level, then document-order binding, like
     // `nativeObject` (strict success implies tolerant success).
-    if crate::json::decode_strict(body).is_err() {
-        return Err(wire::err_unconfirmed());
-    }
-    let v = crate::json::decode_tolerant(body).map_err(|_| wire::err_unconfirmed())?;
-    let fields = match v.as_object() {
-        Some(f) => f,
-        None => return Err(wire::err_unconfirmed()),
-    };
-    let id = require_str(fields, "id")?;
-    let key = require_str(fields, "key")?;
-    let created = require_str(fields, "created")?;
-    let expires = require_str(fields, "expires")?;
-    let caps = require_object(fields, "capabilities")?;
-    let devices = require_object(caps, "devices")?;
-    let create = require_object(devices, "create")?;
-    let reusable = require_bool(create, "reusable")?;
-    let ephemeral = require_bool(create, "ephemeral")?;
-    let got_preauth = require_bool(create, "preauthorized")?;
-    let got_tags = match exact_field(create, "tags") {
-        // The SDK binds `[]string`: null elements become empty strings
-        // (which then fail the equality check), mistyped fails.
-        Some(Value::Array(items)) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                match item {
-                    Value::Null => out.push(String::new()),
-                    Value::Str(s) => out.push(s.clone()),
-                    _ => return Err(wire::err_unconfirmed()),
-                }
-            }
-            out
-        }
-        _ => return Err(wire::err_unconfirmed()),
-    };
+    let value: KeyResponseWire =
+        json::decode_strict_as(body).map_err(|_| wire::err_unconfirmed())?;
+    let id = value.id.ok_or_else(wire::err_unconfirmed)?;
+    let key = value.key.ok_or_else(wire::err_unconfirmed)?;
+    let created = value.created.ok_or_else(wire::err_unconfirmed)?;
+    let expires = value.expires.ok_or_else(wire::err_unconfirmed)?;
+    let create = value
+        .capabilities
+        .and_then(|v| v.devices)
+        .and_then(|v| v.create)
+        .ok_or_else(wire::err_unconfirmed)?;
+    let reusable = create.reusable.ok_or_else(wire::err_unconfirmed)?;
+    let ephemeral = create.ephemeral.ok_or_else(wire::err_unconfirmed)?;
+    let got_preauth = create.preauthorized.ok_or_else(wire::err_unconfirmed)?;
+    let got_tags = create
+        .tags
+        .ok_or_else(wire::err_unconfirmed)?
+        .into_iter()
+        .map(Option::unwrap_or_default)
+        .collect::<Vec<_>>();
     if id.is_empty() || id.len() > 128 || !wire::valid_auth_key(&key) {
         return Err(wire::err_unconfirmed());
     }
-    if optional_bool(fields, "invalid")? {
+    if value.invalid.flatten().unwrap_or_default() {
         return Err(wire::err_unconfirmed());
     }
     // `revoked` must be the zero time (missing/null decodes to zero, like Go).
     const ZERO_NANOS: i128 = -(719162i128 * 86_400 * 1_000_000_000);
-    match fold_field(fields, "revoked") {
-        None | Some(Value::Null) => {}
-        Some(Value::Str(s)) => {
-            if parse_rfc3339_nanos(s) != Some(ZERO_NANOS) {
-                return Err(wire::err_unconfirmed());
-            }
+    if let Some(s) = value.revoked.flatten() {
+        if parse_rfc3339_nanos(&s) != Some(ZERO_NANOS) {
+            return Err(wire::err_unconfirmed());
         }
-        Some(_) => return Err(wire::err_unconfirmed()),
     }
     if reusable || !ephemeral || got_preauth != preauthorized || got_tags != tags {
         return Err(wire::err_unconfirmed());

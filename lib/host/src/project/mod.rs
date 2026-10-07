@@ -48,9 +48,11 @@ pub use self::executor::{Executor, Native, NativeStatusOnly};
 // `muse_serve_oracle` compiles this root through a private `#[path]` copy
 // that never touches the crate-visible specs; the re-export serves the
 // real library (`prepare/helper.rs`).
-#[allow(unused_imports)]
-pub(crate) use self::inspect::INSPECTION_SPECS;
 pub use self::inspect::PROJECT_INSPECT_FORMAT;
+#[allow(unused_imports)]
+pub(crate) use self::inspect::{
+    decode_project_container_inspection, GoStringList, ProjectContainerInspection,
+};
 
 #[cfg(test)]
 mod tests;
@@ -89,11 +91,15 @@ impl<'de> Deserialize<'de> for Lifecycle {
                 let mut out = Lifecycle::default();
                 while let Some(key) = map.next_key::<String>()? {
                     if key.eq_ignore_ascii_case("project") {
-                        if let Some(v) = map.next_value::<Option<String>>()? { out.project = v; }
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.project = v;
+                        }
                         continue;
                     }
                     if key.eq_ignore_ascii_case("action") {
-                        if let Some(v) = map.next_value::<Option<String>>()? { out.action = v; }
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.action = v;
+                        }
                         continue;
                     }
                     return Err(de::Error::unknown_field(&key, &["project", "action"]));

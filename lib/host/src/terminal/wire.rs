@@ -1,5 +1,7 @@
 use crate::domain;
-use crate::json::{self, BoundMap, Kind, Spec, Value};
+use crate::json::{self, SignedInteger};
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use super::{
     contains_crlf, strict_b64_decode, terminal_dimensions, valid_terminal_id, valid_terminal_name,
@@ -23,48 +25,94 @@ pub struct TerminalRequest {
     pub scope: String,
 }
 
-const TERMINAL_REQUEST_SPECS: &[Spec] = &[
-    Spec {
-        name: "action",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "login",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "identity",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "cols",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "rows",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "expires",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "name",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "scope",
-        kind: Kind::Str,
-    },
-];
+#[derive(Default)]
+struct TerminalRequestWire(TerminalRequest);
+
+impl<'de> Deserialize<'de> for TerminalRequestWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = TerminalRequestWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("terminal request")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = TerminalRequest::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.to_ascii_lowercase().as_str() {
+                        "action" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.action = v;
+                            }
+                        }
+                        "id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.id = v;
+                            }
+                        }
+                        "project" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.project = v;
+                            }
+                        }
+                        "login" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.login = v;
+                            }
+                        }
+                        "identity" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.identity = v.0;
+                            }
+                        }
+                        "cols" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.cols = v.0;
+                            }
+                        }
+                        "rows" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.rows = v.0;
+                            }
+                        }
+                        "expires" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.expires = v.0;
+                            }
+                        }
+                        "name" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.name = v;
+                            }
+                        }
+                        "scope" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.scope = v;
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &k,
+                                &[
+                                    "action", "id", "project", "login", "identity", "cols", "rows",
+                                    "expires", "name", "scope",
+                                ],
+                            ))
+                        }
+                    }
+                }
+                Ok(TerminalRequestWire(out))
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
+}
 
 /// One terminal listing row (`TerminalState`).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -77,32 +125,71 @@ pub struct TerminalState {
     pub state: String,
 }
 
-const TERMINAL_STATE_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "name",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "created_at",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "ready",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "attached",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "state",
-        kind: Kind::Str,
-    },
-];
+#[derive(Default)]
+struct TerminalStateWire(TerminalState);
+
+impl<'de> Deserialize<'de> for TerminalStateWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = TerminalStateWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("terminal state")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = TerminalState::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    match k.to_ascii_lowercase().as_str() {
+                        "id" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.id = v;
+                            }
+                        }
+                        "name" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.name = v;
+                            }
+                        }
+                        "created_at" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.created_at = v.0;
+                            }
+                        }
+                        "ready" => {
+                            if let Some(v) = map.next_value::<Option<bool>>()? {
+                                out.ready = v;
+                            }
+                        }
+                        "attached" => {
+                            if let Some(v) = map.next_value::<Option<bool>>()? {
+                                out.attached = v;
+                            }
+                        }
+                        "state" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.state = v;
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &k,
+                                &["id", "name", "created_at", "ready", "attached", "state"],
+                            ))
+                        }
+                    }
+                }
+                Ok(TerminalStateWire(out))
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
+}
 
 /// One terminal stream frame (`TerminalFrame`).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -115,41 +202,93 @@ pub struct TerminalFrame {
     pub terminals: Option<Vec<TerminalState>>,
 }
 
-const TERMINAL_FRAME_SPECS: &[Spec] = &[
-    Spec {
-        name: "type",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "data",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "cols",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "rows",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "reason",
-        kind: Kind::Str,
-    },
-];
+#[derive(Default)]
+struct TerminalFrameWire(TerminalFrame);
+
+impl<'de> Deserialize<'de> for TerminalFrameWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = TerminalFrameWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("terminal frame")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = TerminalFrame::default();
+                let mut terminal_count = 0usize;
+                let mut terminal_raw: Option<Box<serde_json::value::RawValue>> = None;
+                while let Some(k) = map.next_key::<String>()? {
+                    if k.eq_ignore_ascii_case("terminals") {
+                        terminal_count += 1;
+                        let raw = map.next_value::<Box<serde_json::value::RawValue>>()?;
+                        if terminal_count == 1 {
+                            terminal_raw = Some(raw);
+                        }
+                        continue;
+                    }
+                    match k.to_ascii_lowercase().as_str() {
+                        "type" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.frame_type = v;
+                            }
+                        }
+                        "data" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.data = v;
+                            }
+                        }
+                        "cols" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.cols = v.0;
+                            }
+                        }
+                        "rows" => {
+                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                                out.rows = v.0;
+                            }
+                        }
+                        "reason" => {
+                            if let Some(v) = map.next_value::<Option<String>>()? {
+                                out.reason = v;
+                            }
+                        }
+                        _ => {
+                            return Err(de::Error::unknown_field(
+                                &k,
+                                &["type", "data", "cols", "rows", "reason", "terminals"],
+                            ))
+                        }
+                    }
+                }
+                if terminal_count > 1 {
+                    return Err(de::Error::custom("folded duplicate terminals field"));
+                }
+                if let Some(raw) = terminal_raw {
+                    if raw.get() != "null" {
+                        let states: Vec<Option<TerminalStateWire>> =
+                            serde_json::from_str(raw.get()).map_err(de::Error::custom)?;
+                        out.terminals = Some(
+                            states
+                                .into_iter()
+                                .map(|v| v.map(|s| s.0).unwrap_or_default())
+                                .collect(),
+                        );
+                    }
+                }
+                Ok(TerminalFrameWire(out))
+            }
+        }
+        deserializer.deserialize_map(V)
+    }
+}
 
 impl TerminalState {
-    fn from_map(m: &BoundMap) -> Self {
-        TerminalState {
-            id: m.take_string("id"),
-            name: m.take_string("name"),
-            created_at: m.take_i64("created_at"),
-            ready: m.take_bool("ready"),
-            attached: m.take_bool("attached"),
-            state: m.take_string("state"),
-        }
-    }
-
     pub fn encode_into(&self, out: &mut String) {
         out.push_str("{\"id\":");
         out.push_str(&json::quote(&self.id));
@@ -173,99 +312,12 @@ impl TerminalState {
     }
 }
 
-/// Fold-match one object field like `encoding/json`: exact match wins,
-/// otherwise a unique case-insensitive match binds.
-fn find_field<'a>(fields: &'a [(String, Value)], name: &str) -> Vec<&'a Value> {
-    let exact: Vec<&Value> = fields
-        .iter()
-        .filter(|(k, _)| k == name)
-        .map(|(_, v)| v)
-        .collect();
-    if !exact.is_empty() {
-        return exact;
-    }
-    fields
-        .iter()
-        .filter(|(k, _)| k.eq_ignore_ascii_case(name))
-        .map(|(_, v)| v)
-        .collect()
-}
-
-fn decode_terminals(fields: &[(String, Value)]) -> Result<Option<Vec<TerminalState>>, String> {
-    let hits = find_field(fields, "terminals");
-    if hits.len() > 1 && hits.iter().any(|v| !v.is_null()) {
-        // Several fields fold to this key: Go hides all of them, so the
-        // frame carries an unknown field.
-        return Err("decode request: json: unknown field \"terminals\"".to_string());
-    }
-    let Some(value) = hits.into_iter().find(|v| !v.is_null()) else {
-        return Ok(None);
-    };
-    let Value::Array(items) = value else {
-        return Err("decode request: terminals must be an array".to_string());
-    };
-    let mut out = Vec::with_capacity(items.len());
-    for item in items {
-        if item.is_null() {
-            out.push(TerminalState::default());
-            continue;
-        }
-        let Value::Object(_) = item else {
-            return Err("decode request: terminals must be objects".to_string());
-        };
-        let m = json::bind_struct(
-            item,
-            "TerminalState",
-            &["terminals".to_string()],
-            TERMINAL_STATE_SPECS,
-            false,
-        )
-        .map_err(|e| e.0)?;
-        out.push(TerminalState::from_map(&m));
-    }
-    Ok(Some(out))
-}
-
 impl TerminalFrame {
     /// Strict decode of one frame object (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        let Value::Object(fields) = &v else {
-            return Err("decode request: expected object".to_string());
-        };
-        let terminals = decode_terminals(fields)?;
-        // Bind the scalar fields with the shared strict binder, hiding the
-        // already-consumed `terminals` member.
-        let rest: Vec<(String, Value)> = fields
-            .iter()
-            .filter(|(k, _)| k != "terminals" && !k.eq_ignore_ascii_case("terminals"))
-            .cloned()
-            .collect();
-        // If several keys folded to `terminals`, the frame is invalid; that
-        // was already rejected above when a non-null value was present. A
-        // folded all-null pair is still an unknown field in Go.
-        let folded = fields
-            .iter()
-            .filter(|(k, _)| k.eq_ignore_ascii_case("terminals"))
-            .count();
-        if folded > 1 {
-            return Err("decode request: json: unknown field \"terminals\"".to_string());
-        }
-        let m = json::bind_root(
-            &Value::Object(rest),
-            "TerminalFrame",
-            TERMINAL_FRAME_SPECS,
-            false,
-        )
-        .map_err(|e| e.0)?;
-        Ok(TerminalFrame {
-            frame_type: m.take_string("type"),
-            data: m.take_string("data"),
-            cols: m.take_i64("cols"),
-            rows: m.take_i64("rows"),
-            reason: m.take_string("reason"),
-            terminals,
-        })
+        json::decode_strict_as::<TerminalFrameWire>(body)
+            .map(|wire| wire.0)
+            .map_err(|error| error.0)
     }
 
     /// `encoding/json` field order with `omitempty`, no trailing newline.
@@ -311,21 +363,9 @@ impl TerminalFrame {
 impl TerminalRequest {
     /// Strict decode of one request object (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        let m = json::bind_root(&v, "TerminalRequest", TERMINAL_REQUEST_SPECS, false)
-            .map_err(|e| e.0)?;
-        Ok(TerminalRequest {
-            action: m.take_string("action"),
-            id: m.take_string("id"),
-            project: m.take_string("project"),
-            login: m.take_string("login"),
-            identity: m.take_i64("identity"),
-            cols: m.take_i64("cols"),
-            rows: m.take_i64("rows"),
-            expires: m.take_i64("expires"),
-            name: m.take_string("name"),
-            scope: m.take_string("scope"),
-        })
+        json::decode_strict_as::<TerminalRequestWire>(body)
+            .map(|wire| wire.0)
+            .map_err(|error| error.0)
     }
 
     pub fn encode(&self) -> String {
@@ -532,7 +572,8 @@ fn valid_closed_output(f: &TerminalFrame) -> bool {
 /// Port of Go `json.Valid`: exactly one JSON value with only surrounding
 /// whitespace.
 pub fn json_valid(body: &[u8]) -> bool {
-    json::decode_tolerant(body).is_ok()
+    let mut input = serde_json::Deserializer::from_slice(body);
+    serde::de::IgnoredAny::deserialize(&mut input).is_ok() && input.end().is_ok()
 }
 
 /// Port of Go `identity.CredentialValid`.

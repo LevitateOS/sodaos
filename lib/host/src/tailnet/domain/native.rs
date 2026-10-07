@@ -1,18 +1,12 @@
-use crate::json::{self, Value};
+use crate::json;
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
-use super::unavailable;
-
-/// Single-rune lowercasing like Go's `unicode.ToLower`: the first rune of the
-/// full mapping, never an expansion.
+/// One-rune lowercasing like Go's `unicode.ToLower`.
 pub(crate) fn lower_char(c: char) -> char {
     c.to_lowercase().next().unwrap_or(c)
 }
 
-/// One rune's field-name fold representative. The known-field side is always
-/// an ASCII name, so only ASCII fold relations matter: ASCII case plus the
-/// two non-ASCII runes Go links to ASCII letters, `ſ` (U+017F, with S/s) and
-/// `K` (U+212A Kelvin, with K/k). Notably `İ` (U+0130) does NOT fold with
-/// `i` in Go. All other non-ASCII runes compare by identity.
 fn fold_char(c: char) -> char {
     match c {
         'ſ' => 's',
@@ -22,131 +16,19 @@ fn fold_char(c: char) -> char {
     }
 }
 
-/// Field-name case folding matching `strings.EqualFold` whenever one side is
-/// an ASCII field name (the only use: JSON keys against known ASCII names).
 pub(crate) fn fold_eq(a: &str, b: &str) -> bool {
     if a == b {
         return true;
     }
-    debug_assert!(a.is_ascii() || b.is_ascii(), "fold needs an ASCII side");
     let mut ai = a.chars();
     let mut bi = b.chars();
     loop {
         match (ai.next(), bi.next()) {
             (None, None) => return true,
-            (Some(x), Some(y)) => {
-                if x != y && fold_char(x) != fold_char(y) {
-                    return false;
-                }
-            }
-            (None, Some(_)) | (Some(_), None) => return false,
+            (Some(x), Some(y)) if x == y || fold_char(x) == fold_char(y) => {}
+            (Some(_), Some(_)) | (None, Some(_)) | (Some(_), None) => return false,
         }
     }
-}
-
-/// Mirror of `nativeObject`: strict single-object decode with duplicate
-/// rejection at every level (Go's `strictjson.Decode`), exact-name required
-/// field presence with the `HaveNodeKey` omission rule, then `encoding/json`
-/// binding performed by the caller's typed decoder. Returns the document-order
-/// value so case-variant keys bind last-wins exactly like Go.
-pub(crate) fn native_object(data: &[u8], required: &[&str]) -> Result<Value, String> {
-    if json::decode_strict(data).is_err() {
-        return unavailable();
-    }
-    // A strict success implies tolerant success (same grammar, fewer bans).
-    let v = match json::decode_tolerant(data) {
-        Ok(v) => v,
-        Err(_) => return unavailable(),
-    };
-    let fields = match v.as_object() {
-        Some(f) => f,
-        None => return unavailable(),
-    };
-    for key in required {
-        if !required_native_field(fields, key) {
-            return unavailable();
-        }
-    }
-    Ok(v)
-}
-
-/// Mirror of `requiredNativeField` + `haveNodeKeyOmitted`.
-fn required_native_field(fields: &[(String, Value)], key: &str) -> bool {
-    match fields.iter().find(|(k, _)| k == key) {
-        None => {
-            if key != "HaveNodeKey" {
-                return false;
-            }
-            !fields.iter().any(|(k, _)| fold_eq(k, key))
-        }
-        Some((_, v)) => !v.is_null() || key == "AdvertiseRoutes",
-    }
-}
-
-/// All values bound to one struct field: exact or fold-equal keys in document
-/// order. `encoding/json` applies each in order: the last non-null value wins,
-/// `null` is a no-op, and any mistyped value fails the whole decode.
-fn bound_values<'a>(fields: &'a [(String, Value)], name: &str) -> Vec<&'a Value> {
-    fields
-        .iter()
-        .filter(|(k, _)| fold_eq(k, name))
-        .map(|(_, v)| v)
-        .collect()
-}
-
-pub(crate) fn bind_string_into(
-    fields: &[(String, Value)],
-    name: &str,
-    out: &mut String,
-) -> Result<(), String> {
-    for v in bound_values(fields, name) {
-        match v {
-            Value::Null => {}
-            Value::Str(s) => *out = s.clone(),
-            _ => return unavailable(),
-        }
-    }
-    Ok(())
-}
-
-pub(crate) fn bind_bool_into(
-    fields: &[(String, Value)],
-    name: &str,
-    out: &mut bool,
-) -> Result<(), String> {
-    for v in bound_values(fields, name) {
-        match v {
-            Value::Null => {}
-            Value::Bool(b) => *out = *b,
-            _ => return unavailable(),
-        }
-    }
-    Ok(())
-}
-
-fn bind_list_into(
-    fields: &[(String, Value)],
-    name: &str,
-    out: &mut Vec<String>,
-) -> Result<(), String> {
-    for v in bound_values(fields, name) {
-        match v {
-            Value::Null => {}
-            Value::Array(items) => {
-                let mut next = Vec::with_capacity(items.len());
-                for item in items {
-                    match item {
-                        Value::Null => next.push(String::new()),
-                        Value::Str(s) => next.push(s.clone()),
-                        _ => return unavailable(),
-                    }
-                }
-                *out = next;
-            }
-            _ => return unavailable(),
-        }
-    }
-    Ok(())
 }
 
 #[derive(Debug, Clone, Default)]
@@ -159,43 +41,123 @@ pub(crate) struct SelfPeer {
     pub(crate) expired: bool,
 }
 
-/// Pointer-struct binding merges across case-variant keys into one struct.
-fn bind_self(fields: &[(String, Value)]) -> Result<Option<SelfPeer>, String> {
-    let mut out: Option<SelfPeer> = None;
-    for v in bound_values(fields, "Self") {
-        match v {
-            Value::Null => {}
-            Value::Object(inner) => {
-                let p = out.get_or_insert_with(SelfPeer::default);
-                bind_string_into(inner, "ID", &mut p.id)?;
-                bind_string_into(inner, "DNSName", &mut p.dns_name)?;
-                bind_list_into(inner, "TailscaleIPs", &mut p.ips)?;
-                bind_list_into(inner, "Tags", &mut p.tags)?;
-                bind_bool_into(inner, "Online", &mut p.online)?;
-                bind_bool_into(inner, "Expired", &mut p.expired)?;
+#[derive(Default)]
+struct StringList(Vec<String>);
+impl<'de> Deserialize<'de> for StringList {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = StringList;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("string list")
             }
-            _ => return unavailable(),
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StringList::default())
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut out = Vec::new();
+                while let Some(v) = seq.next_element::<Option<String>>()? {
+                    out.push(v.unwrap_or_default());
+                }
+                Ok(StringList(out))
+            }
         }
+        d.deserialize_any(V)
     }
-    Ok(out)
 }
 
-fn bind_tailnet(fields: &[(String, Value)]) -> Result<Option<String>, String> {
-    let mut out: Option<String> = None;
-    for v in bound_values(fields, "CurrentTailnet") {
-        match v {
-            Value::Null => {}
-            Value::Object(inner) => {
-                let slot = out.get_or_insert_with(String::new);
-                bind_string_into(inner, "Name", slot)?;
+#[derive(Default)]
+struct PeerWire {
+    id: Option<String>,
+    dns_name: Option<String>,
+    ips: Option<StringList>,
+    tags: Option<StringList>,
+    online: Option<bool>,
+    expired: Option<bool>,
+}
+impl<'de> Deserialize<'de> for PeerWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PeerWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("native peer")
             }
-            _ => return unavailable(),
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = PeerWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "ID") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.id = Some(v);
+                        }
+                    } else if fold_eq(&k, "DNSName") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.dns_name = Some(v);
+                        }
+                    } else if fold_eq(&k, "TailscaleIPs") {
+                        if let Some(v) = map.next_value::<Option<StringList>>()? {
+                            out.ips = Some(v);
+                        }
+                    } else if fold_eq(&k, "Tags") {
+                        if let Some(v) = map.next_value::<Option<StringList>>()? {
+                            out.tags = Some(v);
+                        }
+                    } else if fold_eq(&k, "Online") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.online = Some(v);
+                        }
+                    } else if fold_eq(&k, "Expired") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.expired = Some(v);
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(out)
+            }
         }
+        d.deserialize_map(V)
     }
-    Ok(out)
 }
 
-#[derive(Debug, Clone, Default)]
+fn merge_peer(into: &mut SelfPeer, from: PeerWire) {
+    if let Some(v) = from.id {
+        into.id = v;
+    }
+    if let Some(v) = from.dns_name {
+        into.dns_name = v;
+    }
+    if let Some(v) = from.ips {
+        into.ips = v.0;
+    }
+    if let Some(v) = from.tags {
+        into.tags = v.0;
+    }
+    if let Some(v) = from.online {
+        into.online = v;
+    }
+    if let Some(v) = from.expired {
+        into.expired = v;
+    }
+}
+
+#[derive(Default)]
 pub(crate) struct NativeStatus {
     pub(crate) backend_state: String,
     pub(crate) have_node_key: bool,
@@ -203,20 +165,124 @@ pub(crate) struct NativeStatus {
     pub(crate) peer: Option<SelfPeer>,
 }
 
-pub(crate) fn decode_native_status(v: &Value) -> Result<NativeStatus, String> {
-    let fields = match v.as_object() {
-        Some(f) => f,
-        None => return unavailable(),
-    };
-    let mut s = NativeStatus::default();
-    bind_string_into(fields, "BackendState", &mut s.backend_state)?;
-    bind_bool_into(fields, "HaveNodeKey", &mut s.have_node_key)?;
-    s.tailnet = bind_tailnet(fields)?;
-    s.peer = bind_self(fields)?;
-    Ok(s)
+#[derive(Default)]
+struct StatusWire {
+    value: NativeStatus,
+    required_state: bool,
+    key_seen: bool,
+    exact_key_seen: bool,
+    exact_key_null: bool,
+    key_value_seen: bool,
+}
+impl<'de> Deserialize<'de> for StatusWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = StatusWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("native status")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = StatusWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "BackendState") {
+                        let value = map.next_value::<Option<String>>()?;
+                        if k == "BackendState" {
+                            out.required_state = value.is_some();
+                        }
+                        if let Some(v) = value {
+                            out.value.backend_state = v;
+                        }
+                    } else if fold_eq(&k, "HaveNodeKey") {
+                        let value = map.next_value::<Option<bool>>()?;
+                        out.key_seen = true;
+                        out.exact_key_seen |= k == "HaveNodeKey";
+                        out.exact_key_null |= k == "HaveNodeKey" && value.is_none();
+                        out.key_value_seen |= value.is_some();
+                        if let Some(v) = value {
+                            out.value.have_node_key = v;
+                        }
+                    } else if fold_eq(&k, "CurrentTailnet") {
+                        let value = map.next_value::<Option<TailnetWire>>()?;
+                        if let Some(v) = value {
+                            if let Some(name) = v.name {
+                                out.value.tailnet = Some(name);
+                            } else {
+                                out.value.tailnet.get_or_insert_with(String::new);
+                            }
+                        }
+                    } else if fold_eq(&k, "Self") {
+                        let value = map.next_value::<Option<PeerWire>>()?;
+                        if let Some(v) = value {
+                            let peer = out.value.peer.get_or_insert_with(SelfPeer::default);
+                            merge_peer(peer, v);
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                if !out.required_state
+                    || (out.key_seen
+                        && (!out.exact_key_seen || out.exact_key_null || !out.key_value_seen))
+                {
+                    return Err(de::Error::custom("missing required native status field"));
+                }
+                Ok(out)
+            }
+        }
+        d.deserialize_map(V)
+    }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Default)]
+struct TailnetWire {
+    name: Option<String>,
+}
+impl<'de> Deserialize<'de> for TailnetWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = TailnetWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("current tailnet")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = TailnetWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    if fold_eq(&k, "Name") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            out.name = Some(v);
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                Ok(out)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+pub(crate) fn decode_native_status(data: &[u8]) -> Result<NativeStatus, String> {
+    let wire: StatusWire =
+        json::decode_strict_as(data).map_err(|_| super::ERR_UNAVAILABLE.to_string())?;
+    Ok(wire.value)
+}
+
+#[derive(Default)]
 pub(crate) struct NativePrefs {
     pub(crate) want_running: bool,
     pub(crate) corp_dns: bool,
@@ -227,18 +293,126 @@ pub(crate) struct NativePrefs {
     pub(crate) advertise_routes: Vec<String>,
 }
 
-pub(crate) fn decode_native_prefs(v: &Value) -> Result<NativePrefs, String> {
-    let fields = match v.as_object() {
-        Some(f) => f,
-        None => return unavailable(),
-    };
-    let mut p = NativePrefs::default();
-    bind_bool_into(fields, "WantRunning", &mut p.want_running)?;
-    bind_bool_into(fields, "CorpDNS", &mut p.corp_dns)?;
-    bind_bool_into(fields, "RouteAll", &mut p.route_all)?;
-    bind_bool_into(fields, "RunSSH", &mut p.run_ssh)?;
-    bind_string_into(fields, "ExitNodeID", &mut p.exit_node_id)?;
-    bind_string_into(fields, "ExitNodeIP", &mut p.exit_node_ip)?;
-    bind_list_into(fields, "AdvertiseRoutes", &mut p.advertise_routes)?;
-    Ok(p)
+#[derive(Default)]
+struct PrefsWire {
+    value: NativePrefs,
+    required: [bool; 7],
+}
+impl<'de> Deserialize<'de> for PrefsWire {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PrefsWire;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("native preferences")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = PrefsWire::default();
+                while let Some(k) = map.next_key::<String>()? {
+                    let (index, exact) = [
+                        "WantRunning",
+                        "CorpDNS",
+                        "RouteAll",
+                        "RunSSH",
+                        "ExitNodeID",
+                        "ExitNodeIP",
+                        "AdvertiseRoutes",
+                    ]
+                    .iter()
+                    .enumerate()
+                    .find(|(_, name)| fold_eq(&k, name))
+                    .map(|(i, n)| (i, k == *n))
+                    .unwrap_or((usize::MAX, false));
+                    if index == usize::MAX {
+                        map.next_value::<de::IgnoredAny>()?;
+                        continue;
+                    }
+                    match index {
+                        0 => {
+                            let v = map.next_value::<Option<bool>>()?;
+                            if exact {
+                                out.required[0] = v.is_some();
+                            }
+                            if let Some(v) = v {
+                                out.value.want_running = v;
+                            }
+                        }
+                        1 => {
+                            let v = map.next_value::<Option<bool>>()?;
+                            if exact {
+                                out.required[1] = v.is_some();
+                            }
+                            if let Some(v) = v {
+                                out.value.corp_dns = v;
+                            }
+                        }
+                        2 => {
+                            let v = map.next_value::<Option<bool>>()?;
+                            if exact {
+                                out.required[2] = v.is_some();
+                            }
+                            if let Some(v) = v {
+                                out.value.route_all = v;
+                            }
+                        }
+                        3 => {
+                            let v = map.next_value::<Option<bool>>()?;
+                            if exact {
+                                out.required[3] = v.is_some();
+                            }
+                            if let Some(v) = v {
+                                out.value.run_ssh = v;
+                            }
+                        }
+                        4 => {
+                            let v = map.next_value::<Option<String>>()?;
+                            if exact {
+                                out.required[4] = v.is_some();
+                            }
+                            if let Some(v) = v {
+                                out.value.exit_node_id = v;
+                            }
+                        }
+                        5 => {
+                            let v = map.next_value::<Option<String>>()?;
+                            if exact {
+                                out.required[5] = v.is_some();
+                            }
+                            if let Some(v) = v {
+                                out.value.exit_node_ip = v;
+                            }
+                        }
+                        _ => {
+                            let v = map.next_value::<Option<StringList>>()?;
+                            if exact {
+                                out.required[6] = true;
+                            }
+                            if let Some(v) = v {
+                                out.value.advertise_routes = v.0;
+                            }
+                        }
+                    }
+                }
+                if !out.required.iter().all(|v| *v) {
+                    return Err(de::Error::custom(
+                        "missing required exact native preference field",
+                    ));
+                }
+                Ok(out)
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+pub(crate) fn decode_native_prefs(data: &[u8]) -> Result<NativePrefs, String> {
+    let wire: PrefsWire =
+        json::decode_strict_as(data).map_err(|_| super::ERR_UNAVAILABLE.to_string())?;
+    Ok(wire.value)
 }

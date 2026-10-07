@@ -1,7 +1,6 @@
 use super::{
-    bind_bool_into, bind_string_into, decode_native_prefs, decode_native_status, native_object,
-    resolve_project_peer, unavailable, NativeStatus, RunBinding, SelfPeer, ERR_CONFLICT,
-    RESPONSE_LIMIT,
+    decode_native_prefs, decode_native_status, resolve_project_peer, unavailable, NativeStatus,
+    RunBinding, SelfPeer, ERR_CONFLICT, RESPONSE_LIMIT,
 };
 
 /// Mirror of `parseProjectStatus`: the decoded status plus a terminal outcome
@@ -10,8 +9,7 @@ fn parse_project_status(data: &[u8]) -> Result<(NativeStatus, String), String> {
     if data.len() > RESPONSE_LIMIT {
         return unavailable();
     }
-    let v = native_object(data, &["BackendState", "HaveNodeKey"])?;
-    let s = decode_native_status(&v)?;
+    let s = decode_native_status(data)?;
     let outcome = match s.backend_state.as_str() {
         "NeedsLogin" => "needs-login",
         "NeedsMachineAuth" => "approval-required",
@@ -27,19 +25,7 @@ fn validate_project_preferences(preferences: &[u8]) -> Result<(), String> {
     if preferences.len() > RESPONSE_LIMIT {
         return unavailable();
     }
-    let v = native_object(
-        preferences,
-        &[
-            "WantRunning",
-            "CorpDNS",
-            "RouteAll",
-            "RunSSH",
-            "ExitNodeID",
-            "ExitNodeIP",
-            "AdvertiseRoutes",
-        ],
-    )?;
-    let p = decode_native_prefs(&v)?;
+    let p = decode_native_prefs(preferences)?;
     if !p.want_running || !p.corp_dns || p.route_all || p.run_ssh {
         return Err(ERR_CONFLICT.to_string());
     }
@@ -102,23 +88,15 @@ pub fn project_has_node(data: &[u8]) -> Result<bool, String> {
     if data.len() > RESPONSE_LIMIT {
         return unavailable();
     }
-    let v = native_object(data, &["BackendState", "HaveNodeKey"])?;
-    let fields = match v.as_object() {
-        Some(f) => f,
-        None => return unavailable(),
-    };
-    let mut backend = String::new();
-    let mut key = false;
-    bind_string_into(fields, "BackendState", &mut backend)?;
-    bind_bool_into(fields, "HaveNodeKey", &mut key)?;
-    match backend.as_str() {
+    let status = decode_native_status(data)?;
+    match status.backend_state.as_str() {
         "NoState" | "NeedsLogin" | "NeedsMachineAuth" | "Stopped" | "Starting" => {}
         "Running" => {
-            if !key {
+            if !status.have_node_key {
                 return unavailable();
             }
         }
         _ => return unavailable(),
     }
-    Ok(key)
+    Ok(status.have_node_key)
 }
