@@ -4,6 +4,10 @@
 // tolerated for scalar fields. Every rejection maps to the same client
 // response (`invalid request`), so only the accept/reject direction must
 // match; messages stay close for operators.
+use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
+use std::collections::HashSet;
+use std::fmt;
+
 pub const MAX_DOCUMENT: usize = 1 << 20;
 
 pub fn decode<T: serde::de::DeserializeOwned>(
@@ -84,232 +88,127 @@ fn check_known_fields(
     Ok(())
 }
 
-struct Scanner<'a> {
-    bytes: &'a [u8],
-    pos: usize,
+struct UniqueSeed {
+    depth: i16,
+    top: Option<String>,
 }
 
-impl<'a> Scanner<'a> {
-    fn new(text: &'a str) -> Scanner<'a> {
-        Scanner {
-            bytes: text.as_bytes(),
-            pos: 0,
-        }
-    }
+impl<'de> DeserializeSeed<'de> for UniqueSeed {
+    type Value = ();
 
-    fn skip_ws(&mut self) {
-        while self.pos < self.bytes.len()
-            && matches!(self.bytes[self.pos], b' ' | b'\t' | b'\n' | b'\r')
-        {
-            self.pos += 1;
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if self.depth > 100 {
+            let message = match self.top {
+                Some(top) => format!("decode request field {top:?}: request is nested too deeply"),
+                None => "request is nested too deeply".to_string(),
+            };
+            return Err(de::Error::custom(message));
         }
-    }
-
-    fn peek(&mut self) -> Option<u8> {
-        self.skip_ws();
-        self.bytes.get(self.pos).copied()
-    }
-
-    fn eat(&mut self, want: u8) -> bool {
-        self.skip_ws();
-        if self.bytes.get(self.pos) == Some(&want) {
-            self.pos += 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    // Decode one JSON string starting at the opening quote. Returns the
-    // decoded key and consumes the closing quote. Liberal on malformed
-    // escapes: the later serde parse rejects malformed documents anyway.
-    fn string(&mut self) -> Option<String> {
-        if !self.eat(b'"') {
-            return None;
-        }
-        let mut out = String::new();
-        loop {
-            let b = *self.bytes.get(self.pos)?;
-            self.pos += 1;
-            match b {
-                b'"' => return Some(out),
-                b'\\' => {
-                    let e = *self.bytes.get(self.pos)?;
-                    self.pos += 1;
-                    match e {
-                        b'"' => out.push('"'),
-                        b'\\' => out.push('\\'),
-                        b'/' => out.push('/'),
-                        b'b' => out.push('\x08'),
-                        b'f' => out.push('\x0c'),
-                        b'n' => out.push('\n'),
-                        b'r' => out.push('\r'),
-                        b't' => out.push('\t'),
-                        b'u' => {
-                            let hex = self.bytes.get(self.pos..self.pos + 4)?;
-                            self.pos += 4;
-                            let code =
-                                u32::from_str_radix(std::str::from_utf8(hex).ok()?, 16).ok()?;
-                            if (0xd800..0xdc00).contains(&code) {
-                                // Surrogate pair; consume the low half.
-                                if self.bytes.get(self.pos..self.pos + 2) != Some(b"\\u") {
-                                    return None;
-                                }
-                                self.pos += 2;
-                                let low_hex = self.bytes.get(self.pos..self.pos + 4)?;
-                                self.pos += 4;
-                                let low =
-                                    u32::from_str_radix(std::str::from_utf8(low_hex).ok()?, 16)
-                                        .ok()?;
-                                if !(0xdc00..0xe000).contains(&low) {
-                                    return None;
-                                }
-                                let ch = char::from_u32(
-                                    0x10000 + (code - 0xd800) * 0x400 + (low - 0xdc00),
-                                )?;
-                                out.push(ch);
-                            } else {
-                                out.push(char::from_u32(code)?);
-                            }
-                        }
-                        // Not a valid escape; keep the byte so scanning
-                        // terminates. Serde rejects the document afterwards.
-                        _ => out.push(e as char),
-                    }
-                }
-                _ if b < 0x80 => out.push(b as char),
-                _ => {
-                    // Validated UTF-8 above; copy the whole sequence.
-                    let width = if b >= 0xf0 {
-                        4
-                    } else if b >= 0xe0 {
-                        3
-                    } else if b >= 0xc0 {
-                        2
-                    } else {
-                        return None;
-                    };
-                    let bytes = self.bytes.get(self.pos - 1..self.pos - 1 + width)?;
-                    out.push_str(std::str::from_utf8(bytes).ok()?);
-                    self.pos += width - 1;
-                }
-            }
-        }
-    }
-
-    fn skip_string(&mut self) -> bool {
-        self.string().is_some()
-    }
-
-    fn skip_scalar(&mut self) {
-        while let Some(b) = self.bytes.get(self.pos) {
-            if matches!(b, b',' | b']' | b'}') || b.is_ascii_whitespace() {
-                break;
-            }
-            self.pos += 1;
-        }
+        deserializer.deserialize_any(UniqueVisitor {
+            depth: self.depth,
+            top: self.top,
+        })
     }
 }
 
-// Exactly-one-object with unique decoded keys at every depth. Returns Ok
-// on any structural confusion so the later serde parse (which rejects
-// malformed documents) decides; only certain duplicates and over-depth
-// fail here.
+struct UniqueVisitor {
+    depth: i16,
+    top: Option<String>,
+}
+
+impl<'de> Visitor<'de> for UniqueVisitor {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON value without duplicate object keys")
+    }
+
+    fn visit_bool<E>(self, _: bool) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_i64<E>(self, _: i64) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_u64<E>(self, _: u64) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_f64<E>(self, _: f64) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_str<E>(self, _: &str) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_string<E>(self, _: String) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_unit<E>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_none<E>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        while seq
+            .next_element_seed(UniqueSeed {
+                depth: self.depth + 1,
+                top: self.top.clone(),
+            })?
+            .is_some()
+        {}
+        Ok(())
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<(), A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut keys = HashSet::new();
+        while let Some(key) = map.next_key::<String>()? {
+            if !keys.insert(key.clone()) {
+                return Err(de::Error::custom(format!(
+                    "duplicate request field {key:?}"
+                )));
+            }
+            let top = self
+                .top
+                .clone()
+                .or_else(|| (self.depth == -1).then_some(key));
+            map.next_value_seed(UniqueSeed {
+                depth: self.depth + 1,
+                top,
+            })?;
+        }
+        Ok(())
+    }
+}
+
 fn check_unique_keys(text: &str) -> Result<(), String> {
-    use std::collections::HashSet;
-    let mut s = Scanner::new(text);
-    if !s.eat(b'{') {
-        return Ok(());
+    let mut deserializer = serde_json::Deserializer::from_str(text);
+    UniqueSeed {
+        // Root keys are checked here, while the root object itself does not
+        // consume one of the existing 100 nested-value levels.
+        depth: -1,
+        top: None,
     }
-    let mut seen = HashSet::new();
-    loop {
-        s.skip_ws();
-        if s.eat(b'}') {
-            return Ok(());
-        }
-        let Some(key) = s.string() else { return Ok(()) };
-        if !seen.insert(key.clone()) {
-            return Err(format!("duplicate request field {key:?}"));
-        }
-        if !s.eat(b':') {
-            return Ok(());
-        }
-        check_value(&mut s, &key, 0)?;
-        s.skip_ws();
-        if s.eat(b',') {
-            continue;
-        }
-        if s.eat(b'}') {
-            return Ok(());
-        }
-        return Ok(());
-    }
-}
-
-fn check_value(s: &mut Scanner<'_>, top: &str, depth: u32) -> Result<(), String> {
-    use std::collections::HashSet;
-    if depth > 100 {
-        return Err(format!(
-            "decode request field {top:?}: request is nested too deeply"
-        ));
-    }
-    match s.peek() {
-        Some(b'{') => {
-            s.eat(b'{');
-            let mut seen = HashSet::new();
-            loop {
-                s.skip_ws();
-                if s.eat(b'}') {
-                    return Ok(());
-                }
-                let Some(key) = s.string() else { return Ok(()) };
-                if !seen.insert(key.clone()) {
-                    return Err(format!("duplicate request field {key:?}"));
-                }
-                if !s.eat(b':') {
-                    return Ok(());
-                }
-                check_value(s, top, depth + 1)?;
-                s.skip_ws();
-                if s.eat(b',') {
-                    continue;
-                }
-                if s.eat(b'}') {
-                    return Ok(());
-                }
-                return Ok(());
-            }
-        }
-        Some(b'[') => {
-            s.eat(b'[');
-            loop {
-                s.skip_ws();
-                if s.eat(b']') {
-                    return Ok(());
-                }
-                check_value(s, top, depth + 1)?;
-                s.skip_ws();
-                if s.eat(b',') {
-                    continue;
-                }
-                if s.eat(b']') {
-                    return Ok(());
-                }
-                return Ok(());
-            }
-        }
-        Some(b'"') => {
-            if !s.skip_string() {
-                return Ok(());
-            }
-            Ok(())
-        }
-        Some(_) => {
-            s.skip_scalar();
-            Ok(())
-        }
-        None => Ok(()),
-    }
+    .deserialize(&mut deserializer)
+    .map_err(|error| format!("decode request: {error}"))?;
+    deserializer
+        .end()
+        .map_err(|error| format!("decode request: {error}"))
 }
 
 #[cfg(test)]

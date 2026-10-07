@@ -1,13 +1,58 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
-use crate::json::JsonValue;
 use crate::system::{FORGEJO_RESPONSE_LIMIT, FORGEJO_TIMEOUT};
+use serde::Deserialize;
 
 #[derive(Debug)]
 pub(crate) struct ForgejoUser {
     pub(crate) id: i64,
     pub(crate) admin: bool,
+}
+
+#[derive(Debug, Default)]
+struct ForgejoUserResponse {
+    id: i64,
+    admin: bool,
+}
+
+impl<'de> Deserialize<'de> for ForgejoUserResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{IgnoredAny, MapAccess, Visitor};
+        use std::fmt;
+
+        struct UserVisitor;
+
+        impl<'de> Visitor<'de> for UserVisitor {
+            type Value = ForgejoUserResponse;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a Forgejo user object")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut user = ForgejoUserResponse::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "id" => user.id = map.next_value()?,
+                        "is_admin" => user.admin = map.next_value()?,
+                        _ => {
+                            map.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(user)
+            }
+        }
+
+        deserializer.deserialize_map(UserVisitor)
+    }
 }
 
 pub(crate) fn forgejo_get_user(base: &str, token: &str) -> Result<ForgejoUser, String> {
@@ -212,26 +257,14 @@ pub(crate) fn decode_user(body: &[u8]) -> Result<ForgejoUser, String> {
     if text.trim() == "null" {
         return Err("invalid Forgejo response".to_string());
     }
-    let value = JsonValue::parse(text)?;
-    let obj = value
-        .as_object()
-        .ok_or_else(|| "invalid Forgejo response".to_string())?;
-    let mut id: i64 = 0;
-    let mut admin = false;
-    for (key, val) in obj {
-        match key.as_str() {
-            "id" => {
-                id = val
-                    .as_i64()
-                    .ok_or_else(|| "invalid Forgejo response".to_string())?;
-            }
-            "is_admin" => {
-                admin = val
-                    .as_bool()
-                    .ok_or_else(|| "invalid Forgejo response".to_string())?;
-            }
-            _ => {}
-        }
-    }
-    Ok(ForgejoUser { id, admin })
+    let mut deserializer = serde_json::Deserializer::from_str(text);
+    let user = ForgejoUserResponse::deserialize(&mut deserializer)
+        .map_err(|_| "invalid Forgejo response".to_string())?;
+    deserializer
+        .end()
+        .map_err(|_| "invalid Forgejo response".to_string())?;
+    Ok(ForgejoUser {
+        id: user.id,
+        admin: user.admin,
+    })
 }

@@ -1,6 +1,5 @@
 use crate::config::encode_dashboard_config;
 use crate::forgejo::decode_user;
-use crate::json::push_json_string;
 use crate::secrets::{base64_encode, hex_encode};
 use crate::system::FORGEJO_RESPONSE_LIMIT;
 
@@ -30,11 +29,25 @@ fn forgejo_user_decode_matches_client_rules() {
     .expect("valid");
     assert_eq!(user.id, 42);
     assert!(user.admin);
+    let missing = decode_user(b"{}").expect("omitted scalar defaults");
+    assert_eq!((missing.id, missing.admin), (0, false));
+    let last_wins = decode_user(
+        br#"{"id":42,"id":43,"is_admin":true,"is_admin":false,"future":{"version":1}}"#,
+    )
+    .expect("duplicates retain last recognized values and unknown fields are allowed");
+    assert_eq!((last_wins.id, last_wins.admin), (43, false));
     assert!(decode_user(b"null").is_err());
+    assert!(decode_user(b"{\"id\":null,\"is_admin\":false}").is_err());
     assert!(decode_user(b"{\"id\": 1} garbage").is_err());
     assert!(decode_user(b"{\"id\": \"42\", \"is_admin\": true}").is_err());
     assert!(decode_user(b"{\"id\": 42.5, \"is_admin\": true}").is_err());
     assert!(decode_user(b"{\"id\": 42, \"is_admin\": \"yes\"}").is_err());
+    assert!(decode_user(b"{\"id\": 9223372036854775808}").is_err());
+    assert!(decode_user(b"{\"id\": 42e0}").is_err());
+    assert_eq!(
+        decode_user(b"\xff").unwrap_err(),
+        "invalid Forgejo response"
+    );
     assert!(decode_user(b"[1,2]").is_err());
     let big = vec![b'x'; FORGEJO_RESPONSE_LIMIT + 1];
     assert_eq!(
@@ -44,10 +57,11 @@ fn forgejo_user_decode_matches_client_rules() {
 }
 
 #[test]
-fn json_string_escapes_match_go() {
-    let mut out = String::new();
-    push_json_string(&mut out, "a<b>&\"c\"\n");
-    assert_eq!(out, "\"a\\u003cb\\u003e\\u0026\\\"c\\\"\\n\"");
+fn config_strings_keep_go_html_and_line_separator_escapes() {
+    let encoded = encode_dashboard_config("<>&\u{2028}\u{2029}", "", "", "", "", "", "", 0);
+    assert!(String::from_utf8(encoded)
+        .unwrap()
+        .starts_with(r#"{"listen":"\u003c\u003e\u0026\u2028\u2029","forgejo_url":"""#));
 }
 
 #[test]

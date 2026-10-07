@@ -5,7 +5,11 @@ use serde::Deserialize;
 struct Envelope {
     #[serde(default)]
     command_id: String,
-    #[serde(default, rename = "type")]
+    #[serde(
+        default,
+        rename = "type",
+        deserialize_with = "crate::wire_scalars::null_tolerant::string"
+    )]
     wire_type: String,
     #[serde(default)]
     target: String,
@@ -33,6 +37,10 @@ fn strict_vectors_match_go() {
             r#"{"type":"x","target":[{"k":"1"},{"k":"1","k":"2"}]}"#,
             false,
         ),
+        (
+            r#"{"type":"x","future":{"items":[{"\u006b":1,"k":2}]}}"#,
+            false,
+        ),
         (r#"[]"#, false),
         (r#"{"type":"one"}{"type":"two"}"#, false),
         (r#"{"type":"one""#, false),
@@ -57,18 +65,18 @@ fn limits_match_go() {
             .unwrap_err()
             .contains("valid UTF-8")
     );
-    let mut nested = String::from("{\"type\":");
-    for _ in 0..150 {
-        nested.push_str("{\"k\":");
-    }
-    nested.push('1');
-    for _ in 0..150 {
+    for (depth, ok) in [(99, true), (100, true), (101, false)] {
+        let mut nested = String::from("{\"type\":");
+        nested.push_str(&"[".repeat(depth));
+        nested.push('0');
+        nested.push_str(&"]".repeat(depth));
         nested.push('}');
+        let result = decode::<serde_json::Value>(nested.as_bytes(), MAX_DOCUMENT, &["type"], &[]);
+        assert_eq!(result.is_ok(), ok, "nesting depth {depth}");
+        if !ok {
+            assert!(result.unwrap_err().contains("nested too deeply"));
+        }
     }
-    nested.push('}');
-    assert!(decode_envelope(&nested)
-        .unwrap_err()
-        .contains("nested too deeply"));
 }
 
 #[test]
@@ -77,6 +85,11 @@ fn case_fold_matches_go_fallback() {
     assert_eq!(envelope.wire_type, "status");
     // Exact wins; a colliding fold is rejected as unknown.
     assert!(decode_envelope(r#"{"TYPE":"a","type":"b"}"#).is_err());
+
+    // Preserve the existing sorted-map last-wins remapping behavior.
+    let envelope = decode_envelope(r#"{"TYPE":"upper","Type":"mixed"}"#).unwrap();
+    assert_eq!(envelope.wire_type, "mixed");
+    assert_eq!(decode_envelope(r#"{"type":null}"#).unwrap().wire_type, "");
 }
 
 #[test]
