@@ -2,11 +2,6 @@
 use crate::preparation::FACTORY_PREPARATIONS_DIR;
 use std::path::{Component, Path, PathBuf};
 
-/// `path.IsAbs`: a leading slash.
-pub(crate) fn path_is_abs(p: &str) -> bool {
-    p.starts_with('/')
-}
-
 /// Join the audited relative components under their first path.
 pub fn path_join(parts: &[&str]) -> String {
     let mut path = PathBuf::new();

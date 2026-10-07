@@ -80,7 +80,6 @@ fn run() -> i32 {
         explicit.iter().map(|s| s.to_string()).collect()
     };
 
-    let stage = format!("soda-restore-{}", std::process::id());
     for db in &dbs {
         if !valid_db_name(db) {
             eprintln!("refusing database name: {db}");
@@ -96,38 +95,123 @@ fn run() -> i32 {
                 return code;
             }
         }
-        let staged = format!("/tmp/{stage}-{db}.dump");
-        // podman cp stages the file root-owned; hand it to postgres for
-        // restore and cleanup so no world-writable staging is needed.
-        if let Err(code) = podman_status(&["cp", &dump, &format!("{container}:{staged}")]) {
-            return code;
+        // Keep the stage container-local: the host cannot own this pathname
+        // or guarantee its cleanup after podman has copied into the container.
+        let stage = match create_remote_stage(&container) {
+            Ok(path) => path,
+            Err(code) => return code,
+        };
+        if let Err(error) = restore_dump_at_with(&container, &dump, db, &stage, podman_status) {
+            if error.restore_failed {
+                eprintln!("restore of {db} failed");
+            }
+            if error.cleanup_failed {
+                eprintln!("cannot remove container restore staging {stage}");
+            }
+            return error.exit_code;
         }
-        if let Err(code) =
-            podman_status(&["exec", &container, "chown", "postgres:postgres", &staged])
-        {
-            return code;
-        }
-        if podman_status(&[
+        println!("restored {db} from {run}");
+    }
+    0
+}
+
+/// Ask the container to create a private, exclusive stage directory. The
+/// returned path is constrained to one fixed `/tmp` leaf before it is used.
+fn create_remote_stage(container: &str) -> Result<String, i32> {
+    let output = Command::new("podman")
+        .args([
+            "exec",
+            container,
+            "mktemp",
+            "-d",
+            "/tmp/soda-restore.XXXXXXXX",
+        ])
+        .output()
+        .map_err(|_| 1)?;
+    if !output.status.success() {
+        return Err(output.status.code().unwrap_or(1));
+    }
+    let output = String::from_utf8_lossy(&output.stdout);
+    let path = output.strip_suffix('\n').unwrap_or(&output).to_owned();
+    if !valid_remote_stage_path(&path) {
+        return Err(1);
+    }
+    Ok(path)
+}
+
+fn valid_remote_stage_path(path: &str) -> bool {
+    path.strip_prefix("/tmp/soda-restore.")
+        .is_some_and(|leaf| leaf.len() == 8 && leaf.bytes().all(|b| b.is_ascii_alphanumeric()))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct RestoreStageError {
+    exit_code: i32,
+    restore_failed: bool,
+    cleanup_failed: bool,
+}
+
+/// Copy, transfer, restore, and always remove one container-owned stage.
+/// The command seam keeps lifecycle behavior testable without starting Podman.
+fn restore_dump_at_with(
+    container: &str,
+    dump: &str,
+    db: &str,
+    stage: &str,
+    mut command: impl FnMut(&[&str]) -> Result<(), i32>,
+) -> Result<(), RestoreStageError> {
+    let staged = format!("{stage}/{db}.dump");
+    let operation = (|| -> Result<(), RestoreStageError> {
+        command(&["cp", dump, &format!("{container}:{staged}")]).map_err(|exit_code| {
+            RestoreStageError {
+                exit_code,
+                restore_failed: false,
+                cleanup_failed: false,
+            }
+        })?;
+        command(&["exec", container, "chown", "postgres:postgres", stage]).map_err(
+            |exit_code| RestoreStageError {
+                exit_code,
+                restore_failed: false,
+                cleanup_failed: false,
+            },
+        )?;
+        command(&["exec", container, "chown", "postgres:postgres", &staged]).map_err(
+            |exit_code| RestoreStageError {
+                exit_code,
+                restore_failed: false,
+                cleanup_failed: false,
+            },
+        )?;
+        command(&[
             "exec",
             "-u",
             "postgres",
-            &container,
+            container,
             "pg_restore",
             &format!("--dbname={db}"),
             "--clean",
             "--if-exists",
             &staged,
         ])
-        .is_err()
-        {
-            let _ = podman_status(&["exec", "-u", "postgres", &container, "rm", "-f", &staged]);
-            eprintln!("restore of {db} failed");
-            return 1;
+        .map_err(|_| RestoreStageError {
+            exit_code: 1,
+            restore_failed: true,
+            cleanup_failed: false,
+        })
+    })();
+    let cleanup = command(&["exec", container, "rm", "-rf", stage]);
+    match operation {
+        Ok(()) => cleanup.map_err(|exit_code| RestoreStageError {
+            exit_code,
+            restore_failed: false,
+            cleanup_failed: true,
+        }),
+        Err(mut error) => {
+            error.cleanup_failed = cleanup.is_err();
+            Err(error)
         }
-        let _ = podman_status(&["exec", "-u", "postgres", &container, "rm", "-f", &staged]);
-        println!("restored {db} from {run}");
     }
-    0
 }
 
 /// `[ -s ]`: exists with size over any file type.
@@ -228,5 +312,119 @@ fn createdb(container: &str, db: &str) -> Result<(), i32> {
         Ok(status) if status.success() => Ok(()),
         Ok(status) => Err(status.code().unwrap_or(1)),
         Err(_) => Err(1),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remote_stage_requires_one_fixed_safe_leaf() {
+        assert!(valid_remote_stage_path("/tmp/soda-restore.A1b2C3d4"));
+        for bad in [
+            "",
+            "/tmp/soda-restore.short",
+            "/tmp/soda-restore.A1b2C3d4/child",
+            "/tmp/soda-restore.A1b2C3d4/../other",
+            "/tmp/soda-restore.A1b2C3d4\n/other",
+            "/tmp/other.A1b2C3d4",
+            "/tmp/soda-restore.A1b2C3!4",
+        ] {
+            assert!(!valid_remote_stage_path(bad), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn failed_copy_chown_or_restore_always_cleans_the_same_stage() {
+        for failed_operation in 0..4 {
+            let mut calls = Vec::new();
+            let result = restore_dump_at_with(
+                "postgres-container",
+                "/backup/soda.dump",
+                "soda",
+                "/tmp/soda-restore.A1b2C3d4",
+                |args| {
+                    calls.push(args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>());
+                    if calls.len() - 1 == failed_operation {
+                        Err(23)
+                    } else {
+                        Ok(())
+                    }
+                },
+            );
+            let error = result.unwrap_err();
+            assert_eq!(error.cleanup_failed, false);
+            assert_eq!(error.restore_failed, failed_operation == 3);
+            assert_eq!(error.exit_code, if failed_operation == 3 { 1 } else { 23 });
+            let expected_cleanup = [
+                "exec",
+                "postgres-container",
+                "rm",
+                "-rf",
+                "/tmp/soda-restore.A1b2C3d4",
+            ]
+            .map(str::to_owned);
+            assert_eq!(
+                calls.last().unwrap().as_slice(),
+                expected_cleanup.as_slice()
+            );
+        }
+    }
+
+    #[test]
+    fn cleanup_failure_cannot_report_success_and_success_cleans_before_return() {
+        let mut calls = Vec::new();
+        let result = restore_dump_at_with(
+            "postgres-container",
+            "/backup/soda.dump",
+            "soda",
+            "/tmp/soda-restore.A1b2C3d4",
+            |args| {
+                calls.push(args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>());
+                if calls.len() == 5 {
+                    Err(44)
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(
+            result.unwrap_err(),
+            RestoreStageError {
+                exit_code: 44,
+                restore_failed: false,
+                cleanup_failed: true,
+            }
+        );
+        let expected_cleanup = [
+            "exec",
+            "postgres-container",
+            "rm",
+            "-rf",
+            "/tmp/soda-restore.A1b2C3d4",
+        ]
+        .map(str::to_owned);
+        assert_eq!(
+            calls.last().unwrap().as_slice(),
+            expected_cleanup.as_slice()
+        );
+
+        let mut success_calls = Vec::new();
+        assert!(restore_dump_at_with(
+            "postgres-container",
+            "/backup/soda.dump",
+            "soda",
+            "/tmp/soda-restore.A1b2C3d4",
+            |args| {
+                success_calls.push(args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>());
+                Ok(())
+            },
+        )
+        .is_ok());
+        assert_eq!(
+            success_calls.last().unwrap().as_slice(),
+            expected_cleanup.as_slice()
+        );
     }
 }

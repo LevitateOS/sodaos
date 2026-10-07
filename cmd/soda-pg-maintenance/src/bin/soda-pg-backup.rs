@@ -15,7 +15,9 @@
 
 use soda_pg_maintenance::utc_stamp;
 use std::env;
-use std::fs::{self, File};
+use std::ffi::CString;
+use std::fs::{self, File, Permissions};
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 
@@ -45,12 +47,23 @@ fn run() -> i32 {
         return 1;
     };
     let pid = std::process::id();
-    let work = format!("{backup_root}/.in-progress-{stamp}-{pid}");
-    let final_dir = format!("{backup_root}/{stamp}");
-    if let Err(e) = fs::create_dir_all(&work) {
-        eprintln!("{work}: {e}");
+    if let Err(e) = fs::create_dir_all(&backup_root) {
+        eprintln!("{backup_root}: {e}");
         return 1;
     }
+    let work_owner = match tempfile::Builder::new()
+        .prefix(&format!(".in-progress-{stamp}-{pid}-"))
+        .permissions(Permissions::from_mode(0o700))
+        .tempdir_in(&backup_root)
+    {
+        Ok(owner) => owner,
+        Err(e) => {
+            eprintln!("{backup_root}: {e}");
+            return 1;
+        }
+    };
+    let work = work_owner.path().to_string_lossy().into_owned();
+    let final_dir = format!("{backup_root}/{stamp}");
     // The EXIT trap owns the work dir until the run is published.
     let cleanup = |work: &str| {
         let _ = fs::remove_dir_all(work);
@@ -102,9 +115,20 @@ fn run() -> i32 {
         return 1;
     }
 
-    if let Err(e) = fs::rename(&work, &final_dir) {
+    if let Err(e) = File::open(&work).and_then(|dir| dir.sync_all()) {
         eprintln!("{work}: {e}");
         cleanup(&work);
+        return 1;
+    }
+    if let Err(e) = rename_noreplace(&work, &final_dir) {
+        eprintln!("{work}: {e}");
+        cleanup(&work);
+        return 1;
+    }
+    // The rename publishes the established timestamp identity. Sync the
+    // parent before reporting success so the new run survives a crash.
+    if let Err(e) = File::open(&backup_root).and_then(|dir| dir.sync_all()) {
+        eprintln!("{backup_root}: {e}");
         return 1;
     }
     // Trap disarmed: rotate only after the new run is published; never
@@ -113,6 +137,28 @@ fn run() -> i32 {
 
     println!("backup complete: {final_dir}");
     0
+}
+
+/// Publish a timestamped run without replacing any pre-existing destination.
+fn rename_noreplace(source: &str, destination: &str) -> std::io::Result<()> {
+    let source = CString::new(source)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let destination = CString::new(destination)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let rc = unsafe {
+        libc::renameat2(
+            libc::AT_FDCWD,
+            source.as_ptr(),
+            libc::AT_FDCWD,
+            destination.as_ptr(),
+            libc::RENAME_NOREPLACE,
+        )
+    };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
 }
 
 /// `podman exec -u postgres <container> <args...> >file`, streaming stdout
@@ -129,7 +175,9 @@ fn dump_to_file(container: &str, args: &[&str], file: &str) -> Result<(), i32> {
         .stdout(out)
         .status()
     {
-        Ok(status) if status.success() => Ok(()),
+        Ok(status) if status.success() => File::open(file)
+            .and_then(|dump| dump.sync_all())
+            .map_err(|_| 1),
         Ok(status) => Err(status.code().unwrap_or(1)),
         Err(_) => Err(1),
     }
@@ -192,5 +240,20 @@ mod tests {
         ] {
             assert!(!is_run_name(bad), "{bad:?}");
         }
+    }
+
+    #[test]
+    fn publication_does_not_replace_existing_timestamp_directory() {
+        let parent = tempfile::tempdir().unwrap();
+        let source = parent.path().join("staging");
+        let destination = parent.path().join("20261007T120000Z");
+        fs::create_dir(&source).unwrap();
+        fs::write(source.join("globals.sql"), b"new").unwrap();
+        fs::create_dir(&destination).unwrap();
+        fs::write(destination.join("globals.sql"), b"old").unwrap();
+
+        assert!(rename_noreplace(source.to_str().unwrap(), destination.to_str().unwrap()).is_err());
+        assert_eq!(fs::read(destination.join("globals.sql")).unwrap(), b"old");
+        assert_eq!(fs::read(source.join("globals.sql")).unwrap(), b"new");
     }
 }

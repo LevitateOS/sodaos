@@ -1,7 +1,6 @@
 //! Shared prepare fixtures (one private fixture owner) plus
 //! paths/idmap/single-line/tool/map-state/container admission cases.
 
-use super::paths::path_is_abs;
 use super::*;
 use crate::preparation::Preparation;
 use crate::project::Config;
@@ -145,8 +144,6 @@ fn path_join_uses_native_components_and_tool_admission_is_strict() {
     assert_eq!(path_join(&["", "a", "b"]), "a/b");
     assert_eq!(path_join(&["a", "", "b"]), "a/b");
     assert_eq!(path_join(&["", ""]), "");
-    assert!(path_is_abs("/x"));
-    assert!(!path_is_abs("x"));
     assert!(valid_resolved_tool_path("/usr/bin/git"));
     assert!(!valid_resolved_tool_path("/usr/bin/../bin/git"));
     assert!(!valid_resolved_tool_path("/usr//bin/git"));

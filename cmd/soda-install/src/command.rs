@@ -102,7 +102,7 @@ impl Runner for RealRunner {
                     name: name.to_string(),
                     code: -1,
                     interrupted: ctx.err().is_some(),
-                })
+                });
             }
         };
         let mut stdin = child.stdin.take();
@@ -238,7 +238,6 @@ impl Runner for RealRunner {
                     break;
                 }
                 if exited_at.is_some_and(|at| at.elapsed() >= OUTPUT_GRACE) {
-                    stdout_eof = true;
                     return Err(Error::CmdExit {
                         name: name.to_string(),
                         code: -1,
@@ -255,7 +254,7 @@ impl Runner for RealRunner {
                     name: name.to_string(),
                     code: -1,
                     interrupted: true,
-                })
+                });
             }
         };
         let code = status.code().unwrap_or(-1);
