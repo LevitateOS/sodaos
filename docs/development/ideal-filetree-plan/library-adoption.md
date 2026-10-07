@@ -412,7 +412,20 @@ statement_timeout is insufficient. A driver Transaction/connection guard spans
 the whole closure. Acceptance: local TCP/Unix auth, typed NULL/bytes/bools/ints,
 affected rows, rollback/commit/exclusion and recovery after error/cancellation.
 Delete startup/auth/query/frame/DSN/text-conversion engines. The current Tx API
-hazard is latent; this plan does not claim proven live transaction corruption.
+hazard was latent; this plan does not claim proven live transaction corruption.
+
+Source scope completed in `6b18ee1b` using Luna medium. Four explicit fresh
+PG17.11 tests prove SCRAM over Unix/TCP, typed nullable rows and scalar/JSONB
+bindings, cancellation/discard/new session, transaction exclusion and recovery
+after swallowed statement errors. Actual broker7/enrollment1 and affected HTTP
+and client checks pass, with a warning-free locked offline build. Store keeps
+the existing 30s budget; cancellation and driver join use a reserved slice of
+that same deadline. The connection guard spans the full closure, and a failed
+Tx cannot reconnect or report a successful commit. Production-generated Unix
+DSN parsing is checked; pinned image defaults use Unix trust and loopback
+SCRAM, while the disposable fixture proves SCRAM on both. No auth policy was
+changed; installed/customized HBA and artifact-worker qualification remain
+unverified. Detailed development receipts stay in `.artifacts/l08-l09/`.
 
 ### L09 Unix HTTP and WebSocket engines
 
