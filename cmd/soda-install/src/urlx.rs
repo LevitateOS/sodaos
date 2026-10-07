@@ -41,6 +41,7 @@ impl ParseError {
     }
 
     /// The exact Go error text.
+    #[cfg(test)]
     pub fn text(&self) -> &str {
         &self.text
     }

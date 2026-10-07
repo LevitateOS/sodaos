@@ -1,197 +1,201 @@
-use super::algorithms::PublicKeyAlgorithm;
-use super::der::{
-    oid_to_string, right_align, Reader, CTX0_CONS, CTX1_PRIM, CTX2_PRIM, CTX3_CONS, TAG_SEQ,
+use std::collections::HashSet;
+
+use x509_cert::{
+    der::{oid::AssociatedOid, Decode, Encode, Reader, SliceReader},
+    ext::pkix::{BasicConstraints, KeyUsage},
+    Certificate as TypedCertificate,
 };
-use super::extensions::{parse_extension, process_extensions, ProcessedExtensions};
-use super::name_constraints::quoted;
-use super::names::{parse_ai, parse_name};
-use super::public_key::{
-    is_negative, magnitude, parse_public_key, public_key_algorithm_from_oid,
-    signature_algorithm_from_ai,
-};
-use super::time::parse_validity;
-use super::types::Certificate;
 
-// ---------------------------------------------------------------------------
-// ParseCertificate.
-// ---------------------------------------------------------------------------
+use super::{algorithms::PublicKeyAlgorithm, types::Certificate};
 
-/// Go `x509.ParseCertificate`: structural parse with Go's exact errors.
-/// Trailing bytes at every level are ignored, as in Go.
-pub fn parse_certificate(der: &[u8]) -> Result<Certificate, String> {
-    let mut input = Reader::new(der);
-    let raw = input
-        .read_element(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed certificate"))?;
-    let mut input = Reader::new(raw);
-    let contents = input
-        .read_asn1(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed certificate"))?;
-    let mut input = Reader::new(contents);
-
-    let tbs_element = input
-        .read_element(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed tbs certificate"))?;
-    let mut tbs_reader = Reader::new(tbs_element);
-    let tbs_contents = tbs_reader
-        .read_asn1(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed tbs certificate"))?;
-    let mut tbs = Reader::new(tbs_contents);
-
-    let version_contents = tbs
-        .read_optional(CTX0_CONS)
-        .ok_or_else(|| String::from("x509: malformed version"))?;
-    let mut version = 0i64;
-    if let Some(contents) = version_contents {
-        let mut version_reader = Reader::new(contents);
-        version = version_reader
-            .read_int64()
-            .filter(|_| version_reader.is_empty())
-            .ok_or_else(|| String::from("x509: malformed version"))?;
+/// Decode the certificate with the upstream strict DER/X.509 implementation,
+/// then retain only the values used for local CA admission and self-signature
+/// verification. `raw_tbs` is borrowed from the admitted input, never encoded
+/// again from the typed value.
+pub(crate) fn parse_certificate(der: &[u8]) -> Result<Certificate, String> {
+    let typed =
+        TypedCertificate::from_der(der).map_err(|_| String::from("invalid certificate DER"))?;
+    if typed
+        .to_der()
+        .map_err(|_| String::from("invalid certificate DER"))?
+        != der
+    {
+        return Err(String::from("noncanonical certificate DER"));
     }
-    if version < 0 {
-        return Err(String::from("x509: malformed version"));
+    let has_extensions = typed.tbs_certificate.extensions.is_some();
+    if has_extensions && typed.tbs_certificate.version != x509_cert::certificate::Version::V3 {
+        return Err(String::from("extensions require certificate version 3"));
     }
-    version += 1;
-    if version > 3 {
-        return Err(String::from("x509: invalid version"));
-    }
-
-    let serial = tbs
-        .read_integer_bytes()
-        .ok_or_else(|| String::from("x509: malformed serial number"))?;
-    if is_negative(serial) {
-        return Err(String::from("x509: negative serial number"));
-    }
-
-    let inner_ai = tbs
-        .read_asn1(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed signature algorithm identifier"))?;
-    let outer_ai = input
-        .read_asn1(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed algorithm identifier"))?;
-    if inner_ai != outer_ai {
+    if (typed.tbs_certificate.issuer_unique_id.is_some()
+        || typed.tbs_certificate.subject_unique_id.is_some())
+        && typed.tbs_certificate.version == x509_cert::certificate::Version::V1
+    {
         return Err(String::from(
-            "x509: inner and outer signature algorithm identifiers don't match",
+            "unique identifiers require certificate version 2 or 3",
         ));
     }
-    let sig_ai = parse_ai(inner_ai)?;
-    let signature_algorithm = signature_algorithm_from_ai(&sig_ai);
+    if typed.tbs_certificate.signature != typed.signature_algorithm {
+        return Err(String::from(
+            "certificate signature algorithms do not match",
+        ));
+    }
 
-    let issuer = tbs
-        .read_element(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed issuer"))?;
-    parse_name(issuer)?;
+    let serial = typed.tbs_certificate.serial_number.as_bytes();
+    if serial.is_empty()
+        || serial.len() > 20
+        || serial[0] & 0x80 != 0
+        || serial.iter().all(|byte| *byte == 0)
+    {
+        return Err(String::from("invalid certificate serial number"));
+    }
 
-    let validity = tbs
-        .read_asn1(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed validity"))?;
-    let (not_before, not_after) = parse_validity(validity)?;
+    let mut reader = SliceReader::new(der).map_err(|_| String::from("invalid certificate DER"))?;
+    let raw_tbs = reader
+        .sequence(|sequence| {
+            let tbs = sequence.tlv_bytes()?;
+            let _ = sequence.tlv_bytes()?;
+            let _ = sequence.tlv_bytes()?;
+            Ok(tbs)
+        })
+        .map_err(|_| String::from("invalid certificate DER"))?;
+    reader
+        .finish(())
+        .map_err(|_| String::from("trailing certificate DER"))?;
 
-    // Go reports the subject with the issuer's error text; keep the quirk.
-    let subject = tbs
-        .read_element(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed issuer"))?;
-    parse_name(subject)?;
-
-    let spki = tbs
-        .read_element(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed spki"))?;
-    let mut spki_reader = Reader::new(spki);
-    let spki_contents = spki_reader
-        .read_asn1(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed spki"))?;
-    let mut spki_reader = Reader::new(spki_contents);
-    let pk_ai_contents = spki_reader
-        .read_asn1(TAG_SEQ)
-        .ok_or_else(|| String::from("x509: malformed public key algorithm identifier"))?;
-    let pk_ai = parse_ai(pk_ai_contents)?;
-    let public_key_algorithm = public_key_algorithm_from_oid(pk_ai.oid);
-    let (spk_bytes, spk_bits) = spki_reader
-        .read_bitstring()
-        .ok_or_else(|| String::from("x509: malformed subjectPublicKey"))?;
-    let key_data = right_align(spk_bytes, spk_bits);
-    let public_key = if public_key_algorithm != PublicKeyAlgorithm::Unknown {
-        Some(parse_public_key(
-            public_key_algorithm,
-            pk_ai.params,
-            &key_data,
-        )?)
-    } else {
-        None
-    };
-
-    let mut extensions = ProcessedExtensions {
-        key_usage: 0,
-        is_ca: false,
-        basic_constraints_valid: false,
-        max_path_len: 0,
-        max_path_len_zero: false,
-        unhandled_critical: Vec::new(),
-    };
-    if version > 1 {
-        if !tbs.skip_optional(CTX1_PRIM) {
-            return Err(String::from("x509: malformed issuerUniqueID"));
+    let mut seen = HashSet::new();
+    for extension in typed
+        .tbs_certificate
+        .extensions
+        .as_deref()
+        .unwrap_or_default()
+    {
+        if !seen.insert(extension.extn_id) {
+            return Err(String::from("duplicate certificate extension"));
         }
-        if !tbs.skip_optional(CTX2_PRIM) {
-            return Err(String::from("x509: malformed subjectUniqueID"));
-        }
-        if version == 3 {
-            let present = tbs
-                .read_optional(CTX3_CONS)
-                .ok_or_else(|| String::from("x509: malformed extensions"))?;
-            if let Some(contents) = present {
-                let mut ext_reader = Reader::new(contents);
-                let seq = ext_reader
-                    .read_asn1(TAG_SEQ)
-                    .ok_or_else(|| String::from("x509: malformed extensions"))?;
-                let mut ext_reader = Reader::new(seq);
-                let mut parsed = Vec::new();
-                let mut seen: Vec<&[u8]> = Vec::new();
-                while !ext_reader.is_empty() {
-                    let ext_contents = ext_reader
-                        .read_asn1(TAG_SEQ)
-                        .ok_or_else(|| String::from("x509: malformed extension"))?;
-                    let ext = parse_extension(ext_contents)?;
-                    if seen.contains(&ext.id) {
-                        // Go quotes the dotted OID string, not the raw bytes.
-                        let dotted = oid_to_string(ext.id);
-                        return Err(format!(
-                            "x509: certificate contains duplicate extension with OID {}",
-                            quoted(dotted.as_bytes())
-                        ));
-                    }
-                    seen.push(ext.id);
-                    parsed.push(ext);
-                }
-                extensions = process_extensions(&parsed)?;
-            }
+        if extension.critical
+            && extension.extn_id != BasicConstraints::OID
+            && extension.extn_id != KeyUsage::OID
+        {
+            return Err(String::from("unsupported critical certificate extension"));
         }
     }
 
-    let (sig_bytes, sig_bits) = input
-        .read_bitstring()
-        .ok_or_else(|| String::from("x509: malformed signature"))?;
+    let (_basic_constraints_critical, basic_constraints) = typed
+        .tbs_certificate
+        .get::<BasicConstraints>()
+        .map_err(|_| String::from("invalid basic constraints"))?
+        .ok_or_else(|| String::from("missing basic constraints"))?;
+    if !basic_constraints.ca {
+        return Err(String::from("certificate is not a CA"));
+    }
+    let key_usage = typed
+        .tbs_certificate
+        .get::<KeyUsage>()
+        .map_err(|_| String::from("invalid key usage"))?;
+    if let Some((_, usage)) = &key_usage {
+        if !usage.key_cert_sign() {
+            return Err(String::from(
+                "CA key usage does not permit certificate signing",
+            ));
+        }
+    }
+
+    let spki = &typed.tbs_certificate.subject_public_key_info;
+    let key_bytes = spki
+        .subject_public_key
+        .as_bytes()
+        .ok_or_else(|| String::from("unaligned public key bits"))?;
+    let (key_algorithm, public_key) = parse_public_key(spki, key_bytes)?;
+    let signature_algorithm = super::algorithms::signature_algorithm(&typed.signature_algorithm);
+    let signature = typed
+        .signature
+        .as_bytes()
+        .ok_or_else(|| String::from("unaligned certificate signature"))?
+        .to_vec();
 
     Ok(Certificate {
-        raw: raw.to_vec(),
-        raw_tbs: tbs_element.to_vec(),
-        raw_subject_public_key_info: spki.to_vec(),
-        raw_subject: subject.to_vec(),
-        raw_issuer: issuer.to_vec(),
-        version: version as u8,
-        serial: magnitude(serial).to_vec(),
+        raw: der.to_vec(),
+        raw_tbs: raw_tbs.to_vec(),
         signature_algorithm,
-        public_key_algorithm,
-        public_key,
-        signature: right_align(sig_bytes, sig_bits),
-        is_ca: extensions.is_ca,
-        basic_constraints_valid: extensions.basic_constraints_valid,
-        max_path_len: extensions.max_path_len,
-        max_path_len_zero: extensions.max_path_len_zero,
-        key_usage: extensions.key_usage,
-        not_before,
-        not_after,
-        unhandled_critical: extensions.unhandled_critical,
+        public_key_algorithm: key_algorithm,
+        public_key: Some(public_key),
+        signature,
     })
+}
+
+fn parse_public_key(
+    spki: &x509_cert::spki::SubjectPublicKeyInfoOwned,
+    key: &[u8],
+) -> Result<(PublicKeyAlgorithm, super::types::PublicKeyData), String> {
+    use rsa::pkcs1::DecodeRsaPublicKey;
+    let algorithm = spki.algorithm.oid.to_string();
+    match algorithm.as_str() {
+        "1.2.840.113549.1.1.1" => {
+            if !rsa_parameters_supported(&spki.algorithm.parameters) {
+                return Err(String::from("invalid RSA public key parameters"));
+            }
+            let public = rsa::RsaPublicKey::from_pkcs1_der(key)
+                .map_err(|_| String::from("invalid RSA public key"))?;
+            Ok((
+                PublicKeyAlgorithm::Rsa,
+                super::types::PublicKeyData::Rsa(public),
+            ))
+        }
+        "1.2.840.10045.2.1" => {
+            let curve = spki
+                .algorithm
+                .parameters
+                .as_ref()
+                .ok_or_else(|| String::from("missing ECDSA curve"))?
+                .decode_as::<x509_cert::der::asn1::ObjectIdentifier>()
+                .map_err(|_| String::from("invalid ECDSA curve"))?
+                .to_string();
+            let parsed = match curve.as_str() {
+                "1.3.132.0.33" if key.first() == Some(&4) && key.len() == 57 => {
+                    super::types::PublicKeyData::Ecdsa224(
+                        ecdsa::VerifyingKey::<p224::NistP224>::from_sec1_bytes(key)
+                            .map_err(|_| String::from("invalid ECDSA public key"))?,
+                    )
+                }
+                "1.2.840.10045.3.1.7" if key.first() == Some(&4) && key.len() == 65 => {
+                    super::types::PublicKeyData::Ecdsa256(
+                        ecdsa::VerifyingKey::<p256::NistP256>::from_sec1_bytes(key)
+                            .map_err(|_| String::from("invalid ECDSA public key"))?,
+                    )
+                }
+                "1.3.132.0.34" if key.first() == Some(&4) && key.len() == 97 => {
+                    super::types::PublicKeyData::Ecdsa384(
+                        ecdsa::VerifyingKey::<p384::NistP384>::from_sec1_bytes(key)
+                            .map_err(|_| String::from("invalid ECDSA public key"))?,
+                    )
+                }
+                "1.3.132.0.35" if key.first() == Some(&4) && key.len() == 133 => {
+                    super::types::PublicKeyData::Ecdsa521(
+                        ecdsa::VerifyingKey::<p521::NistP521>::from_sec1_bytes(key)
+                            .map_err(|_| String::from("invalid ECDSA public key"))?,
+                    )
+                }
+                _ => return Err(String::from("unsupported ECDSA curve")),
+            };
+            Ok((PublicKeyAlgorithm::Ecdsa, parsed))
+        }
+        "1.3.101.112" => {
+            if spki.algorithm.parameters.is_some() || key.len() != 32 {
+                return Err(String::from("invalid Ed25519 public key"));
+            }
+            let mut bytes = [0; 32];
+            bytes.copy_from_slice(key);
+            Ok((
+                PublicKeyAlgorithm::Ed25519,
+                super::types::PublicKeyData::Ed25519(bytes),
+            ))
+        }
+        _ => Err(String::from("unsupported public key algorithm")),
+    }
+}
+
+pub(super) fn rsa_parameters_supported(parameters: &Option<x509_cert::der::asn1::Any>) -> bool {
+    parameters
+        .as_ref()
+        .is_none_or(|value| x509_cert::der::asn1::AnyRef::from(value).is_null())
 }

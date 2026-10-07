@@ -187,15 +187,6 @@ pub fn fold_eq_ascii(value: &str, constant: &str) -> bool {
     }
 }
 
-/// Lowercase hex, mirroring Go `%x` over a digest.
-pub fn hex_lower(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        write!(out, "{b:02x}").unwrap();
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,6 +294,5 @@ mod tests {
             "ip failed (exit 1, interrupted false); raw diagnostics suppressed"
         );
         assert_eq!(sprintf("100%% %v", &[Arg::Str("ok")]), "100% ok");
-        assert_eq!(hex_lower(&[0xde, 0xad, 0xbe, 0xef]), "deadbeef");
     }
 }

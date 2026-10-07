@@ -1,4 +1,4 @@
-use super::algorithms::{PublicKeyAlgorithm, SignatureAlgorithm, KEY_USAGE_CERT_SIGN};
+use super::algorithms::{PublicKeyAlgorithm, SignatureAlgorithm};
 use super::types::{Certificate, PublicKeyData};
 
 // ---------------------------------------------------------------------------
@@ -6,8 +6,6 @@ use super::types::{Certificate, PublicKeyData};
 // ---------------------------------------------------------------------------
 
 const ERR_UNSUPPORTED_ALGORITHM: &str = "x509: cannot verify signature: algorithm unimplemented";
-const ERR_CONSTRAINT_VIOLATION: &str =
-    "x509: invalid signature: parent certificate cannot sign this kind of certificate";
 const ERR_RSA_VERIFICATION: &str = "crypto/rsa: verification error";
 const ERR_ECDSA_FAILURE: &str = "x509: ECDSA verification failure";
 const ERR_ED25519_FAILURE: &str = "x509: Ed25519 verification failure";
@@ -182,24 +180,15 @@ fn verify_ed25519(
         .map_err(|_| String::from(ERR_ED25519_FAILURE))
 }
 
-/// Go `(*Certificate).CheckSignatureFrom`: parent constraint checks, then
-/// `checkSignature` with SHA-1 disallowed.
-pub fn check_signature_from(child: &Certificate, parent: &Certificate) -> Result<(), String> {
-    if parent.version == 3 && !parent.basic_constraints_valid
-        || parent.basic_constraints_valid && !parent.is_ca
-    {
-        return Err(String::from(ERR_CONSTRAINT_VIOLATION));
-    }
-    if parent.key_usage != 0 && parent.key_usage & KEY_USAGE_CERT_SIGN == 0 {
-        return Err(String::from(ERR_CONSTRAINT_VIOLATION));
-    }
-    if parent.public_key_algorithm == PublicKeyAlgorithm::Unknown {
+/// Verify the certificate's self-signature over the original TBS encoding.
+pub fn verify_self_signature(certificate: &Certificate) -> Result<(), String> {
+    if certificate.public_key_algorithm == PublicKeyAlgorithm::Unknown {
         return Err(String::from(ERR_UNSUPPORTED_ALGORITHM));
     }
-    let (hash, expected, pss) = algorithm_details(child.signature_algorithm);
+    let (hash, expected, pss) = algorithm_details(certificate.signature_algorithm);
     match hash {
-        Hash::Md5 => return Err(insecure_algorithm_error(child.signature_algorithm)),
-        Hash::Sha1 => return Err(insecure_algorithm_error(child.signature_algorithm)),
+        Hash::Md5 => return Err(insecure_algorithm_error(certificate.signature_algorithm)),
+        Hash::Sha1 => return Err(insecure_algorithm_error(certificate.signature_algorithm)),
         Hash::None if expected != PublicKeyAlgorithm::Ed25519 => {
             return Err(String::from(ERR_UNSUPPORTED_ALGORITHM))
         }
@@ -207,24 +196,33 @@ pub fn check_signature_from(child: &Certificate, parent: &Certificate) -> Result
     }
     let hashed;
     let signed: &[u8] = if hash == Hash::None {
-        &child.raw_tbs
+        &certificate.raw_tbs
     } else {
-        hashed = digest(hash, &child.raw_tbs);
+        hashed = digest(hash, &certificate.raw_tbs);
         &hashed
     };
-    let key = match parent.public_key.as_ref() {
+    let key = match certificate.public_key.as_ref() {
         Some(key) => key,
         None => return Err(String::from(ERR_UNSUPPORTED_ALGORITHM)),
     };
     match key {
-        PublicKeyData::Rsa(key) => verify_rsa(key, expected, hash, pss, signed, &child.signature),
-        PublicKeyData::Ecdsa224(key) => verify_ecdsa_224(key, expected, signed, &child.signature),
-        PublicKeyData::Ecdsa256(key) => verify_ecdsa_256(key, expected, signed, &child.signature),
-        PublicKeyData::Ecdsa384(key) => verify_ecdsa_384(key, expected, signed, &child.signature),
-        PublicKeyData::Ecdsa521(key) => verify_ecdsa_521(key, expected, signed, &child.signature),
-        PublicKeyData::Ed25519(key) => verify_ed25519(key, expected, signed, &child.signature),
-        // Go's key-type switch has no DSA arm: DSA keys always fail here
-        // (after the hash gate above).
-        PublicKeyData::Dsa { .. } => Err(String::from(ERR_UNSUPPORTED_ALGORITHM)),
+        PublicKeyData::Rsa(key) => {
+            verify_rsa(key, expected, hash, pss, signed, &certificate.signature)
+        }
+        PublicKeyData::Ecdsa224(key) => {
+            verify_ecdsa_224(key, expected, signed, &certificate.signature)
+        }
+        PublicKeyData::Ecdsa256(key) => {
+            verify_ecdsa_256(key, expected, signed, &certificate.signature)
+        }
+        PublicKeyData::Ecdsa384(key) => {
+            verify_ecdsa_384(key, expected, signed, &certificate.signature)
+        }
+        PublicKeyData::Ecdsa521(key) => {
+            verify_ecdsa_521(key, expected, signed, &certificate.signature)
+        }
+        PublicKeyData::Ed25519(key) => {
+            verify_ed25519(key, expected, signed, &certificate.signature)
+        }
     }
 }
