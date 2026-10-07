@@ -303,8 +303,19 @@ Progress: **in progress**. Luna medium settled the
 feature; locked offline dependency checks passed. Luna low writers own disjoint
 host, strict-identity/Setup, launch and codec transfers; the coordinator owns
 manifests, checks, reviews and commits. Completed source packets are recorded
-separately as they pass verification. Remaining release, installer, guest and
-tool callers hold JSON01 completion and deletion of `lib/json`.
+separately as they pass verification. CF-04 is complete in `26493cf2`: all
+selected engines use their declared Base64 profiles, including raw fingerprints
+and intentional refusal of installer unpadded tails and identity interior
+padding. Eight focused codec tests across six owners, Setup encoding checks,
+Muse's 16 tests and affected development builds passed, with medium review.
+JSON01 has completed identity/Setup (`ae09f634`), Compose (`22c858fc`), Muse
+(`26493cf2`) and maintenance (`bf88640b`) parser/emitter transfers. Compose's
+12 tests and maintenance's seven focused checks passed; their source reviews
+and development builds passed. `e20647c1` transfers host config, Muse framing
+and tcontrol DTOs, while the legacy host engine still serves pending callers;
+new strict-boundary checks and the 57-test tcontrol oracle passed.
+Remaining release, installer, guest and tool callers hold JSON01 completion and
+deletion of `lib/json`.
 
 ### L05 SSH formats
 
