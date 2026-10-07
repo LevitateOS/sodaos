@@ -671,8 +671,8 @@ PG fixture openat2 fails closed if unsupported; appliance qualification must
 verify that support alongside existing SO_PEERPIDFD requirements. Actual worker
 Rust/toolchain qualification remains separate. Earlier completed structural work
 and parked restructuring checkpoints remain distinguishable from those limits;
-full tree/count regeneration waits for the later reconciliation step. L13 has
-not started.
+full tree/count regeneration waits for the later reconciliation step. L13/L14
+source results are recorded below.
 
 ### L13 Archive and release formats
 
@@ -693,6 +693,42 @@ duplicate wanted members, deterministic new tar output and old raw signatures;
 namespace/DTD/unsupported SVG cases and canonical emblem output. Delete manual
 writers/tokenizers and duplicate scanners; no legacy writer for old hash identity.
 
+**Source completion (2026-10-07).** C completed CF-07/08/09, REL01/02/03 and
+XML01 in `798e4e40`, `4ba9b1ec`, `d4f3c922`, `00c5cd63`, `65961956` and
+`46d5c4cd`. Luna medium handled decoded EOF, budgets and shared ownership;
+Luna low transferred the settled writers and XML/SVG profiles. Root retained
+manifest/lock, command execution, review and commit ownership. The bounded
+64-byte accessor lives in `lib/release-inputs/src/elf.rs`; build retains
+ET_EXEC/ET_DYN and x86_64 admission, while host/Tea retain their machine gates.
+The Muse feeder retains exact-size pread, its existing deadline and child/FD
+custody. A short source makes the writer sticky before tar Builder drop, so
+zero padding cannot manufacture a successful complete member.
+
+Delivery owns the shared layer scanner, consumed through the acyclic
+build-to-delivery dependency. MultiGzDecoder stays owned until decoded EOF,
+including concatenated gzip members, CRC/ISIZE and post-tar zero padding.
+Decoded nonzero trailing archives/junk and duplicate wanted terminal members
+refuse. Raw descriptor size/hash, overlay/whiteout/ancestor policy and original
+signed bytes remain caller responsibilities. New USTAR output is deterministic;
+old Go writer hashes are historical observations, with no compatibility writer.
+
+| Admitted format | Production bounds |
+| --- | --- |
+| OCI layers | 1 GiB compressed and decoded per layer; 512 MiB wanted member; 100,000 entries; 4 GiB unique compressed descriptors and 16 GiB decoded per image |
+| Terminal distributions | 10,000,000 compressed bytes, 256 MiB decoded including skipped members/padding, 2,000,000 bytes per retained wanted member and 100,000 entries; bounded same-FD cache reads |
+| Inline gzip | Image Ignition: 10 MiB compressed / 2 MiB decoded; acceptance: 2 MiB compressed / 1 MiB decoded, with encoded-source admission before expansion |
+| Emblem | 64 KiB same-FD regular-file input and 256 XML nodes; no DTD/entity resolver; resolved SVG namespaces, finite absolute M/L/H/V/Z closed rings only |
+
+Both actual pinned terminal distributions were fetched and their compressed and
+wanted-member pins checked: xterm 6.0.0 has 1,418,562 compressed / 6,046,720
+decoded bytes and 161 members; addon-fit 0.11.0 has 5,488 / 28,672 bytes and
+9 members. Each of the five wanted members occurs exactly once. The new native
+extractor processed those bytes through an owned local HTTP fixture and produced
+all five pinned SHA-256 outputs. Small-budget tests cover skipped members and
+post-tar padding without large expansion fixtures. Canonical emblem output is
+byte-for-byte unchanged. These source/local checks do not qualify an installed
+appliance, real import effects or shipping artifacts.
+
 ### L14 CLI and target discovery
 
 Scope: shared release goflag and callers, acceptance driver options/duration,
@@ -709,6 +745,66 @@ shipping destinations; metadata is not authority to install every target.
 Acceptance: actual CLI invocations, tails/false/repeats/overflow, unchanged shipping
 inventory and invalid/required-feature manifests. Delete generic flag/duration/
 format/TOML emulators. CLI01's tiny selectors remain custom.
+
+**Source completion (2026-10-07).** C completed FMT01/CLI02/CLI03/SYS01 in
+`c23e07e7`, `3e3076c5`, `b7864443`, `f3fc2759`, `bdd7beac` and `c82125ee`.
+Luna low implemented the settled Clap/humantime/literal-formatting profiles;
+Luna medium handled inventory/deadline custody and independently reviewed CLI
+admission. Root fixed compilation/runtime issues and verified actual executables.
+The shared goflag and installer fmtx engines and line-oriented Cargo TOML scanner
+are removed. Domain validation remains before secret loading, evidence creation
+and execution. Generated help goes to stdout with exit zero. Parser failures
+have neutral diagnostics; build syntax failures exit 2 and its existing domain
+refusals retain exit 1. Scalar options are last-wins, repeated evidence inputs
+append, explicit equals booleans preserve false, and exec's first positional
+begins a literal tail including later flags and `--help`. Documented double-dash
+flags remain; unproven Go single-dash-long aliases and foreign diagnostics retire.
+
+Timeouts admit the positive humantime grammar, default 30m with a 24h maximum,
+leading-plus and Greek-mu normalization. Human aliases/spacing admit; minus,
+zero, overflow and unsupported subnanosecond/fractional precision refuse. This
+profile deliberately replaces the old Go-duration oracle quirks.
+
+One `cargo metadata --format-version 1 --no-deps --locked --offline` result is
+bound to the admitted canonical snapshot and reused through compilation and
+payload linking. Opaque member IDs, actual package/bin targets and local default
+feature closure are checked; non-default required features refuse. Cargo's
+hyphenated `required-features` field is exercised against actual Cargo output,
+not only a handcrafted JSON fixture ([Cargo schema](https://doc.rust-lang.org/cargo/commands/cargo-metadata.html)).
+Metadata capture has a 16 MiB stdout cap and one 120s operation deadline, with
+existing cancellation, pipe-drain and direct-child reap ownership. A progressing
+child is tested with a short injected budget. Ordinary build commands retain
+their existing cancellation policy. The ten discovered commands and every
+RUST_TOOLS target/destination are preserved; tools-owned members derive from
+that table, runtime validation/build share one table, and Cargo builds now
+select the intended `--bin`. Metadata grants no additional shipping authority.
+
+L13/L14 verification totals 656 selected passing tests: foundation ELF 1, Muse
+maintenance 23, build 48 plus 12 fixture tests, delivery 37 plus 14 fixture tests,
+image 70, assets 89 plus 3 renderer tests, installer 112, acceptance 134,
+release-tools 100 plus 12 actual CLI tests, and host ELF 1. Focused repeats after
+subsequent fixes are not added to that total. Performed receipts are under
+`.artifacts/l13-l14/`, including terminal-corpus receipts and actual workspace
+metadata. Affected locked offline native development builds and final executable
+checks pass: all ten selected packages (build-tools, release-build/deliver/image/
+tools/assets, acceptance, installer, Muse maintenance and host) build. Only the
+eight pre-existing installer export warnings remain. Native checks cover eleven
+help cases without file effects, two safe invalid invocations and one completed
+local printf capture preserving `--help`, a later owner-looking flag and `--`
+in the exact invocation/output. These are fixture checks; installed/native-worker,
+provider, VM, shipping and appliance-toolchain qualification remain separate.
+The locked admission added eleven cached dependency nodes without changing
+existing pins. Clap uses std/help/usage/error-context only; the highest declared
+new MSRV is Rust 1.85, and cached manifests/licenses plus the actual affected
+feature closure were checked. L15/L17, the held L10.N4,
+L18 cleanup and optional L16 are unchanged.
+
+Final passing receipts are `muse-writer-test`, `oci-writer-test`,
+`inventory-assets-test`, `assets-format-test` (canonical renderer),
+`cli-format-test` (installer), `acceptance-final-test`, `release-cli-final-test`,
+`format-oracles-test`, `host-elf-test`, `native-build` and the native CLI/terminal
+corpus JSON receipts. Earlier compilation and mixed-suite failures were corrected
+and are superseded by those final selected results; they grant no qualification.
 
 ### L15 SDK input admission
 
