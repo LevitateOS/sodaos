@@ -205,7 +205,7 @@ fn read_members_with_limit(
         read: 0,
         limit: decoded_limit,
     };
-    let mut found = {
+    let found = {
         let mut archive = tar::Archive::new(&mut bounded);
         let entries = archive
             .entries()
