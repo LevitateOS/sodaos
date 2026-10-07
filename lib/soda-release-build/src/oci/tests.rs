@@ -1,9 +1,9 @@
 use super::content::{resolve_oci_members, scan_archive_layer, scan_oci_archive_layers};
-use super::layers::{scan_oci_layer, LayerMember};
 use super::manifest::{parse_oci_manifest, read_oci_index};
 use super::*;
 use crate::sha256_hex;
 use crate::test_support::{fixture_oci_bytes, FIXTURE_REVISION};
+use soda_release_deliver::oci::{scan_oci_layer, LayerMember};
 use std::collections::HashMap;
 use std::io::Write;
 
@@ -132,16 +132,14 @@ fn oracle_layer_scanner_vectors() {
         .collect();
     let dup = layer_bytes(&["wanted", "wanted"]);
     assert_eq!(
-        scan_oci_layer(&mut &dup[..], &wanted)
-            .unwrap_err()
-            .message(),
+        scan_oci_layer(&mut &dup[..], &wanted).unwrap_err().as_str(),
         "duplicate OCI layer entry"
     );
     let evil = raw_tar_entry("../wanted", b"evil");
     assert_eq!(
         scan_oci_layer(&mut &evil[..], &wanted)
             .unwrap_err()
-            .message(),
+            .as_str(),
         "unsafe OCI layer path"
     );
     let benign = layer_bytes(&[".", "wanted"]);

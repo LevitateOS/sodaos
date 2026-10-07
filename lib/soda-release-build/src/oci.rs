@@ -13,7 +13,6 @@ use std::path::Path;
 
 pub(crate) mod archive;
 mod content;
-mod layers;
 pub(crate) mod manifest;
 
 #[cfg(test)]
@@ -237,7 +236,8 @@ pub fn inspect_oci_content(
     revision: &str,
     paths: &[String],
 ) -> Result<(Image, BTreeMap<String, String>), Error> {
-    let wanted = layers::requested_oci_paths(paths)?;
+    let wanted = soda_release_deliver::oci::requested_oci_paths(paths)
+        .map_err(|error| Error::msg(error.to_string()))?;
     let (want, mut f) = archive::open_oci_archive(file, arch, revision)?;
     let entries = {
         let mut reader = std::io::BufReader::new(&mut f);

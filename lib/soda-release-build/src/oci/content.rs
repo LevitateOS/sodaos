@@ -2,10 +2,13 @@
 //! drains, gzip/zstd handling, and reverse overlay member resolution.
 
 use super::archive::entry_raw_name;
-use super::layers::{scan_oci_layer, LayerMember};
 use super::{hex_digest, Descriptor, LAYER_TAR, LAYER_TAR_GZIP, LAYER_TAR_ZSTD};
 use crate::{path_clean, Error};
 use sha2::Digest;
+use soda_release_deliver::oci::{
+    scan_oci_layer_with_budget, LayerMember, MAX_OCI_IMAGE_COMPRESSED_BYTES,
+    MAX_OCI_LAYER_COMPRESSED_BYTES,
+};
 use std::collections::{BTreeMap, HashMap};
 use std::io::Read;
 
@@ -13,8 +16,12 @@ use std::io::Read;
 pub(super) type LayerScans = (Vec<HashMap<String, LayerMember>>, Vec<bool>);
 
 fn layer_archive_indexes(layers: &[Descriptor]) -> Result<HashMap<String, Vec<usize>>, Error> {
+    if layers.len() > 100_000 {
+        return Err(Error::msg("too many OCI layers"));
+    }
     let mut indexes: HashMap<String, Vec<usize>> = HashMap::new();
     let mut seen: HashMap<String, &Descriptor> = HashMap::new();
+    let mut compressed_total = 0u64;
     for (i, layer) in layers.iter().enumerate() {
         let name = format!(
             "blobs/sha256/{}",
@@ -28,6 +35,16 @@ fn layer_archive_indexes(layers: &[Descriptor]) -> Result<HashMap<String, Vec<us
                 return Err(Error::msg("conflicting OCI layer descriptors"));
             }
         }
+        if !seen.contains_key(&name) {
+            let size =
+                u64::try_from(layer.size).map_err(|_| Error::msg("invalid OCI layer size"))?;
+            compressed_total = compressed_total
+                .checked_add(size)
+                .ok_or_else(|| Error::msg("OCI image compressed limit exceeded"))?;
+            if compressed_total > MAX_OCI_IMAGE_COMPRESSED_BYTES {
+                return Err(Error::msg("OCI image compressed limit exceeded"));
+            }
+        }
         seen.insert(name.clone(), layer);
         indexes.entry(name).or_default().push(i);
     }
@@ -38,13 +55,17 @@ fn layer_archive_indexes(layers: &[Descriptor]) -> Result<HashMap<String, Vec<us
 struct HashReader<R> {
     inner: R,
     hasher: sha2::Sha256,
+    size: u64,
+    limit: u64,
 }
 
 impl<R: Read> HashReader<R> {
-    fn new(inner: R) -> HashReader<R> {
+    fn new(inner: R, limit: u64) -> HashReader<R> {
         HashReader {
             inner,
             hasher: sha2::Sha256::new(),
+            size: 0,
+            limit,
         }
     }
 
@@ -55,7 +76,22 @@ impl<R: Read> HashReader<R> {
 
 impl<R: Read> Read for HashReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let n = self.inner.read(buf)?;
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        if self.size >= self.limit {
+            let mut probe = [0; 1];
+            return match self.inner.read(&mut probe)? {
+                0 => Ok(0),
+                _ => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "OCI layer size exceeded",
+                )),
+            };
+        }
+        let cap = (self.limit - self.size).min(buf.len() as u64) as usize;
+        let n = self.inner.read(&mut buf[..cap])?;
+        self.size += n as u64;
         use sha2::Digest;
         self.hasher.update(&buf[..n]);
         Ok(n)
@@ -65,17 +101,9 @@ impl<R: Read> Read for HashReader<R> {
 fn scan_layer_reader(
     layer: &mut dyn Read,
     wanted: &BTreeMap<String, String>,
+    aggregate: &mut u64,
 ) -> Result<HashMap<String, LayerMember>, Error> {
-    let members = scan_oci_layer(layer, wanted);
-    // Drain so gzip trailer corruption surfaces even when the scan stops
-    // early, mirroring Go's post-scan Discard + Close check.
-    if members.is_ok() {
-        let mut sink = std::io::sink();
-        if let Err(e) = std::io::copy(layer, &mut sink) {
-            return Err(Error::msg(e.to_string()));
-        }
-    }
-    members
+    scan_oci_layer_with_budget(layer, wanted, aggregate).map_err(Error::msg)
 }
 
 pub(super) fn scan_archive_layer(
@@ -83,23 +111,40 @@ pub(super) fn scan_archive_layer(
     descriptor: &Descriptor,
     wanted: &BTreeMap<String, String>,
 ) -> Result<(HashMap<String, LayerMember>, bool), Error> {
+    let mut aggregate = 0;
+    scan_archive_layer_with_budget(reader, descriptor, wanted, &mut aggregate)
+}
+
+fn scan_archive_layer_with_budget(
+    reader: &mut dyn Read,
+    descriptor: &Descriptor,
+    wanted: &BTreeMap<String, String>,
+    aggregate: &mut u64,
+) -> Result<(HashMap<String, LayerMember>, bool), Error> {
+    let limit = u64::try_from(descriptor.size).map_err(|_| Error::msg("invalid OCI layer size"))?;
+    if limit > MAX_OCI_LAYER_COMPRESSED_BYTES {
+        return Err(Error::msg("OCI layer compressed limit exceeded"));
+    }
     if descriptor.media_type == LAYER_TAR_ZSTD {
-        let mut raw = HashReader::new(reader);
+        let mut raw = HashReader::new(reader, limit);
         let mut sink = std::io::sink();
         std::io::copy(&mut raw, &mut sink)
             .map_err(|_| Error::msg("OCI layer changed during member verification"))?;
+        if raw.size != limit {
+            return Err(Error::msg("OCI layer changed during member verification"));
+        }
         let hex = raw.hex();
         if format!("sha256:{hex}") != descriptor.digest {
             return Err(Error::msg("OCI layer changed during member verification"));
         }
         return Ok((HashMap::new(), true));
     }
-    let mut raw = HashReader::new(reader);
+    let mut raw = HashReader::new(reader, limit);
     let (members, scan_err) = match descriptor.media_type.as_str() {
-        LAYER_TAR => (scan_layer_reader(&mut raw, wanted), None),
+        LAYER_TAR => (scan_layer_reader(&mut raw, wanted, aggregate), None),
         LAYER_TAR_GZIP => {
-            let mut gz = flate2::read::GzDecoder::new(&mut raw);
-            let members = scan_layer_reader(&mut gz, wanted);
+            let mut gz = flate2::read::MultiGzDecoder::new(&mut raw);
+            let members = scan_layer_reader(&mut gz, wanted, aggregate);
             // Drop the decoder before draining the raw remainder.
             drop(gz);
             (members, None)
@@ -116,6 +161,9 @@ pub(super) fn scan_archive_layer(
     let mut sink = std::io::sink();
     std::io::copy(&mut raw, &mut sink)
         .map_err(|e| Error::msg(format!("layer drain failed: {e}")))?;
+    if raw.size != limit {
+        return Err(Error::msg("OCI layer changed during member verification"));
+    }
     if format!("sha256:{}", raw.hex()) != descriptor.digest {
         return Err(Error::msg("OCI layer changed during member verification"));
     }
@@ -131,6 +179,7 @@ pub(super) fn scan_oci_archive_layers(
     let mut found: Vec<HashMap<String, LayerMember>> = Vec::with_capacity(layers.len());
     found.resize_with(layers.len(), HashMap::new);
     let mut unsupported = vec![false; layers.len()];
+    let mut decoded_total = 0u64;
     let mut archive = tar::Archive::new(reader);
     let listed = archive.entries().map_err(|e| Error::msg(e.to_string()))?;
     for entry in listed {
@@ -140,7 +189,12 @@ pub(super) fn scan_oci_archive_layers(
         if positions.is_empty() {
             continue;
         }
-        let (members, blocked) = scan_archive_layer(&mut entry, &layers[positions[0]], wanted)?;
+        let (members, blocked) = scan_archive_layer_with_budget(
+            &mut entry,
+            &layers[positions[0]],
+            wanted,
+            &mut decoded_total,
+        )?;
         for position in positions {
             found[position] = members.clone();
             unsupported[position] = blocked;

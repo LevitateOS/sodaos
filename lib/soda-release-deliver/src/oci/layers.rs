@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
 
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use sha2::{Digest as _, Sha256};
 
 use crate::model::path_clean;
@@ -15,13 +16,47 @@ use super::{LAYER_GZIP, LAYER_TAR, LAYER_ZSTD};
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Default)]
-pub(super) struct LayerMember {
-    pub(super) hash: String,
-    pub(super) present: bool,
-    pub(super) blocked: bool,
+pub struct LayerMember {
+    pub hash: String,
+    pub present: bool,
+    pub blocked: bool,
 }
 
-pub(super) fn requested_oci_paths(paths: &[String]) -> Result<BTreeMap<String, String>, Error> {
+pub const MAX_OCI_LAYER_BYTES: u64 = 1 << 30;
+pub const MAX_OCI_LAYER_COMPRESSED_BYTES: u64 = 1 << 30;
+pub const MAX_OCI_IMAGE_LAYER_BYTES: u64 = 16 << 30;
+pub const MAX_OCI_IMAGE_COMPRESSED_BYTES: u64 = 4 << 30;
+pub const MAX_OCI_MEMBER_BYTES: u64 = 512 << 20;
+
+struct BoundedReader<'a, R: ?Sized> {
+    inner: &'a mut R,
+    read: u64,
+    limit: u64,
+}
+
+impl<R: Read + ?Sized> Read for BoundedReader<'_, R> {
+    fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+        if out.is_empty() {
+            return Ok(0);
+        }
+        if self.read >= self.limit {
+            let mut probe = [0; 1];
+            return match self.inner.read(&mut probe)? {
+                0 => Ok(0),
+                _ => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "OCI layer limit exceeded",
+                )),
+            };
+        }
+        let cap = (self.limit - self.read).min(out.len() as u64) as usize;
+        let n = self.inner.read(&mut out[..cap])?;
+        self.read += n as u64;
+        Ok(n)
+    }
+}
+
+pub fn requested_oci_paths(paths: &[String]) -> Result<BTreeMap<String, String>, Error> {
     let mut wanted: BTreeMap<String, String> = BTreeMap::new();
     for requested in paths {
         let name = requested.strip_prefix('/').unwrap_or("");
@@ -198,8 +233,8 @@ fn record_layer_entry<R: Read>(
     Ok(())
 }
 
-fn scan_oci_layer<R: Read>(
-    reader: R,
+fn scan_oci_layer_inner<R: Read + ?Sized>(
+    reader: &mut R,
     wanted: &BTreeMap<String, String>,
 ) -> Result<BTreeMap<String, LayerMember>, Error> {
     let mut found: BTreeMap<String, LayerMember> = BTreeMap::new();
@@ -218,13 +253,16 @@ fn scan_oci_layer<R: Read>(
         if !seen.insert(name.clone()) {
             return Err(Error::msg("duplicate OCI layer entry"));
         }
-        if seen.len() > 1000000 {
+        if seen.len() > 100000 {
             return Err(Error::msg("too many OCI layer entries"));
         }
         let header = item.header().clone();
         let size = header
             .size()
             .map_err(|e| Error::msg(format!("read OCI layer: {e}")))?;
+        if wanted.contains_key(&name) && size > MAX_OCI_MEMBER_BYTES {
+            return Err(Error::msg("OCI layer member limit exceeded"));
+        }
         record_layer_entry(
             &mut item,
             size,
@@ -238,17 +276,66 @@ fn scan_oci_layer<R: Read>(
     Ok(found)
 }
 
+/// Scan a decompressed OCI tar layer and consume its complete stream. The
+/// caller retains the decoder so gzip trailer validation occurs at EOF.
+/// Concatenated gzip members are consumed; after the tar terminator, only zero
+/// padding is admitted.
+pub fn scan_oci_layer<R: Read + ?Sized>(
+    reader: &mut R,
+    wanted: &BTreeMap<String, String>,
+) -> Result<HashMap<String, LayerMember>, String> {
+    let mut aggregate = 0;
+    scan_oci_layer_with_budget(reader, wanted, &mut aggregate)
+}
+
+/// Scan a layer while charging its decoded bytes to an image-wide budget.
+pub fn scan_oci_layer_with_budget<R: Read + ?Sized>(
+    reader: &mut R,
+    wanted: &BTreeMap<String, String>,
+    aggregate: &mut u64,
+) -> Result<HashMap<String, LayerMember>, String> {
+    let remaining = MAX_OCI_IMAGE_LAYER_BYTES
+        .checked_sub(*aggregate)
+        .ok_or_else(|| "OCI image decoded limit exceeded".to_string())?;
+    let mut bounded = BoundedReader {
+        inner: reader,
+        read: 0,
+        limit: MAX_OCI_LAYER_BYTES.min(remaining),
+    };
+    let found = scan_oci_layer_inner(&mut bounded, wanted).map_err(|e| e.0)?;
+    drain_tar_padding(&mut bounded)
+        .map_err(|_| "OCI layer limit, trailing data, or stream error".to_string())?;
+    *aggregate = (*aggregate)
+        .checked_add(bounded.read)
+        .ok_or_else(|| "OCI image decoded limit exceeded".to_string())?;
+    Ok(found.into_iter().collect())
+}
+
 pub(super) fn layer_archive_indexes(
     layers: &[Descriptor],
 ) -> Result<BTreeMap<String, Vec<usize>>, Error> {
+    if layers.len() > 100_000 {
+        return Err(Error::msg("too many OCI layers"));
+    }
     let mut indexes: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     let mut seen: BTreeMap<String, &Descriptor> = BTreeMap::new();
+    let mut compressed_total = 0u64;
     for (i, layer) in layers.iter().enumerate() {
         let hex = layer.digest.strip_prefix("sha256:").unwrap_or("\x00");
         let name = format!("blobs/sha256/{hex}");
         if let Some(prior) = seen.get(&name) {
             if prior.media_type != layer.media_type || prior.size != layer.size {
                 return Err(Error::msg("conflicting OCI layer descriptors"));
+            }
+        }
+        if !seen.contains_key(&name) {
+            let size =
+                u64::try_from(layer.size).map_err(|_| Error::msg("invalid OCI layer size"))?;
+            compressed_total = compressed_total
+                .checked_add(size)
+                .ok_or_else(|| Error::msg("OCI image compressed limit exceeded"))?;
+            if compressed_total > MAX_OCI_IMAGE_COMPRESSED_BYTES {
+                return Err(Error::msg("OCI image compressed limit exceeded"));
             }
         }
         seen.insert(name.clone(), layer);
@@ -260,11 +347,28 @@ pub(super) fn layer_archive_indexes(
 struct TeeHasher<R> {
     inner: R,
     hasher: Sha256,
+    size: u64,
+    limit: u64,
 }
 
 impl<R: Read> Read for TeeHasher<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let n = self.inner.read(buf)?;
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        if self.size >= self.limit {
+            let mut probe = [0; 1];
+            return match self.inner.read(&mut probe)? {
+                0 => Ok(0),
+                _ => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "OCI layer size exceeded",
+                )),
+            };
+        }
+        let cap = (self.limit - self.size).min(buf.len() as u64) as usize;
+        let n = self.inner.read(&mut buf[..cap])?;
+        self.size += n as u64;
         self.hasher.update(&buf[..n]);
         Ok(n)
     }
@@ -279,18 +383,136 @@ fn drain(reader: &mut dyn Read) -> std::io::Result<()> {
     }
 }
 
+fn drain_tar_padding(reader: &mut dyn Read) -> std::io::Result<()> {
+    let mut chunk = [0u8; 65536];
+    loop {
+        let n = reader.read(&mut chunk)?;
+        if n == 0 {
+            return Ok(());
+        }
+        if chunk[..n].iter().any(|byte| *byte != 0) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "non-padding data after OCI tar terminator",
+            ));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use flate2::write::GzEncoder;
+    use std::io::Write;
+
+    fn tar_bytes(name: &str, body: &[u8]) -> Vec<u8> {
+        let mut tar = tar::Builder::new(Vec::new());
+        let mut header = tar::Header::new_gnu();
+        header.set_size(body.len() as u64);
+        header.set_mode(0o644);
+        header.set_cksum();
+        tar.append_data(&mut header, name, body).unwrap();
+        tar.into_inner().unwrap()
+    }
+
+    fn gzip(data: &[u8]) -> Vec<u8> {
+        let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(data).unwrap();
+        encoder.finish().unwrap()
+    }
+
+    fn descriptor(bytes: &[u8]) -> Descriptor {
+        Descriptor {
+            digest: format!("sha256:{:x}", Sha256::digest(bytes)),
+            size: bytes.len() as i64,
+            media_type: LAYER_GZIP.to_string(),
+            ..Descriptor::default()
+        }
+    }
+
+    #[test]
+    fn scan_validates_gzip_trailer_and_tar_tail() {
+        let wanted: BTreeMap<String, String> = [("wanted".to_string(), "/wanted".to_string())]
+            .into_iter()
+            .collect();
+        let valid = gzip(&tar_bytes("wanted", b"data"));
+        assert!(scan_archive_layer(&mut &valid[..], &descriptor(&valid), &wanted).is_ok());
+
+        let mut bad_crc = valid.clone();
+        let crc = bad_crc.len() - 8;
+        bad_crc[crc] ^= 1;
+        assert!(scan_archive_layer(&mut &bad_crc[..], &descriptor(&bad_crc), &wanted).is_err());
+
+        let mut bad_size = valid.clone();
+        *bad_size.last_mut().unwrap() ^= 1;
+        assert!(scan_archive_layer(&mut &bad_size[..], &descriptor(&bad_size), &wanted).is_err());
+
+        let mut trailing = valid;
+        trailing.extend(gzip(b"second tar stream"));
+        assert!(scan_archive_layer(&mut &trailing[..], &descriptor(&trailing), &wanted).is_err());
+    }
+
+    #[test]
+    fn scan_enforces_member_and_image_budgets_before_payload_reads() {
+        let wanted: BTreeMap<String, String> = [("wanted".to_string(), "/wanted".to_string())]
+            .into_iter()
+            .collect();
+        let mut header = tar::Header::new_gnu();
+        header.set_path("wanted").unwrap();
+        header.set_size(MAX_OCI_MEMBER_BYTES + 1);
+        header.set_mode(0o644);
+        header.set_cksum();
+        let oversized_header = header.as_bytes();
+        let mut used = 0;
+        assert_eq!(
+            scan_oci_layer_with_budget(&mut &oversized_header[..], &wanted, &mut used).unwrap_err(),
+            "OCI layer member limit exceeded"
+        );
+
+        used = MAX_OCI_IMAGE_LAYER_BYTES;
+        let layer = tar_bytes("wanted", b"data");
+        assert!(scan_oci_layer_with_budget(&mut &layer[..], &wanted, &mut used).is_err());
+
+        let oversized = Descriptor {
+            size: (MAX_OCI_LAYER_COMPRESSED_BYTES + 1) as i64,
+            media_type: LAYER_GZIP.to_string(),
+            ..Descriptor::default()
+        };
+        assert!(scan_archive_layer(&mut &[][..], &oversized, &wanted).is_err());
+    }
+}
+
+#[cfg(test)]
 pub(super) fn scan_archive_layer<R: Read>(
     reader: &mut R,
     descriptor: &Descriptor,
     wanted: &BTreeMap<String, String>,
 ) -> Result<(BTreeMap<String, LayerMember>, bool), Error> {
+    let mut aggregate = 0;
+    scan_archive_layer_with_budget(reader, descriptor, wanted, &mut aggregate)
+}
+
+pub(super) fn scan_archive_layer_with_budget<R: Read>(
+    reader: &mut R,
+    descriptor: &Descriptor,
+    wanted: &BTreeMap<String, String>,
+    aggregate: &mut u64,
+) -> Result<(BTreeMap<String, LayerMember>, bool), Error> {
     let changed = || Error::msg("OCI layer changed during member verification");
+    if descriptor.size < 0 || descriptor.size as u64 > MAX_OCI_LAYER_COMPRESSED_BYTES {
+        return Err(Error::msg("OCI layer compressed limit exceeded"));
+    }
     let mut tee = TeeHasher {
         inner: reader,
         hasher: Sha256::new(),
+        size: 0,
+        limit: u64::try_from(descriptor.size).map_err(|_| Error::msg("invalid OCI layer size"))?,
     };
     if descriptor.media_type == LAYER_ZSTD {
         if drain(&mut tee).is_err() {
+            return Err(changed());
+        }
+        if tee.size != tee.limit {
             return Err(changed());
         }
         let sum = format!("sha256:{:x}", tee.hasher.clone().finalize());
@@ -300,14 +522,23 @@ pub(super) fn scan_archive_layer<R: Read>(
         return Ok((BTreeMap::new(), true));
     }
     let members: BTreeMap<String, LayerMember> = match descriptor.media_type.as_str() {
-        LAYER_TAR => scan_oci_layer(&mut tee, wanted)?,
+        LAYER_TAR => scan_oci_layer_with_budget(&mut tee, wanted, aggregate)
+            .map_err(Error::msg)?
+            .into_iter()
+            .collect(),
         LAYER_GZIP => {
-            let gz = GzDecoder::new(&mut tee);
-            scan_oci_layer(gz, wanted)?
+            let mut gz = MultiGzDecoder::new(&mut tee);
+            scan_oci_layer_with_budget(&mut gz, wanted, aggregate)
+                .map_err(Error::msg)?
+                .into_iter()
+                .collect()
         }
         _ => return Err(Error::msg("unsupported OCI layer media type")),
     };
     if drain(&mut tee).is_err() {
+        return Err(changed());
+    }
+    if tee.size != tee.limit {
         return Err(changed());
     }
     let sum = format!("sha256:{:x}", tee.hasher.clone().finalize());

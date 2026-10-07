@@ -52,8 +52,13 @@ pub fn inspect_oci(file: &str, arch: &str, revision: &str) -> Result<BuildImage,
 
 mod layers;
 use layers::{
-    layer_archive_indexes, requested_oci_paths, resolve_oci_members, scan_archive_layer,
-    LayerMember,
+    layer_archive_indexes, resolve_oci_members, scan_archive_layer_with_budget,
+};
+pub use layers::{
+    requested_oci_paths,
+    scan_oci_layer, scan_oci_layer_with_budget, LayerMember, MAX_OCI_IMAGE_COMPRESSED_BYTES,
+    MAX_OCI_IMAGE_LAYER_BYTES, MAX_OCI_LAYER_BYTES, MAX_OCI_LAYER_COMPRESSED_BYTES,
+    MAX_OCI_MEMBER_BYTES,
 };
 
 fn inspect_content_manifest(
@@ -103,6 +108,7 @@ fn scan_oci_archive_layers<R: Read>(
     found.resize_with(layers.len(), BTreeMap::new);
     let mut unsupported = vec![false; layers.len()];
     let mut archive = tar::Archive::new(reader);
+    let mut decoded_total = 0u64;
     let items = archive
         .entries()
         .map_err(|e| Error::msg(format!("read OCI archive: {e}")))?;
@@ -116,7 +122,12 @@ fn scan_oci_archive_layers<R: Read>(
         if positions.is_empty() {
             continue;
         }
-        let (members, blocked) = scan_archive_layer(&mut item, &layers[positions[0]], wanted)?;
+        let (members, blocked) = scan_archive_layer_with_budget(
+            &mut item,
+            &layers[positions[0]],
+            wanted,
+            &mut decoded_total,
+        )?;
         for position in positions {
             found[position] = members.clone();
             unsupported[position] = blocked;
