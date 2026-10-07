@@ -1,111 +1,85 @@
 //! Polygon tokenization and even-odd raster geometry.
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Token {
-    Cmd(char),
-    Num(String),
-}
-
-/// Tokenize path data like `re.findall(r'[A-Za-z]|-?\d+(?:\.\d+)?', data)`:
-/// letters are commands, `-?\d+(\.\d+)?` numbers, everything else skipped.
-pub(crate) fn tokenize(data: &str) -> Vec<Token> {
-    let bytes = data.as_bytes();
-    let mut tokens = Vec::new();
-    let mut i = 0;
-    while i < bytes.len() {
-        let b = bytes[i];
-        if b.is_ascii_alphabetic() {
-            tokens.push(Token::Cmd(b as char));
-            i += 1;
-        } else if b.is_ascii_digit()
-            || (b == b'-' && i + 1 < bytes.len() && bytes[i + 1].is_ascii_digit())
-        {
-            let start = i;
-            if bytes[i] == b'-' {
-                i += 1;
-            }
-            while i < bytes.len() && bytes[i].is_ascii_digit() {
-                i += 1;
-            }
-            if i + 1 < bytes.len() && bytes[i] == b'.' && bytes[i + 1].is_ascii_digit() {
-                i += 1;
-                while i < bytes.len() && bytes[i].is_ascii_digit() {
-                    i += 1;
-                }
-            }
-            tokens.push(Token::Num(data[start..i].to_string()));
-        } else {
-            i += 1;
-        }
-    }
-    tokens
-}
-
-fn operand(token: &Token) -> Result<f64, String> {
-    match token {
-        Token::Num(raw) => raw
-            .parse::<f64>()
-            .map_err(|_| format!("could not convert string to float: '{raw}'")),
-        Token::Cmd(c) => Err(format!("could not convert string to float: '{c}'")),
-    }
-}
-
-/// Parse absolute-polygon path data into rings, with the script's exact
-/// gates (points accumulate across moves until `Z`, like the owner).
+/// Parse absolute polygon path data into explicitly closed rings.
 pub(crate) fn polygons(data: &str) -> Result<Vec<Vec<(f64, f64)>>, String> {
-    let tokens = tokenize(data);
     let mut result: Vec<Vec<(f64, f64)>> = Vec::new();
     let mut points: Vec<(f64, f64)> = Vec::new();
     let (mut x, mut y) = (0.0, 0.0);
-    let mut i = 0;
-    while i < tokens.len() {
-        match &tokens[i] {
-            Token::Cmd('M') | Token::Cmd('L') => {
-                let command = match &tokens[i] {
-                    Token::Cmd(c) => *c,
-                    _ => unreachable!(),
-                };
-                i += 1;
-                if i + 2 > tokens.len() {
-                    return Err(format!("Truncated emblem command: {command}"));
+    for parsed in svgtypes::PathParser::from(data) {
+        let segment = parsed.map_err(|_| "Malformed emblem geometry".to_string())?;
+        match segment {
+            svgtypes::PathSegment::MoveTo {
+                abs: true,
+                x: next_x,
+                y: next_y,
+            } => {
+                if !points.is_empty() {
+                    return Err("Unterminated emblem geometry".to_string());
                 }
-                x = operand(&tokens[i])?;
-                y = operand(&tokens[i + 1])?;
-                i += 2;
+                x = finite(next_x)?;
+                y = finite(next_y)?;
+                points.push((x, y));
             }
-            Token::Cmd('H') => {
-                i += 1;
-                if i + 1 > tokens.len() {
-                    return Err("Truncated emblem command: H".to_string());
-                }
-                x = operand(&tokens[i])?;
-                i += 1;
+            svgtypes::PathSegment::LineTo {
+                abs: true,
+                x: next_x,
+                y: next_y,
+            } => {
+                require_ring(&points)?;
+                x = finite(next_x)?;
+                y = finite(next_y)?;
+                points.push((x, y));
             }
-            Token::Cmd('V') => {
-                i += 1;
-                if i + 1 > tokens.len() {
-                    return Err("Truncated emblem command: V".to_string());
-                }
-                y = operand(&tokens[i])?;
-                i += 1;
+            svgtypes::PathSegment::HorizontalLineTo {
+                abs: true,
+                x: next_x,
+            } => {
+                require_ring(&points)?;
+                x = finite(next_x)?;
+                points.push((x, y));
             }
-            Token::Cmd('Z') => {
-                i += 1;
+            svgtypes::PathSegment::VerticalLineTo {
+                abs: true,
+                y: next_y,
+            } => {
+                require_ring(&points)?;
+                y = finite(next_y)?;
+                points.push((x, y));
+            }
+            svgtypes::PathSegment::ClosePath { abs: true } => {
                 if points.len() < 3 {
                     return Err("Emblem polygon has fewer than 3 points".to_string());
                 }
                 result.push(std::mem::take(&mut points));
-                continue;
             }
-            Token::Cmd(c) => return Err(format!("Unsupported emblem command: {c}")),
-            Token::Num(raw) => return Err(format!("Unsupported emblem command: {raw}")),
+            other => {
+                return Err(format!(
+                    "Unsupported emblem command: {}",
+                    other.command() as char
+                ));
+            }
         }
-        points.push((x, y));
     }
     if !points.is_empty() || result.is_empty() {
         return Err("Unterminated emblem geometry".to_string());
     }
     Ok(result)
+}
+
+fn finite(value: f64) -> Result<f64, String> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err("Non-finite emblem coordinate".to_string())
+    }
+}
+
+fn require_ring(points: &[(f64, f64)]) -> Result<(), String> {
+    if points.is_empty() {
+        Err("Emblem geometry must start with M".to_string())
+    } else {
+        Ok(())
+    }
 }
 
 fn inside(x: f64, y: f64, polygon: &[(f64, f64)]) -> bool {

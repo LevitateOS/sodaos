@@ -1,6 +1,7 @@
 //! Pinned terminal distribution extraction (`scripts/fetch-terminal.py`).
 
 use std::io::Read;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -12,7 +13,10 @@ pub const USER_AGENT: &str = "SodaOS-build";
 const TIMEOUT: Duration = Duration::from_secs(30);
 const ARCHIVE_LIMIT: u64 = 10_000_000;
 const MEMBER_LIMIT: u64 = 2_000_000;
+const DECOMPRESSED_LIMIT: u64 = 256 << 20;
+const MEMBER_COUNT_LIMIT: usize = 100_000;
 
+#[derive(Clone)]
 struct Asset {
     member: String,
     file: String,
@@ -86,11 +90,18 @@ fn parse_lock(text: &str) -> Result<Vec<Item>, String> {
         for file in files {
             let file: RawObject = serde_json::from_str(file.get())
                 .map_err(|_| "terminal lock entry is malformed".to_string())?;
-            assets.push(Asset {
+            let asset = Asset {
                 member: lock_string(&file, "member")?,
                 file: lock_string(&file, "file")?,
                 sha256: lock_string(&file, "sha256")?,
-            });
+            };
+            if asset.file.is_empty()
+                || asset.file.contains(['/', '\0'])
+                || matches!(asset.file.as_str(), "." | "..")
+            {
+                return Err("invalid terminal distribution member".to_string());
+            }
+            assets.push(asset);
         }
         items.push(Item {
             url: lock_string(&raw, "url")?,
@@ -114,10 +125,25 @@ pub fn default_lock() -> Result<PathBuf, String> {
 fn cached(out: &Path, files: &[Asset]) -> Result<bool, String> {
     for asset in files {
         let path = out.join(&asset.file);
-        if !path.is_file() {
+        let file = match std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NONBLOCK | libc::O_CLOEXEC)
+            .open(&path)
+        {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => return Err(error.to_string()),
+        };
+        if !file.metadata().map_err(|e| e.to_string())?.is_file() {
             return Ok(false);
         }
-        let data = std::fs::read(&path).map_err(|e| e.to_string())?;
+        let mut data = Vec::new();
+        file.take(MEMBER_LIMIT + 1)
+            .read_to_end(&mut data)
+            .map_err(|e| e.to_string())?;
+        if data.len() as u64 > MEMBER_LIMIT {
+            return Ok(false);
+        }
         if crate::fetch::sha256_hex(&data) != asset.sha256 {
             return Ok(false);
         }
@@ -125,58 +151,125 @@ fn cached(out: &Path, files: &[Asset]) -> Result<bool, String> {
     Ok(true)
 }
 
-struct Member {
-    name: String,
-    is_file: bool,
-    size: u64,
-    data: Vec<u8>,
+struct BudgetReader<'a, R> {
+    inner: &'a mut R,
+    read: u64,
+    limit: u64,
 }
 
-fn read_members(body: &[u8]) -> Result<Vec<Member>, String> {
-    let gz = flate2::read::GzDecoder::new(body);
-    let mut archive = tar::Archive::new(gz);
-    let mut members = Vec::new();
-    let entries = archive
-        .entries()
-        .map_err(|e| format!("terminal archive is not readable: {e}"))?;
-    for entry in entries {
-        let mut entry = entry.map_err(|e| format!("terminal archive is not readable: {e}"))?;
-        let name = entry
-            .path()
-            .map_err(|e| format!("terminal archive is not readable: {e}"))?
-            .to_str()
-            .unwrap_or("")
-            .to_string();
-        let is_file = entry.header().entry_type().is_file();
-        let size = entry.header().size().unwrap_or(u64::MAX);
-        let mut data = Vec::new();
-        entry
-            .read_to_end(&mut data)
+impl<R: Read> Read for BudgetReader<'_, R> {
+    fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+        if output.is_empty() {
+            return Ok(0);
+        }
+        if self.read == self.limit {
+            let mut probe = [0; 1];
+            return match self.inner.read(&mut probe)? {
+                0 => Ok(0),
+                _ => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "terminal archive decoded limit exceeded",
+                )),
+            };
+        }
+        let cap = (self.limit - self.read).min(output.len() as u64) as usize;
+        let n = self.inner.read(&mut output[..cap])?;
+        self.read += n as u64;
+        Ok(n)
+    }
+}
+
+fn read_members(
+    body: &[u8],
+    assets: &[Asset],
+) -> Result<std::collections::HashMap<String, Vec<u8>>, String> {
+    read_members_with_limit(body, assets, DECOMPRESSED_LIMIT)
+}
+
+fn read_members_with_limit(
+    body: &[u8],
+    assets: &[Asset],
+    decoded_limit: u64,
+) -> Result<std::collections::HashMap<String, Vec<u8>>, String> {
+    let mut wanted = std::collections::HashMap::new();
+    for asset in assets {
+        if wanted.insert(asset.member.as_str(), ()).is_some() {
+            return Err("duplicate terminal distribution member request".to_string());
+        }
+    }
+    // Consume every gzip member and require only zero tar padding after the
+    // first archive terminator; concatenated archives and junk are rejected.
+    let mut decoder = flate2::read::MultiGzDecoder::new(body);
+    let mut bounded = BudgetReader {
+        inner: &mut decoder,
+        read: 0,
+        limit: decoded_limit,
+    };
+    let mut found = {
+        let mut archive = tar::Archive::new(&mut bounded);
+        let entries = archive
+            .entries()
             .map_err(|e| format!("terminal archive is not readable: {e}"))?;
-        members.push(Member {
-            name,
-            is_file,
-            size,
-            data,
-        });
+        let mut found = std::collections::HashMap::new();
+        let mut count = 0;
+        for entry in entries {
+            let mut entry = entry.map_err(|e| format!("terminal archive is not readable: {e}"))?;
+            count += 1;
+            if count > MEMBER_COUNT_LIMIT {
+                return Err("terminal archive has too many members".to_string());
+            }
+            let name = entry
+                .path()
+                .map_err(|e| format!("terminal archive is not readable: {e}"))?
+                .to_str()
+                .unwrap_or("")
+                .to_string();
+            if !wanted.contains_key(name.as_str()) {
+                continue;
+            }
+            if found.contains_key(&name) {
+                return Err("duplicate terminal distribution member".to_string());
+            }
+            let size = entry
+                .header()
+                .size()
+                .map_err(|e| format!("terminal archive is not readable: {e}"))?;
+            if !entry.header().entry_type().is_file() || size > MEMBER_LIMIT {
+                return Err("invalid terminal distribution member".to_string());
+            }
+            let capacity = usize::try_from(size)
+                .map_err(|_| "invalid terminal distribution member".to_string())?;
+            let mut data = Vec::new();
+            data.try_reserve_exact(capacity)
+                .map_err(|_| "invalid terminal distribution member".to_string())?;
+            entry
+                .read_to_end(&mut data)
+                .map_err(|e| format!("terminal archive is not readable: {e}"))?;
+            if data.len() as u64 != size {
+                return Err("terminal archive is not readable: member size changed".to_string());
+            }
+            found.insert(name, data);
+        }
+        found
+    };
+    let mut tail = [0u8; 65536];
+    loop {
+        let n = bounded
+            .read(&mut tail)
+            .map_err(|e| format!("terminal archive is not readable: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        if tail[..n].iter().any(|byte| *byte != 0) {
+            return Err("terminal archive has trailing data".to_string());
+        }
     }
-    Ok(members)
-}
-
-fn extract(members: &[Member], asset: &Asset, out: &Path) -> Result<(), String> {
-    // First exact-name match, like `getmember` (a missing member surfaces
-    // as the invalid-member error rather than a bare key error).
-    let member = members
-        .iter()
-        .find(|m| m.name == asset.member)
-        .ok_or_else(|| "invalid terminal distribution member".to_string())?;
-    if !member.is_file || member.size > MEMBER_LIMIT || asset.file.contains('/') {
-        return Err("invalid terminal distribution member".to_string());
+    for asset in assets {
+        if !found.contains_key(&asset.member) {
+            return Err("invalid terminal distribution member".to_string());
+        }
     }
-    if crate::fetch::sha256_hex(&member.data) != asset.sha256 {
-        return Err("terminal asset integrity mismatch".to_string());
-    }
-    std::fs::write(out.join(&asset.file), &member.data).map_err(|e| e.to_string())
+    Ok(found)
 }
 
 pub fn fetch(lock_path: &Path, out: &Path) -> Result<(), String> {
@@ -202,9 +295,21 @@ pub fn fetch(lock_path: &Path, out: &Path) -> Result<(), String> {
         {
             return Err("terminal archive integrity mismatch".to_string());
         }
-        let members = read_members(&body)?;
+        let members = read_members(&body, &item.files)?;
         for asset in &item.files {
-            extract(&members, asset, out)?;
+            let member = members
+                .get(&asset.member)
+                .ok_or_else(|| "invalid terminal distribution member".to_string())?;
+            if asset.file.contains('/') {
+                return Err("invalid terminal distribution member".to_string());
+            }
+            if crate::fetch::sha256_hex(member) != asset.sha256 {
+                return Err("terminal asset integrity mismatch".to_string());
+            }
+        }
+        for asset in &item.files {
+            std::fs::write(out.join(&asset.file), &members[&asset.member])
+                .map_err(|e| e.to_string())?;
         }
     }
     Ok(())

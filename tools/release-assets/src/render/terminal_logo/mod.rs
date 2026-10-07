@@ -1,12 +1,4 @@
-//! Terminal-logo renderer (ports `scripts/render-terminal-logo.py`).
-//!
-//! Samples the canonical polygon emblem into a 32-column, 16-row ASCII
-//! mark. Geometry, sampling, colorization and gate messages match the
-//! script. The script leans on a full XML parser; the port instead runs a
-//! strict gate that only accepts the canonical document shape (SVG root,
-//! title/desc/path children, comments) and fails closed on anything else,
-//! which is exactly what the emblem gate is for: any changed syntax must
-//! trip it explicitly.
+//! Bounded XML/SVG admission and deterministic terminal emblem rendering.
 
 mod geometry;
 mod svg;
@@ -14,13 +6,12 @@ mod svg;
 #[cfg(test)]
 mod tests;
 
+use std::io::Read;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
 use geometry::{polygons, render_layers};
 use svg::{attr, parse_svg};
-
-#[cfg(test)]
-use geometry::{tokenize, Token};
 
 /// Render one SVG document to `(sodaos.txt, motd.txt)`, with the script's
 /// gate order: viewBox, then layers, then fill rule, then geometry.
@@ -29,13 +20,6 @@ pub fn render_svg(text: &str) -> Result<(String, String), String> {
     if attr(&root, "viewBox") != Some("0 0 128 128") {
         return Err("Unexpected emblem viewBox".to_string());
     }
-    // `findall` only sees the SVG namespace: without the default binding
-    // there are no layers, and the layers gate fires first, like the owner.
-    let paths = if attr(&root, "xmlns") == Some("http://www.w3.org/2000/svg") {
-        paths
-    } else {
-        Vec::new()
-    };
     let fills: Vec<Option<&str>> = paths.iter().map(|attrs| attr(attrs, "fill")).collect();
     if fills.as_slice() != [Some("#df001b"), Some("#101010")] {
         return Err("Unexpected emblem layers".to_string());
@@ -59,7 +43,17 @@ pub fn render_svg(text: &str) -> Result<(String, String), String> {
 pub fn run(root: &Path, check: bool) -> Result<(), String> {
     let source = root.join("assets/branding/source/soda-symbol-brutalist.svg");
     let out = root.join("assets/branding/terminal");
-    let svg = std::fs::read_to_string(&source)
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_CLOEXEC)
+        .open(&source)
+        .map_err(|e| format!("cannot read {}: {e}", source.display()))?;
+    if !file.metadata().map_err(|e| e.to_string())?.is_file() {
+        return Err("Emblem source must be a regular file".to_string());
+    }
+    let mut svg = String::new();
+    file.take(svg::MAX_DOCUMENT_BYTES as u64 + 1)
+        .read_to_string(&mut svg)
         .map_err(|e| format!("cannot read {}: {e}", source.display()))?;
     let (colored, plain) = render_svg(&svg)?;
     for (name, text) in [("sodaos.txt", colored), ("motd.txt", plain)] {

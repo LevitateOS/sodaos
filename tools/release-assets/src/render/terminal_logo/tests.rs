@@ -7,55 +7,42 @@ fn document(paths: &str) -> String {
 }
 
 #[test]
-fn tokenizer_matches_findall_shapes() {
-    let tokens = tokenize("M40 0H128V88L-8.5.5+3Z");
-    let texts: Vec<String> = tokens
-        .iter()
-        .map(|token| match token {
-            Token::Cmd(c) => c.to_string(),
-            Token::Num(raw) => raw.clone(),
-        })
-        .collect();
-    // Like findall: the lone `.` and `+` are skipped, not signed fractions.
+fn svg_path_parser_accepts_valid_numbers_and_expands_moveto_pairs() {
+    let paths = polygons("M+.5 .5 10 0H10V10L0 10Z").unwrap();
+    assert_eq!(paths.len(), 1);
     assert_eq!(
-        texts,
-        ["M", "40", "0", "H", "128", "V", "88", "L", "-8.5", "5", "3", "Z"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>()
+        paths[0],
+        [
+            (0.5, 0.5),
+            (10.0, 0.0),
+            (10.0, 0.0),
+            (10.0, 10.0),
+            (0.0, 10.0)
+        ]
     );
+
+    let rings = polygons("M0 0L10 0L0 10Z M20 20L30 20L20 30Z").unwrap();
+    assert_eq!(rings.len(), 2);
 }
 
 #[test]
-fn polygon_gates_match_the_script() {
-    assert!(polygons("M0 0L10 0L0 10Z").is_ok());
-    assert_eq!(
-        polygons("M0 0L10 0").unwrap_err(),
-        "Unterminated emblem geometry"
-    );
-    assert_eq!(polygons("").unwrap_err(), "Unterminated emblem geometry");
-    assert_eq!(
-        polygons("M0 0L10 0L0 10Z M0 0").unwrap_err(),
-        "Unterminated emblem geometry"
-    );
+fn path_geometry_requires_absolute_finite_closed_rings() {
+    for path in ["", "M0 0L10 0", "M0 0L10 0M0 10", "L0 0L10 0Z"] {
+        assert!(polygons(path).is_err(), "accepted {path:?}");
+    }
     assert_eq!(
         polygons("M0 0Z").unwrap_err(),
         "Emblem polygon has fewer than 3 points"
     );
     assert_eq!(
-        polygons("M0 0L10").unwrap_err(),
-        "Truncated emblem command: L"
-    );
-    assert_eq!(polygons("H").unwrap_err(), "Truncated emblem command: H");
-    assert_eq!(
-        polygons("V5X").unwrap_err(),
-        "Unsupported emblem command: X"
-    );
-    assert_eq!(
-        polygons("M0 0L10 0L0 10Z Q1 2").unwrap_err(),
+        polygons("M0 0L10 0L0 10Q1 2 3 4Z").unwrap_err(),
         "Unsupported emblem command: Q"
     );
-    assert_eq!(polygons("5").unwrap_err(), "Unsupported emblem command: 5");
+    assert_eq!(
+        polygons("M0 0l10 0L0 10Z").unwrap_err(),
+        "Unsupported emblem command: l"
+    );
+    assert!(polygons("M0 0L1e9999 0L0 10Z").is_err());
 }
 
 #[test]
@@ -87,6 +74,37 @@ fn svg_gate_rejects_changed_syntax() {
     assert!(render_svg(&document(&grouped))
         .unwrap_err()
         .contains("Unexpected emblem element"));
+}
+
+#[test]
+fn xml_gate_checks_resolved_namespaces_and_rejects_dtd_text_and_transforms() {
+    let paths = "<path fill=\"#df001b\" fill-rule=\"evenodd\" d=\"M0 0H8V8H0Z\"/><path fill=\"#101010\" fill-rule=\"evenodd\" d=\"M0 0H4V4H0Z\"/>";
+    let prefixed = format!(
+        "<s:svg xmlns:s=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\"><s:path fill=\"#df001b\" fill-rule=\"evenodd\" d=\"M0 0H8V8H0Z\"/><s:path fill=\"#101010\" fill-rule=\"evenodd\" d=\"M0 0H4V4H0Z\"/></s:svg>"
+    );
+    assert!(render_svg(&prefixed).is_ok());
+
+    let reset = document(&paths.replace("<path", "<path xmlns=\"\""));
+    assert!(render_svg(&reset)
+        .unwrap_err()
+        .contains("Unexpected emblem element"));
+    assert!(
+        render_svg(&document(&paths).replace("<svg ", "<svg transform=\"scale(2)\" "))
+            .unwrap_err()
+            .contains("attribute")
+    );
+    assert!(
+        render_svg(&document(&paths).replace("<path ", "<path transform=\"scale(2)\" "))
+            .unwrap_err()
+            .contains("attribute")
+    );
+    assert!(render_svg(&document(&paths).replace("</svg>", "unowned text</svg>")).is_err());
+    assert!(render_svg(&format!(
+        "<!DOCTYPE svg [<!ENTITY mark \"expanded\">]>{}",
+        document(&paths)
+    ))
+    .is_err());
+    assert!(render_svg(&" ".repeat(64 * 1024 + 1)).is_err());
 }
 
 #[test]

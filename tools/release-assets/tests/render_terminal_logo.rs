@@ -70,7 +70,7 @@ fn logo_renders_the_canonical_emblem_byte_for_byte() {
 }
 
 #[test]
-fn logo_gates_match_the_script() {
+fn logo_admission_gates() {
     let scratch = TempDir::new("logo-gate");
     let root = logo_root(&scratch);
     let svg_path = root.join("assets/branding/source/soda-symbol-brutalist.svg");
@@ -98,7 +98,7 @@ fn logo_gates_match_the_script() {
                 "M40 Q",
                 1,
             ),
-            "could not convert string to float: 'Q'",
+            "Malformed emblem geometry",
         ),
     ] {
         fs::write(&svg_path, &bad).unwrap();

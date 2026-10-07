@@ -1,7 +1,7 @@
 use super::*;
 use crate::fetch::test_server::{Server, TempDir};
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{Read, Write};
 
 fn tarball(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut tar = tar::Builder::new(Vec::new());
@@ -15,6 +15,20 @@ fn tarball(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let tarred = tar.into_inner().unwrap();
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
     encoder.write_all(&tarred).unwrap();
+    encoder.finish().unwrap()
+}
+
+fn decoded_gzip(body: &[u8]) -> Vec<u8> {
+    let mut decoded = Vec::new();
+    flate2::read::GzDecoder::new(body)
+        .read_to_end(&mut decoded)
+        .unwrap();
+    decoded
+}
+
+fn gzip(decoded: &[u8]) -> Vec<u8> {
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(decoded).unwrap();
     encoder.finish().unwrap()
 }
 
@@ -54,6 +68,102 @@ fn exact_members_checksums_and_cached_bytes() {
     fetch(&lock_path, &out).unwrap();
     assert_eq!(std::fs::read(out.join("xterm.mjs")).unwrap(), b"synthetic");
     assert_eq!(server.seen().len(), 2);
+}
+
+#[test]
+fn duplicate_wanted_member_and_corrupt_gzip_trailer_are_rejected() {
+    let asset = Asset {
+        member: "package/file".to_string(),
+        file: "asset".to_string(),
+        sha256: crate::fetch::sha256_hex(b"wanted"),
+    };
+    let duplicate = tarball(&[("package/file", b"wanted"), ("package/file", b"wanted")]);
+    assert_eq!(
+        read_members(&duplicate, &[asset]).unwrap_err(),
+        "duplicate terminal distribution member"
+    );
+
+    let valid = tarball(&[("package/file", b"wanted")]);
+    let mut corrupt = valid;
+    *corrupt.last_mut().unwrap() ^= 1;
+    assert!(read_members(
+        &corrupt,
+        &[Asset {
+            member: "package/file".to_string(),
+            file: "asset".to_string(),
+            sha256: crate::fetch::sha256_hex(b"wanted"),
+        }]
+    )
+    .is_err());
+
+    let first = tarball(&[("package/file", b"wanted")]);
+    let second = tarball(&[("other/file", b"trailing archive")]);
+    let mut concatenated = first;
+    concatenated.extend(second);
+    assert_eq!(
+        read_members(
+            &concatenated,
+            &[Asset {
+                member: "package/file".to_string(),
+                file: "asset".to_string(),
+                sha256: crate::fetch::sha256_hex(b"wanted"),
+            }]
+        )
+        .unwrap_err(),
+        "terminal archive has trailing data"
+    );
+}
+
+#[test]
+fn skipped_members_and_post_archive_padding_share_the_decoded_budget() {
+    let asset = Asset {
+        member: "wanted".to_string(),
+        file: "asset".to_string(),
+        sha256: crate::fetch::sha256_hex(b"x"),
+    };
+
+    // The limit accommodates the wanted-only archive. An unrequested empty
+    // member adds a complete tar header and must consume that same budget.
+    let wanted = tarball(&[("wanted", b"x")]);
+    let wanted_decoded = decoded_gzip(&wanted);
+    assert!(
+        read_members_with_limit(&wanted, &[asset.clone()], wanted_decoded.len() as u64).is_ok()
+    );
+    let skipped = tarball(&[("skipped", b""), ("wanted", b"x")]);
+    let err = read_members_with_limit(&skipped, &[asset.clone()], wanted_decoded.len() as u64)
+        .unwrap_err();
+    assert!(err.contains("terminal archive is not readable"), "{err}");
+
+    // Add valid zero padding after the tar terminator. It remains part of the
+    // decoded stream and cannot escape the archive-wide cap.
+    let mut padded_decoded = wanted_decoded.clone();
+    padded_decoded.extend_from_slice(&[0; 512]);
+    let padded = gzip(&padded_decoded);
+    let err = read_members_with_limit(&padded, &[asset], wanted_decoded.len() as u64).unwrap_err();
+    assert!(err.contains("decoded limit exceeded"), "{err}");
+}
+
+#[test]
+fn oversized_wanted_header_is_refused_before_member_read() {
+    let mut header = tar::Header::new_gnu();
+    header.set_path("wanted").unwrap();
+    header.set_entry_type(tar::EntryType::Regular);
+    header.set_size(MEMBER_LIMIT + 1);
+    header.set_mode(0o644);
+    header.set_cksum();
+    let mut decoded = vec![0; 512 * 3];
+    decoded[..512].copy_from_slice(header.as_bytes());
+    let body = gzip(&decoded);
+    let err = read_members(
+        &body,
+        &[Asset {
+            member: "wanted".to_string(),
+            file: "asset".to_string(),
+            sha256: crate::fetch::sha256_hex(b"unused"),
+        }],
+    )
+    .unwrap_err();
+    assert_eq!(err, "invalid terminal distribution member");
 }
 
 #[test]
