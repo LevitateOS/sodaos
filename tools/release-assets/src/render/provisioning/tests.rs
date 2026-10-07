@@ -65,3 +65,39 @@ fn document_edits_use_last_exact_member_and_keep_duplicate_pairs_and_raw_numbers
         "{\n  \"storage\": {\n    \"files\": [\n      {\n        \"mode\": 1e2\n      }\n    ]\n  },\n  \"storage\": {\n    \"files\": [\n      \"added\"\n    ]\n  }\n}"
     );
 }
+
+#[test]
+fn provisioning_dynamic_depth_limit_keeps_safe_error_classification() {
+    let nested = |depth: usize| format!("{}1e400{}", "[".repeat(depth), "]".repeat(depth));
+    assert!(Node::parse_document("1e400").is_ok());
+    let accepted = Node::parse_document(&nested(127)).expect("127 containers");
+    assert!(dump_python(&accepted).contains("1e400"));
+    let duplicate_object = format!(
+        "{}{{\"first\":1e2,\"second\":-0,\"first\":1.00}}{}",
+        "[".repeat(126),
+        "]".repeat(126)
+    );
+    let duplicate_tree =
+        Node::parse_document(&duplicate_object).expect("127 containers with object");
+    let emitted = dump_python(&duplicate_tree);
+    assert_eq!(emitted.matches("\"first\"").count(), 2);
+    assert!(emitted.contains("1e2") && emitted.contains("1.00") && emitted.contains("-0"));
+    assert!(Node::parse_document(&nested(128)).is_err());
+
+    let unique = format!(
+        "soda-provisioning-depth-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let root = std::env::temp_dir().join(unique);
+    let base = root.join("system/host/provisioning/base.json");
+    std::fs::create_dir_all(base.parent().unwrap()).unwrap();
+    std::fs::write(&base, nested(128)).unwrap();
+    let error = super::document::public_config(&root).unwrap_err();
+    assert_eq!(error.kind, super::ProvKind::JsonDecode);
+    assert!(!error.detail.contains("1e400"));
+    std::fs::remove_dir_all(root).unwrap();
+}

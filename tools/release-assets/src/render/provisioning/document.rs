@@ -72,7 +72,7 @@ impl<'de> Deserialize<'de> for RawChildren {
 }
 
 impl Node {
-    fn parse(raw: &RawValue) -> Result<Node, serde_json::Error> {
+    fn parse(raw: &RawValue, parent_depth: usize) -> Result<Node, serde_json::Error> {
         // RawValue has already admitted the token under Serde's JSON grammar;
         // inspect only its leading structural byte, never parse numbers into
         // machine numeric types.
@@ -83,24 +83,36 @@ impl Node {
             b'"' => Ok(Node::String(serde_json::from_str(raw.get())?)),
             b'-' | b'0'..=b'9' => Ok(Node::Number(serde_json::from_str(raw.get())?)),
             b'[' => {
+                let depth = parent_depth + 1;
+                if depth > 127 {
+                    return Err(<serde_json::Error as serde::de::Error>::custom(
+                        "recursion limit exceeded",
+                    ));
+                }
                 let RawChildren::Array(values) = serde_json::from_str(raw.get())? else {
                     unreachable!("shape was an array")
                 };
                 Ok(Node::Array(
                     values
                         .iter()
-                        .map(|value| Node::parse(value))
+                        .map(|value| Node::parse(value, depth))
                         .collect::<Result<_, _>>()?,
                 ))
             }
             b'{' => {
+                let depth = parent_depth + 1;
+                if depth > 127 {
+                    return Err(<serde_json::Error as serde::de::Error>::custom(
+                        "recursion limit exceeded",
+                    ));
+                }
                 let RawChildren::Object(values) = serde_json::from_str(raw.get())? else {
                     unreachable!("shape was an object")
                 };
                 Ok(Node::Object(
                     values
                         .iter()
-                        .map(|(key, value)| Ok((key.clone(), Node::parse(value)?)))
+                        .map(|(key, value)| Ok((key.clone(), Node::parse(value, depth)?)))
                         .collect::<Result<_, serde_json::Error>>()?,
                 ))
             }
@@ -110,7 +122,7 @@ impl Node {
 
     pub(crate) fn parse_document(text: &str) -> Result<Node, serde_json::Error> {
         let raw: Box<RawValue> = serde_json::from_str(text)?;
-        Node::parse(&raw)
+        Node::parse(&raw, 0)
     }
 }
 

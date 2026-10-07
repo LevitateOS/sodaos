@@ -24,13 +24,19 @@ impl OrderedValue {
         let raw =
             Box::<RawValue>::deserialize(&mut decoder).map_err(|_| Error::msg("invalid JSON"))?;
         decoder.end().map_err(|_| Error::msg("invalid JSON"))?;
-        Self::from_raw(raw.get())
+        Self::from_raw(raw.get(), 0)
     }
 
-    fn from_raw(raw: &str) -> Result<Self, Error> {
+    fn from_raw(raw: &str, parent_depth: usize) -> Result<Self, Error> {
         match raw.as_bytes().first() {
             Some(b'{') => {
-                struct ObjectVisitor;
+                let depth = parent_depth + 1;
+                if depth > 127 {
+                    return Err(Error::msg("invalid JSON"));
+                }
+                struct ObjectVisitor {
+                    depth: usize,
+                }
                 impl<'de> Visitor<'de> for ObjectVisitor {
                     type Value = OrderedValue;
                     fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -43,8 +49,8 @@ impl OrderedValue {
                         let mut entries = Vec::new();
                         while let Some(key) = map.next_key::<String>()? {
                             let raw = map.next_value::<Box<RawValue>>()?;
-                            let value =
-                                OrderedValue::from_raw(raw.get()).map_err(A::Error::custom)?;
+                            let value = OrderedValue::from_raw(raw.get(), self.depth)
+                                .map_err(A::Error::custom)?;
                             entries.push((key, value));
                         }
                         Ok(OrderedValue::Object(entries))
@@ -52,13 +58,19 @@ impl OrderedValue {
                 }
                 let mut decoder = serde_json::Deserializer::from_str(raw);
                 let value = decoder
-                    .deserialize_map(ObjectVisitor)
+                    .deserialize_map(ObjectVisitor { depth })
                     .map_err(|_| Error::msg("invalid JSON"))?;
                 decoder.end().map_err(|_| Error::msg("invalid JSON"))?;
                 Ok(value)
             }
             Some(b'[') => {
-                struct ArrayVisitor;
+                let depth = parent_depth + 1;
+                if depth > 127 {
+                    return Err(Error::msg("invalid JSON"));
+                }
+                struct ArrayVisitor {
+                    depth: usize,
+                }
                 impl<'de> Visitor<'de> for ArrayVisitor {
                     type Value = OrderedValue;
                     fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -70,8 +82,8 @@ impl OrderedValue {
                     ) -> Result<Self::Value, A::Error> {
                         let mut entries = Vec::new();
                         while let Some(raw) = seq.next_element::<Box<RawValue>>()? {
-                            let value =
-                                OrderedValue::from_raw(raw.get()).map_err(A::Error::custom)?;
+                            let value = OrderedValue::from_raw(raw.get(), self.depth)
+                                .map_err(A::Error::custom)?;
                             entries.push(value);
                         }
                         Ok(OrderedValue::Array(entries))
@@ -79,7 +91,7 @@ impl OrderedValue {
                 }
                 let mut decoder = serde_json::Deserializer::from_str(raw);
                 let value = decoder
-                    .deserialize_seq(ArrayVisitor)
+                    .deserialize_seq(ArrayVisitor { depth })
                     .map_err(|_| Error::msg("invalid JSON"))?;
                 decoder.end().map_err(|_| Error::msg("invalid JSON"))?;
                 Ok(value)
@@ -198,5 +210,33 @@ impl Serialize for OrderedValue {
                 map.end()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod depth_tests {
+    use super::OrderedValue;
+
+    #[test]
+    fn ordered_values_match_serde_container_depth_limit() {
+        let scalar = OrderedValue::parse("1e400").expect("scalar root");
+        assert_eq!(serde_json::to_string(&scalar).unwrap(), "1e400");
+        let nested = |depth: usize| format!("{}1e400{}", "[".repeat(depth), "]".repeat(depth));
+        let accepted = nested(127);
+        let value = OrderedValue::parse(&accepted).expect("127 containers");
+        assert_eq!(serde_json::to_string(&value).unwrap(), accepted);
+        let duplicate_object = format!(
+            "{}{{\"first\":1e2,\"second\":-0,\"first\":1.00}}{}",
+            "[".repeat(126),
+            "]".repeat(126)
+        );
+        assert_eq!(
+            serde_json::to_string(&OrderedValue::parse(&duplicate_object).unwrap()).unwrap(),
+            duplicate_object
+        );
+        assert_eq!(
+            OrderedValue::parse(&nested(128)).unwrap_err().to_string(),
+            "invalid JSON"
+        );
     }
 }
