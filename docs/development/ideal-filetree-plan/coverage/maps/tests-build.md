@@ -217,26 +217,6 @@ current source declaration/method inspection; receiver methods normalized by met
 | 32–43; TestFoundationRecipeStagesCompiledProjectHelpers | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current declaration duty: TestFoundationRecipeStagesCompiledProjectHelpers — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 44–67; TestFoundationInstalledProbeRequiresScopeBeforeWrites | [P10](../../slices/projects.md#p10-shared-tools-and-packages) | retained | Current declaration duty: TestFoundationInstalledProbeRequiresScopeBeforeWrites — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
-<a id="coverage-69a584a7afc5"></a>
-
-## [tests/build/project_keys_test.go](../../../../../tests/build/project_keys_test.go)
-
-current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–39; file scaffold; TestKeysPythonSubjectRetired; TestKeysRustSuccessorOwnsKeyBehavior | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestKeysPythonSubjectRetired; Current declaration duty: TestKeysRustSuccessorOwnsKeyBehavior — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-
-<a id="coverage-3caaf941bf05"></a>
-
-## [tests/build/project_os_observation_test.go](../../../../../tests/build/project_os_observation_test.go)
-
-current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–37; file scaffold; TestOSPythonSubjectRetired; TestOSRustSuccessorOwnsObservationBehavior | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestOSPythonSubjectRetired; Current declaration duty: TestOSRustSuccessorOwnsObservationBehavior — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-
 <a id="coverage-5d2f753c73ed"></a>
 
 ## [tests/build/project_runtime_test.go](../../../../../tests/build/project_runtime_test.go)
@@ -309,16 +289,6 @@ current source declaration/method inspection; receiver methods normalized by met
 | 1–23; file scaffold; packageScripts | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: packageScripts — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 24–54; TestTerminalAssetsBrowserBuildPreparesLockedRenderer | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current declaration duty: TestTerminalAssetsBrowserBuildPreparesLockedRenderer — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 55–81; TestTerminalAssetsShippingLockHasOnlyExactLocalRendererFiles | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Current declaration duty: TestTerminalAssetsShippingLockHasOnlyExactLocalRendererFiles — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-
-<a id="coverage-633f4e4b2ccd"></a>
-
-## [tests/build/terminal_test.go](../../../../../tests/build/terminal_test.go)
-
-current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–39; file scaffold; TestTerminalPythonSubjectRetired; TestTerminalRustSuccessorOwnsTerminalBehavior | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestTerminalPythonSubjectRetired; Current declaration duty: TestTerminalRustSuccessorOwnsTerminalBehavior — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-751f619a131a"></a>
 
