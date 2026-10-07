@@ -5,40 +5,33 @@ use crate::command::Runner;
 use crate::console::Console;
 use crate::disks::{disk_summary, Disk};
 use crate::errors::Error;
-use crate::fmtx::Arg;
 use crate::signal::Ctx;
 
 fn print_final_review(console: &Console, choices: &DiskInstallChoices, payload_bytes: u64) {
     console.page("Final review");
-    console.print("ERASE ALL DATA on:", &[]);
-    console.print("  %s", &[Arg::Str(&disk_summary(&choices.disk.device))]);
+    console.print("ERASE ALL DATA on:");
+    console.print(format_args!("  {}", disk_summary(&choices.disk.device)));
     if !choices.disk.blocked.is_empty() {
-        console.print("  Installer note: %s.", &[Arg::Str(&choices.disk.blocked)]);
+        console.print(format_args!("  Installer note: {}.", choices.disk.blocked));
     }
     if choices.disk.removable {
         console.print(
-            "  Removable device: this target writes only with the explicit removable confirmation.",
-            &[],
-        );
+            "  Removable device: this target writes only with the explicit removable confirmation.");
     }
-    console.print("Hostname: %s", &[Arg::Str(&choices.hostname)]);
-    console.print("Project subnet: %s", &[Arg::Str(&choices.subnet)]);
+    console.print(format_args!("Hostname: {}", choices.hostname));
+    console.print(format_args!("Project subnet: {}", choices.subnet));
     console.print(
-        "Operator access: root password (local console and SSH)",
-        &[],
+        "Operator access: root password (local console and SSH)");
+    console.print(
+        format_args!(
+            "Included Soda payload: {:.1} MiB verified",
+            payload_bytes as f64 / (1u64 << 20) as f64
+        ),
     );
     console.print(
-        "Included Soda payload: %.1f MiB verified",
-        &[Arg::Float(payload_bytes as f64 / (1u64 << 20) as f64)],
-    );
+        "Network settings will be copied to the installed system.");
     console.print(
-        "Network settings will be copied to the installed system.",
-        &[],
-    );
-    console.print(
-        "After writing, follow the completion screen for media removal and next steps.",
-        &[],
-    );
+        "After writing, follow the completion screen for media removal and next steps.");
 }
 
 pub(super) fn erase_phrase(disk: &Disk) -> String {
@@ -59,7 +52,7 @@ fn confirm_final_review(console: &Console, ctx: &Ctx, disk: &Disk) -> Result<(),
         if answer == phrase {
             return Ok(());
         }
-        console.print("Confirmation did not match. No disk writing started.", &[]);
+        console.print("Confirmation did not match. No disk writing started.");
     }
 }
 

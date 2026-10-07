@@ -6,7 +6,6 @@ use std::collections::BTreeMap;
 
 use crate::command::Runner;
 use crate::errors::Error;
-use crate::fmtx::go_trim_space;
 use crate::run;
 use crate::signal::Ctx;
 
@@ -40,7 +39,7 @@ fn admit_live_installer(
     )?;
     let observed = run.run(ctx, "coreos-installer", &["--version".to_string()], None);
     let matches = match observed {
-        Ok(data) => go_trim_space(&String::from_utf8_lossy(&data)) == media.installer_version,
+        Ok(data) => String::from_utf8_lossy(&data).trim() == media.installer_version,
         Err(_) => false,
     };
     if !matches {
@@ -52,7 +51,7 @@ fn admit_live_installer(
 pub fn selinux_enforcing() -> Result<(), Error> {
     let enforcing = std::fs::read("/sys/fs/selinux/enforce");
     let ok = match enforcing {
-        Ok(data) => go_trim_space(&String::from_utf8_lossy(&data)) == "1",
+        Ok(data) => String::from_utf8_lossy(&data).trim() == "1",
         Err(_) => false,
     };
     if !ok {

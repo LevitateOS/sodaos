@@ -9,7 +9,6 @@ mod disks;
 mod enroll;
 mod errors;
 mod execute;
-mod fmtx;
 mod hostadmit;
 mod inputs;
 mod netip;

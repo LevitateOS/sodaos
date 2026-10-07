@@ -3,8 +3,6 @@
 
 use std::fmt;
 
-use crate::fmtx::{sprintf, Arg};
-
 /// All installer failures. Messages match the Go errors byte for byte.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
@@ -48,11 +46,7 @@ impl fmt::Display for Error {
             Error::Cancel => write!(f, "cancel requested"),
             Error::CmdExit { name, code, interrupted } => write!(
                 f,
-                "{}",
-                sprintf(
-                    "%s failed (exit %d, interrupted %t); raw diagnostics suppressed",
-                    &[Arg::Str(name), Arg::Int(*code as i64), Arg::Bool(*interrupted)]
-                )
+                "{name} failed (exit {code}, interrupted {interrupted}); raw diagnostics suppressed"
             ),
             Error::EnrollUncertain => write!(
                 f,

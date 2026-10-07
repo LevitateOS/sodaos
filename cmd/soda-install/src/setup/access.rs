@@ -4,7 +4,6 @@ use super::local_ca::local_ca_fingerprint;
 use crate::command::Runner;
 use crate::console::Console;
 use crate::errors::Error;
-use crate::fmtx::Arg;
 use crate::signal::Ctx;
 use url::Url;
 
@@ -122,30 +121,26 @@ fn print_local_ca_guidance(console: &Console, address: &str, ca_path: &str) -> R
         Err(_) => {
             // Active units without trust material are not a ready browser
             // address: say so before any Open guidance, not after it.
-            console.print("The browser services report active, but the local CA certificate is not available yet; do not open the browser address until the trust material below exists.", &[]);
-            console.print("Inspect soda-proxy.service, then run configure again to show the trust instructions. Existing setup will not be replayed.", &[]);
+            console.print("The browser services report active, but the local CA certificate is not available yet; do not open the browser address until the trust material below exists.");
+            console.print("Inspect soda-proxy.service, then run configure again to show the trust instructions. Existing setup will not be replayed.");
             return Ok(());
         }
     };
     let fingerprint = local_ca_fingerprint(&certificate)?;
-    console.print("The browser services report active. Open %s only after completing the client trust below; browser login still needs verification.", &[Arg::Str(address)]);
+    console.print(format_args!("The browser services report active. Open {address:?} only after completing the client trust below; browser login still needs verification."));
     console.print(
-        "Local CA certificate SHA-256: %s",
-        &[Arg::Str(&fingerprint)],
+        format_args!("Local CA certificate SHA-256: {fingerprint}"),
     );
     console.print(
-        "Copy only the public root.crt file over your verified SSH connection:",
-        &[],
-    );
+        "Copy only the public root.crt file over your verified SSH connection:");
     let host = address
         .split_once("://")
         .map(|(_, rest)| rest.split(['/', '?', '#']).next().unwrap_or(""))
         .unwrap_or("");
     console.print(
-        "scp root@%s:%s ./soda-local-ca.crt",
-        &[Arg::Str(&host), Arg::Str(ca_path)],
+        format_args!("scp root@{host:?}:{ca_path:?} ./soda-local-ca.crt"),
     );
-    console.print("Compare its certificate fingerprint, then trust it in your laptop/browser certificate settings. Never copy the CA private key.", &[]);
+    console.print("Compare its certificate fingerprint, then trust it in your laptop/browser certificate settings. Never copy the CA private key.");
     Ok(())
 }
 
@@ -174,9 +169,9 @@ pub(super) fn configured_access(
     if local {
         print_local_ca_guidance(console, &address, ca_path)?;
     } else {
-        console.print("The browser services report active. Open %s after setting up client trust for your supplied certificate; browser login still needs verification.", &[Arg::Str(&address)]);
+        console.print(format_args!("The browser services report active. Open {address:?} after setting up client trust for your supplied certificate; browser login still needs verification."));
     }
-    console.print("Sign in to native Forgejo, create or choose a repository, and open Sodaspaces to create and join its development environment.", &[]);
-    console.print("Verify a browser terminal in that project. Opening this setup screen is not a completed project/access test.", &[]);
+    console.print("Sign in to native Forgejo, create or choose a repository, and open Sodaspaces to create and join its development environment.");
+    console.print("Verify a browser terminal in that project. Opening this setup screen is not a completed project/access test.");
     Ok(())
 }

@@ -4,12 +4,11 @@ use crate::command::Runner;
 use crate::console::Console;
 use crate::disks::{disk_summary, Disk};
 use crate::errors::Error;
-use crate::fmtx::{go_lower, sprintf, Arg};
 use crate::inputs;
 use crate::signal::Ctx;
 
 fn check_nav(value: &str) -> Option<Error> {
-    match go_lower(value).as_str() {
+    match value.to_ascii_lowercase().as_str() {
         "back" => Some(Error::Back),
         "restart" => Some(Error::Restart),
         "cancel" => Some(Error::Cancel),
@@ -46,9 +45,7 @@ pub(super) fn step_network(ctx: &Ctx, console: &Console, run: &dyn Runner) -> Re
 fn handle_disk_inspect_failure(console: &Console, ctx: &Ctx) -> Result<(), Error> {
     console.page("Step 2 of 5 — Installation disk");
     console.print(
-        "Could not inspect disks. No disk installation started.",
-        &[],
-    );
+        "Could not inspect disks. No disk installation started.");
     // Any non-navigation word retries; only navigation errors return.
     let _ = ask_nav(console, ctx, "Type retry, back, restart, or cancel")?;
     Ok(())
@@ -57,35 +54,29 @@ fn handle_disk_inspect_failure(console: &Console, ctx: &Ctx) -> Result<(), Error
 fn print_disk_list(console: &Console, disks: &[Disk], feedback: &str) {
     console.page("Step 2 of 5 — Installation disk");
     if !feedback.is_empty() {
-        console.print("%s", &[Arg::Str(feedback)]);
-        console.print("", &[]);
+        console.print(feedback);
+        console.print("");
     }
     for (i, disk) in disks.iter().enumerate() {
         console.print(
-            "%d. %s",
-            &[
-                Arg::Uint((i + 1) as u64),
-                Arg::Str(&disk_summary(&disk.device)),
-            ],
+            format_args!("{}. {}", i + 1, disk_summary(&disk.device)),
         );
         for child in &disk.device.children {
             console.print(
-                "   %q: %.1f GiB, filesystem %q",
-                &[
-                    Arg::Str(&child.name),
-                    Arg::Float(child.size as f64 / (1u64 << 30) as f64),
-                    Arg::Str(&child.fstype),
-                ],
+                format_args!(
+                    "   {:?}: {:.1} GiB, filesystem {:?}",
+                    child.name,
+                    child.size as f64 / (1u64 << 30) as f64,
+                    child.fstype
+                ),
             );
         }
         if !disk.blocked.is_empty() {
-            console.print("   Unavailable: %s", &[Arg::Str(&disk.blocked)]);
+            console.print(format_args!("   Unavailable: {}", disk.blocked));
         }
         if disk.removable && disk.blocked.is_empty() {
             console.print(
-                "   Removable device: erasing it needs the explicit removable confirmation below.",
-                &[],
-            );
+                "   Removable device: erasing it needs the explicit removable confirmation below.");
         }
     }
 }
@@ -100,9 +91,9 @@ pub(super) fn select_disk(disks: &[Disk], selected: &str) -> Result<Disk, String
     }
     let disk = disks[index as usize - 1].clone();
     if !disk.blocked.is_empty() {
-        return Err(sprintf(
-            "Disk %d is unavailable: %s. Choose an available disk number.",
-            &[Arg::Int(index), Arg::Str(&disk.blocked)],
+        return Err(format!(
+            "Disk {index} is unavailable: {}. Choose an available disk number.",
+            disk.blocked
         ));
     }
     Ok(disk)
@@ -144,13 +135,12 @@ pub(super) fn step_hostname(
     loop {
         console.page("Step 3 of 5 — Hostname");
         if !feedback.is_empty() {
-            console.print("%s", &[Arg::Str(&feedback)]);
-            console.print("", &[]);
+            console.print(&feedback);
+            console.print("");
             feedback.clear();
         }
         console.print(
-            "Selected disk: %s",
-            &[Arg::Str(&disk_summary(&selected.device))],
+            format_args!("Selected disk: {}", disk_summary(&selected.device)),
         );
         let default = if current.is_empty() { "soda" } else { current };
         let mut value = ask_nav(
@@ -199,7 +189,7 @@ fn hash_password(ctx: &Ctx, run: &dyn Runner, password: &[u8]) -> Result<String,
             Some(&input),
         )
         .map_err(|_| Error::msg("password hashing failed"))?;
-    Ok(crate::fmtx::go_trim_space(&String::from_utf8_lossy(&hash)).to_string())
+    Ok(String::from_utf8_lossy(&hash).trim().to_string())
 }
 
 pub(super) fn step_password(
@@ -211,23 +201,17 @@ pub(super) fn step_password(
     loop {
         console.page("Step 4 of 5 — Native operator password");
         if !feedback.is_empty() {
-            console.print("%s", &[Arg::Str(&feedback)]);
-            console.print("", &[]);
+            console.print(&feedback);
+            console.print("");
             feedback.clear();
         }
         console.print(
-            "This password is for root login after reboot, local console and SSH.",
-            &[],
-        );
-        console.print("Use at least 12 characters; both entries must match.", &[]);
+            "This password is for root login after reboot, local console and SSH.");
+        console.print("Use at least 12 characters; both entries must match.");
         console.print(
-            "Enroll a key later and disable password logins yourself to go key-only.",
-            &[],
-        );
+            "Enroll a key later and disable password logins yourself to go key-only.");
         console.print(
-            "Type back, restart, or cancel in a password field to navigate.",
-            &[],
-        );
+            "Type back, restart, or cancel in a password field to navigate.");
         let password = ask_secret_nav(console, ctx, "Password")?;
         let confirmation = ask_secret_nav(console, ctx, "Confirm password")?;
         if !valid_password(&password, &confirmation) {
@@ -243,14 +227,12 @@ pub(super) fn step_subnet(console: &Console, ctx: &Ctx, current: &str) -> Result
     loop {
         console.page("Step 5 of 5 — Project network and review");
         if !feedback.is_empty() {
-            console.print("%s", &[Arg::Str(&feedback)]);
-            console.print("", &[]);
+            console.print(&feedback);
+            console.print("");
             feedback.clear();
         }
         console.print(
-            "Developer client routing is configured separately. Any canonical IPv4 range is accepted, including public or overlapping ranges.",
-            &[],
-        );
+            "Developer client routing is configured separately. Any canonical IPv4 range is accepted, including public or overlapping ranges.");
         let default = if current.is_empty() {
             "10.89.0.0/24"
         } else {

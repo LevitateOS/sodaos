@@ -8,7 +8,6 @@ use std::time::{Duration, Instant};
 use crate::command::Runner;
 use crate::console::Console;
 use crate::errors::{self, Error};
-use crate::fmtx::Arg;
 use crate::signal::Ctx;
 
 use super::arm::{
@@ -240,12 +239,10 @@ fn check_enrollment_result(console: &Console, ip: &str) -> Result<bool, Error> {
             "key import failed; preserve existing access and inspect locally",
         ));
     }
-    console.print("Public key installed. The import window is closing. Verify a NEW ordinary key-only SSH login from the laptop before continuing.", &[]);
+    console.print("Public key installed. The import window is closing. Verify a NEW ordinary key-only SSH login from the laptop before continuing.");
     console.print(
-        "Use the laptop private-key path matching the public .pub file you imported:",
-        &[],
-    );
-    console.print("ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ControlMaster=no -o ControlPath=none root@%s", &[Arg::Str(ip)]);
+        "Use the laptop private-key path matching the public .pub file you imported:");
+    console.print(format_args!("ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ControlMaster=no -o ControlPath=none root@{ip}"));
     Ok(true)
 }
 
@@ -254,13 +251,12 @@ fn notify_enrollment_ready(console: &Console, selected: &EnrollmentAddress, read
         *ready = true;
         let laptop = enrollment_client_command(&selected.ip).unwrap_or_default();
         console.print(
-            "On the laptop, check the host fingerprint above, then run (adjust only your PUBLIC .pub file path):\n%s",
-            &[Arg::Str(&laptop)],
+            format_args!(
+                "On the laptop, check the host fingerprint above, then run (adjust only your PUBLIC .pub file path):\n{laptop}"
+            ),
         );
         console.print(
-            "Waiting for one public key. Press Enter to cancel; do not close this console while importing.",
-            &[],
-        );
+            "Waiting for one public key. Press Enter to cancel; do not close this console while importing.");
     }
 }
 

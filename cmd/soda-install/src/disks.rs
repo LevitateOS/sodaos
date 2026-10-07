@@ -3,7 +3,6 @@
 
 use crate::command::Runner;
 use crate::errors::Error;
-use crate::fmtx::{fold_eq_ascii, go_fields, go_trim_space, sprintf, Arg};
 use crate::pathx;
 use crate::signal::Ctx;
 use serde::de::{IgnoredAny, MapAccess, SeqAccess, Visitor};
@@ -320,12 +319,12 @@ fn decode_tree(data: &[u8]) -> Result<Vec<BlockDevice>, Error> {
 }
 
 pub fn disk_removable_at(sys_root: &str, d: &BlockDevice) -> bool {
-    if fold_eq_ascii(&d.tran, "usb") {
+    if d.tran.eq_ignore_ascii_case("usb") {
         return true;
     }
     let path = pathx::join(sys_root, &[&pathx::base(&d.name), "removable"]);
     match std::fs::read(&path) {
-        Ok(data) => go_trim_space(&String::from_utf8_lossy(&data)) == "1",
+        Ok(data) => String::from_utf8_lossy(&data).trim() == "1",
         Err(_) => false,
     }
 }
@@ -394,7 +393,7 @@ pub fn parse_live_media_disks(
             out.insert(parent);
         }
     }
-    for token in go_fields(&String::from_utf8_lossy(cmdline)) {
+    for token in String::from_utf8_lossy(cmdline).split_whitespace() {
         let mut dev = "";
         for prefix in ["root=live:", "live:", "bootdev="] {
             if let Some(rest) = token.strip_prefix(prefix) {
@@ -428,7 +427,7 @@ pub fn disk_sequence_at(sys_root: &str, device: &BlockDevice) -> Result<String, 
     let data =
         std::fs::read(&seq_path).map_err(|e| crate::errors::path_error("open", &seq_path, e))?;
     let text = String::from_utf8_lossy(&data);
-    let seq = go_trim_space(&text);
+    let seq = text.trim();
     if seq.is_empty() || !seq.bytes().all(|b| b.is_ascii_digit()) {
         return Err(Error::msg("invalid disk sequence"));
     }
@@ -538,15 +537,13 @@ pub fn same_disk(selected: &Disk, observed: &[Disk]) -> Result<(), Error> {
 }
 
 pub fn disk_summary(d: &BlockDevice) -> String {
-    sprintf(
-        "%q | %.1f GiB | model %q | serial %q | WWN %q",
-        &[
-            Arg::Str(&d.name),
-            Arg::Float(d.size as f64 / (1u64 << 30) as f64),
-            Arg::Str(&d.model),
-            Arg::Str(&d.serial),
-            Arg::Str(&d.wwn),
-        ],
+    format!(
+        "{:?} | {:.1} GiB | model {:?} | serial {:?} | WWN {:?}",
+        d.name,
+        d.size as f64 / (1u64 << 30) as f64,
+        d.model,
+        d.serial,
+        d.wwn,
     )
 }
 

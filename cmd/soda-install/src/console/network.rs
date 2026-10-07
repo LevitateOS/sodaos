@@ -3,7 +3,6 @@ use std::os::unix::process::ExitStatusExt;
 
 use crate::command::Runner;
 use crate::errors::Error;
-use crate::fmtx::{go_lower, Arg};
 use crate::signal::Ctx;
 
 use super::{trim_space_bytes, Console};
@@ -73,29 +72,29 @@ impl Console {
     pub fn confirm_live_addresses(&self, ctx: &Ctx) -> Result<bool, Error> {
         loop {
             let answer = self.ask(ctx, "Type yes to use them, edit, back, restart, or cancel")?;
-            match go_lower(&answer).as_str() {
+            match answer.to_ascii_lowercase().as_str() {
                 "yes" => return Ok(false),
                 "edit" => return Ok(true),
                 "back" => return Err(Error::Back),
                 "restart" => return Err(Error::Restart),
                 "cancel" => return Err(Error::Cancel),
-                _ => self.print("Choose yes, edit, back, restart, or cancel.", &[]),
+                _ => self.print("Choose yes, edit, back, restart, or cancel."),
             }
         }
     }
 
     pub fn print_live_addresses(&self, data: &[u8]) {
-        self.print("", &[]);
-        self.print("Current live addresses:", &[]);
-        // Quote native output bytes so a configured interface name cannot
-        // inject terminal controls; invalid UTF-8 quotes per byte like Go.
+        self.print("");
+        self.print("Current live addresses:");
+        // Debug formatting keeps untrusted interface text from injecting
+        // terminal controls while displaying ordinary Unicode unchanged.
         for line in trim_space_bytes(data).split(|b| *b == b'\n') {
-            self.print("  %q", &[Arg::Bytes(line)]);
+            self.print(format_args!("  {:?}", String::from_utf8_lossy(line)));
         }
     }
 
     pub fn apply_network_choice(&self, ctx: &Ctx, choice: &str) -> Result<(String, bool), Error> {
-        match go_lower(choice).as_str() {
+        match choice.to_ascii_lowercase().as_str() {
             "back" => Err(Error::Back),
             "restart" => Err(Error::Restart),
             "cancel" => Err(Error::Cancel),
@@ -144,16 +143,14 @@ impl Console {
         loop {
             self.page("Step 1 of 5 — Network");
             if !feedback.is_empty() {
-                self.print("%s", &[Arg::Str(&feedback)]);
-                self.print("", &[]);
+                self.print(&feedback);
+                self.print("");
                 feedback.clear();
             }
-            self.print("DHCP is ready by default.", &[]);
-            self.print("Use nmtui to set a static address, gateway, or DNS.", &[]);
+            self.print("DHCP is ready by default.");
+            self.print("Use nmtui to set a static address, gateway, or DNS.");
             self.print(
-                "The installed system will receive the reviewed live settings.",
-                &[],
-            );
+                "The installed system will receive the reviewed live settings.");
             let choice = self.choose_network_action(ctx, open_editor)?;
             open_editor = false;
             let (next, retry) = self.apply_network_choice(ctx, &choice)?;

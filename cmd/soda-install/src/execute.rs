@@ -10,7 +10,6 @@ use crate::command::{failure_summary, Runner};
 use crate::console::Console;
 use crate::disks;
 use crate::errors::Error;
-use crate::fmtx::Arg;
 use crate::run::{DATA_DIR, DISK_ATTEMPT_MARKER};
 use crate::signal::Ctx;
 use crate::wizard::{collect_disk_install_choices, DiskInstallChoices};
@@ -50,17 +49,15 @@ pub fn disk_installation_started(marker: &str) -> Result<bool, Error> {
 
 fn ask_restart_or_quit(console: &Console, ctx: &Ctx) -> Result<bool, Error> {
     console.page("Installation cancelled before disk writing");
-    console.print("No disk installation was started.", &[]);
+    console.print("No disk installation was started.");
     console.print(
-        "Restart reuses this already loaded installer executable.",
-        &[],
-    );
+        "Restart reuses this already loaded installer executable.");
     loop {
         let choice = console.ask(ctx, "Type restart or quit")?;
-        match crate::fmtx::go_lower(&choice).as_str() {
+        match choice.to_ascii_lowercase().as_str() {
             "restart" => return Ok(true),
             "quit" | "cancel" => return Err(Error::msg("cancelled; no disk installation started")),
-            _ => console.print("Choose restart or quit.", &[]),
+            _ => console.print("Choose restart or quit."),
         }
     }
 }
@@ -122,25 +119,23 @@ fn destination_for_media(
 
 fn print_disk_complete(console: &Console) {
     console.print(
-        "SodaOS disk installation completed with all five application images local.",
-        &[],
-    );
-    console.print("Remove installation media, then confirm the reboot prompt below; log in locally as root with your password.", &[]);
+        "SodaOS disk installation completed with all five application images local.");
+    console.print("Remove installation media, then confirm the reboot prompt below; log in locally as root with your password.");
     console.print(
-        "Native startup imports the included images before starting their services.",
-        &[],
-    );
+        "Native startup imports the included images before starting their services.");
     console.print(
-        "SSH password access is enabled; log in as root over SSH with your password.",
-        &[],
-    );
+        "SSH password access is enabled; log in as root over SSH with your password.");
     console.print(
-        "To go key-only later, run locally after reboot: %s enroll-key, then disable password logins yourself.",
-        &[Arg::Str(candidate::CANDIDATE_INSTALLER_BINARY)],
+        format_args!(
+            "To go key-only later, run locally after reboot: {} enroll-key, then disable password logins yourself.",
+            candidate::CANDIDATE_INSTALLER_BINARY
+        ),
     );
     console.print(
-        "Then complete browser setup from your SSH terminal: %s configure",
-        &[Arg::Str(candidate::CANDIDATE_INSTALLER_BINARY)],
+        format_args!(
+            "Then complete browser setup from your SSH terminal: {} configure",
+            candidate::CANDIDATE_INSTALLER_BINARY
+        ),
     );
 }
 
@@ -155,12 +150,11 @@ pub fn land_diagnostic_console(
 ) -> Result<(), Error> {
     if let Some(err) = &install_err {
         console.print(
-            "Installation did not complete: %v.",
-            &[Arg::Str(&err.to_string())],
+            format_args!("Installation did not complete: {err}."),
         );
-        console.print("No automatic retry or reboot was performed. Inspect this live boot from another terminal; confirming a power action below discards live-boot inspection state.", &[]);
+        console.print("No automatic retry or reboot was performed. Inspect this live boot from another terminal; confirming a power action below discards live-boot inspection state.");
     } else {
-        console.print("Installation completed. The completion details above stay on screen; nothing further runs until you choose a power action.", &[]);
+        console.print("Installation completed. The completion details above stay on screen; nothing further runs until you choose a power action.");
     }
     let mut land_ctx = ctx.interrupt_scope();
     loop {
@@ -168,15 +162,14 @@ pub fn land_diagnostic_console(
             Err(err) => {
                 if land_ctx.err().is_some() && ctx.err().is_none() {
                     console.print(
-                        "Interrupted; the console stays. Type reboot or poweroff.",
-                        &[],
-                    );
+                        "Interrupted; the console stays. Type reboot or poweroff.");
                     land_ctx = ctx.interrupt_scope();
                     continue;
                 }
                 console.print(
-                    "Terminal input failed (%v); attempting one reboot so the machine is not stranded.",
-                    &[Arg::Str(&err.to_string())],
+                    format_args!(
+                        "Terminal input failed ({err}); attempting one reboot so the machine is not stranded."
+                    ),
                 );
                 if let Err(run_err) = run.run(ctx, "systemctl", &["reboot".to_string()], None) {
                     if let Some(err) = install_err {
@@ -187,20 +180,21 @@ pub fn land_diagnostic_console(
                 return install_err.map_or(Ok(()), Err);
             }
             Ok(choice) => {
-                let action = crate::fmtx::go_lower(&choice);
+                let action = choice.to_ascii_lowercase();
                 if action != "reboot" && action != "poweroff" {
-                    console.print("Choose reboot or poweroff.", &[]);
+                    console.print("Choose reboot or poweroff.");
                     continue;
                 }
                 if let Err(run_err) = run.run(ctx, "systemctl", std::slice::from_ref(&action), None)
                 {
                     console.print(
-                        "%s failed: %v. The console stays; inspect or choose again.",
-                        &[Arg::Str(&action), Arg::Str(&run_err.to_string())],
+                        format_args!(
+                            "{action} failed: {run_err}. The console stays; inspect or choose again."
+                        ),
                     );
                     continue;
                 }
-                console.print("%s issued...", &[Arg::Str(&action)]);
+                console.print(format_args!("{action} issued..."));
                 return install_err.map_or(Ok(()), Err);
             }
         }
@@ -256,8 +250,11 @@ fn write_attempt_ignition(destination: &[u8]) -> Result<AttemptIgnition, Error> 
 fn begin_disk_attempt(console: &Console) -> Result<(), Error> {
     let welcome = read_regular("/etc/motd", 16384)
         .map_err(|_| Error::msg("cannot read installer welcome text"))?;
-    console.print("\x1b[0m\x1b[2J\x1b[H%s", &[Arg::Bytes(&welcome)]);
-    console.print("Checking installation media. Please wait; this hashes gigabytes and takes a while on slow drives.", &[]);
+    console.print(format_args!(
+        "\x1b[0m\x1b[2J\x1b[H{}",
+        String::from_utf8_lossy(&welcome)
+    ));
+    console.print("Checking installation media. Please wait; this hashes gigabytes and takes a while on slow drives.");
     Ok(())
 }
 
@@ -265,9 +262,7 @@ fn begin_disk_attempt(console: &Console) -> Result<(), Error> {
 /// first step with no further silent work.
 pub fn prompt_disk_attempt(console: &Console, ctx: &Ctx) -> Result<(), Error> {
     console.print(
-        "Media verified. Press Enter to begin. Ctrl-C cancels safely before disk writing.",
-        &[],
-    );
+        "Media verified. Press Enter to begin. Ctrl-C cancels safely before disk writing.");
     console.line(ctx).map(|_| ())
 }
 
@@ -298,11 +293,9 @@ fn install_disk_attempt(
     let destination = destination?;
     let ignition = write_attempt_ignition(&destination)?;
     console.page("Installing CoreOS");
-    console.print("Writing the confirmed disk. Do not disconnect it.", &[]);
+    console.print("Writing the confirmed disk. Do not disconnect it.");
     console.print(
-        "Raw diagnostics are suppressed to protect provisioning inputs.",
-        &[],
-    );
+        "Raw diagnostics are suppressed to protect provisioning inputs.");
     let result = execute_attempt_disk(
         ctx,
         &choices.disk,

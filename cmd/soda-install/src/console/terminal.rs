@@ -4,7 +4,6 @@ use std::io::{Read, Write};
 use std::os::unix::io::AsRawFd;
 
 use crate::errors::Error;
-use crate::fmtx::{sprintf, Arg};
 use crate::signal::Ctx;
 
 use super::{errno_text, trim_space_bytes, Console};
@@ -32,9 +31,9 @@ impl Console {
         self.tty.as_raw_fd()
     }
 
-    /// Go `print`: format plus newline; write failures are ignored.
-    pub fn print(&self, format: &str, args: &[Arg<'_>]) {
-        let mut text = sprintf(format, args);
+    /// Write one line to the operator terminal; write failures are ignored.
+    pub fn print(&self, message: impl std::fmt::Display) {
+        let mut text = message.to_string();
         text.push('\n');
         let _ = self.tty_write(text.as_bytes());
     }
@@ -61,10 +60,10 @@ impl Console {
     }
 
     pub fn page(&self, title: &str) {
-        self.print("\x1b[0m\x1b[2J\x1b[HSodaOS installation", &[]);
-        self.print("", &[]);
-        self.print(title, &[]);
-        self.print("", &[]);
+        self.print("\x1b[0m\x1b[2J\x1b[HSodaOS installation");
+        self.print("");
+        self.print(title);
+        self.print("");
     }
 
     pub fn ask(&self, ctx: &Ctx, prompt: &str) -> Result<String, Error> {
@@ -193,7 +192,7 @@ impl Console {
             }
             match self.read_byte() {
                 Ok(Some(b'\n')) => {
-                    self.print("", &[]);
+                    self.print("");
                     break Ok(data);
                 }
                 Ok(Some(b)) if b < 32 || b == 127 => {

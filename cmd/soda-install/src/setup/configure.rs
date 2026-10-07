@@ -5,7 +5,6 @@ use super::SBIN;
 use crate::command::{failure_summary, Runner};
 use crate::console::Console;
 use crate::errors::{self, Error};
-use crate::fmtx::Arg;
 use crate::signal::Ctx;
 
 fn check_preexisting_install(root: &str) -> Result<bool, Error> {
@@ -62,21 +61,12 @@ fn prompt_setup_address(
 ) -> Result<SetupAddress, Error> {
     console.page("Private browser setup");
     console.print(
-        "Use this SSH terminal to paste the Forgejo token when asked; input will be hidden.",
-        &[],
-    );
+        "Use this SSH terminal to paste the Forgejo token when asked; input will be hidden.");
     console.print(
-        "Select the appliance address your laptop can reach. No domain is needed.",
-        &[],
-    );
+        "Select the appliance address your laptop can reach. No domain is needed.");
     for (i, choice) in choices.iter().enumerate() {
         console.print(
-            "%d. %s on %q",
-            &[
-                Arg::Int((i + 1) as i64),
-                Arg::Str(&choice.address),
-                Arg::Str(&choice.interface),
-            ],
+            format_args!("{}. {} on {:?}", i + 1, choice.address, choice.interface),
         );
     }
     loop {
@@ -89,7 +79,7 @@ fn prompt_setup_address(
                 return Ok(choices[(i as usize) - 1].clone());
             }
         }
-        console.print("Choose one of the listed address numbers.", &[]);
+        console.print("Choose one of the listed address numbers.");
     }
 }
 
@@ -109,37 +99,27 @@ fn prompt_operator_token(
     address: &str,
     origin: &str,
 ) -> Result<Vec<u8>, Error> {
-    console.print("The final Soda address will be %s", &[Arg::Str(origin)]);
+    console.print(format_args!("The final Soda address will be {origin}"));
     console.print(
-        "Use a stable address or DHCP reservation. Changing it later needs explicit configuration maintenance.",
-        &[],
+        "Use a stable address or DHCP reservation. Changing it later needs explicit configuration maintenance.");
+    console.print(
+        format_args!(
+            "If you have no SSH key access yet, cancel and run {} enroll-key at the local console.",
+            crate::candidate::CANDIDATE_INSTALLER_BINARY
+        ),
     );
     console.print(
-        "If you have no SSH key access yet, cancel and run %s enroll-key at the local console.",
-        &[Arg::Str(crate::candidate::CANDIDATE_INSTALLER_BINARY)],
-    );
+        "From your laptop, connect with an SSH tunnel to the native Forgejo installer:");
+    console.print(format_args!("ssh -L 33000:127.0.0.1:3000 root@{address}"));
     console.print(
-        "From your laptop, connect with an SSH tunnel to the native Forgejo installer:",
-        &[],
-    );
-    console.print("ssh -L 33000:127.0.0.1:3000 root@%s", &[Arg::Str(address)]);
+        "Open http://localhost:33000 and complete Forgejo's own installation and administrator account setup.");
     console.print(
-        "Open http://localhost:33000 and complete Forgejo's own installation and administrator account setup.",
-        &[],
-    );
+        "Keep its localhost browser URL for this bootstrap; activation below sets the final private URL.");
     console.print(
-        "Keep its localhost browser URL for this bootstrap; activation below sets the final private URL.",
-        &[],
-    );
+        "In Forgejo Settings > Applications, create the operator token described in the operator setup guide.");
+    console.print("Required scope: read:user. No admin or repository scope is needed. Paste it here through the SSH terminal; input is hidden.");
     console.print(
-        "In Forgejo Settings > Applications, create the operator token described in the operator setup guide.",
-        &[],
-    );
-    console.print("Required scope: read:user. No admin or repository scope is needed. Paste it here through the SSH terminal; input is hidden.", &[]);
-    console.print(
-        "Caddy will issue local HTTPS certificates. You will explicitly trust its public root certificate on your laptop.",
-        &[],
-    );
+        "Caddy will issue local HTTPS certificates. You will explicitly trust its public root certificate on your laptop.");
     let answer = console.ask(
         ctx,
         "When Forgejo setup is complete, type CONFIGURE SODA; anything else cancels",

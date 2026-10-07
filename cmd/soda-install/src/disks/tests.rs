@@ -133,6 +133,15 @@ fn summary_and_same_disk() {
 }
 
 #[test]
+fn summary_escapes_external_terminal_controls() {
+    let mut d = device("/dev/nvme0n1");
+    d.model = "unsafe\n\u{1b}[31m".to_string();
+    let summary = disk_summary(&d);
+    assert!(!summary.chars().any(char::is_control));
+    assert!(summary.contains(r#""unsafe\n\u{1b}[31m""#));
+}
+
+#[test]
 fn scan_decodes_and_blocks() {
     let lsblk = r#"{"blockdevices":[
 {"name":"/dev/nvme0n1","kname":"/dev/nvme0n1","type":"disk","tran":"nvme","size":68719476736,"model":"SODA","serial":"1","wwn":"w","maj:min":"259:0","ro":false,"mountpoints":[null],"fstype":"","uuid":"","partuuid":"","children":[]},

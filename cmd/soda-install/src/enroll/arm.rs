@@ -13,7 +13,6 @@ use std::time::Duration;
 use crate::command::Runner;
 use crate::console::Console;
 use crate::errors::{self, Error};
-use crate::fmtx::{fold_eq_ascii, Arg};
 use crate::signal::Ctx;
 
 use super::keys::{enrollment_root_home, enrollment_safe_directory};
@@ -388,7 +387,7 @@ fn open_enrollment_dir() -> Result<std::os::unix::io::OwnedFd, Error> {
 }
 
 pub(crate) fn parse_enrollment_choice(value: &str, n: usize) -> Result<usize, Error> {
-    if fold_eq_ascii(value, "back") || fold_eq_ascii(value, "cancel") {
+    if value.eq_ignore_ascii_case("back") || value.eq_ignore_ascii_case("cancel") {
         return Err(Error::msg("key enrollment cancelled"));
     }
     match value.parse::<i64>() {
@@ -413,12 +412,7 @@ pub(crate) fn select_enrollment_address(
     }
     for (i, address) in addresses.iter().enumerate() {
         console.print(
-            "%d. %q: %s",
-            &[
-                Arg::Int((i + 1) as i64),
-                Arg::Str(&address.name),
-                Arg::Str(&address.ip),
-            ],
+            format_args!("{}. {:?}: {}", i + 1, address.name, address.ip),
         );
     }
     loop {
@@ -430,8 +424,7 @@ pub(crate) fn select_enrollment_address(
             Ok(index) => return Ok(addresses[index - 1].clone()),
             Err(err) if is_choice_hint(&err) => {
                 console.print(
-                    "Enter a number from 1 to %d, or back/cancel.",
-                    &[Arg::Int(addresses.len() as i64)],
+                    format_args!("Enter a number from 1 to {}, or back/cancel.", addresses.len()),
                 );
             }
             Err(err) => return Err(err),
@@ -472,10 +465,13 @@ fn confirm_enrollment_intent(
     selected: &EnrollmentAddress,
     fingerprint: &str,
 ) -> Result<(), Error> {
-    console.print("Native host fingerprint: %s", &[Arg::Str(fingerprint)]);
+    console.print(format_args!("Native host fingerprint: {fingerprint}"));
     console.print(
-        "A temporary password-only key-import connection will listen on %s:%s for at most five minutes. It uses OpenSSH's native password verification; additional PAM policies are not inherited. Ordinary SSH policy is unchanged. Press Enter or Ctrl-C to close it early.",
-        &[Arg::Str(&selected.ip), Arg::Str(ENROLLMENT_PORT)],
+        format_args!(
+            "A temporary password-only key-import connection will listen on {}:{} for at most five minutes. It uses OpenSSH's native password verification; additional PAM policies are not inherited. Ordinary SSH policy is unchanged. Press Enter or Ctrl-C to close it early.",
+            selected.ip,
+            ENROLLMENT_PORT
+        ),
     );
     let answer = console.ask(ctx, "Type ARM KEY IMPORT to open this window")?;
     if answer != "ARM KEY IMPORT" {
@@ -523,7 +519,7 @@ pub fn select_enrollment_target(
             ))
         }
     };
-    console.print("Import one laptop public key using the native root password. Choose the host address your laptop can actually reach; an interface address alone does not prove a client route.", &[]);
+    console.print("Import one laptop public key using the native root password. Choose the host address your laptop can actually reach; an interface address alone does not prove a client route.");
     let selected = select_enrollment_address(ctx, console, &addresses)?;
     let fingerprint = inspect_host_fingerprint(ctx, run)?;
     confirm_enrollment_intent(ctx, console, &selected, &fingerprint)?;
