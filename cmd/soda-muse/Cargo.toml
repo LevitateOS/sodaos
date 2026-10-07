@@ -8,4 +8,5 @@ name = "soda-muse"
 path = "src/main.rs"
 
 [dependencies]
+base64 = "=0.22.1"
 libc = "0.2"

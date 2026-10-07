@@ -23,6 +23,7 @@ name = "soda-host-probes"
 path = "src/bin/soda-host-probes.rs"
 
 [dependencies]
+base64 = "=0.22.1"
 sha2 = "=0.10.9"
 soda-json = { path = "../../lib/json" }
 soda-build-tools = { path = "../../lib/release-inputs" }

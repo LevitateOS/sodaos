@@ -1198,6 +1198,7 @@ checksum = "f9395f0f0eee849a9b707b2f06bb92a6a422090e2123bb2ef8e87a0e61892a8e"
 name = "soda-acceptance"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "flate2",
  "libc",
  "sha2 0.10.9",
@@ -1249,11 +1250,14 @@ dependencies = [
 name = "soda-host"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "getrandom 0.4.3",
  "libc",
  "p256",
  "p384",
  "p521",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-release-build",
  "soda-release-deliver",
@@ -1264,6 +1268,7 @@ name = "soda-identity"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "base64",
  "bytes",
  "fallible-iterator",
  "getrandom 0.4.3",
@@ -1280,6 +1285,8 @@ version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1294,6 +1301,7 @@ dependencies = [
 name = "soda-install"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "ecdsa",
  "ed25519-dalek",
  "elliptic-curve",
@@ -1317,6 +1325,7 @@ version = "0.1.0"
 name = "soda-muse"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "libc",
 ]
 
@@ -1343,6 +1352,7 @@ version = "0.1.0"
 name = "soda-project-terminal"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "libc",
  "sha2 0.10.9",
  "soda-json",
@@ -1378,6 +1388,7 @@ dependencies = [
 name = "soda-release-deliver"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "flate2",
  "libc",
  "sha2 0.10.9",
@@ -1421,7 +1432,10 @@ dependencies = [
 name = "soda-setup"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "getrandom 0.4.3",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

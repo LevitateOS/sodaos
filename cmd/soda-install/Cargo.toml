@@ -8,6 +8,7 @@ name = "soda-install"
 path = "src/main.rs"
 
 [dependencies]
+base64 = "=0.22.1"
 getrandom = { version = "=0.4.3", features = ["std"] }
 soda-json = { path = "../../lib/json" }
 libc = "=0.2.190"

@@ -19,6 +19,7 @@ name = "project-factory-roles"
 path = "src/bin/project-factory-roles.rs"
 
 [dependencies]
+base64 = "=0.22.1"
 sha2 = "=0.10.9"
 soda-json = { path = "../../lib/json" }
 libc = "0.2"

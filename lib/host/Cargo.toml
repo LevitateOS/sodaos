@@ -16,6 +16,9 @@ name = "soda-forgejo-tailnet"
 path = "../../cmd/soda-forgejo-tailnet/main.rs"
 
 [dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.151", features = ["raw_value"] }
+base64 = "=0.22.1"
 p256 = { version = "=0.13.2", default-features = false, features = ["arithmetic"] }
 p384 = { version = "=0.13.1", default-features = false, features = ["arithmetic"] }
 p521 = { version = "=0.13.3", default-features = false, features = ["arithmetic"] }
