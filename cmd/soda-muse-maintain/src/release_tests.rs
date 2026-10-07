@@ -113,6 +113,18 @@ fn release_payload_accept_and_reject() {
     let p = dir.path("dup.json");
     fs::write(&p, &dup).unwrap();
     assert!(load_release_payload(&p).is_ok(), "duplicate rejected");
+    let alias_last_valid = valid.replacen("\"Format\":3,", "\"format\":2,\"Format\":3,", 1);
+    fs::write(&p, &alias_last_valid).unwrap();
+    assert!(
+        load_release_payload(&p).is_ok(),
+        "exact later alias rejected"
+    );
+    let alias_last_invalid = valid.replacen("\"Format\":3,", "\"Format\":3,\"format\":2,", 1);
+    fs::write(&p, &alias_last_invalid).unwrap();
+    assert!(
+        load_release_payload(&p).is_err(),
+        "folded later alias did not win"
+    );
     let dup_image = valid.replacen(
         "\"Images\":{\"dashboard\":{",
         "\"Images\":{\"dashboard\":{\"Reference\":\"\",\"Config\":\"\",\"Manifest\":\"\",\"ArchiveSHA256\":\"\"},\"dashboard\":{",
@@ -128,6 +140,18 @@ fn release_payload_accept_and_reject() {
         load_release_payload(&p).is_ok(),
         "null UpgradeFrom rejected"
     );
+    for bad in [
+        valid.replacen("\"UpgradeFrom\":[]", "\"UpgradeFrom\":[\"old\"", 1),
+        valid.replacen("\"Format\":3", "\"Format\":3.0", 1),
+        valid.replacen("\"Format\":3", "\"Format\":3e0", 1),
+        valid.replacen("\"ID\":\"", "\"ID\":\"\\uD800", 1),
+    ] {
+        fs::write(&p, bad).unwrap();
+        assert!(
+            load_release_payload(&p).is_err(),
+            "malformed typed payload accepted"
+        );
+    }
     // Shape rejections: symlink, missing, directory, oversize.
     let link = dir.path("link.json");
     std::os::unix::fs::symlink(&path, &link).unwrap();

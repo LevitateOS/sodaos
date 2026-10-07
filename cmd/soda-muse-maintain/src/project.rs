@@ -1,8 +1,10 @@
 use std::time::{Duration, Instant};
 
 use super::command::podman;
-use super::json::JsonParser;
 use super::release_validation::is_hex_string;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use std::fmt;
 
 const INSPECT_FORMAT: &str = r#"{"id":{{json .ID}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"pid":{{json .State.Pid}},"running":{{json .State.Running}}}"#;
 
@@ -48,88 +50,46 @@ pub(crate) fn decode_observation(body: &[u8]) -> Result<Observation, String> {
     if std::str::from_utf8(body).is_err() {
         return Err(invalid.clone());
     }
+    #[derive(Deserialize)]
+    #[serde(untagged)]
     enum Field {
         Str(String),
         Int(i64),
         Bool(bool),
-        Null,
+        Null(()),
     }
-    let mut p = JsonParser::new(body);
-    p.skip_ws();
-    if p.peek() != Some(b'{') {
-        return Err(invalid.clone());
-    }
-    p.bump();
-    let mut pairs: Vec<(String, Field)> = Vec::new();
-    let mut first = true;
-    loop {
-        p.skip_ws();
-        if p.eof() {
-            return Err(invalid.clone());
-        }
-        if first && p.peek() == Some(b'}') {
-            p.bump();
-            break;
-        }
-        if p.peek() != Some(b'"') {
-            return Err(invalid.clone());
-        }
-        let key = p.parse_string().map_err(|_| invalid.clone())?;
-        if pairs.iter().any(|(k, _)| k == &key) {
-            return Err(invalid.clone());
-        }
-        p.skip_ws();
-        if p.peek() != Some(b':') {
-            return Err(invalid.clone());
-        }
-        p.bump();
-        p.skip_ws();
-        if p.eof() {
-            return Err(invalid.clone());
-        }
-        let field = match p.peek() {
-            Some(b'"') => Field::Str(p.parse_string().map_err(|_| invalid.clone())?),
-            Some(b't') | Some(b'f') | Some(b'n') => {
-                // Literals must be exact; prefixes fail like encoding/json.
-                if p.bytes[p.pos..].starts_with(b"true") {
-                    p.pos += 4;
-                    Field::Bool(true)
-                } else if p.bytes[p.pos..].starts_with(b"false") {
-                    p.pos += 5;
-                    Field::Bool(false)
-                } else if p.bytes[p.pos..].starts_with(b"null") {
-                    p.pos += 4;
-                    Field::Null
-                } else {
-                    return Err(invalid.clone());
+    struct Pairs(Vec<(String, Field)>);
+    impl<'de> Deserialize<'de> for Pairs {
+        fn deserialize<D>(d: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            struct PairsVisitor;
+            impl<'de> Visitor<'de> for PairsVisitor {
+                type Value = Pairs;
+                fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    f.write_str("an observation object")
+                }
+                fn visit_map<A>(self, mut map: A) -> Result<Pairs, A::Error>
+                where
+                    A: MapAccess<'de>,
+                {
+                    let mut pairs = Vec::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        if pairs.iter().any(|(seen, _)| seen == &key) {
+                            return Err(de::Error::custom("duplicate key"));
+                        }
+                        pairs.push((key, map.next_value::<Field>()?));
+                    }
+                    Ok(Pairs(pairs))
                 }
             }
-            Some(b'-') | Some(b'0'..=b'9') => {
-                Field::Int(p.parse_payload_int().map_err(|_| invalid.clone())?)
-            }
-            _ => return Err(invalid.clone()),
-        };
-        pairs.push((key, field));
-        p.skip_ws();
-        if p.eof() {
-            return Err(invalid.clone());
+            d.deserialize_map(PairsVisitor)
         }
-        match p.peek() {
-            Some(b',') => {
-                p.bump();
-            }
-            Some(b'}') => {
-                p.bump();
-                break;
-            }
-            _ => return Err(invalid.clone()),
-        }
-        first = false;
     }
-    p.skip_ws();
-    if !p.eof() {
-        return Err(invalid.clone());
-    }
+    let mut deserializer = serde_json::Deserializer::from_slice(body);
+    let Pairs(mut pairs) = Pairs::deserialize(&mut deserializer).map_err(|_| invalid.clone())?;
+    deserializer.end().map_err(|_| invalid.clone())?;
     pairs.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
     let mut o = Observation {
         id: String::new(),
@@ -149,7 +109,7 @@ pub(crate) fn decode_observation(body: &[u8]) -> Result<Observation, String> {
             (2, Field::Str(v)) => o.owner = v.clone(),
             (3, Field::Int(v)) => o.pid = *v,
             (4, Field::Bool(v)) => o.running = *v,
-            (_, Field::Null) => {}
+            (_, Field::Null(_)) => {}
             _ => return Err(invalid.clone()),
         }
     }

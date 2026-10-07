@@ -1,10 +1,123 @@
-use super::config::Config;
-use super::json::JsonParser;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use std::fmt;
 
-// go_quoted mirrors strconv.Quote: ASCII graphic bytes and U+0020 pass
-// through, C0/DEL take short or \x escapes, and every other character
-// Go's IsPrint rejects (controls, other separators, format,
-// private-use) takes \u or \U escapes.
+use super::config::Config;
+
+pub(crate) fn decode_host_config(data: &[u8]) -> Result<Config, String> {
+    let mut stream = serde_json::Deserializer::from_slice(data).into_iter::<Option<Config>>();
+    match stream.next() {
+        Some(Ok(Some(config))) => Ok(config),
+        Some(Ok(None)) => Ok(Config::default()),
+        Some(Err(_)) => Err(String::from("invalid host config JSON")),
+        None => Err(String::from("invalid host config JSON")),
+    }
+}
+
+impl<'de> Deserialize<'de> for Config {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ConfigVisitor;
+        impl<'de> Visitor<'de> for ConfigVisitor {
+            type Value = Config;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a host config object")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Config, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut config = Config::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match host_field_slot(&key) {
+                        Some(0) => set_string::<A>(&mut map, &mut config.muse_sha256)?,
+                        Some(1) => set_string::<A>(&mut map, &mut config.muse_version)?,
+                        Some(2) => set_string::<A>(&mut map, &mut config.muse_socket)?,
+                        Some(3) => set_string::<A>(&mut map, &mut config.identity_socket)?,
+                        Some(4) => set_string::<A>(&mut map, &mut config.codex_harness)?,
+                        Some(5) => set_string::<A>(&mut map, &mut config.codex_harness_sha256)?,
+                        Some(6) => set_string::<A>(&mut map, &mut config.codex_harness_version)?,
+                        Some(7) => set_bool::<A>(&mut map, &mut config.tailnet_management)?,
+                        Some(8) => set_string::<A>(&mut map, &mut config.tailnet_image)?,
+                        Some(9) => set_string::<A>(&mut map, &mut config.image)?,
+                        Some(10) => set_string::<A>(&mut map, &mut config.network)?,
+                        Some(11) => set_string::<A>(&mut map, &mut config.subnet)?,
+                        Some(12) => set_string::<A>(&mut map, &mut config.bridge)?,
+                        _ => return Err(de::Error::unknown_field(&key, HOST_FIELDS)),
+                    }
+                }
+                Ok(config)
+            }
+
+            fn visit_unit<E>(self) -> Result<Config, E>
+            where
+                E: de::Error,
+            {
+                Ok(Config::default())
+            }
+        }
+        deserializer.deserialize_any(ConfigVisitor)
+    }
+}
+
+fn set_string<'de, A>(map: &mut A, slot: &mut String) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let value = map.next_value::<Option<String>>()?;
+    if let Some(value) = value {
+        *slot = value;
+    }
+    Ok(())
+}
+
+fn set_bool<'de, A>(map: &mut A, slot: &mut bool) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let value = map.next_value::<Option<bool>>()?;
+    if let Some(value) = value {
+        *slot = value;
+    }
+    Ok(())
+}
+
+const HOST_FIELDS: &[&str] = &[
+    "muse_sha256",
+    "muse_version",
+    "muse_socket",
+    "identity_socket",
+    "codex_harness",
+    "codex_harness_sha256",
+    "codex_harness_version",
+    "tailnet_management",
+    "tailnet_image",
+    "image",
+    "network",
+    "subnet",
+    "bridge",
+];
+
+fn host_field_slot(key: &str) -> Option<usize> {
+    if let Some(i) = HOST_FIELDS.iter().position(|field| *field == key) {
+        return Some(i);
+    }
+    let mut found = None;
+    for (i, field) in HOST_FIELDS.iter().enumerate() {
+        if field.eq_ignore_ascii_case(key) {
+            if found.is_some() {
+                return None;
+            }
+            found = Some(i);
+        }
+    }
+    found
+}
+
 pub(crate) fn go_quoted(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
@@ -27,10 +140,11 @@ pub(crate) fn go_quoted(s: &str) -> String {
                 }
             }
             c if c.is_control() || (c.is_whitespace() && c != ' ') || is_go_nonprint(c) => {
-                if (c as u32) <= 0xffff {
-                    out.push_str(&format!("\\u{:04x}", c as u32));
+                let n = c as u32;
+                if n <= 0xffff {
+                    out.push_str(&format!("\\u{n:04x}"));
                 } else {
-                    out.push_str(&format!("\\U{:08x}", c as u32));
+                    out.push_str(&format!("\\U{n:08x}"));
                 }
             }
             c => out.push(c),
@@ -40,8 +154,6 @@ pub(crate) fn go_quoted(s: &str) -> String {
     out
 }
 
-// is_go_nonprint covers the Unicode format (Cf) and private-use (Co)
-// ranges, which strconv.Quote escapes but char::is_control misses.
 fn is_go_nonprint(c: char) -> bool {
     matches!(c as u32,
         0x00AD | 0x061C | 0x06DD | 0x070F | 0x08E2 | 0x180E | 0xFEFF
@@ -51,216 +163,4 @@ fn is_go_nonprint(c: char) -> bool {
         | 0x13430..=0x13438 | 0x1BCA0..=0x1BCA3 | 0x1D173..=0x1D17A
         | 0xE0020..=0xE007F | 0xE0100..=0xE01EF
         | 0xE000..=0xF8FF | 0xF0000..=0xFFFFD | 0x100000..=0x10FFFD)
-}
-
-// decode_host_config mirrors encoding/json Decode with DisallowUnknownFields
-// into host.Config: exact-then-case-insensitive keys, last duplicate wins,
-// null is a no-op, trailing data ignored, Go-compatible error strings.
-pub(crate) fn decode_host_config(data: &[u8]) -> Result<Config, String> {
-    let mut p = JsonParser::new(data);
-    p.skip_ws();
-    if p.eof() {
-        return Err(String::from("EOF"));
-    }
-    match p.peek() {
-        Some(b'{') => {
-            p.bump();
-        }
-        Some(b'n') => {
-            p.parse_literal()?;
-            return Ok(Config::default());
-        }
-        Some(_) => {
-            let kind = p.value_kind()?;
-            return Err(format!(
-                "json: cannot unmarshal {kind} into Go value of type host.Config"
-            ));
-        }
-        None => return Err(String::from("EOF")),
-    }
-    let mut c = Config::default();
-    // Go saves the first unknown-field/type error but keeps parsing: a
-    // later syntax error overwrites it, later save-errors do not.
-    let mut saved: Option<String> = None;
-    let mut first = true;
-    loop {
-        p.skip_ws();
-        if p.eof() {
-            return Err(String::from("unexpected EOF"));
-        }
-        if first && p.peek() == Some(b'}') {
-            p.bump();
-            break;
-        }
-        if p.peek() != Some(b'"') {
-            return Err(invalid_character(
-                &p,
-                "looking for beginning of object key string",
-            ));
-        }
-        let key = p.parse_string()?;
-        p.skip_ws();
-        if p.eof() {
-            return Err(String::from("unexpected EOF"));
-        }
-        if p.peek() != Some(b':') {
-            return Err(invalid_character(&p, "after object key"));
-        }
-        p.bump();
-        p.skip_ws();
-        if p.eof() {
-            return Err(String::from("unexpected EOF"));
-        }
-        if let Some(err) = decode_host_field(&mut p, &key, &mut c)? {
-            if saved.is_none() {
-                saved = Some(err);
-            }
-        }
-        p.skip_ws();
-        if p.eof() {
-            return Err(String::from("unexpected EOF"));
-        }
-        match p.peek() {
-            Some(b',') => {
-                p.bump();
-            }
-            Some(b'}') => {
-                p.bump();
-                break;
-            }
-            _ => return Err(invalid_character(&p, "after object key:value pair")),
-        }
-        first = false;
-    }
-    if let Some(err) = saved {
-        return Err(err);
-    }
-    Ok(c)
-}
-
-pub(crate) fn invalid_character(p: &JsonParser, context: &str) -> String {
-    let c = p.peek_char();
-    format!("invalid character '{c}' {context}")
-}
-
-fn decode_host_field(
-    p: &mut JsonParser,
-    key: &str,
-    c: &mut Config,
-) -> Result<Option<String>, String> {
-    // Value syntax validates before field assignment: Go reports a broken
-    // value even for unknown fields. The returned save-error (unknown field
-    // or type mismatch) lets the caller keep parsing.
-    enum Value {
-        Str(String),
-        Bool(bool),
-        Null,
-        Other(&'static str),
-    }
-    let value = match p.peek() {
-        Some(b'"') => Value::Str(p.parse_string()?),
-        Some(b't') | Some(b'f') | Some(b'n') => match p.parse_literal()? {
-            "true" => Value::Bool(true),
-            "false" => Value::Bool(false),
-            _ => Value::Null,
-        },
-        Some(b'-') | Some(b'0'..=b'9') => {
-            p.scan_number()?;
-            Value::Other("number")
-        }
-        Some(b'[') => {
-            p.skip_value()?;
-            Value::Other("array")
-        }
-        Some(b'{') => {
-            p.skip_value()?;
-            Value::Other("object")
-        }
-        _ => return Err(invalid_character(p, "looking for beginning of value")),
-    };
-    let slot = match host_field_slot(key) {
-        Some(s) => s,
-        None => return Ok(Some(format!("json: unknown field {}", go_quoted(key)))),
-    };
-    if matches!(value, Value::Null) {
-        return Ok(None);
-    }
-    let is_bool = slot == 7;
-    match value {
-        Value::Str(s) => {
-            if is_bool {
-                return Ok(Some(type_error("string", key, "bool")));
-            }
-            set_host_string(c, slot, s);
-            Ok(None)
-        }
-        Value::Bool(b) => {
-            if !is_bool {
-                return Ok(Some(type_error("bool", key, "string")));
-            }
-            c.tailnet_management = b;
-            Ok(None)
-        }
-        Value::Other(kind) => Ok(Some(type_error(
-            kind,
-            key,
-            if is_bool { "bool" } else { "string" },
-        ))),
-        Value::Null => Ok(None),
-    }
-}
-
-fn type_error(kind: &str, key: &str, ty: &str) -> String {
-    format!("json: cannot unmarshal {kind} into Go struct field Config.{key} of type {ty}")
-}
-
-// host_field_slot resolves exact keys first, then one case-insensitive
-// fallback, mirroring encoding/json field matching.
-fn host_field_slot(key: &str) -> Option<usize> {
-    const KEYS: [&str; 13] = [
-        "muse_sha256",
-        "muse_version",
-        "muse_socket",
-        "identity_socket",
-        "codex_harness",
-        "codex_harness_sha256",
-        "codex_harness_version",
-        "tailnet_management",
-        "tailnet_image",
-        "image",
-        "network",
-        "subnet",
-        "bridge",
-    ];
-    if let Some(i) = KEYS.iter().position(|k| *k == key) {
-        return Some(i);
-    }
-    let mut found = None;
-    for (i, k) in KEYS.iter().enumerate() {
-        if k.eq_ignore_ascii_case(key) {
-            if found.is_some() {
-                return None;
-            }
-            found = Some(i);
-        }
-    }
-    found
-}
-
-fn set_host_string(c: &mut Config, slot: usize, value: String) {
-    match slot {
-        0 => c.muse_sha256 = value,
-        1 => c.muse_version = value,
-        2 => c.muse_socket = value,
-        3 => c.identity_socket = value,
-        4 => c.codex_harness = value,
-        5 => c.codex_harness_sha256 = value,
-        6 => c.codex_harness_version = value,
-        8 => c.tailnet_image = value,
-        9 => c.image = value,
-        10 => c.network = value,
-        11 => c.subnet = value,
-        12 => c.bridge = value,
-        _ => {}
-    }
 }
