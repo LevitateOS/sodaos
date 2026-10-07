@@ -15,7 +15,7 @@ current inventory. No former-root rows count twice.
 | `.agents` | 1 | [agent-plans.md](agent-plans.md) |
 | `.githooks` | 1 | [git-hooks.md](git-hooks.md) |
 | `assets` | 175 | [assets.md](assets.md) |
-| `cmd` | 338 | [cmd.md](cmd.md) |
+| `cmd` | 337 | [cmd.md](cmd.md) |
 | `docs` | 323 | [docs.md](docs.md) |
 | `factory-os` | 1 | [factory-os.md](factory-os.md) |
 | `frontend` | 345 | [frontend.md](frontend.md) |
@@ -23,10 +23,10 @@ current inventory. No former-root rows count twice.
 | `lib` | 429 | [native-packages.md](native-packages.md) |
 | `scripts` | 80 | [scripts.md](scripts.md) |
 | `system` | 64 | [appliance.md](appliance.md) |
-| `tests` | 141 | [tests.md](tests.md) |
+| `tests` | 138 | [tests.md](tests.md) |
 | `tools` | 193 | [tools.md](tools.md) |
 
-Total scope: **2,564 paths**: **2,545** at `f8b22b0b` plus **4** library-caller
+Total scope: **2,560 paths** at `faa663cc`: **2,545** at `f8b22b0b` plus **4** library-caller
 documents, **1** observation-reliability chapter, **1** connected workflow-trace
 chapter, **1** adapter-challenge chapter, **1** representation chapter and
 **1** concurrency/termination chapter, **1** authority/state chapter and
@@ -34,9 +34,10 @@ chapter, **1** adapter-challenge chapter, **1** representation chapter and
 **1** dependency/architecture-cost chapter, **1** test/evidence chapter and
 **1** build/installation/operational join chapter, **1** total maintenance chapter
 **1** independent consequential-challenge chapter, **1** finding-allocation chapter
-and **1** H06 Cargo-helper regression source file.
-The latest tracked addition is the H06 test source at `04ddbff1`; all 2,564
-paths are tracked. Its selective ownership delta does not regenerate the older
+and **1** H06 Cargo-helper regression source file, minus **3** obsolete guard
+test files in `5413589a` and **1** retired parameter-mirror test in `278569b8`.
+The latest tracked addition is the H06 test source at `04ddbff1`; all 2,560
+paths are tracked. These selective ownership deltas do not regenerate the older
 named-duty/body census or establish current validity for changed files.
 Generated/captured/third-party artifacts have producer/consumer dispositions;
 their presence does not imply authored-code, rendering or native-execution proof.

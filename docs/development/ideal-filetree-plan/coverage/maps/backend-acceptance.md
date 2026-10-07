@@ -35,7 +35,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–142; file scaffold; stubAccessTransport; TestRunDeveloperAccessEndToEnd | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; Current declaration duty: stubAccessTransport; Current declaration duty: TestRunDeveloperAccessEndToEnd — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–144; file scaffold; stubAccessTransport; TestRunDeveloperAccessEmulatedOrchestration | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | The stubbed SSH/keygen/SCP/SFTP journey checks orchestration, semantic result fields and recorded artifact identity; it is explicitly emulated and proves no native SSH behavior. — Current source declaration/method inspected; no native qualification claim |
 
 <a id="coverage-559d5ea5aec1"></a>
 
@@ -288,4 +288,4 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–122; file scaffold; TestWorkloadExecProbeBytes; writeExecFixture; stubSSH; bobExitString; TestRunWorkloadExec; TestRunWorkloadExecRefusals | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–130; file scaffold; writeExecFixture; stubSSH; bobExitString; TestRunWorkloadExec; TestRunWorkloadExecRefusals | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Checks three current piped script roots and four fail-closed refusal cases; former retired-Python byte equality is removed. — Current complete source and selectors inspected |

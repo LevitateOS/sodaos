@@ -85,7 +85,7 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–14, 19–456; current module/import/attribute shell; declaration OPERATION_BUDGET; declaration CLEANUP_BUDGET; declaration Store; fields client, runtime, dsn, operation_budget, grants; declaration Tx; fields store, connection, deadline, failed; declaration open_encrypted; declaration open; declaration query; declaration exec; declaration query_row; declaration simple; declaration transaction; declaration begin_operation; declaration connect_if_needed; declaration discard; declaration set_operation_budget_for_test; declaration drop; declaration query_on; declaration exec_on; declaration run_simple; declaration encode_params; declaration param_refs; declaration changed; declaration Param; declaration text; declaration json; declaration int; declaration int64; declaration boolean; declaration bytea; declaration encode; declaration store_tests | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Imports and module declarations wire the current PostgreSQL Store, pg driver, query adapter, and storage tests.; 36 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–14, 19–400; current module/import/attribute shell; declaration OPERATION_BUDGET; declaration CLEANUP_BUDGET; declaration Store; fields client, runtime, dsn, operation_budget, grants; declaration Tx; fields store, connection, deadline, failed; declaration open_encrypted; declaration open; declaration query; declaration exec; declaration query_row; declaration simple; declaration transaction; declaration begin_operation; declaration connect_if_needed; declaration discard; declaration set_operation_budget_for_test; declaration drop; declaration query_on; declaration exec_on; declaration run_simple; declaration schema_integer; declaration changed | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Store and Tx use borrowed PostgreSQL parameters and typed query rows directly; operation deadline, cancellation, drain/discard/join behavior and transaction ownership remain local. The Param enum and generic Row/Field/string conversion path are removed. — Current source `cmd/soda-identity/src/store.rs`; callers inspected |
 | 15–18; declaration identity_binding | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | Build the per-connection and generation associated-data identity consumed by credential encryption and lease storage. — current source cmd/soda-identity/src/store.rs; lines 15-18; module/caller wiring inspected |
 
 <a id="coverage-da1d1adb07f0"></a>
@@ -139,8 +139,9 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–7, 148–187; module/import shell; declaration maintain_credential | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Credential maintenance remains part of the Identity store duty; acquisition transaction behavior is assigned to I04. — Current named units/source consumers; retained normalized source evidence records each selector |
-| 9–24, 25–75, 77–87, 89–119, 121–146; declaration leases; declaration lease; declaration reserve_and_link_execution; declaration register; declaration return_lease; declaration forget_lease; declaration reserve_lease | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | One transaction reserves the lease, appends its reserved event and links the execution. Uncertain COMMIT is re-read rather than automatically replayed. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–10; module/import shell | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Store module wiring. — current source cmd/soda-identity/src/store_leases.rs |
+| 157–195; declaration maintain_credential | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Credential maintenance remains part of the Identity store duty. — current function inspected |
+| 11–156; declaration leases; declaration lease; declaration reserve_and_link_execution; declaration register; declaration return_lease; declaration forget_lease; declaration reserve_lease | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | One transaction reserves the lease, appends its reserved event and links the execution. Uncertain COMMIT is re-read rather than automatically replayed. — Current named units/source consumers; typed rows/parameters inspected |
 
 <a id="coverage-57fc1a9afdb9"></a>
 
@@ -151,14 +152,3 @@ current line spans and declarations inspected; prior intervals reused only for b
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–146; current module/import/attribute shell; declaration check_grant_key; declaration reject_unkeyed_identity_credentials; declaration validate_grant_key; declaration initialize_grant_key; declaration initialize_schema; declaration grants; declaration load_schema_version; declaration verify_required_columns; declaration verify_trigger | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Imports and module declarations wire cmd/soda-identity/src/store_schema.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
-
-<a id="coverage-71e51d5957cb"></a>
-
-## [cmd/soda-identity/src/store_tests.rs](../../../../../cmd/soda-identity/src/store_tests.rs)
-
-current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–2; current module/import/attribute shell | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/store_tests.rs into its current native target. — current source cmd/soda-identity/src/store_tests.rs; Cargo target and callers |
-| 3–13; declaration parameters_keep_postgres_value_types | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | parameters_keep_postgres_value_types: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in store_tests.rs. — current source cmd/soda-identity/src/store_tests.rs; lines 3-13; module/caller wiring inspected |
