@@ -461,7 +461,8 @@ pub fn muse_elf(header: &[u8], arch: &str) -> Result<(), String> {
         return Err(terminal::err_denied());
     }
     let machine = soda_build_tools::elf::elf64_le_header(header)
-        .ok_or_else(terminal::err_denied)?.machine;
+        .ok_or_else(terminal::err_denied)?
+        .machine;
     if arch == "amd64" && machine == 62 {
         return Ok(());
     }
