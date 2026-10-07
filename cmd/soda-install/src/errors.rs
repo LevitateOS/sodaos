@@ -27,6 +27,12 @@ pub enum Error {
     /// `errEnrollmentWriteUncertain`: the authorized-key write may have
     /// completed but could not be confirmed.
     EnrollUncertain,
+    /// The enrollment operation and its close both failed. Keep the primary
+    /// error identity for control flow while retaining the cleanup failure.
+    EnrollmentCleanup {
+        primary: Box<Error>,
+        cleanup: Box<Error>,
+    },
 }
 
 impl Error {
@@ -52,6 +58,9 @@ impl fmt::Display for Error {
                 f,
                 "authorized-key import may have completed; the file changed or the write could not be confirmed; inspect native access before another import"
             ),
+            Error::EnrollmentCleanup { primary, cleanup } => {
+                write!(f, "{primary}; enrollment close also failed: {cleanup}")
+            }
         }
     }
 }
