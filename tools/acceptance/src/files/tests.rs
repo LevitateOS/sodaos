@@ -63,6 +63,42 @@ fn private_file_matrix() {
     std::fs::write(&big, vec![0u8; (PRIVATE_FILE_LIMIT + 1) as usize]).unwrap();
     std::fs::set_permissions(&big, std::fs::Permissions::from_mode(0o600)).unwrap();
     assert!(private_file(big.to_str().unwrap()).is_err());
+    let exact = dir.join("exact");
+    std::fs::write(&exact, vec![0u8; PRIVATE_FILE_LIMIT as usize]).unwrap();
+    std::fs::set_permissions(&exact, std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert_eq!(
+        private_file(exact.to_str().unwrap()).unwrap().len() as u64,
+        PRIVATE_FILE_LIMIT
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn bounded_private_read_observes_growth_on_open_inode() {
+    let dir = temp_dir("soda-files-bound");
+    let path = dir.join("input");
+    std::fs::write(&path, b"base").unwrap();
+    let opened = std::fs::File::open(&path).unwrap();
+    let mut writer = std::fs::OpenOptions::new()
+        .append(true)
+        .open(&path)
+        .unwrap();
+    writer.write_all(b"-grown").unwrap();
+    let replacement = dir.join("replacement");
+    std::fs::write(&replacement, b"replacement").unwrap();
+    std::fs::rename(&replacement, &path).unwrap();
+    assert_eq!(
+        super::inputs::read_limited(opened, 16).unwrap(),
+        Some(b"base-grown".to_vec())
+    );
+    assert_eq!(
+        super::inputs::read_limited(std::fs::File::open(&path).unwrap(), 11).unwrap(),
+        Some(b"replacement".to_vec())
+    );
+    assert_eq!(
+        super::inputs::read_limited(std::fs::File::open(&path).unwrap(), 10).unwrap(),
+        None
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

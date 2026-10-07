@@ -71,14 +71,23 @@ fn copy_config_children(source: &str, destination: &str, dir: &str) -> Result<()
 }
 
 fn copy_config_file(path: &str, target: &str) -> Result<(), String> {
-    let info = fs::metadata(path).map_err(|e| path_error("stat", path, e))?;
+    // O_NONBLOCK keeps a raced FIFO from hanging before we can reject its
+    // opened type. A leaf symlink is intentionally followed, as in the Go
+    // implementation; all admission below applies to the opened target.
+    let mut opts = fs::OpenOptions::new();
+    opts.read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_NONBLOCK);
+    let file = opts.open(path).map_err(|e| path_error("stat", path, e))?;
+    let info = file.metadata().map_err(|e| path_error("stat", path, e))?;
     if !info.is_file() {
         return Ok(());
     }
     if info.len() > 1 << 20 {
         return Err(String::from("muse config file exceeds private view limit"));
     }
-    let body = fs::read(path).map_err(|e| path_error("open", path, e))?;
+    let body = read_limited(file, 1 << 20)
+        .map_err(|e| path_error("open", path, e))?
+        .ok_or_else(|| String::from("muse config file exceeds private view limit"))?;
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
     opts.mode(0o600);
@@ -88,6 +97,63 @@ fn copy_config_file(path: &str, target: &str) -> Result<(), String> {
         .map_err(|e| path_error("open", target, e))?;
     f.write_all(&body).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+fn read_limited(file: fs::File, maximum: usize) -> io::Result<Option<Vec<u8>>> {
+    use std::io::Read;
+    let mut body = Vec::new();
+    file.take(maximum as u64 + 1).read_to_end(&mut body)?;
+    Ok((body.len() <= maximum).then_some(body))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{copy_config_file, read_limited};
+    use std::io::Write;
+
+    #[test]
+    fn bounded_read_uses_open_inode_and_detects_growth() {
+        let dir = std::env::temp_dir().join(format!("muse-bounded-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("input");
+        std::fs::write(&path, b"start").unwrap();
+        let opened = std::fs::File::open(&path).unwrap();
+        let mut writer = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
+        writer.write_all(b"-grown").unwrap();
+        let replacement = dir.join("replacement");
+        std::fs::write(&replacement, b"replacement").unwrap();
+        std::fs::rename(&replacement, &path).unwrap();
+        assert_eq!(
+            read_limited(opened, 32).unwrap(),
+            Some(b"start-grown".to_vec())
+        );
+        assert_eq!(
+            read_limited(std::fs::File::open(&path).unwrap(), 11).unwrap(),
+            Some(b"replacement".to_vec())
+        );
+        assert_eq!(
+            read_limited(std::fs::File::open(&path).unwrap(), 10).unwrap(),
+            None
+        );
+        let fifo = dir.join("fifo");
+        use std::os::unix::ffi::OsStrExt;
+        let fifo_name = std::ffi::CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo_name.as_ptr(), 0o600) }, 0);
+        assert!(
+            copy_config_file(fifo.to_str().unwrap(), dir.join("out").to_str().unwrap()).is_ok()
+        );
+        let link_target = dir.join("link-target");
+        std::fs::write(&link_target, b"allowed-link").unwrap();
+        let link = dir.join("link");
+        std::os::unix::fs::symlink(&link_target, &link).unwrap();
+        copy_config_file(link.to_str().unwrap(), dir.join("out").to_str().unwrap()).unwrap();
+        assert_eq!(std::fs::read(dir.join("out")).unwrap(), b"allowed-link");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 // read_config emits the upstream release's saved settings and trust records only.

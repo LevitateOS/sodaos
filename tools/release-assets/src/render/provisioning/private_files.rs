@@ -1,6 +1,7 @@
 //! Bounded private-input, host-key and exclusive-output handling.
 
-use std::io::ErrorKind;
+use std::io::Read;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -8,20 +9,56 @@ use std::time::{Duration, Instant};
 use super::{ProvError, ProvKind};
 
 pub(crate) fn read_text(path: &Path) -> Result<String, ProvError> {
-    match std::fs::read_to_string(path) {
-        Ok(text) => Ok(text),
-        Err(e) if e.kind() == ErrorKind::InvalidData => Err(ProvError::new(
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_NONBLOCK);
+    let file = options
+        .open(path)
+        .map_err(|e| ProvError::io(&e, format!("cannot read {}", path.display())))?;
+    read_open_text(file, path, None)
+}
+
+pub(super) fn read_open_text(
+    file: std::fs::File,
+    path: &Path,
+    limit: Option<u64>,
+) -> Result<String, ProvError> {
+    let mut bytes = Vec::new();
+    let mut reader: Box<dyn Read> = match limit {
+        Some(limit) => Box::new(file.take(limit + 1)),
+        None => Box::new(file),
+    };
+    reader
+        .read_to_end(&mut bytes)
+        .map_err(|e| ProvError::io(&e, format!("cannot read {}", path.display())))?;
+    if limit.is_some_and(|limit| bytes.len() as u64 > limit) {
+        return Err(ProvError::value("bounded regular input required"));
+    }
+    String::from_utf8(bytes).map_err(|_| {
+        ProvError::new(
             ProvKind::UnicodeDecode,
             format!("cannot decode {}", path.display()),
-        )),
-        Err(e) => Err(ProvError::io(&e, format!("cannot read {}", path.display()))),
-    }
+        )
+    })
 }
 
 /// Bounded regular input, like the script's `regular()`: lstat must show a
 /// plain file under 1 MiB, and secret inputs must hide from group/others.
 pub(crate) fn regular(path: &Path, private: bool) -> Result<String, ProvError> {
-    let meta = std::fs::symlink_metadata(path)
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    let file = options.open(path).map_err(|e| {
+        if e.raw_os_error() == Some(libc::ELOOP) {
+            ProvError::value("bounded regular input required")
+        } else {
+            ProvError::io(&e, format!("cannot stat {}", path.display()))
+        }
+    })?;
+    let meta = file
+        .metadata()
         .map_err(|e| ProvError::io(&e, format!("cannot stat {}", path.display())))?;
     if !meta.file_type().is_file() || meta.len() > 1024 * 1024 {
         return Err(ProvError::value("bounded regular input required"));
@@ -35,7 +72,7 @@ pub(crate) fn regular(path: &Path, private: bool) -> Result<String, ProvError> {
             ));
         }
     }
-    read_text(path)
+    read_open_text(file, path, Some(1024 * 1024))
 }
 
 fn is_label(label: &str, max_middle: usize) -> bool {

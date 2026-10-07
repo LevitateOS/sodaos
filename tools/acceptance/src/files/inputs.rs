@@ -1,7 +1,7 @@
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::Read;
 use std::os::fd::AsRawFd;
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::Path;
 
 use crate::error::Error;
@@ -15,7 +15,22 @@ pub fn private_file(path: &str) -> Result<Vec<u8>, Error> {
     if !path.starts_with('/') {
         return Err(Error::msg("absolute private input required"));
     }
-    let meta = std::fs::symlink_metadata(path)?;
+    let mut options = OpenOptions::new();
+    options
+        .read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    let file = options.open(path).map_err(|error| {
+        if error.raw_os_error() == Some(libc::ELOOP) {
+            let base = Path::new(path)
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            Error::msg(format!("restricted regular input required: {base}"))
+        } else {
+            Error::from(error)
+        }
+    })?;
+    let meta = file.metadata()?;
     if !meta.is_file() || meta.mode() & 0o077 != 0 || meta.size() > PRIVATE_FILE_LIMIT {
         let base = Path::new(path)
             .file_name()
@@ -25,7 +40,22 @@ pub fn private_file(path: &str) -> Result<Vec<u8>, Error> {
             "restricted regular input required: {base}"
         )));
     }
-    Ok(std::fs::read(path)?)
+    let Some(body) = read_limited(file, PRIVATE_FILE_LIMIT as usize)? else {
+        let base = Path::new(path)
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        return Err(Error::msg(format!(
+            "restricted regular input required: {base}"
+        )));
+    };
+    Ok(body)
+}
+
+pub(super) fn read_limited(file: File, maximum: usize) -> std::io::Result<Option<Vec<u8>>> {
+    let mut body = Vec::new();
+    file.take(maximum as u64 + 1).read_to_end(&mut body)?;
+    Ok((body.len() <= maximum).then_some(body))
 }
 
 /// Stream a regular file's lowercase SHA-256 hex. Mirrors `HashFile`.
