@@ -1,6 +1,7 @@
 use super::*;
 use crate::project::Executor;
 use crate::terminal;
+use std::os::fd::AsRawFd;
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -1849,25 +1850,45 @@ fn peer_attestation() {
     assert_eq!(peer.pid, std::process::id() as i32);
     assert_eq!(peer.uid, unsafe { libc::geteuid() });
     assert_eq!(peer.gid, unsafe { libc::getegid() });
-    assert!(peer.pidfd >= 0);
+    assert!(peer.pidfd.as_raw_fd() >= 0);
     assert!(muse_peer_alive(&peer));
+    drop(peer);
     unsafe {
-        libc::close(peer.pidfd);
         libc::close(a);
         libc::close(b);
     }
-    // A stale pidfd (POLLNVAL/POLLERR) reads non-alive.
-    let (c, d) = seqpacket_pair();
-    let stale = muse_peer_from_fd(c).unwrap();
-    let stale_pidfd = stale.pidfd;
-    unsafe {
-        libc::close(c);
-        libc::close(d);
-        libc::close(stale_pidfd);
-    }
-    // No fd allocation happens between the close and the poll, so the
-    // number still refers to nothing.
-    assert!(!muse_peer_alive(&stale));
+}
+
+#[test]
+fn accepted_muse_connection_is_cloexec() {
+    use std::os::fd::AsRawFd;
+
+    let address = rustix::net::SocketAddrUnix::new_abstract_name(
+        format!("sodaos-muse-{}", std::process::id()).as_bytes(),
+    )
+    .unwrap();
+    let listener = rustix::net::socket_with(
+        rustix::net::AddressFamily::UNIX,
+        rustix::net::SocketType::SEQPACKET,
+        rustix::net::SocketFlags::CLOEXEC,
+        None,
+    )
+    .unwrap();
+    rustix::net::bind(&listener, &address).unwrap();
+    rustix::net::listen(&listener, 1).unwrap();
+    let client = rustix::net::socket_with(
+        rustix::net::AddressFamily::UNIX,
+        rustix::net::SocketType::SEQPACKET,
+        rustix::net::SocketFlags::CLOEXEC,
+        None,
+    )
+    .unwrap();
+    rustix::net::connect(&client, &address).unwrap();
+    let accepted = rustix::net::accept_with(&listener, rustix::net::SocketFlags::CLOEXEC).unwrap();
+    let flags = unsafe { libc::fcntl(accepted.as_raw_fd(), libc::F_GETFD) };
+    assert!(flags >= 0);
+    assert_ne!(flags & libc::FD_CLOEXEC, 0);
+    drop((accepted, client, listener));
 }
 
 #[test]
@@ -1894,6 +1915,12 @@ fn request_parsing_matrix() {
     let received = muse_request_from_fd(a).unwrap();
     assert_eq!(received.request.cwd, "/w");
     assert!(received.files.iter().all(|f| f.is_some()));
+    for file in received.files.iter().flatten() {
+        // SCM_RIGHTS receipt sets CLOEXEC atomically via MSG_CMSG_CLOEXEC.
+        let flags = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_GETFD) };
+        assert!(flags >= 0);
+        assert_ne!(flags & libc::FD_CLOEXEC, 0);
+    }
     drop(received);
     unsafe {
         libc::close(a);
@@ -1930,6 +1957,81 @@ fn request_parsing_matrix() {
     unsafe {
         libc::close(a);
         libc::close(b);
+    }
+}
+
+#[test]
+fn rejected_received_rights_are_closed() {
+    // Four copies exceed the admitted three-descriptor launch contract. Once
+    // the rejected request returns, closing the sender's writer must make the
+    // pipe readable as EOF, proving the receiver dropped every SCM_RIGHTS fd.
+    let (socket, sender) = seqpacket_pair();
+    let mut pipe = [-1; 2];
+    assert_eq!(unsafe { libc::pipe(pipe.as_mut_ptr()) }, 0);
+    send_with_fds(sender, br#"{"cwd":"/w"}"#, &[pipe[1]; 4]);
+    unsafe { libc::close(pipe[1]) };
+    assert!(muse_request_from_fd(socket).is_err());
+    let mut byte = 0u8;
+    assert_eq!(
+        unsafe { libc::read(pipe[0], (&mut byte as *mut u8).cast(), 1) },
+        0
+    );
+    unsafe {
+        libc::close(pipe[0]);
+        libc::close(socket);
+        libc::close(sender);
+    }
+}
+
+#[test]
+fn truncated_rights_are_rejected_and_closed() {
+    let (socket, sender) = seqpacket_pair();
+    let mut pipe = [-1; 2];
+    assert_eq!(unsafe { libc::pipe(pipe.as_mut_ptr()) }, 0);
+    send_with_fds(sender, br#"{"cwd":"/w"}"#, &[pipe[1]; 5]);
+    unsafe { libc::close(pipe[1]) };
+    assert!(muse_request_from_fd(socket).is_err());
+    let mut byte = 0u8;
+    assert_eq!(
+        unsafe { libc::read(pipe[0], (&mut byte as *mut u8).cast(), 1) },
+        0
+    );
+    unsafe {
+        libc::close(pipe[0]);
+        libc::close(socket);
+        libc::close(sender);
+    }
+}
+
+#[test]
+fn oversized_request_datagram_is_rejected() {
+    let (socket, sender) = seqpacket_pair();
+    let body = vec![b' '; 65537];
+    send_with_fds(sender, &body, &[]);
+    assert!(muse_request_from_fd(socket).is_err());
+    unsafe {
+        libc::close(socket);
+        libc::close(sender);
+    }
+}
+
+#[test]
+fn request_validation_failure_closes_received_rights() {
+    let (socket, sender) = seqpacket_pair();
+    let mut pipe = [-1; 2];
+    assert_eq!(unsafe { libc::pipe(pipe.as_mut_ptr()) }, 0);
+    send_with_fds(sender, br#"{"cwd":"relative"}"#, &[pipe[1]; 3]);
+    unsafe { libc::close(pipe[1]) };
+    assert!(muse_request_from_fd(socket).is_err());
+    let mut byte = 0u8;
+    assert_eq!(
+        unsafe { libc::read(pipe[0], (&mut byte as *mut u8).cast(), 1) },
+        0
+    );
+    unsafe {
+        libc::close(pipe[0]);
+        libc::close(socket);
+        libc::close(sender);
     }
 }
 

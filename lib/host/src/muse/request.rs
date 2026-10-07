@@ -1,6 +1,8 @@
-use std::os::unix::io::{FromRawFd, RawFd};
+use std::io::IoSliceMut;
+use std::mem::MaybeUninit;
+use std::os::fd::{OwnedFd, RawFd};
 
-use super::{close_fds, parse_unix_rights, LaunchRequest};
+use super::LaunchRequest;
 
 /// One launch request plus its stdio files (`museRequest`).
 /// `files` holds `None`s when the caller passed no descriptors (register).
@@ -10,68 +12,77 @@ pub struct MuseRequest {
     pub files: [Option<std::fs::File>; 3],
 }
 
-/// `museRequest` over an already-accepted fd: one 64KB datagram plus up
-/// to 3 SCM_RIGHTS descriptors, 5s read budget.
+/// `museRequest` over an accepted SOCK_SEQPACKET fd: one 64KB datagram plus
+/// up to 3 stdio descriptors, with the established 5s read budget.
 pub fn muse_request_from_fd(fd: RawFd) -> Result<MuseRequest, String> {
     let mut body = vec![0u8; 65536];
-    // SAFETY: CMSG_SPACE for 3 ints.
-    let cmsg_len = unsafe { libc::CMSG_SPACE(3 * 4) } as usize;
-    let mut control = vec![0u8; cmsg_len];
-    let (n, controllen, flags) = unsafe {
-        let mut iov = libc::iovec {
-            iov_base: body.as_mut_ptr() as *mut libc::c_void,
-            iov_len: body.len(),
-        };
-        let mut hdr: libc::msghdr = std::mem::zeroed();
-        hdr.msg_iov = &mut iov;
-        hdr.msg_iovlen = 1;
-        hdr.msg_control = control.as_mut_ptr() as *mut libc::c_void;
-        hdr.msg_controllen = control.len() as _;
-        // 5s read budget like Go's `SetReadDeadline`.
-        let mut pfd = libc::pollfd {
-            fd,
-            events: libc::POLLIN,
-            revents: 0,
-        };
-        if libc::poll(&mut pfd, 1, 5000) <= 0 {
-            return Err("muse launch request unreadable".to_string());
-        }
-        let n = libc::recvmsg(fd, &mut hdr, 0);
-        if n < 0 {
-            return Err("muse launch request unreadable".to_string());
-        }
-        (n as usize, hdr.msg_controllen as usize, hdr.msg_flags)
+    // Space for four descriptors ensures one excess descriptor is visible and
+    // rejected; a larger packet sets CTRUNC, and rustix owns/closes all fds it
+    // can expose from that truncated control buffer.
+    let mut control_space = [MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(4))];
+    let mut ancillary = rustix::net::RecvAncillaryBuffer::new(&mut control_space);
+    // SAFETY: the accepted connection remains open while this call runs.
+    let socket = unsafe { std::os::fd::BorrowedFd::borrow_raw(fd) };
+    let mut pfd = libc::pollfd {
+        fd,
+        events: libc::POLLIN,
+        revents: 0,
     };
-    let fds = parse_unix_rights(&control, controllen)?;
-    if flags & (libc::MSG_TRUNC | libc::MSG_CTRUNC) != 0 || (!fds.is_empty() && fds.len() != 3) {
-        close_fds(&fds);
+    // Preserve the existing five-second readiness deadline.
+    // SAFETY: valid one-element pollfd array.
+    let ready = unsafe { libc::poll(&mut pfd, 1, 5000) };
+    if ready <= 0 {
+        return Err("muse launch request unreadable".to_string());
+    }
+
+    let mut io = [IoSliceMut::new(&mut body)];
+    let received = rustix::net::recvmsg(
+        socket,
+        &mut io,
+        &mut ancillary,
+        rustix::net::RecvFlags::CMSG_CLOEXEC,
+    )
+    .map_err(|_| "muse launch request unreadable".to_string())?;
+
+    let mut files = Vec::<OwnedFd>::new();
+    let mut unexpected_control = false;
+    for message in ancillary.drain() {
+        match message {
+            rustix::net::RecvAncillaryMessage::ScmRights(rights) => files.extend(rights),
+            _ => unexpected_control = true,
+        }
+    }
+    if received
+        .flags
+        .intersects(rustix::net::ReturnFlags::TRUNC | rustix::net::ReturnFlags::CTRUNC)
+        || unexpected_control
+        || !matches!(files.len(), 0 | 3)
+    {
         return Err("invalid launch descriptors".to_string());
     }
-    let mut files: [Option<std::fs::File>; 3] = [None, None, None];
-    if fds.len() == 3 {
-        for (i, fd) in fds.iter().enumerate() {
-            // SAFETY: set CLOEXEC on the received fd, then adopt it.
-            unsafe {
-                let flags = libc::fcntl(*fd, libc::F_GETFD);
-                if flags >= 0 {
-                    libc::fcntl(*fd, libc::F_SETFD, flags | libc::FD_CLOEXEC);
-                }
-                files[i] = Some(std::fs::File::from_raw_fd(*fd));
-            }
+
+    let request = LaunchRequest::decode(&body[..received.bytes])?;
+    let mut stdio: [Option<std::fs::File>; 3] = [None, None, None];
+    if files.len() == 3 {
+        for (slot, fd) in stdio.iter_mut().zip(files) {
+            *slot = Some(std::fs::File::from(fd));
         }
     }
-    let request = LaunchRequest::decode(&body[..n])?;
-    if !muse_descriptors_valid(&request, &files) {
+    if !muse_descriptors_valid(&request, &stdio) {
         return Err("invalid launch descriptors".to_string());
     }
     request.validate()?;
-    Ok(MuseRequest { request, files })
+    Ok(MuseRequest {
+        request,
+        files: stdio,
+    })
 }
 
 /// `museDescriptorsValid`: register carries no stdio, launches carry all three.
 pub fn muse_descriptors_valid(request: &LaunchRequest, files: &[Option<std::fs::File>; 3]) -> bool {
     if request.register.is_some() {
-        return files[0].is_none();
+        files.iter().all(Option::is_none)
+    } else {
+        files.iter().all(Option::is_some)
     }
-    files[0].is_some() && files[1].is_some() && files[2].is_some()
 }

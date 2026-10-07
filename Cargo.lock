@@ -1699,6 +1699,7 @@ dependencies = [
  "p384",
  "p521",
  "percent-encoding",
+ "rustix",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1817,6 +1818,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "libc",
+ "rustix",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1829,6 +1831,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "flate2",
+ "libc",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1872,6 +1875,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "flate2",
+ "libc",
  "serde",
  "serde_json",
  "sha2 0.10.9",

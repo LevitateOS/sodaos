@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::os::unix::io::RawFd;
+use std::os::fd::OwnedFd;
 use std::sync::Mutex;
 use std::time::Instant;
 
@@ -9,12 +9,12 @@ use crate::terminal::{AcquireRequest, Binding, Delivery, Lease};
 // ---------- runtime types ----------
 
 /// Kernel-attested socket identity. PIDFD pins the original caller.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct MusePeer {
     pub pid: i32,
     pub uid: u32,
     pub gid: u32,
-    pub pidfd: RawFd,
+    pub pidfd: OwnedFd,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

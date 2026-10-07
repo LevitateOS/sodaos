@@ -1,4 +1,4 @@
-use std::os::unix::io::RawFd;
+use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd, RawFd};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
@@ -62,16 +62,18 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             if ready == 0 {
                 continue;
             }
-            // SAFETY: accept on a listening unix socket.
-            let conn =
-                unsafe { libc::accept(listen_fd, std::ptr::null_mut(), std::ptr::null_mut()) };
-            if conn < 0 {
-                let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-                if errno == libc::EAGAIN || errno == libc::EWOULDBLOCK || errno == libc::EINTR {
+            // SAFETY: `listen_fd` remains owned by the caller for this serve call.
+            let listener = unsafe { BorrowedFd::borrow_raw(listen_fd) };
+            let conn = rustix::net::accept_with(listener, rustix::net::SocketFlags::CLOEXEC);
+            let conn = match conn {
+                Ok(conn) => conn,
+                Err(errno)
+                    if errno == rustix::io::Errno::AGAIN || errno == rustix::io::Errno::INTR =>
+                {
                     continue;
                 }
-                break Err(format!("muse accept failed: errno {errno}"));
-            }
+                Err(errno) => break Err(format!("muse accept failed: {errno}")),
+            };
             let service = self.clone();
             handles.push(std::thread::spawn(move || {
                 service.serve_one(conn, &service)
@@ -83,8 +85,9 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         outcome
     }
 
-    fn serve_one(&self, conn: RawFd, service: &std::sync::Arc<Self>) {
-        let result = self.serve_connection(conn, service);
+    fn serve_one(&self, conn: OwnedFd, service: &std::sync::Arc<Self>) {
+        let conn_fd = conn.as_raw_fd();
+        let result = self.serve_connection(conn_fd, service);
         // `json.Encoder.Encode(result)`: framed with one newline.
         let line = result.encode_line();
         let bytes = line.as_bytes();
@@ -93,7 +96,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             // SAFETY: send on the connected fd.
             let n = unsafe {
                 libc::send(
-                    conn,
+                    conn_fd,
                     bytes[written..].as_ptr() as *const libc::c_void,
                     bytes.len() - written,
                     libc::MSG_NOSIGNAL,
@@ -104,10 +107,6 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             }
             written += n as usize;
         }
-        // SAFETY: close the accepted fd exactly once.
-        unsafe {
-            libc::close(conn);
-        }
     }
 
     fn serve_connection(&self, conn: RawFd, service: &std::sync::Arc<Self>) -> LaunchExit {
@@ -115,16 +114,6 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             Ok(peer) => peer,
             Err(_) => return LaunchExit::denied(),
         };
-        // SAFETY: close the pidfd exactly once at the end.
-        struct Closer(RawFd);
-        impl Drop for Closer {
-            fn drop(&mut self) {
-                unsafe {
-                    libc::close(self.0);
-                }
-            }
-        }
-        let _pidfd = Closer(peer.pidfd);
         let received = match muse_request_from_fd(conn) {
             Ok(received) => received,
             Err(_) => return LaunchExit::denied(),

@@ -1,6 +1,5 @@
-use std::fs::File;
 use std::io;
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::fd::AsRawFd;
 
 use crate::account::Account;
 use crate::cgroup::cstring;
@@ -37,36 +36,17 @@ pub(crate) fn socket_identity_kinded(
     if path.len() >= 108 {
         return Err(SocketCheck::Fatal("socket path length".to_string()));
     }
-    let fd = unsafe {
-        libc::socket(
-            libc::AF_UNIX,
-            libc::SOCK_STREAM | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
-            0,
-        )
-    };
-    if fd < 0 {
-        return Err(SocketCheck::Fatal(format!(
-            "socket: {}",
-            io::Error::last_os_error()
-        )));
-    }
-    let peer = unsafe { File::from_raw_fd(fd) };
-    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
-    addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
-    for (i, b) in path.bytes().enumerate() {
-        addr.sun_path[i] = b as libc::c_char;
-    }
-    let addr_len =
-        (std::mem::offset_of!(libc::sockaddr_un, sun_path) + path.len() + 1) as libc::socklen_t;
-    let rc = unsafe {
-        libc::connect(
-            peer.as_raw_fd(),
-            &addr as *const _ as *const libc::sockaddr,
-            addr_len,
-        )
-    };
-    if rc != 0 {
-        let err = io::Error::last_os_error();
+    let peer = rustix::net::socket_with(
+        rustix::net::AddressFamily::UNIX,
+        rustix::net::SocketType::STREAM,
+        rustix::net::SocketFlags::CLOEXEC | rustix::net::SocketFlags::NONBLOCK,
+        None,
+    )
+    .map_err(|err| SocketCheck::Fatal(format!("socket: {}", io::Error::from(err))))?;
+    let addr = rustix::net::SocketAddrUnix::new(path)
+        .map_err(|err| SocketCheck::Fatal(format!("socket address: {}", io::Error::from(err))))?;
+    if let Err(errno) = rustix::net::connect(&peer, &addr) {
+        let err = io::Error::from(errno);
         if err.raw_os_error() != Some(libc::EINPROGRESS) {
             return Err(classify_connect_err(&err));
         }
@@ -94,47 +74,20 @@ pub(crate) fn socket_identity_kinded(
             // which is neither FileNotFound nor ConnectionRefused.
             return Err(SocketCheck::Fatal("socket connect timeout".to_string()));
         }
-        let mut so_error = 0;
-        let mut so_len = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
-        if unsafe {
-            libc::getsockopt(
-                peer.as_raw_fd(),
-                libc::SOL_SOCKET,
-                libc::SO_ERROR,
-                &mut so_error as *mut _ as *mut libc::c_void,
-                &mut so_len,
-            )
-        } != 0
-        {
-            return Err(SocketCheck::Fatal(format!(
-                "getsockopt: {}",
-                io::Error::last_os_error()
-            )));
-        }
-        if so_error != 0 {
-            return Err(classify_connect_err(&io::Error::from_raw_os_error(
-                so_error,
-            )));
+        match rustix::net::sockopt::socket_error(&peer) {
+            Ok(Ok(())) => {}
+            Ok(Err(errno)) => return Err(classify_connect_err(&io::Error::from(errno))),
+            Err(errno) => {
+                return Err(SocketCheck::Fatal(format!(
+                    "getsockopt: {}",
+                    io::Error::from(errno)
+                )))
+            }
         }
     }
-    let mut cred: libc::ucred = unsafe { std::mem::zeroed() };
-    let mut cred_len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
-    if unsafe {
-        libc::getsockopt(
-            peer.as_raw_fd(),
-            libc::SOL_SOCKET,
-            libc::SO_PEERCRED,
-            &mut cred as *mut _ as *mut libc::c_void,
-            &mut cred_len,
-        )
-    } != 0
-    {
-        return Err(SocketCheck::Fatal(format!(
-            "peercred: {}",
-            io::Error::last_os_error()
-        )));
-    }
-    if cred.pid != pid || cred.uid != account.pw_uid {
+    let cred = rustix::net::sockopt::socket_peercred(&peer)
+        .map_err(|err| SocketCheck::Fatal(format!("peercred: {}", io::Error::from(err))))?;
+    if cred.pid.as_raw_pid() != pid || cred.uid.as_raw() != account.pw_uid {
         return Err(SocketCheck::Fatal("wrong tmux server".to_string()));
     }
     Ok((info.st_dev as u64, info.st_ino as u64))

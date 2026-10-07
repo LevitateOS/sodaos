@@ -23,7 +23,8 @@
 //!   case (`d.Muse == nil`) has no free form here; the daemon simply does
 //!   not call this without a runtime.
 
-use std::os::unix::io::FromRawFd;
+use std::os::fd::{FromRawFd, IntoRawFd};
+use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixListener;
 use std::time::{Duration, Instant};
 
@@ -166,74 +167,30 @@ fn wait_bounded(
 /// listen, chmod 0666 (closing the socket on chmod failure like Go).
 pub fn open_muse_listener(socket_path: &str) -> Result<UnixListener, String> {
     prepare_muse_listener_dir(socket_path)?;
-    #[cfg(target_os = "linux")]
-    let socktype = libc::SOCK_SEQPACKET | libc::SOCK_CLOEXEC;
-    #[cfg(not(target_os = "linux"))]
-    let socktype = libc::SOCK_SEQPACKET;
-    // SAFETY: socket with a valid type.
-    let fd = unsafe { libc::socket(libc::AF_UNIX, socktype, 0) };
-    if fd < 0 {
-        return Err(format!(
-            "muse launch socket unavailable: {}",
-            std::io::Error::last_os_error()
-        ));
-    }
-    #[cfg(not(target_os = "linux"))]
-    // SAFETY: fcntl on the owned fd.
-    unsafe {
-        let flags = libc::fcntl(fd, libc::F_GETFD);
-        if flags >= 0 {
-            libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC);
-        }
-    }
-    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
-    addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
     let bytes = socket_path.as_bytes();
     if bytes.contains(&0) {
-        unsafe {
-            libc::close(fd);
-        }
         return Err("muse launch socket path invalid".to_string());
     }
-    if bytes.len() >= addr.sun_path.len() {
-        unsafe {
-            libc::close(fd);
-        }
+    if bytes.len() >= 108 {
         return Err("muse launch socket path too long".to_string());
     }
-    for (i, b) in bytes.iter().enumerate() {
-        addr.sun_path[i] = *b as libc::c_char;
-    }
-    let addr_len = (std::mem::size_of::<libc::sa_family_t>() + bytes.len() + 1) as libc::socklen_t;
-    // SAFETY: bind + listen on the owned socket fd.
-    let bound = unsafe { libc::bind(fd, &addr as *const _ as *const libc::sockaddr, addr_len) };
-    if bound != 0 {
-        let err = std::io::Error::last_os_error();
-        unsafe {
-            libc::close(fd);
-        }
-        return Err(format!("muse launch socket bind failed: {err}"));
-    }
-    // SAFETY: listen on the bound fd.
-    if unsafe { libc::listen(fd, LISTEN_BACKLOG) } != 0 {
-        let err = std::io::Error::last_os_error();
-        unsafe {
-            libc::close(fd);
-        }
-        return Err(format!("muse launch socket listen failed: {err}"));
-    }
+    let socket = rustix::net::socket_with(
+        rustix::net::AddressFamily::UNIX,
+        rustix::net::SocketType::SEQPACKET,
+        rustix::net::SocketFlags::CLOEXEC,
+        None,
+    )
+    .map_err(|err| format!("muse launch socket unavailable: {err}"))?;
+    let address = rustix::net::SocketAddrUnix::new(socket_path)
+        .map_err(|_| "muse launch socket path invalid".to_string())?;
+    rustix::net::bind(&socket, &address)
+        .map_err(|err| format!("muse launch socket bind failed: {err}"))?;
+    rustix::net::listen(&socket, LISTEN_BACKLOG)
+        .map_err(|err| format!("muse launch socket listen failed: {err}"))?;
     // Go's os.Chmod(path, 0666), closing the listener on failure. Path-based
     // on purpose: fchmod on a unix socket fd is a silent no-op on Linux.
-    let c_path = std::ffi::CString::new(socket_path)
-        .map_err(|_| "muse launch socket path invalid".to_string())?;
-    // SAFETY: chmod on a valid NUL-terminated path.
-    if unsafe { libc::chmod(c_path.as_ptr(), 0o666) } != 0 {
-        let err = std::io::Error::last_os_error();
-        unsafe {
-            libc::close(fd);
-        }
-        return Err(format!("muse launch socket unavailable: {err}"));
-    }
-    // SAFETY: fd is an open listening socket; ownership moves to the listener.
-    Ok(unsafe { UnixListener::from_raw_fd(fd) })
+    std::fs::set_permissions(socket_path, std::fs::Permissions::from_mode(0o666))
+        .map_err(|err| format!("muse launch socket unavailable: {err}"))?;
+    // SAFETY: rustix owns an open listening socket and ownership moves once.
+    Ok(unsafe { UnixListener::from_raw_fd(socket.into_raw_fd()) })
 }

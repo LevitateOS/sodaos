@@ -73,8 +73,9 @@ impl<'de> Deserialize<'de> for MuseInspection {
 }
 
 pub(in crate::muse) fn muse_peer_alive(peer: &MusePeer) -> bool {
+    use std::os::fd::AsRawFd;
     let mut fds = [libc::pollfd {
-        fd: peer.pidfd,
+        fd: peer.pidfd.as_raw_fd(),
         events: libc::POLLIN,
         revents: 0,
     }];

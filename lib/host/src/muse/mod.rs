@@ -87,8 +87,7 @@ pub(in crate::muse) use self::spawn::spawn_execution;
 mod stage;
 mod stop;
 
-pub(in crate::muse) use self::socket::close_fds;
-pub use self::socket::{muse_peer_from_fd, parse_unix_rights};
+pub use self::socket::muse_peer_from_fd;
 
 pub(in crate::muse) use self::inspect::{muse_peer_alive, sleep_until, MuseInspection};
 
