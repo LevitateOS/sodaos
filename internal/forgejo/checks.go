@@ -68,7 +68,7 @@ func (a *CheckAssessor) ObserveChecks(ctx context.Context, target factory.CheckT
 	if err := a.checkActor(ctx, actorID); err != nil {
 		return empty, err
 	}
-	reader := &BackgroundSnapshotReader{Client: &backgroundClientAdapter{background: a.background}, ActorID: strconv.FormatInt(actorID, 10)}
+	reader := &BackgroundSnapshotReader{Client: a.background, ActorID: strconv.FormatInt(actorID, 10)}
 	snapshot, err := BracketedRead(ctx, reader, extensions.CredentialFile(a.tokenFile), SnapshotRequest{
 		RepositoryID: strconv.FormatInt(target.Repository, 10),
 		PullNumber:   strconv.FormatInt(target.PRNumber, 10),

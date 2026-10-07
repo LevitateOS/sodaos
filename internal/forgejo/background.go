@@ -165,30 +165,3 @@ func (b *ServiceBackground) PublishPushEnv(ctx context.Context, operationID stri
 	}
 	return extensions.PublishPushEnv(operationID, admission)
 }
-
-// backgroundClientAdapter implements the SDK background client over the
-// shared transport so snapshot readers keep their existing shape while
-// sharing one admission with publishers.
-type backgroundClientAdapter struct {
-	background *ServiceBackground
-}
-
-func (a *backgroundClientAdapter) ReadNativeRevision(ctx context.Context) (extensions.NativeRevisionObservation, error) {
-	return a.background.ReadNativeRevision(ctx)
-}
-
-func (a *backgroundClientAdapter) ReadSnapshot(ctx context.Context, credential extensions.CredentialFile, req extensions.SnapshotRequest) (extensions.NativeSnapshot, error) {
-	return a.background.ReadSnapshot(ctx, credential, req)
-}
-
-func (a *backgroundClientAdapter) SubmitOperation(ctx context.Context, credential extensions.CredentialFile, intent extensions.OperationIntent) (extensions.OperationRecord, error) {
-	return a.background.SubmitOperation(ctx, credential, intent)
-}
-
-func (a *backgroundClientAdapter) GetOperation(ctx context.Context, operationID string) (extensions.OperationLookup, error) {
-	return a.background.GetOperation(ctx, operationID)
-}
-
-func (a *backgroundClientAdapter) CancelOperation(ctx context.Context, operationID string) (extensions.OperationRecord, error) {
-	return a.background.CancelOperation(ctx, operationID)
-}

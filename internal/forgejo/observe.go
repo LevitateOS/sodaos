@@ -62,7 +62,7 @@ func (o *ServiceObserver) ensureClient(ctx context.Context) (extensions.Backgrou
 	if o.socket == "" || o.credentialFile == "" {
 		return nil, ErrUnavailable
 	}
-	o.client = &backgroundClientAdapter{background: o.sharedBackgroundLocked()}
+	o.client = o.sharedBackgroundLocked()
 	return o.client, nil
 }
 
@@ -87,7 +87,7 @@ func (o *ServiceObserver) ShareBackground(background *ServiceBackground) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.background = background
-	o.client = &backgroundClientAdapter{background: background}
+	o.client = background
 }
 
 func (o *ServiceObserver) ensureActor(ctx context.Context) (string, error) {

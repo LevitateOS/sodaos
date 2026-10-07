@@ -65,7 +65,7 @@ func (m *Merger) ObserveCompletion(ctx context.Context, w factory.MergeWork) (fa
 	if err := m.checkActor(ctx, w.ActorID); err != nil {
 		return empty, err
 	}
-	reader := &BackgroundSnapshotReader{Client: &backgroundClientAdapter{background: m.background}, ActorID: strconv.FormatInt(w.ActorID, 10)}
+	reader := &BackgroundSnapshotReader{Client: m.background, ActorID: strconv.FormatInt(w.ActorID, 10)}
 	credential := extensions.CredentialFile(m.tokenFile)
 	repo, number := strconv.FormatInt(w.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
 	issue, err := BracketedRead(ctx, reader, credential, SnapshotRequest{RepositoryID: repo, IssueIndex: number, Families: []SnapshotFamily{FamilyIssue}})
