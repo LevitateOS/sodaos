@@ -5,7 +5,6 @@
 
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::atomic::AtomicBool;
 
 use crate::build_compile::compile_shipping_tools;
 use crate::build_media;
@@ -53,17 +52,13 @@ pub fn build(
     progress: &mut dyn Progress,
     make_production: &dyn Fn(Runner, ProductionInputs) -> Box<dyn Production>,
 ) -> Result<request::Result, Error> {
-    let runner = Runner::new(Rc::new(Cancel {
-        flag: AtomicBool::new(cancel.is_cancelled()),
-    }));
-    // Poll the caller's flag through the run via shared ownership.
+    let runner = Runner::new(Rc::new(cancel.clone()));
     let result = run_build(request, progress, &runner, make_production, &|path| {
         runner.open_log(path, request.wants_media())
     });
     if let Err(err) = &result {
         progress.note_reason(&recall::failure_reason(&runner.log.borrow(), err));
     }
-    let _ = cancel;
     result
 }
 

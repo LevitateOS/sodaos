@@ -35,11 +35,10 @@ pub fn extension_asset_inventory(root: &str) -> Result<Vec<String>, Error> {
 }
 
 pub fn safe_extension_asset_name(name: &str) -> bool {
-    // path.Clean semantics on slash paths (not filepath: no OS separator).
     if name.is_empty() || name.starts_with('/') || name.starts_with("../") || name.contains('\\') {
         return false;
     }
-    sys::clean_path(name) == name
+    sys::is_clean_path(name)
 }
 
 pub fn link_extension_asset(root: &str, package_dir: &str, name: &str) -> Result<(), Error> {

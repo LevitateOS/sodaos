@@ -52,6 +52,17 @@ pub struct ControllerRun {
     tty: bool,
 }
 
+impl Drop for ControllerRun {
+    fn drop(&mut self) {
+        CHILD_PID.store(0, Ordering::SeqCst);
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        if self.tty {
+            self.view.stop_ticker();
+        }
+    }
+}
+
 pub fn start_controller_run(o: &Options) -> Result<ControllerRun, String> {
     let start_ns = monotonic_ns()?;
     let argv = controller_argv(o, start_ns);
@@ -64,14 +75,14 @@ pub fn start_controller_run(o: &Options) -> Result<ControllerRun, String> {
     command.stdin(Stdio::inherit());
     command.stdout(Stdio::inherit());
     command.stderr(Stdio::piped());
-    let mut child = command.spawn().map_err(|e| e.to_string())?;
-    let child_stderr = child.stderr.take();
     let tty = is_terminal(libc::STDERR_FILENO) && !o.non_interactive;
     let width = term_width(libc::STDERR_FILENO);
     let stderr_box: Box<dyn Write + Send> = Box::new(std::io::stderr());
     let view = Renderer::new(stderr_box, tty, width);
     view.set_out_dir(&o.out);
     view.note(&format!("soda-candidate: {}", describe(o)))?;
+    let mut child = command.spawn().map_err(|e| e.to_string())?;
+    let child_stderr = child.stderr.take();
     if let Ok(pid) = i32::try_from(child.id()) {
         CHILD_PID.store(pid, Ordering::SeqCst);
         unsafe {

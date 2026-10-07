@@ -1,5 +1,5 @@
 //! Worker runtime: attempt lifecycle, result validation, live inputs, and builds.
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::Path;
 
 use serde::de::{MapAccess, Visitor};
@@ -54,14 +54,10 @@ pub(super) fn claim_attempt_runtime_with_random(
                 .unwrap_or(0))
             ^ rand_u32(&mut fill)?;
         let dir = format!("{parent}/soda-build-{leaf}-{nonce:08x}");
-        match std::fs::create_dir(&dir) {
+        let mut builder = std::fs::DirBuilder::new();
+        builder.mode(0o700);
+        match builder.create(&dir) {
             Ok(()) => {
-                if let Err(e) =
-                    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))
-                {
-                    let _ = std::fs::remove_dir(&dir);
-                    return Err(e.to_string());
-                }
                 let path = std::ffi::CString::new(dir.clone()).map_err(|e| e.to_string())?;
                 if unsafe { libc::chown(path.as_ptr(), uid, gid) } != 0 {
                     let _ = std::fs::remove_dir_all(&dir);
@@ -352,11 +348,31 @@ impl<'de> Deserialize<'de> for ImageResultSlots {
 }
 
 pub fn read_image_result(path: &str) -> Result<ImageResult, String> {
-    let st = std::fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    let file = options.open(path).map_err(|error| {
+        if error.raw_os_error() == Some(libc::ELOOP) {
+            "bounded regular JSON input required".to_owned()
+        } else {
+            error.to_string()
+        }
+    })?;
+    let st = file.metadata().map_err(|e| e.to_string())?;
     if !st.file_type().is_file() || st.len() > 1 << 20 {
         return Err("bounded regular JSON input required".to_owned());
     }
-    let data = std::fs::read(path).map_err(|e| e.to_string())?;
+    let mut data = Vec::new();
+    file.take((1 << 20) + 1)
+        .read_to_end(&mut data)
+        .map_err(|e| e.to_string())?;
+    if data.len() > 1 << 20 {
+        return Err("bounded regular JSON input required".to_owned());
+    }
     decode_image_result(&data)
 }
 
@@ -435,10 +451,26 @@ pub fn run_build_worker(
     let parent = c.runtime.clone();
     c.runtime = attempt.clone();
     let outcome = run_build_worker_attempt(&c, &r, progress);
-    if let Err(e) = release_attempt_runtime(&parent, &attempt) {
-        eprintln!("warning: cannot release attempt runtime: {e}");
+    combine_attempt_cleanup(outcome, release_attempt_runtime(&parent, &attempt))
+}
+
+pub(super) fn combine_attempt_cleanup<T>(
+    outcome: Result<T, WorkerError>,
+    cleanup: Result<(), String>,
+) -> Result<T, WorkerError> {
+    match (outcome, cleanup) {
+        (Ok(value), Ok(())) => Ok(value),
+        (Ok(_), Err(cleanup)) => Err(WorkerError::Failed(format!(
+            "worker attempt completed but runtime cleanup failed: {cleanup}"
+        ))),
+        (Err(error), Ok(())) => Err(error),
+        (Err(WorkerError::Failed(primary)), Err(cleanup)) => Err(WorkerError::Failed(format!(
+            "{primary}\nworker runtime cleanup also failed: {cleanup}"
+        ))),
+        (Err(WorkerError::Cancelled(primary)), Err(cleanup)) => Err(WorkerError::Cancelled(
+            format!("{primary}\nworker runtime cleanup also failed: {cleanup}"),
+        )),
     }
-    outcome
 }
 
 /// D01-F4: the worker attempt observes the controller interruption source

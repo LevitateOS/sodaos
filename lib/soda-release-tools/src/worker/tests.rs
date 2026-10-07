@@ -21,6 +21,29 @@ fn temp_dir(tag: &str) -> PathBuf {
     path
 }
 
+#[test]
+fn successful_attempt_requires_runtime_cleanup() {
+    assert_eq!(
+        super::runtime::combine_attempt_cleanup(Ok(()), Err("permission denied".to_owned())),
+        Err(WorkerError::Failed(
+            "worker attempt completed but runtime cleanup failed: permission denied".to_owned()
+        ))
+    );
+}
+
+#[test]
+fn failed_attempt_keeps_primary_and_cleanup_errors() {
+    assert_eq!(
+        super::runtime::combine_attempt_cleanup::<()>(
+            Err(WorkerError::Failed("build failed".to_owned())),
+            Err("cleanup denied".to_owned())
+        ),
+        Err(WorkerError::Failed(
+            "build failed\nworker runtime cleanup also failed: cleanup denied".to_owned()
+        ))
+    );
+}
+
 fn test_config() -> WorkerConfig {
     WorkerConfig {
         executable: "/bin/true".to_owned(),

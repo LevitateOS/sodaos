@@ -272,7 +272,7 @@ pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
 
 fn valid_candidate_asset_name(name: &str) -> bool {
     if name.is_empty()
-        || sys::clean_path(name) != name
+        || !sys::is_clean_path(name)
         || name.starts_with('/')
         || name.starts_with("../")
         || name.bytes().any(|b| matches!(b, b'\\' | b'\n' | b'\r' | 0))

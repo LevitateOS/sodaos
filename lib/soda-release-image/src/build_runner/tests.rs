@@ -9,7 +9,7 @@ fn oracle_build_command_capture_environment_and_failure() {
         &cancel,
         &mut log,
         None,
-        "/tmp",
+        env!("CARGO_MANIFEST_DIR"),
         "sh",
         &[
             "-c".to_string(),
@@ -28,7 +28,7 @@ fn oracle_build_command_capture_environment_and_failure() {
         &cancel,
         &mut log,
         None,
-        "/tmp",
+        env!("CARGO_MANIFEST_DIR"),
         "sh",
         &[
             "-c".to_string(),
@@ -46,7 +46,7 @@ fn oracle_build_command_capture_environment_and_failure() {
         &cancel,
         &mut log,
         None,
-        "/tmp",
+        env!("CARGO_MANIFEST_DIR"),
         "sh",
         &["-c".to_string(), "exit 3".to_string()],
     )
@@ -67,7 +67,7 @@ fn run_build_command_drains_saturated_pipes() {
         &cancel,
         &mut log,
         None,
-        "/tmp",
+        env!("CARGO_MANIFEST_DIR"),
         "sh",
         &[
             "-c".to_string(),
@@ -94,11 +94,105 @@ fn run_build_command_cancel_kills_and_reports() {
             &cancel,
             &mut log,
             None,
-            "/tmp",
+            env!("CARGO_MANIFEST_DIR"),
             "sh",
             &["-c".to_string(), "sleep 30".to_string()],
         )
         .unwrap_err();
         assert!(err.0.contains("build cancelled"), "unexpected: {}", err.0);
     });
+}
+
+#[test]
+fn cloned_cancellation_reaches_a_running_command() {
+    let cancel = Cancel::new();
+    let observed = cancel.clone();
+    let mut log = Vec::new();
+    let mut output = CancellingWriter(observed);
+    let error = run_build_command(
+        &cancel,
+        &mut log,
+        Some(&mut output),
+        env!("CARGO_MANIFEST_DIR"),
+        "sh",
+        &["-c".to_string(), "echo ready; sleep 30".to_string()],
+    )
+    .unwrap_err();
+    assert!(error.0.contains("build cancelled"));
+}
+
+struct CancellingWriter(Cancel);
+
+impl std::io::Write for CancellingWriter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.cancel();
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn run_build_command_streams_before_child_exit() {
+    let cancel = Cancel::new();
+    let mut log = Vec::new();
+    let mut output = Vec::new();
+    run_build_command(
+        &cancel,
+        &mut log,
+        Some(&mut output),
+        env!("CARGO_MANIFEST_DIR"),
+        "sh",
+        &["-c".to_string(), "echo live; sleep 0.2".to_string()],
+    )
+    .unwrap();
+    assert_eq!(String::from_utf8(output).unwrap(), "live\n");
+}
+
+#[test]
+fn run_build_command_bounds_capture() {
+    let cancel = Cancel::new();
+    let mut log = Vec::new();
+    let error = run_build_command(
+        &cancel,
+        &mut log,
+        None,
+        env!("CARGO_MANIFEST_DIR"),
+        "sh",
+        &["-c".to_string(), "head -c 16777217 /dev/zero".to_string()],
+    )
+    .unwrap_err();
+    assert!(error.0.contains("capture exceeded"));
+}
+
+#[test]
+fn descendant_pipe_drain_deadline_closes_owned_fds() {
+    let cancel = Cancel::new();
+    let mut log = Vec::new();
+    let start = std::time::Instant::now();
+    let error = run_build_command(
+        &cancel,
+        &mut log,
+        None,
+        env!("CARGO_MANIFEST_DIR"),
+        "sh",
+        &["-c".to_string(), "sleep 2.5 & exit 0".to_string()],
+    )
+    .unwrap_err();
+    assert!(error.0.contains("output pipe remained open"));
+    assert!(start.elapsed() < std::time::Duration::from_secs(5));
+}
+
+#[test]
+fn output_read_error_is_returned() {
+    struct FailingReader;
+    impl std::io::Read for FailingReader {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("synthetic pipe read failure"))
+        }
+    }
+    let error = read_available(&mut Some(FailingReader)).unwrap_err();
+    assert!(error.0.contains("synthetic pipe read failure"));
 }

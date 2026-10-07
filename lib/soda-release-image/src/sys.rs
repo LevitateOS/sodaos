@@ -43,36 +43,37 @@ crate::jsonio::case_record!(File, {
     directory: bool => "directory",
 });
 
-/// Go `path/filepath.Clean` lexics.
+/// Render Rust path components without rewriting parent-directory components.
+/// Admission callers compare this representation with the original input to
+/// reject non-clean paths rather than silently changing their target.
 pub fn clean_path(path: &str) -> String {
-    if path.is_empty() {
-        return ".".to_string();
+    let components: PathBuf = Path::new(path).components().collect();
+    if components.as_os_str().is_empty() {
+        ".".to_string()
+    } else {
+        components.to_string_lossy().into_owned()
     }
-    let rooted = path.starts_with('/');
-    let mut out: Vec<&str> = Vec::new();
-    for part in path.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                if out.pop().is_none() && !rooted {
-                    out.push("..");
-                }
-            }
-            _ => out.push(part),
+}
+
+/// True when a path already has its exact Rust component representation and
+/// contains no current or parent-directory components.
+pub fn is_clean_path(path: &str) -> bool {
+    if path.is_empty() {
+        return false;
+    }
+    let mut rebuilt = PathBuf::new();
+    for component in Path::new(path).components() {
+        match component {
+            Component::RootDir => rebuilt.push("/"),
+            Component::Normal(part) => rebuilt.push(part),
+            Component::CurDir | Component::ParentDir | Component::Prefix(_) => return false,
         }
     }
-    let mut joined = out.join("/");
-    if rooted {
-        joined.insert(0, '/');
-    }
-    if joined.is_empty() {
-        return if rooted {
-            "/".to_string()
-        } else {
-            ".".to_string()
-        };
-    }
-    joined
+    rebuilt.as_os_str() == Path::new(path).as_os_str()
+}
+
+pub fn is_clean_abs(path: &str) -> bool {
+    Path::new(path).is_absolute() && is_clean_path(path)
 }
 
 pub fn is_abs(path: &str) -> bool {
@@ -82,50 +83,57 @@ pub fn is_abs(path: &str) -> bool {
 pub fn join<S: AsRef<str>>(parts: &[S]) -> String {
     let mut buf = PathBuf::new();
     for part in parts {
-        if part.as_ref().is_empty() {
-            continue;
-        }
         buf.push(part.as_ref());
     }
-    clean_path(&buf.to_string_lossy())
+    buf.to_string_lossy().into_owned()
 }
 
 pub fn dir_name(path: &str) -> String {
-    let cleaned = clean_path(path);
-    match cleaned.rfind('/') {
-        None => ".".to_string(),
-        Some(0) => "/".to_string(),
-        Some(i) => cleaned[..i].to_string(),
-    }
+    let path = Path::new(path);
+    path.parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| {
+            if path.is_absolute() {
+                Path::new("/")
+            } else {
+                Path::new(".")
+            }
+        })
+        .to_string_lossy()
+        .into_owned()
 }
 
 pub fn base_name(path: &str) -> String {
-    let cleaned = clean_path(path);
-    if cleaned == "/" {
-        return "/".to_string();
-    }
-    cleaned.rsplit('/').next().unwrap_or("").to_string()
+    let path = Path::new(path);
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| if path.is_absolute() { "/" } else { "." }.to_string())
 }
 
-/// Go `filepath.Rel`: lexical relative path or an error.
+/// Build a lexical relative path from Rust path components.
 pub fn rel_path(base: &str, target: &str) -> Result<String, Error> {
-    let b = clean_path(base);
-    let t = clean_path(target);
-    let b_parts: Vec<&str> = b.split('/').filter(|p| !p.is_empty()).collect();
-    let t_parts: Vec<&str> = t.split('/').filter(|p| !p.is_empty()).collect();
-    let mut common = 0;
-    while common < b_parts.len() && common < t_parts.len() && b_parts[common] == t_parts[common] {
-        common += 1;
-    }
-    if common == 0 && (b.starts_with('/') || t.starts_with('/')) {
+    let b: Vec<_> = Path::new(base).components().collect();
+    let t: Vec<_> = Path::new(target).components().collect();
+    if b.first().map(|part| matches!(part, Component::RootDir))
+        != t.first().map(|part| matches!(part, Component::RootDir))
+    {
         return Err(Error::msg("cannot make relative path"));
     }
-    let mut out = vec![".."; b_parts.len() - common];
-    out.extend_from_slice(&t_parts[common..]);
-    if out.is_empty() {
+    let mut common = 0;
+    while common < b.len() && common < t.len() && b[common] == t[common] {
+        common += 1;
+    }
+    let mut out = PathBuf::new();
+    for _ in common..b.len() {
+        out.push("..");
+    }
+    for component in &t[common..] {
+        out.push(component.as_os_str());
+    }
+    if out.as_os_str().is_empty() {
         return Ok(".".to_string());
     }
-    Ok(out.join("/"))
+    Ok(out.to_string_lossy().into_owned())
 }
 
 pub fn to_slash(path: &str) -> String {
@@ -168,10 +176,13 @@ pub fn hex_bytes(bytes: &[u8]) -> String {
 
 /// `build.FreshDirectory`: create a new mode-700 directory below a real parent.
 pub fn fresh_directory(path: &str) -> Result<(), Error> {
-    if !is_abs(path) {
+    if !is_clean_abs(path) {
         return Err(Error::msg("absolute new directory required"));
     }
     let parent = dir_name(path);
+    if !is_clean_abs(&parent) {
+        return Err(Error::msg("symlinked parent refused"));
+    }
     let resolved = fs::canonicalize(&parent).map_err(|e| Error::msg(e.to_string()))?;
     if resolved.to_string_lossy() != clean_path(&parent) {
         return Err(Error::msg("symlinked parent refused"));
@@ -198,14 +209,24 @@ pub fn write_new(path: &str, data: &[u8], mode: u32) -> Result<(), Error> {
 }
 
 fn read_bounded(path: &str, maximum: usize, too_big: &str) -> Result<Vec<u8>, Error> {
-    let meta = fs::symlink_metadata(path)?;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let mut options = fs::OpenOptions::new();
+    options
+        .read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    let file = options.open(path).map_err(|error| {
+        if error.raw_os_error() == Some(libc::ELOOP) {
+            Error::msg("bounded regular JSON input required")
+        } else {
+            Error::from(error)
+        }
+    })?;
+    let meta = file.metadata()?;
     if !meta.file_type().is_file() || meta.len() > maximum as u64 {
         return Err(Error::msg("bounded regular JSON input required"));
     }
-    let data = fs::read(path)?;
-    if data.len() > maximum {
-        return Err(Error::msg(too_big));
-    }
+    let data = read_limited(file, maximum)?.ok_or_else(|| Error::msg(too_big))?;
     Ok(data)
 }
 
@@ -219,15 +240,28 @@ pub fn read_json_build_text(path: &str) -> Result<String, Error> {
 
 /// Deliver's bounded text counterpart for schema-specific raw-slot visitors.
 pub fn read_json_deliver_text(path: &str) -> Result<String, Error> {
-    let meta = fs::symlink_metadata(path).map_err(|_| Error::msg(refused()))?;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let mut options = fs::OpenOptions::new();
+    options
+        .read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    let file = options.open(path).map_err(|_| Error::msg(refused()))?;
+    let meta = file.metadata().map_err(|_| Error::msg(refused()))?;
     if !meta.file_type().is_file() || meta.len() > (1 << 20) as u64 {
         return Err(Error::msg(refused()));
     }
-    let data = fs::read(path).map_err(|_| Error::msg(refused()))?;
-    if data.len() > 1 << 20 {
-        return Err(Error::msg(refused()));
-    }
+    let data = read_limited(file, 1 << 20)
+        .map_err(|_| Error::msg(refused()))?
+        .ok_or_else(|| Error::msg(refused()))?;
     String::from_utf8(data).map_err(|_| Error::msg(refused()))
+}
+
+fn read_limited(file: fs::File, maximum: usize) -> std::io::Result<Option<Vec<u8>>> {
+    use std::io::Read;
+    let mut data = Vec::new();
+    file.take(maximum as u64 + 1).read_to_end(&mut data)?;
+    Ok((data.len() <= maximum).then_some(data))
 }
 
 pub fn refused() -> String {
@@ -236,7 +270,7 @@ pub fn refused() -> String {
 
 /// `deliver.PrivateFile`: absolute, symlink-free, owned private regular file.
 pub fn private_file(path: &str) -> Result<(), Error> {
-    if !is_abs(path) {
+    if !is_clean_abs(path) {
         return Err(Error::msg(refused()));
     }
     let resolved = fs::canonicalize(path).map_err(|_| Error::msg(refused()))?;
@@ -472,11 +506,87 @@ mod tests {
     use super::*;
 
     #[test]
-    fn oracle_clean_path_matches_go() {
-        // Oracle: Go filepath.Clean vectors.
-        assert_eq!(clean_path(""), ".");
-        assert_eq!(clean_path("/a//b/./c/../d"), "/a/b/d");
-        assert_eq!(clean_path("a/../../b"), "../b");
+    fn bounded_read_caps_growth_and_keeps_open_inode() {
+        let dir = std::env::temp_dir().join(format!("sri-bounded-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir(&dir).unwrap();
+        let path = dir.join("input");
+        fs::write(&path, b"base").unwrap();
+        let opened = fs::File::open(&path).unwrap();
+        use std::io::Write;
+        fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap()
+            .write_all(b"-grown")
+            .unwrap();
+        let replacement = dir.join("replacement");
+        fs::write(&replacement, b"replacement").unwrap();
+        fs::rename(&replacement, &path).unwrap();
+        assert_eq!(
+            read_limited(opened, 16).unwrap(),
+            Some(b"base-grown".to_vec())
+        );
+        assert_eq!(
+            read_limited(fs::File::open(&path).unwrap(), 11).unwrap(),
+            Some(b"replacement".to_vec())
+        );
+        assert_eq!(
+            read_limited(fs::File::open(&path).unwrap(), 10).unwrap(),
+            None
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn deliver_text_rejects_links_fifos_and_cap_plus_one() {
+        let dir = std::env::temp_dir().join(format!("sri-deliver-bound-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir(&dir).unwrap();
+        let path = dir.join("input");
+        fs::write(&path, vec![b' '; 1 << 20]).unwrap();
+        assert_eq!(
+            read_json_deliver_text(path.to_str().unwrap())
+                .unwrap()
+                .len(),
+            1 << 20
+        );
+        fs::write(&path, vec![b' '; (1 << 20) + 1]).unwrap();
+        assert_eq!(
+            read_json_deliver_text(path.to_str().unwrap())
+                .unwrap_err()
+                .0,
+            refused()
+        );
+        let link = dir.join("link");
+        std::os::unix::fs::symlink(&path, &link).unwrap();
+        assert_eq!(
+            read_json_deliver_text(link.to_str().unwrap())
+                .unwrap_err()
+                .0,
+            refused()
+        );
+        let fifo = dir.join("fifo");
+        use std::os::unix::ffi::OsStrExt;
+        let fifo_name = std::ffi::CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo_name.as_ptr(), 0o600) }, 0);
+        assert_eq!(
+            read_json_deliver_text(fifo.to_str().unwrap())
+                .unwrap_err()
+                .0,
+            refused()
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn native_path_helpers_and_clean_admission() {
+        assert!(is_clean_abs("/a/b"));
+        assert!(!is_clean_abs("/a//b"));
+        assert!(!is_clean_abs("/a/./b"));
+        assert!(!is_clean_abs("/a/../b"));
+        assert!(!is_clean_path("a/../b"));
+        assert_eq!(clean_path("a/../b"), "a/../b");
         assert_eq!(join(&["/a", "b", "c"]), "/a/b/c");
         assert_eq!(dir_name("/a/b"), "/a");
         assert_eq!(base_name("/a/b"), "b");

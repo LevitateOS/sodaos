@@ -9,7 +9,7 @@ use crate::request;
 use crate::sys;
 
 pub fn verify_checkout_source(requested_source: &str, runner: &Runner) -> Result<String, Error> {
-    if !sys::is_abs(requested_source) || sys::clean_path(requested_source) != requested_source {
+    if !sys::is_clean_abs(requested_source) {
         return Err(Error::msg("explicit canonical checkout path required"));
     }
     let source = runner.capture(
@@ -87,7 +87,7 @@ pub fn admit_build_output(
     authority: &str,
 ) -> Result<(), Error> {
     let below = sys::join(&[source, ".artifacts/releases"]);
-    if !sys::is_abs(out) || !sys::clean_path(out).starts_with(&format!("{below}/")) {
+    if !sys::is_clean_abs(out) || !out.starts_with(&format!("{below}/")) {
         return Err(Error::msg(
             "fresh output must be below .artifacts/releases; parent must exist",
         ));

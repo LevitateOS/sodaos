@@ -540,6 +540,39 @@ fn seeded_cancel() -> Cancel {
     cancel
 }
 
+struct CancellationWatcher {
+    stop: std::sync::mpsc::Sender<()>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl CancellationWatcher {
+    fn start(cancel: Cancel) -> CancellationWatcher {
+        let (stop, stopped) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || loop {
+            if exitcode::has_interrupt() {
+                cancel.cancel();
+            }
+            match stopped.recv_timeout(std::time::Duration::from_millis(10)) {
+                Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            }
+        });
+        CancellationWatcher {
+            stop,
+            thread: Some(thread),
+        }
+    }
+}
+
+impl Drop for CancellationWatcher {
+    fn drop(&mut self) {
+        let _ = self.stop.send(());
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
 /// Run the worker-stage image build: map the worker request, seed
 /// cancellation from the interrupt state, and run the real pipeline. The
 /// `build_cli` wiring calls this; error text is the pipeline message.
@@ -549,6 +582,7 @@ pub fn run_worker_stage(
 ) -> Result<build_spec::ImageResult, String> {
     let mapped = image_request(request);
     let cancel = seeded_cancel();
+    let _watcher = CancellationWatcher::start(cancel.clone());
     let result = soda_release_image::build::build(&cancel, &mapped, progress, &make_production)
         .map_err(|e| e.0)?;
     Ok(image_result(&result))
@@ -992,9 +1026,11 @@ mod tests {
         assert_eq!(production.live_inputs(), "/live");
         // End-to-end hook bridge: harmless real commands through the
         // thread-local runner, proving the factory wiring executes.
-        production.execute("/tmp", "true", &[]).unwrap();
+        production
+            .execute(env!("CARGO_MANIFEST_DIR"), "true", &[])
+            .unwrap();
         let out = production
-            .capture("/tmp", "echo", &["hello".to_string()])
+            .capture(env!("CARGO_MANIFEST_DIR"), "echo", &["hello".to_string()])
             .unwrap();
         assert_eq!(out, "hello");
         assert!(production.next("dropped step").is_ok());
@@ -1010,5 +1046,23 @@ mod tests {
         assert_eq!(exitcode::take_interrupt().map(|i| i.exit_code()), Some(130));
         assert!(exitcode::take_interrupt().is_none());
         assert!(!seeded_cancel().is_cancelled());
+    }
+
+    #[test]
+    fn late_interrupt_reaches_live_build_cancellation() {
+        let _guard = crate::exitcode::interrupt_test_lock();
+        let _ = exitcode::take_interrupt();
+        let cancel = Cancel::new();
+        let watcher = CancellationWatcher::start(cancel.clone());
+        exitcode::note_interrupt(130);
+        for _ in 0..50 {
+            if cancel.is_cancelled() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        drop(watcher);
+        assert!(cancel.is_cancelled());
+        assert_eq!(exitcode::take_interrupt().map(|i| i.exit_code()), Some(130));
     }
 }

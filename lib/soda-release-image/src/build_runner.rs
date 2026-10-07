@@ -12,9 +12,9 @@ use crate::recall;
 use crate::sys;
 
 /// Cancellation flag standing in for the Go build context.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Cancel {
-    pub(crate) flag: AtomicBool,
+    pub(crate) flag: std::sync::Arc<AtomicBool>,
 }
 
 impl Cancel {
@@ -177,44 +177,16 @@ pub fn build_environment_pairs() -> Vec<(String, String)> {
     env
 }
 
-/// resolveBuildTool resolves a build tool at run time. The GOTOOLCHAIN pin in
-/// buildEnvironment forces the exact compiler version; PATH decides which
-/// installation provides it. A build-time GOROOT would answer a run-time
-/// question with a stale path once the binary moves machines.
-pub fn resolve_build_tool(name: &str) -> String {
-    if name == "go" {
-        if let Some(path) = look_path("go") {
-            return path;
-        }
-    }
-    name.to_string()
-}
-
-fn look_path(name: &str) -> Option<String> {
-    let path = std::env::var_os("PATH")?;
-    for dir in std::env::split_paths(&path) {
-        let candidate = dir.join(name);
-        if let Ok(meta) = fs::metadata(&candidate) {
-            use std::os::unix::fs::PermissionsExt;
-            if meta.is_file() && meta.permissions().mode() & 0o111 != 0 {
-                return Some(candidate.to_string_lossy().into_owned());
-            }
-        }
-    }
-    None
-}
-
 pub fn run_build_command(
     cancel: &Cancel,
     log: &mut dyn Write,
-    output: Option<&mut dyn Write>,
+    mut output: Option<&mut dyn Write>,
     dir: &str,
     name: &str,
     args: &[String],
 ) -> Result<String, Error> {
-    let resolved = resolve_build_tool(name);
-    let base = sys::base_name(&resolved);
-    let mut command = std::process::Command::new(&resolved);
+    let base = sys::base_name(name);
+    let mut command = std::process::Command::new(name);
     command
         .args(args)
         .current_dir(dir)
@@ -225,42 +197,73 @@ pub fn run_build_command(
         .stderr(std::process::Stdio::piped());
     // Never copy raw argv, environment or stdin into the progress/evidence stream.
     writeln!(log, "\nCOMMAND {base}").map_err(Error::from)?;
-    let mut child = command.spawn().map_err(|e| Error::msg(e.to_string()))?;
-    // D03-F1: drain both pipes concurrently with the exit poll. A child
-    // filling the pipe buffer would otherwise block forever while the
-    // parent waits for exit. Same shape as the worker drain threads.
-    let stdout_drain = drain_pipe(child.stdout.take());
-    let stderr_drain = drain_pipe(child.stderr.take());
-    let status = loop {
-        match child.try_wait().map_err(|e| Error::msg(e.to_string()))? {
-            Some(status) => break status,
-            None if cancel.is_cancelled() => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = stdout_drain.map(|t| t.join());
-                let _ = stderr_drain.map(|t| t.join());
-                return Err(Error::msg(format!(
-                    "{base} failed; retain attempt and inspect build.log: build cancelled"
-                )));
-            }
-            None => std::thread::sleep(std::time::Duration::from_millis(10)),
+    let child = command.spawn().map_err(|e| Error::msg(e.to_string()))?;
+    let mut child = ChildGuard(child);
+    const CAPTURE_LIMIT: usize = 16 * 1024 * 1024;
+    const DRAIN_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
+    let mut stdout = child.stdout.take();
+    let mut stderr = child.stderr.take();
+    set_nonblocking(stdout.as_ref().map(std::os::fd::AsRawFd::as_raw_fd))?;
+    set_nonblocking(stderr.as_ref().map(std::os::fd::AsRawFd::as_raw_fd))?;
+    let mut captured = Vec::new();
+    let mut status = None;
+    let mut drain_deadline = None;
+    while status.is_none() || stdout.is_some() || stderr.is_some() {
+        if cancel.is_cancelled() && status.is_none() {
+            let _ = child.kill();
+            status = child.wait().ok();
+            drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
         }
-    };
-    let stdout_bytes = stdout_drain
-        .map(|t| t.join().unwrap_or_default())
-        .unwrap_or_default();
-    let stderr_bytes = stderr_drain
-        .map(|t| t.join().unwrap_or_default())
-        .unwrap_or_default();
-    log.write_all(&stderr_bytes).map_err(Error::from)?;
-    let text = String::from_utf8_lossy(&stdout_bytes).into_owned();
-    match output {
-        None => {}
-        Some(out) => {
-            log.write_all(&stdout_bytes).map_err(Error::from)?;
-            out.write_all(&stdout_bytes).map_err(Error::from)?;
+        if status.is_none() {
+            if let Some(child_status) = child.try_wait().map_err(|e| Error::msg(e.to_string()))? {
+                status = Some(child_status);
+                drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
+            }
+        }
+        let mut progressed = false;
+        match read_available(&mut stdout)? {
+            PipeRead::Data(bytes) => {
+                progressed = true;
+                if let Some(out) = output.as_deref_mut() {
+                    log.write_all(&bytes).map_err(Error::from)?;
+                    out.write_all(&bytes).map_err(Error::from)?;
+                } else if captured.len().saturating_add(bytes.len()) <= CAPTURE_LIMIT {
+                    captured.extend_from_slice(&bytes);
+                } else {
+                    return Err(Error::msg(format!(
+                        "{base} failed; capture exceeded {CAPTURE_LIMIT} bytes"
+                    )));
+                }
+            }
+            PipeRead::Eof => progressed = true,
+            PipeRead::Pending => {}
+        }
+        match read_available(&mut stderr)? {
+            PipeRead::Data(bytes) => {
+                progressed = true;
+                log.write_all(&bytes).map_err(Error::from)?;
+            }
+            PipeRead::Eof => progressed = true,
+            PipeRead::Pending => {}
+        }
+        if drain_deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline)
+            && (stdout.is_some() || stderr.is_some())
+        {
+            // Close our pipe ends; descendants outside direct-child authority
+            // may still hold their copies.
+            stdout.take();
+            stderr.take();
+            return Err(Error::msg(format!(
+                "{base} failed; retain attempt and inspect build.log: output pipe remained open after child exit"
+            )));
+        }
+        if !progressed {
+            std::thread::sleep(std::time::Duration::from_millis(10));
         }
     }
+    let status =
+        status.ok_or_else(|| Error::msg(format!("{base} failed; child status unavailable")))?;
+    let text = String::from_utf8_lossy(&captured).into_owned();
     if cancel.is_cancelled() {
         return Err(Error::msg(format!(
             "{base} failed; retain attempt and inspect build.log: build cancelled"
@@ -278,16 +281,59 @@ pub fn run_build_command(
     Ok(text.trim().to_string())
 }
 
-fn drain_pipe<R: std::io::Read + Send + 'static>(
-    pipe: Option<R>,
-) -> Option<std::thread::JoinHandle<Vec<u8>>> {
-    pipe.map(|mut pipe| {
-        std::thread::spawn(move || {
-            let mut buf = Vec::new();
-            let _ = pipe.read_to_end(&mut buf);
-            buf
-        })
-    })
+struct ChildGuard(std::process::Child);
+
+impl std::ops::Deref for ChildGuard {
+    type Target = std::process::Child;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ChildGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+fn set_nonblocking(fd: Option<std::os::fd::RawFd>) -> Result<(), Error> {
+    let Some(fd) = fd else { return Ok(()) };
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(Error::msg(std::io::Error::last_os_error().to_string()));
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+enum PipeRead {
+    Data(Vec<u8>),
+    Pending,
+    Eof,
+}
+
+fn read_available<R: std::io::Read>(pipe: &mut Option<R>) -> Result<PipeRead, Error> {
+    let Some(reader) = pipe.as_mut() else {
+        return Ok(PipeRead::Eof);
+    };
+    let mut buf = [0; 8192];
+    match reader.read(&mut buf) {
+        Ok(0) => {
+            pipe.take();
+            Ok(PipeRead::Eof)
+        }
+        Ok(n) => Ok(PipeRead::Data(buf[..n].to_vec())),
+        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => Ok(PipeRead::Pending),
+        Err(error) if error.kind() == std::io::ErrorKind::Interrupted => Ok(PipeRead::Pending),
+        Err(error) => Err(Error::msg(error.to_string())),
+    }
 }
 
 #[cfg(test)]

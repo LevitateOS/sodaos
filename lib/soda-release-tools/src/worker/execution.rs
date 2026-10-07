@@ -119,35 +119,91 @@ pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
     Ok(args)
 }
 
-fn drain_pipe<R: std::io::Read + Send + 'static>(
-    pipe: Option<R>,
-) -> Option<std::thread::JoinHandle<Vec<u8>>> {
-    pipe.map(|mut pipe| {
-        std::thread::spawn(move || {
-            let mut buf = Vec::new();
-            let _ = pipe.read_to_end(&mut buf);
-            buf
-        })
-    })
+enum PipeRead {
+    Data(Vec<u8>),
+    Pending,
+    Eof,
 }
 
-fn join_drains(
-    out: &mut dyn std::io::Write,
-    err_out: &mut dyn std::io::Write,
-    out_drain: Option<std::thread::JoinHandle<Vec<u8>>>,
-    err_drain: Option<std::thread::JoinHandle<Vec<u8>>>,
-) -> Result<(), String> {
-    let stdout = out_drain
-        .map(|t| t.join().unwrap_or_default())
-        .unwrap_or_default();
-    let stderr = err_drain
-        .map(|t| t.join().unwrap_or_default())
-        .unwrap_or_default();
-    out.write_all(&stdout).map_err(|e| e.to_string())?;
-    err_out.write_all(&stderr).map_err(|e| e.to_string())?;
-    let _ = out.flush();
-    let _ = err_out.flush();
+struct ChildGuard(std::process::Child);
+
+impl std::ops::Deref for ChildGuard {
+    type Target = std::process::Child;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ChildGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+fn set_nonblocking(fd: Option<std::os::fd::RawFd>) -> Result<(), String> {
+    let Some(fd) = fd else { return Ok(()) };
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(std::io::Error::last_os_error().to_string());
+    }
     Ok(())
+}
+
+fn read_available<R: std::io::Read>(pipe: &mut Option<R>) -> Result<PipeRead, String> {
+    let Some(reader) = pipe.as_mut() else {
+        return Ok(PipeRead::Eof);
+    };
+    let mut buf = [0; 8192];
+    match reader.read(&mut buf) {
+        Ok(0) => {
+            pipe.take();
+            Ok(PipeRead::Eof)
+        }
+        Ok(n) => Ok(PipeRead::Data(buf[..n].to_vec())),
+        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => Ok(PipeRead::Pending),
+        Err(error) if error.kind() == std::io::ErrorKind::Interrupted => Ok(PipeRead::Pending),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn stop_worker_unit(unit: &str) -> Option<String> {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    match Command::new("/usr/bin/systemctl")
+        .args(["stop", unit])
+        .env_clear()
+        .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+        .env("LANG", "C.UTF-8")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(mut stop) => loop {
+            match stop.try_wait() {
+                Ok(Some(status)) if status.success() => break None,
+                Ok(Some(status)) => break Some(format!("systemctl stop {unit}: {status}")),
+                Err(error) => {
+                    let _ = stop.kill();
+                    let _ = stop.wait();
+                    break Some(format!("systemctl stop {unit}: {error}"));
+                }
+                Ok(None) if Instant::now() >= deadline => {
+                    let _ = stop.kill();
+                    let _ = stop.wait();
+                    break Some(format!("systemctl stop {unit}: timed out"));
+                }
+                Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+            }
+        },
+        Err(error) => Some(format!("systemctl stop {unit}: {error}")),
+    }
 }
 
 /// Typed worker result: cancellation (with exact-unit stop/reap evidence)
@@ -169,8 +225,8 @@ impl From<String> for WorkerError {
 /// transient systemd unit, forwarding unit output to the given writers.
 /// `cancelled` is polled while the unit runs (no async runtime in this
 /// crate, so `try_wait` polling); on cancellation the exact unit is
-/// stopped with a 30s timeout and the joined failure is reported.
-/// Output is forwarded after the unit exits rather than streamed.
+/// stopped with a 30s timeout. Bounded pipe readers forward output as it
+/// arrives and finish under a separate drain deadline.
 pub fn run_worker(
     w: &Worker,
     out: &mut dyn std::io::Write,
@@ -199,7 +255,7 @@ pub fn run_worker(
         }
     }
     // Give systemd anonymous pipes, not caller-owned log file descriptors.
-    let mut child = Command::new("/usr/bin/systemd-run")
+    let child = Command::new("/usr/bin/systemd-run")
         .args(&args)
         .env_clear()
         .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
@@ -209,62 +265,136 @@ pub fn run_worker(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| e.to_string())?;
-    let out_drain = drain_pipe(child.stdout.take());
-    let err_drain = drain_pipe(child.stderr.take());
+    let mut child = ChildGuard(child);
+    let mut stdout = child.stdout.take();
+    let mut stderr = child.stderr.take();
+    if let Err(error) = set_nonblocking(stdout.as_ref().map(std::os::fd::AsRawFd::as_raw_fd))
+        .and_then(|()| set_nonblocking(stderr.as_ref().map(std::os::fd::AsRawFd::as_raw_fd)))
+    {
+        let stop_error = stop_worker_unit(&unit);
+        let _ = child.kill();
+        let _ = child.wait();
+        let mut details = vec![error];
+        details.extend(stop_error);
+        return Err(WorkerError::Failed(details.join("\n")));
+    }
+    let mut output_error = None;
+    let mut status = None;
+    let mut drain_deadline = None;
+    let mut cancel_seen = false;
     loop {
         if cancelled() {
+            cancel_seen = true;
+        }
+        if cancel_seen && status.is_none() {
+            let _ = child.kill();
+            status = child.wait().ok();
+            drain_deadline = Some(Instant::now() + Duration::from_secs(2));
+        }
+        if status.is_none() {
+            match child.try_wait() {
+                Ok(found) => {
+                    if found.is_some() {
+                        status = found;
+                        drain_deadline = Some(Instant::now() + Duration::from_secs(2));
+                    }
+                }
+                Err(error) => {
+                    output_error = Some(error.to_string());
+                    break;
+                }
+            }
+        }
+        let mut progressed = false;
+        match read_available(&mut stdout) {
+            Ok(PipeRead::Data(bytes)) => {
+                progressed = true;
+                if let Err(error) = out.write_all(&bytes) {
+                    output_error = Some(error.to_string());
+                }
+            }
+            Ok(PipeRead::Eof) => progressed = true,
+            Ok(PipeRead::Pending) => {}
+            Err(error) => output_error = Some(error),
+        }
+        if output_error.is_some() {
             break;
         }
-        match child.try_wait().map_err(|e| e.to_string())? {
-            Some(status) => {
-                join_drains(out, err_out, out_drain, err_drain)?;
-                if status.success() {
-                    return Ok(());
+        match read_available(&mut stderr) {
+            Ok(PipeRead::Data(bytes)) => {
+                progressed = true;
+                if let Err(error) = err_out.write_all(&bytes) {
+                    output_error = Some(error.to_string());
                 }
-                return Err(WorkerError::Failed(format!(
-                    "worker {} failed: {status}",
-                    w.name
-                )));
             }
-            None => std::thread::sleep(Duration::from_millis(10)),
+            Ok(PipeRead::Eof) => progressed = true,
+            Ok(PipeRead::Pending) => {}
+            Err(error) => output_error = Some(error),
+        }
+        if output_error.is_some() {
+            break;
+        }
+        if drain_deadline.is_some_and(|deadline| Instant::now() >= deadline)
+            && (stdout.is_some() || stderr.is_some())
+        {
+            output_error = Some("worker output pipes remained open after launcher exit".to_owned());
+            break;
+        }
+        if status.is_some() && stdout.is_none() && stderr.is_none() {
+            break;
+        }
+        if !progressed {
+            std::thread::sleep(Duration::from_millis(10));
         }
     }
-    // Stopping only systemd-run does not stop its service. Own the exact unit
-    // even when the controller's request has already been cancelled.
-    let deadline = Instant::now() + Duration::from_secs(30);
-    let stop_err: Option<String> = match Command::new("/usr/bin/systemctl")
-        .args(["stop", &unit])
-        .env_clear()
-        .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
-        .env("LANG", "C.UTF-8")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        Ok(mut stop) => loop {
-            match stop.try_wait().map_err(|e| e.to_string())? {
-                Some(status) if status.success() => break None,
-                Some(status) => break Some(format!("systemctl stop {unit}: {status}")),
-                None if Instant::now() >= deadline => {
-                    let _ = stop.kill();
-                    let _ = stop.wait();
-                    break Some(format!("systemctl stop {unit}: timed out"));
-                }
-                None => std::thread::sleep(Duration::from_millis(10)),
-            }
-        },
-        Err(e) => Some(e.to_string()),
-    };
-    let _ = child.kill();
-    let child_err = child.wait().err().map(|e| e.to_string());
-    join_drains(out, err_out, out_drain, err_drain).ok();
-    let mut parts = vec!["cancelled".to_owned()];
-    parts.extend(stop_err);
-    parts.extend(child_err);
-    Err(WorkerError::Cancelled(format!(
-        "worker {} failed: {}",
-        w.name,
-        parts.join("\n")
-    )))
+    if output_error.is_some() || cancel_seen {
+        let stop_error = stop_worker_unit(&unit);
+        let _ = child.kill();
+        let child_error = child.wait().err().map(|e| e.to_string());
+        // Close only our pipe descriptors. The exact unit stop above owns
+        // descendant cleanup; no process group is inferred from the launcher.
+        stdout.take();
+        stderr.take();
+        let mut details = if cancel_seen && output_error.is_none() {
+            vec!["cancelled".to_owned()]
+        } else {
+            Vec::new()
+        };
+        details.extend(output_error.clone());
+        details.extend(stop_error);
+        details.extend(child_error);
+        if output_error.is_some() {
+            return Err(WorkerError::Failed(format!(
+                "worker {} failed: {}",
+                w.name,
+                details.join("\n")
+            )));
+        }
+        return Err(WorkerError::Cancelled(format!(
+            "worker {} failed: {}",
+            w.name,
+            details.join("\n")
+        )));
+    }
+    let flush_error = out.flush().err().or_else(|| err_out.flush().err());
+    if let Some(error) = flush_error {
+        let stop_error = stop_worker_unit(&unit);
+        let mut details = vec![error.to_string()];
+        details.extend(stop_error);
+        return Err(WorkerError::Failed(format!(
+            "worker {} failed: {}",
+            w.name,
+            details.join("\n")
+        )));
+    }
+    let status = status
+        .ok_or_else(|| WorkerError::Failed("worker launcher status unavailable".to_owned()))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(WorkerError::Failed(format!(
+            "worker {} failed: {status}",
+            w.name
+        )))
+    }
 }

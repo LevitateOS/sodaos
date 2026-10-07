@@ -48,6 +48,15 @@ struct TickerHandle {
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
+impl Drop for TickerHandle {
+    fn drop(&mut self) {
+        let _ = self.stop.send(());
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
 impl Renderer {
     pub fn new(writer: Box<dyn Write + Send>, tty: bool, width: usize) -> Renderer {
         let width = if width < 20 { 80 } else { width };
@@ -291,12 +300,7 @@ impl Renderer {
 
     pub fn stop_ticker(&self) {
         let mut slot = self.ticker.lock().unwrap();
-        if let Some(mut handle) = slot.take() {
-            let _ = handle.stop.send(());
-            if let Some(thread) = handle.thread.take() {
-                let _ = thread.join();
-            }
-        }
+        drop(slot.take());
     }
 
     pub fn finish(&self, code: i32) -> Result<(), String> {

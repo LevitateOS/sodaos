@@ -223,3 +223,18 @@ fn build_lines_collapse_old_successes() {
         }
     }
 }
+
+#[test]
+fn ticker_owner_drop_stops_and_joins_thread() {
+    let (stop, stopped) = std::sync::mpsc::channel();
+    let (joined, did_join) = std::sync::mpsc::channel();
+    let thread = std::thread::spawn(move || {
+        let _ = stopped.recv();
+        let _ = joined.send(());
+    });
+    drop(TickerHandle {
+        stop,
+        thread: Some(thread),
+    });
+    assert!(did_join.try_recv().is_ok());
+}
