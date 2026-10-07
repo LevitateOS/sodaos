@@ -13,6 +13,8 @@ pub mod http_wire;
 pub mod pg;
 pub mod pg_dsn;
 pub mod pg_query;
+#[cfg(test)]
+mod pg_tests;
 pub mod providers;
 pub mod registration;
 pub mod retirement;

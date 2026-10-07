@@ -5,12 +5,10 @@
 //! document decoders (`nativeObject`, `peerView` binding), and the `tailnet.go`
 //! CLI client (`Status`, `Endpoint`).
 //!
-//! LocalAPI transport is plain HTTP/1.1 over the tailscaled unix socket,
-//! spoken with `std` only. Provider HTTPS is not here (see the provider
-//! module); command execution goes through the crate's `Executor`.
+//! LocalAPI uses the shared bounded Hyper HTTP/1 client over the tailscaled
+//! Unix socket. Provider HTTPS is not here (see the provider module); command
+//! execution goes through the crate's `Executor`.
 
-use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -48,7 +46,7 @@ pub fn finish_local(status: u16, body: &[u8]) -> Result<Vec<u8>, String> {
     Ok(body.to_vec())
 }
 
-/// Raw HTTP/1.1 round trip over the tailscaled unix socket.
+/// HTTP/1.1 round trip over the tailscaled Unix socket.
 pub fn local_request(
     socket: &Path,
     method: &str,
@@ -56,58 +54,26 @@ pub fn local_request(
     body: Option<&[u8]>,
     deadline: Instant,
 ) -> Result<(u16, Vec<u8>), String> {
-    let now = Instant::now();
-    if now >= deadline {
-        return Err(wire::err_unavailable());
-    }
-    let timeout = (deadline - now).min(LOCAL_TIMEOUT);
-    let mut stream = UnixStream::connect(socket).map_err(|_| wire::err_unavailable())?;
-    stream
-        .set_read_timeout(Some(timeout))
-        .map_err(|_| wire::err_unavailable())?;
-    stream
-        .set_write_timeout(Some(timeout))
-        .map_err(|_| wire::err_unavailable())?;
     let payload = body.unwrap_or_default();
-    let head = format!(
-        "{method} /localapi/v0/{path} HTTP/1.1\r\nHost: local-tailscaled.sock\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        payload.len()
-    );
-    stream
-        .write_all(head.as_bytes())
-        .map_err(|_| wire::err_unavailable())?;
-    stream
-        .write_all(payload)
-        .map_err(|_| wire::err_unavailable())?;
-    // Close-delimited read with a total cap (headers plus the 64 KiB body).
-    let mut raw = Vec::new();
-    let mut chunk = [0u8; 8192];
-    loop {
-        match stream.read(&mut chunk) {
-            Ok(0) => break,
-            Ok(n) => {
-                raw.extend_from_slice(&chunk[..n]);
-                if raw.len() > RESPONSE_LIMIT + 8192 {
-                    return Err(wire::err_unavailable());
-                }
-            }
-            Err(_) => return Err(wire::err_unavailable()),
-        }
-    }
-    let text = std::str::from_utf8(&raw).map_err(|_| wire::err_unavailable())?;
-    let (head, body) = match text.split_once("\r\n\r\n") {
-        Some(split) => split,
-        None => return Err(wire::err_unavailable()),
-    };
-    let status = head
-        .split_whitespace()
-        .nth(1)
-        .and_then(|code| code.parse::<u16>().ok())
-        .filter(|code| (100..600).contains(code));
-    match status {
-        Some(code) => Ok((code, body.as_bytes().to_vec())),
-        None => Err(wire::err_unavailable()),
-    }
+    let timeout = deadline
+        .checked_duration_since(Instant::now())
+        .filter(|remaining| !remaining.is_zero())
+        .map(|remaining| remaining.min(LOCAL_TIMEOUT))
+        .ok_or_else(wire::err_unavailable)?;
+    let response = soda_unix_http::request(
+        socket,
+        method,
+        &format!("/localapi/v0/{path}"),
+        "local-tailscaled.sock",
+        payload,
+        timeout,
+        soda_unix_http::Limits {
+            header_bytes: 8192,
+            body_bytes: RESPONSE_LIMIT,
+        },
+    )
+    .map_err(|_| wire::err_unavailable())?;
+    Ok((response.status, response.body))
 }
 
 // ---------- Native document decoding ----------

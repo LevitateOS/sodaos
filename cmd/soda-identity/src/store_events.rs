@@ -45,7 +45,7 @@ impl<'a> Tx<'a> {
             &[
                 Param::int(event.owner_id),
                 Param::text(&event.connection_id),
-                Param::text(&data),
+                Param::json(&data),
             ],
         )?;
         Ok(())

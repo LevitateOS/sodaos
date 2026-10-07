@@ -4,8 +4,8 @@
 // over a restricted Unix socket and keeps no database of its own.
 
 use std::env;
-use std::io::{self, Read, Write};
-use std::os::unix::net::UnixStream;
+use std::io::{self, Write};
+use std::path::Path;
 use std::time::Duration;
 
 const USAGE: &str =
@@ -204,26 +204,24 @@ fn encode_envelope(envelope: &[(&str, &str)]) -> Vec<u8> {
 
 fn send(socket: &str, envelope: &[(&str, &str)], out: &mut dyn Write) -> Result<(), String> {
     let body = encode_envelope(envelope);
-    let mut stream = UnixStream::connect(socket).map_err(|_| "operator endpoint unavailable")?;
-    stream
-        .set_read_timeout(Some(CLIENT_TIMEOUT))
-        .map_err(|_| "operator endpoint unavailable")?;
-    stream
-        .set_write_timeout(Some(CLIENT_TIMEOUT))
-        .map_err(|_| "operator endpoint unavailable")?;
-    let request = format!(
-        "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+    let response = soda_unix_http::request(
+        Path::new(socket),
+        "POST",
         OPERATOR_PATH,
         OPERATOR_HOST,
-        body.len()
-    );
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|_| "operator endpoint unavailable")?;
-    stream
-        .write_all(&body)
-        .map_err(|_| "operator endpoint unavailable")?;
-    let (status, data) = read_response(&mut stream)?;
+        &body,
+        CLIENT_TIMEOUT,
+        soda_unix_http::Limits {
+            header_bytes: 65536,
+            body_bytes: RESPONSE_LIMIT,
+        },
+    )
+    .map_err(|error| match error {
+        soda_unix_http::Error::BodyTooLarge => "operator response exceeds limit",
+        _ => "operator endpoint unavailable",
+    })?;
+    let status = response.status;
+    let data = response.body;
     match status {
         200 | 202 => {
             out.write_all(&data)
@@ -238,130 +236,6 @@ fn send(socket: &str, envelope: &[(&str, &str)], out: &mut dyn Write) -> Result<
         409 => Err("command identity reused for different content".to_string()),
         code => Err(format!("operator command failed (HTTP {code})")),
     }
-}
-
-fn read_response(stream: &mut UnixStream) -> Result<(u16, Vec<u8>), String> {
-    let mut raw: Vec<u8> = Vec::new();
-    let mut byte = [0u8; 1];
-    loop {
-        match stream.read(&mut byte) {
-            Ok(0) => return Err("operator endpoint unavailable".to_string()),
-            Ok(_) => raw.push(byte[0]),
-            Err(_) => return Err("operator endpoint unavailable".to_string()),
-        }
-        if raw.len() >= 4 && raw[raw.len() - 4..] == *b"\r\n\r\n" {
-            break;
-        }
-    }
-    let head = String::from_utf8(raw).map_err(|_| "operator endpoint unavailable")?;
-    let mut lines = head.split("\r\n");
-    let status_line = lines.next().ok_or("operator endpoint unavailable")?;
-    let status: u16 = status_line
-        .split_whitespace()
-        .nth(1)
-        .and_then(|code| code.parse().ok())
-        .ok_or("operator endpoint unavailable")?;
-    let mut content_length: Option<usize> = None;
-    let mut chunked = false;
-    for line in lines {
-        if line.is_empty() {
-            break;
-        }
-        let (name, value) = line
-            .split_once(':')
-            .ok_or("operator endpoint unavailable")?;
-        if name.trim().eq_ignore_ascii_case("content-length") {
-            content_length = value.trim().parse().ok();
-        } else if name.trim().eq_ignore_ascii_case("transfer-encoding")
-            && value.to_ascii_lowercase().contains("chunked")
-        {
-            chunked = true;
-        }
-    }
-    let data = if chunked {
-        read_chunked(stream)?
-    } else if let Some(len) = content_length {
-        read_exact_limited(stream, len)?
-    } else {
-        read_to_end_limited(stream)?
-    };
-    Ok((status, data))
-}
-
-fn read_exact_limited(stream: &mut UnixStream, len: usize) -> Result<Vec<u8>, String> {
-    // Mirror Go's io.ReadAll(io.LimitReader(body, RESPONSE_LIMIT + 1)): never
-    // allocate past the limit, refuse short bodies (Go surfaces those as a
-    // body read error), and refuse anything over the limit.
-    let want = len.min(RESPONSE_LIMIT + 1);
-    let mut data = vec![0u8; want];
-    stream
-        .read_exact(&mut data)
-        .map_err(|_| "operator response exceeds limit")?;
-    if len > RESPONSE_LIMIT {
-        return Err("operator response exceeds limit".to_string());
-    }
-    Ok(data)
-}
-
-fn read_to_end_limited(stream: &mut UnixStream) -> Result<Vec<u8>, String> {
-    let mut data: Vec<u8> = Vec::new();
-    let mut chunk = [0u8; 8192];
-    loop {
-        match stream.read(&mut chunk) {
-            Ok(0) => break,
-            Ok(n) => {
-                data.extend_from_slice(&chunk[..n]);
-                if data.len() > RESPONSE_LIMIT {
-                    return Err("operator response exceeds limit".to_string());
-                }
-            }
-            Err(_) => return Err("operator response exceeds limit".to_string()),
-        }
-    }
-    Ok(data)
-}
-
-fn read_chunked(stream: &mut UnixStream) -> Result<Vec<u8>, String> {
-    let mut data: Vec<u8> = Vec::new();
-    loop {
-        let line = read_line(stream)?;
-        let size = usize::from_str_radix(line.split(';').next().unwrap_or("").trim(), 16)
-            .map_err(|_| "operator response exceeds limit")?;
-        if size == 0 {
-            let _ = read_line(stream);
-            break;
-        }
-        if data.len() + size > RESPONSE_LIMIT {
-            return Err("operator response exceeds limit".to_string());
-        }
-        let mut chunk = vec![0u8; size];
-        stream
-            .read_exact(&mut chunk)
-            .map_err(|_| "operator response exceeds limit")?;
-        data.extend_from_slice(&chunk);
-        let _ = read_line(stream);
-    }
-    Ok(data)
-}
-
-fn read_line(stream: &mut UnixStream) -> Result<String, String> {
-    let mut line: Vec<u8> = Vec::new();
-    let mut byte = [0u8; 1];
-    loop {
-        match stream.read(&mut byte) {
-            Ok(0) => return Err("operator response exceeds limit".to_string()),
-            Ok(_) => line.push(byte[0]),
-            Err(_) => return Err("operator response exceeds limit".to_string()),
-        }
-        if line.len() >= 2 && line[line.len() - 2..] == *b"\r\n" {
-            line.truncate(line.len() - 2);
-            break;
-        }
-        if line.len() > 65536 {
-            return Err("operator response exceeds limit".to_string());
-        }
-    }
-    String::from_utf8(line).map_err(|_| "operator response exceeds limit".to_string())
 }
 
 #[cfg(test)]

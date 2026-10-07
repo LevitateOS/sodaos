@@ -29,7 +29,7 @@ impl Store {
                 "INSERT INTO identity_leases(id,connection_id,data) SELECT $1,id,$2 FROM identity_connections WHERE id=$3 AND generation=$4 AND state='ready' AND data->>'provider_id'=$5 AND ($6='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=$7)) AND ($8='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=$9 AND connection_id=$10 AND user_id=$11 AND project_id=$12 AND revision=$13 AND revoked=FALSE))",
                 &[
                     Param::text(&lease.id),
-                    Param::text(&data),
+                    Param::json(&data),
                     Param::text(&lease.connection_id),
                     Param::int(lease.generation),
                     Param::text(&lease.provider_id),
@@ -55,7 +55,7 @@ impl Store {
         self.transaction(|tx| {
             let count = tx.exec(
                 "UPDATE identity_leases SET data=$1 WHERE id=$2 AND (data->'binding') IS NULL",
-                &[Param::text(&data), Param::text(&lease.id)],
+                &[Param::json(&data), Param::text(&lease.id)],
             )?;
             changed(count)?;
             tx.append_event(&lease_event(lease, "registered"))
@@ -71,7 +71,7 @@ impl Store {
             tx.maintain_credential(lease, credential)?;
             let count = tx.exec(
                 "DELETE FROM identity_leases WHERE id=$1 AND connection_id=$2 AND (data->>'generation')::bigint=$3",
-                &[Param::text(&lease.id), Param::text(&lease.connection_id), Param::int(lease.generation)],
+                &[Param::text(&lease.id), Param::text(&lease.connection_id), Param::int64(lease.generation)],
             )?;
             changed(count)?;
             tx.append_event(&lease_event(lease, "returned"))
@@ -126,7 +126,7 @@ impl<'a> Tx<'a> {
             "UPDATE identity_connections SET generation=$1,data=$2,credential=$3 WHERE id=$4 AND generation=$5",
             &[
                 Param::int(connection.generation),
-                Param::text(&data),
+                Param::json(&data),
                 Param::bytea(&sealed),
                 Param::text(&connection.id),
                 Param::int(lease.generation),

@@ -2,8 +2,7 @@
 // internal/host: the broker attests terminal sessions and supervised
 // factory runs by their exact bindings; it never shells out itself.
 use crate::wire::{DeliveryWire, Error, Lease};
-use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::time::Duration;
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(4 * 60);
@@ -27,25 +26,25 @@ impl HostClient {
             credential: Vec::new(),
         })?;
         body.push(b'\n');
-        let request = format!(
-            "POST {path} HTTP/1.1\r\nHost: soda-host\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        );
-        let mut stream = UnixStream::connect(&self.socket)
-            .map_err(|_| Error::internal("host service unavailable"))?;
-        stream
-            .set_read_timeout(Some(CALL_TIMEOUT))
-            .map_err(Error::from)?;
-        stream
-            .set_write_timeout(Some(CALL_TIMEOUT))
-            .map_err(Error::from)?;
-        stream
-            .write_all(request.as_bytes())
-            .map_err(|_| Error::internal("host service unavailable"))?;
-        stream
-            .write_all(&body)
-            .map_err(|_| Error::internal("host service unavailable"))?;
-        let (status, response) = read_response(&mut stream)?;
+        let response = soda_unix_http::request(
+            Path::new(&self.socket),
+            "POST",
+            path,
+            "soda-host",
+            &body,
+            CALL_TIMEOUT,
+            soda_unix_http::Limits {
+                header_bytes: 65536,
+                body_bytes: limit.unwrap_or(FINISH_LIMIT).saturating_add(1),
+            },
+        )
+        .map_err(|error| match error {
+            soda_unix_http::Error::Protocol
+            | soda_unix_http::Error::InvalidRequest
+            | soda_unix_http::Error::BodyTooLarge => Error::internal("invalid native response"),
+            _ => Error::internal("host service unavailable"),
+        })?;
+        let status = response.status;
         if status != 200 {
             return Err(Error::internal(format!(
                 "native project operation failed (HTTP {status}); operator should inspect soda-host journal"
@@ -59,10 +58,11 @@ impl HostClient {
         };
         // Go rejects over-limit and whitespace-null bodies; an empty body
         // fails JSON decoding below with the same error.
-        if response.len() > limit || response.trim_ascii() == b"null" {
+        if response.body.len() > limit || response.body.trim_ascii() == b"null" {
             return Err(Error::internal("invalid native response"));
         }
-        serde_json::from_slice(&response).map_err(|_| Error::internal("invalid native response"))
+        serde_json::from_slice(&response.body)
+            .map_err(|_| Error::internal("invalid native response"))
     }
 
     pub fn validate(&self, lease: &Lease) -> Result<(), Error> {
@@ -108,84 +108,11 @@ impl crate::control::Runtime for HostClient {
     }
 }
 
-fn read_response(stream: &mut UnixStream) -> Result<(u16, Vec<u8>), Error> {
-    let mut head = Vec::new();
-    let mut byte = [0u8; 1];
-    loop {
-        match stream.read(&mut byte) {
-            Ok(0) => return Err(Error::internal("host service unavailable")),
-            Ok(_) => {
-                head.push(byte[0]);
-                if head.len() > 65536 {
-                    return Err(Error::internal("invalid native response"));
-                }
-                if head.ends_with(b"\r\n\r\n") {
-                    break;
-                }
-            }
-            Err(e) => return Err(Error::internal(format!("host service unavailable: {e}"))),
-        }
-    }
-    let mut lines = head.split(|b| *b == b'\n');
-    let status_line = lines.next().unwrap_or(b"");
-    let status: u16 = status_line
-        .split(|b| *b == b' ')
-        .nth(1)
-        .and_then(|code| std::str::from_utf8(code).ok()?.parse::<u16>().ok())
-        .ok_or_else(|| Error::internal("invalid native response"))?;
-    let mut content_length: Option<usize> = None;
-    let mut chunked = false;
-    for line in lines {
-        let line = line.strip_suffix(b"\r").unwrap_or(line);
-        if line.is_empty() {
-            continue;
-        }
-        if let Some(value) = line
-            .strip_prefix(b"Content-Length:")
-            .or_else(|| line.strip_prefix(b"content-length:"))
-        {
-            if let Ok(text) = std::str::from_utf8(value.trim_ascii()) {
-                content_length = text.parse::<usize>().ok();
-            }
-        } else if line
-            .strip_prefix(b"Transfer-Encoding:")
-            .or_else(|| line.strip_prefix(b"transfer-encoding:"))
-            .is_some_and(|v| v.trim_ascii().eq_ignore_ascii_case(b"chunked"))
-        {
-            chunked = true;
-        }
-    }
-    if chunked {
-        // The host daemon only emits Content-Length responses; a chunked
-        // response is outside the retained framing contract (H01-F1).
-        return Err(Error::internal("invalid native response"));
-    }
-    if let Some(len) = content_length {
-        if len > FINISH_LIMIT + 1 {
-            // Read only enough to report the limit violation.
-            let mut body = vec![0u8; FINISH_LIMIT + 1];
-            stream
-                .read_exact(&mut body)
-                .map_err(|_| Error::internal("host service unavailable"))?;
-            return Ok((status, body));
-        }
-        let mut body = vec![0u8; len];
-        stream
-            .read_exact(&mut body)
-            .map_err(|_| Error::internal("host service unavailable"))?;
-        return Ok((status, body));
-    }
-    let mut body = Vec::new();
-    stream
-        .read_to_end(&mut body)
-        .map_err(|_| Error::internal("host service unavailable"))?;
-    Ok((status, body))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::wire::{Binding, UnixTime};
+    use std::io::{Read, Write};
     use std::os::unix::net::UnixListener;
 
     fn lease(binding: bool) -> Lease {
@@ -226,7 +153,14 @@ mod tests {
         responder: impl Fn(&str, &[u8]) -> Vec<u8> + Send + 'static,
         count: usize,
     ) -> HostClient {
-        let dir = std::env::temp_dir().join(format!("soda-rt-test-{}", std::process::id()));
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(2)
+            .expect("workspace root")
+            .join(format!(
+                ".artifacts/l08-l09/identity-{}",
+                std::process::id()
+            ));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join(format!("host-{}.sock", rand_suffix()));
         let _ = std::fs::remove_file(&path);
@@ -249,11 +183,17 @@ mod tests {
                     }
                 }
                 for line in request.split(|b| *b == b'\n') {
-                    if let Some(value) = line.strip_prefix(b"Content-Length:") {
-                        content_length = std::str::from_utf8(value.trim_ascii())
-                            .unwrap()
-                            .parse()
-                            .unwrap();
+                    if let Some((name, value)) = line
+                        .iter()
+                        .position(|b| *b == b':')
+                        .map(|i| (&line[..i], &line[i + 1..]))
+                    {
+                        if name.eq_ignore_ascii_case(b"content-length") {
+                            content_length = std::str::from_utf8(value.trim_ascii())
+                                .unwrap()
+                                .parse()
+                                .unwrap();
+                        }
                     }
                 }
                 let mut body = vec![0u8; content_length];
@@ -334,14 +274,13 @@ mod tests {
     }
 
     #[test]
-    fn chunked_response_refused_without_decode() {
-        let (mut peer, mut stream) = std::os::unix::net::UnixStream::pair().unwrap();
-        std::io::Write::write_all(
-            &mut peer,
-            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n0\r\n\r\n",
-        )
-        .unwrap();
-        let err = read_response(&mut stream).unwrap_err();
-        assert_eq!(err.to_string(), "invalid native response");
+    fn legal_chunked_response_is_accepted_by_host_client() {
+        let client = stub(
+            |_, _| {
+                b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nTrailer: x-done\r\n\r\n2\r\n{}\r\n0\r\nx-done: yes\r\n\r\n".to_vec()
+            },
+            1,
+        );
+        assert!(client.validate(&lease(true)).is_ok());
     }
 }

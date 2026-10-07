@@ -30,7 +30,7 @@ impl Store {
                     Param::int(connection.owner_id),
                     Param::int(connection.generation),
                     Param::text(&connection.state),
-                    Param::text(&data),
+                    Param::json(&data),
                     Param::bytea(&sealed),
                 ],
             )?;
@@ -106,7 +106,7 @@ impl Store {
                 "UPDATE identity_connections SET state=$1,data=$2,credential=CASE WHEN $3='revoked' THEN '\\x'::bytea ELSE credential END WHERE id=$4 AND generation=$5",
                 &[
                     Param::text(state),
-                    Param::text(&data),
+                    Param::json(&data),
                     Param::text(state),
                     Param::text(&connection.id),
                     Param::int(connection.generation),

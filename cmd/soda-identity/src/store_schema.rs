@@ -71,7 +71,7 @@ impl Store {
             if version == 0 {
                 // DDL carries no parameters.
                 for statement in schema::STATEMENTS {
-                    tx.store.simple(statement).map_err(|e| {
+                    tx.simple(statement).map_err(|e| {
                         Error::internal(format!("create current database schema: {e}"))
                     })?;
                 }
@@ -117,12 +117,8 @@ impl<'a> Tx<'a> {
         )?;
         // min/max arrive NULL only on an empty table, where count is 0.
         let count = row.integer(0)?;
-        let minimum = row.fields[1]
-            .as_ref()
-            .and_then(|b| std::str::from_utf8(b).ok()?.parse::<i64>().ok());
-        let maximum = row.fields[2]
-            .as_ref()
-            .and_then(|b| std::str::from_utf8(b).ok()?.parse::<i64>().ok());
+        let minimum = row.nullable_integer(1)?;
+        let maximum = row.nullable_integer(2)?;
         match (count, minimum, maximum) {
             (1, Some(min), Some(max)) if min >= 1 && min == max => Ok(min),
             _ => Err(Error::internal("invalid database schema version record")),

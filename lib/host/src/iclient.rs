@@ -4,12 +4,13 @@
 //! Request paths, JSON body shapes and response limits match the Go client
 //! byte for byte (request bodies were captured from a live Go probe and are
 //! pinned in `tests/iclient_oracle.rs`). Only the HTTP header framing is
-//! minimal — `Host`/`Content-Type`/`Content-Length`/`Connection: close`,
-//! the same shape as `soda-identity`'s own `HostClient` — instead of Go's
-//! `net/http` default headers; the broker accepts any framing, and sending
-//! Go's `Accept-Encoding: gzip` would obligate a gzip decoder.
+//! minimal — `Host`/`Content-Type`/`Content-Length`/`Connection: close` —
+//! instead of Go's `net/http` defaults; the broker accepts normal HTTP/1
+//! framing, and sending Go's `Accept-Encoding: gzip` would obligate a gzip
+//! decoder.
 //!
-//! Deadlines arrive as `Instant`s and are enforced through socket timeouts.
+//! Deadlines arrive as `Instant`s and cover Unix connect through the complete
+//! response body and Hyper driver cleanup.
 //! Error mapping mirrors `decodeError`: the broker's `denied`/`busy`/
 //! `stale`/`reauth`/`missing` codes map to the Go typed-error strings,
 //! except `stale` and `missing` carry an explicit `(stale)`/`(not found)`
@@ -20,8 +21,7 @@
 //! client (`internal/host/identity.go`), not on any broker-client call:
 //! every method here uses the Go client's 512 KiB response limit.
 
-use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::time::Instant;
 
 use crate::json::{self, SignedInteger};
@@ -213,132 +213,6 @@ fn map_error(body: &[u8]) -> String {
         "missing" => format!("{} (not found)", crate::terminal::ERR_NOT_FOUND),
         _ => "identity operation failed".to_string(),
     }
-}
-
-/// One response line (`\r\n`-terminated), without the terminator.
-fn read_line(stream: &mut UnixStream, cap: &mut usize) -> Result<Vec<u8>, String> {
-    let mut line = Vec::new();
-    let mut byte = [0u8; 1];
-    loop {
-        match stream.read(&mut byte) {
-            Ok(0) => return Err(unavailable()),
-            Ok(_) => {
-                if *cap == 0 {
-                    return Err(unavailable());
-                }
-                *cap -= 1;
-                line.push(byte[0]);
-                if byte[0] == b'\n' {
-                    if line.ends_with(b"\r\n") {
-                        line.truncate(line.len() - 2);
-                    } else {
-                        // Go's textproto tolerates a bare line feed.
-                        line.pop();
-                    }
-                    return Ok(line);
-                }
-            }
-            Err(_) => return Err(unavailable()),
-        }
-    }
-}
-
-fn read_chunked(stream: &mut UnixStream) -> Result<Vec<u8>, String> {
-    let mut body = Vec::new();
-    let mut cap = HEAD_LIMIT;
-    loop {
-        let line = read_line(stream, &mut cap)?;
-        let size_text = line.split(|b| *b == b';').next().unwrap_or(&[]);
-        let size_text = std::str::from_utf8(size_text).map_err(|_| unavailable())?;
-        let size = usize::from_str_radix(size_text.trim(), 16).map_err(|_| unavailable())?;
-        if size == 0 {
-            let _ = read_line(stream, &mut cap)?;
-            return Ok(body);
-        }
-        if body.len() + size > RESPONSE_LIMIT + 1 {
-            // Enough to report the limit violation; the socket is dropped.
-            let want = RESPONSE_LIMIT + 1 - body.len();
-            body.resize(RESPONSE_LIMIT + 1, 0);
-            let start = body.len() - want;
-            stream
-                .read_exact(&mut body[start..])
-                .map_err(|_| unavailable())?;
-            return Ok(body);
-        }
-        let start = body.len();
-        body.resize(start + size, 0);
-        stream
-            .read_exact(&mut body[start..])
-            .map_err(|_| unavailable())?;
-        let crlf = read_line(stream, &mut cap)?;
-        if !crlf.is_empty() {
-            return Err(unavailable());
-        }
-    }
-}
-
-fn read_response(stream: &mut UnixStream) -> Result<(u16, Vec<u8>), String> {
-    let mut cap = HEAD_LIMIT;
-    let status_line = read_line(stream, &mut cap)?;
-    let status_text = std::str::from_utf8(&status_line).map_err(|_| unavailable())?;
-    let status: u16 = status_text
-        .split(' ')
-        .nth(1)
-        .and_then(|code| code.parse::<u16>().ok())
-        .ok_or_else(unavailable)?;
-    let mut content_length: Option<usize> = None;
-    let mut chunked = false;
-    loop {
-        let line = read_line(stream, &mut cap)?;
-        if line.is_empty() {
-            break;
-        }
-        let (name, mut value) = match line.iter().position(|b| *b == b':') {
-            Some(i) => (&line[..i], &line[i + 1..]),
-            None => continue,
-        };
-        while value.first() == Some(&b' ') || value.first() == Some(&b'\t') {
-            value = &value[1..];
-        }
-        while value.last() == Some(&b' ') || value.last() == Some(&b'\t') {
-            value = &value[..value.len() - 1];
-        }
-        if name.eq_ignore_ascii_case(b"content-length") {
-            if content_length.is_some() {
-                return Err(unavailable());
-            }
-            let text = std::str::from_utf8(value).map_err(|_| unavailable())?;
-            content_length = Some(text.parse::<usize>().map_err(|_| unavailable())?);
-        } else if name.eq_ignore_ascii_case(b"transfer-encoding")
-            && value.split(|b| *b == b',').any(|token| {
-                token
-                    .iter()
-                    .filter(|b| **b != b' ' && **b != b'\t')
-                    .copied()
-                    .collect::<Vec<u8>>()
-                    .eq_ignore_ascii_case(b"chunked")
-            })
-        {
-            chunked = true;
-        }
-    }
-    if chunked {
-        return Ok((status, read_chunked(stream)?));
-    }
-    if let Some(len) = content_length {
-        // Mirror Go's `LimitReader(body, 512<<10+1)`: never allocate a
-        // hostile length, but read enough to report the violation.
-        let want = len.min(RESPONSE_LIMIT + 1);
-        let mut body = vec![0u8; want];
-        stream.read_exact(&mut body).map_err(|_| unavailable())?;
-        return Ok((status, body));
-    }
-    let mut body = Vec::new();
-    stream
-        .take((RESPONSE_LIMIT + 1) as u64)
-        .read_to_end(&mut body)
-        .map_err(|_| unavailable())?;
-    Ok((status, body))
 }
 
 /// `decodeResponse` framing: the 512 KiB limit, then one JSON value.
@@ -666,28 +540,27 @@ impl BrokerClient {
             .checked_duration_since(Instant::now())
             .filter(|d| !d.is_zero())
             .ok_or_else(unavailable)?;
-        let mut stream = UnixStream::connect(&self.socket_path).map_err(|_| unavailable())?;
-        stream
-            .set_read_timeout(Some(timeout))
-            .map_err(|_| unavailable())?;
-        stream
-            .set_write_timeout(Some(timeout))
-            .map_err(|_| unavailable())?;
-        let head = format!(
-            "POST {path} HTTP/1.1\r\nHost: soda-identity\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        );
-        stream
-            .write_all(head.as_bytes())
-            .map_err(|_| unavailable())?;
-        stream
-            .write_all(body.as_bytes())
-            .map_err(|_| unavailable())?;
-        let (status, response) = read_response(&mut stream)?;
-        if status != 200 {
+        let response = soda_unix_http::request(
+            Path::new(&self.socket_path),
+            "POST",
+            path,
+            "soda-identity",
+            body.as_bytes(),
+            timeout,
+            soda_unix_http::Limits {
+                header_bytes: HEAD_LIMIT,
+                body_bytes: RESPONSE_LIMIT,
+            },
+        )
+        .map_err(|error| match error {
+            soda_unix_http::Error::BodyTooLarge => "identity response exceeds limit".to_string(),
+            _ => unavailable(),
+        })?;
+        if response.status != 200 {
+            let response = response.body;
             return Err(map_error(&response));
         }
-        Ok(response)
+        Ok(response.body)
     }
 
     /// `Client.Acquire`: `POST /acquire`.

@@ -21,7 +21,7 @@ getrandom = { version = "=0.4.3", features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 libc = "0.2"
-postgres-protocol = "0.6.12"
 aes-gcm = "0.11.1"
-bytes = "1.12.1"
-fallible-iterator = "0.2.0"
+soda-unix-http = { path = "../../lib/unix-http" }
+tokio-postgres = { version = "=0.7.18", features = ["with-serde_json-1"] }
+tokio = { version = "=1.53.2", default-features = false, features = ["rt", "net", "time", "sync"] }

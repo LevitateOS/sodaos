@@ -1,4 +1,5 @@
 use super::*;
+use std::io::Read;
 use std::os::unix::net::UnixListener;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
@@ -14,7 +15,14 @@ fn args(values: &[&str]) -> Vec<String> {
 /// and reply with the given status and body.
 fn operator_server(status: u16, body: &[u8]) -> (String, mpsc::Receiver<Vec<u8>>) {
     let seq = TEST_SOCKET_SEQ.fetch_add(1, Ordering::SeqCst);
-    let dir = env::temp_dir().join(format!("soda-factory-test-{}-{}", std::process::id(), seq));
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("workspace root")
+        .join(format!(
+            ".artifacts/l08-l09/factory-{}-{seq}",
+            std::process::id()
+        ));
     let _ = std::fs::create_dir_all(&dir);
     let socket = dir.join("operator.sock");
     let _ = std::fs::remove_file(&socket);
@@ -97,9 +105,10 @@ fn status_envelope_matches_go_client_bytes() {
         head.starts_with("POST /operator/factory HTTP/1.1\r\n"),
         "{head}"
     );
-    assert!(head.contains("\r\nHost: soda-operator\r\n"), "{head}");
+    let normalized = head.to_ascii_lowercase();
+    assert!(normalized.contains("\r\nhost: soda-operator\r\n"), "{head}");
     assert!(
-        head.contains("\r\nContent-Type: application/json\r\n"),
+        normalized.contains("\r\ncontent-type: application/json\r\n"),
         "{head}"
     );
     assert_eq!(body, b"{\"type\":\"status\"}\n");

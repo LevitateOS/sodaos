@@ -6,11 +6,17 @@
 #![allow(dead_code)]
 
 use soda_identity::control::{self, Controller};
-use soda_identity::pg::{Client as PgClient, Dsn};
 use soda_identity::store::Store;
 use soda_identity::wire::*;
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::Duration;
+use tokio::runtime::Builder;
+use tokio::time::{timeout_at, Instant};
+use tokio_postgres::{config::SslMode, Config, NoTls};
+
+const ADMIN_OPERATION_BUDGET: Duration = Duration::from_secs(30);
+const ADMIN_CLEANUP_BUDGET: Duration = Duration::from_millis(250);
 
 pub fn super_dsn() -> Option<String> {
     let host = std::env::var("SODA_PG_HOST").ok()?;
@@ -35,6 +41,55 @@ pub struct Ephemeral {
     name: String,
 }
 
+fn admin_command(dsn: &str, sql: &str) -> bool {
+    let Ok(mut config) = dsn.parse::<Config>() else {
+        return false;
+    };
+    config.ssl_mode(SslMode::Disable);
+    let Ok(runtime) = Builder::new_current_thread().enable_all().build() else {
+        return false;
+    };
+    let deadline = Instant::now() + ADMIN_OPERATION_BUDGET;
+    let work_deadline = deadline - ADMIN_CLEANUP_BUDGET;
+    runtime.block_on(async {
+        let Ok(Ok((client, connection))) =
+            timeout_at(work_deadline, config.connect(NoTls)).await
+        else {
+            return false;
+        };
+        let mut driver = tokio::spawn(connection);
+        let command_ok = {
+            let future = client.batch_execute(sql);
+            tokio::pin!(future);
+            match timeout_at(work_deadline, &mut future).await {
+                Ok(Ok(())) => true,
+                Ok(Err(_)) => false,
+                Err(_) => {
+                    let drain_deadline = deadline - Duration::from_millis(50);
+                    let canceled = timeout_at(
+                        drain_deadline,
+                        client.cancel_token().cancel_query(NoTls),
+                    )
+                    .await;
+                    if canceled.is_ok() {
+                        let _ = timeout_at(drain_deadline, &mut future).await;
+                    }
+                    false
+                }
+            }
+        };
+        drop(client);
+        match timeout_at(deadline - Duration::from_millis(50), &mut driver).await {
+            Ok(Ok(Ok(()))) => command_ok,
+            _ => {
+                driver.abort();
+                matches!(timeout_at(deadline, &mut driver).await, Ok(Err(error)) if error.is_cancelled())
+                    && command_ok
+            }
+        }
+    })
+}
+
 impl Ephemeral {
     pub fn create() -> Option<Ephemeral> {
         let super_dsn = super_dsn()?;
@@ -45,9 +100,9 @@ impl Ephemeral {
             .read_exact(&mut random)
             .ok()?;
         let name = format!("soda_ephem_{}", hex(&random));
-        let dsn = Dsn::parse(&super_dsn).ok()?;
-        let mut admin = PgClient::connect(&dsn).ok()?;
-        admin.simple(&format!("CREATE DATABASE \"{name}\"")).ok()?;
+        if !admin_command(&super_dsn, &format!("CREATE DATABASE \"{name}\"")) {
+            return None;
+        }
         let dsn = super_dsn.replace("/postgres?sslmode", &format!("/{name}?sslmode"));
         Some(Ephemeral {
             dsn,
@@ -63,11 +118,10 @@ impl Ephemeral {
 
 impl Drop for Ephemeral {
     fn drop(&mut self) {
-        if let Ok(dsn) = Dsn::parse(&self.super_dsn) {
-            if let Ok(mut admin) = PgClient::connect(&dsn) {
-                let _ = admin.simple(&format!("DROP DATABASE IF EXISTS \"{}\"", self.name));
-            }
-        }
+        let _ = admin_command(
+            &self.super_dsn,
+            &format!("DROP DATABASE IF EXISTS \"{}\"", self.name),
+        );
     }
 }
 

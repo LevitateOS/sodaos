@@ -201,7 +201,7 @@ fn deadline_and_transport_failures() {
         ),
         (
             "duplen",
-            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Length: 2\r\n\r\n{}".to_vec(),
+            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Length: 3\r\n\r\n{}".to_vec(),
         ),
         (
             "short",
@@ -236,7 +236,8 @@ fn framing_edge_cases_match_go_transport() {
     BrokerClient::new(&broker.path)
         .reconcile_lease("l", deadline())
         .unwrap();
-    // Bare-LF head, which Go's textproto tolerates.
+    // Hyper's selected HTTP/1 parser accepts the bare-LF response accepted
+    // by Go's textproto parser.
     let broker = FakeBroker::start("barelf", |_| {
         b"HTTP/1.1 200 OK\nContent-Length: 2\n\n{}".to_vec()
     });

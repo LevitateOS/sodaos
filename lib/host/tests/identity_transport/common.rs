@@ -32,11 +32,10 @@ fn read_http_request(stream: &mut UnixStream) -> Vec<u8> {
                 head_end = Some(i + 4);
                 let head = String::from_utf8_lossy(&raw[..i + 4]).into_owned();
                 for line in head.split("\r\n") {
-                    if let Some(v) = line
-                        .strip_prefix("Content-Length:")
-                        .or_else(|| line.strip_prefix("content-length:"))
-                    {
-                        length = v.trim().parse().unwrap();
+                    if let Some((name, value)) = line.split_once(':') {
+                        if name.eq_ignore_ascii_case("content-length") {
+                            length = value.trim().parse().unwrap();
+                        }
                     }
                 }
             }
@@ -150,7 +149,7 @@ pub(super) fn deadline() -> Instant {
 
 pub(super) fn full_request(path: &str, body: &str) -> Vec<u8> {
     format!(
-        "POST {path} HTTP/1.1\r\nHost: soda-identity\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "POST {path} HTTP/1.1\r\nhost: soda-identity\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
         body.len()
     )
     .into_bytes()

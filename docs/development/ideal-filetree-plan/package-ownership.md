@@ -190,9 +190,9 @@ in the lane schedule; this table describes remaining responsibilities.
 
 | Selected machinery | Remaining application owner and adapter duty |
 | --- | --- |
-| Host/identity Unix HTTP and WebSocket engines (N1/N2/N5/N6) | Existing A-owned listener/route/admission/backend and single bounded upgrade/pump adapters around Hyper/Tokio/tungstenite; C owns candidate fixture lifecycle |
+| Host/identity Unix HTTP and WebSocket engines (N1/N2/N5/N6) | A owns `lib/unix-http`, the shared bounded Hyper client transport; the four callers retain endpoint, socket, credential and status policy. Existing A-owned listeners/route/admission/backend and coupled upgrade/pump adapters adopt Hyper/Tokio/tungstenite next; C owns candidate fixture lifecycle |
 | Native PostgreSQL parameters (SQL01) | Completed as L07 in `d12bf6d3`; B leads the Go caller conversion with an explicit A-owned Rust handoff. Both translators and Go's rebind-only wrappers are retired; direct Go DB/Tx calls and retained Rust encoding/query helpers preserve domain authority |
-| Identity PG wire/DSN engine (PG01) | Pending L08: A-owned Store/Tx policy around the L00-proved tokio-postgres deadline/whole-transaction adapter; B retains canonical Go schema ownership and A maintains its Rust mirror |
+| Identity PG wire/DSN engine (PG01) | L08 source adapter implemented: A-owned synchronous Store/Tx uses tokio-postgres typed values, a total operation deadline, cancellation/discard/join and one connection guard for the full transaction. B retains canonical Go schema ownership and A maintains its Rust mirror |
 | Hash and curve engines (CF-01/02) | Completed L03 in `52eee7ee`: sha2 and typed NIST point libraries own primitives; existing callers retain fingerprint recipes, raw bytes and uncompressed-point admission |
 | SSH and Base64 engines (CF-03/04) | L05 retains SSH format/algorithm policy; CF-04 is complete in `26493cf2`, with caller-local base64 profiles for padding, CRLF, trailing bits, canonical bytes and raw fingerprints |
 | Entropy callers (RNG01) | Implemented getrandom acquisition; A owns host/identity IDs, nonces and policy revision failure propagation, C owns installer/setup/maintenance/release callers and their retained custody |

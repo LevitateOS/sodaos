@@ -15,7 +15,7 @@ impl Store {
                     Param::text(&grant.project_id),
                     Param::int(grant.revision),
                     Param::boolean(grant.revoked),
-                    Param::text(&data),
+                    Param::json(&data),
                 ],
             )?;
             tx.append_event(&Event {
@@ -62,7 +62,7 @@ impl Store {
         self.transaction(|tx| {
             let count = tx.exec(
                 "UPDATE identity_grants SET revoked=TRUE,revision=$1,data=$2 WHERE id=$3 AND revision=$4",
-                &[Param::int(updated.revision), Param::text(&data), Param::text(&grant.id), Param::int(previous)],
+                &[Param::int(updated.revision), Param::json(&data), Param::text(&grant.id), Param::int(previous)],
             )?;
             changed(count)?;
             tx.append_event(&Event {

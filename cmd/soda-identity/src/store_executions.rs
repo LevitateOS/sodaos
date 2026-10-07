@@ -26,7 +26,7 @@ impl Store {
                 Param::text(&execution.execution_id),
                 Param::text(&execution.state),
                 Param::text(&execution.lease_id),
-                Param::text(&data),
+                Param::json(&data),
             ],
         )?;
         if count == 1 {
@@ -49,7 +49,7 @@ impl Store {
             &[
                 Param::text(&execution.state),
                 Param::text(&execution.lease_id),
-                Param::text(&data),
+                Param::json(&data),
                 Param::text(&execution.kind),
                 Param::text(&execution.execution_id),
             ],
