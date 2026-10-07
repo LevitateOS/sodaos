@@ -3,6 +3,10 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
+
 pub const RELEASES_API: &str = "https://gitea.com/api/v1/repos/gitea/tea/releases/latest";
 pub const DL_BASE: &str = "https://dl.gitea.com/tea";
 pub const LICENSE_BASE: &str = "https://gitea.com/gitea/tea/raw/tag";
@@ -72,17 +76,55 @@ fn valid_tag(tag: &str) -> bool {
     }
 }
 
+struct TeaReleaseMetadata(Option<Box<RawValue>>);
+
+impl<'de> Deserialize<'de> for TeaReleaseMetadata {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct MetadataVisitor;
+        impl<'de> Visitor<'de> for MetadataVisitor {
+            type Value = TeaReleaseMetadata;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a Tea release object")
+            }
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut tag = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "tag_name" {
+                        tag = Some(map.next_value()?);
+                    } else {
+                        let _: Box<RawValue> = map.next_value()?;
+                    }
+                }
+                Ok(TeaReleaseMetadata(tag))
+            }
+        }
+        deserializer.deserialize_map(MetadataVisitor)
+    }
+}
+
 fn latest_tag(endpoints: &Endpoints) -> Result<String, String> {
     let url = &endpoints.releases_api;
     let body = download(url, META_LIMIT)?;
     let text = std::str::from_utf8(&body).map_err(|e| format!("fetch {url}: {e}"))?;
-    let release = soda_json::JsonValue::parse(text)
-        .map_err(|_| format!("fetch {url}: invalid release metadata"))?;
-    let tag = release
-        .get("tag_name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if !valid_tag(tag) {
+    let release: Box<RawValue> =
+        serde_json::from_str(text).map_err(|_| format!("fetch {url}: invalid release metadata"))?;
+    let tag = if release.get().as_bytes()[0] == b'{' {
+        let metadata: TeaReleaseMetadata = serde_json::from_str(release.get())
+            .map_err(|_| format!("fetch {url}: invalid release metadata"))?;
+        metadata
+            .0
+            .and_then(|raw| serde_json::from_str::<String>(raw.get()).ok())
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+    if !valid_tag(&tag) {
         return Err("Tea latest release is not a version tag".to_string());
     }
     Ok(tag.to_string())

@@ -83,6 +83,25 @@ fn tag_shape_matches_version_tags_only() {
 }
 
 #[test]
+fn release_metadata_uses_last_tag_and_ignores_raw_numeric_fields() {
+    let mut routes = HashMap::new();
+    routes.insert(
+        "/release.json".to_string(),
+        (
+            200,
+            br#"{"tag_name":1e400,"tag_name":"v0.99.1","ignored":{"number":1e400}}"#.to_vec(),
+        ),
+    );
+    let server = Server::start(routes);
+    let endpoints = Endpoints {
+        releases_api: format!("{}/release.json", server.base),
+        dl_base: server.base.clone(),
+        license_base: server.base,
+    };
+    assert_eq!(latest_tag(&endpoints).unwrap(), TAG);
+}
+
+#[test]
 fn checksums_take_the_last_match_and_ignore_odd_lines() {
     let text = "aaa  other\nzzz  tea-1-linux-amd64\nwww  tea-1-linux-amd64\nlone\n\n";
     assert_eq!(

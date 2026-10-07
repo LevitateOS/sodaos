@@ -2,10 +2,8 @@
 
 use std::path::Path;
 
-use soda_json::JsonValue;
-
 use super::document::{
-    clear_files, dump_python, file_entry, object_mut, public_config, push_file, str_value,
+    clear_files, dump_python, file_entry, object_mut, public_config, push_file, str_value, Node,
 };
 use super::private_files::{
     derive_host_public, is_appliance_hostname, is_fixture_hostname, regular, write_exclusive,
@@ -62,13 +60,13 @@ pub fn render(source: &Path, inputs: &RenderInputs<'_>) -> Result<(), ProvError>
         .ok_or_else(|| ProvError::new(ProvKind::Type, "bootstrap must be an object"))?;
     entries.push((
         "passwd".to_string(),
-        JsonValue::Object(vec![(
+        Node::Object(vec![(
             "users".to_string(),
-            JsonValue::Array(vec![JsonValue::Object(vec![
+            Node::Array(vec![Node::Object(vec![
                 ("name".to_string(), str_value("root")),
                 (
                     "ssh_authorized_keys".to_string(),
-                    JsonValue::Array(vec![str_value(key)]),
+                    Node::Array(vec![str_value(key)]),
                 ),
                 ("password_hash".to_string(), str_value(password)),
             ])]),

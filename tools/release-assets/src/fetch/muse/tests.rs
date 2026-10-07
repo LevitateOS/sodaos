@@ -253,6 +253,51 @@ fn unknown_manifest_fields_are_decode_errors() {
 }
 
 #[test]
+fn manifest_selects_last_raw_slots_and_keeps_integer_token_rules() {
+    let payload = b"verified native bytes";
+    let sha = crate::fetch::sha256_hex(payload);
+    let scratch = TempDir::new("muse-raw-slots");
+    let manifest = write_manifest(
+        &scratch.path,
+        &format!(
+            r#"{{"version":"bad","version":"{VERSION}","artifacts":{{"x86_64":{{"size":1e400}}}},"artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{sha}","size":"bad","size":{}}},"aarch64":{{"ignored":1e400}}}}}}"#,
+            payload.len(),
+        ),
+    );
+    let (version, artifact) = load_release(&manifest, "x86_64").expect("last slots are selected");
+    assert_eq!(version, VERSION);
+    assert_eq!(artifact.size, payload.len() as i64);
+
+    std::fs::write(
+        &manifest,
+        format!(
+            r#"{{"version":"{VERSION}","artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{sha}","size":1e2}}}}}}"#
+        ),
+    )
+    .unwrap();
+    assert_eq!(
+        load_release(&manifest, "x86_64")
+            .err()
+            .expect("exponent size rejected"),
+        "invalid Muse manifest: size must be an integer"
+    );
+
+    std::fs::write(
+        &manifest,
+        format!(
+            r#"{{"version":"{VERSION}","artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{sha}","size":-0}}}}}}"#
+        ),
+    )
+    .unwrap();
+    assert_eq!(
+        load_release(&manifest, "x86_64")
+            .err()
+            .expect("zero size fails pin validation"),
+        "invalid Muse release pin"
+    );
+}
+
+#[test]
 fn oversized_manifest_is_refused() {
     let payload = b"verified native bytes".to_vec();
     // A version string running past the 8 KiB read cap truncates

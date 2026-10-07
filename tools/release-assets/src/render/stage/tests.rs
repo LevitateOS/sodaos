@@ -1,4 +1,38 @@
+use super::payload::{LockedAsset, LockedItem, PayloadEntries};
 use super::*;
+
+#[test]
+fn stage_json_visitors_preserve_payload_pairs_and_last_known_slots() {
+    let payload: PayloadEntries = serde_json::from_str(r#"{"asset":"first","asset":"second"}"#)
+        .expect("string payload entries");
+    assert_eq!(
+        payload.0,
+        [
+            ("asset".to_string(), "first".to_string()),
+            ("asset".to_string(), "second".to_string())
+        ]
+    );
+
+    let item: LockedItem = serde_json::from_str(r#"{"files":[{"file":1e400}]}"#)
+        .expect("unknown raw fields retain large number tokens");
+    let files: Vec<Box<serde_json::value::RawValue>> =
+        serde_json::from_str(item.files.unwrap().get()).unwrap();
+    let asset: LockedAsset = serde_json::from_str(files[0].get()).unwrap();
+    assert!(serde_json::from_str::<String>(asset.file.unwrap().get()).is_err());
+
+    let asset: LockedAsset = serde_json::from_str(
+        r#"{"file":false,"file":"last","sha256":"old","sha256":"digest","ignored":1e400}"#,
+    )
+    .expect("raw known slots defer conversion until after duplicate selection");
+    assert_eq!(
+        serde_json::from_str::<String>(asset.file.unwrap().get()).unwrap(),
+        "last"
+    );
+    assert_eq!(
+        serde_json::from_str::<String>(asset.sha256.unwrap().get()).unwrap(),
+        "digest"
+    );
+}
 
 #[test]
 fn favicon_container_matches_struct_layout() {

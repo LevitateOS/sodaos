@@ -1,6 +1,6 @@
 use super::*;
 
-use soda_json::JsonValue;
+use super::document::{push_file, str_value, Node};
 
 #[test]
 fn hostnames_follow_the_script_regexes() {
@@ -29,7 +29,7 @@ fn hostnames_follow_the_script_regexes() {
 
 #[test]
 fn dump_matches_json_indent_two() {
-    let value = JsonValue::parse(
+    let value = Node::parse_document(
         "{\"b\": [1, {\"x\": true}, [], {}], \"a\": \"q\\\"\\n\\u0001~/\\u007f\\u00e9😀\", \"e\": {}, \"n\": null}",
     )
     .expect("parse");
@@ -41,9 +41,27 @@ fn dump_matches_json_indent_two() {
 
 #[test]
 fn dump_keeps_number_literals_and_key_order() {
-    let value = JsonValue::parse("{\"mode\": 420, \"ratio\": 1e2}").expect("parse");
+    let value = Node::parse_document("{\"mode\": 420, \"ratio\": 1e2}").expect("parse");
     assert_eq!(
         dump_python(&value),
         "{\n  \"mode\": 420,\n  \"ratio\": 1e2\n}"
+    );
+}
+
+#[test]
+fn dump_preserves_valid_exponent_outside_machine_float_range() {
+    let value = Node::parse_document("{\"ratio\": 1e400}").expect("valid JSON number");
+    assert_eq!(dump_python(&value), "{\n  \"ratio\": 1e400\n}");
+}
+
+#[test]
+fn document_edits_use_last_exact_member_and_keep_duplicate_pairs_and_raw_numbers() {
+    let mut value =
+        Node::parse_document(r#"{"storage":{"files":[{"mode":1e2}]},"storage":{"files":[]}}"#)
+            .expect("parse");
+    push_file(&mut value, str_value("added")).expect("append to last storage.files");
+    assert_eq!(
+        dump_python(&value),
+        "{\n  \"storage\": {\n    \"files\": [\n      {\n        \"mode\": 1e2\n      }\n    ]\n  },\n  \"storage\": {\n    \"files\": [\n      \"added\"\n    ]\n  }\n}"
     );
 }

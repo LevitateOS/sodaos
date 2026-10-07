@@ -15,6 +15,10 @@ use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
+
 /// Locked native catalogs come only from the upstream raw host.
 pub const SOURCE_PREFIX: &str = "https://codeberg.org/forgejo/forgejo/raw/tag/";
 /// Same bound as the script, on bytes: never load an unbounded catalog.
@@ -214,13 +218,19 @@ fn read_capped(reader: &mut dyn Read) -> Result<Vec<u8>, String> {
 fn load_lock(path: &Path) -> Result<(String, String), Error> {
     let text = std::fs::read_to_string(path)
         .map_err(|e| Error::runtime(format!("cannot read lock {}: {e}", path.display())))?;
-    let lock =
-        soda_json::JsonValue::parse(&text).map_err(|_| Error::runtime("invalid lock document"))?;
-    let url = lock.get("url").and_then(|v| v.as_str()).map(str::to_string);
+    let root: Box<RawValue> =
+        serde_json::from_str(&text).map_err(|_| Error::runtime("invalid lock document"))?;
+    if root.get().as_bytes()[0] != b'{' {
+        return Err(Error::runtime("invalid lock document"));
+    }
+    let lock: LocaleLock =
+        serde_json::from_str(root.get()).map_err(|_| Error::runtime("invalid lock document"))?;
+    let url = lock
+        .url
+        .and_then(|raw| serde_json::from_str::<String>(raw.get()).ok());
     let sha256 = lock
-        .get("sha256")
-        .and_then(|v| v.as_str())
-        .map(str::to_string);
+        .sha256
+        .and_then(|raw| serde_json::from_str::<String>(raw.get()).ok());
     let (Some(url), Some(sha256)) = (url, sha256) else {
         return Err(Error::runtime("invalid lock document"));
     };
@@ -228,6 +238,46 @@ fn load_lock(path: &Path) -> Result<(String, String), Error> {
         return Err(Error::usage("unexpected native catalog source"));
     }
     Ok((url, sha256))
+}
+
+struct LocaleLock {
+    url: Option<Box<RawValue>>,
+    sha256: Option<Box<RawValue>>,
+}
+
+impl<'de> Deserialize<'de> for LocaleLock {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct LockVisitor;
+        impl<'de> Visitor<'de> for LockVisitor {
+            type Value = LocaleLock;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a locale lock object")
+            }
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut lock = LocaleLock {
+                    url: None,
+                    sha256: None,
+                };
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "url" => lock.url = Some(map.next_value()?),
+                        "sha256" => lock.sha256 = Some(map.next_value()?),
+                        _ => {
+                            let _: Box<RawValue> = map.next_value()?;
+                        }
+                    }
+                }
+                Ok(lock)
+            }
+        }
+        deserializer.deserialize_map(LockVisitor)
+    }
 }
 
 /// Fetch the exact locked bytes: bounded read plus pinned SHA-256.

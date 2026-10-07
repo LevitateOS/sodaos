@@ -4,6 +4,10 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
+
 pub const USER_AGENT: &str = "SodaOS-build";
 const TIMEOUT: Duration = Duration::from_secs(30);
 const ARCHIVE_LIMIT: u64 = 10_000_000;
@@ -21,36 +25,76 @@ struct Item {
     files: Vec<Asset>,
 }
 
-fn lock_string<'a>(item: &'a soda_json::JsonValue, key: &str) -> Result<&'a str, String> {
-    item.get(key)
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "terminal lock entry is malformed".to_string())
+struct RawObject(Vec<(String, Box<RawValue>)>);
+
+impl<'de> Deserialize<'de> for RawObject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ObjectVisitor;
+        impl<'de> Visitor<'de> for ObjectVisitor {
+            type Value = RawObject;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a JSON object")
+            }
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut fields = Vec::with_capacity(map.size_hint().unwrap_or(0));
+                while let Some((key, value)) = map.next_entry::<String, Box<RawValue>>()? {
+                    fields.push((key, value));
+                }
+                Ok(RawObject(fields))
+            }
+        }
+        deserializer.deserialize_map(ObjectVisitor)
+    }
+}
+
+fn last<'a>(item: &'a RawObject, key: &str) -> Option<&'a RawValue> {
+    item.0
+        .iter()
+        .rev()
+        .find(|(name, _)| name == key)
+        .map(|(_, value)| value.as_ref())
+}
+
+fn lock_string(item: &RawObject, key: &str) -> Result<String, String> {
+    let raw = last(item, key).ok_or_else(|| "terminal lock entry is malformed".to_string())?;
+    serde_json::from_str(raw.get()).map_err(|_| "terminal lock entry is malformed".to_string())
 }
 
 fn parse_lock(text: &str) -> Result<Vec<Item>, String> {
-    let lock = soda_json::JsonValue::parse(text)
+    let root: Box<RawValue> =
+        serde_json::from_str(text).map_err(|_| "terminal lock is not valid JSON".to_string())?;
+    if root.get().as_bytes()[0] != b'[' {
+        return Err("terminal lock is not valid JSON".to_string());
+    }
+    let raw_items: Vec<Box<RawValue>> = serde_json::from_str(root.get())
         .map_err(|_| "terminal lock is not valid JSON".to_string())?;
-    let raw_items = match &lock {
-        soda_json::JsonValue::Array(items) => items,
-        _ => return Err("terminal lock is not valid JSON".to_string()),
-    };
     let mut items = Vec::with_capacity(raw_items.len());
     for raw in raw_items {
-        let files = match raw.get("files") {
-            Some(soda_json::JsonValue::Array(files)) => files,
-            _ => return Err("terminal lock entry is malformed".to_string()),
-        };
+        let raw: RawObject = serde_json::from_str(raw.get())
+            .map_err(|_| "terminal lock entry is malformed".to_string())?;
+        let file_values =
+            last(&raw, "files").ok_or_else(|| "terminal lock entry is malformed".to_string())?;
+        let files: Vec<Box<RawValue>> = serde_json::from_str(file_values.get())
+            .map_err(|_| "terminal lock entry is malformed".to_string())?;
         let mut assets = Vec::with_capacity(files.len());
         for file in files {
+            let file: RawObject = serde_json::from_str(file.get())
+                .map_err(|_| "terminal lock entry is malformed".to_string())?;
             assets.push(Asset {
-                member: lock_string(file, "member")?.to_string(),
-                file: lock_string(file, "file")?.to_string(),
-                sha256: lock_string(file, "sha256")?.to_string(),
+                member: lock_string(&file, "member")?,
+                file: lock_string(&file, "file")?,
+                sha256: lock_string(&file, "sha256")?,
             });
         }
         items.push(Item {
-            url: lock_string(raw, "url")?.to_string(),
-            integrity: lock_string(raw, "integrity")?.to_string(),
+            url: lock_string(&raw, "url")?,
+            integrity: lock_string(&raw, "integrity")?,
             files: assets,
         });
     }

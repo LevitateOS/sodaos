@@ -6,8 +6,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 use soda_build_tools::reader::muse::{valid_muse_artifact, MuseArtifact};
-use soda_json::JsonValue;
 
 pub const DOWNLOAD_BASE: &str = "https://lookaside.facebook.com/lookaside/muse/download/";
 /// The Go HTTP client sends this by default; the endpoint has only ever
@@ -47,16 +49,54 @@ fn download_url(base: &str, version: &str, file: &str) -> String {
 
 /// A string field: missing and null decode to zero like Go; any other
 /// mistyped value is a manifest error.
-fn manifest_string(value: Option<&JsonValue>, what: &str) -> Result<String, String> {
+fn manifest_string(value: Option<&RawValue>, what: &str) -> Result<String, String> {
     match value {
-        None | Some(JsonValue::Null) => Ok(String::new()),
-        Some(JsonValue::Str(text)) => Ok(text.clone()),
-        Some(_) => Err(format!("invalid Muse manifest: {what} must be a string")),
+        None => Ok(String::new()),
+        Some(value) if value.get() == "null" => Ok(String::new()),
+        Some(value) => serde_json::from_str(value.get())
+            .map_err(|_| format!("invalid Muse manifest: {what} must be a string")),
     }
 }
 
-fn unknown_field(entries: &[(String, JsonValue)], allowed: &[&str]) -> Result<(), String> {
-    for (key, _) in entries {
+struct RawObject(Vec<(String, Box<RawValue>)>);
+
+impl<'de> Deserialize<'de> for RawObject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ObjectVisitor;
+        impl<'de> Visitor<'de> for ObjectVisitor {
+            type Value = RawObject;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a JSON object")
+            }
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut fields = Vec::with_capacity(map.size_hint().unwrap_or(0));
+                while let Some((key, value)) = map.next_entry::<String, Box<RawValue>>()? {
+                    fields.push((key, value));
+                }
+                Ok(RawObject(fields))
+            }
+        }
+        deserializer.deserialize_map(ObjectVisitor)
+    }
+}
+
+fn last<'a>(fields: &'a RawObject, key: &str) -> Option<&'a RawValue> {
+    fields
+        .0
+        .iter()
+        .rev()
+        .find(|(name, _)| name == key)
+        .map(|(_, value)| value.as_ref())
+}
+
+fn unknown_field(entries: &RawObject, allowed: &[&str]) -> Result<(), String> {
+    for (key, _) in &entries.0 {
         if !allowed.contains(&key.as_str()) {
             return Err(format!("invalid Muse manifest: unknown field {key:?}"));
         }
@@ -75,41 +115,47 @@ fn load_release(manifest: &str, arch: &str) -> Result<(String, MuseArtifact), St
     };
     let text =
         std::str::from_utf8(capped).map_err(|_| "invalid Muse manifest: not UTF-8".to_string())?;
-    let value =
-        JsonValue::parse(text).map_err(|_| "invalid Muse manifest: malformed JSON".to_string())?;
-    let top = match &value {
-        JsonValue::Object(entries) => entries,
-        _ => return Err("invalid Muse manifest: expected an object".to_string()),
+    let root: Box<RawValue> = serde_json::from_str(text)
+        .map_err(|_| "invalid Muse manifest: malformed JSON".to_string())?;
+    if root.get().as_bytes()[0] != b'{' {
+        return Err("invalid Muse manifest: expected an object".to_string());
+    }
+    let value: RawObject = serde_json::from_str(root.get())
+        .map_err(|_| "invalid Muse manifest: malformed JSON".to_string())?;
+    unknown_field(&value, &["version", "artifacts"])?;
+    let version = manifest_string(last(&value, "version"), "version")?;
+    let artifacts = match last(&value, "artifacts") {
+        None => None,
+        Some(value) if value.get() == "null" => None,
+        Some(raw) => Some(
+            serde_json::from_str::<RawObject>(raw.get())
+                .map_err(|_| "invalid Muse manifest: artifacts must be an object".to_string())?,
+        ),
     };
-    unknown_field(top, &["version", "artifacts"])?;
-    let version = manifest_string(value.get("version"), "version")?;
-    let artifacts = match value.get("artifacts") {
-        None | Some(JsonValue::Null) => None,
-        Some(JsonValue::Object(_)) => Some(value.get("artifacts").expect("object")),
-        Some(_) => return Err("invalid Muse manifest: artifacts must be an object".to_string()),
-    };
-    let artifact = match artifacts.and_then(|a| a.get(arch)) {
+    let selected = artifacts.as_ref().and_then(|a| last(a, arch));
+    let artifact = match selected {
         None => return Err("invalid Muse release pin".to_string()),
-        Some(JsonValue::Null) => MuseArtifact {
+        Some(raw) if raw.get() == "null" => MuseArtifact {
             file: String::new(),
             sha256: String::new(),
             size: 0,
         },
-        Some(JsonValue::Object(entries)) => {
-            unknown_field(entries, &["file", "sha256", "size"])?;
-            let entry = artifacts.and_then(|a| a.get(arch)).expect("entry");
-            let file = manifest_string(entry.get("file"), "file")?;
-            let sha256 = manifest_string(entry.get("sha256"), "sha256")?;
-            let size = match entry.get("size") {
-                None | Some(JsonValue::Null) => 0,
+        Some(raw) => {
+            let entry: RawObject = serde_json::from_str(raw.get())
+                .map_err(|_| "invalid Muse manifest: artifact must be an object".to_string())?;
+            unknown_field(&entry, &["file", "sha256", "size"])?;
+            let file = manifest_string(last(&entry, "file"), "file")?;
+            let sha256 = manifest_string(last(&entry, "sha256"), "sha256")?;
+            let size = match last(&entry, "size") {
+                None => 0,
+                Some(value) if value.get() == "null" => 0,
                 Some(number) => number
-                    .as_integer()
-                    .and_then(|n| i64::try_from(n).ok())
-                    .ok_or_else(|| "invalid Muse manifest: size must be an integer".to_string())?,
+                    .get()
+                    .parse::<i64>()
+                    .map_err(|_| "invalid Muse manifest: size must be an integer".to_string())?,
             };
             MuseArtifact { file, sha256, size }
         }
-        Some(_) => return Err("invalid Muse manifest: artifact must be an object".to_string()),
     };
     if !valid_muse_artifact(&version, arch, &artifact) {
         return Err("invalid Muse release pin".to_string());

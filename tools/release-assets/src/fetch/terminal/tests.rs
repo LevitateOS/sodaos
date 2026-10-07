@@ -81,6 +81,18 @@ fn integrity_failure_keeps_changed_cache_bytes() {
 }
 
 #[test]
+fn lock_uses_last_exact_fields_and_ignores_raw_numeric_metadata() {
+    let text = r#"[{"url":1e400,"url":"https://example.invalid/archive.tgz","integrity":"old","integrity":"sha512-good","files":[{"member":false,"member":"pkg/file","file":"old","file":"asset","sha256":"bad","sha256":"good","extra":1e400}]}]"#;
+    let items = parse_lock(text).expect("last selected fields decode as strings");
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].url, "https://example.invalid/archive.tgz");
+    assert_eq!(items[0].integrity, "sha512-good");
+    assert_eq!(items[0].files[0].member, "pkg/file");
+    assert_eq!(items[0].files[0].file, "asset");
+    assert_eq!(items[0].files[0].sha256, "good");
+}
+
+#[test]
 fn per_file_digest_mismatch_is_reported() {
     let body = tarball(&[("package/lib/xterm.mjs", b"synthetic")]);
     let mut routes = HashMap::new();

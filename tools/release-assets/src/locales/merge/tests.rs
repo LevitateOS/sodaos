@@ -1,5 +1,21 @@
 use super::*;
 
+#[test]
+fn locale_lock_raw_slots_take_the_last_string_and_ignore_large_unknown_numbers() {
+    let lock: LocaleLock = serde_json::from_str(
+        r#"{"url":1e400,"url":"https://codeberg.org/forgejo/forgejo/raw/tag/v1/locale","sha256":"old","sha256":"final","ignored":{"number":1e400}}"#,
+    )
+    .expect("raw slots retain grammar-valid ignored values");
+    assert_eq!(
+        serde_json::from_str::<String>(lock.url.as_ref().unwrap().get()).unwrap(),
+        "https://codeberg.org/forgejo/forgejo/raw/tag/v1/locale"
+    );
+    assert_eq!(
+        serde_json::from_str::<String>(lock.sha256.as_ref().unwrap().get()).unwrap(),
+        "final"
+    );
+}
+
 const NATIVE: &str = "[common]\nhome = Home %s\n[settings]\nprofile = Profile\n";
 const EXTRA: &str = "[soda]\nnav_personal = Personal\n";
 
