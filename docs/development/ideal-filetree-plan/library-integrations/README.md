@@ -7,6 +7,11 @@ moved machinery visible alongside deleted engines. The existing [task list](../i
 [lane schedule](../implementation-lanes.md) and [adoption chapter](../library-adoption.md)
 remain the execution plan.
 
+The [concurrency and termination audit](../concurrency-and-termination.md) at
+`94c40095` traces retained runtimes, tasks, transports, locks and children through
+their actual callers. It preserves completed transport/capture repairs and assigns
+separate dashboard, shared-admission, Muse and worker-cleanup corrections.
+
 The subsequent [selected-version adapter challenge](adapter-challenges.md) at
 `2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
 It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON

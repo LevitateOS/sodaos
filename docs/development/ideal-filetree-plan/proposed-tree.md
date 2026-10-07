@@ -27,7 +27,8 @@ document allocated below. The current [library caller maps](library-integrations
 [observation-reliability chapter](observation-reliability.md) and
 [connected workflow traces](workflow-traces.md) and
 [adapter challenges](library-integrations/adapter-challenges.md) and
-[representation audit](data-representations.md) are also H06 audit documents
+[representation audit](data-representations.md) and
+[concurrency audit](concurrency-and-termination.md) are also H06 audit documents
 allocated below. These additions do not regenerate the historical
 target allocation or refresh R02 counts.
 
@@ -834,6 +835,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── verification-and-support.md
 │   │   │   ├── ideal-filetree-plan.md
 │   │   │   ├── data-representations.md
+│   │   │   ├── concurrency-and-termination.md
 │   │   │   ├── implementation-lanes.md
 │   │   │   ├── implementation-tasks.md
 │   │   │   ├── integration.md

@@ -6,6 +6,11 @@ and **H06-F1**, and records four additional source findings. Completed repairs
 remain complete at their recorded scope. Optional matcher or library replacements
 are separate decisions.
 
+The later [concurrency and termination audit](concurrency-and-termination.md) at
+`94c40095` freshly traces these deadline/capture owners and records OBS-W01's
+conditional release-worker cleanup risk. OBS-D01/G01/R01 keep their existing
+identifiers and scopes; the four findings recorded here are not counted again.
+
 ## Subject, authority and evidence
 
 | Input | Identity / scope |
