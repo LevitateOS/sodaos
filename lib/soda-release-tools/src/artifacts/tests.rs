@@ -148,16 +148,13 @@ fn butane_conversion_lifecycle() {
         .open(&out)
         .unwrap();
     let out_s = out.to_string_lossy().into_owned();
-    let mut dest2 = dest.try_clone().unwrap();
-    let err = finish_butane_conversion(dest, &out_s, || {
-        let _ = dest2.write_all(b"partial");
+    let err = finish_butane_conversion(dest, &out_s, |dest| {
+        let mut child_output = dest.try_clone().unwrap();
+        let _ = child_output.write_all(b"partial");
         Err("butane boom".to_owned())
     })
     .unwrap_err();
-    assert_eq!(
-        err,
-        "strict Butane conversion failed; partial output removed"
-    );
+    assert_eq!(err, "butane boom; partial output removed");
     assert!(std::fs::symlink_metadata(&out).is_err());
     // Success keeps the output.
     let out = scratch.join("ok.json");
@@ -168,12 +165,149 @@ fn butane_conversion_lifecycle() {
         .open(&out)
         .unwrap();
     let out_s = out.to_string_lossy().into_owned();
-    let mut dest2 = dest.try_clone().unwrap();
-    finish_butane_conversion(dest, &out_s, || {
-        dest2.write_all(b"{}").map_err(|e| e.to_string())
+    finish_butane_conversion(dest, &out_s, |dest| {
+        let mut child_output = dest
+            .try_clone()
+            .map_err(|_| "output clone failed".to_owned())?;
+        child_output
+            .write_all(b"{}")
+            .map_err(|_| "Butane write failed".to_owned())
     })
     .unwrap();
     assert!(out.is_file());
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+#[test]
+fn butane_output_clone_failure_is_owned_and_cleanup_is_reported() {
+    let scratch = temp_dir("butane-clone-failure");
+    let out = scratch.join("failed.json");
+    let dest = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&out)
+        .unwrap();
+
+    let error = finish_butane_conversion(dest, out.to_str().unwrap(), |_| {
+        Err("Butane output descriptor clone failed".to_owned())
+    })
+    .unwrap_err();
+    assert_eq!(
+        error,
+        "Butane output descriptor clone failed; partial output removed"
+    );
+    assert!(!out.exists());
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+#[test]
+fn butane_cleanup_failure_preserves_primary_and_does_not_claim_removal() {
+    let scratch = temp_dir("butane-unlink-failure");
+    let out = scratch.join("failed.json");
+    let moved = scratch.join("owned-output.json");
+    let dest = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&out)
+        .unwrap();
+
+    let error = finish_butane_conversion(dest, out.to_str().unwrap(), |_| {
+        std::fs::rename(&out, &moved).map_err(|_| "Butane conversion failed".to_owned())?;
+        std::fs::create_dir(&out).map_err(|_| "Butane conversion failed".to_owned())?;
+        Err("butane exited 2".to_owned())
+    })
+    .unwrap_err();
+    assert_eq!(
+        error,
+        "butane exited 2; partial output removal failed; inspect output locally"
+    );
+    assert!(out.is_dir());
+    assert!(moved.is_file());
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+fn fake_butane(scratch: &std::path::Path, name: &str, body: &str) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+
+    let path = scratch.join(name);
+    std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    path
+}
+
+fn private_output(path: &std::path::Path) -> std::fs::File {
+    create_butane_output(path.to_str().unwrap()).unwrap()
+}
+
+#[test]
+fn butane_output_is_private_and_exclusive() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let scratch = temp_dir("butane-output-mode");
+    let out = scratch.join("private.json");
+    let file = private_output(&out);
+    assert_eq!(file.metadata().unwrap().permissions().mode() & 0o777, 0o600);
+    drop(file);
+    assert!(create_butane_output(out.to_str().unwrap()).is_err());
+    assert_eq!(
+        std::fs::metadata(&out).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    let _ = std::fs::remove_dir_all(&scratch);
+}
+
+#[test]
+fn butane_process_failure_and_timeout_are_reaped_before_output_cleanup() {
+    use std::time::{Duration, Instant};
+
+    let scratch = temp_dir("butane-process-cleanup");
+    let input_path = scratch.join("source.yaml");
+    std::fs::write(&input_path, b"source").unwrap();
+    let failure = fake_butane(&scratch, "fail-butane", "printf partial; exit 7");
+    let out = scratch.join("failed.json");
+    let error = finish_butane_conversion(private_output(&out), out.to_str().unwrap(), |dest| {
+        run_butane_with(
+            std::fs::File::open(&input_path).unwrap(),
+            dest,
+            &failure,
+            Duration::from_secs(2),
+        )
+    })
+    .unwrap_err();
+    assert_eq!(error, "butane exited 7; partial output removed");
+    assert!(!out.exists());
+
+    let timeout = fake_butane(
+        &scratch,
+        "timeout-butane",
+        "printf '%s\\n' \"$$\" > \"$0.pid\"; exec sleep 60",
+    );
+    let timeout_pid = timeout.with_extension("pid");
+    let out = scratch.join("timeout.json");
+    let start = Instant::now();
+    let error = finish_butane_conversion(private_output(&out), out.to_str().unwrap(), |dest| {
+        run_butane_with(
+            std::fs::File::open(&input_path).unwrap(),
+            dest,
+            &timeout,
+            Duration::from_millis(500),
+        )
+    })
+    .unwrap_err();
+    assert_eq!(error, "Butane conversion timed out; partial output removed");
+    assert!(start.elapsed() < Duration::from_secs(3));
+    assert!(!out.exists());
+    let pid: i32 = std::fs::read_to_string(timeout_pid)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    assert!(
+        !std::path::Path::new(&format!("/proc/{pid}")).exists(),
+        "timed-out Butane child {pid} was not reaped"
+    );
     let _ = std::fs::remove_dir_all(&scratch);
 }
 

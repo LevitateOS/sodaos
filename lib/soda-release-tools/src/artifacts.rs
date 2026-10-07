@@ -3,6 +3,7 @@
 //! locally, then delegate to the `soda-release-build` pipeline.
 
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 use crate::digest::{hash_file, is_revision, is_signer, require_native};
@@ -216,31 +217,61 @@ fn open_private_butane(source: &str) -> Result<std::fs::File, String> {
 }
 
 fn run_butane(input: std::fs::File, dest: &std::fs::File) -> Result<(), String> {
-    let mut child = Command::new("butane")
+    run_butane_with(
+        input,
+        dest,
+        Path::new("butane"),
+        std::time::Duration::from_secs(60),
+    )
+}
+
+fn run_butane_with(
+    input: std::fs::File,
+    dest: &std::fs::File,
+    program: &Path,
+    timeout: std::time::Duration,
+) -> Result<(), String> {
+    let mut child = Command::new(program)
         .arg("--strict")
         .stdin(Stdio::from(input))
-        .stdout(Stdio::from(dest.try_clone().map_err(|e| e.to_string())?))
+        .stdout(Stdio::from(dest.try_clone().map_err(|_| {
+            "Butane output descriptor clone failed".to_owned()
+        })?))
         .spawn()
-        .map_err(|e| e.to_string())?;
+        .map_err(|_| "Butane could not start".to_owned())?;
     // One-minute phase timeout like the Go owner's context deadline.
     let start = std::time::Instant::now();
-    let timeout = std::time::Duration::from_secs(60);
     loop {
-        match child.try_wait().map_err(|e| e.to_string())? {
-            Some(status) => {
+        match child.try_wait() {
+            Ok(Some(status)) => {
                 return if status.success() {
                     Ok(())
                 } else {
                     Err(format!("butane exited {}", status.code().unwrap_or(-1)))
                 };
             }
-            None => {
+            Ok(None) => {
                 if start.elapsed() >= timeout {
                     let _ = child.kill();
-                    let _ = child.wait();
-                    return Err("butane conversion timed out".to_owned());
+                    return match child.wait() {
+                        Ok(_) => Err("Butane conversion timed out".to_owned()),
+                        Err(_) => Err(
+                            "Butane conversion timed out; child cleanup could not be confirmed"
+                                .to_owned(),
+                        ),
+                    };
                 }
                 std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            Err(_) => {
+                let _ = child.kill();
+                return match child.wait() {
+                    Ok(_) => Err("Butane process wait failed".to_owned()),
+                    Err(_) => Err(
+                        "Butane process wait failed; child cleanup could not be confirmed"
+                            .to_owned(),
+                    ),
+                };
             }
         }
     }
@@ -249,17 +280,38 @@ fn run_butane(input: std::fs::File, dest: &std::fs::File) -> Result<(), String> 
 fn finish_butane_conversion(
     dest: std::fs::File,
     out: &str,
-    run: impl FnOnce() -> Result<(), String>,
+    run: impl FnOnce(&std::fs::File) -> Result<(), String>,
 ) -> Result<(), String> {
-    let result = run();
+    let result = run(&dest);
     drop(dest);
     match result {
         Ok(()) => Ok(()),
-        Err(_) => {
-            let _ = std::fs::remove_file(out);
-            Err("strict Butane conversion failed; partial output removed".to_owned())
-        }
+        Err(primary) => match std::fs::remove_file(out) {
+            Ok(()) => Err(format!("{primary}; partial output removed")),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                match std::fs::symlink_metadata(out) {
+                    Err(check) if check.kind() == std::io::ErrorKind::NotFound => {
+                        Err(format!("{primary}; partial output removed"))
+                    }
+                    _ => Err(format!(
+                        "{primary}; partial output removal failed; inspect output locally"
+                    )),
+                }
+            }
+            Err(_) => Err(format!(
+                "{primary}; partial output removal failed; inspect output locally"
+            )),
+        },
     }
+}
+
+fn create_butane_output(out: &str) -> Result<std::fs::File, String> {
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(out)
+        .map_err(|e| e.to_string())
 }
 
 pub fn convert_butane(source: &str, out: &str, arch: &str) -> Result<(), String> {
@@ -267,17 +319,13 @@ pub fn convert_butane(source: &str, out: &str, arch: &str) -> Result<(), String>
     private_destination(out)?;
     look_path("butane")?;
     let input = open_private_butane(source)?;
-    let dest = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(out)
-        .map_err(|e| e.to_string())?;
-    // Reopen handles for the child: the creator owns lifetime, the child
-    // inherits clones.
-    let dest_clone = dest.try_clone().map_err(|e| e.to_string())?;
-    finish_butane_conversion(dest, out, || {
-        run_butane(input.try_clone().map_err(|e| e.to_string())?, &dest_clone)
+    let dest = create_butane_output(out)?;
+    // The finalizer owns the output before any descriptor cloning can fail.
+    finish_butane_conversion(dest, out, |dest| {
+        let input = input
+            .try_clone()
+            .map_err(|_| "Butane input descriptor clone failed".to_owned())?;
+        run_butane(input, dest)
     })
 }
 
