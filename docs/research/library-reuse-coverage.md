@@ -1,6 +1,6 @@
 # SodaOS library reuse coverage ledger
 
-Canonical report: [investigation report](library-reuse-investigation.md). Reviewed SodaOS `72e4bb9015b6d6a622b45638104c74851a137473`; relevant SDK `86a70e1155f1036fdcd38f2af49d4ca6defa8280`. This ledger records investigation coverage, not replacement acceptance or installed qualification.
+Canonical report: [investigation report](library-reuse-investigation.md). Reviewed SodaOS `72e4bb9015b6d6a622b45638104c74851a137473`; relevant SDK `86a70e1155f1036fdcd38f2af49d4ca6defa8280`. This ledger records historical investigation coverage, not replacement acceptance or installed qualification. Current SDK/configuration outcomes are owned by the [library-adoption chapter](../development/ideal-filetree-plan/library-adoption.md); original finding pins and evidence limits below are preserved.
 
 ## Source scope and reconciliation
 

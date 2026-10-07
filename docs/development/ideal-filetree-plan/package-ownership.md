@@ -204,7 +204,7 @@ in the lane schedule; this table describes remaining responsibilities.
 | External HTTP (N3/N4) | C-owned setup ureq adapter retains credential/status policy. Host provider curl/Executor remains held on resolver-inclusive deadline and host-native custody; C owns proof, then A owns the host adapter |
 | URL/IP/time (N7/N8/N9) | A owns the shared strict `lib/wire-time` profile and host/identity/guest adapters; C owns operator/release handoffs. url/percent-encoding/std IP/time own grammars; callers retain raw authenticated literals, zones/ranges/expiry and shared Linux timing origin |
 | Evidence matching/deadlines (RED01/N13/N14) | C-owned evidence publication and bounded overlap adapter; url owns valid token interpretation and malformed tokens are omitted. Small Phase/QMP lifecycle policy remains |
-| Native effective configuration (CFG01) | C owns evidence and effective-key policy; parser cutover remains blocked on the actual Forgejo corpus |
+| Native effective configuration (CFG01) | C owns effective-key/override and no-guess/marker policy. L17 native corpus is collected; rust-ini 0.21.3 fails continuation admission. C owns revised semantic fit, deployment override and dependency closure before cutover; CFG02 remains independent |
 
 KEEP01, N12, JSON02, CFG02, CLI01 and SQLITE01 retain their narrow application
 contracts. Consolidating primitives does not reopen completed provider/package

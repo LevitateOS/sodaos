@@ -101,11 +101,13 @@ Observed size: 1021 lines, including tests where embedded. Separate the existing
 
 Evidence: rust/soda-forgejo-domain/src/main.rs:80-187 CLI, Paths and Sys; rust/soda-forgejo-domain/src/main.rs:237-493 INI interpolation, AppDataPath and marker mapping; rust/soda-forgejo-domain/src/main.rs:495-625 stop/inhibit/status/lift/start; rust/soda-forgejo-domain/src/main.rs:628-1021 fake system and configuration/control tests.
 
-Library boundary: CFG01 keeps parser selection blocked on the native Forgejo
-configuration contract. Qualify rust-ini against the admitted Forgejo version's
-effective APP_DATA_PATH/interpolation behavior before replacing the port. This
-is distinct from the narrow locale catalog scanner. Native writer quiescence,
-offline markers, inhibition and lift/start ordering remain domain policy.
+Library boundary: [L17](../library-adoption.md#l17-configuration-evidence)
+collected the native configuration corpus and withdrew rust-ini 0.21.3 after
+its continuation semantics failed admission. C owns revised fit and deployment
+override/dependency checks before CFG01 cutover; no Python equivalence oracle
+or new grammar split follows. This is distinct from the retained locale catalog
+scanner. Native writer quiescence, no-guess and /data mapping, offline markers,
+inhibition and lift/start ordering remain domain policy.
 
 ## rust/soda-image-import/src/main.rs
 

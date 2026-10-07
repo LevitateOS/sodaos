@@ -55,7 +55,7 @@ undispatched subject to their exact gates below.
 | L14 CLI and target discovery | C | C05/C08/C09/C11 | Selected CLI grammar or Cargo metadata contract and L00 admission |
 | L15 SDK input admission | B | B06, C01 | Complete at `c92db11c14` in the exact sibling checkout; retain meaningful per-dial credential transport |
 | L16 Evidence matching | C | C11 | L01 completion, bounded secret-input custody from L12 and declared escape/resource profiles |
-| L17 Configuration evidence | C | C05/C09 | CFG01 blocked on native corpus; CFG02 retained independently |
+| L17 Configuration evidence | C | C05/C09 | Native corpus collected; rust-ini 0.21.3 fails continuation admission, so CFG01 cutover is held; CFG02 retained independently |
 | L18 Dead machinery removal | C | C05/C11, A/B handoffs | Recheck last callers at implementation revision; no substitute or blanket dependency removal |
 
 ### L00 Admission and boundary preparation
@@ -838,6 +838,14 @@ historical; release provenance must capture the actual clean Fountain revision.
 These source checks do not close B06's separate authority findings or native
 installed qualification.
 
+A separate source-level concern remains with B03.C: the operator endpoint wraps
+its body in a 4 KiB LimitReader before calling the 1 MiB strict decoder, so the
+outer limiter can still manufacture EOF. This caller is outside SDK01's
+callback/background scope. Its pending repair must collect 4 KiB+one and refuse
+overrun/read failures before the existing schema decoder, preserving operator
+principal/actions and exact-limit success. This does not reopen completed
+structural moves or claim that every Go input boundary is fixed.
+
 ### L16 Evidence matching
 
 Scope: acceptance evidence matcher, structured redaction and final leak scans.
@@ -855,18 +863,71 @@ adoption does not hold the immediate CoreOS writer-finalization repair.
 
 ### L17 Configuration evidence
 
-CFG01 is blocked on native Forgejo effective APP_DATA_PATH fixtures: quoting,
-backslashes/case/duplicates/default/interpolation/environment precedence and
-absent/relative refusal. C collects that bounded evidence and confirms or revises
-preferred rust-ini 0.21.3 plus the effective-key adapter before implementation.
-No guessed data path or expanded configuration engine. CFG02's byte-preserving
-locale set admission remains retained; its original-byte/cap/hash/collision
-policy is a different responsibility and needs no library cutover.
+Owner C collected 21 synthetic native APP_DATA_PATH fixtures with Luna low.
+The probe executes the pinned Forgejo provider, `EnvironmentToConfig` and
+`loadServerFrom` through a Go test overlay; it copies no grammar and changes no
+native source. Provider, server, environment and container startup source at
+`86a70e1155f1036fdcd38f2af49d4ca6defa8280` are byte-identical to tag `v15.0.9`
+(`19b9b9d216bbfb501c18514bd1a8c980246ca3f7`). SDK-only commit `c92db11c14`
+does not change that native configuration authority. Go 1.26.7 executed the
+corpus successfully. Exact inputs, probe and JSON outcomes are retained in the
+configuration-decision commit's receipt; ignored scratch is not the only copy.
 
-Acceptance/output: retain corpus inputs and native effective-key results, then
-confirm or revise the selected dependency and small adapter against them, with
-absent/relative paths refused. If evidence is unavailable, keep CFG01 blocked;
-CFG02 admission and unrelated tasks remain independently ready.
+Observed native profile: section and key case are exact; duplicate keys and
+sections select the last value. Whole-value quotes are stripped, backslashes
+are preserved with `IgnoreContinuation:true`, and embedded quotes are retained.
+Unquoted inline `#`/`;` comments are stripped with or without preceding spaces.
+An explicit `[DEFAULT]` does not supply the server key. Same-section percent
+interpolation resolves, while an unresolved token remains literal. Native
+missing/empty paths default to the work-path data directory and relative paths
+are joined to the work path. Soda still refuses absent/relative paths and keeps
+its `/data` host mapping under the [operator contract](../../guides/operator-setup.md).
+Those intentional policy differences are not parser equivalence failures.
+
+The process-environment override wins even when the server section is absent.
+Quote characters supplied in an actual process environment remain literal;
+that fixture does not prove how Quadlet/container environment-file quoting is
+processed. Production startup runs environment-to-ini before Forgejo reads
+app.ini. Preserve the deployment override contract and qualify environment-file
+admission separately from this native provider evidence. No installed app.ini,
+credentials, running service or private provisioning state was inspected.
+
+**Decision:** withdraw rust-ini 0.21.3 as the preferred replacement; it is not admitted.
+Its exact registry archive was checksum-verified (SHA-256
+`796e8d2b6696392a43bea58116b667fb4c29727dc5abd27d6acf338bb4f688c7`).
+[Published source](https://docs.rs/crate/rust-ini/0.21.3/source/src/lib.rs)
+`parse_str_until` discards backslash-LF and consumes the next line regardless of
+`enabled_escape`; no continuation-disable option exists. The native fixture
+`APP_DATA_PATH=/data/trailing\` followed by `NEXT=value` instead preserves
+the backslash and the separate key. This candidate mismatch is inferred from
+exact source, not claimed as an executed Rust comparison. Default escapes,
+first-value selection and absent interpolation also need explicit admission.
+Unspaced inline comments are a second source-derived mismatch: the default
+candidate keeps them and its inline-comment feature only strips comments after
+space/tab outside continuations; duplicate selection alone is a small adapter duty.
+Do not add a preprocessing grammar to manufacture compatibility.
+
+[Published manifest](https://docs.rs/crate/rust-ini/0.21.3/source/Cargo.toml)
+confirms MIT, Rust 1.64, cfg-if ^1.0 and ordered-multimap ^0.7, with optional
+unicase ^2.6. Its bundled lock is not Soda's dependency closure. With semantic
+admission failed, no production dependency/lock mutation or candidate build was
+needed. Public archive/index downloads were bounded to 256/128 KiB and 30
+seconds; fixtures and raw/resolved/effective outputs are bounded synthetic data.
+
+L17 evidence collection and the candidate disposition are complete; **CFG01
+parser cutover remains held on semantic fit, not missing native evidence**.
+C owns the remaining selection and implementation. Prerequisites: a maintained
+parser/boundary that admits the frozen native corpus without recreating a full
+foreign grammar; actual deployment override evidence; then its selected
+license/feature/lock/compiler/offline closure. Scope: only the existing domain
+command's effective-key and bounded file adapters, retaining writer quiescence,
+marker confinement and no-guess policy. Acceptance: replay the native corpus,
+prove bounded same-file input and override admission, preserve absent/relative
+refusal and `/data` mapping, and remove the Python clone with its last caller.
+The clone's lowercase/default/strict-duplicate/quote behavior is not an oracle.
+This held cutover does not hold other packets. CFG02's byte-preserving locale
+set/cap/hash/collision policy remains retained independently and needs no parser
+cutover. No configuration production code changed in this evidence packet.
 
 ### L18 Dead machinery removal
 
@@ -885,8 +946,8 @@ closure plus affected existing package/source checks, not a new absence harness.
 | LA-G2 Driver fit | tokio-postgres adapter deadline/cancel/discard/reconnect/exclusion proved locally; retain admitted auth/DSN/transport and actual Store/Tx integration checks | L08 cutover; not L07 or domain corrections |
 | LA-G3 Transport fit | Hyper Unix client/server/backend/shutdown/read-ahead and WS owner fit proved locally; retain production framing/caps/slow-peer/lifetime and affected graph checks | L09 relevant server/upgrade cutover; not L10 HTTPS |
 | LA-G4 Encoding/trust profiles | Actual producer semantics, original signed bytes, Caddy roots and critical-extension choice | Corresponding L04/L05/L06 boundary only |
-| LA-G5 Native configuration | CFG01 native effective-config corpus | L17 parser selection only |
-| LA-G6 External SDK | Pinned boundary and matching scope for sibling implementation/native evidence | L15 external change only |
+| LA-G5 Native configuration | Native corpus collected; selected parser must pass continuation/quote/comment/effective-key and deployment override admission plus dependency closure | CFG01 parser cutover only |
+| LA-G6 External SDK | L15 exact pin/scope and cap+one source repair proved at Fountain `c92db11c14`; native authority findings retain their own gates | No remaining L15 input-repair hold |
 
 Existing Q1–Q8 remain applicable to their domain corrections. Q9's old choice
 to maintain custom chunk decoding is superseded by the complete-driver direction
@@ -938,7 +999,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [FMT01](../../research/library-reuse-investigation.md#fmt01) | DELETE | L14 | C |
 | [CLI01](../../research/library-reuse-investigation.md#cli01) | RETAIN | L14 retained | C |
 | [WALK01](../../research/library-reuse-investigation.md#walk01) | REPLACE | L12 | C |
-| [CFG01](../../research/library-reuse-investigation.md#cfg01) | BLOCKED | L17 blocked | C |
+| [CFG01](../../research/library-reuse-investigation.md#cfg01) | HOLD: candidate semantic fit | L17 native evidence complete; parser cutover held | C |
 | [SQLITE01](../../research/library-reuse-investigation.md#sqlite01) | RETAIN | Existing Store/probe duties retained | B |
 | [RED01](../../research/library-reuse-investigation.md#red01) | REPLACE | L16 (L01 repair prerequisite) | C |
 | [CLI03](../../research/library-reuse-investigation.md#cli03) | REPLACE | L14 | C |
@@ -949,7 +1010,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [XML01](../../research/library-reuse-investigation.md#xml01) | REPLACE | L13 | C |
 | [CFG02](../../research/library-reuse-investigation.md#cfg02) | RETAIN | L17 retained | C |
 | [PROC02](../../research/library-reuse-investigation.md#proc02) | CONSOLIDATE | L12 | C |
-| [SDK01](../../research/library-reuse-investigation.md#sdk01) | CONSOLIDATE | L15 | B |
+| [SDK01](../../research/library-reuse-investigation.md#sdk01) | CONSOLIDATE complete | L15 at Fountain `c92db11c14` | B |
 | [X50901](../../research/library-reuse-investigation.md#x50901) | REPLACE | L06 | C |
 | [KEEP01](../../research/library-reuse-investigation.md#keep01) | RETAIN | Existing package duties retained | Coordinator |
 | [SYS01](../../research/library-reuse-investigation.md#sys01) | REPLACE | L14 | C |

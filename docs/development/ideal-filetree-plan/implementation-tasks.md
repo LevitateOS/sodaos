@@ -129,7 +129,7 @@ Lead B; [F05](reviews/F05.md), [F06](reviews/F06.md). B01 for shared Store leave
 Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 boundary outputs; serialize current grants/dispatch/Store packet files before leaf handoff.
 
 - [x] **B03.M** [run 20261005: DONE, integrated 1e2de63e (dispatch/assignment/store/lifecycle splits pure; Rust changes as specs to A)] Split actual Go dispatch/occupancy/recovery/packet/queue/settlement and tests; send Rust host run/receipt/launch/finish/stop and neutral model changes to A. Preserve same dashboard/host topology.
-- [ ] **B03.C** Correct F07-F1 authority tuple freshness, F07-F2 recorded prompt context, F08-F1 registration/withdraw capture ordering, F08-F2 fresh retry attempt and F08-F3 stop-owned settlement. Resolve exact grant/quiescence/transaction specifications first; Q3 blocks undecided simultaneous provider-family selection.
+- [ ] **B03.C** Correct F07-F1 authority tuple freshness, F07-F2 recorded prompt context, F08-F1 registration/withdraw capture ordering, F08-F2 fresh retry attempt and F08-F3 stop-owned settlement. Resolve exact grant/quiescence/transaction specifications first; Q3 blocks undecided simultaneous provider-family selection. Separately retain the source-level operator 4 KiB limiter-EOF concern from L15: B owns cap+one/read-error admission before existing strict decode, with exact-cap/overrun checks and unchanged principal/actions. This narrow input follow-up needs no grant/selection decision.
 - [x] **B03.V** [run 20261005: DONE on disposable PG (11 pkgs, -race 4/4, raw logs archived, 0F/0S)] Exercise actual authority/registration/withdraw/retry/stop races with existing real Store and coordinator subjects; preserve historical attribution and usage.
 
 ### B04 Publication, review and correction loop
@@ -152,7 +152,7 @@ Lead B; [F11](reviews/F11.md), [F12](reviews/F12.md). B02/B04/B07 fresh candidat
 
 Lead B; [G01](reviews/G01.md), [G02](reviews/G02.md), [G03](reviews/G03.md), [G09](reviews/G09.md). Q5 exact external SDK/source correspondence.
 
-- [ ] **B06.M** Retain actual auth/extension/background admission, transport/snapshot/issue/pull reads and preferences within existing dashboard/extension processes. L15 consolidates faulty SDK input bounds; meaningful per-dial peer/admission transport stays. No Go HTTP/JSON engine replacement or cross-checkout mutation follows from planning.
+- [ ] **B06.M** Retain actual auth/extension/background admission, transport/snapshot/issue/pull reads and preferences within existing dashboard/extension processes. L15 completed SDK cap+one input admission in Fountain `c92db11c14`; meaningful per-dial peer/admission transport stays. No Go HTTP/JSON engine replacement or cross-checkout mutation follows from planning.
 - [ ] **B06.C** Correct G01-F1 declared/admin scope mismatch only after exact SDK propagation evidence is retained. Cache-refresh/association/redaction hypotheses remain investigation tasks, not presumed fixes.
 - [ ] **B06.V** Verify existing real Go authority/transport/preference subjects and exact dependency correspondence; no adjacent-checkout substitution or new request authority.
 
@@ -209,7 +209,7 @@ Lead C; [N04](reviews/N04.md), [N05](reviews/N05.md), [N06](reviews/N06.md), [N0
 
 Lead C; [N01](reviews/N01.md), [O02](reviews/O02.md), [O03](reviews/O03.md). C01 parser/shared secret fit and C06 maintenance helpers; one setup writer.
 
-- [ ] **C05.M** Retain ordered activation/setup/origin/secret publication and section-exact credential maintenance. Pending generic HTTP, JSON, URL/IP/time, formatting and CA-parser splits are superseded by L10/L04/L11/L14/L06; effective Forgejo configuration follows L17 only after its native corpus. Keep actual wizard/service/file policy within existing commands.
+- [ ] **C05.M** Retain ordered activation/setup/origin/secret publication and section-exact credential maintenance. Pending generic HTTP, JSON, URL/IP/time, formatting and CA-parser splits are superseded by L10/L04/L11/L14/L06; effective Forgejo configuration follows the L17 semantic-fit and deployment-override gate; its native corpus is collected. Keep actual wizard/service/file policy within existing commands.
 - [ ] **C05.C** Correct established short-write/publication/cleanup findings through existing owners and L12. Delete the unused migrate temporary via L18/TMP02, preserving credential scrub/mode behavior; retain single revocation and honest failure reporting.
 - [ ] **C05.V** Exercise actual setup publication/error subjects with private inputs, complete writes and correct cleanup precedence; no new onboarding authority.
 
@@ -225,7 +225,7 @@ Lead C; [O01](reviews/O01.md), [O05](reviews/O05.md), [O06](reviews/O06.md). Can
 
 Lead C; [O04](reviews/O04.md), [O07](reviews/O07.md). Existing installer/private fixture ownership also intersects C05/C10.
 
-- [ ] **C07.M** Retain recovery/enrollment/window/session/cleanup and temporary SSH lifetime. Pending SSH/mpint/Base64/X509 grammar decomposition is superseded by L05/L06 and their profile gates. L12 owns file/temp mechanics; L17 blocks only unresolved effective-configuration parsing, not ready enrollment corrections.
+- [ ] **C07.M** Retain recovery/enrollment/window/session/cleanup and temporary SSH lifetime. Pending SSH/mpint/Base64/X509 grammar decomposition is superseded by L05/L06 and their profile gates. L12 owns file/temp mechanics; L17 holds only CFG01 candidate fit and effective-configuration cutover, not ready enrollment corrections.
 - [ ] **C07.C** Preserve unknown-marker failure before lift/start mutation; correct O07-F1 complete enrollment writes and O07-F2 ongoing selected-address binding at their existing owners.
 - [ ] **C07.V** Exercise actual publication/address/window/cleanup and marker subjects; root/Cockpit authority and native authentication proof remain distinct.
 
@@ -288,7 +288,7 @@ affected build/offline qualification.
 - [x] **L14** C: source scope complete through `c82125ee`, using Luna low for settled profiles and medium for metadata custody/independent CLI review. Clap/humantime/Rust formatting replace goflag/duration/fmtx engines; one bounded Cargo metadata inventory replaces TOML scanning and flows through compile/staging. Actual help/refusal exits, false/repeats/literal tails, default-feature admission and unchanged shipping selectors pass. L13/L14 together have 656 selected passing tests and ten affected locked offline development builds; native appliance/worker qualification stays separate. [Defined boundary and evidence](library-adoption.md#l14-cli-and-target-discovery).
 - [x] **L15** B: SDK cap+one input admission complete in Fountain `c92db11c14`; exact-source, regression and retained credential-transport checks pass. [Defined boundary](library-adoption.md#l15-sdk-input-admission).
 - [ ] **L16** C: bounded library-backed evidence matching after immediate repairs. [Defined boundary](library-adoption.md#l16-evidence-matching).
-- [ ] **L17** C: native effective-config corpus gate; retain locale scanner. [Defined boundary](library-adoption.md#l17-configuration-evidence).
+- [ ] **L17** C: 21-case native corpus and exact candidate-source decision complete; rust-ini 0.21.3 fails continuation admission. CFG01 cutover stays held on semantic fit and deployment override/dependency admission; preserve no-guess and marker policy. CFG02 locale scanner is retained independently. [Defined boundary](library-adoption.md#l17-configuration-evidence).
 - [ ] **L18** C: referenced dead-code retirement with A/B physical handoffs. [Defined boundary](library-adoption.md#l18-dead-machinery-removal).
 
 ## Gates and readiness
