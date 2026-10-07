@@ -25,10 +25,7 @@ pub fn source_root() -> Result<PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
     let mut dir: &Path = &cwd;
     loop {
-        if dir
-            .join("frontend/forgejo/payload.json")
-            .is_file()
-        {
+        if dir.join("frontend/forgejo/payload.json").is_file() {
             return Ok(dir.to_path_buf());
         }
         match dir.parent() {

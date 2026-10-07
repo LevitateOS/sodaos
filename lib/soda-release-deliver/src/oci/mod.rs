@@ -51,14 +51,11 @@ pub fn inspect_oci(file: &str, arch: &str, revision: &str) -> Result<BuildImage,
 }
 
 mod layers;
-use layers::{
-    layer_archive_indexes, resolve_oci_members, scan_archive_layer_with_budget,
-};
+use layers::{layer_archive_indexes, resolve_oci_members, scan_archive_layer_with_budget};
 pub use layers::{
-    requested_oci_paths,
-    scan_oci_layer, scan_oci_layer_with_budget, LayerMember, MAX_OCI_IMAGE_COMPRESSED_BYTES,
-    MAX_OCI_IMAGE_LAYER_BYTES, MAX_OCI_LAYER_BYTES, MAX_OCI_LAYER_COMPRESSED_BYTES,
-    MAX_OCI_MEMBER_BYTES,
+    requested_oci_paths, scan_oci_layer, scan_oci_layer_with_budget, LayerMember,
+    MAX_OCI_IMAGE_COMPRESSED_BYTES, MAX_OCI_IMAGE_LAYER_BYTES, MAX_OCI_LAYER_BYTES,
+    MAX_OCI_LAYER_COMPRESSED_BYTES, MAX_OCI_MEMBER_BYTES,
 };
 
 fn inspect_content_manifest(

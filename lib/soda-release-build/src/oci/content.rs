@@ -106,6 +106,7 @@ fn scan_layer_reader(
     scan_oci_layer_with_budget(layer, wanted, aggregate).map_err(Error::msg)
 }
 
+#[cfg(test)]
 pub(super) fn scan_archive_layer(
     reader: &mut dyn Read,
     descriptor: &Descriptor,

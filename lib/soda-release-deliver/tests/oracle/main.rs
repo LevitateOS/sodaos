@@ -3,7 +3,8 @@
 //! Goldens were dumped from `internal/release/deliver` (since removed
 //! temporary oracle test) and are embedded here. Fixture bytes must
 //! round-trip byte-identically; validation outcomes and error text must
-//! match the owner exactly.
+//! match the owner exactly. Newly written OCI document layers are checked
+//! for deterministic output and content round-trip, not the retired Go tar hash.
 
 use serde_json::Value as JsonValue;
 use soda_release_deliver::document::marshal_go_pretty;

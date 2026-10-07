@@ -144,8 +144,7 @@ fn checksums_for(text: &str, filename: &str) -> Option<String> {
 }
 
 fn valid_elf64(body: &[u8], machine: u16) -> bool {
-    soda_build_tools::elf::elf64_le_header(body)
-        .is_some_and(|header| header.machine == machine)
+    soda_build_tools::elf::elf64_le_header(body).is_some_and(|header| header.machine == machine)
 }
 
 /// Stage Tea for `arch` into `out`; returns the stdout line.

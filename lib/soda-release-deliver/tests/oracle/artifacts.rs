@@ -14,20 +14,30 @@ use super::{
 };
 
 #[test]
-fn write_document_digests_match_oracle() {
+fn write_document_digest_is_reproducible_and_content_round_trips() {
     let g = goldens();
     let channel = decode_channel(&g);
     let release = decode_release(&g);
     let dir = temp_dir("srd-doc");
     let channel_out = format!("{dir}/ch");
+    let channel_repeat = format!("{dir}/ch-repeat");
     let digest = write_document(&channel_out, &channel).expect("write channel");
-    assert_eq!(digest, golden_str(&g, "document.channel_digest"));
+    let repeated_digest = write_document(&channel_repeat, &channel).expect("repeat channel write");
+    assert_eq!(
+        digest, repeated_digest,
+        "channel output digest must be reproducible"
+    );
     let back: Channel = read_document(&copy_as_dir(&channel_out), &digest).expect("read channel");
     assert_eq!(back, channel);
 
     let release_out = format!("{dir}/rel");
+    let release_repeat = format!("{dir}/rel-repeat");
     let digest = write_document(&release_out, &release).expect("write release");
-    assert_eq!(digest, golden_str(&g, "document.release_digest"));
+    let repeated_digest = write_document(&release_repeat, &release).expect("repeat release write");
+    assert_eq!(
+        digest, repeated_digest,
+        "release output digest must be reproducible"
+    );
     let back: Release = read_document(&copy_as_dir(&release_out), &digest).expect("read release");
     assert_eq!(back, release);
 }
