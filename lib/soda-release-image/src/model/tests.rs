@@ -71,11 +71,8 @@ fn trust_key_admission_preserves_cross_role_separation() {
 
 #[test]
 fn producer_trust_fixture_keeps_its_raw_der_fingerprint() {
-    let value = crate::jsonio::parse(include_str!(
-        "../../../../system/host/trust/release-trust.json"
-    ))
-    .expect("producer trust fixture JSON");
-    let trust = Trust::parse(&value).expect("producer trust fixture");
+    let text = include_str!("../../../../system/host/trust/release-trust.json");
+    let trust = Trust::parse(text).expect("producer trust fixture");
     trust.validate().expect("producer trust fixture admits");
     let pem = trust
         .keys
@@ -88,4 +85,30 @@ fn producer_trust_fixture_keeps_its_raw_der_fingerprint() {
         deliver_hash(&der),
         "sha256:caf16f22be044cdd5cfb72570ba2204e09f13d1a26ff8bfb6ff7aa79d76416fd"
     );
+}
+
+#[test]
+fn image_model_uses_exact_then_first_folded_raw_member() {
+    let image = Image::parse(r#"{"mAnIfEsT":"folded","Manifest":"exact"}"#).unwrap();
+    assert_eq!(image.manifest, "exact");
+
+    let image = Image::parse(r#"{"mAnIfEsT":"first","MANIFEST":"second"}"#).unwrap();
+    assert_eq!(image.manifest, "first");
+
+    assert!(Image::parse(r#"{"MANIFEST":false,"Manifest":"exact"}"#).is_ok());
+    assert!(Image::parse(r#"{"Manifest":false,"Manifest":"later"}"#).is_err());
+}
+
+#[test]
+fn release_dtos_defer_nested_alias_conversion_and_keep_minus_zero() {
+    let candidate = Candidate::parse(r#"{"format":false,"Format":3}"#).unwrap();
+    assert_eq!(candidate.format, 3);
+    assert!(Candidate::parse(r#"{"Format":false,"Format":3}"#).is_err());
+
+    let payload = Payload::parse(
+        r#"{"Format":-0,"Images":{"host":{"reference":"ignored","Reference":"exact"}}}"#,
+    )
+    .unwrap();
+    assert_eq!(payload.format, 0);
+    assert_eq!(payload.image("host").reference, "exact");
 }

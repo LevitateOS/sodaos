@@ -77,25 +77,20 @@ pub fn record_tool_files(
             },
         ));
     }
-    let record = soda_json::JsonValue::Object(vec![
-        (
-            "Revision".to_string(),
-            soda_json::JsonValue::Str(revision.to_string()),
-        ),
-        (
-            "Architecture".to_string(),
-            soda_json::JsonValue::Str(arch.to_string()),
-        ),
-        (
-            "Files".to_string(),
-            soda_json::JsonValue::Object(
-                tool_files
-                    .into_iter()
-                    .map(|(k, v)| (k, v.to_json()))
-                    .collect(),
-            ),
-        ),
-    ]);
+    #[derive(serde::Serialize)]
+    struct ToolsRecord<'a> {
+        #[serde(rename = "Revision")]
+        revision: &'a str,
+        #[serde(rename = "Architecture")]
+        architecture: &'a str,
+        #[serde(rename = "Files")]
+        files: crate::jsonio::SortedPairs<'a, sys::File>,
+    }
+    let record = ToolsRecord {
+        revision,
+        architecture: arch,
+        files: crate::jsonio::SortedPairs(&tool_files),
+    };
     let mut tool_data = jsonio::to_indent(&record);
     tool_data.push('\n');
     sys::write_new(
@@ -331,7 +326,11 @@ mod tests {
         ) -> Result<(), Error> {
             Ok(())
         }
-        fn write_document(&self, _: &str, _: &soda_json::JsonValue) -> Result<String, Error> {
+        fn write_document(
+            &self,
+            _: &str,
+            _: &crate::foreign::PackagingInputs,
+        ) -> Result<String, Error> {
             Ok(String::new())
         }
     }
@@ -381,7 +380,7 @@ mod tests {
                 && d == &format!("{tools}/soda-acceptance-remote")
         }));
         let inventory = fs::read(format!("{artifacts}/tools.json")).unwrap();
-        let record = soda_json::JsonValue::parse(std::str::from_utf8(&inventory).unwrap()).unwrap();
+        let record: serde_json::Value = serde_json::from_slice(&inventory).unwrap();
         let files = record.get("Files").unwrap();
         assert!(files.get("soda-acceptance-remote").is_some());
         assert!(files.get("soda-artifacts").is_some());

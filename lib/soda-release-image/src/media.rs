@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use soda_json::JsonValue;
+use serde::Serialize;
 
 use crate::compression;
 use crate::error::Error;
@@ -35,32 +35,16 @@ pub type RunFn<'a> = &'a (dyn Fn(&str, &[String]) -> Result<(), Error> + 'a);
 /// Native capture closure (`native func(name string, args ...string)`).
 pub type NativeFn<'a> = &'a (dyn Fn(&str, &[String]) -> Result<String, Error> + 'a);
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct MediaLock {
+    #[serde(rename = "Assembler")]
     pub assembler: String,
+    #[serde(rename = "Config")]
     pub config: String,
+    #[serde(rename = "Architecture")]
     pub architecture: String,
+    #[serde(rename = "Installer")]
     pub installer: String,
-}
-
-impl MediaLock {
-    pub fn to_json(&self) -> JsonValue {
-        JsonValue::Object(vec![
-            (
-                "Assembler".to_string(),
-                JsonValue::Str(self.assembler.clone()),
-            ),
-            ("Config".to_string(), JsonValue::Str(self.config.clone())),
-            (
-                "Architecture".to_string(),
-                JsonValue::Str(self.architecture.clone()),
-            ),
-            (
-                "Installer".to_string(),
-                JsonValue::Str(self.installer.clone()),
-            ),
-        ])
-    }
 }
 
 /// Signing inputs belong to the invoking authority, never the source snapshot
@@ -74,86 +58,46 @@ pub struct MediaAuthority {
 }
 
 impl MediaAuthority {
-    pub fn parse(value: &JsonValue) -> Result<MediaAuthority, Error> {
-        jsonio::check_no_unknown(value, &["Trust", "Keys"])
-            .map_err(|_| Error::msg(sys::refused()))?;
-        let keys_value =
-            jsonio::require_object(value, "Keys").map_err(|_| Error::msg(sys::refused()))?;
-        Ok(MediaAuthority {
-            trust: jsonio::require_string(value, "Trust")
-                .map_err(|_| Error::msg(sys::refused()))?,
-            keys: model::SecretFiles::parse(keys_value)?,
-        })
+    pub fn parse(text: &str) -> Result<MediaAuthority, Error> {
+        jsonio::parse(text).map_err(|_| Error::msg(sys::refused()))
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+crate::jsonio::case_record!(MediaAuthority, {
+    trust: String => "Trust",
+    keys: model::SecretFiles => "Keys",
+});
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct Media {
+    #[serde(rename = "Scope")]
     pub scope: String,
+    #[serde(rename = "Revision")]
     pub revision: String,
+    #[serde(rename = "Architecture")]
     pub architecture: String,
+    #[serde(rename = "HostManifest")]
     pub host_manifest: String,
+    #[serde(rename = "PayloadSHA256")]
     pub payload_sha256: String,
+    #[serde(rename = "ConsoleSHA256")]
     pub console_sha256: String,
+    #[serde(rename = "AssemblerImportCommit")]
     pub assembler_import_commit: String,
+    #[serde(rename = "RootfsURL")]
     pub rootfs_url: String,
+    #[serde(rename = "ISO")]
     pub iso: files::MediaFile,
+    #[serde(rename = "Rootfs")]
     pub rootfs: files::MediaFile,
+    #[serde(rename = "Tools")]
     pub tools: MediaLock,
+    #[serde(rename = "CompressionMode")]
     pub compression_mode: String,
+    #[serde(rename = "RootfsFilesystem")]
     pub rootfs_filesystem: String,
+    #[serde(rename = "RootfsOptions")]
     pub rootfs_options: String,
-}
-
-impl Media {
-    pub fn to_json(&self) -> JsonValue {
-        JsonValue::Object(vec![
-            ("Scope".to_string(), JsonValue::Str(self.scope.clone())),
-            (
-                "Revision".to_string(),
-                JsonValue::Str(self.revision.clone()),
-            ),
-            (
-                "Architecture".to_string(),
-                JsonValue::Str(self.architecture.clone()),
-            ),
-            (
-                "HostManifest".to_string(),
-                JsonValue::Str(self.host_manifest.clone()),
-            ),
-            (
-                "PayloadSHA256".to_string(),
-                JsonValue::Str(self.payload_sha256.clone()),
-            ),
-            (
-                "ConsoleSHA256".to_string(),
-                JsonValue::Str(self.console_sha256.clone()),
-            ),
-            (
-                "AssemblerImportCommit".to_string(),
-                JsonValue::Str(self.assembler_import_commit.clone()),
-            ),
-            (
-                "RootfsURL".to_string(),
-                JsonValue::Str(self.rootfs_url.clone()),
-            ),
-            ("ISO".to_string(), self.iso.to_json()),
-            ("Rootfs".to_string(), self.rootfs.to_json()),
-            ("Tools".to_string(), self.tools.to_json()),
-            (
-                "CompressionMode".to_string(),
-                JsonValue::Str(self.compression_mode.clone()),
-            ),
-            (
-                "RootfsFilesystem".to_string(),
-                JsonValue::Str(self.rootfs_filesystem.clone()),
-            ),
-            (
-                "RootfsOptions".to_string(),
-                JsonValue::Str(self.rootfs_options.clone()),
-            ),
-        ])
-    }
 }
 
 pub fn media_base_url(value: &str) -> Result<(), Error> {
@@ -206,10 +150,10 @@ pub fn admit_media_authority(
     authority_path: &str,
     prefix: &str,
 ) -> Result<(MediaAuthority, model::Trust), Error> {
-    let authority_value = sys::read_json_deliver(authority_path)?;
-    let authority = MediaAuthority::parse(&authority_value)?;
-    let trust_value = sys::read_json_deliver(&authority.trust)?;
-    let trust = model::Trust::parse(&trust_value)?;
+    let authority_text = sys::read_json_deliver_text(authority_path)?;
+    let authority = MediaAuthority::parse(&authority_text)?;
+    let trust_text = sys::read_json_deliver_text(&authority.trust)?;
+    let trust = model::Trust::parse(&trust_text)?;
     if trust.validate().is_err() || trust.prefix != prefix {
         return Err(Error::msg(
             "media authority does not match intended repositories",
@@ -224,8 +168,8 @@ pub fn admit_media_candidate(
     arch: &str,
     revision: &str,
 ) -> Result<(model::Candidate, model::Payload, model::Image, String), Error> {
-    let candidate_value = sys::read_json_deliver(&sys::join(&[artifacts, "candidate.json"]))?;
-    let candidate = model::Candidate::parse(&candidate_value)?;
+    let candidate_text = sys::read_json_deliver_text(&sys::join(&[artifacts, "candidate.json"]))?;
+    let candidate = model::Candidate::parse(&candidate_text)?;
     let payload = model::Payload::load(&sys::join(&[artifacts, "payload.json"]))?;
     let payload_bytes = fs::read(sys::join(&[artifacts, "payload.json"]))?;
     candidate.validate(&payload, &payload_bytes)?;
@@ -321,7 +265,7 @@ pub fn seal_media(
         rootfs_filesystem: filesystem.to_string(),
         rootfs_options: fsoptions.to_string(),
     };
-    let mut data = jsonio::to_indent(&result.to_json());
+    let mut data = jsonio::to_indent(&result);
     data.push('\n');
     sys::write_new(
         &sys::join(&[media_dir, "media.json"]),

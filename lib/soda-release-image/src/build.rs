@@ -356,7 +356,11 @@ fn run_build_inner(
             ) -> Result<(), Error> {
                 Err(Error::msg("foreign production required"))
             }
-            fn write_document(&self, _: &str, _: &soda_json::JsonValue) -> Result<String, Error> {
+            fn write_document(
+                &self,
+                _: &str,
+                _: &crate::foreign::PackagingInputs,
+            ) -> Result<String, Error> {
                 Err(Error::msg("foreign production required"))
             }
         }

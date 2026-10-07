@@ -103,7 +103,11 @@ fn oracle_base_inputs_require_exact_revision() {
         ) -> Result<(), Error> {
             Ok(())
         }
-        fn write_document(&self, _: &str, _: &JsonValue) -> Result<String, Error> {
+        fn write_document(
+            &self,
+            _: &str,
+            _: &crate::foreign::PackagingInputs,
+        ) -> Result<String, Error> {
             Ok(String::new())
         }
     }

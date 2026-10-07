@@ -23,13 +23,7 @@ pub fn stage_presentation(forgejo_context: &str, context: &str) -> Result<String
     if staged.is_empty() || header.is_empty() {
         return Err(Error::msg("complete Forgejo presentation required"));
     }
-    let value = soda_json::JsonValue::Object(
-        staged
-            .into_iter()
-            .map(|(k, v)| (k, soda_json::JsonValue::Str(v)))
-            .collect(),
-    );
-    let mut data = jsonio::to_indent(&value);
+    let mut data = jsonio::to_indent(&jsonio::SortedPairs(&staged));
     data.push('\n');
     files::owned_write(
         &sys::join(&[forgejo_context, "presentation.json"]),
@@ -181,7 +175,7 @@ pub fn write_release_metadata_and_normalize(
         b"{\"Scope\":\"complete-local-payload\",\"ReleaseMetadata\":\"/usr/share/soda/release.json\"}\n",
         0o644,
     )?;
-    let mut data = jsonio::to_indent(&payload.to_json());
+    let mut data = jsonio::to_indent(payload);
     data.push('\n');
     files::owned_write(
         &sys::join(&[root, "usr/share/soda/release.json"]),

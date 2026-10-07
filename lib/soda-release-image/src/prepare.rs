@@ -7,7 +7,7 @@ use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 
-use soda_json::JsonValue;
+use serde::Serialize;
 
 use crate::error::Error;
 use crate::foreign::Production;
@@ -145,22 +145,29 @@ impl PreparedWriter {
         arch: &str,
         packages: &[String],
     ) -> Result<(), Error> {
-        let record = JsonValue::Object(vec![
-            (
-                "Scope".to_string(),
-                JsonValue::Str(
-                    "host-content-only; not an installable or signed appliance release".to_string(),
-                ),
-            ),
-            ("Revision".to_string(), JsonValue::Str(revision.to_string())),
-            ("Architecture".to_string(), JsonValue::Str(arch.to_string())),
-            ("CoreOS".to_string(), JsonValue::Str(base.release.clone())),
-            ("Base".to_string(), JsonValue::Str(base.image(arch))),
-            (
-                "Packages".to_string(),
-                JsonValue::Array(packages.iter().map(|p| JsonValue::Str(p.clone())).collect()),
-            ),
-        ]);
+        #[derive(Serialize)]
+        struct BuildRecord<'a> {
+            #[serde(rename = "Scope")]
+            scope: &'static str,
+            #[serde(rename = "Revision")]
+            revision: &'a str,
+            #[serde(rename = "Architecture")]
+            architecture: &'a str,
+            #[serde(rename = "CoreOS")]
+            core_os: &'a str,
+            #[serde(rename = "Base")]
+            base: String,
+            #[serde(rename = "Packages")]
+            packages: &'a [String],
+        }
+        let record = BuildRecord {
+            scope: "host-content-only; not an installable or signed appliance release",
+            revision,
+            architecture: arch,
+            core_os: &base.release,
+            base: base.image(arch),
+            packages,
+        };
         let mut encoded = jsonio::to_indent(&record);
         encoded.push('\n');
         self.write(
@@ -357,13 +364,7 @@ pub fn inventory(context: &str) -> Result<(), Error> {
         Ok(())
     })?;
     entries.sort_by(|a, b| a.0.cmp(&b.0));
-    let value = JsonValue::Object(
-        entries
-            .into_iter()
-            .map(|(name, file)| (name, file.to_json()))
-            .collect(),
-    );
-    let mut data = jsonio::to_indent(&value);
+    let mut data = jsonio::to_indent(&jsonio::SortedPairs(&entries));
     data.push('\n');
     sys::write_new(
         &sys::join(&[&sys::dir_name(context), "context-inventory.json"]),

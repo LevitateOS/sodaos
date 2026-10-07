@@ -181,7 +181,7 @@ impl soda_release_image::foreign::Production for Stub {
     fn write_document(
         &self,
         _: &str,
-        _: &soda_json::JsonValue,
+        _: &soda_release_image::foreign::PackagingInputs,
     ) -> Result<String, soda_release_image::error::Error> {
         unreachable!()
     }

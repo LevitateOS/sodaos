@@ -4,7 +4,7 @@ use std::io::Read;
 
 use base64::Engine;
 use flate2::read::GzDecoder;
-use soda_json::JsonValue;
+use serde::Serialize;
 
 use crate::error::Error;
 use crate::jsonio;
@@ -19,11 +19,12 @@ pub fn verify_live_ignition(data: &[u8], expected: &[u8]) -> Result<(), Error> {
         std::str::from_utf8(&raw).map_err(|_| Error::msg("invalid Ignition readback"))?;
     let expected_text =
         std::str::from_utf8(expected).map_err(|_| Error::msg("invalid Ignition readback"))?;
-    let mut got = jsonio::parse(raw_text).map_err(|_| Error::msg("invalid Ignition readback"))?;
-    let mut want =
-        jsonio::parse(expected_text).map_err(|_| Error::msg("invalid Ignition readback"))?;
-    omit_null_fields(&mut got);
-    omit_null_fields(&mut want);
+    let mut got = crate::ordered_json::OrderedValue::parse(raw_text)
+        .map_err(|_| Error::msg("invalid Ignition readback"))?;
+    let mut want = crate::ordered_json::OrderedValue::parse(expected_text)
+        .map_err(|_| Error::msg("invalid Ignition readback"))?;
+    got.prune_null_members();
+    want.prune_null_members();
     if got != want {
         return Err(Error::msg("embedded live Ignition differs"));
     }
@@ -33,12 +34,13 @@ pub fn verify_live_ignition(data: &[u8], expected: &[u8]) -> Result<(), Error> {
 fn live_ignition_bytes(data: &[u8]) -> Result<Vec<u8>, Error> {
     let text =
         std::str::from_utf8(data).map_err(|_| Error::msg("unexpected native live Ignition"))?;
-    let wrapper = jsonio::parse(text).map_err(|_| Error::msg("unexpected native live Ignition"))?;
+    let wrapper: serde_json::Value =
+        jsonio::parse(text).map_err(|_| Error::msg("unexpected native live Ignition"))?;
     let merge = wrapper
         .get("ignition")
         .and_then(|ignition| ignition.get("config"))
         .and_then(|config| config.get("merge"));
-    let JsonValue::Array(entries) = merge.unwrap_or(&JsonValue::Null) else {
+    let Some(serde_json::Value::Array(entries)) = merge else {
         return Err(Error::msg("unexpected native live Ignition"));
     };
     if entries.len() != 1 {
@@ -68,23 +70,6 @@ fn live_ignition_bytes(data: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(raw)
 }
 
-fn omit_null_fields(value: &mut JsonValue) {
-    match value {
-        JsonValue::Object(entries) => {
-            entries.retain(|(_, child)| !matches!(child, JsonValue::Null));
-            for (_, child) in entries.iter_mut() {
-                omit_null_fields(child);
-            }
-        }
-        JsonValue::Array(items) => {
-            for child in items.iter_mut() {
-                omit_null_fields(child);
-            }
-        }
-        _ => {}
-    }
-}
-
 // ---------------------------------------------------------------------------
 // candidate_live.go
 // ---------------------------------------------------------------------------
@@ -94,14 +79,21 @@ fn omit_null_fields(value: &mut JsonValue) {
 /// only the media handoff that references it.
 pub const CANDIDATE_INSTALLER_BINARY: &str = "/usr/libexec/soda/soda-install";
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct MediaIdentity {
+    #[serde(rename = "Architecture")]
     pub architecture: String,
+    #[serde(rename = "Release")]
     pub release: String,
+    #[serde(rename = "InstallerVersion")]
     pub installer_version: String,
+    #[serde(rename = "Revision")]
     pub revision: String,
+    #[serde(rename = "HostManifest")]
     pub host_manifest: String,
+    #[serde(rename = "PayloadSHA256")]
     pub payload_sha256: String,
+    #[serde(rename = "ConsoleSHA256")]
     pub console_sha256: String,
 }
 
@@ -125,36 +117,6 @@ impl MediaIdentity {
             && model::is_digest(&self.payload_sha256)
             && model::is_digest(&self.console_sha256)
     }
-
-    fn to_json(&self) -> JsonValue {
-        JsonValue::Object(vec![
-            (
-                "Architecture".to_string(),
-                JsonValue::Str(self.architecture.clone()),
-            ),
-            ("Release".to_string(), JsonValue::Str(self.release.clone())),
-            (
-                "InstallerVersion".to_string(),
-                JsonValue::Str(self.installer_version.clone()),
-            ),
-            (
-                "Revision".to_string(),
-                JsonValue::Str(self.revision.clone()),
-            ),
-            (
-                "HostManifest".to_string(),
-                JsonValue::Str(self.host_manifest.clone()),
-            ),
-            (
-                "PayloadSHA256".to_string(),
-                JsonValue::Str(self.payload_sha256.clone()),
-            ),
-            (
-                "ConsoleSHA256".to_string(),
-                JsonValue::Str(self.console_sha256.clone()),
-            ),
-        ])
-    }
 }
 
 /// candidateLiveConfig is a media-only leaf. Its protected caller
@@ -171,23 +133,21 @@ pub fn candidate_live_config(
     let payload_text = std::str::from_utf8(payload)
         .map_err(|_| Error::msg("complete ordinary-Podman candidate required"))?;
     // Plain (non-strict) decode, like the Go owner.
-    let payload_value = jsonio::parse(payload_text)
-        .map_err(|_| Error::msg("complete ordinary-Podman candidate required"))?;
-    let parsed = model::Payload::parse(&payload_value)
+    let parsed = model::Payload::parse(payload_text)
         .map_err(|_| Error::msg("complete ordinary-Podman candidate required"))?;
     if parsed.validate().is_err() {
         return Err(Error::msg("complete ordinary-Podman candidate required"));
     }
     let destination_text = std::str::from_utf8(destination)
         .map_err(|_| Error::msg("public converted destination template required"))?;
-    let destination_value = jsonio::parse(destination_text)
+    let destination_value: serde_json::Value = jsonio::parse(destination_text)
         .map_err(|_| Error::msg("public converted destination template required"))?;
     let version = destination_value
         .get("ignition")
         .and_then(|ignition| ignition.get("version"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    if version != "3.5.0" || jsonio::raw_present(&destination_value, "passwd") {
+    if version != "3.5.0" || destination_value.get("passwd").is_some() {
         return Err(Error::msg("public converted destination template required"));
     }
     let sum = crate::sys::hex_sha256(payload);
@@ -206,31 +166,70 @@ pub fn candidate_live_config(
     {
         return Err(Error::msg("candidate media identity required"));
     }
-    let media = jsonio::to_compact(&identity.to_json());
-    let inline = |path: &str, contents: &[u8]| -> JsonValue {
-        JsonValue::Object(vec![
-            (
-                "contents".to_string(),
-                JsonValue::Object(vec![(
-                    "source".to_string(),
-                    JsonValue::Str(format!(
-                        "data:;base64,{}",
-                        base64::engine::general_purpose::STANDARD.encode(contents)
-                    )),
-                )]),
+    let media = jsonio::to_compact(&identity);
+    #[derive(Serialize)]
+    struct InlineContents {
+        source: String,
+    }
+    #[derive(Serialize)]
+    struct InlineFile {
+        contents: InlineContents,
+        mode: u16,
+        path: String,
+    }
+    #[derive(Serialize)]
+    struct MaskUnit {
+        mask: bool,
+        name: String,
+    }
+    #[derive(Serialize)]
+    struct ConsoleUnit {
+        contents: String,
+        enabled: bool,
+        name: String,
+    }
+    #[derive(Serialize)]
+    #[serde(untagged)]
+    enum Unit {
+        Mask(MaskUnit),
+        Console(ConsoleUnit),
+    }
+    #[derive(Serialize)]
+    struct IgnitionVersion {
+        version: &'static str,
+    }
+    #[derive(Serialize)]
+    struct Storage {
+        files: Vec<InlineFile>,
+    }
+    #[derive(Serialize)]
+    struct Systemd {
+        units: Vec<Unit>,
+    }
+    #[derive(Serialize)]
+    struct IgnitionDocument {
+        ignition: IgnitionVersion,
+        storage: Storage,
+        systemd: Systemd,
+    }
+    let inline = |path: &str, contents: &[u8]| InlineFile {
+        contents: InlineContents {
+            source: format!(
+                "data:;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(contents)
             ),
-            ("mode".to_string(), JsonValue::Number("420".to_string())),
-            ("path".to_string(), JsonValue::Str(path.to_string())),
-        ])
+        },
+        mode: 420,
+        path: path.to_string(),
     };
     // Ignition writes the native physical /var path, not through /usr/local.
     const LIVE_DATA: &str = "/var/usrlocal/share/soda-installer";
-    let files = JsonValue::Array(vec![
+    let files = vec![
         inline(&format!("{LIVE_DATA}/media.json"), media.as_bytes()),
         inline(&format!("{LIVE_DATA}/destination.ign"), destination),
-    ]);
+    ];
     // These masks apply only to live Ignition, never to destination Ignition.
-    let mut units: Vec<JsonValue> = Vec::new();
+    let mut units: Vec<Unit> = Vec::new();
     for name in [
         "getty@tty1.service",
         "forgejo.service",
@@ -240,10 +239,10 @@ pub fn candidate_live_config(
         "soda-host.socket",
         "soda-image-import.service",
     ] {
-        units.push(JsonValue::Object(vec![
-            ("mask".to_string(), JsonValue::Bool(true)),
-            ("name".to_string(), JsonValue::Str(name.to_string())),
-        ]));
+        units.push(Unit::Mask(MaskUnit {
+            mask: true,
+            name: name.to_string(),
+        }));
     }
     let body = [
         "[Unit]",
@@ -266,31 +265,16 @@ pub fn candidate_live_config(
         "",
     ]
     .join("\n");
-    units.push(JsonValue::Object(vec![
-        ("contents".to_string(), JsonValue::Str(body)),
-        ("enabled".to_string(), JsonValue::Bool(true)),
-        (
-            "name".to_string(),
-            JsonValue::Str("soda-installer-console.service".to_string()),
-        ),
-    ]));
-    let document = JsonValue::Object(vec![
-        (
-            "ignition".to_string(),
-            JsonValue::Object(vec![(
-                "version".to_string(),
-                JsonValue::Str("3.5.0".to_string()),
-            )]),
-        ),
-        (
-            "storage".to_string(),
-            JsonValue::Object(vec![("files".to_string(), files)]),
-        ),
-        (
-            "systemd".to_string(),
-            JsonValue::Object(vec![("units".to_string(), JsonValue::Array(units))]),
-        ),
-    ]);
+    units.push(Unit::Console(ConsoleUnit {
+        contents: body,
+        enabled: true,
+        name: "soda-installer-console.service".to_string(),
+    }));
+    let document = IgnitionDocument {
+        ignition: IgnitionVersion { version: "3.5.0" },
+        storage: Storage { files },
+        systemd: Systemd { units },
+    };
     Ok(jsonio::to_compact(&document).into_bytes())
 }
 
@@ -326,5 +310,26 @@ mod tests {
             "embedded live Ignition differs"
         );
         assert!(verify_live_ignition(b"{}", fragment).is_err());
+    }
+
+    #[test]
+    fn live_ignition_equality_keeps_object_order_duplicates_and_number_tokens() {
+        fn wrapped(fragment: &[u8]) -> String {
+            let compressed = gzip_bytes(fragment);
+            format!(
+                "{{\"ignition\":{{\"config\":{{\"merge\":[{{\"source\":\"data:;base64,{}\",\"compression\":\"gzip\"}}]}}}}}}",
+                base64::engine::general_purpose::STANDARD.encode(compressed)
+            )
+        }
+        let expected = br#"{"a":1e2,"a":2,"storage":{}}"#;
+        let same = wrapped(expected);
+        assert!(verify_live_ignition(same.as_bytes(), expected).is_ok());
+
+        let different_order = wrapped(br#"{"storage":{},"a":1e2,"a":2}"#);
+        assert!(verify_live_ignition(different_order.as_bytes(), expected).is_err());
+        let different_duplicate = wrapped(br#"{"a":1e2,"storage":{}}"#);
+        assert!(verify_live_ignition(different_duplicate.as_bytes(), expected).is_err());
+        let different_number = wrapped(br#"{"a":100,"a":2,"storage":{}}"#);
+        assert!(verify_live_ignition(different_number.as_bytes(), expected).is_err());
     }
 }

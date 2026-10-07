@@ -1,4 +1,5 @@
-use soda_json::JsonValue;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 
 use crate::error::Error;
 use crate::jsonio;
@@ -13,44 +14,17 @@ use super::{
 // deliver.Candidate
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct ForgejoToolchain {
+    #[serde(rename = "CompilerImage")]
     pub compiler_image: String,
+    #[serde(rename = "APKPackages")]
     pub apk_packages: Vec<String>,
 }
 
 impl ForgejoToolchain {
-    pub fn parse(value: &JsonValue) -> Result<ForgejoToolchain, Error> {
-        jsonio::check_no_unknown(value, &["CompilerImage", "APKPackages"])?;
-        let mut apk_packages = Vec::new();
-        for item in jsonio::require_array(value, "APKPackages")? {
-            match item {
-                JsonValue::Str(s) => apk_packages.push(s.clone()),
-                _ => return Err(Error::msg("invalid APKPackages")),
-            }
-        }
-        Ok(ForgejoToolchain {
-            compiler_image: jsonio::require_string(value, "CompilerImage")?,
-            apk_packages,
-        })
-    }
-
-    pub fn to_json(&self) -> JsonValue {
-        JsonValue::Object(vec![
-            (
-                "CompilerImage".to_string(),
-                JsonValue::Str(self.compiler_image.clone()),
-            ),
-            (
-                "APKPackages".to_string(),
-                JsonValue::Array(
-                    self.apk_packages
-                        .iter()
-                        .map(|s| JsonValue::Str(s.clone()))
-                        .collect(),
-                ),
-            ),
-        ])
+    pub fn parse(text: &str) -> Result<ForgejoToolchain, Error> {
+        jsonio::parse(text)
     }
 
     pub fn validate(&self) -> Result<(), Error> {
@@ -65,6 +39,42 @@ impl ForgejoToolchain {
         Ok(())
     }
 }
+
+crate::jsonio::case_record!(ForgejoToolchain, {
+    compiler_image: String => "CompilerImage",
+    apk_packages: Vec<String> => "APKPackages",
+});
+
+#[derive(Default)]
+struct CandidateWire {
+    format: i64,
+    host: Image,
+    host_reference: String,
+    host_archive_sha256: String,
+    payload_sha256: String,
+    migration: String,
+    notes: String,
+    forgejo_revision: String,
+    forgejo_source_sha256: String,
+    forgejo_toolchain: ForgejoToolchain,
+    architecture: String,
+    content_sha256: crate::jsonio::OrderedMap<String>,
+}
+
+crate::jsonio::case_record!(CandidateWire, {
+    format: i64 => "Format",
+    host: Image => "Host",
+    host_reference: String => "HostReference",
+    host_archive_sha256: String => "HostArchiveSHA256",
+    payload_sha256: String => "PayloadSHA256",
+    migration: String => "Migration",
+    notes: String => "Notes",
+    forgejo_revision: String => "ForgejoRevision",
+    forgejo_source_sha256: String => "ForgejoSourceSHA256",
+    forgejo_toolchain: ForgejoToolchain => "ForgejoToolchain",
+    architecture: String => "Architecture",
+    content_sha256: crate::jsonio::OrderedMap<String> => "ContentSHA256",
+});
 
 fn valid_forgejo_apk_list(packages: &[String]) -> bool {
     if packages.is_empty() || packages.len() > 256 {
@@ -116,105 +126,45 @@ pub struct Candidate {
     pub content_sha256: Vec<(String, String)>,
 }
 
-impl Candidate {
-    pub fn parse(value: &JsonValue) -> Result<Candidate, Error> {
-        jsonio::check_no_unknown(
-            value,
-            &[
-                "Format",
-                "Host",
-                "HostReference",
-                "HostArchiveSHA256",
-                "PayloadSHA256",
-                "Migration",
-                "Notes",
-                "ForgejoRevision",
-                "ForgejoSourceSHA256",
-                "ForgejoToolchain",
-                "Architecture",
-                "ContentSHA256",
-            ],
+impl Serialize for Candidate {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut record = serializer.serialize_struct("Candidate", 12)?;
+        record.serialize_field("Format", &self.format)?;
+        record.serialize_field("Host", &self.host)?;
+        record.serialize_field("HostReference", &self.host_reference)?;
+        record.serialize_field("HostArchiveSHA256", &self.host_archive_sha256)?;
+        record.serialize_field("PayloadSHA256", &self.payload_sha256)?;
+        record.serialize_field("Migration", &self.migration)?;
+        record.serialize_field("Notes", &self.notes)?;
+        record.serialize_field("ForgejoRevision", &self.forgejo_revision)?;
+        record.serialize_field("ForgejoSourceSHA256", &self.forgejo_source_sha256)?;
+        record.serialize_field("ForgejoToolchain", &self.forgejo_toolchain)?;
+        record.serialize_field("Architecture", &self.architecture)?;
+        record.serialize_field(
+            "ContentSHA256",
+            &crate::jsonio::SortedPairs(&self.content_sha256),
         )?;
-        let host_value = jsonio::require_object(value, "Host")?;
-        let host = if matches!(host_value, JsonValue::Null) {
-            Image::default()
-        } else {
-            Image::parse(host_value)?
-        };
-        let toolchain_value = jsonio::require_object(value, "ForgejoToolchain")?;
-        let forgejo_toolchain = if matches!(toolchain_value, JsonValue::Null) {
-            ForgejoToolchain::default()
-        } else {
-            ForgejoToolchain::parse(toolchain_value)?
-        };
-        Ok(Candidate {
-            format: jsonio::require_i64(value, "Format")?,
-            host,
-            host_reference: jsonio::require_string(value, "HostReference")?,
-            host_archive_sha256: jsonio::require_string(value, "HostArchiveSHA256")?,
-            payload_sha256: jsonio::require_string(value, "PayloadSHA256")?,
-            migration: jsonio::require_string(value, "Migration")?,
-            notes: jsonio::require_string(value, "Notes")?,
-            forgejo_revision: jsonio::require_string(value, "ForgejoRevision")?,
-            forgejo_source_sha256: jsonio::require_string(value, "ForgejoSourceSHA256")?,
-            forgejo_toolchain,
-            architecture: jsonio::require_string(value, "Architecture")?,
-            content_sha256: jsonio::string_map(value, "ContentSHA256")?,
-        })
+        record.end()
     }
+}
 
-    pub fn to_json(&self) -> JsonValue {
-        let mut content = self.content_sha256.clone();
-        content.sort_by(|a, b| a.0.cmp(&b.0));
-        JsonValue::Object(vec![
-            (
-                "Format".to_string(),
-                JsonValue::Number(self.format.to_string()),
-            ),
-            ("Host".to_string(), self.host.to_json()),
-            (
-                "HostReference".to_string(),
-                JsonValue::Str(self.host_reference.clone()),
-            ),
-            (
-                "HostArchiveSHA256".to_string(),
-                JsonValue::Str(self.host_archive_sha256.clone()),
-            ),
-            (
-                "PayloadSHA256".to_string(),
-                JsonValue::Str(self.payload_sha256.clone()),
-            ),
-            (
-                "Migration".to_string(),
-                JsonValue::Str(self.migration.clone()),
-            ),
-            ("Notes".to_string(), JsonValue::Str(self.notes.clone())),
-            (
-                "ForgejoRevision".to_string(),
-                JsonValue::Str(self.forgejo_revision.clone()),
-            ),
-            (
-                "ForgejoSourceSHA256".to_string(),
-                JsonValue::Str(self.forgejo_source_sha256.clone()),
-            ),
-            (
-                "ForgejoToolchain".to_string(),
-                self.forgejo_toolchain.to_json(),
-            ),
-            (
-                "Architecture".to_string(),
-                JsonValue::Str(self.architecture.clone()),
-            ),
-            (
-                "ContentSHA256".to_string(),
-                JsonValue::Object(
-                    content
-                        .into_iter()
-                        .map(|(k, v)| (k, JsonValue::Str(v)))
-                        .collect(),
-                ),
-            ),
-        ])
+impl Candidate {
+    pub fn parse(text: &str) -> Result<Candidate, Error> {
+        let wire: CandidateWire = jsonio::parse(text)?;
+        Ok(Candidate {
+            format: wire.format,
+            host: wire.host,
+            host_reference: wire.host_reference,
+            host_archive_sha256: wire.host_archive_sha256,
+            payload_sha256: wire.payload_sha256,
+            migration: wire.migration,
+            notes: wire.notes,
+            forgejo_revision: wire.forgejo_revision,
+            forgejo_source_sha256: wire.forgejo_source_sha256,
+            forgejo_toolchain: wire.forgejo_toolchain,
+            architecture: wire.architecture,
+            content_sha256: wire.content_sha256.0,
+        })
     }
 
     pub fn validate(&self, payload: &Payload, payload_bytes: &[u8]) -> Result<(), Error> {

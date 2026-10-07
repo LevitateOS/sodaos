@@ -8,47 +8,40 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
-use sha2::{Digest, Sha256};
-use soda_json::JsonValue;
-
 use crate::error::Error;
 use crate::jsonio;
+use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 /// Shared inventory primitive (`build.File`).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct File {
+    #[serde(rename = "sha256", skip_serializing_if = "String::is_empty")]
     pub sha256: String,
+    #[serde(rename = "mode")]
     pub mode: u32,
+    #[serde(rename = "link", skip_serializing_if = "String::is_empty")]
     pub link: String,
+    #[serde(rename = "directory", skip_serializing_if = "is_false")]
     pub directory: bool,
 }
 
-impl File {
-    pub fn to_json(&self) -> JsonValue {
-        let mut entries = Vec::new();
-        if !self.sha256.is_empty() {
-            entries.push(("sha256".to_string(), JsonValue::Str(self.sha256.clone())));
-        }
-        entries.push(("mode".to_string(), JsonValue::Number(self.mode.to_string())));
-        if !self.link.is_empty() {
-            entries.push(("link".to_string(), JsonValue::Str(self.link.clone())));
-        }
-        if self.directory {
-            entries.push(("directory".to_string(), JsonValue::Bool(true)));
-        }
-        JsonValue::Object(entries)
-    }
+fn is_false(value: &bool) -> bool {
+    !value
+}
 
-    pub fn parse(value: &JsonValue) -> Result<File, Error> {
-        jsonio::check_no_unknown(value, &["sha256", "mode", "link", "directory"])?;
-        Ok(File {
-            sha256: jsonio::require_string(value, "sha256")?,
-            mode: jsonio::require_u64(value, "mode")? as u32,
-            link: jsonio::require_string(value, "link")?,
-            directory: jsonio::require_bool(value, "directory")?,
-        })
+impl File {
+    pub fn parse(text: &str) -> Result<File, Error> {
+        jsonio::parse(text)
     }
 }
+
+crate::jsonio::case_record!(File, {
+    sha256: String => "sha256",
+    mode: u32 => "mode",
+    link: String => "link",
+    directory: bool => "directory",
+});
 
 /// Go `path/filepath.Clean` lexics.
 pub fn clean_path(path: &str) -> String {
@@ -216,16 +209,16 @@ fn read_bounded(path: &str, maximum: usize, too_big: &str) -> Result<Vec<u8>, Er
     Ok(data)
 }
 
-/// `build.ReadJSON`: bounded (4 MiB) strict read of a regular file.
-/// (Go additionally pins the file through an `os.Root`; same bytes here.)
-pub fn read_json_build(path: &str) -> Result<JsonValue, Error> {
+/// Keep the exact bounded input text available to the schema-specific DTO
+/// visitor. The raw JSON bytes remain the authority for every consumer that
+/// hashes or signs these files.
+pub fn read_json_build_text(path: &str) -> Result<String, Error> {
     let data = read_bounded(path, 4 << 20, "JSON input exceeds limit")?;
-    let text = std::str::from_utf8(&data).map_err(|_| Error::msg("invalid JSON"))?;
-    jsonio::parse(text)
+    String::from_utf8(data).map_err(|_| Error::msg("invalid JSON"))
 }
 
-/// `deliver.ReadJSON`: bounded (1 MiB) strict read.
-pub fn read_json_deliver(path: &str) -> Result<JsonValue, Error> {
+/// Deliver's bounded text counterpart for schema-specific raw-slot visitors.
+pub fn read_json_deliver_text(path: &str) -> Result<String, Error> {
     let meta = fs::symlink_metadata(path).map_err(|_| Error::msg(refused()))?;
     if !meta.file_type().is_file() || meta.len() > (1 << 20) as u64 {
         return Err(Error::msg(refused()));
@@ -234,8 +227,7 @@ pub fn read_json_deliver(path: &str) -> Result<JsonValue, Error> {
     if data.len() > 1 << 20 {
         return Err(Error::msg(refused()));
     }
-    let text = std::str::from_utf8(&data).map_err(|_| Error::msg(refused()))?;
-    jsonio::parse(text).map_err(|_| Error::msg(refused()))
+    String::from_utf8(data).map_err(|_| Error::msg(refused()))
 }
 
 pub fn refused() -> String {
@@ -256,6 +248,19 @@ pub fn private_file(path: &str) -> Result<(), Error> {
         return Err(Error::msg(refused()));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod json_tests {
+    use super::File;
+
+    #[test]
+    fn file_mode_keeps_integer_token_and_minus_zero_policy() {
+        assert_eq!(File::parse(r#"{"mode":-0}"#).unwrap().mode, 0);
+        assert!(File::parse(r#"{"mode":1.0}"#).is_err());
+        assert!(File::parse(r#"{"mode":1e0}"#).is_err());
+        assert!(File::parse(r#"{"mode":4294967296}"#).is_err());
+    }
 }
 
 /// `build.RequireNative`: x86_64 Linux only.

@@ -103,13 +103,7 @@ pub fn candidate_content(out: &str) -> Result<Vec<(String, String)>, Error> {
 pub fn content_inventory_bytes(files: &[(String, String)]) -> Result<Vec<u8>, Error> {
     let mut sorted = files.to_vec();
     sorted.sort_by(|a, b| a.0.cmp(&b.0));
-    let value = soda_json::JsonValue::Object(
-        sorted
-            .into_iter()
-            .map(|(k, v)| (k, soda_json::JsonValue::Str(v)))
-            .collect(),
-    );
-    let mut data = jsonio::to_indent(&value);
+    let mut data = jsonio::to_indent(&jsonio::SortedPairs(&sorted));
     data.push('\n');
     Ok(data.into_bytes())
 }
@@ -152,8 +146,8 @@ pub fn record_build_result(
         .collect(),
         ..request::Result::default()
     };
-    let value = sys::read_json_build(&result.candidate)?;
-    let candidate = model::Candidate::parse(&value)?;
+    let text = sys::read_json_build_text(&result.candidate)?;
+    let candidate = model::Candidate::parse(&text)?;
     result.host_manifest = candidate.host.manifest.clone();
     result.payload_sha256 = candidate.payload_sha256.clone();
     result.candidate_sha256 = sys::hash_file(&result.candidate)?;
@@ -174,7 +168,7 @@ pub fn record_build_result(
     if request.development {
         result.scope = "development-only; not release-qualified".to_string();
     }
-    let mut data = jsonio::to_indent(&result.to_json());
+    let mut data = jsonio::to_indent(&result);
     data.push('\n');
     sys::write_new(
         &sys::join(&[&request.out, "evidence/build.json"]),
@@ -207,7 +201,7 @@ pub fn record_candidate(
         ..model::Candidate::default()
     };
     record_candidate_inputs(out, &mut record)?;
-    let mut data = jsonio::to_indent(&record.to_json());
+    let mut data = jsonio::to_indent(&record);
     data.push('\n');
     sys::write_new(&sys::join(&[out, "candidate.json"]), data.as_bytes(), 0o600)
 }
@@ -226,8 +220,8 @@ pub fn record_candidate_inputs(out: &str, record: &mut model::Candidate) -> Resu
         }
     }
     record.forgejo_source_sha256 = sys::hash_file(&sys::join(&[out, "forgejo-source.tar"]))?;
-    let toolchain_value = sys::read_json_build(&sys::join(&[out, "forgejo-toolchain.json"]))?;
-    record.forgejo_toolchain = model::ForgejoToolchain::parse(&toolchain_value)?;
+    let toolchain_text = sys::read_json_build_text(&sys::join(&[out, "forgejo-toolchain.json"]))?;
+    record.forgejo_toolchain = model::ForgejoToolchain::parse(&toolchain_text)?;
     record.forgejo_toolchain.validate()?;
     record.content_sha256 = candidate_content(out)?;
     verify_embedded_content_inventory(out, &record.content_sha256)?;

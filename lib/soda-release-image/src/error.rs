@@ -24,12 +24,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<soda_json::ParseError> for Error {
-    fn from(_: soda_json::ParseError) -> Error {
-        Error("invalid JSON".to_string())
-    }
-}
-
 /// Join two fallible closes the way Go's `errors.Join` does for log files:
 /// both run, and either message survives.
 pub fn join_close(first: Result<(), Error>, second: Result<(), Error>) -> Result<(), Error> {

@@ -96,33 +96,35 @@ fn oracle_media_base_url() {
 #[test]
 fn oracle_media_compression() {
     let def = r"-zlzma,level=6 -Efragments -C1048576 --quiet";
-    let mut cfg_prod = jsonio::parse(&format!(
+    let mut cfg_prod = compression::ImageConfig::parse(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        jsonio::to_compact(&soda_json::JsonValue::Str(def.to_string()))
+        jsonio::to_compact(&serde_json::Value::String(def.to_string()))
     ))
     .unwrap();
     compression::set_media_compression(&mut cfg_prod, "").unwrap();
-    let rendered_prod = jsonio::to_compact(cfg_prod.get("live-rootfs-fsoptions").unwrap());
+    let rendered_prod =
+        jsonio::to_compact(&serde_json::Value::String(cfg_prod.settings().unwrap().1));
     check_ok(
         "E-comp-prod",
         r"Ii16bHptYSxsZXZlbD02IC1FZnJhZ21lbnRzIC1DMTA0ODU3NiAtLXF1aWV0Ig==",
         rendered_prod.as_bytes(),
     );
-    let mut cfg_fast = jsonio::parse(&format!(
+    let mut cfg_fast = compression::ImageConfig::parse(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        jsonio::to_compact(&soda_json::JsonValue::Str(def.to_string()))
+        jsonio::to_compact(&serde_json::Value::String(def.to_string()))
     ))
     .unwrap();
     compression::set_media_compression(&mut cfg_fast, "fast").unwrap();
-    let rendered_fast = jsonio::to_compact(cfg_fast.get("live-rootfs-fsoptions").unwrap());
+    let rendered_fast =
+        jsonio::to_compact(&serde_json::Value::String(cfg_fast.settings().unwrap().1));
     check_ok(
         "E-comp-fast",
         r"Ii16bHptYSxsZXZlbD0xIC1FZnJhZ21lbnRzIC1DMTA0ODU3NiAtLXF1aWV0Ig==",
         rendered_fast.as_bytes(),
     );
-    let mut cfg_turbo = jsonio::parse(&format!(
+    let mut cfg_turbo = compression::ImageConfig::parse(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        jsonio::to_compact(&soda_json::JsonValue::Str(def.to_string()))
+        jsonio::to_compact(&serde_json::Value::String(def.to_string()))
     ))
     .unwrap();
     check_err(
@@ -130,9 +132,9 @@ fn oracle_media_compression() {
         r"fast media requires the reviewed upstream EROFS/LZMA defaults",
         &compression::set_media_compression(&mut cfg_turbo, "turbo").unwrap_err(),
     );
-    let mut cfg_xfs = jsonio::parse(&format!(
+    let mut cfg_xfs = compression::ImageConfig::parse(&format!(
         "{{\"live-rootfs-fstype\":\"xfs\",\"live-rootfs-fsoptions\":{}}}",
-        jsonio::to_compact(&soda_json::JsonValue::Str(def.to_string()))
+        jsonio::to_compact(&serde_json::Value::String(def.to_string()))
     ))
     .unwrap();
     check_err(
@@ -140,7 +142,8 @@ fn oracle_media_compression() {
         r"fast media requires the reviewed upstream EROFS/LZMA defaults",
         &compression::set_media_compression(&mut cfg_xfs, "fast").unwrap_err(),
     );
-    let mut cfg_missing = jsonio::parse("{\"live-rootfs-fstype\":\"erofs\"}").unwrap();
+    let mut cfg_missing =
+        compression::ImageConfig::parse("{\"live-rootfs-fstype\":\"erofs\"}").unwrap();
     check_err(
         "E-comp-missing",
         r"fast media requires the reviewed upstream EROFS/LZMA defaults",

@@ -1,7 +1,5 @@
 //! `prepare.go` package-input readers + `complete.go` RPM inventory guard.
 
-use soda_json::JsonValue;
-
 use crate::error::Error;
 use crate::jsonio;
 
@@ -13,13 +11,13 @@ const INSTALL_PREFIX: &str = "ExecStart=/usr/bin/rpm-ostree install -y --allow-i
 /// explicit review.
 pub fn package_inputs(data: &[u8]) -> Result<(Vec<String>, String), Error> {
     let text = std::str::from_utf8(data).map_err(|e| Error::msg(e.to_string()))?;
-    let value =
+    let value: serde_json::Value =
         jsonio::parse(text).map_err(|e| Error::msg(format!("invalid package inputs: {}", e.0)))?;
-    let empty = JsonValue::Null;
+    let empty = serde_json::Value::Null;
     let storage = value.get("storage").unwrap_or(&empty);
     let files = storage.get("files");
     let mut repo = String::new();
-    if let Some(JsonValue::Array(entries)) = files {
+    if let Some(serde_json::Value::Array(entries)) = files {
         for file in entries {
             let path = file.get("path").and_then(|v| v.as_str()).unwrap_or("");
             if path != "/etc/yum.repos.d/tailscale.repo" {
@@ -39,7 +37,7 @@ pub fn package_inputs(data: &[u8]) -> Result<(Vec<String>, String), Error> {
     let systemd = value.get("systemd").unwrap_or(&empty);
     let mut packages: Option<Vec<String>> = None;
     let mut seen: Vec<String> = Vec::new();
-    if let Some(JsonValue::Array(units)) = systemd.get("units") {
+    if let Some(serde_json::Value::Array(units)) = systemd.get("units") {
         for unit in units {
             let name = unit.get("name").and_then(|v| v.as_str()).unwrap_or("");
             if name != "soda-extensions.service" {

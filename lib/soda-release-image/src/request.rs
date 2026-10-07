@@ -1,6 +1,6 @@
 //! `build.go`: pipeline request, result, and target admission.
 
-use soda_json::JsonValue;
+use serde::Serialize;
 
 use crate::error::Error;
 use crate::media;
@@ -23,82 +23,34 @@ pub struct Request {
     pub media_compression: String,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct Result {
+    #[serde(rename = "Revision")]
     pub revision: String,
+    #[serde(rename = "Architecture")]
     pub architecture: String,
+    #[serde(rename = "Candidate")]
     pub candidate: String,
+    #[serde(rename = "CandidateSHA256")]
     pub candidate_sha256: String,
+    #[serde(rename = "HostManifest")]
     pub host_manifest: String,
+    #[serde(rename = "PayloadSHA256")]
     pub payload_sha256: String,
+    #[serde(rename = "Scope")]
     pub scope: String,
+    #[serde(rename = "Media", skip_serializing_if = "String::is_empty")]
     pub media: String,
+    #[serde(rename = "Purpose")]
     pub purpose: String,
+    #[serde(rename = "RequestedTarget")]
     pub requested_target: String,
+    #[serde(rename = "CompletedTarget")]
     pub completed_target: String,
+    #[serde(rename = "Checks")]
     pub checks: Vec<String>,
+    #[serde(rename = "MediaCompression", skip_serializing_if = "String::is_empty")]
     pub media_compression: String,
-}
-
-impl Result {
-    pub fn to_json(&self) -> JsonValue {
-        let mut entries = vec![
-            (
-                "Revision".to_string(),
-                JsonValue::Str(self.revision.clone()),
-            ),
-            (
-                "Architecture".to_string(),
-                JsonValue::Str(self.architecture.clone()),
-            ),
-            (
-                "Candidate".to_string(),
-                JsonValue::Str(self.candidate.clone()),
-            ),
-            (
-                "CandidateSHA256".to_string(),
-                JsonValue::Str(self.candidate_sha256.clone()),
-            ),
-            (
-                "HostManifest".to_string(),
-                JsonValue::Str(self.host_manifest.clone()),
-            ),
-            (
-                "PayloadSHA256".to_string(),
-                JsonValue::Str(self.payload_sha256.clone()),
-            ),
-            ("Scope".to_string(), JsonValue::Str(self.scope.clone())),
-        ];
-        // `json:",omitempty"`: default field name, omitted when empty.
-        if !self.media.is_empty() {
-            entries.push(("Media".to_string(), JsonValue::Str(self.media.clone())));
-        }
-        entries.push(("Purpose".to_string(), JsonValue::Str(self.purpose.clone())));
-        entries.push((
-            "RequestedTarget".to_string(),
-            JsonValue::Str(self.requested_target.clone()),
-        ));
-        entries.push((
-            "CompletedTarget".to_string(),
-            JsonValue::Str(self.completed_target.clone()),
-        ));
-        entries.push((
-            "Checks".to_string(),
-            JsonValue::Array(
-                self.checks
-                    .iter()
-                    .map(|s| JsonValue::Str(s.clone()))
-                    .collect(),
-            ),
-        ));
-        if !self.media_compression.is_empty() {
-            entries.push((
-                "MediaCompression".to_string(),
-                JsonValue::Str(self.media_compression.clone()),
-            ));
-        }
-        JsonValue::Object(entries)
-    }
 }
 
 impl Request {
@@ -271,7 +223,7 @@ mod tests {
             ..Result::default()
         };
         let mut out = String::new();
-        crate::jsonio::write_compact(&mut out, &result.to_json());
+        out.push_str(&crate::jsonio::to_compact(&result));
         assert!(!out.contains("Media"));
         let result = Result {
             media: "m".to_string(),
@@ -279,7 +231,7 @@ mod tests {
             ..Result::default()
         };
         let mut out = String::new();
-        crate::jsonio::write_compact(&mut out, &result.to_json());
+        out.push_str(&crate::jsonio::to_compact(&result));
         assert!(out.contains("\"Media\":\"m\""));
         assert!(out.contains("\"MediaCompression\":\"fast\""));
     }

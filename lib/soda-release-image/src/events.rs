@@ -1,5 +1,6 @@
 //! `media_events.go`: observe upstream packager progress windows.
 
+use serde::Serialize;
 use std::io::Write;
 
 use crate::error::Error;
@@ -75,17 +76,20 @@ impl<W: Write, E: Write> MediaEventWriter<W, E> {
             return Ok(());
         }
         let seconds = self.start.elapsed().as_secs_f64();
-        let mut line = String::new();
-        crate::jsonio::write_compact(
-            &mut line,
-            &soda_json::JsonValue::Object(vec![
-                ("Event".to_string(), soda_json::JsonValue::Str(event)),
-                (
-                    "Seconds".to_string(),
-                    soda_json::JsonValue::Number(crate::jsonio::format_float_go(seconds)),
-                ),
-            ]),
-        );
+        #[derive(Serialize)]
+        struct EventRecord<'a> {
+            #[serde(rename = "Event")]
+            event: &'a str,
+            #[serde(rename = "Seconds")]
+            seconds: &'a serde_json::value::RawValue,
+        }
+        let raw_seconds =
+            serde_json::value::RawValue::from_string(crate::jsonio::format_float_go(seconds))
+                .map_err(|_| Error::msg("invalid event timestamp"))?;
+        let mut line = crate::jsonio::to_compact(&EventRecord {
+            event: &event,
+            seconds: &raw_seconds,
+        });
         line.push('\n');
         self.events.write_all(line.as_bytes())?;
         Ok(())

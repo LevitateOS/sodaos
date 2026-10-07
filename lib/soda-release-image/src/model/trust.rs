@@ -1,5 +1,3 @@
-use soda_json::JsonValue;
-
 use crate::error::Error;
 use crate::jsonio;
 use crate::sys;
@@ -22,65 +20,41 @@ pub struct Trust {
     pub minimum_sequence: Vec<(String, u64)>,
 }
 
+#[derive(Default)]
+struct TrustWire {
+    format: i64,
+    prefix: String,
+    epoch: u64,
+    keys: crate::jsonio::OrderedMap<Vec<String>>,
+    not_before: i64,
+    max_age_seconds: i64,
+    clock_skew_seconds: i64,
+    minimum_sequence: crate::jsonio::OrderedMap<u64>,
+}
+
+crate::jsonio::case_record!(TrustWire, {
+    format: i64 => "Format",
+    prefix: String => "Prefix",
+    epoch: u64 => "Epoch",
+    keys: crate::jsonio::OrderedMap<Vec<String>> => "Keys",
+    not_before: i64 => "NotBefore",
+    max_age_seconds: i64 => "MaxAgeSeconds",
+    clock_skew_seconds: i64 => "ClockSkewSeconds",
+    minimum_sequence: crate::jsonio::OrderedMap<u64> => "MinimumSequence",
+});
+
 impl Trust {
-    pub fn parse(value: &JsonValue) -> Result<Trust, Error> {
-        jsonio::check_no_unknown(
-            value,
-            &[
-                "Format",
-                "Prefix",
-                "Epoch",
-                "Keys",
-                "NotBefore",
-                "MaxAgeSeconds",
-                "ClockSkewSeconds",
-                "MinimumSequence",
-            ],
-        )
-        .map_err(|_| Error::msg(sys::refused()))?;
-        let mut keys = Vec::new();
-        if let JsonValue::Object(entries) =
-            jsonio::require_object(value, "Keys").map_err(|_| Error::msg(sys::refused()))?
-        {
-            for (role, list) in entries {
-                let JsonValue::Array(items) = list else {
-                    return Err(Error::msg(sys::refused()));
-                };
-                let mut role_keys = Vec::new();
-                for item in items {
-                    match item {
-                        JsonValue::Str(s) => role_keys.push(s.clone()),
-                        _ => return Err(Error::msg(sys::refused())),
-                    }
-                }
-                keys.push((role.clone(), role_keys));
-            }
-        }
-        let mut minimum_sequence = Vec::new();
-        if let JsonValue::Object(entries) = jsonio::require_object(value, "MinimumSequence")
-            .map_err(|_| Error::msg(sys::refused()))?
-        {
-            for (role, number) in entries {
-                let JsonValue::Number(raw) = number else {
-                    return Err(Error::msg(sys::refused()));
-                };
-                let sequence: u64 = raw.parse().map_err(|_| Error::msg(sys::refused()))?;
-                minimum_sequence.push((role.clone(), sequence));
-            }
-        }
+    pub fn parse(text: &str) -> Result<Trust, Error> {
+        let wire: TrustWire = jsonio::parse(text).map_err(|_| Error::msg(sys::refused()))?;
         Ok(Trust {
-            format: jsonio::require_i64(value, "Format").map_err(|_| Error::msg(sys::refused()))?,
-            prefix: jsonio::require_string(value, "Prefix")
-                .map_err(|_| Error::msg(sys::refused()))?,
-            epoch: jsonio::require_u64(value, "Epoch").map_err(|_| Error::msg(sys::refused()))?,
-            keys,
-            not_before: jsonio::require_i64(value, "NotBefore")
-                .map_err(|_| Error::msg(sys::refused()))?,
-            max_age_seconds: jsonio::require_i64(value, "MaxAgeSeconds")
-                .map_err(|_| Error::msg(sys::refused()))?,
-            clock_skew_seconds: jsonio::require_i64(value, "ClockSkewSeconds")
-                .map_err(|_| Error::msg(sys::refused()))?,
-            minimum_sequence,
+            format: wire.format,
+            prefix: wire.prefix,
+            epoch: wire.epoch,
+            keys: wire.keys.0,
+            not_before: wire.not_before,
+            max_age_seconds: wire.max_age_seconds,
+            clock_skew_seconds: wire.clock_skew_seconds,
+            minimum_sequence: wire.minimum_sequence.0,
         })
     }
 
@@ -159,30 +133,6 @@ pub struct Permit {
     pub expires: i64,
 }
 
-impl Permit {
-    pub fn to_json(&self) -> JsonValue {
-        JsonValue::Object(vec![
-            (
-                "Format".to_string(),
-                JsonValue::Number(self.format.to_string()),
-            ),
-            (
-                "Repository".to_string(),
-                JsonValue::Str(self.repository.clone()),
-            ),
-            ("Digest".to_string(), JsonValue::Str(self.digest.clone())),
-            (
-                "Previous".to_string(),
-                JsonValue::Str(self.previous.clone()),
-            ),
-            (
-                "Expires".to_string(),
-                JsonValue::Number(self.expires.to_string()),
-            ),
-        ])
-    }
-}
-
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SecretFiles {
     pub key: String,
@@ -190,26 +140,15 @@ pub struct SecretFiles {
 }
 
 impl SecretFiles {
-    pub fn parse(value: &JsonValue) -> Result<SecretFiles, Error> {
-        if matches!(value, JsonValue::Null) {
+    pub fn parse(text: &str) -> Result<SecretFiles, Error> {
+        if text.trim() == "null" {
             return Ok(SecretFiles::default());
         }
-        jsonio::check_no_unknown(value, &["Key", "Passphrase"])
-            .map_err(|_| Error::msg(sys::refused()))?;
-        Ok(SecretFiles {
-            key: jsonio::require_string(value, "Key").map_err(|_| Error::msg(sys::refused()))?,
-            passphrase: jsonio::require_string(value, "Passphrase")
-                .map_err(|_| Error::msg(sys::refused()))?,
-        })
-    }
-
-    pub fn to_json(&self) -> JsonValue {
-        JsonValue::Object(vec![
-            ("Key".to_string(), JsonValue::Str(self.key.clone())),
-            (
-                "Passphrase".to_string(),
-                JsonValue::Str(self.passphrase.clone()),
-            ),
-        ])
+        jsonio::parse(text).map_err(|_| Error::msg(sys::refused()))
     }
 }
+
+crate::jsonio::case_record!(SecretFiles, {
+    key: String => "Key",
+    passphrase: String => "Passphrase",
+});

@@ -39,6 +39,7 @@ mod media_authentication;
 mod media_container;
 mod media_installer;
 pub mod model;
+mod ordered_json;
 pub mod packages;
 pub mod payload_stage;
 pub mod prepare;

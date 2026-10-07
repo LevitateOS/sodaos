@@ -268,7 +268,7 @@ pub fn seal_candidate_payload(
         payload,
         Some(production),
     )?;
-    let mut record = jsonio::to_indent(&payload.to_json());
+    let mut record = jsonio::to_indent(payload);
     record.push('\n');
     sys::write_new(&sys::join(&[out, "payload.json"]), record.as_bytes(), 0o600)
 }

@@ -1,10 +1,9 @@
+use crate::media::MediaLock;
 use std::collections::HashMap;
 
-use soda_json::JsonValue;
-
 use crate::error::Error;
-use crate::foreign::Production;
-use crate::media::{MediaAuthority, MediaLock};
+use crate::foreign::{PackagingInputs, Production};
+use crate::media::MediaAuthority;
 use crate::model;
 use crate::request;
 use crate::sys;
@@ -127,20 +126,10 @@ pub fn authenticate_packaging_inputs(
     // used by the native packager. No source script runs in this signing
     // operation.
     let inventory = collect_media_inventory(root, artifacts, &request.out)?;
-    let mut files: Vec<(String, String)> = inventory.clone().into_iter().collect();
-    files.sort_by(|a, b| a.0.cmp(&b.0));
-    let document_value = JsonValue::Object(vec![
-        ("Tools".to_string(), lock.to_json()),
-        (
-            "Files".to_string(),
-            JsonValue::Object(
-                files
-                    .into_iter()
-                    .map(|(k, v)| (k, JsonValue::Str(v)))
-                    .collect(),
-            ),
-        ),
-    ]);
+    let document_value = PackagingInputs {
+        tools: lock.clone(),
+        files: inventory.clone().into_iter().collect(),
+    };
     let document = sys::join(&[root, "input-document"]);
     let digest = production.write_document(&document, &document_value)?;
     sign_media_input(

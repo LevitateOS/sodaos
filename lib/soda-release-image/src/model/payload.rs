@@ -1,4 +1,5 @@
-use soda_json::JsonValue;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 
 use crate::error::Error;
 use crate::jsonio;
@@ -13,43 +14,55 @@ use super::{
 // deliver.Payload
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct PayloadImage {
+    #[serde(rename = "Reference")]
     pub reference: String,
+    #[serde(rename = "Config")]
     pub config: String,
+    #[serde(rename = "Manifest")]
     pub manifest: String,
+    #[serde(rename = "ArchiveSHA256")]
     pub archive_sha256: String,
 }
 
-impl PayloadImage {
-    pub fn parse(value: &JsonValue) -> Result<PayloadImage, Error> {
-        jsonio::check_no_unknown(value, &["Reference", "Config", "Manifest", "ArchiveSHA256"])?;
-        Ok(PayloadImage {
-            reference: jsonio::require_string(value, "Reference")?,
-            config: jsonio::require_string(value, "Config")?,
-            manifest: jsonio::require_string(value, "Manifest")?,
-            archive_sha256: jsonio::require_string(value, "ArchiveSHA256")?,
-        })
-    }
+crate::jsonio::case_record!(PayloadImage, {
+    reference: String => "Reference",
+    config: String => "Config",
+    manifest: String => "Manifest",
+    archive_sha256: String => "ArchiveSHA256",
+});
 
-    pub fn to_json(&self) -> JsonValue {
-        JsonValue::Object(vec![
-            (
-                "Reference".to_string(),
-                JsonValue::Str(self.reference.clone()),
-            ),
-            ("Config".to_string(), JsonValue::Str(self.config.clone())),
-            (
-                "Manifest".to_string(),
-                JsonValue::Str(self.manifest.clone()),
-            ),
-            (
-                "ArchiveSHA256".to_string(),
-                JsonValue::Str(self.archive_sha256.clone()),
-            ),
-        ])
-    }
+#[derive(Default)]
+struct PayloadWire {
+    format: i64,
+    id: String,
+    revision: String,
+    architecture: String,
+    core_os: String,
+    base: String,
+    repository_prefix: String,
+    schema: i64,
+    presentation_sha256: String,
+    host_packages_sha256: String,
+    images: crate::jsonio::OrderedMap<PayloadImage>,
+    upgrade_from: Vec<String>,
 }
+
+crate::jsonio::case_record!(PayloadWire, {
+    format: i64 => "Format",
+    id: String => "ID",
+    revision: String => "Revision",
+    architecture: String => "Architecture",
+    core_os: String => "CoreOS",
+    base: String => "Base",
+    repository_prefix: String => "RepositoryPrefix",
+    schema: i64 => "Schema",
+    presentation_sha256: String => "PresentationSHA256",
+    host_packages_sha256: String => "HostPackagesSHA256",
+    images: crate::jsonio::OrderedMap<PayloadImage> => "Images",
+    upgrade_from: Vec<String> => "UpgradeFrom",
+});
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Payload {
@@ -67,51 +80,41 @@ pub struct Payload {
     pub upgrade_from: Vec<String>,
 }
 
+impl Serialize for Payload {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut record = serializer.serialize_struct("Payload", 12)?;
+        record.serialize_field("Format", &self.format)?;
+        record.serialize_field("ID", &self.id)?;
+        record.serialize_field("Revision", &self.revision)?;
+        record.serialize_field("Architecture", &self.architecture)?;
+        record.serialize_field("CoreOS", &self.core_os)?;
+        record.serialize_field("Base", &self.base)?;
+        record.serialize_field("RepositoryPrefix", &self.repository_prefix)?;
+        record.serialize_field("Schema", &self.schema)?;
+        record.serialize_field("PresentationSHA256", &self.presentation_sha256)?;
+        record.serialize_field("HostPackagesSHA256", &self.host_packages_sha256)?;
+        record.serialize_field("Images", &crate::jsonio::SortedPairs(&self.images))?;
+        record.serialize_field("UpgradeFrom", &self.upgrade_from)?;
+        record.end()
+    }
+}
+
 impl Payload {
-    pub fn parse(value: &JsonValue) -> Result<Payload, Error> {
-        jsonio::check_no_unknown(
-            value,
-            &[
-                "Format",
-                "ID",
-                "Revision",
-                "Architecture",
-                "CoreOS",
-                "Base",
-                "RepositoryPrefix",
-                "Schema",
-                "PresentationSHA256",
-                "HostPackagesSHA256",
-                "Images",
-                "UpgradeFrom",
-            ],
-        )?;
-        let mut images = Vec::new();
-        if let JsonValue::Object(entries) = jsonio::require_object(value, "Images")? {
-            for (name, image) in entries {
-                images.push((name.clone(), PayloadImage::parse(image)?));
-            }
-        }
-        let mut upgrade_from = Vec::new();
-        for item in jsonio::require_array(value, "UpgradeFrom")? {
-            match item {
-                JsonValue::Str(s) => upgrade_from.push(s.clone()),
-                _ => return Err(Error::msg("invalid UpgradeFrom")),
-            }
-        }
+    pub fn parse(text: &str) -> Result<Payload, Error> {
+        let wire: PayloadWire = jsonio::parse(text)?;
         Ok(Payload {
-            format: jsonio::require_i64(value, "Format")?,
-            id: jsonio::require_string(value, "ID")?,
-            revision: jsonio::require_string(value, "Revision")?,
-            architecture: jsonio::require_string(value, "Architecture")?,
-            core_os: jsonio::require_string(value, "CoreOS")?,
-            base: jsonio::require_string(value, "Base")?,
-            repository_prefix: jsonio::require_string(value, "RepositoryPrefix")?,
-            schema: jsonio::require_i64(value, "Schema")?,
-            presentation_sha256: jsonio::require_string(value, "PresentationSHA256")?,
-            host_packages_sha256: jsonio::require_string(value, "HostPackagesSHA256")?,
-            images,
-            upgrade_from,
+            format: wire.format,
+            id: wire.id,
+            revision: wire.revision,
+            architecture: wire.architecture,
+            core_os: wire.core_os,
+            base: wire.base,
+            repository_prefix: wire.repository_prefix,
+            schema: wire.schema,
+            presentation_sha256: wire.presentation_sha256,
+            host_packages_sha256: wire.host_packages_sha256,
+            images: wire.images.0,
+            upgrade_from: wire.upgrade_from,
         })
     }
 
@@ -121,62 +124,6 @@ impl Payload {
             .find(|(n, _)| n == name)
             .map(|(_, image)| image.clone())
             .unwrap_or_default()
-    }
-
-    pub fn to_json(&self) -> JsonValue {
-        let mut images: Vec<(String, PayloadImage)> = self.images.clone();
-        images.sort_by(|a, b| a.0.cmp(&b.0));
-        JsonValue::Object(vec![
-            (
-                "Format".to_string(),
-                JsonValue::Number(self.format.to_string()),
-            ),
-            ("ID".to_string(), JsonValue::Str(self.id.clone())),
-            (
-                "Revision".to_string(),
-                JsonValue::Str(self.revision.clone()),
-            ),
-            (
-                "Architecture".to_string(),
-                JsonValue::Str(self.architecture.clone()),
-            ),
-            ("CoreOS".to_string(), JsonValue::Str(self.core_os.clone())),
-            ("Base".to_string(), JsonValue::Str(self.base.clone())),
-            (
-                "RepositoryPrefix".to_string(),
-                JsonValue::Str(self.repository_prefix.clone()),
-            ),
-            (
-                "Schema".to_string(),
-                JsonValue::Number(self.schema.to_string()),
-            ),
-            (
-                "PresentationSHA256".to_string(),
-                JsonValue::Str(self.presentation_sha256.clone()),
-            ),
-            (
-                "HostPackagesSHA256".to_string(),
-                JsonValue::Str(self.host_packages_sha256.clone()),
-            ),
-            (
-                "Images".to_string(),
-                JsonValue::Object(
-                    images
-                        .into_iter()
-                        .map(|(name, image)| (name, image.to_json()))
-                        .collect(),
-                ),
-            ),
-            (
-                "UpgradeFrom".to_string(),
-                JsonValue::Array(
-                    self.upgrade_from
-                        .iter()
-                        .map(|s| JsonValue::Str(s.clone()))
-                        .collect(),
-                ),
-            ),
-        ])
     }
 
     fn valid_identity(&self) -> bool {
@@ -245,8 +192,8 @@ impl Payload {
 
     /// `deliver.Load`: strict build-JSON read plus validation.
     pub fn load(path: &str) -> Result<Payload, Error> {
-        let value = sys::read_json_build(path)?;
-        let payload = Payload::parse(&value)?;
+        let text = sys::read_json_build_text(path)?;
+        let payload = Payload::parse(&text)?;
         payload.validate()?;
         Ok(payload)
     }

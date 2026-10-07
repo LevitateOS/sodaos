@@ -2,6 +2,25 @@ use super::*;
 use std::collections::HashMap;
 
 #[test]
+fn freezing_image_config_preserves_raw_duplicates_order_and_numeric_tokens() {
+    let input = r#"{"z":1e2,"container-imgref":"old","duplicate":1,"duplicate":2,"bootc-install-to-fs":true,"a":-0}"#;
+    let got = freeze_image_config(input, "ghcr.io/example/sodaos", "").unwrap();
+    assert_eq!(
+        got,
+        concat!(
+            "{\n",
+            "  \"a\": -0,\n",
+            "  \"bootc-install-to-fs\": false,\n",
+            "  \"container-imgref\": \"ostree-image-signed:docker://ghcr.io/example/sodaos-host:candidate\",\n",
+            "  \"duplicate\": 1,\n",
+            "  \"duplicate\": 2,\n",
+            "  \"z\": 1e2\n",
+            "}\n"
+        )
+    );
+}
+
+#[test]
 fn oracle_link_prepared_assets_runs_no_commands() {
     // Oracle: Go TestLinkPreparedAssetsRunsNoCommands.
     struct Stub {
@@ -104,7 +123,11 @@ fn oracle_link_prepared_assets_runs_no_commands() {
         ) -> Result<(), Error> {
             Ok(())
         }
-        fn write_document(&self, _: &str, _: &soda_json::JsonValue) -> Result<String, Error> {
+        fn write_document(
+            &self,
+            _: &str,
+            _: &crate::foreign::PackagingInputs,
+        ) -> Result<String, Error> {
             Ok(String::new())
         }
     }

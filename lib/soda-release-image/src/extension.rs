@@ -25,17 +25,8 @@ pub fn stage_extension_assets(native: &str, package_dir: &str) -> Result<(), Err
 pub fn extension_asset_inventory(root: &str) -> Result<Vec<String>, Error> {
     let data = fs::read(sys::join(&[root, "files.json"]))?;
     let text = std::str::from_utf8(&data).map_err(|_| Error::msg("invalid JSON"))?;
-    let value = jsonio::parse(text)?;
-    let soda_json::JsonValue::Array(items) = &value else {
-        return Err(Error::msg("sorted Soda extension asset inventory required"));
-    };
-    let mut files = Vec::new();
-    for item in items {
-        match item {
-            soda_json::JsonValue::Str(name) => files.push(name.clone()),
-            _ => return Err(Error::msg("sorted Soda extension asset inventory required")),
-        }
-    }
+    let files: Vec<String> = jsonio::parse(text)
+        .map_err(|_| Error::msg("sorted Soda extension asset inventory required"))?;
     // slices.IsSorted: non-decreasing; adjacent duplicates are refused by the stager.
     if files.is_empty() || files.windows(2).any(|w| w[0] > w[1]) {
         return Err(Error::msg("sorted Soda extension asset inventory required"));

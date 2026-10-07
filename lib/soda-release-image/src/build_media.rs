@@ -157,8 +157,8 @@ pub fn prepare_media_inputs(
             "/input.json".to_string(),
         ],
     )?;
-    let candidate_value = sys::read_json_build(&sys::join(&[out, "candidate.json"]))?;
-    let candidate = model::Candidate::parse(&candidate_value)?;
+    let candidate_text = sys::read_json_build_text(&sys::join(&[out, "candidate.json"]))?;
+    let candidate = model::Candidate::parse(&candidate_text)?;
     let payload = fs::read(sys::join(&[out, "payload.json"]))?;
     let console = sys::hash_file(&sys::join(&[out, "tools/soda-installer"]))?;
     let live = ignition::candidate_live_config(
@@ -285,7 +285,11 @@ mod tests {
             ) -> Result<(), Error> {
                 Ok(())
             }
-            fn write_document(&self, _: &str, _: &soda_json::JsonValue) -> Result<String, Error> {
+            fn write_document(
+                &self,
+                _: &str,
+                _: &crate::foreign::PackagingInputs,
+            ) -> Result<String, Error> {
                 Ok(String::new())
             }
         }

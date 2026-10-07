@@ -8,7 +8,6 @@ use crate::compression;
 use crate::error::Error;
 use crate::files;
 use crate::foreign::Production;
-use crate::jsonio;
 use crate::model;
 use crate::prepare;
 use crate::sys;
@@ -52,37 +51,37 @@ pub fn freeze_base_image_config(
             "/usr/share/coreos-assembler/image.json".to_string(),
         ],
     )?;
-    let mut image_config = jsonio::parse(&metadata)?;
-    let empty = match &image_config {
-        soda_json::JsonValue::Object(entries) if entries.is_empty() => true,
-        soda_json::JsonValue::Object(_) => false,
-        _ => return Err(Error::msg("missing upstream image configuration")),
-    };
-    if empty {
-        return Err(Error::msg("missing upstream image configuration"));
-    }
-    if let soda_json::JsonValue::Object(entries) = &mut image_config {
-        entries.retain(|(k, _)| k != "container-imgref" && k != "bootc-install-to-fs");
-        entries.push((
-            "container-imgref".to_string(),
-            soda_json::JsonValue::Str(format!(
-                "ostree-image-signed:docker://{prefix}-host:candidate"
-            )),
-        ));
-        entries.push((
-            "bootc-install-to-fs".to_string(),
-            soda_json::JsonValue::Bool(false),
-        ));
-        entries.sort_by(|a, b| a.0.cmp(&b.0));
-    }
-    compression::set_media_compression(&mut image_config, compression)?;
-    let mut image_data = jsonio::to_indent(&image_config);
-    image_data.push('\n');
+    let image_data = freeze_image_config(&metadata, prefix, compression)?;
     files::owned_write(
         &sys::join(&[context_dir, "rootfs/usr/share/coreos-assembler/image.json"]),
         image_data.as_bytes(),
         0o644,
     )
+}
+
+fn freeze_image_config(metadata: &str, prefix: &str, mode: &str) -> Result<String, Error> {
+    let mut image_config = compression::ImageConfig::parse(metadata)?;
+    if !image_config.is_nonempty_object() {
+        return Err(Error::msg("missing upstream image configuration"));
+    }
+    if let Some(entries) = image_config.ordered_mut().object_mut() {
+        entries.retain(|(key, _)| key != "container-imgref" && key != "bootc-install-to-fs");
+        entries.push((
+            "container-imgref".to_string(),
+            crate::ordered_json::OrderedValue::String(format!(
+                "ostree-image-signed:docker://{prefix}-host:candidate"
+            )),
+        ));
+        entries.push((
+            "bootc-install-to-fs".to_string(),
+            crate::ordered_json::OrderedValue::Bool(false),
+        ));
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+    }
+    compression::set_media_compression(&mut image_config, mode)?;
+    let mut output = image_config.to_pretty_json();
+    output.push('\n');
+    Ok(output)
 }
 
 pub fn prepare_build_host_context(

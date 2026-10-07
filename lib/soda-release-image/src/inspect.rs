@@ -4,7 +4,6 @@ use std::fs;
 
 use crate::error::Error;
 use crate::foreign::Production;
-use crate::jsonio;
 use crate::model;
 use crate::sys;
 
@@ -28,8 +27,7 @@ pub fn inspect_complete_payload(
     }
     let text = String::from_utf8_lossy(&expected).into_owned();
     // Plain (non-strict) decode, like the Go owner.
-    let value = jsonio::parse(&text)?;
-    let payload = model::Payload::parse(&value)?;
+    let payload = model::Payload::parse(&text)?;
     payload.validate()?;
     Ok(payload)
 }

@@ -5,7 +5,7 @@ use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 
-use soda_json::JsonValue;
+use serde::Serialize;
 
 use crate::error::Error;
 use crate::sys;
@@ -53,24 +53,14 @@ pub fn public_files(source: &str) -> Result<Vec<(String, String)>, Error> {
     Ok(files)
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct MediaFile {
+    #[serde(rename = "Path")]
     pub path: String,
+    #[serde(rename = "SHA256")]
     pub sha256: String,
+    #[serde(rename = "Bytes")]
     pub bytes: i64,
-}
-
-impl MediaFile {
-    pub fn to_json(&self) -> JsonValue {
-        JsonValue::Object(vec![
-            ("Path".to_string(), JsonValue::Str(self.path.clone())),
-            ("SHA256".to_string(), JsonValue::Str(self.sha256.clone())),
-            (
-                "Bytes".to_string(),
-                JsonValue::Number(self.bytes.to_string()),
-            ),
-        ])
-    }
 }
 
 pub fn media_file(path: &str) -> Result<MediaFile, Error> {

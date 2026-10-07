@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 
-use soda_json::JsonValue;
-
 use crate::error::Error;
 use crate::foreign::Production;
 use crate::jsonio;
@@ -123,25 +121,30 @@ pub struct MediaMeta {
     pub images: HashMap<String, MediaMetaImage>,
 }
 
+#[derive(Default)]
+struct MediaMetaWire {
+    ostree_commit: String,
+    images: crate::jsonio::OrderedMap<MediaMetaImage>,
+}
+
+crate::jsonio::case_record!(MediaMetaImage, {
+    path: String => "Path",
+    sha256: String => "SHA256",
+    size: i64 => "Size",
+});
+
+crate::jsonio::case_record!(MediaMetaWire, {
+    ostree_commit: String => "ostree-commit",
+    images: crate::jsonio::OrderedMap<MediaMetaImage> => "Images",
+});
+
 impl MediaMeta {
-    pub fn parse(value: &JsonValue) -> Result<MediaMeta, Error> {
-        let mut meta = MediaMeta {
-            ostree_commit: jsonio::require_string(value, "ostree-commit")?,
-            ..MediaMeta::default()
-        };
-        if let JsonValue::Object(entries) = jsonio::require_object(value, "Images")? {
-            for (name, image) in entries {
-                meta.images.insert(
-                    name.clone(),
-                    MediaMetaImage {
-                        path: jsonio::require_string(image, "Path")?,
-                        sha256: jsonio::require_string(image, "SHA256")?,
-                        size: jsonio::require_i64(image, "Size")?,
-                    },
-                );
-            }
-        }
-        Ok(meta)
+    pub fn parse(text: &str) -> Result<MediaMeta, Error> {
+        let wire: MediaMetaWire = jsonio::parse(text)?;
+        Ok(MediaMeta {
+            ostree_commit: wire.ostree_commit,
+            images: wire.images.0.into_iter().collect(),
+        })
     }
 }
 
@@ -177,8 +180,7 @@ pub fn verify_build_meta(
     let data = fs::read(sys::join(&[build_dir, "meta.json"]))?;
     let text = String::from_utf8_lossy(&data).into_owned();
     // Plain (non-strict) decode, like the Go owner.
-    let value = jsonio::parse(&text)?;
-    let meta = MediaMeta::parse(&value)?;
+    let meta = MediaMeta::parse(&text)?;
     verify_meta_images(build_dir, &meta.images)?;
     let ostree = meta.images.get("ostree").cloned().unwrap_or_default();
     let oci_manifest = meta.images.get("oci-manifest").cloned().unwrap_or_default();

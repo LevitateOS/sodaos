@@ -1,7 +1,6 @@
-use soda_json::JsonValue;
-
 use crate::error::Error;
 use crate::jsonio;
+use serde::Serialize;
 
 use super::{content_get, https_url, is_coreos_release, is_digest, is_dotted_numbers};
 
@@ -9,28 +8,47 @@ use super::{content_get, https_url, is_coreos_release, is_digest, is_dotted_numb
 // build CoreOS inputs
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct CoreOSImage {
+    #[serde(rename = "URL")]
     pub url: String,
+    #[serde(rename = "SignatureURL")]
     pub signature_url: String,
+    #[serde(rename = "SHA256")]
     pub sha256: String,
+    #[serde(rename = "UncompressedSHA256")]
     pub uncompressed_sha256: String,
 }
 
 impl CoreOSImage {
-    pub fn parse(value: &JsonValue) -> Result<CoreOSImage, Error> {
-        jsonio::check_no_unknown(
-            value,
-            &["URL", "SignatureURL", "SHA256", "UncompressedSHA256"],
-        )?;
-        Ok(CoreOSImage {
-            url: jsonio::require_string(value, "URL")?,
-            signature_url: jsonio::require_string(value, "SignatureURL")?,
-            sha256: jsonio::require_string(value, "SHA256")?,
-            uncompressed_sha256: jsonio::require_string(value, "UncompressedSHA256")?,
-        })
+    pub fn parse(text: &str) -> Result<CoreOSImage, Error> {
+        jsonio::parse(text)
     }
 }
+
+crate::jsonio::case_record!(CoreOSImage, {
+    url: String => "URL",
+    signature_url: String => "SignatureURL",
+    sha256: String => "SHA256",
+    uncompressed_sha256: String => "UncompressedSHA256",
+});
+
+#[derive(Default)]
+struct ResolvedCoreOSWire {
+    release: String,
+    metadata_url: String,
+    container: crate::jsonio::OrderedMap<String>,
+    iso: crate::jsonio::OrderedMap<CoreOSImage>,
+    qemu: crate::jsonio::OrderedMap<CoreOSImage>,
+}
+
+crate::jsonio::case_record!(ResolvedCoreOSWire, {
+    release: String => "Release",
+    metadata_url: String => "MetadataURL",
+    container: crate::jsonio::OrderedMap<String> => "Container",
+    iso: crate::jsonio::OrderedMap<CoreOSImage> => "ISO",
+    qemu: crate::jsonio::OrderedMap<CoreOSImage> => "QEMU",
+});
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ResolvedCoreOS {
@@ -42,26 +60,14 @@ pub struct ResolvedCoreOS {
 }
 
 impl ResolvedCoreOS {
-    pub fn parse(value: &JsonValue) -> Result<ResolvedCoreOS, Error> {
-        jsonio::check_no_unknown(
-            value,
-            &["Release", "MetadataURL", "Container", "ISO", "QEMU"],
-        )?;
-        let images = |field: &str| -> Result<Vec<(String, CoreOSImage)>, Error> {
-            let mut out = Vec::new();
-            if let JsonValue::Object(entries) = jsonio::require_object(value, field)? {
-                for (arch, image) in entries {
-                    out.push((arch.clone(), CoreOSImage::parse(image)?));
-                }
-            }
-            Ok(out)
-        };
+    pub fn parse(text: &str) -> Result<ResolvedCoreOS, Error> {
+        let wire: ResolvedCoreOSWire = jsonio::parse(text)?;
         Ok(ResolvedCoreOS {
-            release: jsonio::require_string(value, "Release")?,
-            metadata_url: jsonio::require_string(value, "MetadataURL")?,
-            container: jsonio::string_map(value, "Container")?,
-            iso: images("ISO")?,
-            qemu: images("QEMU")?,
+            release: wire.release,
+            metadata_url: wire.metadata_url,
+            container: wire.container.0,
+            iso: wire.iso.0,
+            qemu: wire.qemu.0,
         })
     }
 
@@ -78,18 +84,19 @@ pub struct TailnetInputs {
 }
 
 impl TailnetInputs {
-    pub fn parse(value: &JsonValue) -> Result<TailnetInputs, Error> {
-        if matches!(value, JsonValue::Null) {
+    pub fn parse(text: &str) -> Result<TailnetInputs, Error> {
+        if text.trim() == "null" {
             return Ok(TailnetInputs::default());
         }
-        jsonio::check_no_unknown(value, &["Version", "SHA256", "Base"])?;
-        Ok(TailnetInputs {
-            version: jsonio::require_string(value, "Version")?,
-            sha256: jsonio::require_string(value, "SHA256")?,
-            base: jsonio::require_string(value, "Base")?,
-        })
+        jsonio::parse(text)
     }
 }
+
+crate::jsonio::case_record!(TailnetInputs, {
+    version: String => "Version",
+    sha256: String => "SHA256",
+    base: String => "Base",
+});
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LiveInputs {
@@ -98,18 +105,25 @@ pub struct LiveInputs {
 }
 
 impl LiveInputs {
-    pub fn parse(value: &JsonValue) -> Result<LiveInputs, Error> {
-        jsonio::check_no_unknown(value, &["CoreOS", "Tailnet"])?;
-        let core_os_value = jsonio::require_object(value, "CoreOS")?;
-        let core_os = if matches!(core_os_value, JsonValue::Null) {
-            ResolvedCoreOS::default()
-        } else {
-            ResolvedCoreOS::parse(core_os_value)?
-        };
-        let tailnet_value = jsonio::require_object(value, "Tailnet")?;
-        Ok(LiveInputs {
-            core_os,
-            tailnet: TailnetInputs::parse(tailnet_value)?,
+    pub fn parse(text: &str) -> Result<LiveInputs, Error> {
+        jsonio::parse(text)
+    }
+}
+
+crate::jsonio::case_record!(LiveInputs, {
+    core_os: ResolvedCoreOS => "CoreOS",
+    tailnet: TailnetInputs => "Tailnet",
+});
+
+impl<'de> serde::Deserialize<'de> for ResolvedCoreOS {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let wire = ResolvedCoreOSWire::deserialize(deserializer)?;
+        Ok(Self {
+            release: wire.release,
+            metadata_url: wire.metadata_url,
+            container: wire.container.0,
+            iso: wire.iso.0,
+            qemu: wire.qemu.0,
         })
     }
 }
