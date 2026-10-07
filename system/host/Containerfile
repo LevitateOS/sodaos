@@ -1,5 +1,5 @@
 # Local host-content candidate, not yet an installable Soda release. The caller
-# supplies the architecture-specific digest from locks/coreos-host.json.
+# build context supplies the selected architecture-specific CoreOS image digest.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
