@@ -54,7 +54,7 @@ target allocation or refresh R02 counts.
 | Installer literal output and `lib/release-inputs/src/elf.rs` | Rust formatting retains escaping/secrecy/write-error policy; one 64-byte ELF accessor serves purpose-specific build/host/Tea gates |
 | `lib/release-inputs/src/trust_key.rs` and release trust callers | Shared typed P-256 admission; image/delivery retain role authority and original-DER fingerprints |
 | `lib/wire-time` and URL/IP caller modules | Shared strict wire timestamp gate and time-backed UTC projection; caller-owned typed URL, percent and std IP adapters retain raw literals, admission and expiry. No general calendar/URL/IP engine allocation |
-| Setup Forgejo and host provider adapters | Setup uses ureq with bounded I/O and declared blocking-DNS exception. Provider keeps curl/Executor until resolver-inclusive cancellation/custody fit passes |
+| Setup Forgejo and host provider adapters | Setup uses ureq with bounded I/O and declared blocking-DNS exception. Host provider retains mature curl transport as the source direction; shipped-binary, TLS and provider qualification remain open |
 | Parked A34/C41 application seams | R02 retains current Tailnet project/run-binding/enrollment and Muse caller/connection/cleanup duties under C04/A07. Optional module moves consume current L09/L11/L12 adapters; B27 is already integrated. No snapshot engine restoration or new process allocation |
 | Forgejo domain `config.rs` (CFG01) | C-owned effective-key/override, bounded input and no-guess `/data` marker policy around a future admitted native-compatible boundary. L17 collected native evidence; rust-ini 0.21.3 fails continuation admission, so cutover remains held. No new parser engine or process allocation; CFG02 locale admission stays separate |
 | Release/operator/host/guest/identity file, descriptor and process modules | L12 retains same-FD cap+1 admission, rooted publication, OwnedFd/CLOEXEC, bounded std Child I/O and actual child/unit/container cleanup authority around rustix/libc/std/tempfile adapters. Muse config uses WalkDir with explicit credential/symlink policy. Temp ownership ends only after consumers, cleanup or deliberate evidence/handoff; NSS/PTY/signal and registration traversal remain application policy. Generic PATH/errno/shell diagnostics have no target allocation; N11/TMP02 are retired by L18 at `eaed66a9`; actual Muse peer and original-inode migration policy remain |
@@ -2217,7 +2217,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── files.rs
 │   │   │   ├── forgejo.rs
 │   │   │   ├── http.rs
-│   │   │   ├── json_emit.rs
 │   │   │   ├── json_input.rs
 │   │   │   ├── lib.rs
 │   │   │   ├── live_inputs.rs

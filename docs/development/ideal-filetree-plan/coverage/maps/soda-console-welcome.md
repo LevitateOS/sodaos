@@ -15,7 +15,7 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–110; current module/import/attribute shell; declaration render_config; declaration parse_top_object; declaration TopObject; declaration deserialize; declaration ObjectVisitor; declaration Value; declaration expecting; declaration visit_map | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | retained | Imports and module declarations wire cmd/soda-console-welcome/src/config.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–75; render_config; read_config; opened config capped at 64 KiB + 1 before lossy UTF-8 and one Value parse; present listen must be a string, absent listen keeps default, forgejo_url must be a string | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | retained | Bounded direct Value reader preserves duplicate-last behavior, tolerant unknown fields and current display/refusal projection; exact-cap and cap+one behavior retained |
 
 <a id="coverage-7e40f75adbbf"></a>
 
@@ -45,7 +45,7 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–87; current module/import/attribute shell; declaration top_object_extracts_strings_last_wins; declaration string_escapes_decode_like_python; declaration listen_shapes; declaration origin_shapes | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | retained | Imports and module declarations wire cmd/soda-console-welcome/src/tests.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–121; config_value_keeps_last_duplicate_and_unknown_values; string_escapes_decode_like_python; config_reader_accepts_exact_cap_and_rejects_cap_plus_one; listen_shapes; origin_shapes | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | retained | Five current welcome/config checks, including bounded reads, duplicate handling and rendering-input projection |
 
 <a id="coverage-a90a4f3ebb4c"></a>
 

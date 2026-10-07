@@ -22,7 +22,7 @@ current inventory. No former-root rows count twice.
 | `factory-os` | 1 | [factory-os.md](factory-os.md) |
 | `frontend` | 345 | [frontend.md](frontend.md) |
 | `internal` | 451 | [backend.md](backend.md) |
-| `lib` | 429 | [native-packages.md](native-packages.md) |
+| `lib` | 428 | [native-packages.md](native-packages.md) |
 | `scripts` | 80 | [scripts.md](scripts.md) |
 | `system` | 64 | [appliance.md](appliance.md) |
 | `tests` | 138 | [tests.md](tests.md) |
@@ -38,8 +38,8 @@ chapter, **1** adapter-challenge chapter, **1** representation chapter and
 **1** independent consequential-challenge chapter, **1** finding-allocation chapter
 and **1** H06 Cargo-helper regression source file, minus **3** obsolete guard
 test files in `5413589a` and **1** retired parameter-mirror test in `278569b8`.
-Current total: **2,557 tracked paths** after the dashboard test addition and
-provisioning fixture retirement. These selective ownership deltas do not
+Current total: **2,556 tracked paths** after the dashboard test addition,
+provisioning fixture retirement and release-build formatter retirement. These selective ownership deltas do not
 regenerate the older named-duty/body census or establish current validity for
 changed files.
 Generated/captured/third-party artifacts have producer/consumer dispositions;

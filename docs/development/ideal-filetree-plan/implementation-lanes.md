@@ -6,7 +6,7 @@ and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. The canonical
-[current task state](implementation-tasks.md#current-task-state-2026-10-07)
+[current task state](implementation-tasks.md#current-task-state-2026-10-08)
 records completed L00–L09, L11–L15 and L18 source scopes, completed L10.N3,
 held L10.N4/CFG01, completed L16.G and deferred optional L16 adoption.
 Installed/native-worker qualification remains with the wider owner packets.
@@ -29,12 +29,15 @@ follow-ups are reconciled at `5794a7d9` in the existing
 [finding allocation](execution-findings.md#implemented-source-follow-ups-2026-10-08);
 prior audit and R03.L receipts keep their original evidence scope.
 The selective source receipts `f29ff882`, `96dadd55`, `37dc05fd`, `1ee47d0c`,
-`00a2d4a1`, `71cfb075`, `eb83115c`, `8bcaec9c`, `71bb28bd`, and `a94edec6` are recorded in
+`00a2d4a1`, `71cfb075`, `eb83115c`, `8bcaec9c`, `71bb28bd`, `a94edec6`,
+`856c68ee`, `d7d86a38`, `5186c2eb`, and `9cea539f` are recorded in
 that same table without regenerating the full tree or census. Identity HTTP
 decoder checks are complete in `1a297425`; Settings retains its separate
 decoder profile. A07's child-wait failure-trigger repair completed in
 `a94edec6` with 39 host checks and daemon compilation; installed activation and
-native-shell qualification remain open.
+native-shell qualification remain open. REP-CFG-1 is complete at its command
+projection scope; CFG01 and C10's remaining actual emission profiles remain
+open. Store traversal still needs its supported total-progress/resource profile.
 
 The retained [tree](proposed-tree.md), [placement](placement.md),
 [ownership](package-ownership.md), [review records](reviews/README.md) and

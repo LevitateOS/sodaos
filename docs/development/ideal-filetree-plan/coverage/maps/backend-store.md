@@ -393,8 +393,8 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–17; file scaffold | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 18–214; MaxIntakeDeliveries; MaxIssueControls; RecordIssueAssessment; IssueControl; IssueControls; IntakeDeliverySeen; RecordIntakeDelivery; AcceptanceDependants; ReadinessSweepRevision; SaveReadinessSweep | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current declaration duty: MaxIntakeDeliveries; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 215–234; FactoryPolicies | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Current declaration duty: FactoryPolicies — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 22–205, 208–229; RecordIssueAssessment, IssueControl(s), intake delivery, AcceptanceDependants and readiness sweep state | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | `AcceptanceDependants` uses stable 64-row keyset pages, closes each cursor before decision reads and propagates late errors. Total-visited, recursion and query bounds remain open under RES-GO-ACCEPTANCE-DEPENDANTS-1 |
+| 231–252; FactoryPolicies | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Repository factory policy listing for readiness sweeps |
 
 <a id="coverage-aaa37b27b70e"></a>
 
@@ -404,7 +404,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–176; file scaffold; readinessTestStore; readinessCandidate; TestRecordIssueAssessment; TestIssueControlsListOldestFirst; TestIntakeDeliveryDedup; TestAcceptanceDependants; TestReadinessSweepState | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–250; current intake, readiness and accepted-dependant fixtures; TestAcceptanceDependants; TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure; TestReadinessSweepState and related Store tests | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Store page/retry packet passed 38 actual PostgreSQL checks (5 + 33); exact test cluster stopped; no live DB snapshot. Total traversal/resource profile remains open |
 
 <a id="coverage-cad8b9caa61e"></a>
 

@@ -18,17 +18,19 @@ implement just the named examples or repeat another packet's shared-file edits.
 Current source is post-integration canonical (run 20261005; implementation STARTED — see ticked boxes), superseding the clean `de65ff68` planning snapshot. The `f7e9cf9d` source audit and `d7e565aa`/`0d8d3b8e` structural baselines remain the preserved historical identities. All 80 slices have one primary packet
 below; shared duties route through their physical writer in the lane schedule.
 
-## Current task state (2026-10-07)
+## Current task state (2026-10-08)
 
 Implementation is active under the owner's “go”, “commit early and often” and
 subsequent all-tasks goal. Current reconciliation uses source `faa663cc`;
 `04286c48`/`0caf6b91` remain the pre-implementation planning identities. The
 first twelve selected packets are committed, followed by readiness/artifact
-identity, installed-probe joins, duration cleanup and typed SDK snapshot cuts.
+identity, installed-probe joins, duration cleanup, typed SDK snapshot cuts and
+selective caller simplifications.
 Completed checks are source/development evidence; no installed, provider or
 native-worker qualification is inferred. Seven pre-existing dirty guidance
-files remain untouched. Current tracked paths total 2,557 after the dashboard
-test addition and four provisioning fixture retirements. The established responsibility snapshot and
+files remain untouched. Current tracked paths total 2,556 after the dashboard
+test addition, four provisioning fixture retirements and the release-build
+formatter retirement. The established responsibility snapshot and
 historical validity reviews retain their original scope; affected owner deltas
 are recorded selectively, with full R02.targets regeneration still pending.
 
@@ -56,7 +58,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 | Current inventory / later target regeneration | Current source responsibility inventory/maps are complete at their recorded snapshot. Keep selective owner/caller deltas with each change; regenerate the full desired tree/decomposition after replacement boundaries settle. Existing task allocation is reconciled here. | Coordinator / R02.inventory complete; R02.targets/joins pending |
 | Operator request bound | Completed in `a1fec662`: cap+one/read-error refusal before strict decoding, with focused production endpoint checks. Remaining B03 authority findings retain Q8. | B / B03.C partial |
 | Aggregate secret inputs | Completed in `7334f36b`; candidate count/bytes are admitted before retained variants, with per-file staging and escaped-pattern admission separately bounded. | C / L16.G complete |
-| Host provider HTTP | Held until resolver-inclusive cancellation and native Executor custody are proved; setup HTTPS is already converted. | C, then A handoff / L10.N4 |
+| Host provider HTTP | `9cea539f` confirms the mature curl transport as the retained source direction (11 actual checks: 5 executor, 6 provider; host daemon compiled; independent review passed). Shipped-binary, TLS and provider qualification remain open; no installed-provider claim. | C, then A handoff / L10.N4 |
 | Effective configuration | Native corpus and candidate assessment are complete; CFG01 cutover is held on parser fit, deployment override evidence and dependency admission. CFG02 remains retained. | C / L17 |
 | Optional matcher conversion | Consideration complete; adoption deferred. Reconsider only after L16.G and demonstrated value plus construction/streaming admission. | C / L16 |
 | Other correctness and caller cuts | Follow the current [finding allocation](execution-findings.md), then remaining unchecked A/B/C scopes with precise Q gates. Parked A34/C41/browser seams are optional; B27 is integrated and is not replayed. | Named accountable finding owner; exclusive physical handoffs |
@@ -183,7 +185,7 @@ Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 bound
 - [ ] **B03.C** Correct F07-F1 authority tuple freshness, F07-F2 recorded prompt context, F08-F1 registration/withdraw capture ordering, F08-F2 fresh retry attempt and F08-F3 stop-owned settlement. Resolve exact grant/quiescence/transaction specifications first; Q3 blocks undecided simultaneous provider-family selection. The independent operator 4 KiB limiter-EOF correction is complete in `a1fec662`, with cap+one/read-error admission and focused endpoint checks; it does not close the remaining authority findings.
 - [x] **B03.V** [run 20261005: DONE on disposable PG (11 pkgs, -race 4/4, raw logs archived, 0F/0S)] Exercise actual authority/registration/withdraw/retry/stop races with existing real Store and coordinator subjects; preserve historical attribution and usage.
 
-- [ ] **B03.C-lifetime** CON-G01 dashboard admission/drain/flock/DB shutdown is complete in `71cfb075` with 32 actual checks (25 control, 7 dashboard; fresh PostgreSQL stopped). B03.C-lifetime remains open for RES-GO-ACCEPTANCE-DEPENDANTS-1 exhaustive traversal bounds; select supported graph/progress profile first. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **B03.C-lifetime** CON-G01 dashboard admission/drain/flock/DB shutdown is complete in `71cfb075` with 32 actual checks (25 control, 7 dashboard; fresh PostgreSQL stopped). `d7d86a38` adds 38 actual PostgreSQL checks (5 + 33) for store pages/retry; the exact cluster is stopped and no live database snapshot is claimed. RES-GO-ACCEPTANCE-DEPENDANTS-1 remains open: total-visited, recursion and query bounds still need the user-selected graph profile. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### B04 Publication, review and correction loop
 
@@ -271,7 +273,7 @@ Lead C; [N01](reviews/N01.md), [O02](reviews/O02.md), [O03](reviews/O03.md). C01
 - [ ] **C05.C** Correct established short-write/publication/cleanup findings through existing owners and L12. L18/TMP02 removed the unused migrate temporary in `eaed66a9`, preserving credential scrub/inode/mode behavior; retain single revocation and honest failure reporting.
 - [ ] **C05.V** Exercise actual setup publication/error subjects with private inputs, complete writes and correct cleanup precedence; no new onboarding authority.
 
-- [ ] **C05.M-profiles** C owns REP-CFG-1 command-local projections with B whole-config reader handoff; CFG01 INI fit is separate. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **C05.M-profiles** [2026-10-08: `856c68ee`; 18 actual checks (13 activation, 5 welcome)] REP-CFG-1 command-local projections now use bounded `serde_json::Value` readers while preserving field presence/null, duplicate, default and no-effect behavior. CFG01 INI fit remains a separate hold; Settings keeps its own decoder profile. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C06 PostgreSQL initialization, backup and restore
 
@@ -323,7 +325,7 @@ Lead C; [D05](reviews/D05.md), [D07](reviews/D07.md), [D08](reviews/D08.md), [D0
 - [ ] **C10.V** Exercise actual trust/null/duplicate/error/confinement/compression/result subjects and selected import/install lifecycle. Signing, publication and distribution effects are separately selected operations.
 
 - [ ] **C10.M-profiles** [partial: SIMP-PEM-1 complete in `058b6f53`; upstream PEM decoding keeps the 16 KiB/single-certificate/original-DER contract, and 15 installer checks pass with lock versions unchanged. CA-ALGORITHM-PROFILE-1 and SIMP-REL-WIRE-1/ORDERED-1/INSTALL-OCI-1 remain open.] C owns remaining actual producer/reader decisions. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **C10.M-format** [partial: REP-FMT-1 candidate/lab formatters complete in `f29ff882` with 43 focused checks; the ForgejoToolchain unsigned emitter cut completed in `8bcaec9c` with three stage/writer/readback checks. Other controlled unsigned release emitters remain. Preserve original signed bytes, raw fingerprints, and current shipping selectors.] C owns only the remaining output-site decisions after their actual consumers and deterministic contracts are established. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C10.M-format** [partial: REP-FMT-1 candidate/lab formatters complete in `f29ff882` with 43 focused checks; ForgejoToolchain completed in `8bcaec9c` with three stage/writer/readback checks; `5186c2eb` retires the release-build `json_emit` engine and caller joins with 106 actual checks (45 + 10 + 14 + 37). Signed bytes and raw fingerprints remain unchanged. Remaining emitters have separate profiles, including delivery signed-record emission, release-image fresh records and opaque ordered image-config output, and Acceptance report serialization; no blanket formatter-retirement claim.] C owns only the remaining output-site decisions after their actual consumers and deterministic contracts are established. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [x] **C10.M-dependencies** [2026-10-07: `4e30cd9c` crypto features and `ad14c1c5` direct Runner cut, independently reviewed; 115 actual installer tests and real-Runner invalid-revision check pass] C supplies installer feature-only trim preserving current algorithms and COST-BOOTSTRAP-SEAM-1 two-call Runner cut; coordinator owns graph changes. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C11 Verification infrastructure and developer tooling
