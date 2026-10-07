@@ -2,6 +2,8 @@
 //! executables or shared objects only.
 
 use crate::{io_error, Error};
+use soda_build_tools::elf::{elf64_le_header, HEADER_LEN};
+use std::io::{ErrorKind, Read};
 use std::path::Path;
 
 /// Verifies a natively executable artifact for the architecture.
@@ -9,7 +11,15 @@ pub fn inspect_elf(path: &Path, arch: &str) -> Result<(), Error> {
     if arch != "x86_64" {
         return Err(Error::msg("unknown native architecture"));
     }
-    let data = std::fs::read(path).map_err(|e| io_error("open", path, e))?;
+    let mut file = std::fs::File::open(path).map_err(|e| io_error("open", path, e))?;
+    let mut data = [0; HEADER_LEN];
+    if let Err(error) = file.read_exact(&mut data) {
+        return Err(if error.kind() == ErrorKind::UnexpectedEof {
+            Error::msg("native executable format/platform mismatch")
+        } else {
+            io_error("read", path, error)
+        });
+    }
     if !is_native_executable(&data) {
         return Err(Error::msg("native executable format/platform mismatch"));
     }
@@ -17,17 +27,8 @@ pub fn inspect_elf(path: &Path, arch: &str) -> Result<(), Error> {
 }
 
 fn is_native_executable(data: &[u8]) -> bool {
-    if data.len() < 64 {
-        return false;
-    }
-    if data[0..4] != [0x7f, b'E', b'L', b'F'] {
-        return false;
-    }
-    let class = data[4]; // ELFCLASS64
-    let encoding = data[5]; // ELFDATA2LSB
-    let file_type = u16::from_le_bytes([data[16], data[17]]);
-    let machine = u16::from_le_bytes([data[18], data[19]]);
-    class == 2 && encoding == 1 && machine == 62 && (file_type == 2 || file_type == 3)
+    elf64_le_header(data)
+        .is_some_and(|header| header.machine == 62 && matches!(header.file_type, 2 | 3))
 }
 
 #[cfg(test)]
@@ -45,8 +46,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn oracle_elf_vectors() {
-        // Oracle: Go debug/elf acceptance of the release fixtures.
+    fn native_elf_header_profile() {
         let dir = std::env::temp_dir().join(format!("soda-elf-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let good = dir.join("good");

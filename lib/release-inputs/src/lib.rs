@@ -4,6 +4,7 @@
 //! Dependencies resolve through the workspace lock and are cached for offline
 //! builds; the `trust-key` feature enables the shared P-256 admission adapter.
 
+pub mod elf;
 pub mod reader;
 
 #[cfg(feature = "trust-key")]

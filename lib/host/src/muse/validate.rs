@@ -457,14 +457,11 @@ pub fn muse_readonly_mount(
 
 /// `museELF`: 64-bit little-endian ELF for the host architecture.
 pub fn muse_elf(header: &[u8], arch: &str) -> Result<(), String> {
-    if header.len() != 64
-        || header[0..4] != [0x7f, b'E', b'L', b'F']
-        || header[4] != 2
-        || header[5] != 1
-    {
+    if header.len() != soda_build_tools::elf::HEADER_LEN {
         return Err(terminal::err_denied());
     }
-    let machine = u16::from_le_bytes([header[18], header[19]]);
+    let machine = soda_build_tools::elf::elf64_le_header(header)
+        .ok_or_else(terminal::err_denied)?.machine;
     if arch == "amd64" && machine == 62 {
         return Ok(());
     }
