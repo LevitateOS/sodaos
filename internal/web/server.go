@@ -146,8 +146,8 @@ func (s *Server) StartCoordinator(ctx context.Context) error {
 	return s.Coordinator.Start(ctx, lockPath)
 }
 
-// CloseCoordinator releases factory-ledger ownership before process exit.
-func (s *Server) CloseCoordinator() { _ = s.Coordinator.Close() }
+// CloseCoordinator releases factory-ledger ownership after admitted work ends.
+func (s *Server) CloseCoordinator() error { return s.Coordinator.Close() }
 
 // SetForgejo replaces the Forgejo client on the facade and product API.
 func (s *Server) SetForgejo(client *forgejo.Client) {

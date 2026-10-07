@@ -3,8 +3,12 @@ package control
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
+	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -284,6 +288,96 @@ func TestStartTakesExclusiveOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = second.Close()
+}
+
+func TestCloseRetainsCoordinatorOwnershipUntilAdmittedOperatorStops(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var enteredOnce sync.Once
+	var releaseOnce sync.Once
+	defer releaseOnce.Do(func() { close(release) })
+	host := &stubHost{stop: func(in project.FactoryStop) (project.FactoryState, error) {
+		enteredOnce.Do(func() { close(entered) })
+		<-release
+		return project.FactoryState{ID: in.ID, Phase: project.FactoryStopped, Retirement: "confirmed", Reason: "stopped"}, nil
+	}}
+	broker := &stubBroker{
+		get:   func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound },
+		close: func(string, string) error { return nil },
+	}
+	c := coordinatorFixture(t, host, broker)
+	lock := filepath.Join(t.TempDir(), "factory-coordinator.lock")
+	if err := c.Start(context.Background(), lock); err != nil {
+		t.Fatal(err)
+	}
+	run := recordRun(t, c, nil)
+	server := &http.Server{Handler: c.AdmitHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.OperatorHandler().ServeHTTP(w, r.WithContext(WithOperatorPrincipal(r.Context(), "os-uid:0")))
+	}))}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	serveDone := make(chan error, 1)
+	go func() { serveDone <- server.Serve(listener) }()
+	requestDone := make(chan struct{})
+	go func() {
+		defer close(requestDone)
+		body := fmt.Sprintf(`{"type":"stop","command_id":%q,"target":%q}`, factory.NewID(), run.ID)
+		response, requestErr := http.Post("http://"+listener.Addr().String()+OperatorPath, "application/json", strings.NewReader(body))
+		if requestErr == nil {
+			_ = response.Body.Close()
+		}
+	}()
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		releaseOnce.Do(func() { close(release) })
+		t.Fatal("operator stop did not reach the held host callback")
+	}
+	c.StopAdmission()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	err = server.Shutdown(shutdownCtx)
+	cancel()
+	if err == nil {
+		t.Fatal("shutdown completed while the admitted operator callback was held")
+	}
+	if err := server.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		t.Fatal(err)
+	}
+
+	closed := make(chan error, 1)
+	go func() { closed <- c.Close() }()
+	second := NewCoordinator(c.Store, host, broker)
+	tryCtx, cancelTry := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	err = second.Start(tryCtx, lock)
+	cancelTry()
+	if err == nil {
+		t.Fatal("second coordinator acquired ownership while admitted callback remained active")
+	}
+	releaseOnce.Do(func() { close(release) })
+	select {
+	case <-requestDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("operator request did not finish after host callback release")
+	}
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("coordinator close did not drain the admitted request")
+	}
+	if err := <-serveDone; err != nil && !errors.Is(err, http.ErrServerClosed) {
+		t.Fatal(err)
+	}
+	if err := second.Start(context.Background(), lock); err != nil {
+		t.Fatalf("second coordinator could not acquire released ownership: %v", err)
+	}
+	if err := second.Close(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // restartCoordinatorAfterCrash reopens the database and starts a fresh
