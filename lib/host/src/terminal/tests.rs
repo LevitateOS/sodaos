@@ -27,6 +27,35 @@ fn test_tmp(slug: &str) -> std::path::PathBuf {
     dir
 }
 
+struct HomeScratch(std::path::PathBuf);
+
+impl Drop for HomeScratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn test_home_tmp(slug: &str) -> HomeScratch {
+    let home = std::env::var_os("HOME").expect("HOME is required for this fixture");
+    let home = std::path::PathBuf::from(home);
+    for _ in 0..100 {
+        let n = TMP_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = home.join(format!(".terminal-{}-{n}-{slug}", std::process::id()));
+        match std::fs::create_dir(&dir) {
+            Ok(()) => return HomeScratch(dir),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => panic!("create home fixture {}: {e}", dir.display()),
+        }
+    }
+    panic!("could not allocate unique home fixture")
+}
+
+fn executable_fixture(path: &std::path::Path, body: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::write(path, format!("#!/bin/sh\n{body}\n")).unwrap();
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
 type RecordedCall = (Vec<u8>, String, Vec<String>);
 
 struct FakeExec {
@@ -1100,26 +1129,6 @@ fn argv_vectors() {
             "scope",
         ]
     );
-    assert_eq!(
-        tar_producer_argv("/opt/harness"),
-        vec!["--create", "--file=-", "--directory", "/opt/harness", "."]
-    );
-    assert_eq!(
-        tar_consumer_argv(CID, "/run/x"),
-        vec![
-            "--remote=false",
-            "exec",
-            "--interactive",
-            CID,
-            "/usr/bin/tar",
-            "--extract",
-            "--file=-",
-            "--directory",
-            "/run/x",
-            "--no-same-owner",
-            "--same-permissions",
-        ]
-    );
 }
 
 #[test]
@@ -1743,27 +1752,151 @@ fn stream_identity_harness_flows() {
     assert_eq!(
         svc.stream_identity_harness(CID, "/run/x", deadline())
             .unwrap_err(),
-        "codex harness stream unavailable"
+        "codex harness staging failed"
     );
-    let svc = make_service(FakeExec::new(vec![
-        ok("tar-bytes"),
-        Err("no podman".to_string()),
-    ]));
+    let svc = make_service(FakeExec::new(vec![Err("pipeline failed".to_string())]));
     assert_eq!(
         svc.stream_identity_harness(CID, "/run/x", deadline())
             .unwrap_err(),
         "codex harness staging failed"
     );
-    let svc = make_service(FakeExec::new(vec![ok("tar-bytes"), ok("")]));
+    let svc = make_service(FakeExec::new(vec![ok("")]));
     assert!(svc
         .stream_identity_harness(CID, "/run/x", deadline())
         .is_ok());
     let calls = svc.exec.calls();
-    assert_eq!(calls[0].1, "/usr/bin/tar");
-    assert_eq!(calls[0].2, tar_producer_argv("/opt/harness"));
-    assert_eq!(calls[1].1, "/usr/bin/podman");
-    assert_eq!(calls[1].2, tar_consumer_argv(CID, "/run/x"));
-    assert_eq!(calls[1].0, b"tar-bytes");
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].0, b"");
+    assert_eq!(calls[0].1, "/usr/bin/bash");
+    assert_eq!(&calls[0].2[..3], &["-o", "pipefail", "-c"]);
+    assert!(calls[0].2[3].contains("\"$1\" --create --file=- --directory \"$3\" ."));
+    assert!(calls[0].2[3].contains("\"$2\" --remote=false exec --interactive \"$4\""));
+    assert_eq!(calls[0].2[4], "soda-harness-transfer");
+    assert_eq!(
+        &calls[0].2[5..],
+        &[
+            "/usr/bin/tar",
+            "/usr/bin/podman",
+            "/opt/harness",
+            CID,
+            "/run/x"
+        ]
+    );
+}
+
+#[test]
+fn native_harness_pipeline_streams_and_propagates_both_stage_failures() {
+    let scratch = test_home_tmp("harness-pipeline");
+    let tar = scratch.0.join("tar-producer");
+    let podman = scratch.0.join("podman-consumer");
+    let received = scratch.0.join("received.tar");
+    let tar_path = tar.to_str().unwrap();
+    let podman_path = podman.to_str().unwrap();
+    let received_path = received.to_str().unwrap();
+
+    executable_fixture(&tar, "printf 'archive-bytes'");
+    executable_fixture(&podman, &format!("cat > '{received_path}'"));
+    super::native::run_harness_pipeline(
+        &crate::project::Native,
+        tar_path,
+        podman_path,
+        "/home/harness",
+        CID,
+        "/run/harness",
+        deadline(),
+    )
+    .unwrap();
+    assert_eq!(std::fs::read(&received).unwrap(), b"archive-bytes");
+
+    // The producer waits until the consumer has read its first byte. Its
+    // remaining 2 MiB must then flow through the same pipe, beyond the old
+    // bounded whole-output capture size.
+    let streaming_root = scratch.0.to_str().unwrap();
+    let first_byte = scratch.0.join("first-byte");
+    let remainder_count = scratch.0.join("remainder-count");
+    executable_fixture(
+        &tar,
+        "printf x\nwhile [ ! -e \"$4/consumer-started\" ]; do sleep 0.01; done\ndd if=/dev/zero bs=65536 count=32 2>/dev/null",
+    );
+    executable_fixture(
+        &podman,
+        "dd bs=1 count=1 of=\"$4/first-byte\" 2>/dev/null\n: > \"$4/consumer-started\"\nwc -c > \"$4/remainder-count\"",
+    );
+    super::native::run_harness_pipeline(
+        &crate::project::Native,
+        tar_path,
+        podman_path,
+        streaming_root,
+        streaming_root,
+        "/run/harness",
+        Instant::now() + Duration::from_secs(5),
+    )
+    .unwrap();
+    assert_eq!(std::fs::read(first_byte).unwrap(), b"x");
+    assert_eq!(
+        std::fs::read_to_string(remainder_count)
+            .unwrap()
+            .trim()
+            .parse::<u64>()
+            .unwrap(),
+        2 * 1024 * 1024
+    );
+
+    executable_fixture(&tar, "printf 'partial-archive'; exit 9");
+    executable_fixture(&podman, &format!("cat > '{received_path}'"));
+    assert!(super::native::run_harness_pipeline(
+        &crate::project::Native,
+        tar_path,
+        podman_path,
+        "/home/harness",
+        CID,
+        "/run/harness",
+        deadline(),
+    )
+    .is_err());
+    assert_eq!(std::fs::read(&received).unwrap(), b"partial-archive");
+
+    executable_fixture(&tar, "printf 'complete-archive'");
+    executable_fixture(&podman, "cat >/dev/null; exit 7");
+    assert!(super::native::run_harness_pipeline(
+        &crate::project::Native,
+        tar_path,
+        podman_path,
+        "/home/harness",
+        CID,
+        "/run/harness",
+        deadline(),
+    )
+    .is_err());
+
+    let beat = scratch.0.join("beat");
+    executable_fixture(
+        &tar,
+        &format!(
+            "(while :; do echo x >> '{}'; sleep 0.02; done) &\nprintf start\nsleep 10",
+            beat.display()
+        ),
+    );
+    executable_fixture(&podman, "cat >/dev/null");
+    let started = Instant::now();
+    assert!(super::native::run_harness_pipeline(
+        &crate::project::Native,
+        tar_path,
+        podman_path,
+        "/home/harness",
+        CID,
+        "/run/harness",
+        Instant::now() + Duration::from_millis(250),
+    )
+    .is_err());
+    assert!(started.elapsed() < Duration::from_secs(2));
+    let frozen = std::fs::read(&beat).unwrap_or_default().len();
+    std::thread::sleep(Duration::from_millis(150));
+    assert_eq!(
+        std::fs::read(&beat).unwrap_or_default().len(),
+        frozen,
+        "pipeline descendant survived deadline cleanup"
+    );
 }
 
 fn preparing_lease() -> Lease {
@@ -1840,8 +1973,8 @@ fn prepare_identity_flows() {
 
 #[test]
 fn identity_start_flow() {
-    // Full start sequence: inspect, stage broker call, tar producer,
-    // tar consumer, start broker call.
+    // Full start sequence: inspect, stage broker call, streamed harness,
+    // start broker call.
     let dir = test_tmp("start-harness");
     let digest = write_harness(&dir, b"codex-bytes", 0o755);
     let lease = live_lease();
@@ -1862,7 +1995,6 @@ fn identity_start_flow() {
     let exec = FakeExec::new(vec![
         ok(&inspect_json(CID, true, PID, "7", false, "private")),
         ok(&stage_out),
-        ok("tar-bytes"),
         ok(""),
         ok(&start_out),
     ]);
@@ -1872,18 +2004,24 @@ fn identity_start_flow() {
     let out = svc.identity("start", &delivery, deadline()).unwrap();
     assert_eq!(out.lease, lease);
     let calls = svc.exec.calls();
-    assert_eq!(calls.len(), 5);
+    assert_eq!(calls.len(), 4);
     assert_eq!(calls[0].1, "/usr/bin/podman");
     assert_eq!(calls[1].1, "/usr/bin/podman");
-    assert_eq!(calls[2].1, "/usr/bin/tar");
-    assert_eq!(calls[3].1, "/usr/bin/podman");
+    assert_eq!(calls[2].1, "/usr/bin/bash");
+    assert_eq!(calls[2].2[0..3], ["-o", "pipefail", "-c"]);
+    assert!(calls[2].2[3].contains("--create --file=- --directory"));
+    assert!(calls[2].2[3].contains("--no-same-owner --same-permissions"));
+    assert_eq!(calls[2].2[5], "/usr/bin/tar");
+    assert_eq!(calls[2].2[6], "/usr/bin/podman");
+    assert_eq!(calls[2].2[7], clean_path(&svc.codex_harness));
+    assert_eq!(calls[2].2[8], CID);
     assert_eq!(
-        calls[3].2,
-        tar_consumer_argv(CID, &format!("/run/soda-terminals/{TID}/model/harness"))
+        calls[2].2[9],
+        format!("/run/soda-terminals/{TID}/model/harness")
     );
     let stage_stdin = String::from_utf8(calls[1].0.clone()).unwrap();
     assert!(stage_stdin.contains(r#""action":"stage""#), "{stage_stdin}");
-    let start_stdin = String::from_utf8(calls[4].0.clone()).unwrap();
+    let start_stdin = String::from_utf8(calls[3].0.clone()).unwrap();
     assert!(start_stdin.contains(r#""action":"start""#), "{start_stdin}");
     assert!(
         start_stdin.contains(&format!(

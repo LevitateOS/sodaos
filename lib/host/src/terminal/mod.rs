@@ -16,8 +16,8 @@
 //!   exists`, `mountpoint`) parse the `exit status N` text the crate
 //!   [`Executor`](crate::project::Executor) surface produces, since the
 //!   trait is stringly typed.
-//! * `stream_identity_harness` buffers the host tar producer through the
-//!   executor instead of streaming pipe-to-pipe; error strings are unchanged.
+//! * `stream_identity_harness` streams the host tar producer directly into
+//!   the guest tar consumer under one process-group-owned executor call.
 
 pub mod factory;
 
@@ -65,7 +65,7 @@ pub use self::identity::{identity_result, terminal_lease, IdentityRequest};
 
 mod transfer;
 
-pub use self::transfer::{tar_consumer_argv, tar_producer_argv};
+pub(crate) use self::transfer::harness_pipeline_argv;
 
 mod native;
 

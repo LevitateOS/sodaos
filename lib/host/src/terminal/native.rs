@@ -13,9 +13,34 @@ use crate::project::Executor;
 use crate::sha256;
 
 use super::{
-    agent_argv, now_unix, tar_consumer_argv, tar_producer_argv, Service, TerminalFrame,
-    TerminalRequest, FRAME_LIMIT,
+    agent_argv, harness_pipeline_argv, now_unix, Service, TerminalFrame, TerminalRequest,
+    FRAME_LIMIT,
 };
+
+const HARNESS_TRANSFER_STDOUT_LIMIT: usize = 64 * 1024;
+const HARNESS_TRANSFER_STDERR_LIMIT: usize = 1024 * 1024;
+
+pub(super) fn run_harness_pipeline(
+    exec: &dyn Executor,
+    tar: &str,
+    podman: &str,
+    harness: &str,
+    container: &str,
+    path: &str,
+    deadline: Instant,
+) -> Result<(), String> {
+    let args = harness_pipeline_argv(tar, podman, harness, container, path);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    exec.run_bounded(
+        &[],
+        "/usr/bin/bash",
+        &refs,
+        deadline,
+        HARNESS_TRANSFER_STDOUT_LIMIT,
+        HARNESS_TRANSFER_STDERR_LIMIT,
+    )
+    .map(|_| ())
+}
 
 /// Render path components with Rust, preserving parent components so callers
 /// can reject them instead of silently resolving them.
@@ -47,27 +72,24 @@ pub fn is_clean_absolute_path(path: &str) -> bool {
 
 impl<E: Executor> Service<E> {
     /// `Service.streamIdentityHarness`: stage the verified harness bytes
-    /// into the guest tmpfs. The Go implementation streams producer to
-    /// consumer over a pipe; this port buffers the producer output through
-    /// the executor (error strings unchanged).
+    /// into the guest tmpfs. The producer and consumer share one owned
+    /// process group and the caller's absolute deadline.
     pub fn stream_identity_harness(
         &self,
         container: &str,
         path: &str,
         deadline: Instant,
     ) -> Result<(), String> {
-        let producer = tar_producer_argv(&self.codex_harness);
-        let refs: Vec<&str> = producer.iter().map(|s| s.as_str()).collect();
-        let stream = match self.exec.run(&[], "/usr/bin/tar", &refs, deadline) {
-            Ok(stream) => stream,
-            Err(_) => return Err("codex harness stream unavailable".to_string()),
-        };
-        let consumer = tar_consumer_argv(container, path);
-        let refs: Vec<&str> = consumer.iter().map(|s| s.as_str()).collect();
-        match self.exec.run(&stream, "/usr/bin/podman", &refs, deadline) {
-            Ok(_) => Ok(()),
-            Err(_) => Err("codex harness staging failed".to_string()),
-        }
+        run_harness_pipeline(
+            &self.exec,
+            "/usr/bin/tar",
+            "/usr/bin/podman",
+            &self.codex_harness,
+            container,
+            path,
+            deadline,
+        )
+        .map_err(|_| "codex harness staging failed".to_string())
     }
 }
 
