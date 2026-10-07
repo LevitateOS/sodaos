@@ -80,6 +80,17 @@ fn gzip_bounds_match_go() {
     std::io::Write::write_all(&mut encoder, b"payload").unwrap();
     let compressed = encoder.finish().unwrap();
     assert_eq!(gunzip_bounded(&compressed).unwrap(), b"payload");
+    let mut second = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    std::io::Write::write_all(&mut second, b" second").unwrap();
+    let mut concatenated = compressed.clone();
+    concatenated.extend(second.finish().unwrap());
+    assert_eq!(gunzip_bounded(&concatenated).unwrap(), b"payload second");
+    let mut trailing = compressed.clone();
+    trailing.push(0);
+    assert!(gunzip_bounded(&trailing).is_err());
+    let mut bad_trailer = compressed.clone();
+    *bad_trailer.last_mut().unwrap() ^= 1;
+    assert!(gunzip_bounded(&bad_trailer).is_err());
     assert_eq!(
         gunzip_bounded(b"not gzip").unwrap_err().to_string(),
         "invalid compressed inline data"

@@ -8,6 +8,7 @@ use crate::error::Error;
 
 /// Inline gzip bound: 1 MiB of decoded bytes.
 pub(super) const INLINE_GZIP_LIMIT: u64 = 1 << 20;
+const INLINE_GZIP_COMPRESSED_LIMIT: usize = 2 << 20;
 
 /// Standard-alphabet Go `StdEncoding` decode: canonical padding with unused
 /// trailing bits ignored.
@@ -76,10 +77,13 @@ pub fn decode_data_uri(source: &str) -> Result<Vec<u8>, Error> {
 
 /// Bounded gzip decode with the Go owner's error taxonomy.
 pub fn gunzip_bounded(data: &[u8]) -> Result<Vec<u8>, Error> {
+    if data.len() > INLINE_GZIP_COMPRESSED_LIMIT {
+        return Err(Error::msg("invalid or oversized compressed inline data"));
+    }
     if data.len() < 2 || data[0] != 0x1f || data[1] != 0x8b {
         return Err(Error::msg("invalid compressed inline data"));
     }
-    let mut decoder = flate2::read::GzDecoder::new(data);
+    let mut decoder = flate2::read::MultiGzDecoder::new(data);
     let mut decoded = Vec::new();
     let mut bounded = std::io::Read::take(&mut decoder, INLINE_GZIP_LIMIT + 1);
     match std::io::Read::read_to_end(&mut bounded, &mut decoded) {
@@ -91,6 +95,9 @@ pub fn gunzip_bounded(data: &[u8]) -> Result<Vec<u8>, Error> {
 /// Decode one file's inline bytes: plain or bounded gzip. Mirrors
 /// `inlineData`, including raw error passthrough.
 pub fn inline_data(source: &str, compression: &str) -> Result<Vec<u8>, Error> {
+    if compression == "gzip" && source.len() > INLINE_GZIP_COMPRESSED_LIMIT * 3 + 64 {
+        return Err(Error::msg("invalid or oversized compressed inline data"));
+    }
     let data = decode_data_uri(source)?;
     if compression.is_empty() {
         return Ok(data);

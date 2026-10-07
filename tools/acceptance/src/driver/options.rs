@@ -1,183 +1,21 @@
-use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::error::Error;
 use crate::report;
+use clap::{Arg, ArgAction, Command};
 
-/// Parse a Go `time.ParseDuration` string into nanoseconds.
-pub(super) fn parse_duration(text: &str) -> Result<i128, ()> {
-    if text.is_empty() || text == "+" || text == "-" {
+/// Parse the admitted positive humantime grammar into a bounded duration.
+pub(super) fn parse_duration(text: &str) -> Result<Duration, ()> {
+    if text.starts_with('-') || text.is_empty() || text == "+" {
         return Err(());
     }
-    if text == "0" {
-        return Ok(0);
-    }
-    let (negative, mut rest) = match text.strip_prefix('-') {
-        Some(rest) => (true, rest),
-        None => (false, text.strip_prefix('+').unwrap_or(text)),
-    };
-    if rest.is_empty() {
+    let unsigned = text.strip_prefix('+').unwrap_or(text);
+    let normalized = unsigned.replace('μ', "µ");
+    let duration = humantime::parse_duration(&normalized).map_err(|_| ())?;
+    if duration.is_zero() {
         return Err(());
     }
-    let mut total: i128 = 0;
-    while !rest.is_empty() {
-        let mut value: i128 = 0;
-        while let Some(head) = rest.chars().next() {
-            if !head.is_ascii_digit() {
-                break;
-            }
-            value = value * 10 + (head as i128 - '0' as i128);
-            rest = &rest[head.len_utf8()..];
-        }
-        if value > i64::MAX as i128 {
-            return Err(());
-        }
-        let mut fraction: i128 = 0;
-        let mut scale: i128 = 1;
-        if let Some(after_dot) = rest.strip_prefix('.') {
-            rest = after_dot;
-            while let Some(head) = rest.chars().next() {
-                if !head.is_ascii_digit() {
-                    break;
-                }
-                fraction = fraction * 10 + (head as i128 - '0' as i128);
-                scale *= 10;
-                rest = &rest[head.len_utf8()..];
-            }
-        }
-        let (multiplier, after_unit) = consume_unit(rest)?;
-        rest = after_unit;
-        total += value * multiplier + fraction * multiplier / scale;
-    }
-    if total > i64::MAX as i128 {
-        return Err(());
-    }
-    Ok(if negative { -total } else { total })
-}
-
-/// Consume one duration unit suffix, longest match first.
-fn consume_unit(text: &str) -> Result<(i128, &str), ()> {
-    for unit in ["ns", "us", "µs", "μs", "ms"] {
-        if let Some(rest) = text.strip_prefix(unit) {
-            let multiplier = match unit {
-                "ns" => 1,
-                "us" | "µs" | "μs" => 1_000,
-                _ => 1_000_000,
-            };
-            return Ok((multiplier, rest));
-        }
-    }
-    if let Some(head) = text.chars().next() {
-        let multiplier = match head {
-            's' => 1_000_000_000,
-            'm' => 60_000_000_000,
-            'h' => 3_600_000_000_000,
-            _ => return Err(()),
-        };
-        return Ok((multiplier, &text[head.len_utf8()..]));
-    }
-    Err(())
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum FlagKind {
-    Str,
-    Bool,
-    Duration,
-    Repeat,
-}
-
-pub(super) struct ParsedFlags {
-    strings: HashMap<String, String>,
-    pub(super) bools: HashMap<String, bool>,
-    durations: HashMap<String, i128>,
-    pub(super) repeats: HashMap<String, Vec<String>>,
-    pub(super) positionals: Vec<String>,
-}
-
-/// Parse one Go `flag.FlagSet` (ContinueOnError, discarded output):
-/// single/double dashes, `-flag value` or `-flag=value`, bools taking
-/// no separate value, parsing stops at the first positional or `--`.
-pub(super) fn parse_flags(args: &[String], specs: &[(&str, FlagKind)]) -> Result<ParsedFlags, ()> {
-    let kinds: HashMap<&str, FlagKind> = specs.iter().copied().collect();
-    let mut parsed = ParsedFlags {
-        strings: HashMap::new(),
-        bools: HashMap::new(),
-        durations: HashMap::new(),
-        repeats: HashMap::new(),
-        positionals: Vec::new(),
-    };
-    let mut index = 0;
-    while index < args.len() {
-        let arg = &args[index];
-        if arg.len() < 2 || !arg.starts_with('-') || arg == "-" {
-            break;
-        }
-        if arg == "--" {
-            index += 1;
-            break;
-        }
-        let flag = if let Some(stripped) = arg.strip_prefix("--") {
-            stripped
-        } else {
-            &arg[1..]
-        };
-        let (name, inline) = match flag.split_once('=') {
-            Some((name, value)) => (name, Some(value)),
-            None => (flag, None),
-        };
-        let kind = kinds.get(name).copied().ok_or(())?;
-        if kind == FlagKind::Bool {
-            let value = match inline {
-                Some(text) => parse_bool(text)?,
-                None => true,
-            };
-            parsed.bools.insert(name.to_string(), value);
-            index += 1;
-            continue;
-        }
-        let value = match inline {
-            Some(text) => {
-                index += 1;
-                text.to_string()
-            }
-            None => {
-                index += 1;
-                args.get(index).cloned().ok_or(())?;
-                index += 1;
-                args[index - 1].clone()
-            }
-        };
-        match kind {
-            FlagKind::Str => {
-                parsed.strings.insert(name.to_string(), value);
-            }
-            FlagKind::Duration => {
-                parsed
-                    .durations
-                    .insert(name.to_string(), parse_duration(&value)?);
-            }
-            FlagKind::Repeat => {
-                parsed
-                    .repeats
-                    .entry(name.to_string())
-                    .or_default()
-                    .push(value);
-            }
-            FlagKind::Bool => unreachable!(),
-        }
-    }
-    parsed.positionals = args[index..].to_vec();
-    Ok(parsed)
-}
-
-/// Go `strconv.ParseBool` vocabulary.
-fn parse_bool(text: &str) -> Result<bool, ()> {
-    match text {
-        "1" | "t" | "T" | "TRUE" | "true" | "True" => Ok(true),
-        "0" | "f" | "F" | "FALSE" | "false" | "False" => Ok(false),
-        _ => Err(()),
-    }
+    Ok(duration)
 }
 
 pub(super) struct RunOptions {
@@ -264,12 +102,70 @@ fn validate_action_options(opts: &RunOptions) -> Result<(), Error> {
     Ok(())
 }
 
-pub(super) fn flag_string(parsed: &ParsedFlags, name: &str) -> String {
-    parsed.strings.get(name).cloned().unwrap_or_default()
+fn value(name: &'static str) -> Arg {
+    Arg::new(name)
+        .long(name)
+        .action(ArgAction::Set)
+        .num_args(1)
+        .allow_hyphen_values(true)
+}
+
+fn boolean(name: &'static str) -> Arg {
+    Arg::new(name)
+        .long(name)
+        .action(ArgAction::Set)
+        .num_args(0..=1)
+        .require_equals(true)
+        .default_missing_value("true")
+        .value_parser([
+            "true", "false", "1", "0", "t", "T", "TRUE", "True", "f", "F", "FALSE", "False",
+        ])
+}
+
+fn run_command(action: &str) -> Command {
+    let command = Command::new("soda-acceptance")
+        .args_override_self(true)
+        .arg(
+            Arg::new("action")
+                .required(true)
+                .value_parser(["exec", "native", "vm", "probe-ssh"]),
+        )
+        .arg(value("owner"))
+        .arg(value("revision"))
+        .arg(value("arch"))
+        .arg(value("target"))
+        .arg(value("evidence"))
+        .arg(value("remote"))
+        .arg(value("request"))
+        .arg(value("config"))
+        .arg(boolean("hold"))
+        .arg(boolean("restart"))
+        .arg(value("timeout"))
+        .arg(
+            Arg::new("secret-file")
+                .long("secret-file")
+                .action(ArgAction::Append)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("artifact-file")
+                .long("artifact-file")
+                .action(ArgAction::Append)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        );
+    if action == "exec" {
+        command
+            .trailing_var_arg(true)
+            .arg(Arg::new("cmd").num_args(1..))
+    } else {
+        command
+    }
 }
 
 pub(super) fn parse_run_options(args: &[String]) -> Result<RunOptions, Error> {
-    let action = args[0].clone();
+    let action = args.first().cloned().ok_or_else(|| Error::msg("support action required"))?;
     match action.as_str() {
         "exec" | "native" | "vm" | "probe-ssh" => {}
         _ => {
@@ -278,58 +174,50 @@ pub(super) fn parse_run_options(args: &[String]) -> Result<RunOptions, Error> {
             ))
         }
     }
-    let parsed = parse_flags(
-        &args[1..],
-        &[
-            ("owner", FlagKind::Str),
-            ("revision", FlagKind::Str),
-            ("arch", FlagKind::Str),
-            ("target", FlagKind::Str),
-            ("evidence", FlagKind::Str),
-            ("remote", FlagKind::Str),
-            ("request", FlagKind::Str),
-            ("config", FlagKind::Str),
-            ("hold", FlagKind::Bool),
-            ("restart", FlagKind::Bool),
-            ("timeout", FlagKind::Duration),
-            ("secret-file", FlagKind::Repeat),
-            ("artifact-file", FlagKind::Repeat),
-        ],
-    )
-    .map_err(|_| Error::msg("invalid support command flags"))?;
-    let timeout_nanos = parsed
-        .durations
-        .get("timeout")
-        .copied()
-        .unwrap_or(30 * 60 * 1_000_000_000);
+    let matches = run_command(&action)
+        .try_get_matches_from(
+            std::iter::once("soda-acceptance").chain(args.iter().map(String::as_str)),
+        )
+        .map_err(|_| Error::msg("invalid support command flags"))?;
+    let get = |name: &str| matches.get_one::<String>(name).cloned().unwrap_or_default();
+    let timeout = matches
+        .get_one::<String>("timeout")
+        .map(|s| parse_duration(s).map_err(|_| Error::msg("invalid support command flags")))
+        .transpose()?
+        .unwrap_or(Duration::from_secs(30 * 60));
+    let cmd_args = if action == "exec" {
+        matches.get_many::<String>("cmd")
+            .map(|values| values.cloned().collect())
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
     let opts = RunOptions {
         action,
-        owner: flag_string(&parsed, "owner"),
-        revision: flag_string(&parsed, "revision"),
-        arch: flag_string(&parsed, "arch"),
-        target: flag_string(&parsed, "target"),
-        evidence: flag_string(&parsed, "evidence"),
-        remote_file: flag_string(&parsed, "remote"),
-        request: flag_string(&parsed, "request"),
-        config: flag_string(&parsed, "config"),
-        hold: parsed.bools.get("hold").copied().unwrap_or(false),
-        restart: parsed.bools.get("restart").copied().unwrap_or(false),
-        timeout: if timeout_nanos <= 0 {
-            Duration::ZERO
-        } else {
-            Duration::from_nanos(timeout_nanos as u64)
-        },
-        secret_files: parsed
-            .repeats
-            .get("secret-file")
-            .cloned()
+        owner: get("owner"),
+        revision: get("revision"),
+        arch: get("arch"),
+        target: get("target"),
+        evidence: get("evidence"),
+        remote_file: get("remote"),
+        request: get("request"),
+        config: get("config"),
+        hold: matches
+            .get_one::<String>("hold")
+            .is_some_and(|v| matches!(v.as_str(), "true" | "1" | "t" | "T" | "TRUE" | "True")),
+        restart: matches
+            .get_one::<String>("restart")
+            .is_some_and(|v| matches!(v.as_str(), "true" | "1" | "t" | "T" | "TRUE" | "True")),
+        timeout,
+        secret_files: matches
+            .get_many::<String>("secret-file")
+            .map(|v| v.cloned().collect())
             .unwrap_or_default(),
-        artifact_files: parsed
-            .repeats
-            .get("artifact-file")
-            .cloned()
+        artifact_files: matches
+            .get_many::<String>("artifact-file")
+            .map(|v| v.cloned().collect())
             .unwrap_or_default(),
-        cmd_args: parsed.positionals,
+        cmd_args,
     };
     validate_common_options(&opts)?;
     validate_action_options(&opts)?;

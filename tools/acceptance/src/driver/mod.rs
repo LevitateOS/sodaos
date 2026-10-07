@@ -1,10 +1,9 @@
 //! Outside support driver, mirroring `tools/soda-acceptance/main.go`.
 //!
 //! Invokes existing owned checks; no product scenarios. Actions:
-//! `exec`, `native`, `vm`, `probe-ssh`, and `report`. Flag parsing
-//! mirrors Go's `flag` package (single/double dashes, `=` or separate
-//! values, bools without consumption), and durations parse like Go's
-//! `time.ParseDuration`. Cancellation arrives through [`Phase`]:
+//! `exec`, `native`, `vm`, `probe-ssh`, and `report`. Clap owns the
+//! command syntax; timeouts use the positive, bounded humantime grammar.
+//! Cancellation arrives through [`Phase`]:
 //! the binary forwards SIGINT/SIGTERM into it, like Go's
 //! `signal.NotifyContext`.
 
@@ -25,11 +24,12 @@ mod inputs;
 mod options;
 
 use actions::execute_action;
+use clap::{Arg, ArgAction, Command};
 use finalization::finalize_observation;
 use inputs::collect_all_secrets;
 #[cfg(test)]
 use options::parse_duration;
-use options::{flag_string, parse_flags, parse_run_options, FlagKind, RunOptions};
+use options::{parse_run_options, RunOptions};
 
 /// SIGINT/SIGTERM cancel this phase, like `signal.NotifyContext`.
 static SIGNAL_PHASE: OnceLock<Phase> = OnceLock::new();
@@ -134,29 +134,48 @@ pub fn run(root: &Phase, args: &[String]) -> Result<(), Error> {
 }
 
 fn report(args: &[String]) -> Result<(), Error> {
-    let parsed = parse_flags(
-        args,
-        &[
-            ("arch", FlagKind::Str),
-            ("revision", FlagKind::Str),
-            ("out", FlagKind::Str),
-            ("record", FlagKind::Repeat),
-        ],
-    )
-    .map_err(|_| Error::msg("invalid report flags"))?;
-    if !parsed.positionals.is_empty() {
-        return Err(Error::msg("invalid report flags"));
-    }
+    let command = Command::new("soda-acceptance report")
+        .args_override_self(true)
+        .arg(
+            Arg::new("arch")
+                .long("arch")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("revision")
+                .long("revision")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("out")
+                .long("out")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("record")
+                .long("record")
+                .action(ArgAction::Append)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        );
+    let matches = command
+        .try_get_matches_from(std::iter::once("report").chain(args.iter().map(String::as_str)))
+        .map_err(|_| Error::msg("invalid report flags"))?;
+    let get = |name: &str| matches.get_one::<String>(name).cloned().unwrap_or_default();
     report::handoff(
-        &flag_string(&parsed, "out"),
-        &flag_string(&parsed, "arch"),
-        &flag_string(&parsed, "revision"),
-        parsed
-            .repeats
-            .get("record")
-            .cloned()
-            .unwrap_or_default()
-            .as_slice(),
+        &get("out"),
+        &get("arch"),
+        &get("revision"),
+        &matches
+            .get_many::<String>("record")
+            .map(|v| v.cloned().collect::<Vec<_>>())
+            .unwrap_or_default(),
     )
 }
 
