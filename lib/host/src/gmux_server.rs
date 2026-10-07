@@ -190,14 +190,25 @@ async fn handle_connection<B: ExecBackend + 'static>(
                 Ok(body) => body,
                 Err(_) => (Vec::new(), false),
             };
+            if shutdown.load(Ordering::Acquire) {
+                return Ok(error_response(503, "service shutting down"));
+            }
             let permit = match backend_permits.try_acquire_owned() {
                 Ok(permit) => permit,
                 Err(_) => return Ok(error_response(503, "service busy")),
             };
             let route_backend = Arc::clone(&backend);
+            let route_shutdown = Arc::clone(&shutdown);
             let (send_outcome, receive_outcome) = tokio::sync::oneshot::channel();
             let job = tokio::task::spawn_blocking(move || {
                 let _permit = permit;
+                if route_shutdown.load(Ordering::Acquire) {
+                    let _ = send_outcome.send(RouteOutcome::Respond(error_response(
+                        503,
+                        "service shutting down",
+                    )));
+                    return;
+                }
                 let outcome = dispatch(
                     route_backend.as_ref(),
                     &config,

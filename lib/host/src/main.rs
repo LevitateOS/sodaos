@@ -20,7 +20,7 @@ use soda_host::{iconfig, muse_serve, project, tailnet_domain};
 const DEFAULT_CONFIG: &str = "/etc/soda/host.json";
 const RELEASE_CONFIG: &str = "/usr/share/soda/release.json";
 const FACTORY_STATE_DIR: &str = "/var/lib/soda/host/factory";
-const MUSE_JOIN_TIMEOUT: Duration = Duration::from_secs(35);
+const MUSE_JOIN_TIMEOUT: Duration = Duration::from_secs(65);
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -262,7 +262,7 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
 
     install_signal_handlers();
 
-    // Muse serve thread joins the 35s retirement window on shutdown.
+    // Muse serve thread joins the bounded retirement window on shutdown.
     let muse_shutdown = Arc::new(AtomicBool::new(false));
     let muse_handle = muse_listener.map(|listener| {
         let launch = Arc::new(soda_host::muse::MuseLaunch::new(
@@ -299,9 +299,10 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
         std::thread::sleep(Duration::from_millis(50));
     }
 
-    // Shutdown order mirrors Go: retire launch executions, then stop
-    // accepting and join mux-owned work, then report muse failures first.
+    // Stop HTTP admission and cancel mux-owned request work as soon as the
+    // signal arrives, before waiting for Muse execution retirement.
     muse_shutdown.store(true, Ordering::SeqCst);
+    server.shutdown();
     let mut launch_failure: Option<String> = None;
     if let Some(handle) = muse_handle {
         let deadline = Instant::now() + MUSE_JOIN_TIMEOUT;
@@ -324,7 +325,8 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
             std::thread::sleep(Duration::from_millis(50));
         }
     }
-    server.shutdown();
+    // `Server::serve` still joins mux tasks without a deadline; this join is
+    // also unbounded until child-task custody gets its own bounded policy.
     let _ = serve_handle.join();
 
     if let Some(e) = launch_failure {

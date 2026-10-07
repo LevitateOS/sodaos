@@ -126,7 +126,10 @@ fn dispatch_native<B: ExecBackend + ?Sized>(
     // Read-only observations overlap mutations; admitted mutations and
     // /create take the shared writer gate (ServeHTTP + dispatchCreate).
     let _guard = if is_admitted_mutation_path(&head.path) || head.path == "/create" {
-        Some(gate.acquire())
+        match gate.try_acquire() {
+            Some(guard) => Some(guard),
+            None => return error_response(503, "service busy"),
+        }
     } else {
         None
     };

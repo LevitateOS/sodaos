@@ -732,7 +732,7 @@ fn over_limit_bodies_fail_like_go_maxbytesreader() {
 }
 
 #[test]
-fn create_and_mutations_take_the_gate_reads_do_not() {
+fn create_and_mutations_reject_busy_gate_reads_do_not() {
     let backend = ScriptBackend::ok(b"{}");
     let gate = AdmissionGate::new();
     let terminal_gate = TerminalGate::new();
@@ -759,33 +759,32 @@ fn create_and_mutations_take_the_gate_reads_do_not() {
             200
         );
     });
-    // A mutation blocks while the gate is held elsewhere.
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::scope(|s| {
-        s.spawn(|| {
-            let response = dispatch(
-                &backend,
-                &config,
-                &gate,
-                &terminal_gate,
-                &head("POST", "/lifecycle"),
-                b"{}",
-                true,
-            )
-            .into_response();
-            tx.send(status_of(&response)).unwrap();
-        });
-        assert!(
-            rx.recv_timeout(std::time::Duration::from_millis(200))
-                .is_err(),
-            "mutation must block on the held gate"
-        );
-        drop(held);
-        assert_eq!(
-            rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap(),
-            200
-        );
-    });
+    // A mutation refuses immediately while another operation owns the gate.
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/lifecycle"),
+        b"{}",
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 503);
+    assert_eq!(backend.seen_bodies.lock().unwrap().len(), 1);
+    drop(held);
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/lifecycle"),
+        b"{}",
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 200);
+    assert_eq!(backend.seen_bodies.lock().unwrap().len(), 2);
 }
 
 // -- routes: identity mapping --

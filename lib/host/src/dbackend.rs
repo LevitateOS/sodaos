@@ -1444,7 +1444,8 @@ fn pump_terminal(
     let expiry = Instant::now()
         + Duration::from_secs(request.expires.saturating_sub(terminal::now_unix()).max(0) as u64);
     let session_deadline = expiry;
-    let inspect_deadline = (Instant::now() + Duration::from_secs(10)).min(session_deadline);
+    let operation_deadline = native_deadline().min(session_deadline);
+    let inspect_deadline = (Instant::now() + Duration::from_secs(10)).min(operation_deadline);
     let container = match service.project_container(&request.project, true, inspect_deadline) {
         Ok(cid) => cid,
         Err(_) => {
@@ -1452,10 +1453,13 @@ fn pump_terminal(
             return Ok(());
         }
     };
-    let end_hook =
-        |actor: i64, lease_id: &str| backend.broker.end_lease(actor, lease_id, session_deadline);
+    let end_hook = |actor: i64, lease_id: &str| {
+        backend
+            .broker
+            .end_lease(actor, lease_id, operation_deadline)
+    };
     if service
-        .managed_end(&container, &request, Some(&end_hook), session_deadline)
+        .managed_end(&container, &request, Some(&end_hook), operation_deadline)
         .is_err()
     {
         let _ = ws.send(Message::Text(
@@ -1466,6 +1470,8 @@ fn pump_terminal(
     if shutdown.load(Ordering::Acquire) {
         return Ok(());
     }
+    // NativeAttach::attach is a synchronous spawn outside the shared
+    // one-shot deadline; shutdown custody for that child remains separate.
     let attach = match terminal::NativeAttach::attach(&container, &request) {
         Ok(attach) => attach,
         Err(_) => {
