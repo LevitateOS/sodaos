@@ -2047,6 +2047,39 @@ fn provider_curl_recipe_keeps_secrets_out_of_argv() {
 }
 
 #[test]
+fn provider_capture_uses_the_protocol_stdout_ceiling() {
+    struct BoundedExec;
+    impl project::Executor for BoundedExec {
+        fn run(&self, _: &[u8], _: &str, _: &[&str], _: Instant) -> Result<Vec<u8>, String> {
+            panic!("provider must select bounded capture")
+        }
+
+        fn run_bounded(
+            &self,
+            _: &[u8],
+            _: &str,
+            _: &[&str],
+            _: Instant,
+            stdout_limit: usize,
+            stderr_limit: usize,
+        ) -> Result<Vec<u8>, String> {
+            assert_eq!(stdout_limit, native::RESPONSE_LIMIT + 4);
+            assert_eq!(stderr_limit, 1024 * 1024);
+            Ok(b"body\n200".to_vec())
+        }
+    }
+
+    let (status, body) = provider::run_curl(
+        &BoundedExec,
+        "/usr/bin/curl",
+        "url = \"https://example.invalid\"\n",
+        soon(5000),
+    )
+    .unwrap();
+    assert_eq!((status, body), (200, b"body".to_vec()));
+}
+
+#[test]
 fn provider_token_vectors() {
     let unavailable = || wire::err_unavailable();
     let token = provider::validate_token(

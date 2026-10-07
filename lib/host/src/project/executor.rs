@@ -8,6 +8,21 @@ pub trait Executor {
         args: &[&str],
         deadline: Instant,
     ) -> Result<Vec<u8>, String>;
+    /// Run with stdout and stderr capture ceilings enforced before bytes
+    /// are retained. Non-native test/custom executors may keep their
+    /// existing behavior; the privileged Native implementations enforce
+    /// both limits in their pipe readers.
+    fn run_bounded(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        _stdout_limit: usize,
+        _stderr_limit: usize,
+    ) -> Result<Vec<u8>, String> {
+        self.run(stdin, cmd, args, deadline)
+    }
     /// Run with a bounded post-exit capture grace (Go WaitDelay analog):
     /// after the leader exits, capture must settle within `grace`
     /// (clamped to `deadline`) or the run fails. Default: full-deadline
@@ -22,11 +37,19 @@ pub trait Executor {
     ) -> Result<Vec<u8>, String> {
         self.run(stdin, cmd, args, deadline)
     }
+
     /// Mirrors Go's `HostNative()` marker assertion: the privileged host
     /// executor whose native protocols must never leak stderr text.
     fn is_host_native(&self) -> bool {
         false
     }
+}
+
+#[derive(Clone, Copy, Default)]
+struct CapturePolicy {
+    grace: Option<Duration>,
+    stdout_limit: Option<usize>,
+    stderr_limit: Option<usize>,
 }
 
 impl<E: Executor> Executor for &E {
@@ -38,6 +61,18 @@ impl<E: Executor> Executor for &E {
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
         (*self).run(stdin, cmd, args, deadline)
+    }
+
+    fn run_bounded(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        stdout_limit: usize,
+        stderr_limit: usize,
+    ) -> Result<Vec<u8>, String> {
+        (*self).run_bounded(stdin, cmd, args, deadline, stdout_limit, stderr_limit)
     }
 
     fn run_with_capture_grace(
@@ -69,7 +104,30 @@ impl Executor for Native {
         args: &[&str],
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
-        execute(stdin, cmd, args, deadline, false, None)
+        execute(stdin, cmd, args, deadline, false, CapturePolicy::default())
+    }
+
+    fn run_bounded(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        stdout_limit: usize,
+        stderr_limit: usize,
+    ) -> Result<Vec<u8>, String> {
+        execute(
+            stdin,
+            cmd,
+            args,
+            deadline,
+            false,
+            CapturePolicy {
+                stdout_limit: Some(stdout_limit),
+                stderr_limit: Some(stderr_limit),
+                ..CapturePolicy::default()
+            },
+        )
     }
 
     fn run_with_capture_grace(
@@ -80,7 +138,17 @@ impl Executor for Native {
         deadline: Instant,
         grace: Duration,
     ) -> Result<Vec<u8>, String> {
-        execute(stdin, cmd, args, deadline, false, Some(grace))
+        execute(
+            stdin,
+            cmd,
+            args,
+            deadline,
+            false,
+            CapturePolicy {
+                grace: Some(grace),
+                ..CapturePolicy::default()
+            },
+        )
     }
 
     fn is_host_native(&self) -> bool {
@@ -103,7 +171,30 @@ impl Executor for NativeStatusOnly {
         args: &[&str],
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
-        execute(stdin, cmd, args, deadline, true, None)
+        execute(stdin, cmd, args, deadline, true, CapturePolicy::default())
+    }
+
+    fn run_bounded(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        stdout_limit: usize,
+        stderr_limit: usize,
+    ) -> Result<Vec<u8>, String> {
+        execute(
+            stdin,
+            cmd,
+            args,
+            deadline,
+            true,
+            CapturePolicy {
+                stdout_limit: Some(stdout_limit),
+                stderr_limit: Some(stderr_limit),
+                ..CapturePolicy::default()
+            },
+        )
     }
 
     fn run_with_capture_grace(
@@ -114,7 +205,17 @@ impl Executor for NativeStatusOnly {
         deadline: Instant,
         grace: Duration,
     ) -> Result<Vec<u8>, String> {
-        execute(stdin, cmd, args, deadline, true, Some(grace))
+        execute(
+            stdin,
+            cmd,
+            args,
+            deadline,
+            true,
+            CapturePolicy {
+                grace: Some(grace),
+                ..CapturePolicy::default()
+            },
+        )
     }
 
     fn is_host_native(&self) -> bool {
@@ -128,17 +229,9 @@ fn execute(
     args: &[&str],
     deadline: Instant,
     status_only: bool,
-    capture_grace: Option<Duration>,
+    capture: CapturePolicy,
 ) -> Result<Vec<u8>, String> {
-    execute_with_waiter(
-        stdin,
-        cmd,
-        args,
-        deadline,
-        status_only,
-        capture_grace,
-        wait_exit,
-    )
+    execute_with_waiter(stdin, cmd, args, deadline, status_only, capture, wait_exit)
 }
 
 /// Shared runner with an injectable exit probe. Exclusive-waiter design:
@@ -152,7 +245,7 @@ fn execute_with_waiter(
     args: &[&str],
     deadline: Instant,
     status_only: bool,
-    capture_grace: Option<Duration>,
+    policy: CapturePolicy,
     waiter: impl Fn(libc::pid_t) -> Result<bool, std::io::Error>,
 ) -> Result<Vec<u8>, String> {
     use std::os::unix::io::AsRawFd;
@@ -204,8 +297,9 @@ fn execute_with_waiter(
     // Post-exit capture bound, shared with the transfers. Unselected
     // callers keep the full caller deadline; selected callers tighten it
     // to the capture grace once exit is observed.
-    let capture = std::sync::Mutex::new(deadline);
-    let cap = capture_grace.map(|_| &capture);
+    let capture_deadline = std::sync::Mutex::new(deadline);
+    let cap = Some(&capture_deadline);
+    let exceeded = std::sync::atomic::AtomicBool::new(false);
     let outcome = std::thread::scope(|scope| {
         // Stdin/stdout/stderr transfer concurrently: a child emitting
         // beyond pipe capacity would otherwise block forever while the
@@ -217,21 +311,35 @@ fn execute_with_waiter(
             None => Transfer::Done(()),
         });
         let out_drain = scope.spawn(|| match out_pipe.take() {
-            Some(o) => drain_pipe(o, deadline, cap),
+            Some(o) => drain_pipe(o, deadline, cap, policy.stdout_limit, &exceeded),
             None => Transfer::Done(Vec::new()),
         });
         let err_drain = scope.spawn(|| match err_pipe.take() {
-            Some(e) => drain_pipe(e, deadline, cap),
+            Some(e) => drain_pipe(e, deadline, cap, policy.stderr_limit, &exceeded),
             None => Transfer::Done(Vec::new()),
         });
         loop {
+            if exceeded.load(std::sync::atomic::Ordering::Acquire) {
+                if let Ok(mut bound) = capture_deadline.lock() {
+                    *bound = (*bound).min(Instant::now() + CLEANUP_GRACE);
+                }
+                let cleaned = cleanup_child(&mut child);
+                let _ = writer.join();
+                let _ = out_drain.join();
+                let _ = err_drain.join();
+                return Err(capture_limit_error(
+                    cmd,
+                    status_only,
+                    matches!(cleaned, Cleanup::Clean(_)),
+                ));
+            }
             match waiter(pid) {
                 // Exited but UN-REAPED: the zombie pins the PID/PGID
                 // against reuse until capture and group retirement
                 // settle below; the single reap follows the joins.
                 Ok(true) => {
-                    if let Some(grace) = capture_grace {
-                        if let Ok(mut bound) = capture.lock() {
+                    if let Some(grace) = policy.grace {
+                        if let Ok(mut bound) = capture_deadline.lock() {
                             *bound = deadline.min(Instant::now() + grace);
                         }
                     }
@@ -300,6 +408,15 @@ fn execute_with_waiter(
         let stderr = err_drain
             .join()
             .map_err(|_| completion_text(cmd, status_only))?;
+        if exceeded.load(std::sync::atomic::Ordering::Acquire) {
+            let retired = retire_group(pid);
+            let reaped = child.wait().map_err(|e| wait_text(cmd, status_only, &e))?;
+            let _ = reaped;
+            if !retired {
+                return Err(capture_limit_error(cmd, status_only, false));
+            }
+            return Err(capture_limit_error(cmd, status_only, true));
+        }
         // No successful truncated output: any transfer that missed the
         // deadline fails the run even when the exit status is zero, like
         // Go's WaitDelay expiry (ErrWaitDelay instead of nil).
@@ -348,6 +465,19 @@ fn refusal_text(cmd: &str, status_only: bool) -> String {
 /// descendants held the pipes open.
 fn completion_text(cmd: &str, status_only: bool) -> String {
     refusal_text(cmd, status_only)
+}
+
+fn capture_limit_error(cmd: &str, status_only: bool, cleanup_confirmed: bool) -> String {
+    let reason = if cleanup_confirmed {
+        "output capture limit exceeded"
+    } else {
+        "output capture limit exceeded; child cleanup unconfirmed"
+    };
+    if status_only {
+        reason.to_string()
+    } else {
+        format!("{cmd} failed: {reason}")
+    }
 }
 
 /// Wait-failure text: reports the wait error itself, never a cleanup
@@ -551,10 +681,13 @@ fn drain_pipe(
     pipe: impl std::os::unix::io::AsRawFd,
     deadline: Instant,
     capture: Option<&std::sync::Mutex<Instant>>,
+    limit: Option<usize>,
+    exceeded: &std::sync::atomic::AtomicBool,
 ) -> Transfer<Vec<u8>> {
     let fd = pipe.as_raw_fd();
-    let mut buf = Vec::new();
     let mut chunk = [0u8; 8192];
+    let initial_capacity = limit.map(|limit| limit.min(chunk.len())).unwrap_or(0);
+    let mut buf = Vec::with_capacity(initial_capacity);
     loop {
         if !wait_ready(
             fd,
@@ -566,7 +699,21 @@ fn drain_pipe(
         }
         match unsafe { libc::read(fd, chunk.as_mut_ptr() as *mut libc::c_void, chunk.len()) } {
             0 => return Transfer::Done(buf),
-            n if n > 0 => buf.extend_from_slice(&chunk[..n as usize]),
+            n if n > 0 => {
+                let n = n as usize;
+                if let Some(limit) = limit {
+                    if buf.len().saturating_add(n) > limit {
+                        if let Some(capture) = capture {
+                            if let Ok(mut bound) = capture.lock() {
+                                *bound = (*bound).min(Instant::now() + CLEANUP_GRACE);
+                            }
+                        }
+                        exceeded.store(true, std::sync::atomic::Ordering::Release);
+                        return Transfer::Incomplete;
+                    }
+                }
+                buf.extend_from_slice(&chunk[..n]);
+            }
             _ => match std::io::Error::last_os_error().kind() {
                 std::io::ErrorKind::Interrupted => continue,
                 std::io::ErrorKind::WouldBlock => continue,
@@ -820,6 +967,25 @@ mod tests {
         fn fresh() -> Fixture {
             let id = FIXTURE_SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let dir = std::env::temp_dir().join(format!("executor-{}-{id}", std::process::id()));
+            Self::at(dir)
+        }
+
+        fn fresh_home() -> Fixture {
+            let home = std::env::var_os("HOME").expect("HOME is required for this fixture");
+            let home = std::path::PathBuf::from(home);
+            for _ in 0..100 {
+                let id = FIXTURE_SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let dir = home.join(format!(".soda-executor-{}-{id}", std::process::id()));
+                match std::fs::create_dir(&dir) {
+                    Ok(()) => return Fixture { dir },
+                    Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(e) => panic!("create home fixture {}: {e}", dir.display()),
+                }
+            }
+            panic!("could not allocate unique home fixture")
+        }
+
+        fn at(dir: std::path::PathBuf) -> Fixture {
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).unwrap();
             Fixture { dir }
@@ -842,6 +1008,70 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.dir);
         }
+    }
+
+    #[test]
+    fn bounded_capture_accepts_exact_limit_and_kills_descendant_on_overflow() {
+        let fixture = Fixture::fresh_home();
+        let exact = fixture.script("exact.sh", "printf 1234");
+        assert_eq!(
+            Native
+                .run_bounded(
+                    &[],
+                    &exact,
+                    &[],
+                    Instant::now() + Duration::from_secs(2),
+                    4,
+                    4,
+                )
+                .unwrap(),
+            b"1234"
+        );
+
+        let beat = fixture.path("beat");
+        let overflow = fixture.script(
+            "overflow.sh",
+            &format!(
+                "(while :; do echo x >> \"{beat}\"; sleep 0.02; done) &\nprintf 12345\nsleep 5"
+            ),
+        );
+        let start = Instant::now();
+        let err = Native
+            .run_bounded(
+                &[],
+                &overflow,
+                &[],
+                Instant::now() + Duration::from_secs(5),
+                4,
+                16,
+            )
+            .unwrap_err();
+        assert!(err.contains("output capture limit exceeded"), "{err}");
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "overflow did not cancel the owned process promptly: {:?}",
+            start.elapsed()
+        );
+        let frozen = std::fs::read(&beat).unwrap_or_default().len();
+        std::thread::sleep(Duration::from_millis(150));
+        assert_eq!(
+            std::fs::read(&beat).unwrap_or_default().len(),
+            frozen,
+            "descendant survived output overflow cleanup"
+        );
+
+        let stderr = fixture.script("stderr.sh", "printf 12345 >&2");
+        let err = Native
+            .run_bounded(
+                &[],
+                &stderr,
+                &[],
+                Instant::now() + Duration::from_secs(2),
+                16,
+                4,
+            )
+            .unwrap_err();
+        assert!(err.contains("output capture limit exceeded"), "{err}");
     }
 
     /// Bounded blocking reap: true on kernel-confirmed reap, false past
@@ -913,10 +1143,18 @@ mod tests {
             let _reap = ReapGuard { seen: &seen };
             let deadline = Instant::now() + Duration::from_secs(1);
             let start = Instant::now();
-            let err = execute_with_waiter(&[], &script, &[], deadline, status_only, None, |pid| {
-                seen.borrow_mut().push(pid);
-                Err(std::io::Error::from_raw_os_error(libc::ECHILD))
-            })
+            let err = execute_with_waiter(
+                &[],
+                &script,
+                &[],
+                deadline,
+                status_only,
+                CapturePolicy::default(),
+                |pid| {
+                    seen.borrow_mut().push(pid);
+                    Err(std::io::Error::from_raw_os_error(libc::ECHILD))
+                },
+            )
             .unwrap_err();
             assert_eq!(err, want);
             // Exactly one probe of exactly one fresh leader per leg:
@@ -978,9 +1216,15 @@ mod tests {
         ] {
             let deadline = Instant::now() + Duration::from_secs(1);
             let start = Instant::now();
-            let err = execute_with_waiter(&[], &script, &[], deadline, status_only, None, |_| {
-                Err(std::io::Error::from_raw_os_error(libc::EINVAL))
-            })
+            let err = execute_with_waiter(
+                &[],
+                &script,
+                &[],
+                deadline,
+                status_only,
+                CapturePolicy::default(),
+                |_| Err(std::io::Error::from_raw_os_error(libc::EINVAL)),
+            )
             .unwrap_err();
             assert_eq!(err, want);
             // Cleanup-first fails fast; abandoning would wait the deadline.

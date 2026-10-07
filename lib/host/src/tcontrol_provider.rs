@@ -22,6 +22,7 @@ pub const API_HOST: &str = "api.tailscale.com";
 pub const PROJECT_KEY_LIFETIME_SECS: i64 = 300;
 pub const KEY_DESCRIPTION: &str = "Soda ephemeral project run";
 pub const DEFAULT_CURL: &str = "/usr/bin/curl";
+const STDERR_CAPTURE_LIMIT: usize = 1024 * 1024;
 
 /// Provider call description for stubs and tests. `Debug` redacts secrets.
 pub enum ProviderRequest {
@@ -145,7 +146,7 @@ pub fn run_curl(
     deadline: Instant,
 ) -> Result<(u16, Vec<u8>), String> {
     let out = exec
-        .run(
+        .run_bounded(
             config.as_bytes(),
             curl,
             &[
@@ -156,6 +157,8 @@ pub fn run_curl(
                 "\\n%{http_code}",
             ],
             deadline,
+            crate::tcontrol_native::RESPONSE_LIMIT + 4,
+            STDERR_CAPTURE_LIMIT,
         )
         .map_err(|_| provider_failed())?;
     if out.len() > crate::tcontrol_native::RESPONSE_LIMIT + 4 {
