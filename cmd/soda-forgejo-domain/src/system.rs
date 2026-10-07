@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 pub(crate) const UNIT: &str = "forgejo.service";
 pub(crate) const CONTAINER: &str = "soda-forgejo";
@@ -6,7 +8,7 @@ pub(crate) const CONTAINER: &str = "soda-forgejo";
 // name onto the deployment's AppDataPath. This tool never invents a
 // second marker name.
 pub(crate) const MARKER_NAME: &str = "nativeop-offline";
-pub(crate) const STOP_TIMEOUT: f64 = 60.0;
+pub(crate) const STOP_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub(crate) struct Paths {
     pub(crate) env_file: PathBuf,
@@ -27,7 +29,7 @@ impl Paths {
 /// Process, identity, and time surface, injectable for tests.
 pub(crate) trait Sys {
     fn run(&mut self, argv: &[&str]) -> (i32, String);
-    fn now(&mut self) -> f64;
+    fn elapsed(&mut self) -> Duration;
     fn sleep(&mut self, secs: u64);
 }
 
@@ -51,12 +53,9 @@ impl Sys for RealSys {
         }
     }
 
-    fn now(&mut self) -> f64 {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs_f64())
-            .unwrap_or(0.0)
+    fn elapsed(&mut self) -> Duration {
+        static ORIGIN: OnceLock<Instant> = OnceLock::new();
+        ORIGIN.get_or_init(Instant::now).elapsed()
     }
 
     fn sleep(&mut self, secs: u64) {

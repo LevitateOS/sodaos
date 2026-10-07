@@ -2,6 +2,8 @@ use std::ffi::CString;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 #[link(name = "c")]
 extern "C" {
@@ -57,7 +59,7 @@ pub(crate) trait Sys {
     fn lookup_user(&self, name: &str) -> Result<(u32, u32), String>;
     fn chown(&mut self, path: &Path, uid: u32, gid: u32) -> io::Result<()>;
     fn run(&mut self, argv: &[&str]) -> io::Result<i32>;
-    fn now(&mut self) -> f64;
+    fn elapsed(&mut self) -> Duration;
     fn sleep(&mut self, secs: u64);
 }
 
@@ -99,12 +101,9 @@ impl Sys for RealSys {
         Ok(status.code().unwrap_or(1))
     }
 
-    fn now(&mut self) -> f64 {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs_f64())
-            .unwrap_or(0.0)
+    fn elapsed(&mut self) -> Duration {
+        static ORIGIN: OnceLock<Instant> = OnceLock::new();
+        ORIGIN.get_or_init(Instant::now).elapsed()
     }
 
     fn sleep(&mut self, secs: u64) {

@@ -51,8 +51,8 @@ fn cmd_stop(_paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result
     if code != 0 {
         return Err(format!("systemctl stop failed:\n{out}"));
     }
-    let deadline = sys.now() + STOP_TIMEOUT;
-    while sys.now() < deadline {
+    let deadline = sys.elapsed() + STOP_TIMEOUT;
+    while sys.elapsed() < deadline {
         if !unit_active(sys) && !container_present(sys)? {
             let _ = writeln!(
                 stdout,

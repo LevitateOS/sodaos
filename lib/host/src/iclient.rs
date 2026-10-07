@@ -69,57 +69,8 @@ fn unavailable() -> String {
     "identity broker unavailable".to_string()
 }
 
-/// `time.Time` JSON encoding for a UTC instant: RFC 3339 with trailing
-/// zero nanoseconds trimmed, exactly like Go's `RFC3339Nano` layout.
-fn format_go_time(secs: i64, nanos: u32) -> String {
-    let secs = secs + i64::from(nanos / 1_000_000_000);
-    let nanos = nanos % 1_000_000_000;
-    let days = secs.div_euclid(86400);
-    let clock = secs.rem_euclid(86400);
-    let (year, month, day) = civil_from_days(days);
-    let mut out = if (0..10000).contains(&year) {
-        format!(
-            "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}",
-            clock / 3600,
-            (clock % 3600) / 60,
-            clock % 60
-        )
-    } else {
-        format!(
-            "{year:+05}-{month:02}-{day:02}T{:02}:{:02}:{:02}",
-            clock / 3600,
-            (clock % 3600) / 60,
-            clock % 60
-        )
-    };
-    if nanos != 0 {
-        let mut frac = format!("{nanos:09}");
-        while frac.ends_with('0') {
-            frac.pop();
-        }
-        out.push('.');
-        out.push_str(&frac);
-    }
-    out.push('Z');
-    out
-}
-
-/// Days since the Unix epoch to civil date (Howard Hinnant's algorithm).
-fn civil_from_days(days: i64) -> (i64, u32, u32) {
-    let z = days + 719468;
-    let era = z.div_euclid(146097);
-    let doe = (z - era * 146097) as u32;
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    let year = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    (if month <= 2 { year + 1 } else { year }, month, day)
-}
-
 /// `identity.AcquireRequest` JSON, field order included.
-fn encode_acquire(req: &AcquireRequest) -> String {
+fn encode_acquire(req: &AcquireRequest) -> Result<String, String> {
     let mut out = String::from("{");
     let mut first = true;
     let mut field = |out: &mut String, name: &str, value: &str| {
@@ -148,16 +99,14 @@ fn encode_acquire(req: &AcquireRequest) -> String {
     field(&mut out, "connection_id", &json::quote(&req.connection_id));
     field(&mut out, "project_id", &json::quote(&req.project_id));
     field(&mut out, "kind", &json::quote(&req.kind));
-    field(
-        &mut out,
-        "deadline",
-        &json::quote(&format_go_time(req.deadline_secs, req.deadline_nanos)),
-    );
+    let deadline = soda_wire_time::format(req.deadline_secs, req.deadline_nanos)
+        .ok_or_else(|| "invalid deadline timestamp".to_string())?;
+    field(&mut out, "deadline", &json::quote(&deadline));
     if !req.role.is_empty() {
         field(&mut out, "role", &json::quote(&req.role));
     }
     out.push('}');
-    out
+    Ok(out)
 }
 
 /// `identity.Request` envelope: the five always-present fields in struct
@@ -565,7 +514,7 @@ impl BrokerClient {
 
     /// `Client.Acquire`: `POST /acquire`.
     pub fn acquire(&self, req: &AcquireRequest, deadline: Instant) -> Result<Lease, String> {
-        let nested = encode_acquire(req);
+        let nested = encode_acquire(req)?;
         let body = encode_request(0, "", "", "", "", Some(("acquire", &nested)), None);
         let raw = self.call("/acquire", &body, deadline)?;
         check_response_limit(&raw)?;

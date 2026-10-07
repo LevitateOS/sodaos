@@ -12,12 +12,19 @@ fn go_time_vectors_round_trip() {
     ] {
         let (parsed_sec, parsed_nanos) = parse_rfc3339_nano(text).unwrap();
         assert_eq!((parsed_sec, parsed_nanos), (sec, nanos), "{text}");
-        assert_eq!(format_rfc3339_nano(sec, nanos), text, "{text}");
+        assert_eq!(
+            format_rfc3339_nano(sec, nanos).as_deref(),
+            Some(text),
+            "{text}"
+        );
     }
     // Offsets normalize to the same instant Go encodes with Z.
     let (sec, nanos) = parse_rfc3339_nano("2026-10-04T20:30:05+02:00").unwrap();
     assert_eq!((sec, nanos), (1791138605, 0));
-    assert_eq!(format_rfc3339_nano(sec, nanos), "2026-10-04T18:30:05Z");
+    assert_eq!(
+        format_rfc3339_nano(sec, nanos).as_deref(),
+        Some("2026-10-04T18:30:05Z")
+    );
 }
 
 #[test]
@@ -32,6 +39,11 @@ fn timestamps_reject_malformed_input() {
         "2026-10-04T18:30:05.Z",
         "2026-10-04T18:30:05.1234567890Z",
         "2026-10-04T18:30:05+25:00",
+        "0000-01-01T00:00:00Z",
+        "2024-01-01T-1:00:00Z",
+        "2024-01-01T00:-1:00Z",
+        "2024-01-01T+1:00:00Z",
+        "2024-01-01T00:00:05+01",
         "2026-10-04 18:30:05Z",
         // H03-F6: slice endpoints inside a multi-byte character must
         // reject, never panic (seconds field, numeric offset).
@@ -45,6 +57,40 @@ fn timestamps_reject_malformed_input() {
             "serde admitted {text:?}"
         );
     }
+}
+
+#[test]
+fn unix_time_arithmetic_and_formatting_are_checked() {
+    assert!(UnixTime {
+        sec: i64::MAX,
+        nanos: 0
+    }
+    .add_hours(24)
+    .is_none());
+    assert!(UnixTime {
+        sec: i64::MIN,
+        nanos: 0
+    }
+    .add_hours(-24)
+    .is_none());
+    assert_eq!(
+        UnixTime {
+            sec: 0,
+            nanos: 1_000_000_000
+        }
+        .add_hours(0),
+        Some(UnixTime {
+            sec: 0,
+            nanos: 1_000_000_000
+        })
+    );
+    assert!(format_rfc3339_nano(i64::MAX, u32::MAX).is_none());
+    assert!(UnixTime {
+        sec: -1,
+        nanos: 500_000_000
+    }
+    .as_system_time()
+    .is_some());
 }
 
 #[test]

@@ -127,7 +127,7 @@ impl AcquireRequest {
             || self.execution_id.is_empty()
             || (self.kind != FACTORY && self.kind != TERMINAL)
             || !(self.deadline > now)
-            || self.deadline > now.add_hours(24)
+            || now.add_hours(24).is_none_or(|limit| self.deadline > limit)
         {
             return Err(Error::denied("identity authority denied"));
         }

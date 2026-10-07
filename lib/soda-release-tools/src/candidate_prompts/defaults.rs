@@ -52,31 +52,11 @@ pub fn suggest_out() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
-    let leaf = utc_stamp(now.as_secs());
+    let epoch_secs = i64::try_from(now.as_secs()).expect("current clock exceeds supported epoch");
+    let leaf = soda_wire_time::compact_utc(epoch_secs)
+        .expect("current clock timestamp outside supported RFC3339 range")
+        .to_ascii_lowercase();
     format!("{cwd}/.artifacts/releases/isolated/{leaf}")
-}
-
-fn utc_stamp(epoch_secs: u64) -> String {
-    // Civil-date conversion (Howard Hinnant's algorithm) for the
-    // `20060102t150405z` leaf; lowercase by the worker name rule.
-    let days = (epoch_secs / 86_400) as i64;
-    let secs = epoch_secs % 86_400;
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let mut year = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = (doy - (153 * mp + 2) / 5 + 1) as u64;
-    let month = (if mp < 10 { mp + 3 } else { mp - 9 }) as u64;
-    year += i64::from(mp >= 10);
-    format!(
-        "{year:04}{month:02}{day:02}t{:02}{:02}{:02}z",
-        secs / 3600,
-        secs / 60 % 60,
-        secs % 60
-    )
 }
 
 /// Translate answers into the admitted controller flags.

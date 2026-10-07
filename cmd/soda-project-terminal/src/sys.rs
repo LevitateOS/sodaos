@@ -11,16 +11,13 @@
 use std::ffi::CString;
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::process::{Command, Output, Stdio};
+use std::sync::OnceLock;
+use std::time::Instant;
 
-/// `CLOCK_MONOTONIC` reading, in seconds as `f64`.
+/// Process-local monotonic elapsed seconds, used for relative deadlines.
 pub fn monotonic() -> f64 {
-    let mut ts = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
-    let rc = unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) };
-    assert_eq!(rc, 0, "clock_gettime(CLOCK_MONOTONIC) failed");
-    ts.tv_sec as f64 + ts.tv_nsec as f64 / 1_000_000_000.0
+    static ORIGIN: OnceLock<Instant> = OnceLock::new();
+    ORIGIN.get_or_init(Instant::now).elapsed().as_secs_f64()
 }
 
 /// System wall clock as whole seconds since the Unix epoch.

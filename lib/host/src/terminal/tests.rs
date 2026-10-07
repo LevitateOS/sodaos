@@ -869,12 +869,12 @@ fn rfc3339_vectors() {
         parse_rfc3339("2026-10-04T14:00:00+02:00").unwrap(),
         (a.0, 0)
     );
-    assert_eq!(parse_rfc3339("2026-10-04T07:00:00-0500").unwrap(), (a.0, 0));
     assert_eq!(
         parse_rfc3339("2026-10-04T07:00:00-05:00").unwrap(),
         (a.0, 0)
     );
-    assert_eq!(parse_rfc3339("2026-10-04T07:00:00-05").unwrap(), (a.0, 0));
+    assert_eq!(parse_rfc3339("2026-10-04T07:00:00-0500"), None);
+    assert_eq!(parse_rfc3339("2026-10-04T07:00:00-05"), None);
     assert_eq!(parse_rfc3339("2024-02-29T00:00:00Z").unwrap().0, 1709164800);
     for bad in [
         "",

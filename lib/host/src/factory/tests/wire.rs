@@ -148,7 +148,7 @@ fn run_and_launch_validation_pins_every_error() {
 }
 
 #[test]
-fn deadline_parser_matches_go_shapes() {
+fn deadline_parser_uses_strict_shared_wire_shape() {
     assert!(parse_deadline("2030-01-02T03:04:05Z").is_some());
     assert!(parse_deadline("2030-01-02T03:04:05.123456789Z").is_some());
     assert!(parse_deadline("2030-01-02T03:04:05.1+02:00").is_some());
@@ -179,9 +179,12 @@ fn deadline_parser_matches_go_shapes() {
         "2030-01-02T03:04:05+02:60",
         "2030-01-02T03:04:05+0200",
         "2030-01-02 03:04:05Z",
+        "2030-01-02T3:04:05Z",
+        "2030-01-02T03:04:05z",
     ] {
         assert!(parse_deadline(bad).is_none(), "accepted {bad:?}");
     }
+    assert_eq!(parse_deadline("1969-12-31T23:59:59Z"), Some(-1_000_000_000));
     assert!(deadline_is_zero("0001-01-01T00:00:00Z"));
     assert!(!deadline_is_zero("0001-01-01T00:00:01Z"));
     assert!(!deadline_is_zero("garbage"));

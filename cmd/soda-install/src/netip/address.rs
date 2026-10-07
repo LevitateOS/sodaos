@@ -23,9 +23,6 @@ impl NetipError {
             text: format!("invalid IP prefix {input:?}: {detail}"),
         }
     }
-    pub fn text(&self) -> &str {
-        &self.text
-    }
 }
 impl std::fmt::Display for NetipError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

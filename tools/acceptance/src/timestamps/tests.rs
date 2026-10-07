@@ -1,20 +1,18 @@
 use super::*;
 
 #[test]
-fn civil_dates_cover_edges() {
-    assert_eq!(format_unix_nano(0, 0), "1970-01-01T00:00:00Z");
-    assert_eq!(format_unix_nano(0, 120_000_000), "1970-01-01T00:00:00.12Z");
-    assert_eq!(format_unix_nano(1_704_067_200, 0), "2024-01-01T00:00:00Z");
+fn current_timestamp_uses_canonical_shared_format() {
+    let text = now_rfc3339_nano();
+    assert!(validate_rfc3339(&text).is_ok());
+    let (seconds, nanos) = soda_wire_time::parse(&text).unwrap();
     assert_eq!(
-        format_unix_nano(1_893_456_000, 1),
-        "2030-01-01T00:00:00.000000001Z"
+        soda_wire_time::format(seconds, nanos).as_deref(),
+        Some(text.as_str())
     );
-    assert_eq!(format_unix_nano(-1, 0), "1969-12-31T23:59:59Z");
-    assert!(validate_rfc3339(&now_rfc3339_nano()).is_ok());
 }
 
 #[test]
-fn timestamps_validate_strictly() {
+fn timestamp_validation_uses_strict_wire_profile() {
     for good in [
         "2026-10-04T18:05:00Z",
         "2026-10-04T18:05:00.123456789Z",
@@ -32,6 +30,7 @@ fn timestamps_validate_strictly() {
         "2026-10-04T00:00:00.",
         "2026-10-04T00:00:00.1234567890Z",
         "2026-10-04T00:00:61Z",
+        "0000-01-01T00:00:00Z",
         "not-a-time",
     ] {
         assert!(validate_rfc3339(bad).is_err(), "{bad}");

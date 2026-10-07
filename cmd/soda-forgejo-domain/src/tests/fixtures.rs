@@ -55,11 +55,11 @@ impl Sys for FakeSys {
         (0, String::new())
     }
 
-    fn now(&mut self) -> f64 {
+    fn elapsed(&mut self) -> std::time::Duration {
         if self.now_values.len() > 1 {
-            self.now_values.remove(0)
+            std::time::Duration::from_secs_f64(self.now_values.remove(0))
         } else {
-            self.now_values[0]
+            std::time::Duration::from_secs_f64(self.now_values[0])
         }
     }
 

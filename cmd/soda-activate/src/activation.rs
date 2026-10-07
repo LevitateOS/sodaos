@@ -368,8 +368,8 @@ pub(crate) fn activate(
         "soda-dashboard.service",
         "soda-proxy.service",
     ];
-    let deadline = sys.now() + 60.0;
-    while !pending.is_empty() && sys.now() < deadline {
+    let deadline = sys.elapsed() + std::time::Duration::from_secs(60);
+    while !pending.is_empty() && sys.elapsed() < deadline {
         pending.retain(|unit| {
             sys.run(&["systemctl", "is-active", "--quiet", unit])
                 .unwrap_or(1)

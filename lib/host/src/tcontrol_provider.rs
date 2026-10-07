@@ -91,29 +91,14 @@ fn config_escape(s: &str) -> String {
     out
 }
 
-/// Mirror of Go's `url.QueryEscape` for the OAuth form body: alphanumerics
-/// plus `-_.~` verbatim, space to `+`, the rest `%XX` (uppercase hex).
-fn query_escape(s: &str) -> String {
-    let mut out = String::new();
-    for b in s.bytes() {
-        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
-            out.push(b as char);
-        } else if b == b' ' {
-            out.push('+');
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
-
 /// OAuth token form body, mirroring `url.Values.Encode` over
 /// `grant_type`/`scope`/`tags` (Go map encoding sorts the keys).
 pub fn token_form_body(tags: &[String]) -> String {
-    format!(
-        "grant_type=client_credentials&scope=auth_keys&tags={}",
-        query_escape(&tags.join(" "))
-    )
+    url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("grant_type", "client_credentials")
+        .append_pair("scope", "auth_keys")
+        .append_pair("tags", &tags.join(" "))
+        .finish()
 }
 
 /// Auth-key creation body, matching the SDK's `CreateKeyRequest` encoding
@@ -349,131 +334,9 @@ pub fn validate_token(
 
 // ---------- RFC 3339 instants ----------
 
-fn digits(b: &[u8], lo: usize, hi: usize) -> Option<i64> {
-    if hi > b.len() {
-        return None;
-    }
-    let mut v: i64 = 0;
-    for &c in &b[lo..hi] {
-        if !c.is_ascii_digit() {
-            return None;
-        }
-        v = v * 10 + (c - b'0') as i64;
-    }
-    Some(v)
-}
-
-/// Proleptic-Gregorian days from 0001-01-01 (negative for year 0 dates).
-fn days_since_year_one(year: i64, month: i64, day: i64) -> i64 {
-    let y = if month <= 2 { year - 1 } else { year };
-    let era = y.div_euclid(400);
-    let yoe = y.rem_euclid(400);
-    let mp = (month + 9).rem_euclid(12);
-    let doy = (153 * mp + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    era * 146097 + doe - 719468 + 719162
-}
-
-/// Strict `time.Parse(time.RFC3339Nano)` returning nanoseconds since the Unix
-/// epoch, or `None` for invalid input. Same grammar as Go: 1-2 digit hour,
-/// fixed minute/second, optional fraction (kept to nanoseconds), `Z` or
-/// `±HH:MM` with Go's per-field offset bounds (HH ≤ 24, MM ≤ 60).
+/// Parse an admitted RFC3339 instant as signed Unix nanoseconds.
 pub fn parse_rfc3339_nanos(s: &str) -> Option<i128> {
-    let b = s.as_bytes();
-    if b.len() < 19 {
-        return None;
-    }
-    let year = digits(b, 0, 4)?;
-    if b.get(4) != Some(&b'-') {
-        return None;
-    }
-    let month = digits(b, 5, 7)?;
-    if b.get(7) != Some(&b'-') {
-        return None;
-    }
-    let day = digits(b, 8, 10)?;
-    if b.get(10) != Some(&b'T') {
-        return None;
-    }
-    let mut hpos = 11;
-    while hpos < b.len() && b[hpos].is_ascii_digit() && hpos - 11 < 2 {
-        hpos += 1;
-    }
-    if hpos == 11 || b.get(hpos) != Some(&b':') {
-        return None;
-    }
-    let hour = digits(b, 11, hpos)?;
-    let minute = digits(b, hpos + 1, hpos + 3)?;
-    if b.get(hpos + 3) != Some(&b':') {
-        return None;
-    }
-    let second = digits(b, hpos + 4, hpos + 6)?;
-    let mut pos = hpos + 6;
-    let mut nanos: i128 = 0;
-    if b.get(pos) == Some(&b'.') {
-        pos += 1;
-        let start = pos;
-        while pos < b.len() && b[pos].is_ascii_digit() {
-            pos += 1;
-        }
-        if pos - start < 1 {
-            return None;
-        }
-        let mut scale = 100_000_000i128;
-        for &c in &b[start..start + (pos - start).min(9)] {
-            nanos += (c - b'0') as i128 * scale;
-            scale /= 10;
-        }
-    }
-    let rest = b.get(pos..)?;
-    let offset_secs: i128 = if rest.len() == 1 && rest[0] == b'Z' {
-        0
-    } else if rest.len() == 6
-        && (rest[0] == b'+' || rest[0] == b'-')
-        && rest[3] == b':'
-        && rest[1].is_ascii_digit()
-        && rest[2].is_ascii_digit()
-        && rest[4].is_ascii_digit()
-        && rest[5].is_ascii_digit()
-    {
-        let hh = ((rest[1] - b'0') as i128) * 10 + (rest[2] - b'0') as i128;
-        let mm = ((rest[4] - b'0') as i128) * 10 + (rest[5] - b'0') as i128;
-        if hh > 24 || mm > 60 {
-            return None;
-        }
-        let total = hh * 3600 + mm * 60;
-        if rest[0] == b'-' {
-            -total
-        } else {
-            total
-        }
-    } else {
-        return None;
-    };
-    if !(1..=12).contains(&month) || hour > 23 || minute > 59 || second > 59 {
-        return None;
-    }
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let dim = match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        _ => {
-            if leap {
-                29
-            } else {
-                28
-            }
-        }
-    };
-    if day < 1 || day > dim {
-        return None;
-    }
-    let days = days_since_year_one(year, month, day) as i128 - 719162;
-    Some(
-        (days * 86_400 + hour as i128 * 3600 + minute as i128 * 60 + second as i128 - offset_secs)
-            * 1_000_000_000
-            + nanos,
-    )
+    soda_wire_time::parse_nanos(s)
 }
 
 /// Nanoseconds since the Unix epoch for a `SystemTime` (negative before it).

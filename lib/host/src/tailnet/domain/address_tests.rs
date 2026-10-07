@@ -13,6 +13,12 @@ fn status_peer_address_rules() {
         (r#"["fd7a:115c:a1e0::1"]"#, true),
         (r#"["2001:db8::1"]"#, true),
         (r#"["::ffff:1.2.3.4"]"#, true),
+        // std::net accepts embedded IPv4 tails in all valid IPv6 forms; the
+        // dotted input must still match std's canonical hexadecimal output.
+        (r#"["2001:db8::c000:201"]"#, true),
+        (r#"["::c000:201"]"#, true),
+        (r#"["::ffff:192.0.2.1"]"#, true),
+        (r#"["2001:db8::c000:201%eth0"]"#, true),
         (r#"["1:2:3:4:5:6:7:8"]"#, true),
         (r#"["fd7a::1%ETH0"]"#, true),
         (r#"["127.0.0.1"]"#, false),
@@ -25,6 +31,7 @@ fn status_peer_address_rules() {
         (r#"["fe80::1"]"#, false),
         (r#"["ff02::1"]"#, false),
         (r#"["::ffff:127.0.0.1"]"#, false),
+        (r#"["::ffff:169.254.1.1"]"#, false),
         (r#"["01.2.3.4"]"#, false),
         (r#"["FD7A::1"]"#, false),
         (r#"["fd7a:115c:a1e0:0:0:0:0:1"]"#, false),
@@ -158,30 +165,23 @@ fn rfc3339_vectors() {
         ("0001-01-01T00:00:00.000000000Z", Some(true)),
         ("0001-01-01T00:00:00+00:00", Some(true)),
         ("0001-01-01T01:00:00+01:00", Some(true)),
-        ("0000-12-31T23:00:00-01:00", Some(true)),
+        ("0000-12-31T23:00:00-01:00", None),
         ("0001-01-01T00:00:00.000000001Z", Some(false)),
-        ("0001-01-01T00:30:00+01:00", Some(false)),
+        ("0001-01-01T00:30:00+01:00", None),
         ("2024-02-29T00:00:00Z", Some(false)),
         ("2000-02-29T12:30:45.123Z", Some(false)),
         ("1900-02-28T00:00:00Z", Some(false)),
-        ("0000-01-01T00:00:00Z", Some(false)),
+        ("0000-01-01T00:00:00Z", None),
         ("9999-12-31T23:59:59Z", Some(false)),
         ("2024-01-01T00:00:00.5Z", Some(false)),
-        // Go keeps nanosecond precision and ignores further digits.
-        ("2024-01-01T00:00:00.1234567891Z", Some(false)),
-        ("2024-01-01T00:00:00.0000000001Z", Some(false)),
-        (
-            "2024-01-01T00:00:00.123456789012345678901234567890Z",
-            Some(false),
-        ),
-        (
-            "0001-01-01T00:00:00.000000000000000000000000000000Z",
-            Some(true),
-        ),
-        ("2024-01-01T00:00:00+24:00", Some(false)),
-        ("2024-01-01T00:00:00+24:60", Some(false)),
-        ("2024-01-01T00:00:00-24:60", Some(false)),
-        ("2024-01-01T00:00:00+00:60", Some(false)),
+        ("2024-01-01T00:00:00.1234567891Z", None),
+        ("2024-01-01T00:00:00.0000000001Z", None),
+        ("2024-01-01T00:00:00.123456789012345678901234567890Z", None),
+        ("0001-01-01T00:00:00.000000000000000000000000000000Z", None),
+        ("2024-01-01T00:00:00+24:00", None),
+        ("2024-01-01T00:00:00+24:60", None),
+        ("2024-01-01T00:00:00-24:60", None),
+        ("2024-01-01T00:00:00+00:60", None),
         ("2024-01-01T00:00:00-00:00", Some(false)),
         ("2023-02-29T00:00:00Z", None),
         ("1900-02-29T00:00:00Z", None),
@@ -205,8 +205,8 @@ fn rfc3339_vectors() {
         ("2024-01-01t00:00:00z", None),
         ("2024-01-01T00:00:00z", None),
         ("2024-1-1T00:00:00Z", None),
-        ("2024-01-01T1:00:00Z", Some(false)),
-        ("2024-06-15T0:30:45.123456789+05:30", Some(false)),
+        ("2024-01-01T1:00:00Z", None),
+        ("2024-06-15T0:30:45.123456789+05:30", None),
         ("2024-01-01T123:00:00Z", None),
         ("2024-01-01T01:2:03Z", None),
         ("2024-01-01T01:02:3Z", None),
@@ -220,11 +220,8 @@ fn rfc3339_vectors() {
     ] {
         assert_eq!(parse_rfc3339_nano(s), want, "{s}");
     }
-    // Go accepts 10+ fraction digits and keeps nanosecond precision.
-    assert_eq!(
-        parse_rfc3339_nano("2024-01-01T00:00:00.1234567890Z"),
-        Some(false)
-    );
+    // This wire profile rejects fractions longer than nanosecond precision.
+    assert_eq!(parse_rfc3339_nano("2024-01-01T00:00:00.1234567890Z"), None);
 }
 
 #[test]
