@@ -2,7 +2,6 @@
 //! provenance, musl binary builds, and image-context staging.
 
 use crate::files::{is_revision, oci_architecture, write_new};
-use crate::json_emit::marshal_indent;
 use crate::production::Production;
 use crate::{io_error, Error};
 use serde::de::{self, MapAccess, Visitor};
@@ -46,7 +45,7 @@ impl ForgejoToolchain {
     }
 
     pub fn marshal(&self) -> String {
-        marshal_indent(self)
+        serde_json::to_string_pretty(self).expect("Forgejo toolchain serialization to String")
     }
 }
 
