@@ -406,7 +406,7 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 
 | Entry point | Observation, not a substitute for |
 | --- | --- |
-| `tests/installed/host.sh` | CoreOS/layering, service identities/capabilities, labels, listeners, observed activation phase; not login or a client route. Optional `SODA_HOST_PHASE` asserts the intended phase. Installed bytes and current service image IDs are verified against the installed release inventory. |
+| `tests/installed/host.sh` | CoreOS/layering, service identities/capabilities, labels, listeners, observed activation phase; not login or a client route. Optional `SODA_HOST_PHASE` asserts the intended phase. Installed bytes and image objects in the local Podman image store are checked against the installed release inventory. |
 | `service-ordering.sh` | Actual generated unit dependencies and failed units; no service mutations. |
 | `soda-acceptance-remote cockpit-account` (debug build) | Real PAM account stage permits root and denies existing `nobody`; no new account and no password/session proof. |
 | `/path/to/soda-installed-probes service-https ORIGIN CA_FILE` | Configured-origin trusted TLS from the selected client, no redirect/login journey or insecure fallback. |
@@ -426,7 +426,7 @@ Interactive console/native-branding reviews reuse the existing console welcome, 
 
 ## Evidence records
 
-For candidate-bound host evidence, the host check compares installed content and current image IDs against `/usr/share/soda/release.json` and its content inventory. It deliberately does not compare mutable configuration, databases or existing project containers, whose policy and assertions remain core-owned.
+For candidate-bound host evidence, the host check compares installed content and the local Podman image objects named by `/usr/share/soda/release.json` against its content inventory. It does not inspect service container image selections or compare mutable configuration, databases or existing project containers; those policies and assertions remain core-owned.
 
 Each new private evidence root has bounded, streaming-redacted captures. Structured values are sanitized before JSON encoding; `observation.pending.json` is retained and linked exclusively to `observation.json` only after successful write/close/leak checks. A finalization failure leaves no new final record. The record includes: owner, requested source, actual tool VCS state, client platform, selected target/topology/invocation, separate execution/evidence outcomes, public artifact references, file hashes and cleanup status. Add `--secret-file` for each known private value; SSH/bootstrap paths are not credential contents. Private Ignition values are collected before serial capture. Evidence records show invocation, exit and cleanup context. Generic `exec` source/target fields remain caller-declared unless the invoked owner check verifies them. Redirect queries are omitted. Exact-secret scanning is defense in depth, not proof against unknown secrets; capture selected facts only.
 
