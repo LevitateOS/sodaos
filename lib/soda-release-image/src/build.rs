@@ -3,7 +3,6 @@
 //! Qualification and protected delivery consume its unchanged bytes; the
 //! result is not a qualified release.
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::build_compile::compile_shipping_tools;
@@ -13,7 +12,6 @@ use crate::build_source::admit_build_inputs;
 use crate::error::Error;
 use crate::foreign::{Production, Progress};
 use crate::media;
-use crate::model;
 use crate::prepare;
 use crate::recall;
 use crate::record;
@@ -249,123 +247,9 @@ fn run_build_inner(
     revision: &str,
 ) -> Result<request::Result, Error> {
     let artifacts = sys::join(&[&request.out, "artifacts"]);
-    // Forgejo extraction runs against the source runner (same commands the
-    // Go Production.Execute would run); the production below replays phases.
-    {
-        struct RunnerProduction {
-            runner: Runner,
-            inputs: ProductionInputs,
-        }
-        impl Production for RunnerProduction {
-            fn source(&self) -> &str {
-                &self.inputs.source
-            }
-            fn forgejo_source(&self) -> &str {
-                &self.inputs.forgejo_source
-            }
-            fn forgejo_revision(&self) -> &str {
-                &self.inputs.forgejo_revision
-            }
-            fn native(&self) -> &str {
-                &self.inputs.native
-            }
-            fn out(&self) -> &str {
-                &self.inputs.out
-            }
-            fn arch(&self) -> &str {
-                &self.inputs.arch
-            }
-            fn revision(&self) -> &str {
-                &self.inputs.revision
-            }
-            fn live_inputs(&self) -> &str {
-                &self.inputs.live_inputs
-            }
-            fn execute(&self, dir: &str, name: &str, args: &[String]) -> Result<(), Error> {
-                self.runner.execute(dir, name, args)
-            }
-            fn capture(&self, dir: &str, name: &str, args: &[String]) -> Result<String, Error> {
-                self.runner.capture(dir, name, args)
-            }
-            fn next(&self, _label: &str) -> Result<(), Error> {
-                Ok(())
-            }
-            fn resolve_inputs(&mut self) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn dependencies(&self) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn compile(&self, _: &str, _: &str, _: &str) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn compile_rust(&self, _: &str, _: &str, _: &str) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn stage_fork_binary(&self, _: &str) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn assets(&self, _: &str, _: &str) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn images(&self, _: &str) -> Result<HashMap<String, model::ProducedImage>, Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn inspect_oci(&self, _: &str, _: &str, _: &str) -> Result<model::Image, Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn verify_content(
-                &self,
-                _: &model::Payload,
-                _: &str,
-            ) -> Result<(HashMap<String, String>, u64), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn resolve_core_os(&self) -> Result<model::ResolvedCoreOS, Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn read_live_inputs(&self, _: &str) -> Result<model::LiveInputs, Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn check_native(&self, _: &str) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn sign_media(
-                &self,
-                _: &model::Trust,
-                _: &model::Permit,
-                _: &str,
-                _: &str,
-                _: &str,
-                _: &model::SecretFiles,
-                _: &str,
-            ) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn verify_copy(
-                &self,
-                _: &model::Trust,
-                _: &str,
-                _: &str,
-                _: &str,
-                _: &str,
-            ) -> Result<(), Error> {
-                Err(Error::msg("foreign production required"))
-            }
-            fn write_document(
-                &self,
-                _: &str,
-                _: &crate::foreign::PackagingInputs,
-            ) -> Result<String, Error> {
-                Err(Error::msg("foreign production required"))
-            }
-        }
-        let bootstrap = RunnerProduction {
-            runner: runner.clone(),
-            inputs: ProductionInputs::default(),
-        };
-        crate::forgejo::extract_forgejo_snapshot(&bootstrap, request)?;
-    }
+    // This helper runs two source commands before production is constructed.
+    // Reuse the same runner so cancellation and log ownership stay shared.
+    crate::forgejo::extract_forgejo_snapshot(runner, request)?;
     let inputs = ProductionInputs {
         source: snapshot.to_string(),
         forgejo_source: sys::join(&[&request.out, "work/forgejo-ext"]),
