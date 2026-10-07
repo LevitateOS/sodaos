@@ -27,7 +27,6 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 base64 = "=0.22.1"
 sha2 = "=0.10.9"
-soda-json = { path = "../../lib/json" }
 soda-build-tools = { path = "../../lib/release-inputs" }
 libc = "0.2"
 flate2 = "1"

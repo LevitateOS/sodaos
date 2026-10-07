@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use soda_json::JsonValue;
+use serde_json::value::RawValue;
+use std::collections::BTreeMap;
 
 use crate::command::{self, Remote};
 use crate::error::Error;
 use crate::evidence::Evidence;
 use crate::files;
-use crate::jsonio;
 use crate::report::require_native;
 use crate::trust;
 
@@ -64,10 +64,14 @@ impl RemoteConfig {
 }
 
 /// Decode a VM configuration with Go field names and no unknown fields.
-pub fn decode_vm_config(value: &JsonValue) -> Result<VmConfig, Error> {
-    jsonio::check_no_unknown(
-        value,
-        &[
+pub fn decode_vm_config(value: &RawValue) -> Result<VmConfig, Error> {
+    let fields = match serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(value.get()) {
+        Ok(fields) => fields,
+        Err(_) if !value.get().trim_start().starts_with('{') => BTreeMap::new(),
+        Err(_) => return Err(Error::msg("invalid VM configuration")),
+    };
+    for key in fields.keys() {
+        if ![
             "Name",
             "Architecture",
             "BaseReceipt",
@@ -78,22 +82,42 @@ pub fn decode_vm_config(value: &JsonValue) -> Result<VmConfig, Error> {
             "Work",
             "DiskGiB",
             "SSH",
-        ],
-    )?;
-    let ssh_value = value.get("SSH").cloned().unwrap_or(JsonValue::Null);
-    let ssh = command::decode_remote(&ssh_value)?;
-    let disk_gib = jsonio::opt_integer(value, "DiskGiB")?;
+        ]
+        .contains(&key.as_str())
+        {
+            return Err(Error::msg("unknown JSON field"));
+        }
+    }
+    let string_field = |name: &str| -> Result<String, Error> {
+        match fields.get(name) {
+            None => Ok(String::new()),
+            Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                .map(|v| v.unwrap_or_default())
+                .map_err(|_| Error::msg("invalid JSON string field")),
+        }
+    };
+    let disk_gib = match fields.get("DiskGiB") {
+        None => 0,
+        Some(raw) if raw.get() == "null" => 0,
+        Some(raw) => raw
+            .get()
+            .parse::<i128>()
+            .map_err(|_| Error::msg("invalid DiskGiB: integer required"))?,
+    };
     let disk_gib =
         i64::try_from(disk_gib).map_err(|_| Error::msg("invalid DiskGiB: integer required"))?;
+    let absent_ssh = RawValue::from_string("null".to_string()).expect("valid JSON literal");
+    let ssh_value = fields.get("SSH").map(Box::as_ref).unwrap_or(&absent_ssh);
+    let ssh = command::decode_remote(ssh_value)?;
     Ok(VmConfig {
-        name: jsonio::opt_string(value, "Name")?,
-        architecture: jsonio::opt_string(value, "Architecture")?,
-        base_receipt: jsonio::opt_string(value, "BaseReceipt")?,
-        ignition: jsonio::opt_string(value, "Ignition")?,
-        qemu: jsonio::opt_string(value, "QEMU")?,
-        firmware: jsonio::opt_string(value, "Firmware")?,
-        variables: jsonio::opt_string(value, "Variables")?,
-        work: jsonio::opt_string(value, "Work")?,
+        name: string_field("Name")?,
+        architecture: string_field("Architecture")?,
+        base_receipt: string_field("BaseReceipt")?,
+        ignition: string_field("Ignition")?,
+        qemu: string_field("QEMU")?,
+        firmware: string_field("Firmware")?,
+        variables: string_field("Variables")?,
+        work: string_field("Work")?,
         disk_gib,
         ssh: RemoteConfig {
             user: ssh.user,

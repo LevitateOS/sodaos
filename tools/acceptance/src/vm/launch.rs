@@ -1,4 +1,5 @@
-use soda_json::JsonValue;
+use serde_json::value::RawValue;
+use std::collections::BTreeMap;
 
 use super::config::VmConfig;
 use super::lifecycle::Vm;
@@ -6,7 +7,6 @@ use crate::command::{self, CommandSpec, StdinSpec};
 use crate::error::Error;
 use crate::evidence::Evidence;
 use crate::files;
-use crate::jsonio;
 use crate::process::Phase;
 
 pub(super) fn verify_qemu_commands(
@@ -54,16 +54,25 @@ pub(super) fn verify_base_image_format(
     }
     let text =
         std::str::from_utf8(&result.stdout).map_err(|_| Error::msg("invalid base image info"))?;
-    let info = JsonValue::parse(text).map_err(|_| Error::msg("invalid base image info"))?;
-    let format =
-        jsonio::opt_string(&info, "format").map_err(|_| Error::msg("invalid base image info"))?;
-    let backing = jsonio::opt_string(&info, "backing-filename")
-        .map_err(|_| Error::msg("invalid base image info"))?;
+    let invalid = || Error::msg("invalid base image info");
+    let info: BTreeMap<String, Box<RawValue>> =
+        serde_json::from_str(text).map_err(|_| invalid())?;
+    let string_field = |name: &str| -> Result<String, Error> {
+        match info.get(name) {
+            None => Ok(String::new()),
+            Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                .map(|v| v.unwrap_or_default())
+                .map_err(|_| invalid()),
+        }
+    };
+    let format = string_field("format")?;
+    let backing = string_field("backing-filename")?;
     let size = info
         .get("virtual-size")
-        .and_then(|v| v.as_integer())
-        .and_then(|v| i64::try_from(v).ok())
-        .ok_or_else(|| Error::msg("invalid base image info"))?;
+        .ok_or_else(invalid)?
+        .get()
+        .parse::<i64>()
+        .map_err(|_| invalid())?;
     if format != "qcow2" || !backing.is_empty() || size <= 0 || size > disk_gib << 30 {
         return Err(Error::msg("standalone qcow2 base required"));
     }

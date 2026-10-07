@@ -1,13 +1,12 @@
 use std::collections::BTreeMap;
 
-use soda_json::JsonValue;
+use serde::Serialize;
 
 use crate::error::Error;
 use crate::evidence::Evidence;
 use crate::files::{self, OwnedDir};
 use crate::jsonio;
 
-use super::observation::map_json;
 use super::{digest, observation_from_json, oci_architecture, revision, valid_owner, Observation};
 
 /// Hash every retained evidence file, like `Evidence.Hashes`. The map
@@ -143,41 +142,43 @@ fn append_missing_owners(text: &mut String, seen: &std::collections::BTreeSet<St
 }
 
 fn handoff_description(o: &Observation) -> String {
-    // Anonymous-struct field order with Go string escaping; the
-    // artifacts map renders sorted.
-    let mut entries = Vec::with_capacity(10);
-    let mut field = |name: &str, value: JsonValue| entries.push((name.to_string(), value));
-    field("Owner", JsonValue::Str(o.owner.clone()));
-    field("Target", JsonValue::Str(o.target.clone()));
-    field("Outcome", JsonValue::Str(o.outcome.clone()));
-    field("Execution", JsonValue::Str(o.execution.clone()));
-    field("Evidence", JsonValue::Str(o.evidence.clone()));
-    field("Cleanup", JsonValue::Str(o.cleanup.clone()));
-    field("Topology", JsonValue::Str(o.topology.clone()));
-    field(
-        "ExitCode",
-        o.exit_code
-            .map(|code| JsonValue::Number(code.to_string()))
-            .unwrap_or(JsonValue::Null),
-    );
-    field(
-        "Invocation",
-        o.invocation
-            .as_ref()
-            .map(|args| {
-                JsonValue::Array(args.iter().map(|arg| JsonValue::Str(arg.clone())).collect())
-            })
-            .unwrap_or(JsonValue::Null),
-    );
-    field(
-        "Artifacts",
-        o.artifacts
-            .as_ref()
-            .map(map_json)
-            .unwrap_or(JsonValue::Null),
-    );
+    #[derive(Serialize)]
+    struct Description<'a> {
+        #[serde(rename = "Owner")]
+        owner: &'a str,
+        #[serde(rename = "Target")]
+        target: &'a str,
+        #[serde(rename = "Outcome")]
+        outcome: &'a str,
+        #[serde(rename = "Execution")]
+        execution: &'a str,
+        #[serde(rename = "Evidence")]
+        evidence: &'a str,
+        #[serde(rename = "Cleanup")]
+        cleanup: &'a str,
+        #[serde(rename = "Topology")]
+        topology: &'a str,
+        #[serde(rename = "ExitCode")]
+        exit_code: Option<i64>,
+        #[serde(rename = "Invocation")]
+        invocation: Option<&'a [String]>,
+        #[serde(rename = "Artifacts")]
+        artifacts: Option<&'a BTreeMap<String, String>>,
+    }
+    let value = Description {
+        owner: &o.owner,
+        target: &o.target,
+        outcome: &o.outcome,
+        execution: &o.execution,
+        evidence: &o.evidence,
+        cleanup: &o.cleanup,
+        topology: &o.topology,
+        exit_code: o.exit_code,
+        invocation: o.invocation.as_deref(),
+        artifacts: o.artifacts.as_ref(),
+    };
     let mut out = String::new();
-    jsonio::write_compact(&mut out, &JsonValue::Object(entries));
+    jsonio::write_compact(&mut out, &value);
     out
 }
 

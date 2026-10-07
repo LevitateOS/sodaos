@@ -10,10 +10,10 @@
 //! Only the QEMU closure is ported: the Tailnet/live-input/download
 //! surface belongs to Tier-3 builders that stay in Go.
 
-use soda_build_tools::reader::stream::{CoreOSImage, valid_stream_images};
+use crate::structured::Value as JsonValue;
+use soda_build_tools::reader::stream::{valid_stream_images, CoreOSImage};
 use soda_build_tools::reader::url::https_url;
 use soda_build_tools::reader::{is_digest, oci_architecture};
-use soda_json::JsonValue;
 
 use crate::command::{CommandSpec, StdinSpec};
 use crate::error::Error;

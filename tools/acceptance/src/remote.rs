@@ -7,7 +7,8 @@
 //! tempfile, executes the requested phase with the request as an argument,
 //! and always removes the tempfile. Nothing is installed on the target.
 
-use soda_json::JsonValue;
+use serde_json::value::RawValue;
+use std::collections::BTreeMap;
 
 use crate::command::{quote, CommandSpec, Remote, StdinSpec};
 use crate::error::Error;
@@ -29,17 +30,31 @@ pub struct RemoteRequest {
 }
 
 /// Decode a restricted native request with exactly the Go owner's fields.
-pub fn decode_remote_request(value: &JsonValue) -> Result<RemoteRequest, Error> {
-    jsonio::check_no_unknown(
-        value,
-        &["Revision", "Architecture", "Target", "Work", "Phase"],
-    )?;
+pub fn decode_remote_request(value: &RawValue) -> Result<RemoteRequest, Error> {
+    let fields = match serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(value.get()) {
+        Ok(fields) => fields,
+        Err(_) if !value.get().trim_start().starts_with('{') => BTreeMap::new(),
+        Err(_) => return Err(Error::msg("invalid native request")),
+    };
+    for key in fields.keys() {
+        if !["Revision", "Architecture", "Target", "Work", "Phase"].contains(&key.as_str()) {
+            return Err(Error::msg("unknown native request field"));
+        }
+    }
+    let string_field = |name: &str| -> Result<String, Error> {
+        match fields.get(name) {
+            None => Ok(String::new()),
+            Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                .map(|v| v.unwrap_or_default())
+                .map_err(|_| Error::msg("native request fields must be strings")),
+        }
+    };
     Ok(RemoteRequest {
-        revision: jsonio::opt_string(value, "Revision")?,
-        architecture: jsonio::opt_string(value, "Architecture")?,
-        target: jsonio::opt_string(value, "Target")?,
-        work: jsonio::opt_string(value, "Work")?,
-        phase: jsonio::opt_string(value, "Phase")?,
+        revision: string_field("Revision")?,
+        architecture: string_field("Architecture")?,
+        target: string_field("Target")?,
+        work: string_field("Work")?,
+        phase: string_field("Phase")?,
     })
 }
 
@@ -82,6 +97,25 @@ pub fn native_phase(
 }
 
 #[cfg(test)]
+mod json_tests {
+    use super::decode_remote_request;
+    use serde_json::value::RawValue;
+
+    #[test]
+    fn native_request_uses_last_exact_string_and_ignores_overwritten_raw_number() {
+        let raw = RawValue::from_string(
+            r#"{"Phase":1e400,"Phase":"check","Target":null,"Target":"builder"}"#.to_string(),
+        )
+        .unwrap();
+        let decoded = decode_remote_request(&raw).unwrap();
+        assert_eq!(decoded.phase, "check");
+        assert_eq!(decoded.target, "builder");
+        let bad = RawValue::from_string(r#"{"Phase":false}"#.to_string()).unwrap();
+        assert!(decode_remote_request(&bad).is_err());
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
@@ -96,21 +130,28 @@ mod tests {
 
     fn write_request(dir: &std::path::Path, revision: &str, target: &str, phase: &str) -> String {
         let mut text = String::new();
+        #[derive(serde::Serialize)]
+        struct Request<'a> {
+            #[serde(rename = "Revision")]
+            revision: &'a str,
+            #[serde(rename = "Architecture")]
+            architecture: &'a str,
+            #[serde(rename = "Target")]
+            target: &'a str,
+            #[serde(rename = "Work")]
+            work: &'a str,
+            #[serde(rename = "Phase")]
+            phase: &'a str,
+        }
         jsonio::write_compact(
             &mut text,
-            &JsonValue::Object(vec![
-                ("Revision".to_string(), JsonValue::Str(revision.to_string())),
-                (
-                    "Architecture".to_string(),
-                    JsonValue::Str("x86_64".to_string()),
-                ),
-                ("Target".to_string(), JsonValue::Str(target.to_string())),
-                (
-                    "Work".to_string(),
-                    JsonValue::Str("/private/fresh".to_string()),
-                ),
-                ("Phase".to_string(), JsonValue::Str(phase.to_string())),
-            ]),
+            &Request {
+                revision,
+                architecture: "x86_64",
+                target,
+                work: "/private/fresh",
+                phase,
+            },
         );
         let path = dir.join("request.json");
         std::fs::write(&path, &text).unwrap();

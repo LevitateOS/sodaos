@@ -1,7 +1,7 @@
+use crate::structured::Value as JsonValue;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 use base64::engine::DecodePaddingMode;
 use base64::{alphabet, Engine};
-use soda_json::JsonValue;
 
 use crate::error::Error;
 
@@ -140,7 +140,11 @@ pub fn decode_ignition_files(value: &JsonValue) -> Result<Vec<IgnitionFile>, Err
             }
         };
         files.push(IgnitionFile {
-            path: crate::jsonio::opt_string(item, "path")?,
+            path: match item.get("path") {
+                None | Some(JsonValue::Null) => String::new(),
+                Some(JsonValue::Str(path)) => path.clone(),
+                Some(_) => return Err(Error::msg("invalid path: string required")),
+            },
             source: field("source")?,
             compression: field("compression")?,
         });

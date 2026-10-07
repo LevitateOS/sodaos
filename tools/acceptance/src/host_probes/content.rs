@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 use crate::sha256;
 

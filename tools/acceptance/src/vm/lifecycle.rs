@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 use super::base::{publish_launch_fixture, verify_launch_base_image};
 use super::config::{preflight, VmConfig};

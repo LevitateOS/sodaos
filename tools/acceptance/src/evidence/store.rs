@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::{Read, Write};
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
+use serde::Serialize;
 
 use crate::error::Error;
 use crate::files::{self, OwnedDir};
@@ -13,6 +14,30 @@ use super::{contains_slice, longest_secret, Evidence, RedactingWriter, EVIDENCE_
 /// Secret-scan block size.
 const SCAN_BLOCK: usize = 32_768;
 const SECRET_PATTERN_COUNT_LIMIT: usize = 16_384;
+
+struct BoundedJsonBuffer(Vec<u8>);
+
+impl Write for BoundedJsonBuffer {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if self
+            .0
+            .len()
+            .checked_add(bytes.len())
+            .is_none_or(|size| size > EVIDENCE_LIMIT as usize)
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::WriteZero,
+                "structured evidence limit exceeded",
+            ));
+        }
+        self.0.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 
 /// Create a fresh private evidence directory that must not exist yet.
 /// Mirrors `CreateEvidence`, including the JSON-escaped secret variants.
@@ -237,6 +262,9 @@ impl Evidence {
     }
 
     fn encode_scrubbed_json(&self, value: &JsonValue) -> Result<Vec<u8>, Error> {
+        value
+            .validate_depth()
+            .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
         // Estimate compact serialization before creating its temporary String.
         let mut estimate = 0usize;
         if !estimate_json(value, &mut estimate) || estimate > EVIDENCE_LIMIT as usize {
@@ -267,10 +295,26 @@ impl Evidence {
         Ok(data.into_bytes())
     }
 
+    fn encode_scrubbed_record<T: Serialize + ?Sized>(&self, value: &T) -> Result<Vec<u8>, Error> {
+        let mut bounded = BoundedJsonBuffer(Vec::new());
+        {
+            let mut serializer = serde_json::Serializer::new(&mut bounded);
+            value
+                .serialize(&mut serializer)
+                .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
+        }
+        let compact = std::str::from_utf8(&bounded.0)
+            .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
+        let decoded = JsonValue::parse(compact)
+            .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
+        drop(bounded);
+        self.encode_scrubbed_json(&decoded)
+    }
+
     /// Write one structured value: scrubbed before encoding, then scanned
     /// for secrets before the bytes are retained. Mirrors `WriteJSON`.
-    pub fn write_json(&self, name: &str, value: &JsonValue) -> Result<(), Error> {
-        let data = self.encode_scrubbed_json(value)?;
+    pub fn write_json<T: Serialize + ?Sized>(&self, name: &str, value: &T) -> Result<(), Error> {
+        let data = self.encode_scrubbed_record(value)?;
         for secret in &self.secrets {
             if contains_slice(&data, secret) {
                 return Err(Error::msg("secret reached structured evidence"));
@@ -282,7 +326,7 @@ impl Evidence {
 
     /// Finalize one observation: pending record first, leak scan, then an
     /// exclusive link to the final name. Mirrors `PublishObservation`.
-    pub fn publish_observation(&self, observation: &JsonValue) -> Result<(), Error> {
+    pub fn publish_observation<T: Serialize + ?Sized>(&self, observation: &T) -> Result<(), Error> {
         self.write_json("observation.pending.json", observation)?;
         self.check_secrets()?;
         self.root

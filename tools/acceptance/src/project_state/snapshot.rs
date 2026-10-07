@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 use super::files::{has_git_part, list_files, walk_sorted};
 use super::workloads;

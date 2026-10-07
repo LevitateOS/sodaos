@@ -1,5 +1,3 @@
-use soda_json::JsonValue;
-
 use super::config::{preflight, rel_path, valid_signer, valid_vm_name};
 use super::*;
 use crate::evidence::create_evidence;
@@ -85,30 +83,23 @@ fn relative_paths_match_go_rel_cases() {
 
 #[test]
 fn vm_config_decode_rejects_unknown_and_mistyped() {
-    let mut entries = vec![
-        (
-            "Name".to_string(),
-            JsonValue::Str("soda-native-fixture".to_string()),
-        ),
-        ("DiskGiB".to_string(), JsonValue::Number("64".to_string())),
-        (
-            "SSH".to_string(),
-            JsonValue::Object(vec![(
-                "Port".to_string(),
-                JsonValue::Number("22222".to_string()),
-            )]),
-        ),
-    ];
-    let config = decode_vm_config(&JsonValue::Object(entries.clone())).unwrap();
+    let value = serde_json::value::RawValue::from_string(
+        r#"{"Name":false,"Name":"soda-native-fixture","DiskGiB":1e400,"DiskGiB":64,"SSH":{"Port":2.2,"Port":22222}}"#.to_string(),
+    ).unwrap();
+    let config = decode_vm_config(&value).unwrap();
     assert_eq!(config.disk_gib, 64);
     assert_eq!(config.ssh.port, 22222);
-    entries.push(("Extra".to_string(), JsonValue::Bool(true)));
-    assert!(decode_vm_config(&JsonValue::Object(entries)).is_err());
-    let bad = JsonValue::Object(vec![(
-        "DiskGiB".to_string(),
-        JsonValue::Str("64".to_string()),
-    )]);
-    assert!(decode_vm_config(&bad).is_err());
+    let unknown =
+        serde_json::value::RawValue::from_string(r#"{"Extra":true}"#.to_string()).unwrap();
+    assert!(decode_vm_config(&unknown).is_err());
+    for bad in [
+        r#"{"DiskGiB":"64"}"#,
+        r#"{"DiskGiB":6.4}"#,
+        r#"{"DiskGiB":1e2}"#,
+    ] {
+        let raw = serde_json::value::RawValue::from_string(bad.to_string()).unwrap();
+        assert!(decode_vm_config(&raw).is_err(), "{bad}");
+    }
 }
 
 #[test]

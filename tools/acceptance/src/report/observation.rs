@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
+use std::fmt;
 
-use soda_json::JsonValue;
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::value::RawValue;
 
 use crate::error::Error;
-use crate::jsonio::{self, check_no_unknown, opt_bool, opt_string};
+use crate::jsonio;
 
 /// One observation: an ordinary log index, not a scenario/qualification
 /// registry. `None` renders as JSON null, like Go's nil pointers, maps
@@ -50,7 +53,96 @@ pub struct Observation {
     pub finished: String,
 }
 
-/// Observation fields in Go struct order.
+struct ObservationSlots(Vec<(String, Box<RawValue>)>);
+
+impl<'de> Deserialize<'de> for ObservationSlots {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct SlotsVisitor;
+        impl<'de> Visitor<'de> for SlotsVisitor {
+            type Value = ObservationSlots;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an observation object")
+            }
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut entries = Vec::with_capacity(map.size_hint().unwrap_or(0));
+                while let Some(pair) = map.next_entry::<String, Box<RawValue>>()? {
+                    entries.push(pair);
+                }
+                Ok(ObservationSlots(entries))
+            }
+        }
+        deserializer.deserialize_map(SlotsVisitor)
+    }
+}
+
+fn last<'a>(slots: &'a ObservationSlots, field: &str) -> Option<&'a RawValue> {
+    slots
+        .0
+        .iter()
+        .rev()
+        .find(|(key, _)| key == field)
+        .map(|(_, value)| value.as_ref())
+}
+
+fn optional_string(slots: &ObservationSlots, field: &str) -> Result<String, Error> {
+    match last(slots, field) {
+        None => Ok(String::new()),
+        Some(raw) if raw.get() == "null" => Ok(String::new()),
+        Some(raw) => serde_json::from_str(raw.get())
+            .map_err(|_| Error::msg(format!("invalid {field}: string required"))),
+    }
+}
+
+fn optional_string_list(
+    slots: &ObservationSlots,
+    field: &str,
+) -> Result<Option<Vec<String>>, Error> {
+    let Some(raw) = last(slots, field) else {
+        return Ok(None);
+    };
+    if raw.get() == "null" {
+        return Ok(None);
+    }
+    serde_json::from_str(raw.get())
+        .map(Some)
+        .map_err(|_| Error::msg(format!("invalid {field}: string required")))
+}
+
+fn optional_string_map(
+    slots: &ObservationSlots,
+    field: &str,
+) -> Result<Option<BTreeMap<String, String>>, Error> {
+    let Some(raw) = last(slots, field) else {
+        return Ok(None);
+    };
+    if raw.get() == "null" {
+        return Ok(None);
+    }
+    serde_json::from_str(raw.get())
+        .map(Some)
+        .map_err(|_| Error::msg(format!("invalid {field}: string required")))
+}
+
+fn optional_timestamp(slots: &ObservationSlots, field: &str) -> Result<String, Error> {
+    match last(slots, field) {
+        None => Ok(String::new()),
+        Some(raw) if raw.get() == "null" => Ok(String::new()),
+        Some(raw) => {
+            let value: String = serde_json::from_str(raw.get())
+                .map_err(|_| Error::msg(format!("invalid {field}: timestamp required")))?;
+            jsonio::validate_rfc3339(&value)
+                .map_err(|_| Error::msg(format!("invalid {field}: timestamp required")))?;
+            Ok(value)
+        }
+    }
+}
+
 const OBSERVATION_FIELDS: &[&str] = &[
     "Owner",
     "RequestedRevision",
@@ -73,155 +165,119 @@ const OBSERVATION_FIELDS: &[&str] = &[
     "Finished",
 ];
 
-fn opt_string_list(value: &JsonValue, field: &str) -> Result<Option<Vec<String>>, Error> {
-    match value.get(field) {
-        None | Some(JsonValue::Null) => Ok(None),
-        Some(JsonValue::Array(items)) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                match item {
-                    JsonValue::Str(s) => out.push(s.clone()),
-                    _ => return Err(Error::msg(format!("invalid {field}: string required"))),
-                }
-            }
-            Ok(Some(out))
+/// Decode an observation using its exact known names and last exact duplicate.
+pub fn observation_from_json(value: &RawValue) -> Result<Observation, Error> {
+    let slots = if value.get().as_bytes()[0] == b'{' {
+        serde_json::from_str::<ObservationSlots>(value.get())
+            .map_err(|_| Error::msg("invalid JSON input"))?
+    } else {
+        ObservationSlots(Vec::new())
+    };
+    for (key, _) in &slots.0 {
+        if !OBSERVATION_FIELDS.contains(&key.as_str()) {
+            return Err(Error::msg(format!("json: unknown field {key:?}")));
         }
-        Some(_) => Err(Error::msg(format!("invalid {field}: array required"))),
     }
-}
-
-fn opt_string_map(
-    value: &JsonValue,
-    field: &str,
-) -> Result<Option<BTreeMap<String, String>>, Error> {
-    match value.get(field) {
-        None | Some(JsonValue::Null) => Ok(None),
-        Some(JsonValue::Object(entries)) => {
-            let mut out = BTreeMap::new();
-            for (key, item) in entries {
-                match item {
-                    JsonValue::Str(s) => {
-                        out.insert(key.clone(), s.clone());
-                    }
-                    _ => return Err(Error::msg(format!("invalid {field}: string required"))),
-                }
-            }
-            Ok(Some(out))
-        }
-        Some(_) => Err(Error::msg(format!("invalid {field}: object required"))),
-    }
-}
-
-fn opt_timestamp(value: &JsonValue, field: &str) -> Result<String, Error> {
-    match value.get(field) {
-        None | Some(JsonValue::Null) => Ok(String::new()),
-        Some(JsonValue::Str(s)) => {
-            jsonio::validate_rfc3339(s)
-                .map_err(|_| Error::msg(format!("invalid {field}: timestamp required")))?;
-            Ok(s.clone())
-        }
-        Some(_) => Err(Error::msg(format!("invalid {field}: timestamp required"))),
-    }
-}
-
-/// Decode an observation, rejecting unknown fields and trailing data
-/// like the Go owner's `ReadJSONAt` into the struct.
-pub fn observation_from_json(value: &JsonValue) -> Result<Observation, Error> {
-    check_no_unknown(value, OBSERVATION_FIELDS)?;
-    let exit_code = match value.get("ExitCode") {
-        None | Some(JsonValue::Null) => None,
-        Some(v) => {
-            let code = v
-                .as_integer()
-                .ok_or_else(|| Error::msg("invalid ExitCode: integer required"))?;
-            Some(
-                i64::try_from(code)
-                    .map_err(|_| Error::msg("invalid ExitCode: integer required"))?,
-            )
-        }
+    let exit_code = match last(&slots, "ExitCode") {
+        None => None,
+        Some(raw) if raw.get() == "null" => None,
+        Some(raw) => Some(
+            serde_json::from_str::<i64>(raw.get())
+                .map_err(|_| Error::msg("invalid ExitCode: integer required"))?,
+        ),
+    };
+    let tool_dirty = match last(&slots, "ToolDirty") {
+        None => false,
+        Some(raw) if raw.get() == "null" => false,
+        Some(raw) => serde_json::from_str::<bool>(raw.get())
+            .map_err(|_| Error::msg("invalid ToolDirty: boolean required"))?,
     };
     Ok(Observation {
-        owner: opt_string(value, "Owner")?,
-        requested_revision: opt_string(value, "RequestedRevision")?,
-        tool_revision: opt_string(value, "ToolRevision")?,
-        requested_architecture: opt_string(value, "RequestedArchitecture")?,
-        target: opt_string(value, "Target")?,
-        client_platform: opt_string(value, "ClientPlatform")?,
-        action: opt_string(value, "Action")?,
-        outcome: opt_string(value, "Outcome")?,
-        execution: opt_string(value, "Execution")?,
-        evidence: opt_string(value, "Evidence")?,
-        cleanup: opt_string(value, "Cleanup")?,
-        topology: opt_string(value, "Topology")?,
+        owner: optional_string(&slots, "Owner")?,
+        requested_revision: optional_string(&slots, "RequestedRevision")?,
+        tool_revision: optional_string(&slots, "ToolRevision")?,
+        requested_architecture: optional_string(&slots, "RequestedArchitecture")?,
+        target: optional_string(&slots, "Target")?,
+        client_platform: optional_string(&slots, "ClientPlatform")?,
+        action: optional_string(&slots, "Action")?,
+        outcome: optional_string(&slots, "Outcome")?,
+        execution: optional_string(&slots, "Execution")?,
+        evidence: optional_string(&slots, "Evidence")?,
+        cleanup: optional_string(&slots, "Cleanup")?,
+        topology: optional_string(&slots, "Topology")?,
         exit_code,
-        tool_dirty: opt_bool(value, "ToolDirty")?,
-        invocation: opt_string_list(value, "Invocation")?,
-        files: opt_string_map(value, "Files")?,
-        artifacts: opt_string_map(value, "Artifacts")?,
-        started: opt_timestamp(value, "Started")?,
-        finished: opt_timestamp(value, "Finished")?,
+        tool_dirty,
+        invocation: optional_string_list(&slots, "Invocation")?,
+        files: optional_string_map(&slots, "Files")?,
+        artifacts: optional_string_map(&slots, "Artifacts")?,
+        started: optional_timestamp(&slots, "Started")?,
+        finished: optional_timestamp(&slots, "Finished")?,
     })
 }
 
-pub(super) fn map_json(map: &BTreeMap<String, String>) -> JsonValue {
-    JsonValue::Object(
-        map.iter()
-            .map(|(k, v)| (k.clone(), JsonValue::Str(v.clone())))
-            .collect(),
-    )
+/// Fixed Go struct field order; maps use BTreeMap's Go-compatible key order.
+#[derive(Serialize)]
+pub struct ObservationRecord<'a> {
+    #[serde(rename = "Owner")]
+    pub owner: &'a str,
+    #[serde(rename = "RequestedRevision")]
+    pub requested_revision: &'a str,
+    #[serde(rename = "ToolRevision")]
+    pub tool_revision: &'a str,
+    #[serde(rename = "RequestedArchitecture")]
+    pub requested_architecture: &'a str,
+    #[serde(rename = "Target")]
+    pub target: &'a str,
+    #[serde(rename = "ClientPlatform")]
+    pub client_platform: &'a str,
+    #[serde(rename = "Action")]
+    pub action: &'a str,
+    #[serde(rename = "Outcome")]
+    pub outcome: &'a str,
+    #[serde(rename = "Execution")]
+    pub execution: &'a str,
+    #[serde(rename = "Evidence")]
+    pub evidence: &'a str,
+    #[serde(rename = "Cleanup")]
+    pub cleanup: &'a str,
+    #[serde(rename = "Topology")]
+    pub topology: &'a str,
+    #[serde(rename = "ExitCode")]
+    pub exit_code: Option<i64>,
+    #[serde(rename = "ToolDirty")]
+    pub tool_dirty: bool,
+    #[serde(rename = "Invocation")]
+    pub invocation: Option<&'a [String]>,
+    #[serde(rename = "Files")]
+    pub files: Option<&'a BTreeMap<String, String>>,
+    #[serde(rename = "Artifacts")]
+    pub artifacts: Option<&'a BTreeMap<String, String>>,
+    #[serde(rename = "Started")]
+    pub started: &'a str,
+    #[serde(rename = "Finished")]
+    pub finished: &'a str,
 }
 
-/// Encode an observation in Go struct field order. The evidence writer
-/// sorts keys on output, like Go's map encoding.
-pub fn observation_json(o: &Observation) -> JsonValue {
-    let mut entries = Vec::with_capacity(OBSERVATION_FIELDS.len());
-    let mut field = |name: &str, value: JsonValue| entries.push((name.to_string(), value));
-    field("Owner", JsonValue::Str(o.owner.clone()));
-    field(
-        "RequestedRevision",
-        JsonValue::Str(o.requested_revision.clone()),
-    );
-    field("ToolRevision", JsonValue::Str(o.tool_revision.clone()));
-    field(
-        "RequestedArchitecture",
-        JsonValue::Str(o.requested_architecture.clone()),
-    );
-    field("Target", JsonValue::Str(o.target.clone()));
-    field("ClientPlatform", JsonValue::Str(o.client_platform.clone()));
-    field("Action", JsonValue::Str(o.action.clone()));
-    field("Outcome", JsonValue::Str(o.outcome.clone()));
-    field("Execution", JsonValue::Str(o.execution.clone()));
-    field("Evidence", JsonValue::Str(o.evidence.clone()));
-    field("Cleanup", JsonValue::Str(o.cleanup.clone()));
-    field("Topology", JsonValue::Str(o.topology.clone()));
-    field(
-        "ExitCode",
-        o.exit_code
-            .map(|code| JsonValue::Number(code.to_string()))
-            .unwrap_or(JsonValue::Null),
-    );
-    field("ToolDirty", JsonValue::Bool(o.tool_dirty));
-    field(
-        "Invocation",
-        o.invocation
-            .as_ref()
-            .map(|args| {
-                JsonValue::Array(args.iter().map(|arg| JsonValue::Str(arg.clone())).collect())
-            })
-            .unwrap_or(JsonValue::Null),
-    );
-    field(
-        "Files",
-        o.files.as_ref().map(map_json).unwrap_or(JsonValue::Null),
-    );
-    field(
-        "Artifacts",
-        o.artifacts
-            .as_ref()
-            .map(map_json)
-            .unwrap_or(JsonValue::Null),
-    );
-    field("Started", JsonValue::Str(o.started.clone()));
-    field("Finished", JsonValue::Str(o.finished.clone()));
-    JsonValue::Object(entries)
+pub fn observation_json(o: &Observation) -> ObservationRecord<'_> {
+    ObservationRecord {
+        owner: &o.owner,
+        requested_revision: &o.requested_revision,
+        tool_revision: &o.tool_revision,
+        requested_architecture: &o.requested_architecture,
+        target: &o.target,
+        client_platform: &o.client_platform,
+        action: &o.action,
+        outcome: &o.outcome,
+        execution: &o.execution,
+        evidence: &o.evidence,
+        cleanup: &o.cleanup,
+        topology: &o.topology,
+        exit_code: o.exit_code,
+        tool_dirty: o.tool_dirty,
+        invocation: o.invocation.as_deref(),
+        files: o.files.as_ref(),
+        artifacts: o.artifacts.as_ref(),
+        started: &o.started,
+        finished: &o.finished,
+    }
 }

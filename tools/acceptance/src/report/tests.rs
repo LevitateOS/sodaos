@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use soda_json::JsonValue;
-
 use super::*;
 use crate::evidence::create_evidence;
 use crate::files::TempDir;
@@ -45,27 +43,30 @@ fn observation_json_round_trip_keeps_nulls() {
         finished: "2026-10-04T00:01:00Z".to_string(),
         ..Observation::default()
     };
-    let decoded = observation_from_json(&observation_json(&observation)).unwrap();
+    let raw_text = serde_json::to_string(&observation_json(&observation)).unwrap();
+    let raw = serde_json::value::RawValue::from_string(raw_text).unwrap();
+    let decoded = observation_from_json(&raw).unwrap();
     assert_eq!(decoded, observation);
     assert!(decoded.exit_code.is_none());
     assert!(decoded.invocation.is_none());
     assert!(decoded.artifacts.is_none());
     // Unknown fields and mistyped values fail, like DisallowUnknownFields.
-    let mut bad = observation_json(&observation);
-    if let JsonValue::Object(entries) = &mut bad {
-        entries.push(("Extra".to_string(), JsonValue::Bool(true)));
+    for bad in [
+        r#"{"Extra":true}"#,
+        r#"{"ExitCode":"0"}"#,
+        r#"{"Started":"not-a-time"}"#,
+    ] {
+        let raw = serde_json::value::RawValue::from_string(bad.to_string()).unwrap();
+        assert!(observation_from_json(&raw).is_err(), "{bad}");
     }
-    assert!(observation_from_json(&bad).is_err());
-    let mistyped = JsonValue::Object(vec![(
-        "ExitCode".to_string(),
-        JsonValue::Str("0".to_string()),
-    )]);
-    assert!(observation_from_json(&mistyped).is_err());
-    let bad_time = JsonValue::Object(vec![(
-        "Started".to_string(),
-        JsonValue::Str("not-a-time".to_string()),
-    )]);
-    assert!(observation_from_json(&bad_time).is_err());
+    let duplicate = serde_json::value::RawValue::from_string(
+        r#"{"ExitCode":"invalid","ExitCode":0}"#.to_string(),
+    )
+    .unwrap();
+    assert_eq!(
+        observation_from_json(&duplicate).unwrap().exit_code,
+        Some(0)
+    );
 }
 
 /// Port of `TestHandoffPreservesMissingAndFailedScopes` from `report_test.go`.

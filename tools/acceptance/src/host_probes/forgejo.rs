@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 use super::{dumps, get_str, parse_json, podman, read_text, run_output, ProbeFailure};
 

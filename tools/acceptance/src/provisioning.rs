@@ -5,7 +5,7 @@
 //! material join the evidence secret set so later capture cannot retain
 //! them.
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 use crate::error::Error;
 use crate::files;

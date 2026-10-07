@@ -1,6 +1,26 @@
 use super::*;
 use std::cell::RefCell;
 
+#[test]
+fn phase_request_checks_every_duplicate_occurrence_before_last_wins() {
+    let platform = Platform {
+        os: "Linux".to_string(),
+        arch: "x86_64".to_string(),
+        hostname: "synthetic-builder".to_string(),
+    };
+    let revision = "a".repeat(40);
+    let work = std::env::temp_dir().join("soda-acceptance-uncreated");
+    let work = work.to_string_lossy();
+    let raw = format!(
+        r#"{{"Revision":false,"Revision":"{revision}","Architecture":"x86_64","Target":"synthetic-builder","Work":"{work}","Phase":"prepare"}}"#
+    );
+    assert!(phase_request(&raw, &platform).is_err());
+    let valid = format!(
+        r#"{{"Revision":"wrong","Revision":"{revision}","Architecture":"x86_64","Target":"synthetic-builder","Work":"{work}","Phase":"prepare"}}"#
+    );
+    assert!(phase_request(&valid, &platform).is_ok());
+}
+
 const REVISION: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 struct FakeRunner {
@@ -68,13 +88,7 @@ impl Harness {
         for (key, value) in changes {
             fields.insert(key.to_string(), value.to_string());
         }
-        let mut text = String::new();
-        let entries: Vec<(String, JsonValue)> = fields
-            .into_iter()
-            .map(|(k, v)| (k, JsonValue::Str(v)))
-            .collect();
-        jsonio::write_compact(&mut text, &JsonValue::Object(entries));
-        text
+        serde_json::to_string(&fields).unwrap()
     }
 
     fn invoke(&self, phase: &str, changes: &[(&str, &str)]) -> Result<(), PayloadFailure> {

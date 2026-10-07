@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 use super::*;
 use crate::error::Error;
@@ -229,13 +229,11 @@ fn structured_redaction_refuses_expansion_before_encoding() {
     let observation = JsonValue::Object(vec![("value".to_string(), value)]);
     assert!(fixture.evidence.publish_observation(&observation).is_err());
     assert!(std::fs::read(format!("{}/observation.json", fixture.evidence.path())).is_err());
-    assert!(
-        std::fs::read(format!(
-            "{}/observation.pending.json",
-            fixture.evidence.path()
-        ))
-        .is_err()
-    );
+    assert!(std::fs::read(format!(
+        "{}/observation.pending.json",
+        fixture.evidence.path()
+    ))
+    .is_err());
 }
 
 #[test]
@@ -243,20 +241,16 @@ fn incomplete_capture_is_sticky_and_preserves_prior_error() {
     let fixture = Fixture::new(&[]);
     let mut writer = fixture.evidence.writer("partial").unwrap();
     writer.mark_incomplete_capture();
-    assert!(
-        writer
-            .write_bytes(b"later")
-            .unwrap_err()
-            .to_string()
-            .contains("capture incomplete")
-    );
-    assert!(
-        writer
-            .close()
-            .unwrap_err()
-            .to_string()
-            .contains("capture incomplete")
-    );
+    assert!(writer
+        .write_bytes(b"later")
+        .unwrap_err()
+        .to_string()
+        .contains("capture incomplete"));
+    assert!(writer
+        .close()
+        .unwrap_err()
+        .to_string()
+        .contains("capture incomplete"));
 
     let mut failed = fixture.evidence.writer("failed").unwrap();
     let too_large = vec![0; EVIDENCE_LIMIT as usize + 1];
@@ -275,6 +269,11 @@ fn structured_evidence_escapes_and_numeric_identity() {
             "id".to_string(),
             JsonValue::Number("9223372036854775807".to_string()),
         ),
+        ("wide".to_string(), JsonValue::Number("1e400".to_string())),
+        (
+            "negative-zero".to_string(),
+            JsonValue::Number("-0".to_string()),
+        ),
         ("secret".to_string(), JsonValue::Str(secret.to_string())),
         (
             "url".to_string(),
@@ -289,11 +288,36 @@ fn structured_evidence_escapes_and_numeric_identity() {
         Some(JsonValue::Number(digits)) => assert_eq!(digits, "9223372036854775807"),
         other => panic!("integer identity changed: {other:?}"),
     }
+    assert_eq!(result.get("wide"), Some(&JsonValue::Number("1e400".into())));
+    assert_eq!(
+        result.get("negative-zero"),
+        Some(&JsonValue::Number("-0".into()))
+    );
     assert_eq!(
         result.get("secret").and_then(|v| v.as_str()),
         Some("[REDACTED]")
     );
     e.check_secrets().unwrap();
+}
+
+#[test]
+fn evidence_accepts_typed_serialize_records_through_bounded_path() {
+    #[derive(serde::Serialize)]
+    struct Record<'a> {
+        #[serde(rename = "kind")]
+        value: &'a str,
+    }
+
+    let fixture = Fixture::new(&[]);
+    fixture
+        .evidence
+        .write_json("typed.json", &Record { value: "receipt" })
+        .unwrap();
+    let bytes = std::fs::read(format!("{}/typed.json", fixture.evidence.path())).unwrap();
+    assert_eq!(
+        std::str::from_utf8(&bytes).unwrap(),
+        "{\n  \"kind\": \"receipt\"\n}\n"
+    );
 }
 
 #[test]

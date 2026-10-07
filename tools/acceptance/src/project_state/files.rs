@@ -2,7 +2,7 @@ use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
-use soda_json::JsonValue;
+use crate::structured::{self, Value as JsonValue};
 
 use crate::sha256::{self, Digest, Sha256};
 
@@ -96,74 +96,8 @@ impl Entry {
 /// `(', ', ': ')` separators, ASCII-only output with lowercase `\u`
 /// escapes. Snapshot values are strings, integers, lists, and objects.
 pub fn dumps_sorted(value: &JsonValue) -> String {
-    fn escape(text: &str, out: &mut String) {
-        out.push('"');
-        for ch in text.chars() {
-            match ch {
-                '"' => out.push_str("\\\""),
-                '\\' => out.push_str("\\\\"),
-                '\n' => out.push_str("\\n"),
-                '\r' => out.push_str("\\r"),
-                '\t' => out.push_str("\\t"),
-                '\u{08}' => out.push_str("\\b"),
-                '\u{0c}' => out.push_str("\\f"),
-                c if (c as u32) < 0x20 => {
-                    out.push_str(&format!("\\u{:04x}", c as u32));
-                }
-                c if (c as u32) < 0x7f => out.push(c),
-                c if (c as u32) < 0x10000 => {
-                    out.push_str(&format!("\\u{:04x}", c as u32));
-                }
-                c => {
-                    // ensure_ascii astral planes as lowercase surrogate pairs.
-                    let code = c as u32 - 0x10000;
-                    out.push_str(&format!(
-                        "\\u{:04x}\\u{:04x}",
-                        0xd800 + (code >> 10),
-                        0xdc00 + (code & 0x3ff)
-                    ));
-                }
-            }
-        }
-        out.push('"');
-    }
-
-    fn render(value: &JsonValue, out: &mut String) {
-        match value {
-            JsonValue::Null => out.push_str("null"),
-            JsonValue::Bool(true) => out.push_str("true"),
-            JsonValue::Bool(false) => out.push_str("false"),
-            JsonValue::Number(raw) => out.push_str(raw),
-            JsonValue::Str(text) => escape(text, out),
-            JsonValue::Array(items) => {
-                out.push('[');
-                for (index, item) in items.iter().enumerate() {
-                    if index > 0 {
-                        out.push_str(", ");
-                    }
-                    render(item, out);
-                }
-                out.push(']');
-            }
-            JsonValue::Object(entries) => {
-                let mut order: Vec<&(String, JsonValue)> = entries.iter().collect();
-                order.sort_by(|a, b| a.0.cmp(&b.0));
-                out.push('{');
-                for (index, (key, item)) in order.iter().enumerate() {
-                    if index > 0 {
-                        out.push_str(", ");
-                    }
-                    escape(key, out);
-                    out.push_str(": ");
-                    render(item, out);
-                }
-                out.push('}');
-            }
-        }
-    }
-
     let mut out = String::new();
-    render(value, &mut out);
+    structured::write_python_sorted(&mut out, value);
     out
 }
 

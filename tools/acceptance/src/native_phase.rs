@@ -12,7 +12,8 @@ use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::os::unix::ffi::OsStrExt;
 
-use soda_json::JsonValue;
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use crate::jsonio;
 
@@ -175,6 +176,37 @@ fn value_error(message: impl Into<String>) -> PayloadFailure {
     PayloadFailure::Value(message.into())
 }
 
+struct RequestPairs(Vec<(String, String)>);
+
+impl<'de> Deserialize<'de> for RequestPairs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct PairsVisitor;
+        impl<'de> Visitor<'de> for PairsVisitor {
+            type Value = RequestPairs;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a JSON object whose values are strings")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut pairs = Vec::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    let value = map.next_value::<String>()?;
+                    pairs.push((key, value));
+                }
+                Ok(RequestPairs(pairs))
+            }
+        }
+        deserializer.deserialize_map(PairsVisitor)
+    }
+}
+
 /// Validate an exact-source request, like `phase_request`.
 pub fn phase_request(
     raw: &str,
@@ -183,16 +215,11 @@ pub fn phase_request(
     if raw.len() > REQUEST_LIMIT {
         return Err(value_error("request too large"));
     }
-    let parsed = JsonValue::parse(raw).map_err(|_| value_error("unexpected request fields"))?;
-    let JsonValue::Object(entries) = &parsed else {
-        return Err(value_error("unexpected request fields"));
-    };
+    let RequestPairs(entries) =
+        serde_json::from_str(raw).map_err(|_| value_error("unexpected request fields"))?;
     let mut fields = HashMap::new();
-    for (key, item) in entries {
-        let text = item
-            .as_str()
-            .ok_or_else(|| value_error("request values must be strings"))?;
-        fields.insert(key.clone(), text.to_string());
+    for (key, text) in entries {
+        fields.insert(key, text);
     }
     let keys: std::collections::HashSet<&str> = fields.keys().map(|k| k.as_str()).collect();
     if keys
@@ -295,13 +322,9 @@ fn write_receipt(
     path: &std::path::Path,
     receipt: &HashMap<String, String>,
 ) -> Result<(), PayloadFailure> {
-    let mut entries: Vec<(String, JsonValue)> = receipt
-        .iter()
-        .map(|(k, v)| (k.clone(), JsonValue::Str(v.clone())))
-        .collect();
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    let entries: std::collections::BTreeMap<&String, &String> = receipt.iter().collect();
     let mut text = String::new();
-    jsonio::write_compact(&mut text, &JsonValue::Object(entries));
+    jsonio::write_compact(&mut text, &entries);
     crate::files::write_new(&path.to_string_lossy(), text.as_bytes(), 0o666).map_err(|e| match e {
         crate::error::Error::Io(io) => PayloadFailure::os(io),
         other => value_error(other.to_string()),
@@ -358,16 +381,14 @@ fn admit_existing_run(
         return Err(value_error("private owned run directory required"));
     }
     let raw = std::fs::read_to_string(work.join("request.json")).map_err(PayloadFailure::os)?;
-    let parsed = JsonValue::parse(&raw)
-        .map_err(|_| value_error("phase does not belong to this source/target/run"))?;
-    let JsonValue::Object(entries) = &parsed else {
-        return Err(value_error(
-            "phase does not belong to this source/target/run",
-        ));
-    };
+    let entries = serde_json::from_str::<
+        std::collections::BTreeMap<String, Box<serde_json::value::RawValue>>,
+    >(&raw)
+    .map_err(|_| value_error("phase does not belong to this source/target/run"))?;
     let mut stored = HashMap::new();
     for (key, item) in entries {
-        stored.insert(key.clone(), item.as_str().unwrap_or_default().to_string());
+        let value = serde_json::from_str::<String>(item.get()).unwrap_or_default();
+        stored.insert(key, value);
     }
     if stored != *receipt {
         return Err(value_error(

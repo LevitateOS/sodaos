@@ -13,7 +13,7 @@
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 mod command;
 mod files;

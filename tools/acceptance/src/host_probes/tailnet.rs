@@ -1,4 +1,4 @@
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 use super::{is_truthy, parse_json, ProbeFailure};
 

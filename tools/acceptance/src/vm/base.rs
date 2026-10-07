@@ -1,4 +1,6 @@
-use soda_json::JsonValue;
+use serde::Serialize;
+use serde_json::value::RawValue;
+use std::collections::BTreeMap;
 
 use super::config::{valid_signer, VmConfig};
 use crate::coreos;
@@ -22,17 +24,31 @@ pub struct VerifiedBase {
     pub signer: String,
 }
 
-fn decode_verified_base(value: &JsonValue) -> Result<VerifiedBase, Error> {
-    jsonio::check_no_unknown(
-        value,
-        &["Path", "SHA256", "Architecture", "Release", "Signer"],
-    )?;
+fn decode_verified_base(value: &RawValue) -> Result<VerifiedBase, Error> {
+    let fields = match serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(value.get()) {
+        Ok(fields) => fields,
+        Err(_) if !value.get().trim_start().starts_with('{') => BTreeMap::new(),
+        Err(_) => return Err(Error::msg("invalid base receipt")),
+    };
+    for key in fields.keys() {
+        if !["Path", "SHA256", "Architecture", "Release", "Signer"].contains(&key.as_str()) {
+            return Err(Error::msg("unknown JSON field"));
+        }
+    }
+    let string_field = |name: &str| -> Result<String, Error> {
+        match fields.get(name) {
+            None => Ok(String::new()),
+            Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                .map(|v| v.unwrap_or_default())
+                .map_err(|_| Error::msg("invalid JSON string field")),
+        }
+    };
     Ok(VerifiedBase {
-        path: jsonio::opt_string(value, "Path")?,
-        sha256: jsonio::opt_string(value, "SHA256")?,
-        architecture: jsonio::opt_string(value, "Architecture")?,
-        release: jsonio::opt_string(value, "Release")?,
-        signer: jsonio::opt_string(value, "Signer")?,
+        path: string_field("Path")?,
+        sha256: string_field("SHA256")?,
+        architecture: string_field("Architecture")?,
+        release: string_field("Release")?,
+        signer: string_field("Signer")?,
     })
 }
 
@@ -78,20 +94,31 @@ pub(super) fn publish_launch_fixture(
 ) -> Result<(), Error> {
     let firmware_hash = files::hash_file(&config.firmware)?;
     let vars_hash = files::hash_file(&config.variables)?;
-    let description = JsonValue::Object(vec![
-        ("Name".to_string(), JsonValue::Str(config.name.clone())),
-        (
-            "Architecture".to_string(),
-            JsonValue::Str(config.architecture.clone()),
-        ),
-        (
-            "BaseSHA256".to_string(),
-            JsonValue::Str(base.sha256.clone()),
-        ),
-        ("Release".to_string(), JsonValue::Str(base.release.clone())),
-        ("FirmwareSHA256".to_string(), JsonValue::Str(firmware_hash)),
-        ("VariablesSHA256".to_string(), JsonValue::Str(vars_hash)),
-        ("Work".to_string(), JsonValue::Str(config.work.clone())),
-    ]);
+    #[derive(Serialize)]
+    struct Fixture<'a> {
+        #[serde(rename = "Name")]
+        name: &'a str,
+        #[serde(rename = "Architecture")]
+        architecture: &'a str,
+        #[serde(rename = "BaseSHA256")]
+        base_sha256: &'a str,
+        #[serde(rename = "Release")]
+        release: &'a str,
+        #[serde(rename = "FirmwareSHA256")]
+        firmware_sha256: &'a str,
+        #[serde(rename = "VariablesSHA256")]
+        variables_sha256: &'a str,
+        #[serde(rename = "Work")]
+        work: &'a str,
+    }
+    let description = Fixture {
+        name: &config.name,
+        architecture: &config.architecture,
+        base_sha256: &base.sha256,
+        release: &base.release,
+        firmware_sha256: &firmware_hash,
+        variables_sha256: &vars_hash,
+        work: &config.work,
+    };
     evidence.write_json("fixture.json", &description)
 }

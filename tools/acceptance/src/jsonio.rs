@@ -1,20 +1,15 @@
-//! Strict JSON input and Go-exact JSON output.
+//! Bounded JSON file custody and Go-compatible JSON formatting.
 //!
-//! [`read_json_file`] mirrors `ReadJSON`: the parent directory stays open,
-//! the file must be regular and bounded, and its bytes must not change
-//! between stat and read. Decoding rejects unknown fields and trailing
-//! data, like Go's `DisallowUnknownFields` plus the second-decode check.
-//!
-//! Emission mirrors Go's `encoding/json` byte for byte: HTML escaping
-//! (`<`, `>`, `&`), `U+2028/2029` escaping, raw number passthrough (the
-//! `UseNumber` identity the evidence tests pin), compact separators for
-//! reports and two-space indented separators for structured evidence.
+//! Schema decoding belongs to each owner. Readers return Serde's validated
+//! raw value together with a digest of the exact original bytes.
 
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, Read};
 use std::path::Path;
 
-use soda_json::JsonValue;
+use serde::Serialize;
+use serde_json::ser::{Formatter, PrettyFormatter};
+use serde_json::value::RawValue;
 
 use crate::error::Error;
 use crate::files::{self, FileAttr, OwnedDir};
@@ -22,9 +17,9 @@ use crate::sha256;
 
 pub use crate::timestamps::{now_rfc3339_nano, validate_rfc3339};
 
-/// Read one JSON value from a bounded regular file, returning the value and
-/// the SHA-256 hex of the exact bytes decoded. Mirrors `ReadJSON`.
-pub fn read_json_file(path: &str) -> Result<(JsonValue, String), Error> {
+/// Read one bounded JSON value, returning its raw token and the SHA-256 of
+/// the exact bytes read. The caller owns the schema and root policy.
+pub fn read_json_file(path: &str) -> Result<(Box<RawValue>, String), Error> {
     let file = Path::new(path);
     let parent = file.parent().unwrap_or(Path::new("/"));
     let base = file
@@ -46,14 +41,13 @@ pub fn read_json_file(path: &str) -> Result<(JsonValue, String), Error> {
     if data.len() as u64 > files::JSON_LIMIT {
         return Err(Error::msg("JSON input exceeds limit"));
     }
-    let text = std::str::from_utf8(&data).map_err(|_| Error::msg("invalid JSON input"))?;
-    let value = JsonValue::parse(text).map_err(|_| Error::msg("invalid JSON input"))?;
+    let value = serde_json::from_slice(&data).map_err(|_| Error::msg("invalid JSON input"))?;
     Ok((value, sha256::hex_lower(&sha256::digest(&data))))
 }
 
-/// Read one JSON value through an already-open directory. Mirrors
-/// `ReadJSONAt`: same bounds and change checks, digest of decoded bytes.
-pub fn read_json_at(root: &OwnedDir, name: &str) -> Result<(JsonValue, String), Error> {
+/// Read a bounded JSON value through an already-open directory, retaining
+/// exact input-byte hashing separately from the parsed token.
+pub fn read_json_at(root: &OwnedDir, name: &str) -> Result<(Box<RawValue>, String), Error> {
     let before = root.lstat_at(name)?;
     if !before.is_regular || before.size > files::JSON_LIMIT {
         return Err(Error::msg("bounded regular JSON input required"));
@@ -68,8 +62,7 @@ pub fn read_json_at(root: &OwnedDir, name: &str) -> Result<(JsonValue, String), 
     if data.len() as u64 > files::JSON_LIMIT {
         return Err(Error::msg("JSON input exceeds limit"));
     }
-    let text = std::str::from_utf8(&data).map_err(|_| Error::msg("invalid JSON input"))?;
-    let value = JsonValue::parse(text).map_err(|_| Error::msg("invalid JSON input"))?;
+    let value = serde_json::from_slice(&data).map_err(|_| Error::msg("invalid JSON input"))?;
     Ok((value, sha256::hex_lower(&sha256::digest(&data))))
 }
 
@@ -94,76 +87,132 @@ fn fstat_attr(file: &File) -> Result<FileAttr, Error> {
     })
 }
 
-/// Reject any object key outside `known`, like `DisallowUnknownFields`.
-/// Duplicate keys keep last-wins lookup (matching Go), but every spelling
-/// present must be known.
-pub fn check_no_unknown(value: &JsonValue, known: &[&str]) -> Result<(), Error> {
-    if let JsonValue::Object(entries) = value {
-        for (key, _) in entries {
-            if !known.contains(&key.as_str()) {
-                return Err(Error::msg(format!("json: unknown field {key:?}")));
+#[derive(Default)]
+struct GoFormatter;
+
+impl Formatter for GoFormatter {
+    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        for ch in fragment.chars() {
+            match ch {
+                '<' => writer.write_all(b"\\u003c")?,
+                '>' => writer.write_all(b"\\u003e")?,
+                '&' => writer.write_all(b"\\u0026")?,
+                '\u{2028}' => writer.write_all(b"\\u2028")?,
+                '\u{2029}' => writer.write_all(b"\\u2029")?,
+                ch => {
+                    let mut bytes = [0; 4];
+                    writer.write_all(ch.encode_utf8(&mut bytes).as_bytes())?;
+                }
             }
         }
+        Ok(())
     }
-    Ok(())
 }
 
-/// Required string field, like decoding into a Go `string`.
-pub fn require_string<'a>(value: &'a JsonValue, field: &str) -> Result<&'a str, Error> {
+struct GoPrettyFormatter(PrettyFormatter<'static>);
+
+impl Default for GoPrettyFormatter {
+    fn default() -> Self {
+        Self(PrettyFormatter::with_indent(b"  "))
+    }
+}
+
+impl Formatter for GoPrettyFormatter {
+    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        GoFormatter.write_string_fragment(writer, fragment)
+    }
+
+    fn begin_array<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.begin_array(writer)
+    }
+    fn end_array<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.end_array(writer)
+    }
+    fn begin_array_value<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.begin_array_value(writer, first)
+    }
+    fn end_array_value<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.end_array_value(writer)
+    }
+    fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.begin_object(writer)
+    }
+    fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.end_object(writer)
+    }
+    fn begin_object_key<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.begin_object_key(writer, first)
+    }
+    fn end_object_key<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.end_object_key(writer)
+    }
+    fn begin_object_value<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.begin_object_value(writer)
+    }
+    fn end_object_value<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.0.end_object_value(writer)
+    }
+}
+
+/// Compact Go `encoding/json` output. The caller controls DTO or ordered
+/// application-tree field order; map implementations supply their own order.
+pub fn write_compact<T: Serialize>(out: &mut String, value: &T) {
+    let mut bytes = Vec::new();
+    let mut serializer = serde_json::Serializer::with_formatter(&mut bytes, GoFormatter);
     value
-        .get(field)
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::msg(format!("invalid {field}: string required")))
+        .serialize(&mut serializer)
+        .expect("serializing JSON output to memory cannot fail");
+    out.push_str(std::str::from_utf8(&bytes).expect("Serde emits valid UTF-8"));
 }
 
-/// Required strict integer field.
-pub fn require_integer(value: &JsonValue, field: &str) -> Result<i128, Error> {
+/// Two-space Go indented output without a terminal newline.
+pub fn write_indent<T: Serialize>(out: &mut String, value: &T) {
+    let mut bytes = Vec::new();
+    let mut serializer =
+        serde_json::Serializer::with_formatter(&mut bytes, GoPrettyFormatter::default());
     value
-        .get(field)
-        .and_then(|v| v.as_integer())
-        .ok_or_else(|| Error::msg(format!("invalid {field}: integer required")))
+        .serialize(&mut serializer)
+        .expect("serializing JSON output to memory cannot fail");
+    out.push_str(std::str::from_utf8(&bytes).expect("Serde emits valid UTF-8"));
 }
 
-/// Required boolean field.
-pub fn require_bool(value: &JsonValue, field: &str) -> Result<bool, Error> {
-    value
-        .get(field)
-        .and_then(|v| v.as_bool())
-        .ok_or_else(|| Error::msg(format!("invalid {field}: boolean required")))
-}
-
-/// Optional string field: missing or null decodes to empty, like Go's zero
-/// value; a present mistyped value fails, like Go's unmarshal error.
-pub fn opt_string(value: &JsonValue, field: &str) -> Result<String, Error> {
-    match value.get(field) {
-        None | Some(JsonValue::Null) => Ok(String::new()),
-        Some(JsonValue::Str(s)) => Ok(s.clone()),
-        Some(_) => Err(Error::msg(format!("invalid {field}: string required"))),
-    }
-}
-
-/// Optional integer field: missing or null decodes to zero; a present
-/// mistyped value fails.
-pub fn opt_integer(value: &JsonValue, field: &str) -> Result<i128, Error> {
-    match value.get(field) {
-        None | Some(JsonValue::Null) => Ok(0),
-        Some(v) => v
-            .as_integer()
-            .ok_or_else(|| Error::msg(format!("invalid {field}: integer required"))),
-    }
-}
-
-/// Optional boolean field: missing or null decodes to false.
-pub fn opt_bool(value: &JsonValue, field: &str) -> Result<bool, Error> {
-    match value.get(field) {
-        None | Some(JsonValue::Null) => Ok(false),
-        Some(JsonValue::Bool(b)) => Ok(*b),
-        Some(_) => Err(Error::msg(format!("invalid {field}: boolean required"))),
-    }
-}
-
-/// Escape a string exactly like Go's `encoding/json`: short escapes, HTML
-/// characters, `U+2028/2029`, and `\u00xx` for other controls.
+/// Go JSON quote escaping for credential bytes included in a secret set.
 pub fn escape_go(out: &mut String, value: &str) {
     out.push('"');
     for ch in value.chars() {
@@ -178,94 +227,9 @@ pub fn escape_go(out: &mut String, value: &str) {
             '&' => out.push_str("\\u0026"),
             '\u{2028}' => out.push_str("\\u2028"),
             '\u{2029}' => out.push_str("\\u2029"),
-            c if (c as u32) < 0x20 => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
-            }
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
             c => out.push(c),
         }
     }
     out.push('"');
 }
-
-/// Compact emission, like `json.Marshal`. Object entries keep caller order;
-/// callers sort maps first, matching Go's sorted map keys.
-pub fn write_compact(out: &mut String, value: &JsonValue) {
-    match value {
-        JsonValue::Null => out.push_str("null"),
-        JsonValue::Bool(true) => out.push_str("true"),
-        JsonValue::Bool(false) => out.push_str("false"),
-        JsonValue::Number(raw) => out.push_str(raw),
-        JsonValue::Str(s) => escape_go(out, s),
-        JsonValue::Array(items) => {
-            out.push('[');
-            for (i, item) in items.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                write_compact(out, item);
-            }
-            out.push(']');
-        }
-        JsonValue::Object(entries) => {
-            out.push('{');
-            for (i, (key, item)) in entries.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                escape_go(out, key);
-                out.push(':');
-                write_compact(out, item);
-            }
-            out.push('}');
-        }
-    }
-}
-
-/// Two-space indented emission, like `json.MarshalIndent(v, "", "  ")`.
-/// No trailing newline; callers append it like the Go owner does.
-pub fn write_indent(out: &mut String, value: &JsonValue) {
-    write_indent_at(out, value, 0);
-}
-
-fn write_indent_at(out: &mut String, value: &JsonValue, depth: usize) {
-    match value {
-        JsonValue::Array(items) if !items.is_empty() => {
-            out.push_str("[\n");
-            for (i, item) in items.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(",\n");
-                }
-                write_padding(out, depth + 1);
-                write_indent_at(out, item, depth + 1);
-            }
-            out.push('\n');
-            write_padding(out, depth);
-            out.push(']');
-        }
-        JsonValue::Object(entries) if !entries.is_empty() => {
-            out.push_str("{\n");
-            for (i, (key, item)) in entries.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(",\n");
-                }
-                write_padding(out, depth + 1);
-                escape_go(out, key);
-                out.push_str(": ");
-                write_indent_at(out, item, depth + 1);
-            }
-            out.push('\n');
-            write_padding(out, depth);
-            out.push('}');
-        }
-        _ => write_compact(out, value),
-    }
-}
-
-fn write_padding(out: &mut String, depth: usize) {
-    for _ in 0..depth {
-        out.push_str("  ");
-    }
-}
-
-#[cfg(test)]
-mod tests;

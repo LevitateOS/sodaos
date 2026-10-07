@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use soda_json::JsonValue;
+use crate::structured::Value as JsonValue;
 
 use super::{
     arg_list, command, glob_prefix, obj, output_lines, s, set, SnapshotFailure, SnapshotKind,

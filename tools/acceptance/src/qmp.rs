@@ -13,7 +13,11 @@ use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::time::{Duration, Instant};
 
-use soda_json::JsonValue;
+use serde::de::{IgnoredAny, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::value::RawValue;
+
+use crate::structured::Value as JsonValue;
 
 use crate::error::Error;
 use crate::process::Phase;
@@ -77,12 +81,12 @@ impl QmpClient {
         );
         let mut writer = connection;
         negotiate(&mut reader, &mut writer, phase)?;
-        let mut request = vec![("execute".to_string(), JsonValue::Str(command.to_string()))];
-        if let Some(args) = arguments {
-            request.push(("arguments".to_string(), args.clone()));
-        }
-        request.push(("id".to_string(), JsonValue::Str(id.to_string())));
-        send_message(&mut writer, &JsonValue::Object(request), phase)
+        let request = ExecuteRequest {
+            execute: command,
+            arguments,
+            id,
+        };
+        send_message(&mut writer, &request, phase)
             .map_err(|err| Error::msg(format!("send QMP {command}: {err}")))?;
         decode_response(&mut reader, id, result, phase)
     }
@@ -218,7 +222,10 @@ fn connect_until(path: &str, phase: &Phase) -> std::io::Result<UnixStream> {
     Ok(unsafe { UnixStream::from_raw_fd(raw) })
 }
 
-fn read_message(reader: &mut BufReader<UnixStream>, phase: &Phase) -> Result<JsonValue, String> {
+fn read_message(
+    reader: &mut BufReader<UnixStream>,
+    phase: &Phase,
+) -> Result<Box<RawValue>, String> {
     let mut line = Vec::new();
     let mut total: u64 = 0;
     loop {
@@ -256,12 +263,17 @@ fn read_message(reader: &mut BufReader<UnixStream>, phase: &Phase) -> Result<Jso
         }
     }
     let text = std::str::from_utf8(&line).map_err(|_| "invalid QMP message".to_string())?;
-    let value = JsonValue::parse(text.trim_end()).map_err(|_| "invalid QMP message".to_string())?;
+    let value =
+        serde_json::from_str(text.trim_end()).map_err(|_| "invalid QMP message".to_string())?;
     check_phase(phase).map_err(|err| err.to_string())?;
     Ok(value)
 }
 
-fn send_message(writer: &mut UnixStream, value: &JsonValue, phase: &Phase) -> std::io::Result<()> {
+fn send_message<T: Serialize>(
+    writer: &mut UnixStream,
+    value: &T,
+    phase: &Phase,
+) -> std::io::Result<()> {
     check_phase(phase)?;
     let mut out = String::new();
     crate::jsonio::write_compact(&mut out, value);
@@ -289,6 +301,67 @@ fn send_message(writer: &mut UnixStream, value: &JsonValue, phase: &Phase) -> st
     Ok(())
 }
 
+#[derive(Serialize)]
+struct ExecuteRequest<'a> {
+    execute: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    arguments: Option<&'a JsonValue>,
+    id: &'a str,
+}
+
+#[derive(Serialize)]
+struct CapabilitiesRequest<'a> {
+    execute: &'a str,
+    id: &'a str,
+}
+
+#[derive(Default)]
+struct QmpEnvelope {
+    qmp: Option<Box<RawValue>>,
+    id: Option<Box<RawValue>>,
+    error: Option<Box<RawValue>>,
+    result: Option<Box<RawValue>>,
+}
+
+impl<'de> Deserialize<'de> for QmpEnvelope {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EnvelopeVisitor;
+        impl<'de> Visitor<'de> for EnvelopeVisitor {
+            type Value = QmpEnvelope;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a QMP message object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut envelope = QmpEnvelope::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "QMP" => {
+                            envelope.qmp = Some(map.next_value()?);
+                        }
+                        "id" => envelope.id = Some(map.next_value()?),
+                        "error" => envelope.error = Some(map.next_value()?),
+                        "return" => envelope.result = Some(map.next_value()?),
+                        _ => {
+                            let _: IgnoredAny = map.next_value()?;
+                        }
+                    }
+                }
+                Ok(envelope)
+            }
+        }
+        deserializer.deserialize_map(EnvelopeVisitor)
+    }
+}
+
+#[cfg(test)]
+fn read_dynamic_message(
+    reader: &mut BufReader<UnixStream>,
+    phase: &Phase,
+) -> Result<JsonValue, String> {
+    let raw = read_message(reader, phase)?;
+    JsonValue::from_raw(&raw).map_err(|_| "invalid QMP message".to_string())
+}
+
 fn negotiate(
     reader: &mut BufReader<UnixStream>,
     writer: &mut UnixStream,
@@ -296,16 +369,15 @@ fn negotiate(
 ) -> Result<(), Error> {
     let greeting = read_message(reader, phase)
         .map_err(|err| Error::msg(format!("read QMP greeting: {err}")))?;
-    if greeting.get("QMP").is_none() {
+    let greeting: QmpEnvelope = serde_json::from_str(greeting.get())
+        .map_err(|_| Error::msg("read QMP greeting: invalid QMP message"))?;
+    if greeting.qmp.is_none() {
         return Err(Error::msg("QMP greeting is missing capabilities"));
     }
-    let capabilities = JsonValue::Object(vec![
-        (
-            "execute".to_string(),
-            JsonValue::Str("qmp_capabilities".to_string()),
-        ),
-        ("id".to_string(), JsonValue::Str("capabilities".to_string())),
-    ]);
+    let capabilities = CapabilitiesRequest {
+        execute: "qmp_capabilities",
+        id: "capabilities",
+    };
     send_message(writer, &capabilities, phase)
         .map_err(|err| Error::msg(format!("enable QMP capabilities: {err}")))?;
     decode_response(reader, "capabilities", None, phase)
@@ -321,17 +393,26 @@ fn decode_response(
         phase
             .check()
             .map_err(|err| Error::msg(format!("read QMP response {id}: {err}")))?;
-        let response = read_message(reader, phase)
+        let raw = read_message(reader, phase)
             .map_err(|err| Error::msg(format!("read QMP response {id}: {err}")))?;
-        let JsonValue::Object(_) = response else {
-            return Err(Error::msg(format!(
-                "read QMP response {id}: invalid QMP message"
-            )));
-        };
-        if response.get("id").and_then(|v| v.as_str()) != Some(id) {
+        let response: QmpEnvelope = serde_json::from_str(raw.get())
+            .map_err(|_| Error::msg(format!("read QMP response {id}: invalid QMP message")))?;
+        phase
+            .check()
+            .map_err(|err| Error::msg(format!("read QMP response {id}: {err}")))?;
+        let response_id = response
+            .id
+            .as_ref()
+            .and_then(|value| serde_json::from_str::<String>(value.get()).ok());
+        if response_id.as_deref() != Some(id) {
             continue;
         }
-        if let Some(error) = response.get("error") {
+        if let Some(error) = response.error.as_ref() {
+            let error = JsonValue::from_raw(error)
+                .map_err(|_| Error::msg(format!("read QMP response {id}: invalid QMP message")))?;
+            phase
+                .check()
+                .map_err(|err| Error::msg(format!("read QMP response {id}: {err}")))?;
             if !matches!(error, JsonValue::Null) {
                 let class = error.get("class").and_then(|v| v.as_str());
                 let desc = error.get("desc").and_then(|v| v.as_str());
@@ -347,11 +428,17 @@ fn decode_response(
                 }
             }
         }
-        match response.get("return") {
+        match response.result {
             None => return Err(Error::msg("QMP response has neither result nor error")),
             Some(payload) => {
+                let payload = JsonValue::from_raw(&payload).map_err(|_| {
+                    Error::msg(format!("read QMP response {id}: invalid QMP message"))
+                })?;
+                phase
+                    .check()
+                    .map_err(|err| Error::msg(format!("read QMP response {id}: {err}")))?;
                 if let Some(out) = result {
-                    *out = payload.clone();
+                    *out = payload;
                 }
                 return Ok(());
             }
@@ -368,6 +455,37 @@ mod tests {
 
     fn fixture_phase() -> Phase {
         Phase::timeout(Duration::from_secs(30))
+    }
+
+    #[test]
+    fn typed_envelope_uses_final_raw_duplicate_before_conversion() {
+        let (mut client, server) = UnixStream::pair().unwrap();
+        client
+            .write_all(b"{\"id\":false,\"id\":\"status\",\"return\":false,\"return\":{\"n\":1e400,\"n\":-0}}\n")
+            .unwrap();
+        let mut reader = BufReader::new(server);
+        let mut result = JsonValue::Null;
+        decode_response(&mut reader, "status", Some(&mut result), &fixture_phase()).unwrap();
+        assert_eq!(result.get("n"), Some(&JsonValue::Number("-0".to_string())));
+    }
+
+    #[test]
+    fn request_envelope_order_keeps_arbitrary_argument_order_and_numbers() {
+        let arguments = JsonValue::Object(vec![
+            ("z".into(), JsonValue::Number("1e2".into())),
+            ("a".into(), JsonValue::Number("-0".into())),
+        ]);
+        let request = ExecuteRequest {
+            execute: "query-status",
+            arguments: Some(&arguments),
+            id: "status",
+        };
+        let mut output = String::new();
+        crate::jsonio::write_compact(&mut output, &request);
+        assert_eq!(
+            output,
+            r#"{"execute":"query-status","arguments":{"z":1e2,"a":-0},"id":"status"}"#
+        );
     }
 
     fn execute_bounded(client: QmpClient, phase: Phase, outer: Duration) -> Result<(), String> {
@@ -395,7 +513,7 @@ mod tests {
             )
             .unwrap();
             for _ in 0..2 {
-                let request = read_message(&mut reader, &fixture_phase()).unwrap();
+                let request = read_dynamic_message(&mut reader, &fixture_phase()).unwrap();
                 let id = request
                     .get("id")
                     .and_then(|v| v.as_str())
@@ -470,7 +588,7 @@ mod tests {
                 &fixture_phase(),
             )
             .unwrap();
-            let request = read_message(&mut reader, &fixture_phase()).unwrap();
+            let request = read_dynamic_message(&mut reader, &fixture_phase()).unwrap();
             let id = request
                 .get("id")
                 .and_then(|v| v.as_str())
@@ -481,7 +599,7 @@ mod tests {
                 ("id".to_string(), JsonValue::Str(id)),
             ]);
             send_message(&mut writer, &ok, &fixture_phase()).unwrap();
-            let request = read_message(&mut reader, &fixture_phase()).unwrap();
+            let request = read_dynamic_message(&mut reader, &fixture_phase()).unwrap();
             let id = request
                 .get("id")
                 .and_then(|v| v.as_str())
@@ -774,7 +892,7 @@ mod tests {
                 &fixture_phase(),
             )
             .unwrap();
-            let capability = read_message(&mut reader, &fixture_phase()).unwrap();
+            let capability = read_dynamic_message(&mut reader, &fixture_phase()).unwrap();
             std::thread::sleep(Duration::from_millis(60));
             let cap_id = capability
                 .get("id")
@@ -790,7 +908,7 @@ mod tests {
                 &fixture_phase(),
             )
             .unwrap();
-            let command = read_message(&mut reader, &fixture_phase()).unwrap();
+            let command = read_dynamic_message(&mut reader, &fixture_phase()).unwrap();
             let command_id = command
                 .get("id")
                 .and_then(|value| value.as_str())
@@ -832,7 +950,7 @@ mod tests {
                 &fixture_phase(),
             )
             .unwrap();
-            let request = read_message(&mut reader, &fixture_phase()).unwrap();
+            let request = read_dynamic_message(&mut reader, &fixture_phase()).unwrap();
             let id = request
                 .get("id")
                 .and_then(|v| v.as_str())
@@ -847,7 +965,7 @@ mod tests {
                 &fixture_phase(),
             )
             .unwrap();
-            let _ = read_message(&mut reader, &fixture_phase()).unwrap();
+            let _ = read_dynamic_message(&mut reader, &fixture_phase()).unwrap();
             let mut stream = String::new();
             for _ in 0..2000 {
                 stream.push_str("{\"event\":\"STOP\"}\n");
@@ -886,7 +1004,7 @@ mod tests {
                 &fixture_phase(),
             )
             .unwrap();
-            let request = read_message(&mut reader, &fixture_phase()).unwrap();
+            let request = read_dynamic_message(&mut reader, &fixture_phase()).unwrap();
             let id = request
                 .get("id")
                 .and_then(|v| v.as_str())

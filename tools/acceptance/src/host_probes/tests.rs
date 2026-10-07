@@ -15,6 +15,8 @@ fn dumps_keeps_order_and_separators() {
         JsonValue::Str("é\t\"q\"".to_string()),
     )]);
     assert_eq!(dumps(&value), "{\"e\": \"\\u00e9\\t\\\"q\\\"\"}");
+    let value = JsonValue::Str("<>&😀".to_string());
+    assert_eq!(dumps(&value), "\"<>&\\ud83d\\ude00\"");
 }
 
 #[test]

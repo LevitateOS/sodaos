@@ -2,11 +2,11 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Duration;
 
-use soda_json::JsonValue;
+use serde_json::value::RawValue;
+use std::collections::BTreeMap;
 
 use crate::error::Error;
 use crate::files;
-use crate::jsonio;
 use crate::process::Phase;
 
 use super::{look_path, quote, CommandSpec, StdinSpec};
@@ -30,20 +30,41 @@ pub struct Remote {
 /// Decode connection JSON with Go field names and no unknown fields.
 /// `Timeout` is admitted and ignored, like Go's `json:"-"` under
 /// `DisallowUnknownFields`; the driver always sets the deadline.
-pub fn decode_remote(value: &JsonValue) -> Result<Remote, Error> {
-    jsonio::check_no_unknown(
-        value,
-        &["User", "Host", "Port", "Key", "KnownHosts", "Timeout"],
-    )?;
-    let port = jsonio::opt_integer(value, "Port")?;
+pub fn decode_remote(value: &RawValue) -> Result<Remote, Error> {
+    let fields = match serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(value.get()) {
+        Ok(fields) => fields,
+        Err(_) if !value.get().trim_start().starts_with('{') => BTreeMap::new(),
+        Err(_) => return Err(Error::msg("invalid SSH configuration")),
+    };
+    for key in fields.keys() {
+        if !["User", "Host", "Port", "Key", "KnownHosts", "Timeout"].contains(&key.as_str()) {
+            return Err(Error::msg("unknown JSON field"));
+        }
+    }
+    let string_field = |name: &str| -> Result<String, Error> {
+        match fields.get(name) {
+            None => Ok(String::new()),
+            Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+                .map(|v| v.unwrap_or_default())
+                .map_err(|_| Error::msg("invalid JSON string field")),
+        }
+    };
+    let port = match fields.get("Port") {
+        None => 0,
+        Some(raw) if raw.get() == "null" => 0,
+        Some(raw) => raw
+            .get()
+            .parse::<i128>()
+            .map_err(|_| Error::msg("invalid Port: integer required"))?,
+    };
     let port: i64 = port
         .try_into()
         .map_err(|_| Error::msg("invalid Port: integer required"))?;
     Ok(Remote {
-        user: jsonio::opt_string(value, "User")?,
-        host: jsonio::opt_string(value, "Host")?,
-        key: jsonio::opt_string(value, "Key")?,
-        known_hosts: jsonio::opt_string(value, "KnownHosts")?,
+        user: string_field("User")?,
+        host: string_field("Host")?,
+        key: string_field("Key")?,
+        known_hosts: string_field("KnownHosts")?,
         port,
         timeout: Duration::ZERO,
     })
@@ -168,6 +189,28 @@ impl Remote {
             }
             std::thread::sleep(Duration::from_secs(1));
         }
+    }
+}
+
+#[cfg(test)]
+mod json_tests {
+    use super::decode_remote;
+    use serde_json::value::RawValue;
+
+    #[test]
+    fn remote_record_uses_last_exact_fields_before_type_decoding() {
+        let raw = RawValue::from_string(
+            r#"{"User":false,"User":"root","Port":1e400,"Port":22222,"Timeout":{"ignored":true}}"#
+                .to_string(),
+        )
+        .unwrap();
+        let decoded = decode_remote(&raw).unwrap();
+        assert_eq!(decoded.user, "root");
+        assert_eq!(decoded.port, 22222);
+        let fractional = RawValue::from_string(r#"{"Port":2.5}"#.to_string()).unwrap();
+        assert!(decode_remote(&fractional).is_err());
+        let unknown = RawValue::from_string(r#"{"Other":null}"#.to_string()).unwrap();
+        assert!(decode_remote(&unknown).is_err());
     }
 }
 
