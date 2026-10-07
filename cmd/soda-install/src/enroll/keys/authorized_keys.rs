@@ -104,12 +104,13 @@ fn append_existing_key(
     Ok(())
 }
 
-fn write_temp_key_file(
-    dir: &SshDir,
+fn write_temp_key_file<'a>(
+    dir: &'a SshDir,
     temp_name: &str,
     contents: &[u8],
     write: &dyn Fn(&File, &[u8]) -> std::io::Result<usize>,
-) -> Result<File, Error> {
+) -> Result<TempKey<'a>, Error> {
+    let name = CString::new(temp_name).map_err(|_| Error::msg("invalid name"))?;
     let file = openat_file(
         dir.raw(),
         temp_name,
@@ -117,7 +118,15 @@ fn write_temp_key_file(
         0o600,
     )
     .map_err(errors::os_error)?;
-    match write(&file, contents) {
+    // Take cleanup custody immediately after exclusive creation, before the
+    // first write or sync can fail.
+    let temp = TempKey {
+        dir,
+        name,
+        file: Some(file),
+    };
+    let file = temp.file.as_ref().unwrap();
+    match write(file, contents) {
         Ok(n) if n == contents.len() => {}
         _ => {
             return Err(Error::msg(
@@ -128,7 +137,7 @@ fn write_temp_key_file(
     if let Err(err) = file.sync_all() {
         return Err(errors::path_error("sync", temp_name, err));
     }
-    Ok(file)
+    Ok(temp)
 }
 
 fn link_and_confirm_key_file(
@@ -168,8 +177,23 @@ struct TempKey<'a> {
 
 impl Drop for TempKey<'_> {
     fn drop(&mut self) {
-        unsafe {
-            libc::unlinkat(self.dir.raw(), self.name.as_ptr(), 0);
+        if let Some(file) = self.file.as_ref() {
+            if let Ok(opened) = fstat_fd(file.as_raw_fd()) {
+                let mut named: libc::stat = unsafe { std::mem::zeroed() };
+                let found = unsafe {
+                    libc::fstatat(
+                        self.dir.raw(),
+                        self.name.as_ptr(),
+                        &mut named,
+                        libc::AT_SYMLINK_NOFOLLOW,
+                    )
+                } == 0;
+                if found && opened.st_dev == named.st_dev && opened.st_ino == named.st_ino {
+                    unsafe {
+                        libc::unlinkat(self.dir.raw(), self.name.as_ptr(), 0);
+                    }
+                }
+            }
         }
         drop(self.file.take());
     }
@@ -184,12 +208,7 @@ fn create_exclusive_key_file(
 ) -> Result<(), Error> {
     let temp_name = format!(".soda-enrollment-{}", random_hex(12)?);
     let contents = format!("{key}\n");
-    let file = write_temp_key_file(dir, &temp_name, contents.as_bytes(), write)?;
-    let temp = TempKey {
-        dir,
-        name: CString::new(temp_name.clone()).map_err(|_| Error::msg("invalid name"))?,
-        file: Some(file),
-    };
+    let temp = write_temp_key_file(dir, &temp_name, contents.as_bytes(), write)?;
     if let Some(err) = ctx.err() {
         return Err(err);
     }

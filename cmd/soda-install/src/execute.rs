@@ -216,7 +216,28 @@ pub fn verify_disk_media() -> Result<(crate::run::MediaIdentity, u64), Error> {
     Ok((media, payload_bytes))
 }
 
-fn write_attempt_ignition(destination: &[u8]) -> Result<String, Error> {
+struct AttemptIgnition {
+    directory: String,
+    path: String,
+}
+
+impl AttemptIgnition {
+    fn close(mut self) -> Result<(), Error> {
+        let directory = std::mem::take(&mut self.directory);
+        std::fs::remove_dir_all(&directory)
+            .map_err(|err| crate::errors::path_error("remove", &directory, err))
+    }
+}
+
+impl Drop for AttemptIgnition {
+    fn drop(&mut self) {
+        if !self.directory.is_empty() {
+            let _ = std::fs::remove_dir_all(&self.directory);
+        }
+    }
+}
+
+fn write_attempt_ignition(destination: &[u8]) -> Result<AttemptIgnition, Error> {
     let template = CString::new("/run/soda-installer-XXXXXX").unwrap();
     let raw = template.into_raw();
     let ok = unsafe { libc::mkdtemp(raw) };
@@ -231,8 +252,19 @@ fn write_attempt_ignition(destination: &[u8]) -> Result<String, Error> {
     }
     let work = template.to_string_lossy().into_owned();
     let ignition = format!("{work}/destination.ign");
-    buildx::write_new(&ignition, destination, 0o600)?;
-    Ok(ignition)
+    let owner = AttemptIgnition {
+        directory: work,
+        path: ignition,
+    };
+    if let Err(primary) = buildx::write_new(&owner.path, destination, 0o600) {
+        return match owner.close() {
+            Ok(()) => Err(primary),
+            Err(cleanup) => Err(Error::msg(format!(
+                "{primary}; temporary ignition cleanup failed: {cleanup}"
+            ))),
+        };
+    }
+    Ok(owner)
 }
 
 fn begin_disk_attempt(console: &Console) -> Result<(), Error> {
@@ -285,14 +317,25 @@ fn install_disk_attempt(
         "Raw diagnostics are suppressed to protect provisioning inputs.",
         &[],
     );
-    execute_attempt_disk(
+    let result = execute_attempt_disk(
         ctx,
         &choices.disk,
-        &ignition,
+        &ignition.path,
         marker,
         run,
         choices.removable_ok,
-    )?;
+    );
+    let cleanup = ignition.close();
+    match (result, cleanup) {
+        (Ok(()), Ok(())) => {}
+        (Err(primary), Ok(())) => return Err(primary),
+        (Ok(()), Err(cleanup)) => return Err(cleanup),
+        (Err(primary), Err(cleanup)) => {
+            return Err(Error::msg(format!(
+                "{primary}; temporary ignition cleanup failed: {cleanup}"
+            )))
+        }
+    }
     finish_disk_attempt(console)
 }
 

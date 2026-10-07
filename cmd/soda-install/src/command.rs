@@ -3,9 +3,8 @@
 //! behind an injectable [`Runner`] for the console tests.
 
 use std::io::{Read, Write};
-use std::os::unix::process::ExitStatusExt;
+use std::os::unix::io::AsRawFd;
 use std::process::Stdio;
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use crate::errors::Error;
@@ -106,83 +105,165 @@ impl Runner for RealRunner {
                 })
             }
         };
-        if let Some(input) = input {
-            // Installer stdin payloads are tiny (a password line); a single
-            // write before the wait cannot block.
-            let _ = child.stdin.take().unwrap().write_all(input);
+        let mut stdin = child.stdin.take();
+        if stdin
+            .as_ref()
+            .is_some_and(|pipe| !set_nonblocking(pipe.as_raw_fd()))
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(Error::CmdExit {
+                name: name.to_string(),
+                code: -1,
+                interrupted: true,
+            });
         }
         let mut stdout = child.stdout.take().unwrap();
-        let (output_tx, output_rx) = mpsc::channel();
-        std::thread::spawn(move || {
-            let mut output = Vec::new();
-            let mut chunk = [0u8; 65536];
-            let mut exceeded = false;
-            loop {
-                match stdout.read(&mut chunk) {
-                    Ok(0) => break,
-                    Ok(n) => {
-                        if output.len() + n > OUTPUT_BOUND + 1 {
-                            exceeded = true;
-                            output.extend_from_slice(&chunk[..OUTPUT_BOUND + 1 - output.len()]);
-                            // Drain the rest so the child never blocks.
-                            while stdout.read(&mut chunk).unwrap_or(0) > 0 {}
-                            break;
-                        }
-                        output.extend_from_slice(&chunk[..n]);
-                    }
-                    Err(_) => break,
-                }
-            }
-            let _ = output_tx.send((output, exceeded));
-        });
+        if !set_nonblocking(stdout.as_raw_fd()) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(Error::CmdExit {
+                name: name.to_string(),
+                code: -1,
+                interrupted: true,
+            });
+        }
         let deadline = Instant::now() + COMMAND_TIMEOUT;
-        let pid = child.id() as libc::pid_t;
         let mut killed = false;
-        let mut status_code: libc::c_int = 0;
-        let reaped = loop {
+        let mut output = Vec::new();
+        let mut input_offset = 0;
+        let input = input.unwrap_or(&[]);
+        let mut status = None;
+        let mut exited_at = None;
+        let mut stdout_eof = false;
+        let mut chunk = [0u8; 65536];
+        loop {
             if ctx.err().is_some() || Instant::now() >= deadline {
                 let _ = child.kill();
                 killed = true;
-                break false;
+                status = child.wait().ok();
+                break;
             }
-            let waited = unsafe { libc::waitpid(pid, &mut status_code, libc::WNOHANG) };
-            if waited == pid {
-                break true;
-            }
-            if waited < 0 {
-                let errno = unsafe { *libc::__errno_location() };
-                if errno != libc::EINTR {
-                    break false;
+            let mut close_stdin = false;
+            if let Some(pipe) = stdin.as_mut() {
+                if input_offset == input.len() {
+                    close_stdin = true;
+                } else {
+                    match pipe.write(&input[input_offset..]) {
+                        Ok(0) => {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                            return Err(Error::CmdExit {
+                                name: name.to_string(),
+                                code: -1,
+                                interrupted: ctx.err().is_some(),
+                            });
+                        }
+                        Ok(n) => input_offset += n,
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                        Err(_) => {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                            return Err(Error::CmdExit {
+                                name: name.to_string(),
+                                code: -1,
+                                interrupted: ctx.err().is_some(),
+                            });
+                        }
+                    }
                 }
             }
-            std::thread::sleep(Duration::from_millis(5));
-        };
-        // A kill we issued reaps through the handle; a poll that already
-        // reaped the child converts the raw status. Dropping the handle
-        // afterwards is safe: the child is already reaped.
-        let status = if reaped {
-            std::process::ExitStatus::from_raw(status_code)
-        } else {
-            match child.wait() {
-                Ok(status) => status,
-                Err(_) => {
+            if close_stdin {
+                stdin = None;
+            }
+            if !stdout_eof {
+                match stdout.read(&mut chunk) {
+                    Ok(0) => stdout_eof = true,
+                    Ok(n) => {
+                        if output.len().saturating_add(n) > OUTPUT_BOUND {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                            return Err(Error::CmdExit {
+                                name: name.to_string(),
+                                code: -1,
+                                interrupted: ctx.err().is_some(),
+                            });
+                        }
+                        output.extend_from_slice(&chunk[..n]);
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                    Err(_) => {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(Error::CmdExit {
+                            name: name.to_string(),
+                            code: -1,
+                            interrupted: ctx.err().is_some(),
+                        });
+                    }
+                }
+            }
+            if status.is_none() {
+                match child.try_wait() {
+                    Ok(Some(done)) => {
+                        status = Some(done);
+                        exited_at = Some(Instant::now());
+                    }
+                    Ok(None) => {}
+                    Err(_) => {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(Error::CmdExit {
+                            name: name.to_string(),
+                            code: -1,
+                            interrupted: true,
+                        });
+                    }
+                }
+            }
+            if status.is_some() && input_offset < input.len() {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(Error::CmdExit {
+                    name: name.to_string(),
+                    code: -1,
+                    interrupted: ctx.err().is_some(),
+                });
+            }
+            if let Some(done) = status {
+                if stdout_eof {
+                    status = Some(done);
+                    break;
+                }
+                if exited_at.is_some_and(|at| at.elapsed() >= OUTPUT_GRACE) {
+                    stdout_eof = true;
                     return Err(Error::CmdExit {
                         name: name.to_string(),
                         code: -1,
-                        interrupted: true,
-                    })
+                        interrupted: ctx.err().is_some(),
+                    });
                 }
             }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let status = match status {
+            Some(status) => status,
+            None => {
+                return Err(Error::CmdExit {
+                    name: name.to_string(),
+                    code: -1,
+                    interrupted: true,
+                })
+            }
         };
-        let (output, exceeded) = output_rx
-            .recv_timeout(OUTPUT_GRACE)
-            .unwrap_or((Vec::new(), true));
         let code = status.code().unwrap_or(-1);
         // Go converts every failure (exit code, signal, output bound, or a
         // cancel that won the race) into commandExit; a kill we issued or a
         // cancelled phase marks the attempt interrupted.
         let interrupted = killed || ctx.err().is_some();
-        if exceeded || !status.success() {
+        if !status.success() {
             return Err(Error::CmdExit {
                 name: name.to_string(),
                 code,
@@ -191,6 +272,11 @@ impl Runner for RealRunner {
         }
         Ok(output)
     }
+}
+
+fn set_nonblocking(fd: libc::c_int) -> bool {
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    flags >= 0 && unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } >= 0
 }
 
 #[cfg(test)]
@@ -263,5 +349,54 @@ mod tests {
         let (ctx, _flag) = Ctx::test();
         let output = runner.run(&ctx, "cat", &[], Some(b"payload")).unwrap();
         assert_eq!(output, b"payload");
+    }
+
+    #[test]
+    fn successful_exit_cannot_drop_pending_input() {
+        let runner = RealRunner;
+        let (ctx, _) = Ctx::test();
+        let input = vec![b'x'; 1024 * 1024];
+        assert!(runner
+            .run(
+                &ctx,
+                "sh",
+                &["-c".to_string(), "exit 0".to_string()],
+                Some(&input)
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn infinite_output_fails_at_bound() {
+        let runner = RealRunner;
+        let (ctx, _) = Ctx::test();
+        assert!(runner.run(&ctx, "yes", &[], None).is_err());
+    }
+
+    #[test]
+    fn cancellation_kills_and_reaps_direct_child() {
+        let runner = RealRunner;
+        let (ctx, flag) = Ctx::test();
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                std::thread::sleep(Duration::from_millis(50));
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            });
+            let error = runner
+                .run(
+                    &ctx,
+                    "sh",
+                    &["-c".to_string(), "exec sleep 30".to_string()],
+                    None,
+                )
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                Error::CmdExit {
+                    interrupted: true,
+                    ..
+                }
+            ));
+        });
     }
 }

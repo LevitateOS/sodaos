@@ -81,20 +81,186 @@ pub fn enrollment_boot_seconds() -> Result<i64, Error> {
     Ok(now.tv_sec)
 }
 
-fn create_enrollment_temp(directory: &str, name: &str) -> Result<(String, std::fs::File), Error> {
-    use std::os::unix::fs::OpenOptionsExt;
-    for _ in 0..100 {
-        let path = format!("{directory}/.{name}-{}", super::keys::random_hex(8)?);
-        match std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&path)
+struct EnrollmentTemp {
+    directory: std::fs::File,
+    name: std::ffi::CString,
+    path: String,
+    file: Option<std::fs::File>,
+    identity: Option<(u64, u64)>,
+}
+
+impl EnrollmentTemp {
+    fn opened_identity(&self) -> Result<(u64, u64), Error> {
+        use std::os::unix::fs::MetadataExt;
+        let meta = match self.file.as_ref() {
+            Some(file) => file.metadata(),
+            None => return self.identity.ok_or(Error::EnrollUncertain),
+        }
+        .map_err(|_| Error::EnrollUncertain)?;
+        Ok((meta.dev(), meta.ino()))
+    }
+
+    fn named_stat(&self, name: &std::ffi::CStr) -> std::io::Result<libc::stat> {
+        let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+        if unsafe {
+            libc::fstatat(
+                self.directory.as_raw_fd(),
+                name.as_ptr(),
+                &mut stat,
+                libc::AT_SYMLINK_NOFOLLOW,
+            )
+        } != 0
         {
-            Ok(file) => return Ok((path, file)),
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => return Err(errors::path_error("open", &path, err)),
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(stat)
+    }
+
+    fn validate_temp(&self, expected: usize) -> Result<(), Error> {
+        let (device, inode) = self.opened_identity()?;
+        let named = self
+            .named_stat(&self.name)
+            .map_err(|_| Error::EnrollUncertain)?;
+        if named.st_dev != device
+            || named.st_ino != inode
+            || named.st_nlink != 1
+            || named.st_mode & libc::S_IFMT != libc::S_IFREG
+            || named.st_uid != unsafe { libc::geteuid() }
+            || named.st_mode & 0o077 != 0
+            || named.st_size != expected as i64
+        {
+            return Err(Error::EnrollUncertain);
+        }
+        Ok(())
+    }
+
+    fn sync(&self) -> Result<(), Error> {
+        self.file
+            .as_ref()
+            .ok_or(Error::EnrollUncertain)?
+            .sync_all()
+            .map_err(|err| errors::path_error("sync", &self.path, err))
+    }
+
+    fn close(&mut self) -> Result<(), Error> {
+        use std::os::unix::fs::MetadataExt;
+        use std::os::unix::io::IntoRawFd;
+        let Some(file) = self.file.as_ref() else {
+            return Ok(());
+        };
+        let meta = file.metadata().map_err(|_| Error::EnrollUncertain)?;
+        self.identity = Some((meta.dev(), meta.ino()));
+        let fd = self.file.take().unwrap().into_raw_fd();
+        if unsafe { libc::close(fd) } != 0 {
+            let errno = unsafe { *libc::__errno_location() };
+            return Err(errors::path_error(
+                "close",
+                &self.path,
+                std::io::Error::from_raw_os_error(errno),
+            ));
+        }
+        Ok(())
+    }
+
+    fn remove_owned(&mut self) -> Result<(), Error> {
+        let (device, inode) = self.opened_identity()?;
+        match self.named_stat(&self.name) {
+            Ok(named) if named.st_dev == device && named.st_ino == inode => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(err) => return Err(errors::path_error("stat", &self.path, err)),
+            _ => return Err(Error::EnrollUncertain),
+        }
+        if unsafe { libc::unlinkat(self.directory.as_raw_fd(), self.name.as_ptr(), 0) } != 0 {
+            let errno = unsafe { *libc::__errno_location() };
+            if errno != libc::ENOENT {
+                return Err(errors::path_error(
+                    "remove",
+                    &self.path,
+                    std::io::Error::from_raw_os_error(errno),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn publish(
+        &mut self,
+        destination: &str,
+        destination_path: &str,
+        expected: usize,
+    ) -> Result<(), Error> {
+        use std::os::fd::AsRawFd;
+        self.validate_temp(expected)?;
+        let destination_name = std::ffi::CString::new(destination)
+            .map_err(|_| Error::msg("invalid enrollment destination"))?;
+        if unsafe {
+            libc::linkat(
+                self.directory.as_raw_fd(),
+                self.name.as_ptr(),
+                self.directory.as_raw_fd(),
+                destination_name.as_ptr(),
+                0,
+            )
+        } != 0
+        {
+            let errno = unsafe { *libc::__errno_location() };
+            return Err(errors::link_error(
+                "link",
+                &self.path,
+                destination_path,
+                std::io::Error::from_raw_os_error(errno),
+            ));
+        }
+        let published = self
+            .named_stat(&destination_name)
+            .map_err(|_| Error::EnrollUncertain)?;
+        let (device, inode) = self.opened_identity()?;
+        if published.st_dev != device || published.st_ino != inode {
+            return Err(Error::EnrollUncertain);
+        }
+        self.remove_owned()?;
+        if unsafe { libc::fsync(self.directory.as_raw_fd()) } != 0 {
+            return Err(Error::EnrollUncertain);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for EnrollmentTemp {
+    fn drop(&mut self) {
+        let _ = self.remove_owned();
+    }
+}
+
+fn create_enrollment_temp(directory: &str, name: &str) -> Result<EnrollmentTemp, Error> {
+    use std::os::fd::{AsRawFd, FromRawFd};
+    let directory_file =
+        std::fs::File::open(directory).map_err(|err| errors::path_error("open", directory, err))?;
+    for _ in 0..100 {
+        let leaf = format!(".{name}-{}", super::keys::random_hex(8)?);
+        let path = format!("{directory}/{leaf}");
+        let c_leaf = std::ffi::CString::new(leaf.as_bytes())
+            .map_err(|_| errors::os_error(std::io::Error::from_raw_os_error(libc::EINVAL)))?;
+        let fd = unsafe {
+            libc::openat(
+                directory_file.as_raw_fd(),
+                c_leaf.as_ptr(),
+                libc::O_RDWR | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+                0o600,
+            )
+        };
+        if fd >= 0 {
+            return Ok(EnrollmentTemp {
+                directory: directory_file,
+                name: c_leaf,
+                path,
+                file: Some(unsafe { std::fs::File::from_raw_fd(fd) }),
+                identity: None,
+            });
+        }
+        let err = std::io::Error::last_os_error();
+        if err.kind() != std::io::ErrorKind::AlreadyExists {
+            return Err(errors::path_error("open", &path, err));
         }
     }
     Err(Error::msg("cannot reserve enrollment temporary file"))
@@ -121,40 +287,39 @@ pub(crate) fn enrollment_write_error(
 
 pub fn enrollment_write(directory: &str, name: &str, value: &str) -> Result<(), Error> {
     use std::io::Write;
-    use std::os::unix::io::IntoRawFd;
-    let (temp_path, mut temp) = create_enrollment_temp(directory, name)?;
-    // Only this call's exact temporary path is removed on every path; the
-    // atomic link publishes the complete file without replacing existing
-    // state. Readers must never observe a just-created empty success receipt.
-    let written = temp.write(value.as_bytes());
-    let write_err = enrollment_write_error(name, &temp_path, value.len(), written);
-    // Go closes explicitly and reports the close error; a dropped File
-    // swallows it, so close through libc for the same observation.
-    let close_err = if unsafe { libc::close(temp.into_raw_fd()) } != 0 {
-        let errno = unsafe { *libc::__errno_location() };
-        Some(errors::path_error(
-            "close",
-            &temp_path,
-            std::io::Error::from_raw_os_error(errno),
-        ))
+    let mut temp = create_enrollment_temp(directory, name)?;
+    // Keep one write per receipt; the owned descriptor and dirfd-relative name
+    // remain in custody through sync, close, and no-replacement publication.
+    let written = temp
+        .file
+        .as_mut()
+        .ok_or(Error::EnrollUncertain)?
+        .write(value.as_bytes());
+    let write_err = enrollment_write_error(name, &temp.path, value.len(), written);
+    let sync_err = if write_err.is_none() {
+        temp.sync().err()
     } else {
         None
     };
-    if let Some(err) = write_err {
-        let _ = std::fs::remove_file(&temp_path);
-        return Err(err);
-    }
-    if let Some(err) = close_err {
-        let _ = std::fs::remove_file(&temp_path);
-        return Err(err);
+    let close_err = temp.close().err();
+    if let Some(err) = write_err.or(sync_err).or(close_err) {
+        return match temp.remove_owned() {
+            Ok(()) => Err(err),
+            Err(cleanup) => Err(Error::msg(format!(
+                "{err}; temporary cleanup failed: {cleanup}"
+            ))),
+        };
     }
     let destination = format!("{directory}/{name}");
-    if let Err(err) = std::fs::hard_link(&temp_path, &destination) {
-        let _ = std::fs::remove_file(&temp_path);
-        return Err(errors::link_error("link", &temp_path, &destination, err));
+    match temp.publish(name, &destination, value.len()) {
+        Ok(()) => Ok(()),
+        Err(primary) => match temp.remove_owned() {
+            Ok(()) => Err(primary),
+            Err(cleanup) => Err(Error::msg(format!(
+                "{primary}; temporary cleanup failed: {cleanup}"
+            ))),
+        },
     }
-    let _ = std::fs::remove_file(&temp_path);
-    Ok(())
 }
 
 fn enrollment_window_remaining(until: i64, now: Result<i64, Error>) -> Result<Duration, Error> {
@@ -322,6 +487,26 @@ fn confirm_enrollment_intent(
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod temp_owner_tests {
+    use super::create_enrollment_temp;
+
+    #[test]
+    fn cleanup_preserves_a_replaced_temporary_name() {
+        let directory =
+            std::env::temp_dir().join(format!("soda-enrollment-owner-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir(&directory).unwrap();
+        let mut temp = create_enrollment_temp(directory.to_str().unwrap(), "receipt").unwrap();
+        std::fs::remove_file(&temp.path).unwrap();
+        std::fs::write(&temp.path, b"replacement").unwrap();
+        assert!(temp.remove_owned().is_err());
+        assert_eq!(std::fs::read(&temp.path).unwrap(), b"replacement");
+        drop(temp);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 }
 
 pub fn select_enrollment_target(

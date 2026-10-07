@@ -30,30 +30,21 @@ impl Console {
                 return "NetworkManager editor failed. No disk installation started.".to_string();
             }
         };
-        let pid = child.id() as libc::pid_t;
-        let mut status_code: libc::c_int = 0;
-        let reaped = loop {
+        let status = loop {
             if ctx.err().is_some() {
                 let _ = child.kill();
             }
-            let waited = unsafe { libc::waitpid(pid, &mut status_code, libc::WNOHANG) };
-            if waited == pid {
-                break true;
-            }
-            if waited < 0 {
-                let errno = unsafe { *libc::__errno_location() };
-                if errno != libc::EINTR {
-                    break false;
+            match child.try_wait() {
+                Ok(Some(status)) => break status,
+                Ok(None) => {}
+                Err(_) => {
+                    let _ = child.kill();
+                    break child
+                        .wait()
+                        .unwrap_or_else(|_| std::process::ExitStatus::from_raw(1 << 8));
                 }
             }
             std::thread::sleep(std::time::Duration::from_millis(5));
-        };
-        let status = if reaped {
-            std::process::ExitStatus::from_raw(status_code)
-        } else {
-            child
-                .wait()
-                .unwrap_or_else(|_| std::process::ExitStatus::from_raw(1 << 8))
         };
         self.page("Step 1 of 5 — Network");
         if !status.success() {

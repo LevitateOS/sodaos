@@ -203,64 +203,84 @@ pub(super) fn execute_setup_and_activation(
     let work = make_setup_workdir(temporary)?;
     // The operator token must not outlive this attempt, including failures.
     struct WorkDir(String);
+    impl WorkDir {
+        fn close(mut self) -> Result<(), Error> {
+            let path = std::mem::take(&mut self.0);
+            std::fs::remove_dir_all(&path).map_err(|err| errors::path_error("remove", &path, err))
+        }
+    }
     impl Drop for WorkDir {
         fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
+            if !self.0.is_empty() {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
         }
     }
-    let _work = WorkDir(work.clone());
-    let token_path = format!("{work}/operator-token");
-    let mut token_data = token.to_vec();
-    token_data.push(b'\n');
-    write_setup_file(&token_path, &token_data)?;
-    let started_path = format!("{root}/setup-started");
-    write_setup_file(&started_path, format!("{origin}\n").as_bytes())
-        .map_err(|_| Error::msg("cannot reserve operator setup; no native API request made"))?;
-    if let Err(err) = run.run(
-        ctx,
-        &format!("{SBIN}/soda-setup"),
-        &[
-            "--forgejo-url".to_string(),
-            origin.to_string(),
-            "--token-file".to_string(),
-            token_path,
-            "--out".to_string(),
-            format!("{root}/dashboard.json"),
-        ],
-        None,
-    ) {
-        // Roll back only this attempt's reservation: without dashboard.json
-        // nothing references the marker or the orphaned grant key, so a plain
-        // rerun is safe. A written dashboard.json is always preserved.
-        let summary = failure_summary(&err);
-        if matches!(
-            std::fs::symlink_metadata(format!("{root}/dashboard.json")),
-            Err(stat_err) if stat_err.kind() == std::io::ErrorKind::NotFound
+    let work = WorkDir(work);
+    let result = (|| -> Result<(), Error> {
+        let work = &work.0;
+        let token_path = format!("{work}/operator-token");
+        let mut token_data = token.to_vec();
+        token_data.push(b'\n');
+        write_setup_file(&token_path, &token_data)?;
+        let started_path = format!("{root}/setup-started");
+        write_setup_file(&started_path, format!("{origin}\n").as_bytes())
+            .map_err(|_| Error::msg("cannot reserve operator setup; no native API request made"))?;
+        if let Err(err) = run.run(
+            ctx,
+            &format!("{SBIN}/soda-setup"),
+            &[
+                "--forgejo-url".to_string(),
+                origin.to_string(),
+                "--token-file".to_string(),
+                token_path,
+                "--out".to_string(),
+                format!("{root}/dashboard.json"),
+            ],
+            None,
         ) {
-            let _ = std::fs::remove_file(&started_path);
-            let _ = std::fs::remove_file(format!("{root}/grant-key"));
-            return Err(Error::msg(format!("operator setup failed; this attempt wrote no configuration and its reservation was removed, so rerunning configure is safe after addressing the cause. {summary}")));
-        }
-        return Err(Error::msg(format!(
+            // Roll back only this attempt's reservation: without dashboard.json
+            // nothing references the marker or the orphaned grant key, so a plain
+            // rerun is safe. A written dashboard.json is always preserved.
+            let summary = failure_summary(&err);
+            if matches!(
+                std::fs::symlink_metadata(format!("{root}/dashboard.json")),
+                Err(stat_err) if stat_err.kind() == std::io::ErrorKind::NotFound
+            ) {
+                let _ = std::fs::remove_file(&started_path);
+                let _ = std::fs::remove_file(format!("{root}/grant-key"));
+                return Err(Error::msg(format!("operator setup failed; this attempt wrote no configuration and its reservation was removed, so rerunning configure is safe after addressing the cause. {summary}")));
+            }
+            return Err(Error::msg(format!(
             "operator setup failed; inspect the existing configuration before retrying. {summary}"
         )));
+        }
+        if let Err(err) = run.run(
+            ctx,
+            &format!("{SBIN}/soda-activate"),
+            &[
+                "--bind-ip".to_string(),
+                selected.address.clone(),
+                "--local-tls".to_string(),
+            ],
+            None,
+        ) {
+            return Err(Error::msg(format!(
+                "private activation failed; preserve the existing configuration for inspection. {}",
+                failure_summary(&err)
+            )));
+        }
+        Ok(())
+    })();
+    let cleanup = work.close();
+    match (result, cleanup) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(primary), Ok(())) => Err(primary),
+        (Ok(()), Err(cleanup)) => Err(cleanup),
+        (Err(primary), Err(cleanup)) => Err(Error::msg(format!(
+            "{primary}; temporary cleanup failed: {cleanup}"
+        ))),
     }
-    if let Err(err) = run.run(
-        ctx,
-        &format!("{SBIN}/soda-activate"),
-        &[
-            "--bind-ip".to_string(),
-            selected.address.clone(),
-            "--local-tls".to_string(),
-        ],
-        None,
-    ) {
-        return Err(Error::msg(format!(
-            "private activation failed; preserve the existing configuration for inspection. {}",
-            failure_summary(&err)
-        )));
-    }
-    Ok(())
 }
 
 pub(super) fn configure_private_install(

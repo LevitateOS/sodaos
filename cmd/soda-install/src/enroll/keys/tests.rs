@@ -83,6 +83,53 @@ fn creates_authorized_keys() {
 }
 
 #[test]
+fn failed_new_key_write_cleans_only_the_owned_temporary_inode() {
+    let home = temp_dir();
+    let short_write = |mut file: &File, data: &[u8]| file.write(&data[..data.len().min(3)]);
+    assert!(append_enrollment_key_with_writer(
+        &test_ctx(),
+        &home.path,
+        TEST_KEY,
+        test_uid(),
+        &short_write
+    )
+    .is_err());
+    let ssh = format!("{}/.ssh", home.path);
+    assert_eq!(std::fs::read_dir(&ssh).unwrap().count(), 0);
+
+    let home = temp_dir();
+    let ssh = format!("{}/.ssh", home.path);
+    let replace_during_write = |_file: &File, _data: &[u8]| -> std::io::Result<usize> {
+        let temp = std::fs::read_dir(&ssh)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        std::fs::remove_file(&temp).unwrap();
+        std::fs::write(temp, b"native replacement").unwrap();
+        Ok(0)
+    };
+    assert!(append_enrollment_key_with_writer(
+        &test_ctx(),
+        &home.path,
+        TEST_KEY,
+        test_uid(),
+        &replace_during_write
+    )
+    .is_err());
+    let remaining: Vec<_> = std::fs::read_dir(&ssh)
+        .unwrap()
+        .map(|entry| entry.unwrap())
+        .collect();
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(
+        std::fs::read(remaining[0].path()).unwrap(),
+        b"native replacement"
+    );
+}
+
+#[test]
 fn refuses_unsafe_key_paths() {
     for scenario in [
         "home-symlink",
