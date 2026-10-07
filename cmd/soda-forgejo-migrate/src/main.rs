@@ -11,8 +11,7 @@
 //! place (mode preserved), and awk's print/trailing-newline semantics hold.
 
 use std::env;
-use std::fs::{self, OpenOptions};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
@@ -29,10 +28,6 @@ fn run() -> i32 {
     if !fs::metadata(&conf).is_ok_and(|info| info.is_file()) {
         return 0;
     }
-    let tmp = match create_tmp(&conf) {
-        Ok(tmp) => tmp,
-        Err(_) => return 1,
-    };
     let rewritten = match migrate(&conf) {
         Ok((rewritten, scrubbed)) => {
             if scrubbed > 0 {
@@ -40,50 +35,13 @@ fn run() -> i32 {
             }
             rewritten
         }
-        Err(_) => {
-            remove_tmp(&tmp);
-            return 1;
-        }
+        Err(_) => return 1,
     };
-    // `cat tmp >conf`: truncate in place so mode and ownership survive.
+    // Truncate in place so the original file's mode and ownership survive.
     if fs::write(&conf, rewritten).is_err() {
-        remove_tmp(&tmp);
         return 1;
     }
-    remove_tmp(&tmp);
     0
-}
-
-/// `mktemp conf.XXXXXX` (mode 0600). The shell stages through a real temp
-/// file so a failed rewrite never truncates the config; do the same.
-fn create_tmp(conf: &Path) -> Result<PathBuf, ()> {
-    let mut rand = [0u8; 6];
-    getrandom::fill(&mut rand).map_err(|_| ())?;
-    let suffix: String = rand
-        .iter()
-        .map(|b| {
-            const ALPHABET: &[u8] =
-                b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-            ALPHABET[(b % 62) as usize] as char
-        })
-        .collect();
-    let name = conf
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("app.ini");
-    let tmp = conf.with_file_name(format!("{name}.{suffix}"));
-    OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(&tmp)
-        .map_err(|_| ())?;
-    fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600)).map_err(|_| ())?;
-    Ok(tmp)
-}
-
-fn remove_tmp(tmp: &Path) {
-    let _ = fs::remove_file(tmp);
 }
 
 /// awk's record split, byte-wise: every line is printed with a trailing

@@ -42,8 +42,7 @@ fn write_blob(layout: &Path, bytes: &[u8]) -> (String, usize) {
     (format!("sha256:{sum}"), bytes.len())
 }
 
-/// Build a shared layout directory plus per-tag identities, mirroring
-/// what `testoci.Add` produces for the Go tests.
+/// Build a shared OCI layout directory and per-tag identities for import tests.
 pub(super) fn build_layout(
     root: &Path,
     tags: &[(&str, String)],

@@ -38,7 +38,7 @@ fn desc(digest: &str, size: usize, media: &str) -> Value {
     serde_json::json!({"mediaType":media,"digest":digest,"size":size})
 }
 
-/// Mirror of `testoci.Archive` + `Add`, written directly as a layout:
+/// Writes the fixture archive contents directly as an OCI layout:
 /// one shared layer, a per-name config, manifest, and index entry.
 /// Returns the config digest reference.
 pub fn add_image(layout: &str, name: &str, arch: &str, revision: &str) -> String {

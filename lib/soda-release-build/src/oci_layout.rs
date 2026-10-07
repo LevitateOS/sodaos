@@ -142,7 +142,7 @@ mod tests {
     use crate::test_support::{fixture_oci_bytes, FIXTURE_REVISION};
 
     fn layout_fixture() -> (std::path::PathBuf, HashMap<String, String>) {
-        // Unpacks two archives into one shared layout, like testoci.Add.
+        // Unpacks two archives into one shared layout.
         let dir = std::env::temp_dir().join(format!(
             "soda-layout-{}-{}",
             std::process::id(),

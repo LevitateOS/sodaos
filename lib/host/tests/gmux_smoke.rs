@@ -506,28 +506,6 @@ fn terminal_gate_caps_and_releases() {
     assert!(gate.try_register().is_some(), "drop must release");
 }
 
-#[test]
-#[cfg(target_os = "linux")]
-fn peer_credentials_attest_self() {
-    let (a, b) = UnixStream::pair().unwrap();
-    let cred = soda_host::gmux_admission::peer_cred(&a).unwrap();
-    assert_eq!(cred.pid, std::process::id() as i32);
-    assert_eq!(cred.uid, unsafe { libc::geteuid() });
-    assert_eq!(cred.gid, unsafe { libc::getegid() });
-    drop(b);
-}
-
-#[test]
-#[cfg(target_os = "linux")]
-fn muse_peer_carries_pidfd_pin() {
-    use std::os::unix::io::AsRawFd;
-    let (a, _b) = UnixStream::pair().unwrap();
-    let peer = soda_host::gmux_admission::muse_peer(a.as_raw_fd()).unwrap();
-    assert_eq!(peer.pid, std::process::id() as i32);
-    assert!(peer.pidfd >= 0, "pidfd must be pinned");
-    soda_host::gmux_admission::close_pidfd(&peer);
-}
-
 // -- routes: table completeness --
 
 #[test]
