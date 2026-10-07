@@ -6,9 +6,10 @@ Current responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
 recorded working bytes. The existing **2,545 paths**, reconciled through `f8b22b0b`,
-plus **four authorized library-caller documents** are accounted exactly once in the
-[tracked-file inventories](inventory/README.md). No working source additions were
-present. The four new H06 documents are the explicit current documentation delta;
+plus **four library-caller documents and one observation-reliability chapter**
+are accounted exactly once in the [tracked-file inventories](inventory/README.md).
+No working source additions were
+present. These five H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -22,11 +23,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including four authored documents / missing / duplicate rows | 2,549 / 0 / 0 |
+| Current paths including five authored documents / missing / duplicate rows | 2,550 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus four whole-document H06 duties | 20,117 + 4 = 20,121 |
+| Existing named duties plus five whole-document H06 duties | 20,117 + 5 = 20,122 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -47,7 +48,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 309 |
+| `docs` | 310 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |
@@ -138,6 +139,11 @@ The [current library caller maps](../library-integrations/README.md) add selecte
 versions, upstream capabilities, retained surfaces and reverse consumers to this
 responsibility coverage. Their four H06 whole-document duties are a selective
 upkeep delta; earlier source/body review and unresolved dispositions are unchanged.
+
+The [observation-reliability audit](../observation-reliability.md) adds one H06
+whole-document duty at source `06f1db91`. Its bounded current findings, preserved
+repairs and unperformed checks remain separate from this inventory gate and the
+historical complete source-validity review.
 
 - [Current tracked inventories](inventory/README.md)
 - [Current responsibility maps](maps/README.md)

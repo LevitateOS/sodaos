@@ -24,8 +24,9 @@ the earlier exact-match/delta counts below are historical observations.
 
 The [workflow requirements map](workflow-requirements.md) is an H06 audit
 document allocated below. The current [library caller maps](library-integrations/README.md)
-are also H06 audit documents allocated below. These additions do not regenerate
-the historical target allocation or refresh R02 counts.
+and [observation-reliability chapter](observation-reliability.md) are also H06
+audit documents allocated below. These additions do not regenerate the historical
+target allocation or refresh R02 counts.
 
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
@@ -839,6 +840,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── go-browser.md
 │   │   │   │   └── native-engines.md
 │   │   │   ├── maintenance.md
+│   │   │   ├── observation-reliability.md
 │   │   │   ├── package-ownership.md
 │   │   │   ├── placement.md
 │   │   │   ├── port-assessment.md

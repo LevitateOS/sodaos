@@ -141,3 +141,8 @@ the complete desired tree or advance native qualification. Existing unresolved
 requirements, correctness findings, parked seams and optional-library gates keep
 their current owners. No application edit, dependency change, test, build or
 native/provider operation is part of this step.
+
+The subsequent [observation-reliability audit](../observation-reliability.md)
+checks the deadline, capture, redaction and admission mechanisms used by later
+evidence. Its findings remain separate from optional replacement decisions and
+do not change this caller map's source pin or completed accounting scope.
