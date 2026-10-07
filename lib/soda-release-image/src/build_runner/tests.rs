@@ -98,6 +98,43 @@ fn oracle_build_command_capture_environment_and_failure() {
 }
 
 #[test]
+fn open_media_log_attaches_once_and_replays_partial_admission_context() {
+    use std::io::Write;
+
+    let scratch = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("target")
+        .join(format!(
+            "obs-r01-open-log-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+    std::fs::create_dir_all(&scratch).unwrap();
+    let log_path = scratch.join("build.log");
+    let runner = Runner::new(Rc::new(Cancel::new()));
+    runner
+        .log
+        .borrow_mut()
+        .write_all(b"admission noise\nGenerating osmet file for fixture")
+        .unwrap();
+
+    let closer = runner.open_log(log_path.to_str().unwrap(), true).unwrap();
+    runner.log.borrow_mut().write_all(b"\n").unwrap();
+    closer.close().unwrap();
+
+    assert_eq!(
+        std::fs::read(&log_path).unwrap(),
+        b"admission noise\nGenerating osmet file for fixture\n"
+    );
+    let events = std::fs::read_to_string(scratch.join("media-events.jsonl")).unwrap();
+    assert_eq!(events.matches("\"Event\":\"osmet-start\"").count(), 1);
+    drop(runner);
+    std::fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
 fn run_build_command_drains_saturated_pipes() {
     // D03-F1: 256 KiB on each stream exceeds the 64 KiB pipe buffer;
     // the executor must drain concurrently instead of hanging forever.

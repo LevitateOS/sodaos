@@ -90,8 +90,8 @@ impl Runner {
         use std::os::unix::fs::PermissionsExt;
         file.set_permissions(fs::Permissions::from_mode(0o600))?;
         let shared = SharedFile::wrap(file);
-        self.log.borrow_mut().attach(Box::new(shared.clone()));
         if !wants_media {
+            self.log.borrow_mut().attach(Box::new(shared.clone()))?;
             return Ok(LogCloser {
                 files: vec![shared],
             });
@@ -110,7 +110,7 @@ impl Runner {
                     .attach(Box::new(crate::events::MediaEventWriter::new(
                         shared.clone(),
                         shared_events.clone(),
-                    )));
+                    )))?;
                 Ok(LogCloser {
                     files: vec![shared, shared_events],
                 })
@@ -119,8 +119,7 @@ impl Runner {
                 let closer = LogCloser {
                     files: vec![shared],
                 };
-                let close_result = closer.close();
-                let _ = close_result;
+                let _ = closer.close();
                 Err(Error::msg(e.to_string()))
             }
         }
