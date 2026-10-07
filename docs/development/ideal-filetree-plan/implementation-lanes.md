@@ -134,8 +134,9 @@ hunk editing of a shared file as a substitute for ownership.
   run the applicable existing Go/Rust/Bun/source/architecture checks. Reuse a
   passing result only for unchanged exercised source. Repeat an affected check
   for new changes or unresolved failures, not automatically for every worker.
-- [x] **R03.L — Completed library-adoption source scope.** Verified at
-  `d7eca882`, with documentation-only integration upkeep in `93b50615`.
+- [x] **R03.L — Completed library-adoption source scope.** Verified source:
+  `d7eca882b5ce18f25ea3287dce578366d769deda`, with documentation-only
+  integration upkeep in `93b50615`.
   Focused evidence tests pass 16/16; locked offline workspace metadata and
   `cargo check --workspace --all-targets` pass for all 28 members. Reuse the
   final packet-specific tests/builds/reviews recorded in the adoption chapter
