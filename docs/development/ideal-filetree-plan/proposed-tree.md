@@ -23,7 +23,9 @@ and gated deletion. Full inventory/count regeneration waits for implementation;
 the earlier exact-match/delta counts below are historical observations.
 
 The [workflow requirements map](workflow-requirements.md) is an H06 audit
-document allocated below; adding that leaf does not refresh R02 counts or coverage.
+document allocated below. The current [library caller maps](library-integrations/README.md)
+are also H06 audit documents allocated below. These additions do not regenerate
+the historical target allocation or refresh R02 counts.
 
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
@@ -831,6 +833,11 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── implementation-tasks.md
 │   │   │   ├── integration.md
 │   │   │   ├── library-adoption.md
+│   │   │   ├── library-integrations/
+│   │   │   │   ├── README.md
+│   │   │   │   ├── crypto-profiles.md
+│   │   │   │   ├── go-browser.md
+│   │   │   │   └── native-engines.md
 │   │   │   ├── maintenance.md
 │   │   │   ├── package-ownership.md
 │   │   │   ├── placement.md

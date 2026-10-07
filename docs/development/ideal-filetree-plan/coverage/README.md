@@ -5,9 +5,11 @@
 Current responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
-recorded working bytes. All **2,545 tracked paths** are accounted exactly once in the
+recorded working bytes. The existing **2,545 paths**, reconciled through `f8b22b0b`,
+plus **four authorized library-caller documents** are accounted exactly once in the
 [tracked-file inventories](inventory/README.md). No working source additions were
-present; ignored dependencies, caches, private inputs, failed experiment output and
+present. The four new H06 documents are the explicit current documentation delta;
+ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
 The [workflow requirements](../workflow-requirements.md) establish contract context.
@@ -20,11 +22,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Tracked paths / missing / duplicate inventory rows | 2,545 / 0 / 0 |
+| Current paths including four authored documents / missing / duplicate rows | 2,549 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Named source/artifact duty selectors in normalized evidence | 20,117 |
+| Existing named duties plus four whole-document H06 duties | 20,117 + 4 = 20,121 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -45,7 +47,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 305 |
+| `docs` | 309 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |
@@ -131,6 +133,11 @@ and 39 dependency inputs remain byte-identical. Documentation mutations are the
 explicit authored input delta and do not silently change historical source pins.
 
 ### Coverage navigation
+
+The [current library caller maps](../library-integrations/README.md) add selected
+versions, upstream capabilities, retained surfaces and reverse consumers to this
+responsibility coverage. Their four H06 whole-document duties are a selective
+upkeep delta; earlier source/body review and unresolved dispositions are unchanged.
 
 - [Current tracked inventories](inventory/README.md)
 - [Current responsibility maps](maps/README.md)
