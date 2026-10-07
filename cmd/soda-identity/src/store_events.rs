@@ -1,6 +1,8 @@
 // Immutable audit events, extracted from store.rs (A05.M).
-use super::store::{Param, Store, Tx};
+use super::store::{schema_integer, Store, Tx};
+use crate::pg::pg_error;
 use crate::wire::{Error, Event, Lease, UnixTime};
+use tokio_postgres::types::{Json, ToSql};
 
 impl Store {
     pub fn events(&self, owner: i64, id: &str) -> Result<Vec<Event>, Error> {
@@ -9,12 +11,15 @@ impl Store {
         }
         let (rows, _) = self.query(
             "SELECT id,data FROM identity_events WHERE owner_id=$1 AND connection_id=$2 ORDER BY id DESC LIMIT 200",
-            &[Param::int(owner), Param::text(id)],
+            &[
+                &schema_integer(owner)? as &(dyn ToSql + Sync),
+                &id as &(dyn ToSql + Sync),
+            ],
         )?;
         let mut out = Vec::with_capacity(rows.len());
         for row in &rows {
-            let id = row.integer(0)?;
-            let mut event: Event = serde_json::from_str(row.text(1)?)?;
+            let id = row.try_get::<_, i64>(0).map_err(pg_error)?;
+            let mut event = row.try_get::<_, Json<Event>>(1).map_err(pg_error)?.0;
             event.id = id;
             out.push(event);
         }
@@ -28,24 +33,23 @@ impl<'a> Tx<'a> {
         if event.owner_id == 0 {
             let row = self.query_row(
                 "SELECT owner_id,generation FROM identity_connections WHERE id=$1",
-                &[Param::text(&event.connection_id)],
+                &[&event.connection_id as &(dyn ToSql + Sync)],
             )?;
-            event.owner_id = row.integer(0)?;
+            event.owner_id = i64::from(row.try_get::<_, i32>(0).map_err(pg_error)?);
             if event.generation == 0 {
-                event.generation = row.integer(1)?;
+                event.generation = i64::from(row.try_get::<_, i32>(1).map_err(pg_error)?);
             }
         }
         if event.actor_id == 0 {
             event.actor_id = event.owner_id;
         }
         event.time = UnixTime::now();
-        let data = serde_json::to_string(&event)?;
         self.exec(
             "INSERT INTO identity_events(owner_id,connection_id,data) VALUES($1,$2,$3)",
             &[
-                Param::int(event.owner_id),
-                Param::text(&event.connection_id),
-                Param::json(&data),
+                &schema_integer(event.owner_id)? as &(dyn ToSql + Sync),
+                &event.connection_id as &(dyn ToSql + Sync),
+                &Json(&event) as &(dyn ToSql + Sync),
             ],
         )?;
         Ok(())

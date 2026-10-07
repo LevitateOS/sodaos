@@ -1,6 +1,9 @@
 // Connection custody, extracted from store.rs (A05.M).
-use super::store::{changed, identity_binding, Param, Store};
+use super::store::{changed, identity_binding, schema_integer, Store};
+use crate::pg::pg_error;
 use crate::wire::{credential_valid, provider_valid, Connection, Error, Event, UnixTime};
+use tokio_postgres::types::Json;
+use tokio_postgres::types::ToSql;
 
 impl Store {
     pub fn save_connection(&self, connection: &Connection, credential: &[u8]) -> Result<(), Error> {
@@ -17,7 +20,6 @@ impl Store {
         {
             return Err(Error::denied("identity authority denied"));
         }
-        let data = serde_json::to_string(connection)?;
         let sealed = self.grants()?.seal(
             credential,
             &identity_binding(&connection.id, connection.generation),
@@ -26,12 +28,12 @@ impl Store {
             tx.exec(
                 "INSERT INTO identity_connections(id,owner_id,generation,state,data,credential) VALUES($1,$2,$3,$4,$5,$6)",
                 &[
-                    Param::text(&connection.id),
-                    Param::int(connection.owner_id),
-                    Param::int(connection.generation),
-                    Param::text(&connection.state),
-                    Param::json(&data),
-                    Param::bytea(&sealed),
+                    &connection.id as &(dyn ToSql + Sync),
+                    &schema_integer(connection.owner_id)? as &(dyn ToSql + Sync),
+                    &schema_integer(connection.generation)? as &(dyn ToSql + Sync),
+                    &connection.state as &(dyn ToSql + Sync),
+                    &Json(connection) as &(dyn ToSql + Sync),
+                    &sealed as &(dyn ToSql + Sync),
                 ],
             )?;
             tx.append_event(&Event {
@@ -54,18 +56,21 @@ impl Store {
     pub fn connection(&self, id: &str) -> Result<Connection, Error> {
         let row = self.query_row(
             "SELECT data FROM identity_connections WHERE id=$1",
-            &[Param::text(id)],
+            &[&id as &(dyn ToSql + Sync)],
         )?;
-        Ok(serde_json::from_str(row.text(0)?)?)
+        Ok(row.try_get::<_, Json<Connection>>(0).map_err(pg_error)?.0)
     }
 
     pub fn credential(&self, connection: &Connection) -> Result<Vec<u8>, Error> {
         let row = self.query_row(
             "SELECT credential FROM identity_connections WHERE id=$1 AND generation=$2 AND state='ready'",
-            &[Param::text(&connection.id), Param::int(connection.generation)],
+            &[
+                &connection.id as &(dyn ToSql + Sync),
+                &schema_integer(connection.generation)? as &(dyn ToSql + Sync),
+            ],
         )?;
         self.grants()?.open(
-            &row.bytea(0)?,
+            row.try_get::<_, Vec<u8>>(0).map_err(pg_error)?.as_slice(),
             &identity_binding(&connection.id, connection.generation),
         )
     }
@@ -73,21 +78,25 @@ impl Store {
     pub fn connections(&self, owner: i64) -> Result<Vec<Connection>, Error> {
         let (rows, _) = self.query(
             "SELECT data FROM identity_connections WHERE owner_id=$1 ORDER BY id",
-            &[Param::int(owner)],
+            &[&schema_integer(owner)? as &(dyn ToSql + Sync)],
         )?;
         rows.iter()
-            .map(|r| Ok(serde_json::from_str(r.text(0)?)?))
+            .map(|r| Ok(r.try_get::<_, Json<Connection>>(0).map_err(pg_error)?.0))
             .collect()
     }
 
     pub fn available(&self, actor: i64, project: &str) -> Result<Vec<Connection>, Error> {
         let (rows, _) = self.query(
             "SELECT c.data FROM identity_connections c WHERE c.state='ready' AND (c.owner_id=$1 OR EXISTS(SELECT 1 FROM identity_grants g WHERE g.connection_id=c.id AND g.user_id=$2 AND g.project_id=$3 AND NOT g.revoked)) ORDER BY c.id",
-            &[Param::int(actor), Param::int(actor), Param::text(project)],
+            &[
+                &schema_integer(actor)? as &(dyn ToSql + Sync),
+                &schema_integer(actor)? as &(dyn ToSql + Sync),
+                &project as &(dyn ToSql + Sync),
+            ],
         )?;
         let mut out = Vec::with_capacity(rows.len());
         for row in &rows {
-            let mut connection: Connection = serde_json::from_str(row.text(0)?)?;
+            let mut connection = row.try_get::<_, Json<Connection>>(0).map_err(pg_error)?.0;
             if connection.owner_id != actor {
                 connection.email.clear();
             }
@@ -100,16 +109,15 @@ impl Store {
     pub fn set_state(&self, connection: &Connection, state: &str) -> Result<(), Error> {
         let mut updated = connection.clone();
         updated.state = state.to_string();
-        let data = serde_json::to_string(&updated)?;
         self.transaction(|tx| {
             let count = tx.exec(
                 "UPDATE identity_connections SET state=$1,data=$2,credential=CASE WHEN $3='revoked' THEN '\\x'::bytea ELSE credential END WHERE id=$4 AND generation=$5",
                 &[
-                    Param::text(state),
-                    Param::json(&data),
-                    Param::text(state),
-                    Param::text(&connection.id),
-                    Param::int(connection.generation),
+                    &state as &(dyn ToSql + Sync),
+                    &Json(&updated) as &(dyn ToSql + Sync),
+                    &state as &(dyn ToSql + Sync),
+                    &connection.id as &(dyn ToSql + Sync),
+                    &schema_integer(connection.generation)? as &(dyn ToSql + Sync),
                 ],
             )?;
             changed(count)?;

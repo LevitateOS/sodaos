@@ -59,17 +59,25 @@ impl Store {
         Ok(store)
     }
 
-    pub(crate) fn query(&self, sql: &str, params: &[Param]) -> Result<(Vec<Row>, u64), Error> {
+    pub(crate) fn query(
+        &self,
+        sql: &str,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<(Vec<Row>, u64), Error> {
         let (mut connection, deadline, _) = self.begin_operation()?;
         self.query_on(&mut connection, deadline, sql, params)
     }
 
-    pub(crate) fn exec(&self, sql: &str, params: &[Param]) -> Result<u64, Error> {
+    pub(crate) fn exec(&self, sql: &str, params: &[&(dyn ToSql + Sync)]) -> Result<u64, Error> {
         let (mut connection, deadline, _) = self.begin_operation()?;
         self.exec_on(&mut connection, deadline, sql, params)
     }
 
-    pub(crate) fn query_row(&self, sql: &str, params: &[Param]) -> Result<Row, Error> {
+    pub(crate) fn query_row(
+        &self,
+        sql: &str,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<Row, Error> {
         let (rows, _) = self.query(sql, params)?;
         rows.into_iter().next().ok_or_else(Error::not_found)
     }
@@ -217,7 +225,11 @@ impl Drop for Store {
 }
 
 impl Tx<'_> {
-    pub(crate) fn query(&self, sql: &str, params: &[Param]) -> Result<(Vec<Row>, u64), Error> {
+    pub(crate) fn query(
+        &self,
+        sql: &str,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<(Vec<Row>, u64), Error> {
         if self.failed.get() {
             return Err(Error::internal("postgres transaction already failed"));
         }
@@ -237,7 +249,7 @@ impl Tx<'_> {
         result
     }
 
-    pub(crate) fn exec(&self, sql: &str, params: &[Param]) -> Result<u64, Error> {
+    pub(crate) fn exec(&self, sql: &str, params: &[&(dyn ToSql + Sync)]) -> Result<u64, Error> {
         if self.failed.get() {
             return Err(Error::internal("postgres transaction already failed"));
         }
@@ -257,7 +269,11 @@ impl Tx<'_> {
         result
     }
 
-    pub(crate) fn query_row(&self, sql: &str, params: &[Param]) -> Result<Row, Error> {
+    pub(crate) fn query_row(
+        &self,
+        sql: &str,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<Row, Error> {
         let (rows, _) = self.query(sql, params)?;
         match rows.into_iter().next() {
             Some(row) => Ok(row),
@@ -296,21 +312,15 @@ impl Store {
         connection: &mut Option<PgConnection>,
         deadline: Instant,
         sql: &str,
-        params: &[Param],
+        params: &[&(dyn ToSql + Sync)],
     ) -> Result<(Vec<Row>, u64), Error> {
         let work_deadline = deadline - CLEANUP_BUDGET;
         self.connect_if_needed(connection, work_deadline)?;
-        let encoded = encode_params(params)?;
-        let refs = param_refs(&encoded);
         let client = &connection.as_ref().expect("connected client").client;
         match self.runtime.block_on(async {
-            pg_query::bounded(client, client.query(sql, &refs), work_deadline, deadline).await
+            pg_query::bounded(client, client.query(sql, params), work_deadline, deadline).await
         }) {
-            Outcome::Complete(Ok(rows)) => rows
-                .into_iter()
-                .map(Row::from_pg)
-                .collect::<Result<Vec<_>, _>>()
-                .map(|rows| (rows, 0)),
+            Outcome::Complete(Ok(rows)) => Ok((rows, 0)),
             Outcome::Complete(Err(error)) => {
                 if connection.as_ref().is_some_and(|c| c.client.is_closed()) {
                     self.discard(connection, deadline);
@@ -329,15 +339,13 @@ impl Store {
         connection: &mut Option<PgConnection>,
         deadline: Instant,
         sql: &str,
-        params: &[Param],
+        params: &[&(dyn ToSql + Sync)],
     ) -> Result<u64, Error> {
         let work_deadline = deadline - CLEANUP_BUDGET;
         self.connect_if_needed(connection, work_deadline)?;
-        let encoded = encode_params(params)?;
-        let refs = param_refs(&encoded);
         let client = &connection.as_ref().expect("connected client").client;
         match self.runtime.block_on(async {
-            pg_query::bounded(client, client.execute(sql, &refs), work_deadline, deadline).await
+            pg_query::bounded(client, client.execute(sql, params), work_deadline, deadline).await
         }) {
             Outcome::Complete(Ok(count)) => Ok(count),
             Outcome::Complete(Err(error)) => {
@@ -380,15 +388,8 @@ fn run_simple(
     }
 }
 
-fn encode_params(params: &[Param]) -> Result<Vec<Box<dyn ToSql + Sync>>, Error> {
-    params
-        .iter()
-        .map(Param::encode)
-        .collect::<Result<Vec<_>, _>>()
-}
-
-fn param_refs(encoded: &[Box<dyn ToSql + Sync>]) -> Vec<&(dyn ToSql + Sync)> {
-    encoded.iter().map(|value| value.as_ref()).collect()
+pub(crate) fn schema_integer(value: i64) -> Result<i32, Error> {
+    i32::try_from(value).map_err(|_| Error::internal("postgres integer parameter is out of range"))
 }
 
 pub(crate) fn changed(count: u64) -> Result<(), Error> {
@@ -397,60 +398,3 @@ pub(crate) fn changed(count: u64) -> Result<(), Error> {
     }
     Ok(())
 }
-
-#[derive(Debug, Clone)]
-pub(crate) enum Param {
-    Text(String),
-    Json(String),
-    Int(i64),
-    Int64(i64),
-    Boolean(bool),
-    Bytea(Vec<u8>),
-}
-
-impl Param {
-    pub(crate) fn text(value: &str) -> Param {
-        Param::Text(value.to_string())
-    }
-
-    pub(crate) fn json(value: &str) -> Param {
-        Param::Json(value.to_string())
-    }
-
-    pub(crate) fn int(value: i64) -> Param {
-        Param::Int(value)
-    }
-
-    pub(crate) fn int64(value: i64) -> Param {
-        Param::Int64(value)
-    }
-
-    pub(crate) fn boolean(value: bool) -> Param {
-        Param::Boolean(value)
-    }
-
-    pub(crate) fn bytea(value: &[u8]) -> Param {
-        Param::Bytea(value.to_vec())
-    }
-
-    pub(crate) fn encode(&self) -> Result<Box<dyn ToSql + Sync>, Error> {
-        Ok(match self {
-            Param::Text(value) => Box::new(value.clone()),
-            Param::Json(value) => Box::new(serde_json::from_str::<serde_json::Value>(value)?),
-            // Identity schema integer columns are PostgreSQL INTEGER; the
-            // domain keeps i64 values, so reject values outside that schema
-            // range before binding the native int4 representation.
-            Param::Int(value) => Box::new(
-                i32::try_from(*value)
-                    .map_err(|_| Error::internal("postgres integer parameter is out of range"))?,
-            ),
-            Param::Int64(value) => Box::new(*value),
-            Param::Boolean(value) => Box::new(*value),
-            Param::Bytea(value) => Box::new(value.clone()),
-        })
-    }
-}
-
-#[cfg(test)]
-#[path = "store_tests.rs"]
-mod store_tests;

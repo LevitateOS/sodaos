@@ -1,8 +1,10 @@
 // Store schema bootstrap and key binding, extracted from store.rs (A05.M).
-use super::store::{Param, Store, Tx};
+use super::store::{Store, Tx};
 use crate::crypto::{GrantCipher, KEY_BINDING};
+use crate::pg::pg_error;
 use crate::schema;
 use crate::wire::Error;
+use tokio_postgres::types::ToSql;
 
 impl Store {
     pub(crate) fn check_grant_key(&self) -> Result<(), Error> {
@@ -10,14 +12,14 @@ impl Store {
             "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='grant_key_check'",
             &[],
         )?;
-        if row.integer(0)? == 0 {
+        if row.try_get::<_, i64>(0).map_err(pg_error)? == 0 {
             return Ok(());
         }
         let found = self.query("SELECT ciphertext FROM grant_key_check WHERE id=1", &[])?;
         let Some(row) = found.0.into_iter().next() else {
             return self.reject_unkeyed_identity_credentials();
         };
-        self.validate_grant_key(&row.bytea(0)?)
+        self.validate_grant_key(row.try_get::<_, Vec<u8>>(0).map_err(pg_error)?.as_slice())
     }
 
     pub(crate) fn reject_unkeyed_identity_credentials(&self) -> Result<(), Error> {
@@ -25,14 +27,14 @@ impl Store {
             "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='identity_connections'",
             &[],
         )?;
-        if row.integer(0)? == 0 {
+        if row.try_get::<_, i64>(0).map_err(pg_error)? == 0 {
             return Ok(());
         }
         let row = self.query_row(
             "SELECT count(*) FROM identity_connections WHERE octet_length(credential)>0",
             &[],
         )?;
-        if row.integer(0)? != 0 {
+        if row.try_get::<_, i64>(0).map_err(pg_error)? != 0 {
             return Err(Error::internal(
                 "identity credential encryption key missing or incorrect",
             ));
@@ -60,7 +62,7 @@ impl Store {
         let sealed = grants.seal(KEY_BINDING.as_bytes(), KEY_BINDING);
         self.exec(
             "INSERT INTO grant_key_check(id,ciphertext) VALUES(1,$1) ON CONFLICT(id) DO NOTHING",
-            &[Param::bytea(&sealed)],
+            &[&sealed as &(dyn ToSql + Sync)],
         )?;
         self.check_grant_key()
     }
@@ -101,12 +103,12 @@ impl<'a> Tx<'a> {
             "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='schema_version'",
             &[],
         )?;
-        if row.integer(0)? == 0 {
+        if row.try_get::<_, i64>(0).map_err(pg_error)? == 0 {
             let row = self.query_row(
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'",
                 &[],
             )?;
-            if row.integer(0)? != 0 {
+            if row.try_get::<_, i64>(0).map_err(pg_error)? != 0 {
                 return Err(Error::internal("refusing an unversioned nonempty database"));
             }
             return Ok(0);
@@ -116,11 +118,11 @@ impl<'a> Tx<'a> {
             &[],
         )?;
         // min/max arrive NULL only on an empty table, where count is 0.
-        let count = row.integer(0)?;
-        let minimum = row.nullable_integer(1)?;
-        let maximum = row.nullable_integer(2)?;
+        let count = row.try_get::<_, i64>(0).map_err(pg_error)?;
+        let minimum = row.try_get::<_, Option<i32>>(1).map_err(pg_error)?;
+        let maximum = row.try_get::<_, Option<i32>>(2).map_err(pg_error)?;
         match (count, minimum, maximum) {
-            (1, Some(min), Some(max)) if min >= 1 && min == max => Ok(min),
+            (1, Some(min), Some(max)) if min >= 1 && min == max => Ok(i64::from(min)),
             _ => Err(Error::internal("invalid database schema version record")),
         }
     }
@@ -136,9 +138,12 @@ impl<'a> Tx<'a> {
     pub(crate) fn verify_trigger(&self, name: &str, table: &str) -> Result<(), Error> {
         let row = self.query_row(
             "SELECT count(*) FROM information_schema.triggers WHERE trigger_name=$1 AND event_object_table=$2",
-            &[Param::text(name), Param::text(table)],
+            &[
+                &name as &(dyn ToSql + Sync),
+                &table as &(dyn ToSql + Sync),
+            ],
         )?;
-        if row.integer(0)? != 1 {
+        if row.try_get::<_, i64>(0).map_err(pg_error)? != 1 {
             return Err(Error::internal("database schema is incomplete"));
         }
         Ok(())

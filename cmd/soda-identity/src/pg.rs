@@ -1,6 +1,6 @@
 pub use crate::pg_dsn::Dsn;
-pub use crate::pg_query::Row;
 use crate::wire::Error;
+pub use tokio_postgres::Row;
 use tokio_postgres::{Client, NoTls};
 
 pub(crate) struct Connection {
