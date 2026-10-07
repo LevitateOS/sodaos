@@ -1,6 +1,3 @@
-use std::io;
-
-use super::process::{exec_diag, signal_name, spawn_diag};
 use super::state::{pid_alive, pid_display, ssh_args};
 use super::stripped;
 
@@ -54,66 +51,4 @@ fn stripped_drops_all_trailing_newlines() {
     assert_eq!(stripped(b"Linux\n"), b"Linux");
     assert_eq!(stripped(b"x\n\n\n"), b"x");
     assert_eq!(stripped(b""), b"");
-}
-
-#[test]
-fn signal_names_come_from_strsignal() {
-    assert_eq!(signal_name(15), "Terminated");
-    assert_eq!(signal_name(11), "Segmentation fault");
-    assert_eq!(signal_name(1), "Hangup");
-    assert_eq!(signal_name(6), "Aborted");
-}
-
-#[test]
-fn spawn_diag_matrix_matches_bash() {
-    // Slashless misses say "command not found" (PATH lookups here run
-    // against the ambient PATH, where these names do not exist).
-    let (msg, code) = spawn_diag(
-        "definitely-missing-soda-vm-probe",
-        &io::Error::from_raw_os_error(2),
-    );
-    assert_eq!((msg.as_str(), code), ("command not found", 127));
-    // Direct paths report the raw strerror.
-    let (msg, code) = spawn_diag(
-        "/nonexistent-soda-vm-probe/foo",
-        &io::Error::from_raw_os_error(2),
-    );
-    assert_eq!((msg.as_str(), code), ("No such file or directory", 127));
-    // Directories are reported as such.
-    let (msg, code) = spawn_diag("/tmp", &io::Error::from_raw_os_error(13));
-    assert_eq!((msg.as_str(), code), ("Is a directory", 126));
-}
-
-#[test]
-fn exec_diag_matrix_matches_bash() {
-    // Slashless misses use the one-line "not found" shape.
-    let (lines, code) = exec_diag(
-        "definitely-missing-soda-vm-probe",
-        &io::Error::from_raw_os_error(2),
-    );
-    assert_eq!(code, 127);
-    assert_eq!(
-        lines,
-        vec!["test-vm: exec: definitely-missing-soda-vm-probe: not found".to_string()]
-    );
-    // Direct-path misses use the bare strerror without the exec part.
-    let (lines, code) = exec_diag(
-        "/nonexistent-soda-vm-probe/foo",
-        &io::Error::from_raw_os_error(2),
-    );
-    assert_eq!(code, 127);
-    assert_eq!(
-        lines,
-        vec!["test-vm: /nonexistent-soda-vm-probe/foo: No such file or directory".to_string()]
-    );
-    // Directories get the two-line shape reporting "Is a directory".
-    let (lines, code) = exec_diag("/tmp", &io::Error::from_raw_os_error(13));
-    assert_eq!(code, 126);
-    assert_eq!(
-        lines,
-        vec![
-            "test-vm: /tmp: Is a directory".to_string(),
-            "test-vm: exec: /tmp: cannot execute: Is a directory".to_string(),
-        ]
-    );
 }

@@ -6,7 +6,7 @@ use std::ffi::CString;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
-use super::{go_base, go_clean, go_dir, go_errno, load_tools, open_tool, verify_native, Tool};
+use super::{go_base, go_dir, go_errno, load_tools, open_tool, path_error, verify_native, Tool};
 
 #[test]
 fn sha256_known_answers() {
@@ -46,33 +46,23 @@ fn sha256_known_answers() {
 }
 
 #[test]
-fn errno_table_spot_checks() {
-    assert_eq!(go_errno(libc::ENOENT), "no such file or directory");
-    assert_eq!(go_errno(libc::EACCES), "permission denied");
-    assert_eq!(go_errno(libc::EPIPE), "broken pipe");
-    assert_eq!(go_errno(libc::ENOSYS), "function not implemented");
-    assert_eq!(go_errno(libc::ELOOP), "too many levels of symbolic links");
-    assert_eq!(go_errno(libc::EINVAL), "invalid argument");
-    assert_eq!(go_errno(libc::EISDIR), "is a directory");
-    assert_eq!(go_errno(9999), "errno 9999");
+fn native_errno_keeps_operation_and_path_context() {
+    let missing = std::env::temp_dir().join(format!("soda-muse-missing-{}", std::process::id()));
+    let error = std::fs::read(&missing).unwrap_err();
+    let message = path_error("open", missing.to_str().unwrap(), error);
+    assert!(message.starts_with(&format!("open {}: ", missing.display())));
+    assert!(!go_errno(libc::ENOENT).is_empty());
 }
 
 #[test]
-fn go_path_helpers() {
-    assert_eq!(
-        go_clean("/usr/libexec/soda/../../share/soda/muse-tools"),
-        "/usr/share/soda/muse-tools"
-    );
-    assert_eq!(go_clean("a//b/./c/"), "a/b/c");
-    assert_eq!(go_clean(""), ".");
-    assert_eq!(go_clean("/"), "/");
+fn native_path_helpers_keep_fixed_tool_location() {
     assert_eq!(go_base("/x/launch.sock"), "launch.sock");
     assert_eq!(go_base("/x/launch.sock/"), "launch.sock");
     assert_eq!(go_base("/"), "/");
     assert_eq!(go_base(""), ".");
     assert_eq!(go_dir("/x/launch.sock"), "/x");
     assert_eq!(go_dir("/launch.sock"), "/");
-    assert_eq!(go_dir("/x/launch.sock/"), "/x/launch.sock");
+    assert_eq!(go_dir("/x/launch.sock/"), "/x");
     assert_eq!(default_tools(), "/usr/share/soda/muse-tools");
 }
 

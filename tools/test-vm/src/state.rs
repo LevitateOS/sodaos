@@ -1,7 +1,7 @@
 use std::fs;
 
 use super::process::{capture, is_file, os_error, Captured};
-use super::{current_pwd, kill, stripped, stripped_string, Exit, FAIL_PREFIX, SSH_PORT};
+use super::{current_pwd, stripped, stripped_string, Exit, FAIL_PREFIX, SSH_PORT};
 
 /// `pid_display` mirrors `$(<pidfile)`: content minus trailing newlines,
 // printed verbatim by `status` (surrounding spaces preserved).
@@ -40,7 +40,7 @@ pub(super) fn pid_alive(bytes: &[u8]) -> bool {
     if pid < 0 {
         return false;
     }
-    unsafe { kill(pid, 0) == 0 }
+    unsafe { libc::kill(pid, 0) == 0 }
 }
 
 /// `vm_running` mirrors `[[ -f pidfile ]] && kill -0 "$(<pidfile)"`: the
@@ -87,6 +87,7 @@ pub(super) fn ssh_args(vm: &str) -> Vec<String> {
 pub(super) fn uname_is(flag: &str, want: &str) -> bool {
     match capture("uname", &[flag], false) {
         Captured::SpawnFailed => false,
+        Captured::CaptureFailed => false,
         Captured::Done(out) => stripped(&out) == want.as_bytes(),
     }
 }

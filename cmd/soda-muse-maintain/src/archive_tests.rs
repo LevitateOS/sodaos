@@ -8,7 +8,7 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use super::{emit_archive, feed_archive, tar_header};
+use super::{emit_archive, tar_header};
 
 #[test]
 fn tar_header_layout_matches_ustar() {
@@ -104,12 +104,7 @@ fn streamed_stage_delivery() {
     let tools = TestDir::make("streamed-tools");
     let (feeds, guards) = synthetic_feeds(&tools);
     let deadline = Instant::now() + Duration::from_secs(15);
-    podman_streamed(
-        move |w| feed_archive(w, &feeds, deadline),
-        &["exec", "--user", "0:0", "-i", "some-id"],
-        deadline,
-    )
-    .unwrap();
+    podman_streamed(feeds, &["exec", "--user", "0:0", "-i", "some-id"], deadline).unwrap();
     drop(guards);
     assert_eq!(fs::read(dir.path("stdin.bin")).unwrap(), emit_synthetic());
     let argv = fs::read(dir.path("argv.bin")).unwrap();

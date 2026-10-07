@@ -1,7 +1,6 @@
 use std::os::unix::io::RawFd;
 use std::time::Instant;
 
-use super::archive::feed_archive;
 use super::command::{podman, podman_streamed};
 use super::filesystem::Tool;
 use super::project::{confirm_project, Observation};
@@ -83,10 +82,6 @@ pub(crate) fn stage_tools(
         DESTINATIONS[1],
         DESTINATIONS[2],
     ];
-    podman_streamed(
-        move |writer| feed_archive(writer, &feeds, deadline),
-        &args,
-        deadline,
-    )?;
+    podman_streamed(feeds, &args, deadline)?;
     Ok(())
 }

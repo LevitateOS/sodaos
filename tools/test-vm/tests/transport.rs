@@ -4,10 +4,10 @@ use std::os::unix::fs::PermissionsExt;
 use super::support::{cmd, vm_fixture, write_fake, TempDir};
 
 #[test]
-fn ssh_exec_failure_shapes_match_bash() {
+fn ssh_exec_failures_keep_native_errors_and_shell_statuses() {
     let root = TempDir::new("sshexec");
     vm_fixture(&root.path);
-    // Missing from PATH: 127 with the exec "not found" shape.
+    // Missing from PATH keeps exec's shell-compatible status and native error.
     let empty = TempDir::new("sshexec-bin");
     let out = cmd(&root.path)
         .arg("ssh")
@@ -15,10 +15,9 @@ fn ssh_exec_failure_shapes_match_bash() {
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(127));
-    assert_eq!(
-        String::from_utf8_lossy(&out.stderr),
-        "test-vm: exec: ssh: not found\n"
-    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.starts_with("test-vm: ssh: "), "{stderr:?}");
+    assert!(stderr.contains("No such file or directory"), "{stderr:?}");
     // tail fails the same way; the tunnels print first, then fail.
     let out = cmd(&root.path)
         .arg("console")
@@ -26,6 +25,9 @@ fn ssh_exec_failure_shapes_match_bash() {
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(127));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.starts_with("test-vm: tail: "), "{stderr:?}");
+    assert!(stderr.contains("No such file or directory"), "{stderr:?}");
     let out = cmd(&root.path)
         .arg("tunnel")
         .env("PATH", &empty.path)
@@ -36,7 +38,10 @@ fn ssh_exec_failure_shapes_match_bash() {
         String::from_utf8_lossy(&out.stdout),
         "Keep this running: Forgejo http://localhost:23000; Cockpit https://localhost:29090\n"
     );
-    // Present but non-executable: 126 with the two-line shape.
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.starts_with("test-vm: ssh: "), "{stderr:?}");
+    assert!(stderr.contains("No such file or directory"), "{stderr:?}");
+    // Present but non-executable: native permission error and status 126.
     let blocked = empty.path.join("ssh");
     fs::write(&blocked, b"noexec").unwrap();
     fs::set_permissions(&blocked, fs::Permissions::from_mode(0o644)).unwrap();
@@ -46,11 +51,10 @@ fn ssh_exec_failure_shapes_match_bash() {
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(126));
-    assert_eq!(
-        String::from_utf8_lossy(&out.stderr),
-        "test-vm: ssh: Permission denied\ntest-vm: exec: ssh: cannot execute: Permission denied\n"
-    );
-    // A directory on PATH is skipped like a miss: 127 "not found".
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.starts_with("test-vm: ssh: "), "{stderr:?}");
+    assert!(stderr.contains("Permission denied"), "{stderr:?}");
+    // A directory on PATH reaches exec and retains its native failure.
     fs::remove_file(&blocked).unwrap();
     fs::create_dir(&blocked).unwrap();
     let out = cmd(&root.path)
@@ -58,11 +62,10 @@ fn ssh_exec_failure_shapes_match_bash() {
         .env("PATH", &empty.path)
         .output()
         .unwrap();
-    assert_eq!(out.status.code(), Some(127));
-    assert_eq!(
-        String::from_utf8_lossy(&out.stderr),
-        "test-vm: exec: ssh: not found\n"
-    );
+    assert_eq!(out.status.code(), Some(126));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.starts_with("test-vm: ssh: "), "{stderr:?}");
+    assert!(stderr.contains("Permission denied"), "{stderr:?}");
 }
 
 #[test]

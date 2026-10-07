@@ -15,7 +15,6 @@
 // the deleted script path; and `exec` uses execvp PATH search, which skips
 // a broken shadow entry where bash would stop and fail.
 
-use core::ffi::{c_char, c_int};
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -33,36 +32,7 @@ const FAIL_PREFIX: &str = "test-vm";
 const QEMU_DEFAULT: &str = "/usr/libexec/qemu-kvm";
 const SSH_PORT: &str = "22220";
 
-extern "C" {
-    fn faccessat(dirfd: i32, path: *const i8, mode: i32, flags: i32) -> i32;
-    fn umask(mask: u32) -> u32;
-    fn sigaction(signum: i32, act: *const Sigaction, oldact: *mut Sigaction) -> i32;
-    fn flock(fd: i32, op: i32) -> i32;
-    fn kill(pid: c_int, sig: c_int) -> c_int;
-    fn execvp(file: *const c_char, argv: *const *const c_char) -> c_int;
-    fn strerror(errnum: c_int) -> *const c_char;
-    fn strsignal(sig: c_int) -> *const c_char;
-}
-
-const AT_FDCWD: i32 = -100;
-const R_OK: i32 = 4;
-const W_OK: i32 = 2;
-const X_OK: i32 = 1;
-const LOCK_EX: i32 = 2;
-const LOCK_NB: i32 = 4;
-const SIGPIPE: i32 = 13;
-const SIG_DFL: usize = 0;
-
-/// Matches glibc's `struct sigaction` on Linux (handler, signal mask, flags,
-/// restorer). The glibc wrapper fills in the restorer itself.
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct Sigaction {
-    handler: usize,
-    mask: [u64; 16],
-    flags: i32,
-    restorer: usize,
-}
+use libc::{faccessat, flock, umask, AT_FDCWD, LOCK_EX, LOCK_NB, R_OK, W_OK, X_OK};
 
 /// How the process ends: a propagated status with no extra output (the
 /// script's `set -e` behavior). The script's own refusal echoes are bare
@@ -137,13 +107,11 @@ fn main() {
     // EPIPE and println! would panic instead of dying like the shell);
     // restore the default disposition for byte parity.
     unsafe {
-        let restore_pipe = Sigaction {
-            handler: SIG_DFL,
-            mask: [0; 16],
-            flags: 0,
-            restorer: 0,
-        };
-        sigaction(SIGPIPE, &restore_pipe, std::ptr::null_mut());
+        let mut restore_pipe: libc::sigaction = std::mem::zeroed();
+        restore_pipe.sa_sigaction = libc::SIG_DFL;
+        restore_pipe.sa_flags = 0;
+        libc::sigemptyset(&mut restore_pipe.sa_mask);
+        libc::sigaction(libc::SIGPIPE, &restore_pipe, std::ptr::null_mut());
     }
     let argv: Vec<String> = env::args().collect();
     let args = if argv.is_empty() {

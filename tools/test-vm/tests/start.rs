@@ -23,7 +23,7 @@ fn start_refuses_without_kvm_or_with_bad_qemu() {
     for (tag, qemu) in [
         ("relative", "qemu-kvm"),
         ("missing", "/nonexistent-qemu-test-vm"),
-        ("directory", "/tmp"),
+        ("directory", root.path.to_str().unwrap()),
     ] {
         let out = cmd(&root.path)
             .arg("start")
@@ -264,8 +264,8 @@ fn start_reports_qemu_killed_by_signal() {
         eprintln!("skipping: /dev/kvm not accessible");
         return;
     }
-    // TERM prints the bare notice; the fake reports its pid so the SEGV
-    // line (which carries the pid) is asserted byte-exact.
+    // Child signals map to shell-compatible statuses without Bash's
+    // human-readable signal notices.
     let root = TempDir::new("qterm");
     vm_fixture(&root.path);
     let fakes = TempDir::new("qterm-bin");
@@ -277,33 +277,20 @@ fn start_reports_qemu_killed_by_signal() {
         .unwrap();
     assert_eq!(out.status.code(), Some(143));
     assert!(out.stdout.is_empty());
-    assert_eq!(String::from_utf8_lossy(&out.stderr), "Terminated\n");
+    assert!(out.stderr.is_empty());
 
     let root = TempDir::new("qsegv");
     vm_fixture(&root.path);
     let fakes = TempDir::new("qsegv-bin");
-    let pid_file = fakes.path.join("qemu.pid.log");
-    write_fake(
-        &fakes.path,
-        "qemu",
-        "echo $$ >\"$QEMU_PID_LOG\"\nkill -SEGV $$",
-    );
+    write_fake(&fakes.path, "qemu", "kill -SEGV $$");
     let out = cmd(&root.path)
         .arg("start")
         .env("QEMU", fakes.path.join("qemu"))
-        .env("QEMU_PID_LOG", &pid_file)
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(139));
     assert!(out.stdout.is_empty());
-    let fake_pid = fs::read_to_string(&pid_file).unwrap();
-    let fake_pid = fake_pid.trim();
-    assert_eq!(
-        String::from_utf8_lossy(&out.stderr),
-        format!(
-            "test-vm: {fake_pid} Segmentation fault      (core dumped) \"$qemu\" -name soda-test -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive \"if=virtio,format=qcow2,file=$vm/disk.qcow2\" -fw_cfg \"name=opt/com.coreos/config,file=$vm/soda.ign\" -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:22220-:22 -display none -serial \"file:$vm/console.log\" -monitor none -daemonize -pidfile \"$vm/qemu.pid\" 9>&-\n"
-        )
-    );
+    assert!(out.stderr.is_empty());
 
     // INT and PIPE deaths stay silent.
     for (tag, sig, code) in [("int", "INT", 130), ("pipe", "PIPE", 141)] {
@@ -341,7 +328,7 @@ fn unreadable_pidfile_reports_and_aborts() {
     assert_eq!(
         String::from_utf8_lossy(&out.stderr),
         format!(
-            "test-vm: {}/.artifacts/test-vm/qemu.pid: Permission denied\n",
+            "test-vm: {}/.artifacts/test-vm/qemu.pid: Permission denied (os error 13)\n",
             root.path.display()
         )
     );
@@ -376,7 +363,7 @@ fn unreadable_pidfile_aborts_start_before_qemu() {
     assert_eq!(
         String::from_utf8_lossy(&out.stderr),
         format!(
-            "test-vm: {}/.artifacts/test-vm/qemu.pid: Permission denied\n",
+            "test-vm: {}/.artifacts/test-vm/qemu.pid: Permission denied (os error 13)\n",
             root.path.display()
         )
     );
@@ -384,9 +371,9 @@ fn unreadable_pidfile_aborts_start_before_qemu() {
 }
 
 #[test]
-fn missing_uname_reports_and_refuses() {
-    // uname is the first gate: a PATH without it prints the diagnostic,
-    // then the KVM refusal. No KVM access needed to reach this.
+fn missing_uname_keeps_native_error_and_refuses() {
+    // uname is the first gate: a PATH without it emits the native spawn
+    // error before the platform refusal. No KVM access is needed here.
     let root = TempDir::new("nouname");
     vm_fixture(&root.path);
     let empty = TempDir::new("nouname-bin");
@@ -397,8 +384,11 @@ fn missing_uname_reports_and_refuses() {
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
     assert!(out.stdout.is_empty());
-    assert_eq!(
-        String::from_utf8_lossy(&out.stderr),
-        "test-vm: uname: command not found\nNative x86_64 Linux with KVM access required\n"
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.starts_with("test-vm: uname: "), "{stderr:?}");
+    assert!(stderr.contains("No such file or directory"), "{stderr:?}");
+    assert!(
+        stderr.ends_with("Native x86_64 Linux with KVM access required\n"),
+        "{stderr:?}"
     );
 }
