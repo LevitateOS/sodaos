@@ -3,12 +3,15 @@
 use std::io::Read;
 
 use base64::Engine;
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use serde::Serialize;
 
 use crate::error::Error;
 use crate::jsonio;
 use crate::model;
+
+const LIVE_IGNITION_LIMIT: u64 = 2 << 20;
+const LIVE_IGNITION_COMPRESSED_LIMIT: usize = 10 << 20;
 
 /// VerifyLiveIgnition checks the native customization readback against the
 /// exact fragment supplied by this build. Ignition's serializer emits absent
@@ -55,18 +58,30 @@ fn live_ignition_bytes(data: &[u8]) -> Result<Vec<u8>, Error> {
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let encoded = match source.strip_prefix("data:;base64,") {
-        Some(encoded) if compression == "gzip" => encoded,
+        Some(encoded)
+            if compression == "gzip"
+                && encoded.len() <= ((LIVE_IGNITION_COMPRESSED_LIMIT + 2) / 3) * 4 =>
+        {
+            encoded
+        }
         _ => return Err(Error::msg("unexpected native Ignition encoding")),
     };
     let compressed = base64::engine::general_purpose::STANDARD
         .decode(encoded.as_bytes())
         .map_err(|e| Error::msg(e.to_string()))?;
-    let decoder = GzDecoder::new(compressed.as_slice());
+    if compressed.len() > LIVE_IGNITION_COMPRESSED_LIMIT {
+        return Err(Error::msg("unexpected native live Ignition"));
+    }
+    let mut decoder = MultiGzDecoder::new(compressed.as_slice());
     let mut raw = Vec::new();
     decoder
-        .take(2 << 20)
+        .by_ref()
+        .take(LIVE_IGNITION_LIMIT + 1)
         .read_to_end(&mut raw)
         .map_err(|e| Error::msg(e.to_string()))?;
+    if raw.len() as u64 > LIVE_IGNITION_LIMIT {
+        return Err(Error::msg("unexpected native live Ignition"));
+    }
     Ok(raw)
 }
 
@@ -303,6 +318,13 @@ mod tests {
         let expected =
             br#"{"ignition":{"version":"3.5.0","config":null},"storage":{},"systemd":null}"#;
         assert!(verify_live_ignition(wrapped.as_bytes(), expected).is_ok());
+        let mut bad_trailer = gzipped;
+        *bad_trailer.last_mut().unwrap() ^= 1;
+        let corrupt = format!(
+            "{{\"ignition\":{{\"config\":{{\"merge\":[{{\"source\":\"data:;base64,{}\",\"compression\":\"gzip\"}}]}}}}}}",
+            base64::engine::general_purpose::STANDARD.encode(&bad_trailer)
+        );
+        assert!(verify_live_ignition(corrupt.as_bytes(), expected).is_err());
         assert_eq!(
             verify_live_ignition(wrapped.as_bytes(), br#"{"ignition":{"version":"3.4.0"}}"#)
                 .unwrap_err()
