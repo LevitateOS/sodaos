@@ -240,3 +240,44 @@ fn strict_depth_bounds_match_reject_duplicate_keys() {
         assert_eq!(decode_strict(doc.as_bytes()).unwrap_err().0, want, "n={n}");
     }
 }
+
+
+#[test]
+fn typed_strict_path_keeps_host_admission_and_alias_order() {
+    use std::collections::BTreeMap;
+
+    type AnyObject = BTreeMap<String, serde_json::Value>;
+
+    let duplicate = br#"{"ignored":[{"name":"first","\u006eame":"second"}]}"#;
+    assert!(decode_strict_as::<AnyObject>(duplicate).is_err());
+
+    for (n, accepted) in [(101, true), (102, false)] {
+        let body = format!("{{\"n\":{}}}", "[".repeat(n) + &"]".repeat(n));
+        assert_eq!(
+            decode_strict_as::<AnyObject>(body.as_bytes()).is_ok(),
+            accepted
+        );
+    }
+    for (n, accepted) in [(100, true), (101, false)] {
+        let body = format!("{{\"n\":{}0{}}}", "[".repeat(n), "]".repeat(n));
+        assert_eq!(
+            decode_strict_as::<AnyObject>(body.as_bytes()).is_ok(),
+            accepted
+        );
+    }
+
+    let request = crate::muse::LaunchRequest::decode(
+        br#"{"cwd":"/lower","CWD":"/upper","register":{"child_id":"first","CHILD_ID":null,"Child_Id":"last"}}"#,
+    )
+    .unwrap();
+    assert_eq!(request.cwd, "/lower");
+    assert_eq!(request.register.unwrap().child_id, "last");
+
+    assert!(decode_strict_as::<AnyObject>(b"[]").is_err());
+    assert!(decode_strict_as::<AnyObject>(br#"{"x":1} {}"#).is_err());
+    let mut invalid_utf8 = b"{\"x\":\"".to_vec();
+    invalid_utf8.push(0xff);
+    invalid_utf8.extend_from_slice(b"\"}");
+    assert!(decode_strict_as::<AnyObject>(&invalid_utf8).is_err());
+    assert!(decode_strict_as::<AnyObject>(&vec![b' '; MAXIMUM_REQUEST_BYTES + 1]).is_err());
+}

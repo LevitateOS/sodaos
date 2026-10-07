@@ -18,9 +18,12 @@ use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use crate::json::{Kind, Spec};
+use crate::json;
 use crate::tailnet_domain;
 use crate::tcontrol_wire as wire;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 const POLICY_VERSION: i64 = 2;
 const PROJECT_VERSION: i64 = 1;
@@ -48,6 +51,45 @@ impl Credential {
     }
 }
 
+macro_rules! policy_string_field {
+    ($key:expr, $name:literal, $map:expr, $slot:expr) => {
+        if $key.eq_ignore_ascii_case($name) {
+            if let Some(value) = $map.next_value::<Option<String>>()? {
+                $slot = value;
+            }
+            continue;
+        }
+    };
+}
+
+impl<'de> Deserialize<'de> for Credential {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct CredentialVisitor;
+        impl<'de> Visitor<'de> for CredentialVisitor {
+            type Value = Credential;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a credential object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = Credential::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    policy_string_field!(key, "client_id", map, out.client_id);
+                    policy_string_field!(key, "secret", map, out.secret);
+                    return Err(de::Error::unknown_field(&key, &["client_id", "secret"]));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(CredentialVisitor)
+    }
+}
+
 /// Stored enrollment policy (`policy.json`). `Debug` redacts the credential.
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct EnrollmentPolicy {
@@ -60,6 +102,84 @@ pub struct EnrollmentPolicy {
     pub admission: bool,
     pub default: bool,
     pub credential: Credential,
+}
+
+impl<'de> Deserialize<'de> for EnrollmentPolicy {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct PolicyVisitor;
+        impl<'de> Visitor<'de> for PolicyVisitor {
+            type Value = EnrollmentPolicy;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an enrollment policy object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = EnrollmentPolicy::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("version") {
+                        if let Some(v) = map.next_value::<Option<i64>>()? {
+                            out.version = v;
+                        }
+                        continue;
+                    }
+                    policy_string_field!(key, "revision", map, out.revision);
+                    policy_string_field!(key, "binding", map, out.binding);
+                    policy_string_field!(key, "tailnet", map, out.tailnet);
+                    if key.eq_ignore_ascii_case("tags") {
+                        if let Some(v) = map.next_value::<Option<Vec<Option<String>>>>()? {
+                            out.tags = v.into_iter().map(Option::unwrap_or_default).collect();
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("preauthorized") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.preauthorized = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("admission") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.admission = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("default") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.default = v;
+                        }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("credential") {
+                        if let Some(v) = map.next_value::<Option<Credential>>()? {
+                            out.credential = v;
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "version",
+                            "revision",
+                            "binding",
+                            "tailnet",
+                            "tags",
+                            "preauthorized",
+                            "admission",
+                            "default",
+                            "credential",
+                        ],
+                    ));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(PolicyVisitor)
+    }
 }
 
 impl std::fmt::Debug for EnrollmentPolicy {
@@ -89,117 +209,62 @@ pub struct ProjectPolicyEntry {
     pub enabled: bool,
 }
 
-// ---------- Policy file codecs ----------
-
-const CREDENTIAL_SPECS: &[Spec] = &[
-    Spec {
-        name: "client_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "secret",
-        kind: Kind::Str,
-    },
-];
-
-const ENROLLMENT_POLICY_SPECS: &[Spec] = &[
-    Spec {
-        name: "version",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "binding",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "tailnet",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "tags",
-        kind: Kind::StrList,
-    },
-    Spec {
-        name: "preauthorized",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "admission",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "default",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "credential",
-        kind: Kind::Object {
-            go_type: "struct",
-            struct_name: "credential",
-            specs: CREDENTIAL_SPECS,
-        },
-    },
-];
-
-const PROJECT_POLICY_SPECS: &[Spec] = &[
-    Spec {
-        name: "version",
-        kind: Kind::Int,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "container",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "binding",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "enabled",
-        kind: Kind::Bool,
-    },
-];
-
-fn decode_policy_file(
-    body: &[u8],
-    specs: &[Spec],
-    name: &'static str,
-) -> Result<crate::json::BoundMap, String> {
-    // Store files are small trusted-local JSON, but decode them with the
-    // same strict grammar as the wire (Go uses strictjson here too).
-    let v = crate::json::decode_strict(body).map_err(|_| wire::err_unavailable())?;
-    crate::json::bind_root(&v, name, specs, false).map_err(|_| wire::err_unavailable())
+impl<'de> Deserialize<'de> for ProjectPolicyEntry {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct EntryVisitor;
+        impl<'de> Visitor<'de> for EntryVisitor {
+            type Value = ProjectPolicyEntry;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a project policy object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = ProjectPolicyEntry::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("version") {
+                        if let Some(v) = map.next_value::<Option<i64>>()? {
+                            out.version = v;
+                        }
+                        continue;
+                    }
+                    policy_string_field!(key, "revision", map, out.revision);
+                    policy_string_field!(key, "project", map, out.project);
+                    policy_string_field!(key, "container", map, out.container);
+                    policy_string_field!(key, "binding", map, out.binding);
+                    if key.eq_ignore_ascii_case("enabled") {
+                        if let Some(v) = map.next_value::<Option<bool>>()? {
+                            out.enabled = v;
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "version",
+                            "revision",
+                            "project",
+                            "container",
+                            "binding",
+                            "enabled",
+                        ],
+                    ));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(EntryVisitor)
+    }
 }
 
+// ---------- Policy file codecs ----------
+
 fn decode_enrollment_policy(body: &[u8]) -> Result<EnrollmentPolicy, String> {
-    let bound = decode_policy_file(body, ENROLLMENT_POLICY_SPECS, "policy")?;
-    let cred = bound.take_map("credential");
-    Ok(EnrollmentPolicy {
-        version: bound.take_i64("version"),
-        revision: bound.take_string("revision"),
-        binding: bound.take_string("binding"),
-        tailnet: bound.take_string("tailnet"),
-        tags: bound.take_str_list("tags"),
-        preauthorized: bound.take_bool("preauthorized"),
-        admission: bound.take_bool("admission"),
-        default: bound.take_bool("default"),
-        credential: Credential {
-            client_id: cred.take_string("client_id"),
-            secret: cred.take_string("secret"),
-        },
-    })
+    json::decode_strict_as(body).map_err(|_| wire::err_unavailable())
 }
 
 fn encode_enrollment_policy(v: &EnrollmentPolicy) -> Vec<u8> {
@@ -229,15 +294,7 @@ fn encode_enrollment_policy(v: &EnrollmentPolicy) -> Vec<u8> {
 }
 
 fn decode_project_entry(body: &[u8]) -> Result<ProjectPolicyEntry, String> {
-    let bound = decode_policy_file(body, PROJECT_POLICY_SPECS, "project")?;
-    Ok(ProjectPolicyEntry {
-        version: bound.take_i64("version"),
-        revision: bound.take_string("revision"),
-        project: bound.take_string("project"),
-        container: bound.take_string("container"),
-        binding: bound.take_string("binding"),
-        enabled: bound.take_bool("enabled"),
-    })
+    json::decode_strict_as(body).map_err(|_| wire::err_unavailable())
 }
 
 fn encode_project_entry(v: &ProjectPolicyEntry) -> Vec<u8> {

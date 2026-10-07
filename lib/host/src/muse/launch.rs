@@ -6,7 +6,8 @@ use crate::project::Executor;
 
 use super::{
     muse_command_exit, muse_peer_from_fd, muse_request_from_fd, spawn_execution, split_json_object,
-    LaunchControl, LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer, MuseRuntime,
+    JsonPacket, LaunchControl, LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer,
+    MuseRuntime,
 };
 
 /// `MuseLaunch`: dedicated SOCK_SEQPACKET launch listener service.
@@ -298,9 +299,13 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
                 if trim[0] != b'{' {
                     return;
                 }
-                let Some(len) = split_json_object(&trim) else {
-                    buffer = trim;
-                    break;
+                let len = match split_json_object(&trim) {
+                    JsonPacket::Complete(len) => len,
+                    JsonPacket::Incomplete => {
+                        buffer = trim;
+                        break;
+                    }
+                    JsonPacket::Invalid => return,
                 };
                 let control = match LaunchControl::decode(&trim[..len]) {
                     Ok(control) => control,

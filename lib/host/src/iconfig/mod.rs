@@ -15,8 +15,10 @@
 //! `soda_release_deliver::payload::load` plus
 //! `soda_release_build::files::require_native` and the payload image table.
 
-use crate::json::{self, Kind, Spec};
 use crate::{domain, net, pfactory};
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 #[cfg(test)]
 mod tests;
@@ -42,135 +44,85 @@ pub struct Config {
     pub bridge: String,
 }
 
-const CONFIG_SPECS: &[Spec] = &[
-    Spec {
-        name: "muse_sha256",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "muse_version",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "muse_socket",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "identity_socket",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "codex_harness",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "codex_harness_sha256",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "codex_harness_version",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "muse_harness",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "muse_harness_sha256",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "muse_harness_version",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "tailnet_management",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "tailnet_image",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "image",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "network",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "subnet",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "bridge",
-        kind: Kind::Str,
-    },
-];
+impl<'de> Deserialize<'de> for Config {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ConfigVisitor;
 
-/// End offset of the first JSON value: Go's `loadConfig` performs one
-/// `Decode` and never examines trailing data. Empty input fails like Go's
-/// `io.EOF`. The slice is re-validated by the tolerant decoder, so this
-/// only finds the boundary (strings/escapes/nesting aware).
-fn first_value_end(text: &[u8]) -> Result<usize, String> {
-    let mut i = 0;
-    while i < text.len() && matches!(text[i], b' ' | b'\t' | b'\n' | b'\r') {
-        i += 1;
-    }
-    if i == text.len() {
-        return Err("EOF".to_string());
-    }
-    let mut j = i;
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escape = false;
-    let mut value_seen = false;
-    while j < text.len() {
-        let b = text[j];
-        if in_string {
-            if escape {
-                escape = false;
-            } else if b == b'\\' {
-                escape = true;
-            } else if b == b'"' {
-                in_string = false;
-                if depth == 0 {
-                    return Ok(j + 1);
-                }
+        impl<'de> Visitor<'de> for ConfigVisitor {
+            type Value = Config;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a host configuration object")
             }
-            j += 1;
-            continue;
+
+            fn visit_map<A>(self, mut map: A) -> Result<Config, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut config = Config::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    macro_rules! string_field {
+                        ($name:literal, $field:ident) => {
+                            if key.eq_ignore_ascii_case($name) {
+                                if let Some(value) = map.next_value::<Option<String>>()? {
+                                    config.$field = value;
+                                }
+                                continue;
+                            }
+                        };
+                    }
+                    string_field!("muse_sha256", muse_sha256);
+                    string_field!("muse_version", muse_version);
+                    string_field!("muse_socket", muse_socket);
+                    string_field!("identity_socket", identity_socket);
+                    string_field!("codex_harness", codex_harness);
+                    string_field!("codex_harness_sha256", codex_harness_sha256);
+                    string_field!("codex_harness_version", codex_harness_version);
+                    string_field!("muse_harness", muse_harness);
+                    string_field!("muse_harness_sha256", muse_harness_sha256);
+                    string_field!("muse_harness_version", muse_harness_version);
+                    string_field!("tailnet_image", tailnet_image);
+                    string_field!("image", image);
+                    string_field!("network", network);
+                    string_field!("subnet", subnet);
+                    string_field!("bridge", bridge);
+                    if key.eq_ignore_ascii_case("tailnet_management") {
+                        if let Some(value) = map.next_value::<Option<bool>>()? {
+                            config.tailnet_management = value;
+                        }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "muse_sha256",
+                            "muse_version",
+                            "muse_socket",
+                            "identity_socket",
+                            "codex_harness",
+                            "codex_harness_sha256",
+                            "codex_harness_version",
+                            "muse_harness",
+                            "muse_harness_sha256",
+                            "muse_harness_version",
+                            "tailnet_management",
+                            "tailnet_image",
+                            "image",
+                            "network",
+                            "subnet",
+                            "bridge",
+                        ],
+                    ));
+                }
+                Ok(config)
+            }
         }
-        match b {
-            b'"' => {
-                in_string = true;
-                value_seen = true;
-            }
-            b'{' | b'[' => {
-                depth += 1;
-                value_seen = true;
-            }
-            b'}' | b']' => {
-                if depth == 0 {
-                    break;
-                }
-                depth -= 1;
-                if depth == 0 {
-                    return Ok(j + 1);
-                }
-            }
-            b' ' | b'\t' | b'\n' | b'\r' if depth == 0 && value_seen => {
-                return Ok(j);
-            }
-            b',' | b':' if depth == 0 => break,
-            _ => {
-                value_seen = true;
-            }
-        }
-        j += 1;
+
+        deserializer.deserialize_map(ConfigVisitor)
     }
-    Ok(j)
 }
 
 /// `applyReleaseImages`: an empty release path is a no-op; otherwise the
@@ -319,40 +271,12 @@ fn validate_runtime_config(c: &Config) -> Result<(), String> {
 pub fn load_config(path: &str, release_path: &str) -> Result<Config, String> {
     let bytes = std::fs::read(path).map_err(|e| format!("read {path}: {e}"))?;
     let text = String::from_utf8_lossy(&bytes);
-    let end = first_value_end(text.as_bytes())?;
-    let first = &text.as_bytes()[..end];
-    // A literal `null` decodes into the struct as a no-op in Go.
-    if first
-        .iter()
-        .filter(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\r'))
-        .copied()
-        .collect::<Vec<u8>>()
-        == b"null"
-    {
-        let mut c = Config::default();
-        apply_release_images(&mut c, release_path)?;
-        return validate_runtime_config(&c).map(|()| c);
-    }
-    let v = json::decode_tolerant(first).map_err(|e| e.0)?;
-    let m = json::bind_root(&v, "Config", CONFIG_SPECS, false).map_err(|e| e.0)?;
-    let mut c = Config {
-        muse_sha256: m.take_string("muse_sha256"),
-        muse_version: m.take_string("muse_version"),
-        muse_socket: m.take_string("muse_socket"),
-        identity_socket: m.take_string("identity_socket"),
-        codex_harness: m.take_string("codex_harness"),
-        codex_harness_sha256: m.take_string("codex_harness_sha256"),
-        codex_harness_version: m.take_string("codex_harness_version"),
-        muse_harness: m.take_string("muse_harness"),
-        muse_harness_sha256: m.take_string("muse_harness_sha256"),
-        muse_harness_version: m.take_string("muse_harness_version"),
-        tailnet_management: m.take_bool("tailnet_management"),
-        tailnet_image: m.take_string("tailnet_image"),
-        image: m.take_string("image"),
-        network: m.take_string("network"),
-        subnet: m.take_string("subnet"),
-        bridge: m.take_string("bridge"),
-    };
+    let mut deserializer = serde_json::Deserializer::from_str(&text);
+    // Like Go Decoder.Decode, consume one value and ignore any suffix. Config's
+    // visitor keeps its historical case folding, null no-op, and last-wins rules.
+    let mut c = Option::<Config>::deserialize(&mut deserializer)
+        .map_err(|e| e.to_string())?
+        .unwrap_or_default();
     apply_release_images(&mut c, release_path)?;
     validate_runtime_config(&c)?;
     Ok(c)

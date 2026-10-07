@@ -12,6 +12,10 @@
 //!   HTTP encoder only.
 
 use std::collections::HashMap;
+use std::collections::{BTreeMap, HashSet};
+
+use serde::de::{self, DeserializeOwned, DeserializeSeed, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 mod bind;
 mod number;
@@ -33,6 +37,168 @@ pub use self::number::{parse_go_int64, parse_go_uint32};
 pub use self::specs::{Bound, BoundMap, Kind, Spec};
 
 pub const MAXIMUM_REQUEST_BYTES: usize = 1 << 20;
+
+/// Strictly admit one host request object, then decode directly into its
+/// owner DTO. Root names are sorted before typed decoding to preserve the
+/// host's established root alias precedence; nested raw values retain their
+/// source order.
+pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
+    if body.len() > MAXIMUM_REQUEST_BYTES {
+        return Err(err("request exceeds 1 MiB"));
+    }
+    std::str::from_utf8(body).map_err(|_| err("request must contain valid UTF-8"))?;
+
+    struct Root(BTreeMap<String, Box<serde_json::value::RawValue>>);
+    impl<'de> Deserialize<'de> for Root {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            struct RootVisitor;
+            impl<'de> Visitor<'de> for RootVisitor {
+                type Value = Root;
+                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    f.write_str("a JSON object")
+                }
+                fn visit_map<A>(self, mut map: A) -> Result<Root, A::Error>
+                where
+                    A: MapAccess<'de>,
+                {
+                    let mut members = BTreeMap::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        if members.contains_key(&key) {
+                            return Err(de::Error::custom("duplicate object key"));
+                        }
+                        let value = map.next_value::<Box<serde_json::value::RawValue>>()?;
+                        members.insert(key, value);
+                    }
+                    Ok(Root(members))
+                }
+            }
+            deserializer.deserialize_map(RootVisitor)
+        }
+    }
+
+    struct UniqueSeed(usize);
+    impl<'de> DeserializeSeed<'de> for UniqueSeed {
+        type Value = ();
+        fn deserialize<D>(self, deserializer: D) -> Result<(), D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            if self.0 > 100 {
+                return Err(de::Error::custom("maximum host JSON depth exceeded"));
+            }
+            deserializer.deserialize_any(UniqueVisitor(self.0))
+        }
+    }
+    struct UniqueVisitor(usize);
+    impl<'de> Visitor<'de> for UniqueVisitor {
+        type Value = ();
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a JSON value")
+        }
+        fn visit_bool<E>(self, _: bool) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_i64<E>(self, _: i64) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_u64<E>(self, _: u64) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_f64<E>(self, _: f64) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_str<E>(self, _: &str) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_borrowed_str<E>(self, _: &'de str) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_string<E>(self, _: String) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_unit<E>(self) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_none<E>(self) -> Result<(), E>
+        where
+            E: de::Error,
+        {
+            Ok(())
+        }
+        fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
+        where
+            A: SeqAccess<'de>,
+        {
+            while seq.next_element_seed(UniqueSeed(self.0 + 1))?.is_some() {}
+            Ok(())
+        }
+        fn visit_map<A>(self, mut map: A) -> Result<(), A::Error>
+        where
+            A: MapAccess<'de>,
+        {
+            let mut names = HashSet::new();
+            while let Some(key) = map.next_key::<String>()? {
+                if !names.insert(key) {
+                    return Err(de::Error::custom("duplicate object key"));
+                }
+                map.next_value_seed(UniqueSeed(self.0 + 1))?;
+            }
+            Ok(())
+        }
+    }
+
+    let mut deserializer = serde_json::Deserializer::from_slice(body);
+    let Root(root) = Root::deserialize(&mut deserializer).map_err(|e| err(e.to_string()))?;
+    deserializer.end().map_err(|e| err(e.to_string()))?;
+    for raw in root.values() {
+        let mut value = serde_json::Deserializer::from_str(raw.get());
+        UniqueSeed(0)
+            .deserialize(&mut value)
+            .map_err(|e| err(e.to_string()))?;
+        value.end().map_err(|e| err(e.to_string()))?;
+    }
+    let ordered = serde_json::to_vec(&root).map_err(|e| err(e.to_string()))?;
+    let mut input = serde_json::Deserializer::from_slice(&ordered);
+    let value = T::deserialize(&mut input).map_err(|e| err(e.to_string()))?;
+    input.end().map_err(|e| err(e.to_string()))?;
+    Ok(value)
+}
+
+/// Decode one complete machine response into its owner DTO. Unknown-field
+/// behavior is chosen by that DTO's Serde implementation.
+pub fn decode_tolerant_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
+    let mut input = serde_json::Deserializer::from_slice(body);
+    let value = T::deserialize(&mut input).map_err(|e| err(e.to_string()))?;
+    input.end().map_err(|e| err(e.to_string()))?;
+    Ok(value)
+}
 
 /// Nesting depth limit matching strictjson's per-level duplicate scan: a
 /// value nested more than 101 levels below the top-level object is refused.
@@ -270,33 +436,45 @@ pub fn tolerant_string_map(v: &Value) -> HashMap<String, String> {
 /// escaping for `<`, `>` and `&`, `\u2028`/`\u2029` escaping, and
 /// `\u00xx` for other C0 controls. Lowercase hex, like Go.
 pub fn escape_into(out: &mut String, s: &str) {
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '\u{0008}' => out.push_str("\\b"),
-            '\u{000C}' => out.push_str("\\f"),
-            '<' => out.push_str("\\u003c"),
-            '>' => out.push_str("\\u003e"),
-            '&' => out.push_str("\\u0026"),
-            '\u{2028}' => out.push_str("\\u2028"),
-            '\u{2029}' => out.push_str("\\u2029"),
-            c if (c as u32) < 0x20 => {
-                use std::fmt::Write;
-                write!(out, "\\u{:04x}", c as u32).unwrap();
-            }
-            c => out.push(c),
-        }
-    }
+    let quoted = quote(s);
+    out.push_str(&quoted[1..quoted.len() - 1]);
 }
 
 pub fn quote(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    escape_into(&mut out, s);
-    out.push('"');
-    out
+    use serde::Serialize;
+    let mut out = Vec::with_capacity(s.len() + 2);
+    let mut serializer = serde_json::Serializer::with_formatter(&mut out, GoFormatter);
+    s.serialize(&mut serializer)
+        .expect("writing to Vec cannot fail");
+    String::from_utf8(out).expect("JSON string is UTF-8")
+}
+
+/// Go `encoding/json`'s string policy layered onto serde_json's compact
+/// formatter. Controls are escaped by the upstream formatter; this method
+/// adds Go's HTML and JavaScript-separator escapes.
+struct GoFormatter;
+
+impl serde_json::ser::Formatter for GoFormatter {
+    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> std::io::Result<()>
+    where
+        W: ?Sized + std::io::Write,
+    {
+        let mut start = 0;
+        for (index, ch) in fragment.char_indices() {
+            let escaped = match ch {
+                '<' => Some(b"\\u003c".as_slice()),
+                '>' => Some(b"\\u003e".as_slice()),
+                '&' => Some(b"\\u0026".as_slice()),
+                '\u{2028}' => Some(b"\\u2028".as_slice()),
+                '\u{2029}' => Some(b"\\u2029".as_slice()),
+                _ => None,
+            };
+            if let Some(escaped) = escaped {
+                writer.write_all(&fragment.as_bytes()[start..index])?;
+                writer.write_all(escaped)?;
+                start = index + ch.len_utf8();
+            }
+        }
+        writer.write_all(&fragment.as_bytes()[start..])
+    }
 }

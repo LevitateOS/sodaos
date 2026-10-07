@@ -55,7 +55,7 @@ pub use self::argv::{muse_command_argv, unit_active_argv, unit_invocation_argv};
 
 mod codec;
 
-pub use self::codec::{muse_command_exit, split_json_object};
+pub use self::codec::{muse_command_exit, split_json_object, JsonPacket};
 
 mod config;
 

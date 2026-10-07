@@ -1978,16 +1978,29 @@ fn command_exit_matrix() {
 
 #[test]
 fn json_split_matrix() {
-    assert_eq!(split_json_object(br#"{"a":1}"#), Some(7));
-    assert_eq!(split_json_object(br#"{"a":{"b":[1,2]}}{"c":3}"#), Some(17));
-    assert_eq!(split_json_object(br#"{"a":"}{"}"#), Some(10)); // braces inside strings ignored
-    assert_eq!(split_json_object(br#"{"a":"}"}"#), Some(9));
-    assert_eq!(split_json_object(br#"{"a":"\"}"}"#), Some(11));
-    assert_eq!(split_json_object(br#"{"a":"}"#,), None); // truncated
-    assert_eq!(split_json_object(b"{]"), None);
-    assert_eq!(split_json_object(b""), None);
-    assert_eq!(split_json_object(b"   "), None);
-    assert_eq!(split_json_object(br#"{"signal":15} {"cols":1}"#), Some(13));
+    assert_eq!(split_json_object(br#"{"a":1}"#), JsonPacket::Complete(7));
+    assert_eq!(
+        split_json_object(br#"{"a":{"b":[1,2]}}{"c":3}"#),
+        JsonPacket::Complete(17)
+    );
+    assert_eq!(
+        split_json_object(br#"{"a":"}{"}"#),
+        JsonPacket::Complete(10)
+    );
+    assert_eq!(split_json_object(br#"{"a":"}"}"#), JsonPacket::Complete(9));
+    assert_eq!(
+        split_json_object(br#"{"a":"\"}"}"#),
+        JsonPacket::Complete(11)
+    );
+    assert_eq!(split_json_object(br#"{"a":"}"#), JsonPacket::Incomplete);
+    assert_eq!(split_json_object(b"{\"a\":"), JsonPacket::Incomplete);
+    assert_eq!(split_json_object(b"{]"), JsonPacket::Invalid);
+    assert_eq!(split_json_object(b""), JsonPacket::Incomplete);
+    assert_eq!(split_json_object(b"   "), JsonPacket::Incomplete);
+    assert_eq!(
+        split_json_object(br#"{"signal":15} {"cols":1}"#),
+        JsonPacket::Complete(13)
+    );
 }
 
 #[test]

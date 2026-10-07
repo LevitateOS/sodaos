@@ -14,8 +14,11 @@
 //! This module is dependency-free (`std` plus the sibling crate modules) and
 //! performs no I/O.
 
-use crate::json::{self, Kind, Spec};
+use crate::json;
 use crate::tailnet_domain::{self, ERR_CONFLICT, ERR_INVALID, ERR_UNAVAILABLE, ERR_UNCONFIRMED};
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 // ---------- Adapter error strings ----------
 //
@@ -661,145 +664,171 @@ pub struct ProjectSelection {
     pub binding: String,
 }
 
+macro_rules! decode_folded_field {
+    ($key:expr, $label:literal, $map:expr, $field:expr) => {
+        if $key.eq_ignore_ascii_case($label) {
+            if let Some(value) = $map.next_value::<Option<_>>()? {
+                $field = value;
+            }
+            continue;
+        }
+    };
+}
+
+macro_rules! decode_folded_optional {
+    ($key:expr, $label:literal, $map:expr, $field:expr) => {
+        if $key.eq_ignore_ascii_case($label) {
+            if let Some(value) = $map.next_value::<Option<_>>()? {
+                $field = Some(value);
+            }
+            continue;
+        }
+    };
+}
+
+impl<'de> Deserialize<'de> for HostRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct RequestVisitor;
+        impl<'de> Visitor<'de> for RequestVisitor {
+            type Value = HostRequest;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a host request object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut request = HostRequest::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    decode_folded_field!(key, "action", map, request.action);
+                    decode_folded_field!(key, "revision", map, request.revision);
+                    decode_folded_field!(key, "confirm", map, request.confirm);
+                    decode_folded_optional!(key, "exit_node", map, request.exit_node);
+                    decode_folded_optional!(key, "allow_lan", map, request.allow_lan);
+                    decode_folded_optional!(key, "advertise", map, request.advertise);
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "action",
+                            "revision",
+                            "confirm",
+                            "exit_node",
+                            "allow_lan",
+                            "advertise",
+                        ],
+                    ));
+                }
+                Ok(request)
+            }
+        }
+        deserializer.deserialize_map(RequestVisitor)
+    }
+}
+
+impl<'de> Deserialize<'de> for EnrollmentRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct RequestVisitor;
+        impl<'de> Visitor<'de> for RequestVisitor {
+            type Value = EnrollmentRequest;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an enrollment request object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut request = EnrollmentRequest::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    decode_folded_field!(key, "action", map, request.action);
+                    decode_folded_field!(key, "revision", map, request.revision);
+                    decode_folded_field!(key, "tailnet", map, request.tailnet);
+                    decode_folded_optional!(key, "tags", map, request.tags);
+                    decode_folded_optional!(key, "preauthorized", map, request.preauthorized);
+                    decode_folded_field!(key, "client_id", map, request.client_id);
+                    decode_folded_field!(key, "client_secret", map, request.client_secret);
+                    decode_folded_optional!(key, "default", map, request.default);
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "action",
+                            "revision",
+                            "tailnet",
+                            "tags",
+                            "preauthorized",
+                            "client_id",
+                            "client_secret",
+                            "default",
+                        ],
+                    ));
+                }
+                Ok(request)
+            }
+        }
+        deserializer.deserialize_map(RequestVisitor)
+    }
+}
+
+impl<'de> Deserialize<'de> for ProjectSelection {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct SelectionVisitor;
+        impl<'de> Visitor<'de> for SelectionVisitor {
+            type Value = ProjectSelection;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a project selection object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut selection = ProjectSelection::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    decode_folded_field!(key, "enabled", map, selection.enabled);
+                    decode_folded_field!(key, "revision", map, selection.revision);
+                    decode_folded_field!(key, "binding", map, selection.binding);
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["enabled", "revision", "binding"],
+                    ));
+                }
+                Ok(selection)
+            }
+        }
+        deserializer.deserialize_map(SelectionVisitor)
+    }
+}
+
 // ---------- Strict wire decoders ----------
 
-fn strict_body(body: &[u8]) -> Result<crate::json::Value, String> {
+fn strict_body<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T, String> {
     if body.len() > WIRE_BODY_LIMIT {
         return Err(err_invalid());
     }
-    crate::json::decode_strict(body).map_err(|_| err_invalid())
+    crate::json::decode_strict_as(body).map_err(|_| err_invalid())
 }
-
-const HOST_REQUEST_SPECS: &[Spec] = &[
-    Spec {
-        name: "action",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "confirm",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "exit_node",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "allow_lan",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "advertise",
-        kind: Kind::Bool,
-    },
-];
 
 /// Strict-decode a `HostRequest` body, mirroring `decodeTailnetBody` plus the
 /// `HostRequest` struct binding (unknown fields rejected).
 pub fn decode_host_request(body: &[u8]) -> Result<HostRequest, String> {
-    let v = strict_body(body)?;
-    let bound =
-        crate::json::bind_root(&v, "host", HOST_REQUEST_SPECS, false).map_err(|_| err_invalid())?;
-    Ok(HostRequest {
-        action: bound.take_string("action"),
-        revision: bound.take_string("revision"),
-        confirm: bound.take_string("confirm"),
-        exit_node: bound
-            .contains("exit_node")
-            .then(|| bound.take_string("exit_node")),
-        allow_lan: bound
-            .contains("allow_lan")
-            .then(|| bound.take_bool("allow_lan")),
-        advertise: bound
-            .contains("advertise")
-            .then(|| bound.take_bool("advertise")),
-    })
+    strict_body(body)
 }
-
-const ENROLLMENT_REQUEST_SPECS: &[Spec] = &[
-    Spec {
-        name: "action",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "tailnet",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "tags",
-        kind: Kind::StrList,
-    },
-    Spec {
-        name: "preauthorized",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "client_id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "client_secret",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "default",
-        kind: Kind::Bool,
-    },
-];
 
 /// Strict-decode an `EnrollmentRequest` body.
 pub fn decode_enrollment_request(body: &[u8]) -> Result<EnrollmentRequest, String> {
-    let v = strict_body(body)?;
-    let bound = crate::json::bind_root(&v, "enrollment", ENROLLMENT_REQUEST_SPECS, false)
-        .map_err(|_| err_invalid())?;
-    Ok(EnrollmentRequest {
-        action: bound.take_string("action"),
-        revision: bound.take_string("revision"),
-        tailnet: bound.take_string("tailnet"),
-        tags: bound.contains("tags").then(|| bound.take_str_list("tags")),
-        preauthorized: bound
-            .contains("preauthorized")
-            .then(|| bound.take_bool("preauthorized")),
-        client_id: bound.take_string("client_id"),
-        client_secret: bound.take_string("client_secret"),
-        default: bound
-            .contains("default")
-            .then(|| bound.take_bool("default")),
-    })
+    strict_body(body)
 }
-
-const PROJECT_SELECTION_SPECS: &[Spec] = &[
-    Spec {
-        name: "enabled",
-        kind: Kind::Bool,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "binding",
-        kind: Kind::Str,
-    },
-];
 
 /// Strict-decode a `ProjectSelection` body.
 pub fn decode_project_selection(body: &[u8]) -> Result<ProjectSelection, String> {
-    let v = strict_body(body)?;
-    let bound = crate::json::bind_root(&v, "selection", PROJECT_SELECTION_SPECS, false)
-        .map_err(|_| err_invalid())?;
-    Ok(ProjectSelection {
-        enabled: bound.take_bool("enabled"),
-        revision: bound.take_string("revision"),
-        binding: bound.take_string("binding"),
-    })
+    strict_body(body)
 }
 
 // ---------- Request validators ----------
