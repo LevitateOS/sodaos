@@ -54,7 +54,8 @@ fn create_temp(dir: &str, prefix: &str) -> Result<(std::fs::File, std::path::Pat
 }
 
 pub(crate) fn save_state<T: Serialize + ?Sized>(path: &str, value: &T) -> Result<(), Error> {
-    let data = crate::document::marshal_go_pretty(value)?;
+    let mut data = serde_json::to_vec_pretty(value).map_err(|_| Error::refused())?;
+    data.push(b'\n');
     let parent = match path.rfind('/') {
         Some(0) | None => "/".to_string(),
         Some(i) => path[..i].to_string(),

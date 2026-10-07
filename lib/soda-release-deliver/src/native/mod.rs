@@ -92,7 +92,8 @@ pub fn private_file(path: &str) -> Result<(), Error> {
 }
 
 pub(crate) fn write_json<T: Serialize + ?Sized>(path: &str, value: &T) -> Result<(), Error> {
-    let data = crate::document::marshal_go_pretty(value)?;
+    let mut data = serde_json::to_vec_pretty(value).map_err(|_| Error::refused())?;
+    data.push(b'\n');
     write_new(path, &data, 0o600)
 }
 

@@ -1,13 +1,12 @@
 //! Oracle-differential tests: Rust behavior vs the Go `deliver` owner.
 //!
 //! Goldens were dumped from `internal/release/deliver` (since removed
-//! temporary oracle test) and are embedded here. Fixture bytes must
-//! round-trip byte-identically; validation outcomes and error text must
-//! match the owner exactly. Newly written OCI document layers are checked
-//! for deterministic output and content round-trip, not the retired Go tar hash.
+//! temporary oracle test) and are embedded here. Fixture records are compared
+//! semantically; original signed-input bytes and their signature/hash checks
+//! remain byte-exact. Newly written OCI document layers are checked for
+//! deterministic output and content round-trip, not the retired Go tar hash.
 
 use serde_json::Value as JsonValue;
-use soda_release_deliver::document::marshal_go_pretty;
 use soda_release_deliver::model::{
     admit_channel, admit_release, empty_state, valid_candidate_content, Candidate, Channel,
     Highwater, Permit, Release, Trust,
@@ -73,34 +72,32 @@ fn decode_channel(g: &JsonValue) -> Channel {
     serde_json::from_str(&raw).expect("channel decode")
 }
 
+fn assert_record_semantics<T: serde::Serialize>(value: &T, expected: &str) {
+    let mut first = serde_json::to_vec_pretty(value).unwrap();
+    first.push(b'\n');
+    let mut second = serde_json::to_vec_pretty(value).unwrap();
+    second.push(b'\n');
+    assert!(first.ends_with(b"\n"));
+    assert_eq!(first, second);
+    assert_eq!(
+        serde_json::from_slice::<JsonValue>(&first).unwrap(),
+        serde_json::from_str::<JsonValue>(expected).unwrap()
+    );
+}
+
 #[test]
-fn fixtures_round_trip_byte_identical() {
+fn fixtures_round_trip_as_semantic_records() {
     let g = goldens();
     let trust = decode_trust(&g);
-    assert_eq!(
-        marshal_go_pretty(&trust).unwrap(),
-        golden_str(&g, "trust").into_bytes()
-    );
+    assert_record_semantics(&trust, &golden_str(&g, "trust"));
     let (payload, _) = decode_payload(&g);
-    assert_eq!(
-        marshal_go_pretty(&payload).unwrap(),
-        golden_str(&g, "payload").into_bytes()
-    );
+    assert_record_semantics(&payload, &golden_str(&g, "payload"));
     let (candidate, _) = decode_candidate(&g);
-    assert_eq!(
-        marshal_go_pretty(&candidate).unwrap(),
-        golden_str(&g, "candidate").into_bytes()
-    );
+    assert_record_semantics(&candidate, &golden_str(&g, "candidate"));
     let release = decode_release(&g);
-    assert_eq!(
-        marshal_go_pretty(&release).unwrap(),
-        golden_str(&g, "release").into_bytes()
-    );
+    assert_record_semantics(&release, &golden_str(&g, "release"));
     let channel = decode_channel(&g);
-    assert_eq!(
-        marshal_go_pretty(&channel).unwrap(),
-        golden_str(&g, "channel").into_bytes()
-    );
+    assert_record_semantics(&channel, &golden_str(&g, "channel"));
 }
 
 #[test]
@@ -209,10 +206,7 @@ fn channel_progression_matches_oracle() {
     state.checked_at = now - 20;
     let next =
         admit_channel(&trust, &state, &channel, &digest, "candidate", now).expect("channel.admit");
-    assert_eq!(
-        marshal_go_pretty(&next).unwrap(),
-        golden_str(&g, "channel.admitted_state").into_bytes()
-    );
+    assert_record_semantics(&next, &golden_str(&g, "channel.admitted_state"));
     let (ok, _) = golden_result(&g, "channel.readmit_same");
     assert_eq!(
         admit_channel(&trust, &next, &channel, &digest, "candidate", now).is_ok(),
@@ -261,10 +255,7 @@ fn release_admission_matches_oracle() {
     };
     let next = admit_release(&trust, &admitted, &offer, "x86_64", &arch_ref, &release)
         .expect("release.admit_candidate");
-    assert_eq!(
-        marshal_go_pretty(&next).unwrap(),
-        golden_str(&g, "release.admitted_state").into_bytes()
-    );
+    assert_record_semantics(&next, &golden_str(&g, "release.admitted_state"));
     let mut stable = offer.clone();
     stable.name = "stable".to_string();
     let (ok, err) = golden_result(&g, "release.stable_needs_native");

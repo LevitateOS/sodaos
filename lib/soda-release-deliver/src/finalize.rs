@@ -268,7 +268,8 @@ fn write_final_receipt(
 ) -> Result<(), Error> {
     // Go map order is sorted: digest, published, reference, scope.
     let receipt = serde_json::json!({"digest": digest, "published": published, "reference": reference, "scope": "signed final release metadata"});
-    let data = crate::document::marshal_go_pretty(&receipt)?;
+    let mut data = serde_json::to_vec_pretty(&receipt).map_err(|_| Error::refused())?;
+    data.push(b'\n');
     write_new(&format!("{out}/final.json"), &data, 0o600)
 }
 
@@ -343,7 +344,8 @@ mod tests {
             notes: "n".to_string(),
             ..Config::default()
         };
-        let bytes = crate::document::marshal_go_pretty(&config).unwrap();
+        let mut bytes = serde_json::to_vec_pretty(&config).unwrap();
+        bytes.push(b'\n');
         let decoded: Config = crate::json_serde::strict(&bytes).unwrap();
         assert_eq!(decoded, config);
         // Partial publication inputs refuse (after trust/signer admission).

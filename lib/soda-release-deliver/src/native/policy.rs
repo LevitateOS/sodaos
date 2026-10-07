@@ -306,7 +306,9 @@ pub fn merge_policy(t: &Trust, original: &[u8]) -> Result<Vec<u8>, Error> {
         default_policy: input.default_policy,
         transports,
     };
-    crate::document::marshal_go_pretty(&merged)
+    let mut data = serde_json::to_vec_pretty(&merged).map_err(|_| crate::Error::refused())?;
+    data.push(b'\n');
+    Ok(data)
 }
 
 /// `WriteRegistryConfig`: registries.d snippet for Sigstore attachments.

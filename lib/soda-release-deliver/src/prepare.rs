@@ -107,7 +107,8 @@ fn candidate_image_content(
 fn candidate_content_with_embedded_inventory(
     content: &BTreeMap<String, String>,
 ) -> Result<BTreeMap<String, String>, Error> {
-    let data = crate::document::marshal_go_pretty(content)?;
+    let mut data = serde_json::to_vec_pretty(content).map_err(|_| Error::refused())?;
+    data.push(b'\n');
     let mut with_inventory = content.clone();
     with_inventory.insert(
         "host:/usr/share/soda/host-image/content.json".to_string(),
@@ -248,6 +249,45 @@ pub(crate) fn immutable_tag(reference: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn embedded_inventory_hash_uses_standard_json_for_hostile_filenames() {
+        let content: BTreeMap<String, String> = [
+            "dashboard:/usr/local/bin/soda-dashboard",
+            "forgejo:/usr/local/bin/gitea",
+            "extension:/usr/local/bin/gitea",
+            "extension:/usr/share/soda/extension/extension.json",
+            "extension:/usr/share/soda/extension/backend",
+            "extension:/usr/share/soda/extension/run",
+            "extension:/usr/share/soda/extension/assets/quote\"<&> café.svg",
+            "host:/usr/share/containers/systemd/forgejo.container",
+            "host:/usr/share/containers/systemd/soda-dashboard.container",
+            "host:/usr/lib/systemd/system/soda-extension-install.service",
+        ]
+        .into_iter()
+        .map(|path| (path.to_string(), "a".repeat(64)))
+        .collect();
+        assert!(crate::model::valid_candidate_content(&content));
+        let with_inventory = candidate_content_with_embedded_inventory(&content).unwrap();
+        let files: Vec<(String, String)> = content
+            .iter()
+            .map(|(path, digest)| (path.clone(), digest.clone()))
+            .collect();
+        assert!(soda_release_image::model::valid_candidate_content(&files));
+        let bytes = soda_release_image::record::content_inventory_bytes(&files).unwrap();
+        assert!(std::str::from_utf8(&bytes)
+            .unwrap()
+            .contains("quote\\\"<&> café.svg"));
+        let expected_hash = hash_bytes(&bytes)
+            .strip_prefix("sha256:")
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            with_inventory.get("host:/usr/share/soda/host-image/content.json"),
+            Some(&expected_hash)
+        );
+    }
 
     #[test]
     fn document_references_and_tags() {

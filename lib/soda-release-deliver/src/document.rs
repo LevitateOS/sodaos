@@ -2,8 +2,7 @@
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::ser::{CharEscape, Formatter, PrettyFormatter, Serializer};
-use std::io::{self, Cursor};
+use std::io::Cursor;
 use tar::{Builder, EntryType, Header};
 
 use crate::buildx::{fresh_directory, read_at, write_new, Root};
@@ -128,93 +127,13 @@ fn set_mode(path: &str, mode: u32) -> Result<(), Error> {
 
 /// `WriteDocument`: package one bounded JSON record as an OCI layout.
 pub fn write_document<T: Serialize + ?Sized>(path: &str, value: &T) -> Result<String, Error> {
-    let data = marshal_go_pretty(value)?;
+    let mut data = serde_json::to_vec_pretty(value).map_err(|_| Error::refused())?;
+    data.push(b'\n');
     if data.len() > 1 << 20 {
         return Err(Error::refused());
     }
     fresh_directory(path)?;
     write_document_blobs(path, &data)
-}
-
-/// Encode release document bytes in the established Go producer format.
-pub fn marshal_go_pretty<T: Serialize + ?Sized>(value: &T) -> Result<Vec<u8>, Error> {
-    struct GoFormatter(PrettyFormatter<'static>);
-    impl Formatter for GoFormatter {
-        fn begin_array<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
-            self.0.begin_array(w)
-        }
-        fn end_array<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
-            self.0.end_array(w)
-        }
-        fn begin_array_value<W: ?Sized + io::Write>(
-            &mut self,
-            w: &mut W,
-            first: bool,
-        ) -> io::Result<()> {
-            self.0.begin_array_value(w, first)
-        }
-        fn end_array_value<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
-            self.0.end_array_value(w)
-        }
-        fn begin_object<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
-            self.0.begin_object(w)
-        }
-        fn end_object<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
-            self.0.end_object(w)
-        }
-        fn begin_object_key<W: ?Sized + io::Write>(
-            &mut self,
-            w: &mut W,
-            first: bool,
-        ) -> io::Result<()> {
-            self.0.begin_object_key(w, first)
-        }
-        fn begin_object_value<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
-            self.0.begin_object_value(w)
-        }
-        fn end_object_value<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
-            self.0.end_object_value(w)
-        }
-        fn write_string_fragment<W: ?Sized + io::Write>(
-            &mut self,
-            w: &mut W,
-            fragment: &str,
-        ) -> io::Result<()> {
-            let mut start = 0;
-            for (i, ch) in fragment.char_indices() {
-                let escaped = match ch {
-                    '<' => Some("\\u003c"),
-                    '>' => Some("\\u003e"),
-                    '&' => Some("\\u0026"),
-                    '\u{2028}' => Some("\\u2028"),
-                    '\u{2029}' => Some("\\u2029"),
-                    _ => None,
-                };
-                if let Some(escaped) = escaped {
-                    w.write_all(fragment[start..i].as_bytes())?;
-                    w.write_all(escaped.as_bytes())?;
-                    start = i + ch.len_utf8();
-                }
-            }
-            w.write_all(fragment[start..].as_bytes())
-        }
-        fn write_char_escape<W: ?Sized + io::Write>(
-            &mut self,
-            w: &mut W,
-            escape: CharEscape,
-        ) -> io::Result<()> {
-            let mut compact = serde_json::ser::CompactFormatter;
-            compact.write_char_escape(w, escape)
-        }
-    }
-    let mut bytes = Vec::new();
-    let mut serializer =
-        Serializer::with_formatter(&mut bytes, GoFormatter(PrettyFormatter::with_indent(b"  ")));
-    value
-        .serialize(&mut serializer)
-        .map_err(|_| Error::refused())?;
-    bytes.push(b'\n');
-    Ok(bytes)
 }
 
 /// `ReadFile`: bounded regular read through a confined directory handle.
