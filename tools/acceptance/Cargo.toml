@@ -30,3 +30,6 @@ sha2 = "=0.10.9"
 soda-build-tools = { path = "../../lib/release-inputs" }
 libc = "0.2"
 flate2 = "1"
+url = "=2.5.8"
+percent-encoding = "=2.3.2"
+soda-wire-time = { path = "../../lib/wire-time" }

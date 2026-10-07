@@ -18,3 +18,6 @@ path = "src/bin/soda-pg-restore.rs"
 [[bin]]
 name = "soda-pg-init-roles"
 path = "src/bin/soda-pg-init-roles.rs"
+
+[dependencies]
+soda-wire-time = { path = "../../lib/wire-time" }

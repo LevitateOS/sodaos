@@ -24,3 +24,4 @@ serde_json = { version = "=1.0.151", features = ["raw_value"] }
 base64 = "=0.22.1"
 sha2 = "=0.10.9"
 libc = "0.2"
+soda-wire-time = { path = "../../lib/wire-time" }

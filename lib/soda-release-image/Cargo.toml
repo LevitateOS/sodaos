@@ -17,3 +17,4 @@ soda-build-tools = { path = "../release-inputs", features = ["trust-key"] }
 sha2 = "0.10"
 base64 = "0.22"
 flate2 = "1"
+url = "=2.5.8"

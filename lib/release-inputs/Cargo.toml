@@ -11,3 +11,4 @@ trust-key = ["dep:p256"]
 
 [dependencies]
 p256 = { version = "=0.13.2", default-features = false, features = ["arithmetic", "ecdsa", "pem", "std"], optional = true }
+url = "=2.5.8"
