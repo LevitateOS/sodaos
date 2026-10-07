@@ -1,5 +1,9 @@
 use std::time::Duration;
 
+use super::files::{
+    hash_bounded, open_snapshot_file, snapshot_opened_file, snapshot_regular_file,
+    MAX_SNAPSHOT_FILE_BYTES,
+};
 use super::*;
 use crate::files::TempDir;
 use crate::sha256::{self, Digest, Sha256};
@@ -69,6 +73,100 @@ fn entry_fails_closed_on_links_and_missing_paths() {
     std::fs::write(&target, b"changed").unwrap();
     let second = Entry::snapshot(&target, true).unwrap();
     assert_ne!(first.json(), second.json());
+}
+
+#[test]
+fn entry_hash_and_metadata_stay_bound_to_the_opened_file() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = TempDir::new("snapshot-opened-file").unwrap();
+    let path = dir.path().join("probe.txt");
+    let moved = dir.path().join("opened.txt");
+    std::fs::write(&path, b"opened bytes").unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
+    let opened = open_snapshot_file(&path).unwrap();
+    std::fs::rename(&path, &moved).unwrap();
+    std::fs::write(&path, b"replacement bytes").unwrap();
+
+    let entry = snapshot_opened_file(opened, true).unwrap();
+    let mut digest = Sha256::new();
+    digest.update(b"opened bytes");
+    let json = entry.json();
+    assert_eq!(json.get("mode").unwrap().as_integer().unwrap(), 0o640);
+    assert_eq!(
+        json.get("sha256").unwrap().as_str().unwrap(),
+        sha256::hex_lower(&digest.finalize())
+    );
+}
+
+#[test]
+fn snapshot_file_open_is_nonblocking_and_rejects_fifo() {
+    use std::os::fd::AsRawFd;
+    use std::os::unix::ffi::OsStrExt;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let dir = TempDir::new("snapshot-fifo").unwrap();
+    let path = dir.path().join("pipe");
+    let name = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+
+    let (opened_tx, opened_rx) = mpsc::channel();
+    let open_path = path.clone();
+    let opener = std::thread::spawn(move || {
+        let nonblocking = open_snapshot_file(&open_path).map(|file| {
+            let flags = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_GETFL) };
+            flags >= 0 && flags & libc::O_NONBLOCK != 0
+        });
+        let _ = opened_tx.send(nonblocking);
+    });
+    let nonblocking = match opened_rx.recv_timeout(Duration::from_millis(100)) {
+        Ok(result) => result.unwrap(),
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            // Pair with an accidentally blocking FIFO open so the regression
+            // fails without leaving a stuck test thread behind.
+            let writer = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+            let _ = opened_rx.recv_timeout(Duration::from_secs(1));
+            drop(writer);
+            opener.join().unwrap();
+            panic!("snapshot FIFO open blocked");
+        }
+        Err(error) => panic!("snapshot FIFO open failed: {error}"),
+    };
+    opener.join().unwrap();
+    assert!(nonblocking);
+    let error = snapshot_regular_file(&path, true).unwrap_err();
+    assert_eq!(error.kind, SnapshotKind::RuntimeError);
+    assert_eq!(error.detail, "Unsupported snapshot file");
+}
+
+#[test]
+fn snapshot_hash_reads_at_most_cap_plus_one_to_detect_growth() {
+    use std::io::Cursor;
+
+    let mut reader = Cursor::new(b"12345".to_vec());
+    let error = hash_bounded(&mut reader, 4).unwrap_err();
+    assert_eq!(error.kind, SnapshotKind::RuntimeError);
+    assert_eq!(error.detail, "Snapshot file too large");
+    assert_eq!(reader.position(), 5);
+}
+
+#[test]
+fn size_only_snapshot_allows_sparse_file_over_hash_cap() {
+    let dir = TempDir::new("snapshot-size-cap").unwrap();
+    let path = dir.path().join("large.bin");
+    let file = std::fs::File::create(&path).unwrap();
+    file.set_len(MAX_SNAPSHOT_FILE_BYTES + 1).unwrap();
+    drop(file);
+
+    let size_only = Entry::snapshot(&path, false).unwrap().json();
+    assert_eq!(
+        size_only.get("size").unwrap().as_integer().unwrap(),
+        (MAX_SNAPSHOT_FILE_BYTES + 1) as i128
+    );
+    let hashed = Entry::snapshot(&path, true).unwrap_err();
+    assert_eq!(hashed.kind, SnapshotKind::RuntimeError);
+    assert_eq!(hashed.detail, "Snapshot file too large");
 }
 
 /// The `.ssh` loop exports hashes only for `config`/`known_hosts`,
