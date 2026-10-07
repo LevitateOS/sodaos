@@ -34,7 +34,8 @@ document allocated below. The current [library caller maps](library-integrations
 [custody audit](file-and-process-custody.md) and
 [dependency/cost audit](dependency-and-architecture-cost.md) and
 [test/evidence audit](test-evidence.md) and
-[build/operational join audit](build-and-operational-joins.md) are also H06 audit documents
+[build/operational join audit](build-and-operational-joins.md) and
+[total maintenance assessment](integration-maintenance-result.md) are also H06 audit documents
 allocated below. These additions do not regenerate the historical
 target allocation or refresh R02 counts.
 
@@ -848,6 +849,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── dependency-and-architecture-cost.md
 │   │   │   ├── test-evidence.md
 │   │   │   ├── build-and-operational-joins.md
+│   │   │   ├── integration-maintenance-result.md
 │   │   │   ├── implementation-lanes.md
 │   │   │   ├── implementation-tasks.md
 │   │   │   ├── integration.md

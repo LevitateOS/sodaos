@@ -27,6 +27,11 @@ No Go/Bun resolution, tests, builds, network, provider, database, VM or native
 qualification ran. Exact unchanged Go/SDK evidence is reused at its recorded source
 identity; old candidate graphs are not substituted for this workspace graph.
 
+The subsequent [total maintenance assessment](integration-maintenance-result.md)
+at `797e6ec8` places these feature/graph cuts alongside removed engines, remaining
+caller representations, runtime/custody duties and operational costs. It does
+not treat a dependency reduction as a measured overall maintenance saving.
+
 ## What the current selections cost
 
 | Selection / current source evidence | Meaning and limit |

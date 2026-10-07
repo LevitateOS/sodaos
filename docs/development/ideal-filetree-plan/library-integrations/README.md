@@ -40,6 +40,11 @@ at `bc28a07c` traces command discovery, staged service/configuration paths, brow
 assets and candidate/media/installed identities. It assigns a stale host-probe
 path correction and narrows running-service identity claims to actual observations.
 
+The [total maintenance assessment](../integration-maintenance-result.md) at
+`797e6ec8` compares removed duties with all remaining conversions, runtimes,
+synchronization, errors, dependencies and operational work. It gives each of the
+73 entries a recommendation and assesses local joins and held optional candidates.
+
 The subsequent [selected-version adapter challenge](adapter-challenges.md) at
 `2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
 It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON
