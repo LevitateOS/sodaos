@@ -13,3 +13,6 @@ name = "cli"
 path = "tests/cli.rs"
 
 # No dependencies: std only, so the tool builds offline.
+
+[dependencies]
+libc = "=0.2.190"

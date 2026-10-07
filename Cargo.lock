@@ -461,6 +461,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
+name = "fastrand"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
+
+[[package]]
 name = "ff"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1633,6 +1639,7 @@ dependencies = [
 name = "soda-activate"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "serde",
  "serde_json",
  "url",
@@ -1651,6 +1658,7 @@ name = "soda-candidate-setup"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
+ "libc",
  "serde",
  "serde_json",
 ]
@@ -1676,6 +1684,9 @@ dependencies = [
 [[package]]
 name = "soda-forgejo-domain"
 version = "0.1.0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "soda-forgejo-migrate"
@@ -1769,6 +1780,7 @@ dependencies = [
  "p384",
  "p521",
  "rsa",
+ "rustix",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1837,6 +1849,7 @@ dependencies = [
  "sha2 0.10.9",
  "soda-build-tools",
  "tar",
+ "tempfile",
  "ureq",
  "url",
 ]
@@ -1867,6 +1880,7 @@ dependencies = [
  "sha2 0.10.9",
  "soda-build-tools",
  "tar",
+ "tempfile",
 ]
 
 [[package]]
@@ -1908,6 +1922,7 @@ name = "soda-rotate-lab-creds"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
+ "libc",
  "serde",
  "serde_json",
 ]
@@ -1918,6 +1933,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "getrandom 0.4.3",
+ "libc",
  "serde",
  "serde_json",
  "ureq",
@@ -1927,6 +1943,9 @@ dependencies = [
 [[package]]
 name = "soda-test-vm"
 version = "0.1.0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "soda-unix-http"
@@ -2071,6 +2090,19 @@ dependencies = [
  "filetime",
  "libc",
  "xattr",
+]
+
+[[package]]
+name = "tempfile"
+version = "3.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
+dependencies = [
+ "fastrand",
+ "getrandom 0.4.3",
+ "once_cell",
+ "rustix",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

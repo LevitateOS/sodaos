@@ -6,3 +6,6 @@ edition = "2021"
 [[bin]]
 name = "soda-forgejo-domain"
 path = "src/main.rs"
+
+[dependencies]
+libc = "=0.2.190"

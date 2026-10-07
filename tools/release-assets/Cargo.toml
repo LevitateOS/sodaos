@@ -36,6 +36,7 @@ name = "soda-render-terminal-logo"
 path = "src/bin/soda-render-terminal-logo.rs"
 
 [dependencies]
+tempfile = "=3.27.0"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 soda-build-tools = { path = "../../lib/release-inputs" }
