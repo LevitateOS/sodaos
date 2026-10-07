@@ -314,8 +314,17 @@ JSON01 has completed identity/Setup (`ae09f634`), Compose (`22c858fc`), Muse
 and development builds passed. `e20647c1` transfers host config, Muse framing
 and tcontrol DTOs, while the legacy host engine still serves pending callers;
 new strict-boundary checks and the 57-test tcontrol oracle passed.
-Remaining release, installer, guest and tool callers hold JSON01 completion and
-deletion of `lib/json`.
+Installer JSON01 completed in `595fb604`: `jsongo` and its dependency edge are
+deleted, with concrete payload/media/OCI/lsblk records, duplicate-aware factory
+defaults and a small Go-compatible Ignition formatter. All 128 installer tests,
+the development build and independent medium review passed. Release-build
+completed in `d52d8ca8`: `json_go`, `Fields`, `Strict` and recursive `Emit` are
+deleted with their callers and dependency edge. Its 48 library checks, 12
+integration oracles, development build and medium review passed. Integer-token
+adapters retain `-0` as zero while rejecting fractions, exponents and overflow;
+raw input hashes and required producer bytes remain at their owners.
+Remaining host, release-image/deliver/tools, import/activate, guest and tool
+callers hold JSON01 completion and deletion of `lib/json`.
 The [active verification record](../../../.artifacts/l03-l04/verification.md)
 links commits to local receipt scope and retains failed/environment-limited
 attempts separately from qualifying checks. `54176eb6` adds the verified host

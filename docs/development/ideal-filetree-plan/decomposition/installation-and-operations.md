@@ -227,6 +227,14 @@ Observed size: 454 lines, including tests where embedded. Keep the 211-line priv
 
 Evidence: rust/soda-install/src/inputs.rs:13-60 hostname/subnet/password admission; rust/soda-install/src/inputs.rs:62-160 template decoding and path collisions; rust/soda-install/src/inputs.rs:162-208 destination construction; rust/soda-install/src/inputs.rs:212-454 vectors and provisioning template tests.
 
+Installer JSON01 completed in `595fb604`; `jsongo.rs` is deleted. Dynamic
+Ignition uses Serde values with a small Go-compatible formatter, while factory
+defaults and payload/media records use concrete DTOs. Sorted output, embedded
+machine bytes, file-content newlines and raw authenticated hashes retain their
+existing duties. All 128 installer checks and the development build passed
+with medium review; the historical split remains distinguishable from that
+completed engine replacement.
+
 ## rust/soda-install/src/netip.rs
 
 Observed size: 836 lines, including tests where embedded. N8 replaces the IPv4/IPv6 grammar and formatting engine with std::net::IpAddr. Retain one small adapter for admitted zones, prefix masking/containment and purpose-specific address selection. Do not further split the legacy grammar/error port into permanent target modules. Keep address/prefix policy tests with the adapter.
@@ -252,6 +260,11 @@ Observed size: 1175 lines, including tests where embedded. Keep fd-relative layo
 - `cmd/soda-install/src/oci/tests.rs`
 
 Evidence: rust/soda-install/src/oci.rs:27-258 layout types and descriptor-confined file/blob loading; rust/soda-install/src/oci.rs:260-617 soft/hard descriptor and manifest/config decoding; rust/soda-install/src/oci.rs:618-863 rootfs/attribution/image/layout inspection; rust/soda-install/src/oci.rs:866-1020 existing test fixture module; rust/soda-install/src/oci.rs:1023-1175 identity/count/substitution tests.
+
+In `595fb604`, schema-specific raw-slot Serde visitors replace the OCI binder.
+They retain ordered alias selection, caller null rules and integer lexemes
+including `-0`, without a generic object-field lookup engine. File/blob custody
+and original digest verification remain here; FS01 and REL02 remain pending.
 
 ## rust/soda-install/src/setup.rs
 

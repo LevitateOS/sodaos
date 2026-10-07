@@ -154,13 +154,19 @@ them into a package-local test file would break fixtures in other packages.
 Any retirement must preserve the real cross-package fixture/broker boundary;
 it does not justify a second production broker store or schema.
 
-`lib/json` has twelve direct current Cargo dependents at the investigation pin.
+`lib/json` had twelve direct Cargo dependents at the investigation pin.
 That caller count does not justify keeping its custom syntax engine. Under L04,
 Serde owns syntax/binding/emission; shared profile policy stays here only where
 actual callers need the same contract. Retain strict broker admission, Go binding
 and terminal emission differences at their existing owners. Do not introduce a
 universal permissive facade or preserve lexer modules merely because they were
 previously allocated. Signed raw bytes remain raw.
+
+Installer (`595fb604`) and release-build (`d52d8ca8`) have removed their last
+engine callers and direct dependency edges. Their current JSON responsibilities
+are bounded raw-byte custody, concrete record admission and required producer
+formatters. Pending consumers still hold shared-crate deletion; a completed
+owner transfer does not complete JSON01 repository-wide.
 
 ### Selected engine and adapter ownership
 

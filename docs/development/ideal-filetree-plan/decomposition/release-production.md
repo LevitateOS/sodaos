@@ -259,13 +259,19 @@ Open detail: Update current callers directly. JSON01 specifies duplicate/fold/nu
 
 Observed size: 451 lines, including tests where embedded. JSON01 replaces the custom JSON grammar and recursive byte emitter with locked serde/serde_json. Keep narrow strict/lenient DTO profiles where actual callers need duplicate, folded-name, null and unknown-field rules. Preserve original authenticated input bytes and the explicitly required producer representation; do not recreate a general Go JSON API around serde.
 
-- `lib/soda-release-build/src/json_go.rs` — Temporary location for the narrow input-policy visitor while existing DTO callers migrate; retire generic Fields/Strict compatibility APIs when unnecessary.
-- `lib/soda-release-build/src/json_emit.rs` — Library-backed typed producer serialization only where required; retire the recursive Emit engine and obsolete foreign formatting emulation.
-- `lib/soda-release-build/src/json_go/tests.rs` — Existing marshal, unknown-field, folded/null and lenient-last-wins cases, kept unit-scoped and targeting the real decoder/emitter.
+- `lib/soda-release-build/src/json_emit.rs` — Serde producer formatting for required compact/pretty Go output; concrete records and sorted maps remain with their callers.
 
 Evidence: 14-122: FieldError/Fields lenient extraction;125-312: Strict/json_kind/type and unknown-field diagnostics; 315-389: Emit/sorted_object/marshal_indent/emit_indent/emit_value; 390-451: four existing unit cases; coreos.rs,coreos_stream.rs,files.rs,forgejo.rs,production.rs import these real semantics
 
 Open detail: Build json_go, deliver jsonx and image jsonio have different input profiles; JSON01 migrates each actual caller instead of assigning one global decoder. Required field/map ordering and signed producer bytes have focused fixtures. Obsolete byte/error parity does not justify another permanent serializer abstraction.
+
+Build JSON01 completed in `d52d8ca8`. `json_go.rs` and its engine tests were
+deleted with the last strict/lenient callers; named DTO visitors retain final
+matching-field selection before conversion. `json_input.rs` keeps confined
+4 MiB reads, full-input admission, exact-byte hashes and integer-token policy.
+The historical ranges above remain allocation evidence. All 48 library checks,
+12 integration oracles and the development build passed with medium review;
+image and delivery retain their separate pending profiles.
 
 ## rust/soda-release-build/src/oci.rs
 
