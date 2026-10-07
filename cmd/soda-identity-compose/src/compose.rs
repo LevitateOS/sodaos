@@ -1,4 +1,4 @@
-use super::launch_wire::json_string;
+use super::launch_json::compose_override_json;
 use super::options::Options;
 use super::MUSE_LAUNCH_SOCKET;
 use std::fs;
@@ -60,16 +60,7 @@ pub(crate) fn write_override(path: &str, service: &str, root: &str) -> Result<()
         String::from("/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro"),
         format!("{sock_dir}:{sock_dir}:ro"),
     ];
-    let mut data = String::from("{\"services\":{");
-    data.push_str(&json_string(service));
-    data.push_str(":{\"volumes\":[");
-    for (i, m) in mounts.iter().enumerate() {
-        if i > 0 {
-            data.push(',');
-        }
-        data.push_str(&json_string(m));
-    }
-    data.push_str("]}}}");
+    let data = compose_override_json(service, mounts.to_vec());
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
     opts.mode(0o600);

@@ -84,6 +84,10 @@ fn override_escapes_like_go_encoding_json() {
     );
     assert_eq!(json_string("line\ntab\t"), "\"line\\ntab\\t\"");
     assert_eq!(json_string("\u{1}"), "\"\\u0001\"");
+    assert_eq!(
+        json_string("<>&\u{2028}\u{2029}"),
+        "\"\\u003c\\u003e\\u0026\\u2028\\u2029\""
+    );
 }
 
 #[test]
@@ -121,12 +125,22 @@ fn launch_request_wire_matches_go() {
 }
 
 #[test]
-fn launch_exit_parsing_matches_go_unmarshal() {
+fn launch_exit_preserves_scalar_and_duplicate_admission() {
     assert_eq!(
         parse_launch_exit(b"{\"code\":0}").unwrap(),
         (0, String::new())
     );
     assert_eq!(parse_launch_exit(b"{}").unwrap(), (0, String::new()));
+    assert!(parse_launch_exit(b"{\"code\":null,\"error\":null}").is_err());
+    assert!(
+        parse_launch_exit(b"{\"code\":7,\"code\":null,\"error\":\"denied\",\"error\":null}")
+            .is_err()
+    );
+    assert_eq!(
+        parse_launch_exit(b"{\"code\":1,\"code\":7,\"error\":\"first\",\"error\":\"last\"}")
+            .unwrap(),
+        (7, String::from("last"))
+    );
     assert_eq!(
         parse_launch_exit(b"{\"error\":\"denied\",\"code\":1}").unwrap(),
         (1, String::from("denied"))
@@ -151,6 +165,9 @@ fn launch_exit_parsing_matches_go_unmarshal() {
         "{\"code\":0,\"code\":}",
         "{\"code\":0,}",
         "{,}",
+        "{\"code\":01}",
+        "{\"code\":1e0}",
+        "{\"code\":1.0}",
     ] {
         assert!(
             parse_launch_exit(bad.as_bytes()).is_err(),
@@ -168,10 +185,32 @@ fn launch_exit_rejects_escape_split_inside_multibyte_char() {
         parse_launch_exit("{\"error\":\"\\u€é\"}".as_bytes()).is_err(),
         "malformed escape boundary admitted"
     );
-    // Guards: valid escapes still decode, lone surrogates still reject.
+    // Valid escapes still decode. serde_json rejects unpaired surrogates as
+    // malformed JSON, which keeps the caller's safe rejection behavior.
     assert_eq!(
         parse_launch_exit(b"{\"error\":\"A\\u0041\"}").unwrap(),
         (0, String::from("AA"))
     );
     assert!(parse_launch_exit(b"{\"error\":\"\\ud800\"}").is_err());
+}
+
+#[test]
+fn launch_exit_ignores_unknown_nested_response_fields() {
+    assert_eq!(
+        parse_launch_exit(b"{\"future\":{\"values\":[1,{\"ok\":true}]},\"code\":0}").unwrap(),
+        (0, String::new())
+    );
+}
+
+#[test]
+fn launch_exit_skips_deep_unknown_fields_within_packet_bound() {
+    for depth in [64, 130] {
+        let response = format!(
+            "{{\"future\":{}0{},\"code\":0}}",
+            "[".repeat(depth),
+            "]".repeat(depth)
+        );
+        assert!(response.len() < 4096);
+        assert!(parse_launch_exit(response.as_bytes()).is_ok());
+    }
 }

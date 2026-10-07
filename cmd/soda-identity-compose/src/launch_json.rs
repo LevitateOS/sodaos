@@ -1,165 +1,160 @@
-pub(crate) fn parse_json_string(text: &str, start: usize) -> Result<(String, usize), ()> {
-    let bytes = text.as_bytes();
-    if start >= bytes.len() || bytes[start] != b'"' {
-        return Err(());
-    }
-    let mut out = String::new();
-    let mut i = start + 1;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'"' => return Ok((out, i + 1)),
-            b'\\' => {
-                i += 1;
-                if i >= bytes.len() {
-                    return Err(());
-                }
-                match bytes[i] {
-                    b'"' => out.push('"'),
-                    b'\\' => out.push('\\'),
-                    b'/' => out.push('/'),
-                    b'b' => out.push('\u{0008}'),
-                    b'f' => out.push('\u{000c}'),
-                    b'n' => out.push('\n'),
-                    b'r' => out.push('\r'),
-                    b't' => out.push('\t'),
-                    b'u' => {
-                        if i + 4 >= bytes.len() {
-                            return Err(());
-                        }
-                        // H03-F4: decode the 4 hex digits from bytes. A str
-                        // slice here panics when the window ends inside a
-                        // multibyte char; bytes reject that as malformed.
-                        let mut cp: u32 = 0;
-                        for k in 1..=4 {
-                            let value = match bytes[i + k] {
-                                b'0'..=b'9' => (bytes[i + k] - b'0') as u32,
-                                b'a'..=b'f' => (bytes[i + k] - b'a' + 10) as u32,
-                                b'A'..=b'F' => (bytes[i + k] - b'A' + 10) as u32,
-                                _ => return Err(()),
-                            };
-                            cp = cp * 16 + value;
-                        }
-                        let c = char::from_u32(cp).ok_or(())?;
-                        // Reject lone surrogates the way Go does.
-                        if (0xd800..0xe000).contains(&cp) {
-                            return Err(());
-                        }
-                        out.push(c);
-                        i += 4;
-                    }
-                    _ => return Err(()),
-                }
-            }
-            0x00..=0x1f => return Err(()),
-            _ => {
-                let c = text[i..].chars().next().ok_or(())?;
-                out.push(c);
-                i += c.len_utf8() - 1;
-            }
-        }
-        i += 1;
-    }
-    Err(())
+use serde::de::{IgnoredAny, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::ser::Formatter;
+use std::collections::BTreeMap;
+use std::fmt;
+use std::io;
+
+#[derive(Serialize)]
+struct RegistrationDto<'a> {
+    child_id: &'a str,
+    actor_id: &'a str,
+    registration_id: &'a str,
+    muse: bool,
 }
 
-pub(crate) fn parse_json_integer(text: &str, start: usize) -> Result<(i64, usize), ()> {
-    let bytes = text.as_bytes();
-    let mut i = start;
-    if i < bytes.len() && bytes[i] == b'-' {
-        i += 1;
-    }
-    let digits = i;
-    while i < bytes.len() && bytes[i].is_ascii_digit() {
-        i += 1;
-    }
-    if i == digits || i == start {
-        return Err(());
-    }
-    // Go rejects fractions and exponents for int fields.
-    if i < bytes.len() && (bytes[i] == b'.' || bytes[i] == b'e' || bytes[i] == b'E') {
-        return Err(());
-    }
-    text[start..i]
-        .parse::<i64>()
-        .map_err(|_| ())
-        .map(|v| (v, i))
+#[derive(Serialize)]
+struct LaunchRequestDto<'a> {
+    register: RegistrationDto<'a>,
+    connection_id: &'static str,
+    cwd: &'static str,
+    args: Option<&'a [String]>,
+    tty: bool,
+    cols: u32,
+    rows: u32,
 }
 
-pub(crate) fn skip_json_value(text: &str, start: usize) -> Result<usize, ()> {
-    let bytes = text.as_bytes();
-    if start >= bytes.len() {
-        return Err(());
+#[derive(Serialize)]
+struct ComposeOverrideDto {
+    services: BTreeMap<String, ComposeServiceDto>,
+}
+
+#[derive(Serialize)]
+struct ComposeServiceDto {
+    volumes: Vec<String>,
+}
+
+/// Go's encoding/json escapes HTML-sensitive characters and the two Unicode
+/// line separators even though JSON itself does not require those escapes.
+#[derive(Default)]
+struct GoHtmlFormatter;
+
+impl Formatter for GoHtmlFormatter {
+    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        let mut start = 0;
+        for (index, character) in fragment.char_indices() {
+            let escape = match character {
+                '<' => Some(b"\\u003c".as_slice()),
+                '>' => Some(b"\\u003e".as_slice()),
+                '&' => Some(b"\\u0026".as_slice()),
+                '\u{2028}' => Some(b"\\u2028".as_slice()),
+                '\u{2029}' => Some(b"\\u2029".as_slice()),
+                _ => None,
+            };
+            if let Some(escape) = escape {
+                writer.write_all(&fragment.as_bytes()[start..index])?;
+                writer.write_all(escape)?;
+                start = index + character.len_utf8();
+            }
+        }
+        writer.write_all(&fragment.as_bytes()[start..])
     }
-    match bytes[start] {
-        b'"' => parse_json_string(text, start).map(|(_, next)| next),
-        b'{' | b'[' => {
-            let open = bytes[start];
-            let close = if open == b'{' { b'}' } else { b']' };
-            let mut i = start + 1;
-            let mut depth = 1;
-            let mut in_string = false;
-            let mut escaped = false;
-            while i < bytes.len() {
-                let b = bytes[i];
-                if in_string {
-                    if escaped {
-                        escaped = false;
-                    } else if b == b'\\' {
-                        escaped = true;
-                    } else if b == b'"' {
-                        in_string = false;
-                    }
-                } else if b == b'"' {
-                    in_string = true;
-                } else if b == open {
-                    depth += 1;
-                } else if b == close {
-                    depth -= 1;
-                    if depth == 0 {
-                        return Ok(i + 1);
-                    }
-                }
-                i += 1;
+}
+
+fn to_go_json<T: Serialize + ?Sized>(value: &T) -> String {
+    let mut bytes = Vec::new();
+    let mut serializer = serde_json::Serializer::with_formatter(&mut bytes, GoHtmlFormatter);
+    value
+        .serialize(&mut serializer)
+        .expect("serializing to a Vec cannot fail");
+    String::from_utf8(bytes).expect("serde_json emits UTF-8")
+}
+
+pub(crate) fn json_string(value: &str) -> String {
+    to_go_json(value)
+}
+
+pub(crate) fn launch_request_json(
+    child_id: &str,
+    actor_id: &str,
+    registration_id: &str,
+    muse: bool,
+) -> String {
+    let request = LaunchRequestDto {
+        register: RegistrationDto {
+            child_id,
+            actor_id,
+            registration_id,
+            muse,
+        },
+        connection_id: "",
+        cwd: "",
+        args: None,
+        tty: false,
+        cols: 0,
+        rows: 0,
+    };
+    to_go_json(&request)
+}
+
+pub(crate) fn compose_override_json(service: &str, volumes: Vec<String>) -> String {
+    let mut services = BTreeMap::new();
+    services.insert(service.to_string(), ComposeServiceDto { volumes });
+    to_go_json(&ComposeOverrideDto { services })
+}
+
+#[derive(Default)]
+struct LaunchExit {
+    code: i64,
+    error: String,
+}
+
+impl<'de> Deserialize<'de> for LaunchExit {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ExitVisitor;
+
+        impl<'de> Visitor<'de> for ExitVisitor {
+            type Value = LaunchExit;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an object containing optional launch exit fields")
             }
-            Err(())
-        }
-        b't' => {
-            if text[start..].starts_with("true") {
-                Ok(start + 4)
-            } else {
-                Err(())
-            }
-        }
-        b'f' => {
-            if text[start..].starts_with("false") {
-                Ok(start + 5)
-            } else {
-                Err(())
-            }
-        }
-        b'n' => {
-            if text[start..].starts_with("null") {
-                Ok(start + 4)
-            } else {
-                Err(())
-            }
-        }
-        b'-' | b'0'..=b'9' => {
-            let mut i = start;
-            if bytes[i] == b'-' {
-                i += 1;
-            }
-            while i < bytes.len()
-                && (bytes[i].is_ascii_digit()
-                    || matches!(bytes[i], b'.' | b'e' | b'E' | b'+' | b'-'))
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
             {
-                i += 1;
+                let mut exit = LaunchExit::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "code" => {
+                            exit.code = map.next_value::<i64>()?;
+                        }
+                        "error" => {
+                            exit.error = map.next_value::<String>()?;
+                        }
+                        _ => {
+                            map.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(exit)
             }
-            if i == start {
-                return Err(());
-            }
-            Ok(i)
         }
-        _ => Err(()),
+
+        deserializer.deserialize_map(ExitVisitor)
     }
+}
+
+pub(crate) fn parse_launch_exit(body: &[u8]) -> Result<(i64, String), ()> {
+    let mut deserializer = serde_json::Deserializer::from_slice(body);
+    let exit = LaunchExit::deserialize(&mut deserializer).map_err(|_| ())?;
+    deserializer.end().map_err(|_| ())?;
+    Ok((exit.code, exit.error))
 }
