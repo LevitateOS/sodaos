@@ -33,11 +33,11 @@ fn strict_depth_matches_accepted_empty_container_boundary_and_scalar_leaf() {
 }
 
 #[test]
-fn strict_typed_path_preserves_sorted_root_and_nested_source_alias_order() {
+fn strict_typed_path_preserves_root_and_nested_source_alias_order() {
     let request = crate::muse::LaunchRequest::decode(
         br#"{"cwd":"/lower","CWD":"/upper","register":{"child_id":"first","CHILD_ID":null,"Child_Id":"last"}}"#,
     ).unwrap();
-    assert_eq!(request.cwd, "/lower");
+    assert_eq!(request.cwd, "/upper");
     assert_eq!(request.register.unwrap().child_id, "last");
 }
 

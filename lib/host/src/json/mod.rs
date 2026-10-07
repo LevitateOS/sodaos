@@ -4,7 +4,7 @@
 //! Serde DTOs. This module supplies only strict recursive admission, the
 //! signed JSON integer token adapter, byte-field adapter, and output quoting.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use serde::de::{self, DeserializeOwned, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -122,45 +122,14 @@ impl<'de> Deserialize<'de> for BytesField {
 }
 
 /// Strictly admit a complete root object and deserialize it into its owner
-/// DTO. Root names are sorted before typed decoding; nested RawValue bytes keep
-/// source order for alias selection.
+/// DTO while preserving the source order of every object member.
 pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
     if body.len() > MAXIMUM_REQUEST_BYTES {
         return Err(err("request exceeds 1 MiB"));
     }
     std::str::from_utf8(body).map_err(|_| err("request must contain valid UTF-8"))?;
 
-    struct Root(BTreeMap<String, Box<serde_json::value::RawValue>>);
-    impl<'de> Deserialize<'de> for Root {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            struct V;
-            impl<'de> Visitor<'de> for V {
-                type Value = Root;
-                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    f.write_str("a JSON object")
-                }
-                fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-                where
-                    A: MapAccess<'de>,
-                {
-                    let mut members = BTreeMap::new();
-                    while let Some(key) = map.next_key::<String>()? {
-                        if members.contains_key(&key) {
-                            return Err(de::Error::custom("duplicate object key"));
-                        }
-                        members.insert(key, map.next_value::<Box<serde_json::value::RawValue>>()?);
-                    }
-                    Ok(Root(members))
-                }
-            }
-            deserializer.deserialize_map(V)
-        }
-    }
-
-    struct UniqueSeed(usize);
+    struct UniqueSeed(i16);
     impl<'de> DeserializeSeed<'de> for UniqueSeed {
         type Value = ();
         fn deserialize<D>(self, deserializer: D) -> Result<(), D::Error>
@@ -173,7 +142,7 @@ pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
             deserializer.deserialize_any(UniqueVisitor(self.0))
         }
     }
-    struct UniqueVisitor(usize);
+    struct UniqueVisitor(i16);
     impl<'de> Visitor<'de> for UniqueVisitor {
         type Value = ();
         fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -256,20 +225,11 @@ pub fn decode_strict_as<T: DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
     }
 
     let mut original = serde_json::Deserializer::from_slice(body);
-    let Root(root) = Root::deserialize(&mut original).map_err(|e| err(e.to_string()))?;
+    original
+        .deserialize_map(UniqueVisitor(-1))
+        .map_err(|e| err(e.to_string()))?;
     original.end().map_err(|e| err(e.to_string()))?;
-    for raw in root.values() {
-        let mut value = serde_json::Deserializer::from_str(raw.get());
-        UniqueSeed(0)
-            .deserialize(&mut value)
-            .map_err(|e| err(e.to_string()))?;
-        value.end().map_err(|e| err(e.to_string()))?;
-    }
-    let ordered = serde_json::to_vec(&root).map_err(|e| err(e.to_string()))?;
-    let mut input = serde_json::Deserializer::from_slice(&ordered);
-    let decoded = T::deserialize(&mut input).map_err(|e| err(e.to_string()))?;
-    input.end().map_err(|e| err(e.to_string()))?;
-    Ok(decoded)
+    serde_json::from_slice(body).map_err(|e| err(e.to_string()))
 }
 
 /// Decode one complete machine response into its owner DTO.
