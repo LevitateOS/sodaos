@@ -263,7 +263,7 @@ Observed size: 451 lines, including tests where embedded. JSON01 replaces the cu
 
 Evidence: 14-122: FieldError/Fields lenient extraction;125-312: Strict/json_kind/type and unknown-field diagnostics; 315-389: Emit/sorted_object/marshal_indent/emit_indent/emit_value; 390-451: four existing unit cases; coreos.rs,coreos_stream.rs,files.rs,forgejo.rs,production.rs import these real semantics
 
-Open detail: Build and image JSON01 caller transfers are complete; their distinct input profiles remain with concrete record adapters. Deliver still holds its separate profile cutover. JSON01 assigns no global decoder. Required field/map ordering and signed producer bytes have focused fixtures. Obsolete byte/error parity does not justify another permanent serializer abstraction.
+Open detail: Build and image JSON01 caller transfers are complete; their distinct input profiles remain with concrete record adapters. Delivery has retired jsonx; its ordered/raw policy merge and exact strict-depth follow-up remain open. JSON01 assigns no global decoder. Required field/map ordering and signed producer bytes have focused fixtures. Obsolete byte/error parity does not justify another permanent serializer abstraction.
 
 Build JSON01 completed in `d52d8ca8`. `json_go.rs` and its engine tests were
 deleted with the last strict/lenient callers; named DTO visitors retain final
@@ -370,17 +370,14 @@ Open detail: Preserve crate::fetch::{discover,fetch_document,lock_state,save_sta
 
 ## rust/soda-release-deliver/src/jsonx.rs
 
-Observed size: 623 lines, including tests where embedded. JSON01 replaces custom decoding/binding and recursive emission with serde/serde_json, retaining explicit strict document and lenient build profiles. CF-04 replaces the independent byte codec with the selected base64 0.22.1 profile. Keep admission beside the consuming DTO rather than create another generic serializer package.
+Historical source size: 623 lines, including tests. Checkpoint `c5fef89a` removes jsonx/decode/emit/tests and their generic Binder/Soft/Emit surfaces. Their pending engine splits are superseded by the caller transfer.
 
-- `lib/soda-release-deliver/src/jsonx/mod.rs` — Narrow input-policy and base64 library adapters while existing DTO callers migrate; no custom grammar or codec.
-The former `jsonx/decode.rs` and `jsonx/emit.rs` engine splits are superseded.
-Keep duplicate-before-map Visitor and strict/lenient/numeric policy only where
-actual callers need it; put typed serialization with its required producer.
-- `lib/soda-release-deliver/src/jsonx/tests.rs` — Current base64 vectors and strict object/type/duplicate/unknown-field assertions.
+- `lib/soda-release-deliver/src/json_serde.rs` — Strict object/decoded duplicate/depth/cap admission and raw scalar policy over Serde. The exact depth and arbitrary-number preflight follow-up remains open.
+- Existing model/payload/OCI/fetch/publication record owners — Concrete exact-field DTOs, last-winner raw slots where lenient callers require them, and original signed/hash custody.
+- `lib/soda-release-deliver/src/document.rs` — OCI document custody and actual Go two-space/newline producer formatter. Five frozen byte goldens and the captured Channel manifest digest remain verification requirements.
+- `lib/soda-release-deliver/src/native/policy.rs` — Generated trust requirements and proposed policy merging. Retained arbitrary scope values still require ordered/raw-number preservation before this follow-up can close.
 
-Evidence: 1-18 MAX_STRICT_BYTES/DecodeError; 22-96 exact base64; 97-352 duplicate traversal, Binder/Soft, parse_strict/parse_lenient/dedupe_last_wins; 353-558 Emitter/Emit implementations; 559-573 numeric ranges/marshal; 574-623 tests.
-
-Open detail: Migrate all actual callers atomically for each profile, then remove the corresponding custom engine. Field ordering/newline and byte encoding are requirements where the producer contract proves them; hashes/signatures of existing documents always use original admitted bytes. Requalify canonical padding/unused-bit and duplicate cases explicitly instead of retaining Binder/Emitter solely for private tests.
+Historical Evidence: 1-18 cap/error; 22-96 Base64; 97-352 duplicate traversal and Binder/Soft; 353-558 Emitter/Emit; 559-573 marshal; 574-623 tests. These ranges record completed structural work, not remaining engine ownership.
 
 ## rust/soda-release-deliver/src/model.rs
 

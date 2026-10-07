@@ -344,8 +344,16 @@ are removed. Typed records retain first-exact/folded admission; ordered raw
 metadata retains duplicate and numeric identity, stable top-level sorting and
 Ignition comparison. Its 62 library checks, 12 integration oracles, final
 producer-order regression, development build and medium closure review passed.
-Remaining host, release-deliver/tools, guest and tool callers hold JSON01
-completion and deletion of `lib/json`.
+Delivery checkpoint `c5fef89a` removes `jsonx` and its dependency with 34
+library tests, 13 producer/admission oracles and downstream development builds.
+The raw-number/order policy merge and exact strict-depth follow-up remain
+unresolved until their focused review and checks close. Release-assets completed
+in `b67d9d97`: typed exact-last raw slots and the ordered Butane application
+document retain original downloaded hashes and Python producer bytes. Its 83
+library tests, 31 integration checks, development build and medium review
+passed with home-disk fixtures; the missing-checkout case requires fixtures
+outside the source checkout. Host, delivery follow-up, release-tools, guest and
+acceptance callers still hold JSON01 completion and deletion of `lib/json`.
 The [active verification record](../../../.artifacts/l03-l04/verification.md)
 links commits to local receipt scope and retains failed/environment-limited
 attempts separately from qualifying checks. `54176eb6` adds the verified host
