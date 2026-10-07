@@ -7,6 +7,7 @@ use percent_encoding::percent_decode_str;
 
 pub(crate) const MAX_BODY: usize = 512 << 10;
 pub(crate) const MAX_HEADER: usize = 8192;
+const MAX_SUCCESS_BODY: usize = 512 << 10;
 
 pub(crate) struct HttpRequest {
     pub(crate) method: String,
@@ -44,8 +45,11 @@ fn valid_percent_escapes(input: &str) -> bool {
     true
 }
 
-pub(crate) fn success_response(output: &Option<Vec<u8>>) -> Response<Full<Bytes>> {
-    let mut body = output.clone().unwrap_or_else(|| b"{}".to_vec());
+pub(crate) fn success_response(output: Option<Vec<u8>>) -> Response<Full<Bytes>> {
+    let mut body = output.unwrap_or_else(|| b"{}".to_vec());
+    if body.len() >= MAX_SUCCESS_BODY {
+        return error_response(500, "unavailable");
+    }
     body.push(b'\n');
     let mut response = Response::new(Full::new(Bytes::from(body)));
     *response.status_mut() = StatusCode::OK;

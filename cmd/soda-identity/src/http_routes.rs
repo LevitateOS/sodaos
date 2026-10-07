@@ -85,7 +85,7 @@ pub(crate) fn dispatch(
     };
     let result = route(controller, &request.path, &input, runtime_allowed);
     match result {
-        Ok(output) => success_response(&output),
+        Ok(output) => success_response(output),
         Err(err) => {
             let (status, code) = match err.kind() {
                 ErrorKind::Denied => (403, "denied"),
@@ -109,12 +109,8 @@ fn route(
     runtime_allowed: bool,
 ) -> Result<Option<Vec<u8>>, Error> {
     match path {
-        "/connections" => Ok(Some(serde_json::to_vec(
-            &controller.connections(input.owner_id)?,
-        )?)),
-        "/available" => Ok(Some(serde_json::to_vec(
-            &controller.available(input.owner_id, &input.project_id)?,
-        )?)),
+        "/connections" => Ok(Some(controller.connections(input.owner_id)?)),
+        "/available" => Ok(Some(controller.available(input.owner_id, &input.project_id)?)),
         "/revoke" => {
             controller.revoke(input.owner_id, &input.id)?;
             Ok(None)
@@ -131,9 +127,7 @@ fn route(
             controller.cancel_enrollment(input.owner_id, &input.id)?;
             Ok(None)
         }
-        "/grants" => Ok(Some(serde_json::to_vec(
-            &controller.grants(input.owner_id, &input.id)?,
-        )?)),
+        "/grants" => Ok(Some(controller.grants(input.owner_id, &input.id)?)),
         "/grant/create" => {
             let Some(grant) = &input.grant else {
                 return Err(Error::denied("identity authority denied"));
@@ -146,9 +140,7 @@ fn route(
             controller.revoke_grant(input.owner_id, &input.id)?;
             Ok(None)
         }
-        "/leases" => Ok(Some(serde_json::to_vec(
-            &controller.leases(input.owner_id, &input.id)?,
-        )?)),
+        "/leases" => Ok(Some(controller.leases(input.owner_id, &input.id)?)),
         "/lease/end" => {
             controller.end_lease(input.owner_id, &input.id)?;
             Ok(None)

@@ -1,5 +1,6 @@
 // Completion, revocation and reconciliation, from control.rs (A05.M).
-use super::control::{join_errors, zeroize, Controller, State};
+use super::control::{zeroize, Controller, LeaseFailures, State};
+use super::store_connections::LIST_PAGE_ROWS;
 use crate::wire::{
     credential_valid, Binding, Error, Lease, UnixTime, MUSE, READY, REAUTH, REVOKED,
 };
@@ -86,26 +87,38 @@ impl Controller {
 
     pub fn reconcile(&self) -> Result<(), Error> {
         let state = self.lock();
-        let all = state.store.leases()?;
-        let mut failures = Vec::new();
-        for lease in all {
-            if let Err(err) = Self::end(&state, &lease) {
-                failures.push(err);
+        let mut failures = LeaseFailures::new();
+        let mut after: Option<String> = None;
+        loop {
+            let page = state.store.leases_page(after.as_deref())
+                .map_err(|_| Error::internal("lease scan incomplete"))?;
+            if page.is_empty() { break; }
+            let count = page.len();
+            for lease in page {
+                after = Some(lease.id.clone());
+                failures.record(Self::end(&state, &lease));
             }
+            if count < LIST_PAGE_ROWS as usize { break; }
         }
-        join_errors(failures)
+        failures.finish()
     }
 
     pub fn sweep(&self) -> Result<(), Error> {
         let state = self.lock();
-        let all = state.store.leases()?;
-        let mut failures = Vec::new();
-        for lease in all {
-            if let Err(err) = Self::sweep_lease(&state, &lease) {
-                failures.push(err);
+        let mut failures = LeaseFailures::new();
+        let mut after: Option<String> = None;
+        loop {
+            let page = state.store.leases_page(after.as_deref())
+                .map_err(|_| Error::internal("lease scan incomplete"))?;
+            if page.is_empty() { break; }
+            let count = page.len();
+            for lease in page {
+                after = Some(lease.id.clone());
+                failures.record(Self::sweep_lease(&state, &lease));
             }
+            if count < LIST_PAGE_ROWS as usize { break; }
         }
-        join_errors(failures)
+        failures.finish()
     }
 
     fn sweep_lease(state: &State, lease: &Lease) -> Result<(), Error> {
@@ -132,15 +145,19 @@ impl Controller {
     }
 
     fn retire_connection(state: &State, id: &str) -> Result<(), Error> {
-        let all = state.store.leases()?;
-        let mut failures = Vec::new();
-        for other in all {
-            if other.connection_id == id {
-                if let Err(err) = Self::end(state, &other) {
-                    failures.push(err);
-                }
+        let mut failures = LeaseFailures::new();
+        let mut after: Option<String> = None;
+        loop {
+            let page = state.store.leases_for_connection_page(id, after.as_deref())
+                .map_err(|_| Error::internal("lease scan incomplete"))?;
+            if page.is_empty() { break; }
+            let count = page.len();
+            for lease in page {
+                after = Some(lease.id.clone());
+                failures.record(Self::end(state, &lease));
             }
+            if count < LIST_PAGE_ROWS as usize { break; }
         }
-        join_errors(failures)
+        failures.finish()
     }
 }

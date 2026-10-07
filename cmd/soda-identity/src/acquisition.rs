@@ -1,28 +1,19 @@
 // Execution admission and lease fencing, extracted from control.rs (A05.M).
 use super::control::{new_id, Controller, State};
+use super::store_connections::LIST_PAGE_ROWS;
 use crate::wire::{
     acquisition_digest, AcquireRequest, Connection, Error, Execution, Lease, UnixTime,
     EXECUTION_PENDING, EXECUTION_TERMINAL, FACTORY, READY, TERMINAL,
 };
 
 impl Controller {
-    pub fn leases(&self, owner: i64, id: &str) -> Result<Vec<Lease>, Error> {
+    pub fn leases(&self, owner: i64, id: &str) -> Result<Vec<u8>, Error> {
         let state = self.lock();
         let connection = state.store.connection(id)?;
         if owner <= 0 {
             return Err(Error::denied("identity authority denied"));
         }
-        let all = state.store.leases()?;
-        let mut out = Vec::new();
-        for mut lease in all {
-            if lease.connection_id == id
-                && (connection.owner_id == owner || lease.actor_id == owner)
-            {
-                lease.binding = None;
-                out.push(lease);
-            }
-        }
-        Ok(out)
+        state.store.leases_for_connection(owner, id, connection.owner_id == owner)
     }
 
     pub fn acquire(&self, input: &AcquireRequest) -> Result<Lease, Error> {
@@ -200,16 +191,23 @@ impl Controller {
         if lease.project_id.is_empty() {
             return Err(Error::denied("identity authority denied"));
         }
-        let grants = state.store.grants_for(&connection.id)?;
-        for grant in grants {
-            if !grant.revoked
-                && grant.user_id == lease.actor_id
-                && grant.project_id == lease.project_id
-            {
-                lease.grant_id.clone_from(&grant.id);
-                lease.grant_revision = grant.revision;
-                return Ok(());
+        let mut after: Option<String> = None;
+        loop {
+            let grants = state.store.grants_page(&connection.id, after.as_deref())?;
+            if grants.is_empty() { break; }
+            let count = grants.len();
+            for grant in grants {
+                after = Some(grant.id.clone());
+                if !grant.revoked
+                    && grant.user_id == lease.actor_id
+                    && grant.project_id == lease.project_id
+                {
+                    lease.grant_id.clone_from(&grant.id);
+                    lease.grant_revision = grant.revision;
+                    return Ok(());
+                }
             }
+            if count < LIST_PAGE_ROWS as usize { break; }
         }
         Err(Error::denied("identity authority denied"))
     }

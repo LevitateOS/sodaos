@@ -134,14 +134,14 @@ impl Controller {
         Ok(connection)
     }
 
-    pub fn connections(&self, owner: i64) -> Result<Vec<Connection>, Error> {
+    pub fn connections(&self, owner: i64) -> Result<Vec<u8>, Error> {
         if owner <= 0 {
             return Err(Error::denied("identity authority denied"));
         }
         self.lock().store.connections(owner)
     }
 
-    pub fn available(&self, actor: i64, project: &str) -> Result<Vec<Connection>, Error> {
+    pub fn available(&self, actor: i64, project: &str) -> Result<Vec<u8>, Error> {
         if actor <= 0 || project.is_empty() {
             return Err(Error::denied("identity authority denied"));
         }
@@ -168,6 +168,22 @@ pub(crate) fn join_errors(failures: Vec<Error>) -> Result<(), Error> {
     }
     let messages: Vec<String> = failures.iter().map(|e| e.to_string()).collect();
     Err(Error::internal(messages.join("; ")))
+}
+
+pub(crate) struct LeaseFailures(u64);
+
+impl LeaseFailures {
+    pub(crate) fn new() -> Self { Self(0) }
+    pub(crate) fn record(&mut self, result: Result<(), Error>) {
+        if result.is_err() { self.0 = self.0.saturating_add(1); }
+    }
+    pub(crate) fn finish(self) -> Result<(), Error> {
+        if self.0 == 0 {
+            Ok(())
+        } else {
+            Err(Error::internal(format!("lease retirement incomplete ({} failures)", self.0)))
+        }
+    }
 }
 
 pub(crate) fn new_id() -> String {

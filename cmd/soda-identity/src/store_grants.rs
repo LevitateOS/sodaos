@@ -1,5 +1,6 @@
 // Delegated grants, extracted from store.rs (A05.M).
 use super::store::{changed, schema_integer, Store};
+use super::store_connections::{ListJson, LIST_PAGE_ROWS, LIST_RECORD_BYTES};
 use crate::pg::pg_error;
 use crate::wire::{Error, Event, Grant, UnixTime};
 use tokio_postgres::types::{Json, ToSql};
@@ -44,14 +45,64 @@ impl Store {
         Ok(row.try_get::<_, Json<Grant>>(0).map_err(pg_error)?.0)
     }
 
-    pub fn grants_for(&self, id: &str) -> Result<Vec<Grant>, Error> {
+    pub fn grants_for(&self, connection_id: &str) -> Result<Vec<u8>, Error> {
+        let mut output = ListJson::new();
+        let mut after: Option<String> = None;
+        loop {
+            let (rows, _) = self.query(
+                "SELECT CASE WHEN octet_length(id)<=$2 THEN id ELSE NULL END, CASE WHEN octet_length(id)<=$2 AND octet_length(data::text)<=$3 AND data->>'id'=id AND data->>'connection_id'=connection_id THEN data ELSE NULL END FROM identity_grants WHERE connection_id=$1 AND ($4::text IS NULL OR id>$4) ORDER BY id LIMIT $5",
+                &[
+                    &connection_id as &(dyn ToSql + Sync),
+                    &LIST_RECORD_BYTES as &(dyn ToSql + Sync),
+                    &LIST_RECORD_BYTES as &(dyn ToSql + Sync),
+                    &after as &(dyn ToSql + Sync),
+                    &LIST_PAGE_ROWS as &(dyn ToSql + Sync),
+                ],
+            )?;
+            if rows.is_empty() { break; }
+            for row in &rows {
+                let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
+                    .ok_or_else(|| Error::internal("identity grant list incomplete"))?;
+                let value = row.try_get::<_, Option<Json<Grant>>>(1).map_err(pg_error)?
+                    .ok_or_else(|| Error::internal("identity grant list incomplete"))?;
+                if value.0.id != id || value.0.connection_id != connection_id {
+                    return Err(Error::internal("identity grant list incomplete"));
+                }
+                output.push(&value.0)?;
+                after = Some(id);
+            }
+            if rows.len() < LIST_PAGE_ROWS as usize { break; }
+        }
+        output.finish()
+    }
+
+    pub(crate) fn grants_page(
+        &self,
+        connection_id: &str,
+        after: Option<&str>,
+    ) -> Result<Vec<Grant>, Error> {
         let (rows, _) = self.query(
-            "SELECT data FROM identity_grants WHERE connection_id=$1 ORDER BY id",
-            &[&id as &(dyn ToSql + Sync)],
+            "SELECT CASE WHEN octet_length(id)<=$2 THEN id ELSE NULL END, CASE WHEN octet_length(id)<=$2 AND octet_length(data::text)<=$3 AND data->>'id'=id AND data->>'connection_id'=connection_id THEN data ELSE NULL END FROM identity_grants WHERE connection_id=$1 AND ($4::text IS NULL OR id>$4) ORDER BY id LIMIT $5",
+            &[
+                &connection_id as &(dyn ToSql + Sync),
+                &LIST_RECORD_BYTES as &(dyn ToSql + Sync),
+                &LIST_RECORD_BYTES as &(dyn ToSql + Sync),
+                &after as &(dyn ToSql + Sync),
+                &LIST_PAGE_ROWS as &(dyn ToSql + Sync),
+            ],
         )?;
-        rows.iter()
-            .map(|r| Ok(r.try_get::<_, Json<Grant>>(0).map_err(pg_error)?.0))
-            .collect()
+        let mut grants = Vec::with_capacity(rows.len());
+        for row in &rows {
+            let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
+                .ok_or_else(|| Error::internal("identity grant scan incomplete"))?;
+            let value = row.try_get::<_, Option<Json<Grant>>>(1).map_err(pg_error)?
+                .ok_or_else(|| Error::internal("identity grant scan incomplete"))?;
+            if value.0.id != id || value.0.connection_id != connection_id {
+                return Err(Error::internal("identity grant scan incomplete"));
+            }
+            grants.push(value.0);
+        }
+        Ok(grants)
     }
 
     pub fn revoke_grant(&self, grant: &Grant) -> Result<(), Error> {

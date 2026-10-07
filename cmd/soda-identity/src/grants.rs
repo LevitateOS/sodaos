@@ -1,9 +1,10 @@
 // Delegated grants and revocation, extracted from control.rs (A05.M).
-use super::control::{join_errors, new_id, Controller};
+use super::control::{new_id, Controller, LeaseFailures};
+use super::store_connections::LIST_PAGE_ROWS;
 use crate::wire::{Error, Grant, GrantRequest, READY, REVOKED};
 
 impl Controller {
-    pub fn grants(&self, owner: i64, id: &str) -> Result<Vec<Grant>, Error> {
+    pub fn grants(&self, owner: i64, id: &str) -> Result<Vec<u8>, Error> {
         let state = self.lock();
         Self::owned(&state, owner, id)?;
         state.store.grants_for(id)
@@ -32,16 +33,20 @@ impl Controller {
         let state = self.lock();
         let connection = Self::owned(&state, owner, id)?;
         state.store.set_state(&connection, REVOKED)?;
-        let all = state.store.leases()?;
-        let mut failures = Vec::new();
-        for lease in all {
-            if lease.connection_id == id {
-                if let Err(err) = Self::end(&state, &lease) {
-                    failures.push(err);
-                }
+        let mut failures = LeaseFailures::new();
+        let mut after: Option<String> = None;
+        loop {
+            let page = state.store.leases_for_connection_page(id, after.as_deref())
+                .map_err(|_| Error::internal("lease scan incomplete"))?;
+            if page.is_empty() { break; }
+            let count = page.len();
+            for lease in page {
+                after = Some(lease.id.clone());
+                failures.record(Self::end(&state, &lease));
             }
+            if count < LIST_PAGE_ROWS as usize { break; }
         }
-        join_errors(failures)
+        failures.finish()
     }
 
     pub fn revoke_grant(&self, owner: i64, id: &str) -> Result<(), Error> {
@@ -51,15 +56,19 @@ impl Controller {
         if !grant.revoked {
             state.store.revoke_grant(&grant)?;
         }
-        let all = state.store.leases()?;
-        let mut failures = Vec::new();
-        for lease in all {
-            if lease.grant_id == id {
-                if let Err(err) = Self::finish_lease(&state, &lease) {
-                    failures.push(err);
-                }
+        let mut failures = LeaseFailures::new();
+        let mut after: Option<String> = None;
+        loop {
+            let page = state.store.leases_for_grant_page(id, after.as_deref())
+                .map_err(|_| Error::internal("lease scan incomplete"))?;
+            if page.is_empty() { break; }
+            let count = page.len();
+            for lease in page {
+                after = Some(lease.id.clone());
+                failures.record(Self::finish_lease(&state, &lease));
             }
+            if count < LIST_PAGE_ROWS as usize { break; }
         }
-        join_errors(failures)
+        failures.finish()
     }
 }
