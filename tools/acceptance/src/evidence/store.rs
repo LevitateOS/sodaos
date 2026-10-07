@@ -6,7 +6,6 @@ use serde::Serialize;
 
 use crate::error::Error;
 use crate::files::{self, OwnedDir};
-use crate::jsonio;
 
 use super::redaction::RedactOut;
 use super::{contains_slice, longest_secret, Evidence, RedactingWriter, EVIDENCE_LIMIT};
@@ -191,34 +190,6 @@ impl Evidence {
         }
     }
 
-    /// Scrub a decoded value: strings redacted, keys redacted with
-    /// collision detection, numbers/booleans/null preserved. Mirrors
-    /// `scrubJSON` (decoded with number identity, like `UseNumber`).
-    pub fn scrub_json(&self, value: &JsonValue) -> Result<JsonValue, Error> {
-        match value {
-            JsonValue::Str(s) => Ok(JsonValue::Str(self.try_redact_string(s)?)),
-            JsonValue::Array(items) => {
-                let mut out = Vec::with_capacity(items.len());
-                for item in items {
-                    out.push(self.scrub_json(item)?);
-                }
-                Ok(JsonValue::Array(out))
-            }
-            JsonValue::Object(entries) => {
-                let mut out = Vec::with_capacity(entries.len());
-                for (key, item) in entries {
-                    let scrubbed_key = self.try_redact_string(key)?;
-                    if out.iter().any(|(k, _)| k == &scrubbed_key) {
-                        return Err(Error::msg("redacted JSON key collision"));
-                    }
-                    out.push((scrubbed_key, self.scrub_json(item)?));
-                }
-                Ok(JsonValue::Object(out))
-            }
-            _ => Ok(value.clone()),
-        }
-    }
-
     fn scrub_json_bounded(
         &self,
         value: &JsonValue,
@@ -261,38 +232,27 @@ impl Evidence {
         &self.root
     }
 
-    fn encode_scrubbed_json(&self, value: &JsonValue) -> Result<Vec<u8>, Error> {
+    fn encode_scrubbed_value(&self, value: &JsonValue) -> Result<Vec<u8>, Error> {
         value
             .validate_depth()
             .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
-        // Estimate compact serialization before creating its temporary String.
-        let mut estimate = 0usize;
-        if !estimate_json(value, &mut estimate) || estimate > EVIDENCE_LIMIT as usize {
-            return Err(Error::msg("structured evidence limit exceeded"));
-        }
-        let mut compact = String::new();
-        jsonio::write_compact(&mut compact, value);
-        if compact.len() as u64 > EVIDENCE_LIMIT {
-            return Err(Error::msg("structured evidence limit exceeded"));
-        }
-        let decoded = JsonValue::parse(&compact)
-            .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
-        let scrubbed = self.scrub_json_bounded(&decoded, &mut (EVIDENCE_LIMIT as usize))?;
+        let scrubbed = self.scrub_json_bounded(value, &mut (EVIDENCE_LIMIT as usize))?;
         // Go re-encodes a decoded map, so keys render sorted.
         let sorted = sort_json_keys(scrubbed);
-        let mut pretty_estimate = 0usize;
-        if !estimate_pretty_json(&sorted, &mut pretty_estimate, 0)
-            || pretty_estimate.saturating_add(1) > EVIDENCE_LIMIT as usize
+        let mut bounded = BoundedJsonBuffer(Vec::new());
         {
-            return Err(Error::msg("structured evidence limit exceeded"));
+            let mut serializer = serde_json::Serializer::with_formatter(
+                &mut bounded,
+                serde_json::ser::PrettyFormatter::with_indent(b"  "),
+            );
+            sorted
+                .serialize(&mut serializer)
+                .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
         }
-        let mut data = String::new();
-        jsonio::write_indent(&mut data, &sorted);
-        data.push('\n');
-        if data.len() as u64 > EVIDENCE_LIMIT {
-            return Err(Error::msg("structured evidence limit exceeded"));
-        }
-        Ok(data.into_bytes())
+        bounded
+            .write_all(b"\n")
+            .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
+        Ok(bounded.0)
     }
 
     fn encode_scrubbed_record<T: Serialize + ?Sized>(&self, value: &T) -> Result<Vec<u8>, Error> {
@@ -308,7 +268,7 @@ impl Evidence {
         let decoded = JsonValue::parse(compact)
             .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
         drop(bounded);
-        self.encode_scrubbed_json(&decoded)
+        self.encode_scrubbed_value(&decoded)
     }
 
     /// Write one structured value: scrubbed before encoding, then scanned
@@ -399,129 +359,6 @@ impl Evidence {
     /// Scrubbed error keeping the cause chain, like Go's `safeError`.
     pub fn redact_error(&self, err: Error) -> Error {
         Error::redacted(self.redact_string(&err.to_string()), err)
-    }
-}
-
-fn estimate_json(value: &JsonValue, total: &mut usize) -> bool {
-    match value {
-        JsonValue::Null => estimate_add(total, 4),
-        JsonValue::Bool(true) => estimate_add(total, 4),
-        JsonValue::Bool(false) => estimate_add(total, 5),
-        JsonValue::Number(n) => estimate_add(total, n.len()),
-        JsonValue::Str(s) => estimate_string(s, total),
-        JsonValue::Array(items) => {
-            if !estimate_add(total, 2) {
-                return false;
-            }
-            for (i, item) in items.iter().enumerate() {
-                if i > 0 && !estimate_add(total, 1) {
-                    return false;
-                }
-                if !estimate_json(item, total) {
-                    return false;
-                }
-            }
-            true
-        }
-        JsonValue::Object(entries) => {
-            if !estimate_add(total, 2) {
-                return false;
-            }
-            for (i, (key, item)) in entries.iter().enumerate() {
-                if i > 0 && !estimate_add(total, 1) {
-                    return false;
-                }
-                if !estimate_string(key, total)
-                    || !estimate_add(total, 1)
-                    || !estimate_json(item, total)
-                {
-                    return false;
-                }
-            }
-            true
-        }
-    }
-}
-
-fn estimate_string(s: &str, total: &mut usize) -> bool {
-    if !estimate_add(total, 2) {
-        return false;
-    }
-    for ch in s.chars() {
-        let len = match ch {
-            '"' | '\\' | '\n' | '\r' | '\t' => 2,
-            c if (c as u32) < 0x20 || matches!(c, '<' | '>' | '&' | '\u{2028}' | '\u{2029}') => 6,
-            c => c.len_utf8(),
-        };
-        if !estimate_add(total, len) {
-            return false;
-        }
-    }
-    true
-}
-
-fn estimate_add(total: &mut usize, size: usize) -> bool {
-    match total.checked_add(size) {
-        Some(next) if next <= EVIDENCE_LIMIT as usize => {
-            *total = next;
-            true
-        }
-        _ => false,
-    }
-}
-
-fn estimate_pretty_json(value: &JsonValue, total: &mut usize, depth: usize) -> bool {
-    match value {
-        JsonValue::Array(items) if !items.is_empty() => {
-            if !estimate_add(total, 2) {
-                return false;
-            } // [\n
-            let Some(child_depth) = depth.checked_add(1) else {
-                return false;
-            };
-            for (i, item) in items.iter().enumerate() {
-                if i > 0 && !estimate_add(total, 2) {
-                    return false;
-                } // ,\n
-                let Some(padding) = child_depth.checked_mul(2) else {
-                    return false;
-                };
-                if !estimate_add(total, padding) || !estimate_pretty_json(item, total, child_depth)
-                {
-                    return false;
-                }
-            }
-            estimate_add(total, 1)
-                && depth.checked_mul(2).is_some_and(|n| estimate_add(total, n))
-                && estimate_add(total, 1)
-        }
-        JsonValue::Object(entries) if !entries.is_empty() => {
-            if !estimate_add(total, 2) {
-                return false;
-            } // {\n
-            let Some(child_depth) = depth.checked_add(1) else {
-                return false;
-            };
-            for (i, (key, item)) in entries.iter().enumerate() {
-                if i > 0 && !estimate_add(total, 2) {
-                    return false;
-                } // ,\n
-                let Some(padding) = child_depth.checked_mul(2) else {
-                    return false;
-                };
-                if !estimate_add(total, padding)
-                    || !estimate_string(key, total)
-                    || !estimate_add(total, 2) // colon and space
-                    || !estimate_pretty_json(item, total, child_depth)
-                {
-                    return false;
-                }
-            }
-            estimate_add(total, 1)
-                && depth.checked_mul(2).is_some_and(|n| estimate_add(total, n))
-                && estimate_add(total, 1)
-        }
-        other => estimate_json(other, total),
     }
 }
 

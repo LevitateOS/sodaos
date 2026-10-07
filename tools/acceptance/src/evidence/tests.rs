@@ -284,6 +284,16 @@ fn structured_evidence_escapes_and_numeric_identity() {
     e.write_json("metadata.json", &input).unwrap();
     let raw = std::fs::read(format!("{}/metadata.json", e.path())).unwrap();
     assert!(!contains_slice(&raw, b"hidden"), "redirect query retained");
+    assert!(raw.ends_with(b"\n"), "structured record lacks final LF");
+    let text = std::str::from_utf8(&raw).unwrap();
+    let sorted_fields = [
+        text.find("\"id\"").unwrap(),
+        text.find("\"negative-zero\"").unwrap(),
+        text.find("\"secret\"").unwrap(),
+        text.find("\"url\"").unwrap(),
+        text.find("\"wide\"").unwrap(),
+    ];
+    assert!(sorted_fields.windows(2).all(|pair| pair[0] < pair[1]));
     let result = JsonValue::parse(std::str::from_utf8(&raw).unwrap()).unwrap();
     match result.get("id") {
         Some(JsonValue::Number(digits)) => assert_eq!(digits, "9223372036854775807"),
@@ -305,20 +315,31 @@ fn structured_evidence_escapes_and_numeric_identity() {
 fn evidence_accepts_typed_serialize_records_through_bounded_path() {
     #[derive(serde::Serialize)]
     struct Record<'a> {
-        #[serde(rename = "kind")]
-        value: &'a str,
+        zulu: &'a str,
+        alpha: &'a str,
     }
 
     let fixture = Fixture::new(&[]);
     fixture
         .evidence
-        .write_json("typed.json", &Record { value: "receipt" })
+        .write_json(
+            "typed.json",
+            &Record {
+                zulu: "last",
+                alpha: "first",
+            },
+        )
         .unwrap();
     let bytes = std::fs::read(format!("{}/typed.json", fixture.evidence.path())).unwrap();
-    assert_eq!(
-        std::str::from_utf8(&bytes).unwrap(),
-        "{\n  \"kind\": \"receipt\"\n}\n"
+    let text = std::str::from_utf8(&bytes).unwrap();
+    assert!(text.ends_with('\n'));
+    assert!(
+        text.find("\"alpha\"").unwrap() < text.find("\"zulu\"").unwrap(),
+        "fields were not sorted: {text}"
     );
+    let parsed: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(parsed["alpha"], "first");
+    assert_eq!(parsed["zulu"], "last");
 }
 
 #[test]
