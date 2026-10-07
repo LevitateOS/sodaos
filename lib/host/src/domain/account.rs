@@ -1,4 +1,7 @@
-use crate::json::{self, BoundMap, Kind, Spec, Value};
+use crate::json;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 // ---- PR20: account DTOs (`Account`, `AccessKeys`, `AccessKeyState`) ----
 
@@ -11,38 +14,51 @@ pub struct Account {
     pub keys: Vec<String>,
 }
 
-const ACCOUNT_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "login",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "identity",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "keys",
-        kind: Kind::StrList,
-    },
-];
+macro_rules! string_field {
+    ($key:expr, $name:literal, $map:expr, $field:expr) => {
+        if $key.eq_ignore_ascii_case($name) {
+            if let Some(value) = $map.next_value::<Option<String>>()? { $field = value; }
+            continue;
+        }
+    };
+}
+
+macro_rules! string_list_field {
+    ($key:expr, $name:literal, $map:expr, $field:expr) => {
+        if $key.eq_ignore_ascii_case($name) {
+            if let Some(value) = $map.next_value::<Option<Vec<Option<String>>>>()? {
+                $field = value.into_iter().map(Option::unwrap_or_default).collect();
+            }
+            continue;
+        }
+    };
+}
+
+impl<'de> Deserialize<'de> for Account {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+        struct AccountVisitor;
+        impl<'de> Visitor<'de> for AccountVisitor {
+            type Value = Account;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str("an account object") }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+                let mut out = Account { project: String::new(), login: String::new(), identity: 0, keys: Vec::new() };
+                while let Some(key) = map.next_key::<String>()? {
+                    string_field!(key, "project", map, out.project);
+                    string_field!(key, "login", map, out.login);
+                    if key.eq_ignore_ascii_case("identity") { if let Some(v) = map.next_value::<Option<i64>>()? { out.identity = v; } continue; }
+                    string_list_field!(key, "keys", map, out.keys);
+                    return Err(de::Error::unknown_field(&key, &["project", "login", "identity", "keys"]));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(AccountVisitor)
+    }
+}
 
 impl Account {
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "Account", ACCOUNT_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        Account {
-            project: m.take_string("project"),
-            login: m.take_string("login"),
-            identity: m.take_i64("identity"),
-            keys: m.take_str_list("keys"),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 
@@ -57,48 +73,33 @@ pub struct AccessKeys {
     pub apply: bool,
 }
 
-const ACCESS_KEYS_SPECS: &[Spec] = &[
-    Spec {
-        name: "project",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "login",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "identity",
-        kind: Kind::I64,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "keys",
-        kind: Kind::StrList,
-    },
-    Spec {
-        name: "apply",
-        kind: Kind::Bool,
-    },
-];
+impl<'de> Deserialize<'de> for AccessKeys {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+        struct AccessKeysVisitor;
+        impl<'de> Visitor<'de> for AccessKeysVisitor {
+            type Value = AccessKeys;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str("an access keys object") }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+                let mut out = AccessKeys { project: String::new(), login: String::new(), identity: 0, revision: String::new(), keys: Vec::new(), apply: false };
+                while let Some(key) = map.next_key::<String>()? {
+                    string_field!(key, "project", map, out.project);
+                    string_field!(key, "login", map, out.login);
+                    if key.eq_ignore_ascii_case("identity") { if let Some(v) = map.next_value::<Option<i64>>()? { out.identity = v; } continue; }
+                    string_field!(key, "revision", map, out.revision);
+                    string_list_field!(key, "keys", map, out.keys);
+                    if key.eq_ignore_ascii_case("apply") { if let Some(v) = map.next_value::<Option<bool>>()? { out.apply = v; } continue; }
+                    return Err(de::Error::unknown_field(&key, &["project", "login", "identity", "revision", "keys", "apply"]));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(AccessKeysVisitor)
+    }
+}
 
 impl AccessKeys {
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "AccessKeys", ACCESS_KEYS_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        AccessKeys {
-            project: m.take_string("project"),
-            login: m.take_string("login"),
-            identity: m.take_i64("identity"),
-            revision: m.take_string("revision"),
-            keys: m.take_str_list("keys"),
-            apply: m.take_bool("apply"),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 
@@ -116,9 +117,7 @@ impl AccessKeyState {
         out.push_str(&json::quote(&self.revision));
         out.push_str(",\"keys\":[");
         for (i, k) in self.keys.iter().enumerate() {
-            if i > 0 {
-                out.push(',');
-            }
+            if i > 0 { out.push(','); }
             out.push_str(&json::quote(k));
         }
         out.push_str("]}");

@@ -42,10 +42,9 @@
 //! # Errors
 //!
 //! Every op error is an exact Go message string, wire-opaque: the adapter
-//! maps by substring. `Req::decode` failures carry the strictjson shape
-//! (`request exceeds 1 MiB`, `request must contain valid UTF-8`,
-//! `decode request: ...`, including `json: unknown field %q`,
-//! `json: cannot unmarshal ...` and `illegal base64 data at input byte N`).
+//! maps by substring. `Req::decode` retains strict object admission, input
+//! bounds, UTF-8, duplicate and field checks. Typed request decoders use
+//! Serde diagnostics; parser wording and offsets are implementation details.
 //! Executor (podman/systemctl/helper) failures pass through raw unless the
 //! op maps them, exactly like Go. Per-op sets:
 //!
@@ -128,8 +127,7 @@ pub struct AccessKeysReq(pub domain::AccessKeys);
 impl AccessKeysReq {
     /// Strict decode of one request body (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        Ok(Self(domain::AccessKeys::from_value(&v)?))
+        Ok(Self(domain::AccessKeys::decode(body)?))
     }
 }
 
@@ -140,8 +138,7 @@ pub struct AccountReq(pub domain::Account);
 impl AccountReq {
     /// Strict decode of one request body (unknown fields rejected).
     pub fn decode(body: &[u8]) -> Result<Self, String> {
-        let v = json::decode_strict(body).map_err(|e| e.0)?;
-        Ok(Self(domain::Account::from_value(&v)?))
+        Ok(Self(domain::Account::decode(body)?))
     }
 }
 

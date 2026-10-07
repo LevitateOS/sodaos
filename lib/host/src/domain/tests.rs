@@ -61,11 +61,9 @@ fn create_decode_and_validate() {
         sample_profile().encode(),
         "e".repeat(24)
     );
-    let v = json::decode_strict(raw.as_bytes()).unwrap();
-    let c = Create::from_value(&v).unwrap();
+    let c = Create::decode(raw.as_bytes()).unwrap();
     assert!(c.validate().is_ok());
-    let v = json::decode_strict(br#"{"id":"pAAAAAAAAAAAAAAAAAAAAAAAA"}"#).unwrap();
-    let c = Create::from_value(&v).unwrap();
+    let c = Create::decode(br#"{"id":"pAAAAAAAAAAAAAAAAAAAAAAAA"}"#).unwrap();
     assert!(c.validate().is_err()); // missing profile + bad id
 }
 
@@ -127,41 +125,32 @@ fn os_release_validation_matches_go() {
 
 #[test]
 fn account_dto_strict_shape() {
-    let v = json::decode_strict(
+    let a = Account::decode(
         br#"{"project":"p0123456789abcdef01234567","login":"alice","identity":1,"keys":["a","b"]}"#,
-    )
-    .unwrap();
-    let a = Account::from_value(&v).unwrap();
+    ).unwrap();
     assert_eq!(a.login, "alice");
     assert_eq!(a.identity, 1);
     assert_eq!(a.keys, vec!["a".to_string(), "b".to_string()]);
     // Missing keys decodes as empty (browser-only account).
-    let v = json::decode_strict(
+    assert!(Account::decode(
         br#"{"project":"p0123456789abcdef01234567","login":"alice","identity":1}"#,
-    )
-    .unwrap();
-    assert!(Account::from_value(&v).unwrap().keys.is_empty());
+    ).unwrap().keys.is_empty());
     // Unknown fields rejected.
-    let v =
-        json::decode_strict(br#"{"project":"p","login":"a","identity":1,"admin":true}"#).unwrap();
-    assert!(Account::from_value(&v).is_err());
+    assert!(Account::decode(br#"{"project":"p","login":"a","identity":1,"admin":true}"#).is_err());
     // Non-integer identity rejected.
-    let v = json::decode_strict(br#"{"project":"p","login":"a","identity":1.5}"#).unwrap();
-    assert!(Account::from_value(&v).is_err());
+    assert!(Account::decode(br#"{"project":"p","login":"a","identity":1.5}"#).is_err());
 }
 
 #[test]
 fn access_keys_dto_strict_shape() {
-    let v = json::decode_strict(
+    let a = AccessKeys::decode(
         br#"{"project":"p","login":"a","identity":7,"revision":"r","keys":["k"],"apply":true}"#,
-    )
-    .unwrap();
-    let a = AccessKeys::from_value(&v).unwrap();
+    ).unwrap();
     assert_eq!(a.identity, 7);
     assert!(a.apply);
     assert_eq!(a.keys, vec!["k".to_string()]);
     // Duplicates rejected at the strict layer.
-    assert!(json::decode_strict(br#"{"project":"p","project":"q"}"#).is_err());
+    assert!(Account::decode(br#"{"project":"p","project":"q"}"#).is_err());
 }
 
 #[test]

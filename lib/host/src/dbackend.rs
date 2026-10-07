@@ -750,8 +750,7 @@ impl DaemonBackend {
     /// identity but validate the ID only (Go checks `ValidID` alone here,
     /// with the "invalid project identity" message, not full `Validate`).
     fn targeted_id(&self, body: &[u8]) -> Result<String, BackendError> {
-        let v = decode_native(body)?;
-        let id = domain::Create::from_value(&v)
+        let id = domain::Create::decode(body)
             .map(|c| c.id)
             .map_err(internal)?;
         if !domain::valid_id(&id) {
@@ -773,8 +772,7 @@ impl ExecBackend for DaemonBackend {
 
     fn create(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         // The mux holds the writer gate for /create; see module docs.
-        let v = decode_native(body)?;
-        let input = domain::Create::from_value(&v).map_err(internal)?;
+        let input = domain::Create::decode(body).map_err(internal)?;
         // Go checks identity before Validate, with its own message.
         if !domain::valid_id(&input.id) || input.owner <= 0 {
             return Err(internal("invalid project identity".to_string()));
@@ -816,8 +814,7 @@ impl ExecBackend for DaemonBackend {
     }
 
     fn lifecycle(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
-        let v = decode_native(body)?;
-        let input = project::Lifecycle::from_value(&v).map_err(internal)?;
+        let input = project::Lifecycle::decode(body).map_err(internal)?;
         let out = self
             .project
             .lifecycle(&input, native_deadline())

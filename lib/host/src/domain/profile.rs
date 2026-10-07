@@ -1,36 +1,8 @@
 use super::{is_hex_lower, valid_id, valid_version, ROCKY_HEADLESS};
-use crate::json::{self, BoundMap, Kind, Spec, Value};
-
-const PROFILE_SPECS: &[Spec] = &[
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "distribution",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "version",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "interface",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "architecture",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "image",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "revision",
-        kind: Kind::Str,
-    },
-];
+use crate::json::{self};
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Profile {
@@ -41,6 +13,40 @@ pub struct Profile {
     pub architecture: String,
     pub image: String,
     pub revision: String,
+}
+
+macro_rules! string_field {
+    ($key:expr, $name:literal, $map:expr, $field:expr) => {
+        if $key.eq_ignore_ascii_case($name) {
+            if let Some(value) = $map.next_value::<Option<String>>()? { $field = value; }
+            continue;
+        }
+    };
+}
+
+impl<'de> Deserialize<'de> for Profile {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+        struct ProfileVisitor;
+        impl<'de> Visitor<'de> for ProfileVisitor {
+            type Value = Profile;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str("a creation profile object") }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+                let mut out = Profile { id: String::new(), distribution: String::new(), version: String::new(), interface: String::new(), architecture: String::new(), image: String::new(), revision: String::new() };
+                while let Some(key) = map.next_key::<String>()? {
+                    string_field!(key, "id", map, out.id);
+                    string_field!(key, "distribution", map, out.distribution);
+                    string_field!(key, "version", map, out.version);
+                    string_field!(key, "interface", map, out.interface);
+                    string_field!(key, "architecture", map, out.architecture);
+                    string_field!(key, "image", map, out.image);
+                    string_field!(key, "revision", map, out.revision);
+                    return Err(de::Error::unknown_field(&key, &["id", "distribution", "version", "interface", "architecture", "image", "revision"]));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(ProfileVisitor)
+    }
 }
 
 impl Profile {
@@ -62,22 +68,8 @@ impl Profile {
         Ok(())
     }
 
-    /// Strict decode of one profile object (unknown fields rejected).
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "Profile", PROFILE_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        Profile {
-            id: m.take_string("id"),
-            distribution: m.take_string("distribution"),
-            version: m.take_string("version"),
-            interface: m.take_string("interface"),
-            architecture: m.take_string("architecture"),
-            image: m.take_string("image"),
-            revision: m.take_string("revision"),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 
     /// `encoding/json` field order and escaping, no trailing newline
@@ -113,36 +105,37 @@ pub fn decode_profile(raw: &str) -> Result<Profile, String> {
     if raw.len() > 1024 {
         return Err("oversized project profile".to_string());
     }
-    let v = json::decode_strict(raw.as_bytes()).map_err(|e| e.0)?;
-    let p = Profile::from_value(&v)?;
-    p.validate()?;
-    Ok(p)
+    let profile = Profile::decode(raw.as_bytes())?;
+    profile.validate()?;
+    Ok(profile)
 }
-
-const CREATE_SPECS: &[Spec] = &[
-    Spec {
-        name: "profile",
-        kind: Kind::OptObject {
-            go_type: "project.Profile",
-            struct_name: "Profile",
-            specs: PROFILE_SPECS,
-        },
-    },
-    Spec {
-        name: "id",
-        kind: Kind::Str,
-    },
-    Spec {
-        name: "owner",
-        kind: Kind::I64,
-    },
-];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Create {
     pub profile: Option<Profile>,
     pub id: String,
     pub owner: i64,
+}
+
+impl<'de> Deserialize<'de> for Create {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+        struct CreateVisitor;
+        impl<'de> Visitor<'de> for CreateVisitor {
+            type Value = Create;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str("a project creation object") }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+                let mut out = Create { profile: None, id: String::new(), owner: 0 };
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("profile") { if let Some(v) = map.next_value::<Option<Profile>>()? { out.profile = Some(v); } continue; }
+                    string_field!(key, "id", map, out.id);
+                    if key.eq_ignore_ascii_case("owner") { if let Some(v) = map.next_value::<Option<i64>>()? { out.owner = v; } continue; }
+                    return Err(de::Error::unknown_field(&key, &["profile", "id", "owner"]));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(CreateVisitor)
+    }
 }
 
 impl Create {
@@ -153,16 +146,7 @@ impl Create {
         }
     }
 
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "Create", CREATE_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &BoundMap) -> Self {
-        Create {
-            profile: m.take_opt_map("profile").map(|c| Profile::from_map(&c)),
-            id: m.take_string("id"),
-            owner: m.take_i64("owner"),
-        }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }

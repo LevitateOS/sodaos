@@ -23,7 +23,10 @@ use std::time::Duration;
 use std::time::Instant;
 
 use crate::domain;
-use crate::json::{self, Value};
+use crate::json;
+use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
+use std::fmt;
 
 mod confirmation;
 mod connection;
@@ -68,30 +71,44 @@ pub struct Lifecycle {
     pub action: String,
 }
 
-const LIFECYCLE_SPECS: &[json::Spec] = &[
-    json::Spec {
-        name: "project",
-        kind: json::Kind::Str,
-    },
-    json::Spec {
-        name: "action",
-        kind: json::Kind::Str,
-    },
-];
+impl<'de> Deserialize<'de> for Lifecycle {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct LifecycleVisitor;
+        impl<'de> Visitor<'de> for LifecycleVisitor {
+            type Value = Lifecycle;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a lifecycle object")
+            }
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut out = Lifecycle::default();
+                while let Some(key) = map.next_key::<String>()? {
+                    if key.eq_ignore_ascii_case("project") {
+                        if let Some(v) = map.next_value::<Option<String>>()? { out.project = v; }
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("action") {
+                        if let Some(v) = map.next_value::<Option<String>>()? { out.action = v; }
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(&key, &["project", "action"]));
+                }
+                Ok(out)
+            }
+        }
+        deserializer.deserialize_map(LifecycleVisitor)
+    }
+}
 
 impl Lifecycle {
-    /// Strict decode of one lifecycle request (`strictjson.Decode` parity:
-    /// unknown fields rejected).
-    pub fn from_value(v: &Value) -> Result<Self, String> {
-        let m = json::bind_root(v, "Lifecycle", LIFECYCLE_SPECS, false).map_err(|e| e.0)?;
-        Ok(Self::from_map(&m))
-    }
-
-    pub fn from_map(m: &json::BoundMap) -> Self {
-        Lifecycle {
-            project: m.take_string("project"),
-            action: m.take_string("action"),
-        }
+    /// Strict decode of one lifecycle request; fields are owned by this DTO.
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
     }
 }
 
