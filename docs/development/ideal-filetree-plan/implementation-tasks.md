@@ -31,6 +31,14 @@ unchanged; replacement or fresh behavioral verification remains unchecked.
 Pending splits of generic engines named below are superseded. Unrelated
 lifecycle/domain corrections and their Q gates remain open.
 
+The coordinator's [R03.L source verification](implementation-lanes.md#coordinator-checklist)
+is complete for the implemented adoption scopes at `d7eca882`. Fresh focused
+evidence tests and locked offline all-target Rust workspace checks pass; final
+unchanged-source packet receipts and independent reviews retain their scope.
+The owning Go fixture row is reconciled in `93b50615`. L10.N4, L16.G, CFG01,
+full R02 reconciliation and selected R04 qualification remain open; none is
+reclassified by this source-verification result.
+
 ## A — Projects, identity and Spaces
 
 ### A00 Shared defining extraction

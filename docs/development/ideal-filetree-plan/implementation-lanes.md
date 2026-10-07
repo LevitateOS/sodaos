@@ -114,8 +114,8 @@ hunk editing of a shared file as a substitute for ownership.
   M/C/V subtask's required boundary output, not completion of an entire packet.
   Existing normal-mode restrictions
   still apply; L00 preparation and proofs are complete at their recorded scope.
-  Refresh this state from the completed L02 and partial L03 evidence before
-  dispatching remaining work.
+  Refresh this state from the completed adoption scopes and the remaining
+  L10.N4, L16.G and CFG01 gates before dispatching new work.
 - [ ] **R01 — Integrate each coherent packet.** Complete module/import/manifest,
   compiler, payload, source-check and caller joins in the same reviewable change.
   Commit bounded coherent batches early and often when commits are authorized;
@@ -134,6 +134,16 @@ hunk editing of a shared file as a substitute for ownership.
   run the applicable existing Go/Rust/Bun/source/architecture checks. Reuse a
   passing result only for unchanged exercised source. Repeat an affected check
   for new changes or unresolved failures, not automatically for every worker.
+- [x] **R03.L — Completed library-adoption source scope.** Verified at
+  `d7eca882`, with documentation-only integration upkeep in `93b50615`.
+  Focused evidence tests pass 16/16; locked offline workspace metadata and
+  `cargo check --workspace --all-targets` pass for all 28 members. Reuse the
+  final packet-specific tests/builds/reviews recorded in the adoption chapter
+  for unchanged exercised source; no fresh Go/Bun runtime result is claimed.
+  Luna low evidence census found no missing completed-packet check, and an
+  independent Luna low L18 review closed the stale Go fixture-owner row.
+  Manifests/locks remain unchanged. This closes the selected adoption verification
+  pass, not full R02 reconciliation, other pending M/C/V work or R04 qualification.
 - [ ] **R04 — Selected native qualification.** After cheap boundary checks and
   producer/caller gates pass, qualify the selected matching candidate and actual
   user workflows under separately scoped operations. Keep source, build, stage,
@@ -171,7 +181,7 @@ remaining work are in the adoption chapter.
 | 10. Close bounded external/configuration questions — evidence complete; CFG01 cutover held | L15 / B; L17 / C | Luna low for pinned census/corpus collection; Luna medium for demonstrated semantic mismatch | SDK input repair and retained transport checks complete at Fountain `c92db11c14`. Twenty-one native configuration cases are recorded; rust-ini 0.21.3 fails continuation admission. C owns revised fit/override/dependency checks before CFG01 cutover; CFG02 and unrelated work remain independent |
 | 11. Remove dead machinery and assess parked seams — complete at scoped source/assessment boundary | L18 / C with A/B handoffs; R02 | Luna low | `eaed66a9` retires N11/TMP02/DEAD01; 40 existing tests, eight command byte/inode/mode fixtures and three offline entrypoint builds pass. A34/C41 retained duties and optional seams are assigned to C04/A07; B27 is integrated and not replayed. Full R02 census and installed qualification remain separate |
 | 12. Consider optional matcher adoption — consideration complete; adoption deferred | L16 / C | Luna medium | Retain the matcher. L01/L12 completed scopes stand; L16.G aggregate input collection remains open. Reconsider only after that bound, demonstrated value and construction/streaming admission; no Aho-Corasick change gates step 1 or independent work |
-| 13. Qualify the integrated changed subjects | R03/R04 / Coordinator | Luna low for commands/receipts; Luna medium for unresolved consequential results | Applicable source/build checks first, native qualification only for a ready selected candidate and its authorized operations; evidence states its actual scope |
+| 13. Qualify the integrated changed subjects — adoption source pass complete | R03.L / Coordinator; R04 remains pending | Luna low for commands/receipts; Luna medium for unresolved consequential results | Focused evidence16/16 and all-target offline Rust workspace checks pass at `d7eca882`; final unchanged-source packet receipts are reused. Native qualification requires a ready matching candidate, demonstrated producer/caller prerequisites and scoped operations; no native qualification is claimed |
 
 L00 initial preparation preceded L02. L02, L03, L04 and L07 are complete; their
 result
