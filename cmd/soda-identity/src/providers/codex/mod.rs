@@ -103,14 +103,24 @@ impl Provider {
                 let _ = std::fs::remove_dir_all(&dir);
                 Error::failed("codex enrollment could not start")
             })?;
-        let stdin = child.stdin.take().ok_or_else(|| {
-            let _ = std::fs::remove_dir_all(&dir);
-            Error::failed("codex enrollment could not start")
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            let _ = std::fs::remove_dir_all(&dir);
-            Error::failed("codex enrollment could not start")
-        })?;
+        let stdin = match child.stdin.take() {
+            Some(stdin) => stdin,
+            None => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = std::fs::remove_dir_all(&dir);
+                return Err(Error::failed("codex enrollment could not start"));
+            }
+        };
+        let stdout = match child.stdout.take() {
+            Some(stdout) => stdout,
+            None => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = std::fs::remove_dir_all(&dir);
+                return Err(Error::failed("codex enrollment could not start"));
+            }
+        };
         let (done_tx, done_rx) = mpsc::channel();
         let session = Session {
             inner: Arc::new(Inner {
@@ -164,6 +174,15 @@ struct Inner {
     finished: AtomicBool,
     cancelled: AtomicBool,
     closed: AtomicBool,
+}
+
+impl Drop for Inner {
+    fn drop(&mut self) {
+        // Session and pump threads retain this owner until the child is reaped.
+        // This fallback covers callers that drop a completed session without
+        // calling close; explicit close still reports cleanup errors.
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
 }
 
 #[derive(Clone)]

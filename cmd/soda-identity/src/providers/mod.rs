@@ -97,7 +97,8 @@ fn enrollment_tempdir_with(
         fill(&mut suffix)
             .map_err(|_| std::io::Error::other("enrollment randomness unavailable"))?;
         let dir = root.join(format!("enrollment-{}", sha256::hex(&suffix)));
-        match std::fs::create_dir(&dir) {
+        use std::os::unix::fs::DirBuilderExt;
+        match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
             Ok(()) => return Ok(dir),
             Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
             Err(err) => return Err(err),
@@ -172,6 +173,17 @@ mod entropy_tests {
         });
         assert!(result.is_err());
         assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+        let made = enrollment_tempdir_with(&root, |out| {
+            out.fill(1);
+            Ok(())
+        })
+        .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&made).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        std::fs::remove_dir_all(made).unwrap();
         std::fs::remove_dir_all(root).unwrap();
     }
 }
