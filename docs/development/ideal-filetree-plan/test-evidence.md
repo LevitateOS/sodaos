@@ -56,7 +56,11 @@ the validator; it does not produce the candidate, install or publish. The instal
 [operator probe](../../../tests/installed/operator.sh) and
 [Project foundation probe](../../../tests/installed/project-foundation.sh) describe
 different service/file/label, operator and ordinary-member compiler duties.
-Their guards and source definitions are not evidence that they ran.
+Their guards and source definitions are not evidence that they ran. The subsequent
+[build/installation join audit](build-and-operational-joins.md) traces those probes
+against staged paths and packaged bytes: it records the obsolete libexec prefix
+and distinguishes stored-image content checks from running-container identity.
+The earlier test audit remains scoped to the assertions above.
 
 Rust [broker tests](../../../cmd/soda-identity/tests/broker.rs) and
 [enrollment tests](../../../cmd/soda-identity/tests/enrollment.rs) return normally

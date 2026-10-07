@@ -10,10 +10,11 @@ plus **four library-caller documents, one observation-reliability chapter,
 one connected workflow-trace chapter, one adapter-challenge chapter and
 one representation chapter, one concurrency/termination chapter and
 one authority/state chapter, one resource-bounds chapter, one custody chapter,
-one dependency/architecture-cost chapter and one test/evidence chapter**
+one dependency/architecture-cost chapter, one test/evidence chapter and
+one build/installation/operational join chapter**
 are accounted exactly once in the [tracked-file inventories](inventory/README.md).
 No working source additions were
-present. These fourteen H06 documents are the explicit current documentation delta;
+present. These fifteen H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -27,11 +28,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including fourteen authored documents / missing / duplicate rows | 2,559 / 0 / 0 |
+| Current paths including fifteen authored documents / missing / duplicate rows | 2,560 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus fourteen whole-document H06 duties | 20,117 + 14 = 20,131 |
+| Existing named duties plus fifteen whole-document H06 duties | 20,117 + 15 = 20,132 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -52,7 +53,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 319 |
+| `docs` | 320 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |
@@ -173,6 +174,11 @@ The [custody audit](../file-and-process-custody.md) adds one H06 whole-document
 duty at source `1d8c4e11`. Opened-file policy, bounded stream consumption and
 primary/cleanup joins refine existing owners; conditional path/native profiles
 and dormant-method retention remain explicit without changing qualification.
+
+The [build/operational join audit](../build-and-operational-joins.md) adds one H06
+whole-document duty at source `bc28a07c`. Its source-proven path repair and
+running-identity evidence correction refine existing qualification owners; no
+build, installation or native workflow was performed.
 
 - [Current tracked inventories](inventory/README.md)
 - [Current responsibility maps](maps/README.md)

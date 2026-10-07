@@ -35,6 +35,11 @@ peers, captured emitter goldens and source/build/installed evidence. It assigns
 a build-result repair and narrow test-selector/retirement work while refining
 the existing saved-key confirmation and profile-dependent regression scopes.
 
+The [build/installation/operational join audit](../build-and-operational-joins.md)
+at `bc28a07c` traces command discovery, staged service/configuration paths, browser
+assets and candidate/media/installed identities. It assigns a stale host-probe
+path correction and narrows running-service identity claims to actual observations.
+
 The subsequent [selected-version adapter challenge](adapter-challenges.md) at
 `2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
 It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON
