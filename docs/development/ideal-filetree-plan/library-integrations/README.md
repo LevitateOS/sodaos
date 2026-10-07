@@ -16,6 +16,10 @@ The [authority and state audit](../authority-and-state.md) at `88a40b5d` traces
 current grants, atomic transitions, credential/signing custody and uncertain
 mutation replay, preserving completed trust and terminal-fencing repairs.
 
+The [resource-bounds audit](../resource-bounds.md) at `88a40b5d` distinguishes
+pre-allocation admission from downstream refusal, retained/expanded copies and
+aggregate producer results. Its four correction packets refine existing owners.
+
 The subsequent [selected-version adapter challenge](adapter-challenges.md) at
 `2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
 It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON

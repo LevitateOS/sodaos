@@ -16,7 +16,7 @@ current inventory. No former-root rows count twice.
 | `.githooks` | 1 | [git-hooks.md](git-hooks.md) |
 | `assets` | 175 | [assets.md](assets.md) |
 | `cmd` | 338 | [cmd.md](cmd.md) |
-| `docs` | 315 | [docs.md](docs.md) |
+| `docs` | 316 | [docs.md](docs.md) |
 | `factory-os` | 1 | [factory-os.md](factory-os.md) |
 | `frontend` | 345 | [frontend.md](frontend.md) |
 | `internal` | 451 | [backend.md](backend.md) |
@@ -26,12 +26,13 @@ current inventory. No former-root rows count twice.
 | `tests` | 140 | [tests.md](tests.md) |
 | `tools` | 193 | [tools.md](tools.md) |
 
-Total scope: **2,555 paths**: **2,545** at `f8b22b0b` plus **4** library-caller
+Total scope: **2,556 paths**: **2,545** at `f8b22b0b` plus **4** library-caller
 documents, **1** observation-reliability chapter, **1** connected workflow-trace
 chapter, **1** adapter-challenge chapter, **1** representation chapter and
-**1** concurrency/termination chapter and **1** authority/state chapter.
-The latest authorized upkeep delta is the authority chapter at `88a40b5d`;
-after its documentation commit all 2,555
+**1** concurrency/termination chapter, **1** authority/state chapter and
+**1** resource-bounds chapter.
+The latest authorized upkeep delta is the resource chapter at `88a40b5d`;
+after its documentation commit all 2,556
 are tracked. There are no application
 source additions.
 Generated/captured/third-party artifacts have producer/consumer dispositions;

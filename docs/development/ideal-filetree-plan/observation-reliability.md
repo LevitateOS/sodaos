@@ -11,6 +11,11 @@ The later [concurrency and termination audit](concurrency-and-termination.md) at
 conditional release-worker cleanup risk. OBS-D01/G01/R01 keep their existing
 identifiers and scopes; the four findings recorded here are not counted again.
 
+The later [resource-bounds audit](resource-bounds.md) at `88a40b5d` locates
+L16.G collection admission and OBS-G01/R01 capture/diagnostic retention precisely,
+separately from optional matcher replacement. It records four additional producer
+result/capture gaps under their own IDs and preserves these earlier findings.
+
 ## Subject, authority and evidence
 
 | Input | Identity / scope |

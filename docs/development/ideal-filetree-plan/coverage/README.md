@@ -9,10 +9,10 @@ recorded working bytes. The existing **2,545 paths**, reconciled through `f8b22b
 plus **four library-caller documents, one observation-reliability chapter,
 one connected workflow-trace chapter, one adapter-challenge chapter and
 one representation chapter, one concurrency/termination chapter and
-one authority/state chapter**
+one authority/state chapter and one resource-bounds chapter**
 are accounted exactly once in the [tracked-file inventories](inventory/README.md).
 No working source additions were
-present. These ten H06 documents are the explicit current documentation delta;
+present. These eleven H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -26,11 +26,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including ten authored documents / missing / duplicate rows | 2,555 / 0 / 0 |
+| Current paths including eleven authored documents / missing / duplicate rows | 2,556 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus ten whole-document H06 duties | 20,117 + 10 = 20,127 |
+| Existing named duties plus eleven whole-document H06 duties | 20,117 + 11 = 20,128 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -51,7 +51,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 315 |
+| `docs` | 316 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |
@@ -162,6 +162,11 @@ The [representation audit](../data-representations.md) adds one H06
 whole-document duty at source `463ce772`. Concrete producer/caller questions,
 raw-byte authority and conditional consolidation decisions refine the existing
 packets without advancing the historical full-slice validity review.
+
+The [resource-bounds audit](../resource-bounds.md) adds one H06 whole-document
+duty at source `88a40b5d`. Allocation/expansion gates, aggregate producer gaps and
+refusal propagation refine existing packets; source-only checks and held native
+profiles remain distinct from qualification and historical full-slice validity.
 
 - [Current tracked inventories](inventory/README.md)
 - [Current responsibility maps](maps/README.md)
