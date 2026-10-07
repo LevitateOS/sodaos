@@ -166,3 +166,15 @@ current source declaration/method inspection; receiver methods normalized by met
 | 27–84; git; repoURL; seedRepository | [G04](../../slices/forgejo-integration.md#g04-candidate-publication-and-pr-creation) | retained | Current declaration duty: git; Current declaration duty: repoURL; Current declaration duty: seedRepository — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 85–113, 134–137; st15Issue; createIssue; commentIssue; insertEdge | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current declaration duty: st15Issue; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 114–133; readIssue; readComment | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current declaration duty: readIssue; Current declaration duty: readComment — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-9da153c94ff8"></a>
+
+## [internal/factory/control/staged_seed_test.go](../../../../../internal/factory/control/staged_seed_test.go)
+
+Selective physical-owner transfer at `c84d242c`; unchanged SQL and fixture
+semantics move out of the production Store package into existing `control_test`.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–16; file scaffold | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Test-only database/sql driver and fixture support; acceptance SQLite remains independent |
+| 17–61; seedStagedDependencyEdge | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Same bound SQL/schema/optional-column fixture write used by the existing ST12/ST15 callers. Both callers compile; no native flow execution claimed |

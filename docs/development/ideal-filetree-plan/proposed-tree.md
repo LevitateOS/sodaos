@@ -1582,6 +1582,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── st15_demo_runs_test.go
 │   │   │   ├── st15_demo_seed_test.go
 │   │   │   ├── st15_demo_stack_test.go
+│   │   │   ├── staged_seed_test.go
 │   │   │   ├── traversal.go
 │   │   │   └── traversal_test.go
 │   │   ├── acceptance.go
@@ -1776,7 +1777,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── project_profile_test.go
 │   │   ├── schema.go
 │   │   ├── schema_test.go
-│   │   ├── staged_seed.go
 │   │   ├── store.go
 │   │   └── store_test.go
 │   ├── strictjson/

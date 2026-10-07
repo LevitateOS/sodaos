@@ -558,17 +558,6 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–142; file scaffold; TestOpenCreatesOnlyTheCurrentSchema; legacyFingerprint; TestOpenRejectsOldSchemaWithoutMutation; TestOpenRejectsUnversionedDataWithoutMutation | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
-<a id="coverage-9da153c94ff8"></a>
-
-## [internal/store/staged_seed.go](../../../../../internal/store/staged_seed.go)
-
-current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–20; file scaffold | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 21–64; SeedStagedDependencyEdge | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: SeedStagedDependencyEdge — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-
 <a id="coverage-b26d414d0eb2"></a>
 
 ## [internal/store/store.go](../../../../../internal/store/store.go)

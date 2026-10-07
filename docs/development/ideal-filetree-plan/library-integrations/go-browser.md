@@ -4,6 +4,12 @@
 
 Each entry distinguishes direct upstream API use from the retained application surface and its reverse callers. The tables preserve source selectors and composition targets. `Types` fields include upstream types used and Soda types exposed within the stated module scope; they do not imply that every listed type is a public Soda API. A source compiled with the product can contain test-only helpers: those uses are identified separately. Test source inspection is not test execution.
 
+Selective source deltas: `5794a7d9` replaces SDK snapshot wire projections with
+matching upstream typed values; `c84d242c` moves the staged SQLite writer into
+existing factory `control_test` support. The dashboard's actual dependency list
+now contains no modernc packages; acceptance SQLite remains. Earlier numeric
+selectors and findings keep their original source scope.
+
 Numeric selectors refer to the pinned source. Multiple duties in one file remain separate responsibilities in the [coverage maps](../coverage/maps/README.md); this integration map does not transfer their defining owner.
 
 The [adapter challenge](adapter-challenges.md) at `2dc3bce9` selects SDK snapshot
@@ -281,19 +287,19 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 
 **Dependency admission:** go.mod selected module requirement; actual import sites listed below.
 
-**Primary-source evidence:** v1.58.0 selected in go.mod. Tracked source shows imports at internal/acceptance/lifecycle_state.go and internal/store/staged_seed.go. dumpHostSoda reads a fetched private copy; SeedStagedDependencyEdge callers are only two tracked factory test fixtures.
+**Primary-source evidence:** v1.58.0 selected in go.mod. Tracked source shows imports at internal/acceptance/lifecycle_state.go and internal/factory/control/staged_seed_test.go. dumpHostSoda reads a fetched private copy; seedStagedDependencyEdge callers are only two tracked factory test fixtures.
 
 | Current source | Function / upstream API selectors | Remaining types, conversions and policy | Reverse callers / hosting targets |
 | --- | --- | --- | --- |
 | [internal/acceptance/lifecycle_state.go](../../../../internal/acceptance/lifecycle_state.go) | blank import registers database/sql driver "sqlite"; queryHostSoda; dumpHostSoda; runSnapshotAt; RunLifecycleState; blank import driver registration | **role:** Developer acceptance/probe path. queryHostSoda fetches configured dashboard.db bytes; dumpHostSoda writes a private temporary copy, runs PRAGMA integrity_check and reads selected legacy tables. Observations are serialized to JSON snapshots; SQLite is not used to persist lifecycle observations.; **public types:** hostSodaTables; **conversions:** copied legacy dashboard.db bytes -&gt; bounded table observations -&gt; acceptance snapshot JSON; **consumers:** tools/soda-installed-probes/main.go::main -&gt; acceptance.RunLifecycleState -&gt; runSnapshotAt -&gt; queryHostSoda -&gt; dumpHostSoda | none |
-| [internal/store/staged_seed.go](../../../../internal/store/staged_seed.go) | blank import registers database/sql driver "sqlite"; SeedStagedDependencyEdge; blank import driver registration | **role:** Compiled package helper for writing one staged Forgejo SQLite fixture edge; current reachability is test-only, not product runtime.; **public types:** SeedStagedDependencyEdge; **conversions:** test fixture edge arguments -&gt; external staged SQLite issue_dependency row; **test callers:** internal/factory/control/st15_demo_seed_test.go::(*st15Fixture).insertEdge; internal/factory/control/merge_native_setup_test.go::nativeMergeInsertEdge | none |
+| [internal/factory/control/staged_seed_test.go](../../../../internal/factory/control/staged_seed_test.go) | blank import registers database/sql driver "sqlite"; seedStagedDependencyEdge; blank import driver registration | **role:** Private test-package helper for writing one staged Forgejo SQLite fixture edge.; **test helper:** seedStagedDependencyEdge; **conversions:** test fixture edge arguments -&gt; external staged SQLite issue_dependency row; **test callers:** internal/factory/control/st15_demo_seed_test.go::(*st15Fixture).insertEdge; internal/factory/control/merge_native_setup_test.go::nativeMergeInsertEdge | none |
 
 ### Test and fixture uses
 
 | Test/helper source | Named selectors | Purpose |
 | --- | --- | --- |
-| [internal/factory/control/st15_demo_seed_test.go](../../../../internal/factory/control/st15_demo_seed_test.go) | (*st15Fixture).insertEdge -&gt; store.SeedStagedDependencyEdge | Current test-only caller of staged fixture writer. |
-| [internal/factory/control/merge_native_setup_test.go](../../../../internal/factory/control/merge_native_setup_test.go) | nativeMergeInsertEdge -&gt; store.SeedStagedDependencyEdge | Current test-only caller of staged fixture writer. |
+| [internal/factory/control/st15_demo_seed_test.go](../../../../internal/factory/control/st15_demo_seed_test.go) | (*st15Fixture).insertEdge -&gt; seedStagedDependencyEdge | Current test-only caller of staged fixture writer. |
+| [internal/factory/control/merge_native_setup_test.go](../../../../internal/factory/control/merge_native_setup_test.go) | nativeMergeInsertEdge -&gt; seedStagedDependencyEdge | Current test-only caller of staged fixture writer. |
 | [internal/acceptance/lifecycle_state_test.go](../../../../internal/acceptance/lifecycle_state_test.go) | dumpHostSoda tests over copied DB bytes; RunLifecycleState CLI tests | Test support for developer acceptance reader. |
 
 **Transfer / predecessor evidence:** No product SQLite persistence path identified. The staged writer is test-only; lifecycle state snapshots are JSON and SQLite is a read-only temporary-copy adapter.
@@ -897,7 +903,7 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | [internal/store/factory.go](../../../../internal/store/factory.go) | RFC3339Nano; Time | none | **role:** Persistent store/driver integration.; **entrypoints:** FinishFactoryCommand; RecordFactoryCommand; **chain:** Persistent store/driver integration. |
 | [internal/store/identity_fixture.go](../../../../internal/store/identity_fixture.go) | Now | none | **role:** Persistent store/driver integration.; **entrypoints:** appendIdentityEvent; **chain:** Persistent store/driver integration. |
 | [internal/store/issue_controls.go](../../../../internal/store/issue_controls.go) | Time | none | **role:** Persistent store/driver integration.; **entrypoints:** AcceptanceDependants; FactoryPolicies; IntakeDeliverySeen; IssueControl; IssueControls; ReadinessSweepRevision; RecordIntakeDelivery; RecordIssueAssessment; SaveReadinessSweep; **chain:** Persistent store/driver integration. |
-| [internal/store/staged_seed.go](../../../../internal/store/staged_seed.go) | Now | none | **role:** Persistent store/driver integration.; **entrypoints:** SeedStagedDependencyEdge; **chain:** Persistent store/driver integration. |
+| [internal/factory/control/staged_seed_test.go](../../../../internal/factory/control/staged_seed_test.go) | Now | none | **role:** Test-only staged Forgejo fixture support.; **entrypoints:** seedStagedDependencyEdge; **chain:** Test-only staged Forgejo fixture support. |
 | [internal/tailnet/control.go](../../../../internal/tailnet/control.go) | Now; Second | none | **role:** Tailnet control/provider integration.; **entrypoints:** NewControl; RunNative; checkCredential; executeSignin; **chain:** Tailnet control/provider integration. |
 | [internal/tailnet/enrollment.go](../../../../internal/tailnet/enrollment.go) | Minute; Now; Second; Time | none | **role:** Tailnet control/provider integration.; **entrypoints:** EnrollRun; createProjectAuthKey; projectKey; tokenFromEnrollment; validAuthKeyLifetime; **chain:** Tailnet control/provider integration. |
 | [internal/web/api/environment_os.go](../../../../internal/web/api/environment_os.go) | Second | none | **role:** Product HTTP/WebSocket handler or adapter.; **entrypoints:** apiEnvironmentOS; **chain:** Product HTTP/WebSocket handler or adapter. |

@@ -67,6 +67,9 @@ source. Parent tasks containing additional findings remain unchecked.
 | COST-INSTALLER-KEY-FEATURES-1 / C | `4e30cd9c`; all 115 actual installer tests pass; only unused hkdf node removed, no versions added/upgraded |
 | COST-BOOTSTRAP-SEAM-1 / C | `ad14c1c5`; real-Runner revision refusal before effects passes; broad Production stub removed |
 | OBS-R01 / C | `d3fc68a7`; actual diagnostic/short-write/error checks and production media-log single-attachment test pass; OBS-W01 remains open |
+| OBS-W01 / C | `9d899d6e`; medium review after per-attempt unit binding repair and all 24 actual worker tests pass; no actual systemd-unit qualification |
+| REP-ACC-EVIDENCE-ROUNDTRIP-1 / C | `bcd105ae`; 16 actual evidence and nine driver tests pass; direct sorted formatter, one bounded parse |
+| COST-GO-SQLITE-FIXTURE-1 / B | `c84d242c`; unchanged SQL moved to `control_test`, callers compile, actual dashboard dependency list has no modernc package; native fixture execution separate |
 | S01-F1 / B | Already satisfied by current row decoder/API at dispatch; 22 actual frontend decoder cases pass; no invented corrective patch |
 
 These receipts do not claim installed, provider or native-worker qualification.
