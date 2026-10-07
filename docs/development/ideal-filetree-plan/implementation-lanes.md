@@ -245,6 +245,18 @@ and often through the coordinator, staging explicit paths; never bundle another
 worker's unverified draft. Update task state in place after integration, keeping
 completed moves, correctness repairs and unperformed native checks distinct.
 
+L08/L09 source integration completed through `21387814` with Luna medium for
+each implementation and independent review assignment. A's PG/typed transaction
+adapter and four clients were committed and checked before server work; C's
+fixture, A's identity listeners and the coupled host upgrade/pump followed as
+separate reviewed commits. The original L00 proofs were reused before dispatch;
+actual cancellation/exclusion, callback admission/drain, short-write/Pong,
+deadline expiry and child-reap checks now pass, as does the final affected locked
+offline development build. The task-owned PG fixture is stopped. This closes
+step6 at development source scope; installed/native-worker qualification and
+the existing parked restructuring assessment remain separate. No lane or task
+queue was replaced.
+
 The exclusive writers and [parked checkpoint assessment](library-adoption.md#parked-checkpoints)
 still apply. Manifests/locks and shared roots stay with the coordinator; record
 literal files and cross-owner recipients before dispatch. Do not use concurrent

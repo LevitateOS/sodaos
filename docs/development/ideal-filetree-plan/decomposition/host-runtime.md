@@ -27,9 +27,18 @@ small integration proofs before transport replacement.
 Host HTTP relies on its root-owned filesystem/systemd socket admission; it does
 not currently apply a production peer-UID gate. Muse's packet service has its own
 kernel peer/pidfd checks. Keep these authority rules at their actual owners.
-Before host HTTP/WebSocket cutover, prove bounded backend work, upgrade read-ahead
-preservation into the std tungstenite stream and complete session/child cleanup.
-Typed syscall or randomness changes elsewhere are not a prerequisite.
+L09's source cutover completed through `21387814`. The four clients use A's
+`lib/unix-http` Hyper adapter. Existing listener/admission/route owners retain
+policy, while tracked Hyper/Tokio work and the coupled tungstenite pump replace
+the handwritten engines. Actual tests prove the host's 16-callback saturation,
+joined shutdown, same-write upgrade read-ahead and Pong, active-pump accounting,
+short writes, 5s socket-write/2s child-input expiry and direct-child reaping.
+The output owner uses an eight-frame queue and a 131072-byte line cap; the
+protocol write buffer is capped at 262144 bytes. Child close retains its 3s
+grace. Full affected development tests/builds pass; installed systemd and native
+executor/provider qualification remain separate. Typed syscall or randomness
+changes elsewhere were not prerequisites. Historical decompositions below do
+not reopen protocol-engine extraction.
 
 ## Current Forgejo Tailnet helper allocation
 

@@ -449,6 +449,42 @@ and ping, slow peer/bounded queues, error-path custody and active shutdown.
 Delete whole framing/frame/handshake engines and detached expiry, not just their
 parsers. A repository-wide rustix or JSON migration is not a prerequisite.
 
+Source scope completed with Luna medium implementation and independent review:
+four clients in `6b18ee1b`, candidate fixture in `78dec937`, identity listeners
+in `551ab3ad`, and the coupled host upgrade/pump in `21387814`. L00's original
+PG3/3 and transport4/4 boundary receipts were required before cutover; clients
+were verified before server dispatch. A owns `lib/unix-http`, a small bounded
+Hyper client adapter; endpoint/status/credential policy stays with its four
+callers. Hyper1.12 exposes `max_header_size` on both client and server builders,
+so direct library caps replace the investigation's earlier client-cap assumption.
+
+The host admits 128 connections and 16 blocking callbacks, retains upgrade
+read-ahead, and joins HTTP drivers, callback jobs and upgraded sessions. One
+tungstenite owner uses an eight-frame child-output queue, 131072-byte line/frame
+caps and a 262144-byte protocol write buffer. Its retained 5s write and 2s child
+input budgets actually expire under stalled I/O; child teardown retains its 3s
+grace before kill/reap. Tests prove same-write handshake/ping/text delivery,
+short writes without duplicate final frames, active-upgrade accounting,
+backpressure cancellation and direct-child reaping. The queue capacity and
+returned-message retry branch are source-reviewed; no test directly forces
+`WriteBufferFull` or a descendant retaining stdout.
+
+Actual development checks pass: shared client5, broker client15, factory8,
+identity43 library and three HTTP integration checks, release-tools97 library
+and11 CLI checks, and the complete host suite (320 library,33 mux and the
+remaining caller/oracle checks). Identity tests include blocked-provider I/O,
+bounded callback admission and joined shutdown; fixture tests include active
+stream cancellation and opened-file custody. The final affected four-package
+native development build passes locked/offline without warnings. The host suite
+retains six pre-existing unused-import warnings in its source-inclusion Muse
+oracle and one deliberately ignored documentation test. Engine/caller census,
+format checks and independent reviews are closed; the disposable PG fixture is
+stopped. Receipts remain in `.artifacts/l08-l09/`. Installed services, appliance
+images, artifact-worker/other-target qualification and native executor/provider
+behavior remain unverified. Parked restructuring checkpoints and full tree/count
+regeneration remain parked; this closure does not complete broader A07/C02
+native acceptance.
+
 ### L10 External HTTP adapters
 
 Scope: setup Forgejo client (N3) and host provider request recipes (N4). C owns

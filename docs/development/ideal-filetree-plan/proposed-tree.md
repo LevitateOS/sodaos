@@ -12,7 +12,7 @@ consolidate existing concerns. Each shared leaf has one implementation owner;
 duplicate file leaves or competing Rust module roots are not intended.
 
 Initial selective adoption update at source `72e4bb9015b6d6a622b45638104c74851a137473`,
-refreshed for completed L04 at `229e9cce`:
+refreshed for completed L04 at `229e9cce` and L08/L09 at `21387814`:
 this remains the desired application tree, with superseded generic-engine leaves
 removed below. Retained names describe application policy or library adapters,
 not a requirement to recreate their old implementation. The
@@ -23,6 +23,7 @@ the earlier exact-match/delta counts below are historical observations.
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
+| A-owned `lib/unix-http/{Cargo.toml,src/lib.rs}` | Shared bounded Hyper Unix client and driver/deadline custody; callers retain socket, status and credential policy |
 | Host `daemon/{http,response,websocket}`, `json/{mod,number}`, `ssh/material` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
 | Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar grammar is retired after L06 gates |
 | Release `json*`, Compose/Muse/guest wire and Acceptance structured data | Concrete Serde admission/emission and bounded ordered/raw application data; `lib/json` is retired with no target allocation |
@@ -367,6 +368,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── lib.rs
 │   │   │   ├── main.rs
 │   │   │   ├── pg.rs
+│   │   │   ├── pg_dsn.rs
+│   │   │   ├── pg_query.rs
 │   │   │   ├── pg_tests.rs
 │   │   │   ├── registration.rs
 │   │   │   ├── retirement.rs
@@ -1842,6 +1845,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       ├── terminal_test.go
 │       └── test_helpers_test.go
 ├── lib/
+│   ├── unix-http/
+│   │   ├── src/
+│   │   │   └── lib.rs
+│   │   └── Cargo.toml
 │   ├── host/
 │   │   ├── src/
 │   │   │   ├── account/

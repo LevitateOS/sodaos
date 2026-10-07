@@ -602,7 +602,14 @@ Observed size: 403 lines, including tests where embedded. Keep the selected loop
 
 Evidence: 11-97 rootfs defaults/URL host/port/fixture predicates; 98-215 FixtureServer/serve_fixture/request/percent decode/response; 216-281 copy_built_rootfs/chown_name/copy_file; 282-403 tests.
 
-Open detail: Preserve fixture_wanted, busy-port no-op and actual candidate_controller paths. Library framing must retain request/body bounds, selected path/status policy, active-connection shutdown and stop/join deadlines. Tests exercise the real server/copy subject; source inclusion or another listener owner is not an acceptance substitute.
+L09's fixture cutover completed in `78dec937`. The retained in-process Hyper
+server admits 16 connections, 64KiB heads and 64 headers with a 5s header timer.
+It streams 64KiB chunks from one opened regular file with no symlink traversal;
+there is no arbitrary whole-download timeout for gigabyte rootfs images. The
+owned stop handle also joins on early-return drop. Actual tests cover active
+64MiB transfer cancellation/join, incomplete heads, symlink refusal and existing
+copy custody. `fixture_wanted`, busy-port no-op and candidate-controller paths
+are retained. N7 URL adoption remains a separate pending packet.
 
 ## rust/soda-release-tools/src/candidate_prompts.rs
 

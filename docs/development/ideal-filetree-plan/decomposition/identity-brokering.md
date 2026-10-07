@@ -85,18 +85,29 @@ Observed size: 494 lines, including tests where embedded. Retain socket serving/
 
 Evidence: 73-151: Server construction/serve/handle_connection, shutdown/inflight and dead-listener behavior -> http.rs; 152-283,431-464: Admission/HttpRequest/read_request/percent_decode/success_response/error_response -> http_wire.rs; 1-72,284-430: allowed wire fields/nested specs, dispatch/error mapping, admin and runtime routes -> http_routes.rs; 465-494: percent-path, error-body and success-envelope cases -> http_tests.rs.
 
+L09's identity listener source cutover completed in `551ab3ad`. Hyper owns
+framing and response serialization; the retained modules enforce socket/admin/
+runtime admission, 8192-byte heads, a 5s header timer and one 30s body deadline.
+Each listener admits 64 connections and eight blocking callbacks. Actual HTTP
+tests prove I/O remains live during a blocked provider callback, excess work is
+rejected, partial requests cancel and shutdown joins admitted callbacks. Main
+joins both listeners on signal or fatal listener completion. This is development
+source evidence; installed service/native qualification remains separate.
+
 ## rust/soda-identity/src/pg.rs
 
-Observed size: 512 lines, including tests where embedded. PG01 replaces the custom DSN, transport/authentication/message and row/query engines with the selected PostgreSQL driver. Keep only the small connection-policy/error adapter needed by Store; pg_dsn.rs and pg_query.rs retire with their actual callers instead of receiving further structural work. The historical production portion is 475 lines and tests 35. SQL01 native-parameter cleanup completed as L07 in `d12bf6d3`, satisfying that prerequisite for driver cutover. L00 proved the tokio-postgres deadline/cancel/discard/reconnect and whole-transaction guard interfaces locally; retain their small internal runtime facade behind the existing repository-facing boundary. A synchronous postgres-only migration is held because its blocking API provides no operation deadline hook. Actual DSN/auth/transport and Store/Tx acceptance still belongs to L08. Pooling, retries, an ORM and another database are outside this allocation.
+Historical observed size: 512 lines, including tests where embedded. PG01's custom DSN, transport/authentication/message and row/query engines were replaced in L08 (`6b18ee1b`). The retained `pg.rs`, `pg_dsn.rs` and `pg_query.rs` contain the tokio-postgres connection/deadline policy, Config admission and typed bindings/rows, rather than those engines. SQL01 native parameters completed as L07 in `d12bf6d3`. A synchronous postgres-only migration remains held because its blocking API provides no operation deadline hook. Actual fresh PostgreSQL17.11 tests prove Unix/TCP SCRAM, typed values, cancellation/discard/reconnect and full transaction exclusion; installed/customized HBA and native-worker qualification remain unverified. Pooling, retries, an ORM and another database are outside this allocation. Historical ranges below remain provenance.
 
 - `cmd/soda-identity/src/pg.rs`
+- `cmd/soda-identity/src/pg_dsn.rs`
+- `cmd/soda-identity/src/pg_query.rs`
 - `cmd/soda-identity/src/pg_tests.rs`
 
 Evidence: 19-125: Dsn parse/percent_decode -> pg_dsn.rs; 126-146,187-327,456-475: Stream/Client/connect/send/receive/authenticate/authenticate_scram and backend error -> pg.rs; 147-186,328-455: Row scalar/bytea conversions and query/simple/command_count -> pg_query.rs; 476-512: DSN forms and command-tag row counts -> pg_tests.rs.
 
 ## rust/soda-identity/src/store.rs
 
-Observed size: 798 lines, including tests where embedded. Retain SQL locality by connection custody, grants, leases, execution records and audit events. SQL01 completed in `d12bf6d3`: native PostgreSQL parameters replace question-mark rewriting, while Rust's parameter-encoding and query/transaction helpers remain. PG01 still owns typed driver binding/row operations and a driver transaction guard covering the complete transaction. Store retains domain atomicity, authority and error/affected-row interpretation. Preserve internal/store/schema.go as the authoritative schema and schema.rs as its mechanically synchronized representation. The historical production portion is 772 lines and tests 24. Controller locking currently serializes the traced production paths; do not claim a demonstrated live interleaving solely from the weaker public Store transaction API. No separate database or schema authority is introduced.
+Historical observed size: 798 lines, including tests where embedded. Retain SQL locality by connection custody, grants, leases, execution records and audit events. SQL01 completed in `d12bf6d3`: native PostgreSQL parameters replace question-mark rewriting. L08 adds typed driver binding/row operations and one connection guard covering the complete transaction. Store retains domain atomicity, authority and error/affected-row interpretation; failed or cancelled statements cannot be swallowed into a successful commit. Preserve internal/store/schema.go as the authoritative schema and schema.rs as its mechanically synchronized representation. The historical production portion is 772 lines and tests 24. The old API risk was latent, rather than demonstrated production interleaving; current cancellation/exclusion checks exercise the real adapter. No separate database or schema authority is introduced.
 
 - `cmd/soda-identity/src/store.rs`
 - `cmd/soda-identity/src/store_schema.rs`
