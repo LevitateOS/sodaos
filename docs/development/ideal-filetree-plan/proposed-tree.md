@@ -23,9 +23,10 @@ and gated deletion. Full inventory/count regeneration waits for implementation;
 the earlier exact-match/delta counts below are historical observations.
 
 The [workflow requirements map](workflow-requirements.md) is an H06 audit
-document allocated below. The current [library caller maps](library-integrations/README.md)
-and [observation-reliability chapter](observation-reliability.md) are also H06
-audit documents allocated below. These additions do not regenerate the historical
+document allocated below. The current [library caller maps](library-integrations/README.md),
+[observation-reliability chapter](observation-reliability.md) and
+[connected workflow traces](workflow-traces.md) are also H06 audit documents
+allocated below. These additions do not regenerate the historical
 target allocation or refresh R02 counts.
 
 | Retained target family | Application responsibility after adoption |
@@ -849,6 +850,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── review-baseline.md
 │   │   │   ├── review-format.md
 │   │   │   ├── workflow-requirements.md
+│   │   │   ├── workflow-traces.md
 │   │   │   ├── reviews/
 │   │   │   │   ├── README.md
 │   │   │   │   ├── D01.md

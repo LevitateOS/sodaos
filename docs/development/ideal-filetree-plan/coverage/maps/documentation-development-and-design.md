@@ -315,7 +315,7 @@ Current artifact role, concrete consumer/provenance and established contract own
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–2990; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Maintained responsibility/ownership/review/scheduling documentation; its subject links remain domain authority, not a new runtime owner — docs/development/ideal-filetree-plan/coverage/inventory/docs.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
+| 1–2992; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Maintained responsibility/ownership/review/scheduling documentation; its subject links remain domain authority, not a new runtime owner — docs/development/ideal-filetree-plan/coverage/inventory/docs.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
 
 <a id="coverage-099a54129a17"></a>
 

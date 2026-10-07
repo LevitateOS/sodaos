@@ -16,7 +16,7 @@ current inventory. No former-root rows count twice.
 | `.githooks` | 1 | [git-hooks.md](git-hooks.md) |
 | `assets` | 175 | [assets.md](assets.md) |
 | `cmd` | 338 | [cmd.md](cmd.md) |
-| `docs` | 310 | [docs.md](docs.md) |
+| `docs` | 311 | [docs.md](docs.md) |
 | `factory-os` | 1 | [factory-os.md](factory-os.md) |
 | `frontend` | 345 | [frontend.md](frontend.md) |
 | `internal` | 451 | [backend.md](backend.md) |
@@ -26,9 +26,10 @@ current inventory. No former-root rows count twice.
 | `tests` | 140 | [tests.md](tests.md) |
 | `tools` | 193 | [tools.md](tools.md) |
 
-Total scope: **2,550 paths**: **2,545** at `f8b22b0b` plus **4** library-caller
-documents and **1** authorized observation-reliability chapter. The latter is the
-current upkeep delta at `06f1db91`; after its documentation commit all 2,550 are
-tracked. There are no application source additions.
+Total scope: **2,551 paths**: **2,545** at `f8b22b0b` plus **4** library-caller
+documents, **1** observation-reliability chapter and **1** connected workflow-trace
+chapter. The latest authorized upkeep delta is the workflow chapter at `91685799`;
+after its documentation commit all 2,551 are tracked. There are no application
+source additions.
 Generated/captured/third-party artifacts have producer/consumer dispositions;
 their presence does not imply authored-code, rendering or native-execution proof.

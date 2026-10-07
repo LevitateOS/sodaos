@@ -15,6 +15,10 @@ tests and earlier cards provide evidence rather than new product authority.
 Current user decisions control conflicting guidance. A required external producer
 below is not a claim that its target SDK method exists or was exercised.
 
+Current implementation chains and bounded finding dispositions are recorded in
+[connected workflow traces](workflow-traces.md). This link does not advance the
+requirements extraction or its historical source review.
+
 ## Common requirements and their authority
 
 - Repository policy, appliance capacity, provider sponsorship, browser admission,
