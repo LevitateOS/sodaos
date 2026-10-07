@@ -53,7 +53,7 @@ undispatched subject to their exact gates below.
 | L12 File, FD and process ownership | C | C01/C05/C06/C07/C08/C11, A07 | Same-FD bounds and cancellation first; rooted custody precedes temporary convenience |
 | L13 Archive and release formats | C | A04, C08/C09/C10 | Trailer/budget repairs first; independent format units can interleave |
 | L14 CLI and target discovery | C | C05/C08/C09/C11 | Selected CLI grammar or Cargo metadata contract and L00 admission |
-| L15 SDK input admission | B | B06, C01 | Exact pinned SDK boundary; retain meaningful per-dial credential transport |
+| L15 SDK input admission | B | B06, C01 | Complete at `c92db11c14` in the exact sibling checkout; retain meaningful per-dial credential transport |
 | L16 Evidence matching | C | C11 | L01 completion, bounded secret-input custody from L12 and declared escape/resource profiles |
 | L17 Configuration evidence | C | C05/C09 | CFG01 blocked on native corpus; CFG02 retained independently |
 | L18 Dead machinery removal | C | C05/C11, A/B handoffs | Recheck last callers at implementation revision; no substitute or blanket dependency removal |
@@ -815,6 +815,28 @@ Gate external SDK implementation on its exact pinned source and matching scoped
 authorization; a Soda planning change does not mutate the sibling repository.
 Acceptance: cap+one/trailing whitespace, read errors and unchanged peer/credential
 custody. Delete the faulty limiter pattern, retain the useful transport adapter.
+
+Source completion (2026-10-07): the canonical Fountain checkout exactly matched
+investigation pin `86a70e1155f1036fdcd38f2af49d4ca6defa8280` (tree
+`fa3583c281047190d56f111af31714b5c7bb458e`). The explicitly dispatched L15
+supplied the matching sibling scope. Commit
+`c92db11c14b773c9cc20ccfa4b853b4c017e8717` (tree
+`1791fdbb1adc97e86b14eda36475d89147531439`) repairs only SDK runtime requests
+(64 KiB) and manifests (1 MiB), collecting cap+one before decoding and refusing
+read failures. Exact-cap input, unknown-field rejection, one-object EOF,
+duplicate-last-wins and manifest validation remain intact. Soda callback and
+background readers already use cap+one; SDK callback/background code and Soda's
+per-dial UID, shared admission and single rebootstrap/retry transport are retained.
+
+Luna low performed the exact-source check, narrow edits and independent review.
+Go 1.26.7 passed all 27 SDK tests (56 including subtests) and 48 Soda Forgejo
+client tests (99 including subtests). An overlay of the original pinned readers
+failed the new cap+one and long-whitespace cases at both boundaries, proving the
+regression. No module/lock changes, native Forgejo build, credential fixture reads
+or release qualification were needed. Historical investigation pins remain
+historical; release provenance must capture the actual clean Fountain revision.
+These source checks do not close B06's separate authority findings or native
+installed qualification.
 
 ### L16 Evidence matching
 
