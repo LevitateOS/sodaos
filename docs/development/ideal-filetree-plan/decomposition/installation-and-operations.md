@@ -30,6 +30,8 @@ Observed size: 1374 lines, including tests where embedded. Make main a thin entr
 
 Evidence: rust/soda-activate/src/main.rs:75-186 CliArgs and parse_args; rust/soda-activate/src/main.rs:188-279 Paths, ActivateError and Sys/RealSys; rust/soda-activate/src/main.rs:289-513 IP/origin admission; rust/soda-activate/src/main.rs:515-775 activate; rust/soda-activate/src/main.rs:794-886 rewrite_forgejo_env; rust/soda-activate/src/main.rs:888-1374 fixtures and activation/origin/CLI tests.
 
+JSON01 activation transfer completed in `eba27412`: concrete dashboard raw slots preserve exact last-wins admission and pre-mutation origin/identity checks. The existing activation owner retains the ordered system actions; no JSON engine remains to split. Historical source ranges above remain provenance.
+
 ## rust/soda-candidate-setup/src/main.rs
 
 Observed size: 1558 lines, including tests where embedded. Extract the existing setup stages and subprocess/status helpers; keep their current order and task-owned cleanup in one small orchestration. Fixture authority stays separate from release keys. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
@@ -49,6 +51,8 @@ Observed size: 1558 lines, including tests where embedded. Extract the existing 
 Evidence: rust/soda-candidate-setup/src/main.rs:399-470 worker/trust/config JSON emission; rust/soda-candidate-setup/src/main.rs:496-603 active-build refusal, storage migration and SELinux helpers; rust/soda-candidate-setup/src/main.rs:605-745 input/native/toolchain admission and lease; rust/soda-candidate-setup/src/main.rs:755-818 build/admit controller and wrapper; rust/soda-candidate-setup/src/main.rs:820-949 worker directories and tool installation; rust/soda-candidate-setup/src/main.rs:950-1084 cache warming; rust/soda-candidate-setup/src/main.rs:1086-1166 worker SELinux installation; rust/soda-candidate-setup/src/main.rs:1191-1309 restricted worker configuration and fixture authority; rust/soda-candidate-setup/src/main.rs:1375-1558 helper unit tests.
 
 Open detail: The long run_setup body currently interleaves local variables and ordered system mutations. Extract stage functions without a generic workflow/state machine; current privileged path is source-inspected, not executed here.
+
+Completed JSON01 producer transfer in `eba27412` retains typed worker/trust/config records, two-space Python ensure-ASCII formatters, explicit order and newline rules. Fixtures retain their authority boundary.
 
 Library boundary: JSON01 delegates worker/trust/config documents to locked
 serde/serde_json; RNG01, TMP01 and FS01 delegate randomness, temporary allocation
@@ -78,7 +82,7 @@ Observed size: 790 lines, including tests where embedded. Keep operator observat
 
 Evidence: rust/soda-console-welcome/src/main.rs:19-182 root gate, observed uplinks, banner and subprocess helpers; rust/soda-console-welcome/src/main.rs:184-240 render_config; rust/soda-console-welcome/src/main.rs:245-578 JsonParser and top-object extraction; rust/soda-console-welcome/src/main.rs:581-707 listen/origin validation; rust/soda-console-welcome/src/main.rs:713-733 duplicate-key/string/NaN/Infinity tests.
 
-Open detail: The config owner specifies duplicate fields, wrong types and missing display values under the JSON01 profile. The origin owner uses N7's url adapter with its own display-origin admission. Retire obsolete lexer/error-parity cases with the complete caller cutover; keep banner and refusal observations.
+Completed JSON01 in `c8997d1d`: the config owner captures only listen/forgejo_url through Serde, with exact last-wins duplicates, full-input validation and safe display refusal; the custom lexer is deleted. Nonstandard NaN/Infinity syntax is rejected by the selected library. The config owner retains wrong types and missing display values under its profile. The origin owner uses N7's url adapter with its own display-origin admission. Retire obsolete lexer/error-parity cases with the complete caller cutover; keep banner and refusal observations.
 
 ## rust/soda-forgejo-domain/src/main.rs
 
@@ -110,7 +114,7 @@ Observed size: 2172 lines, including tests where embedded. Keep platform, payloa
 - `cmd/soda-image-import/src/main.rs`
 - `cmd/soda-image-import/src/context.rs`
 - `cmd/soda-image-import/src/platform.rs`
-- `cmd/soda-image-import/src/json_binding.rs` — Input-policy adapter over serde, without a second lexer.
+- `cmd/soda-image-import/src/json.rs` — Whole-input Serde admission and primitive raw integer/string adapters; concrete payload/OCI records own alias and unknown-field policy.
 - `cmd/soda-image-import/src/payload.rs`
 - `cmd/soda-image-import/src/oci/mod.rs`
 - `cmd/soda-image-import/src/oci/metadata.rs`
@@ -127,6 +131,8 @@ Observed size: 2172 lines, including tests where embedded. Keep platform, payloa
 Evidence: rust/soda-image-import/src/main.rs:49-120 entry admission and import cancellation context; rust/soda-image-import/src/main.rs:122-205 native platform and identifier shapes; rust/soda-image-import/src/main.rs:207-521 streaming SHA and JSON binding; rust/soda-image-import/src/main.rs:524-692 Payload decoding/validation/load; rust/soda-image-import/src/main.rs:693-1135 OCI metadata/layout/content inspection; rust/soda-image-import/src/main.rs:1136-1298 verified native import; rust/soda-image-import/src/main.rs:1301-2172 fixture, payload, layout and import tests.
 
 Open detail: Retire the custom sha256 module after its callers use sha2. FS01 preserves bounded, no-follow, descriptor-relative layout/blob admission. REL02's surviving OCI inspection owner requires the documented caller/type/error comparison; do not infer equivalence from similar layouts. Digest checking still hashes the admitted original bytes before native import.
+
+JSON01 import completed in `0cd73f16`: the legacy binder and shared engine edge were deleted with all callers. Payload and OCI named raw-slot DTOs retain final non-null alias selection, per-image entry validation, original digests and bounded file custody. The desired tree describes these application adapters; the old binder path is historical.
 
 ## rust/soda-install/src/candidate.rs
 

@@ -454,7 +454,7 @@ Current target: remove scanner/string/number implementations after their last ca
 
 ## rust/soda-host/src/preparation.rs
 
-Observed size: 1209 lines, including tests where embedded. This is the pure preparation record/validation surface, not the executor. Group the existing validators and Preparation/Prepare identity in preparation.rs; RequirementAcceptance/AdminApproval in preparation_decisions.rs; ApprovedSetup/digest in preparation_setup.rs; resolved-tool, inspect/stop/hold and state wire in preparation_state.rs; FactoryCandidate in preparation_candidate.rs. Split 452 lines of tests into validation/digest/candidate and exact decoding/state-output cases. Move typed Spec tables with their consuming records.
+Observed size: 1209 lines, including tests where embedded. This is the pure preparation record/validation surface, not the executor. Group the existing validators and Preparation/Prepare identity in preparation.rs; RequirementAcceptance/AdminApproval in preparation_decisions.rs; ApprovedSetup/digest in preparation_setup.rs; resolved-tool, inspect/stop/hold and state wire in preparation_state.rs; FactoryCandidate in preparation_candidate.rs. Split 452 lines of tests into validation/digest/candidate and exact decoding/state-output cases. JSON01 `df4b2cf5` replaced their Spec tables with concrete Serde visitors at these same record owners. Preserve the landed module responsibilities; signed raw-token, byte and nullable list adapters carry the distinct admission policies.
 
 Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
@@ -467,6 +467,8 @@ Disposition: retained at `lib/host/` under the decided language policy; pending 
 - `lib/host/src/preparation/wire_tests.rs`
 
 Evidence: 38-101,207-315,390-437: role/phase/ID validators, Preparation and Prepare -> preparation.rs; 102-206: RequirementAcceptance/AdminApproval and validation -> preparation_decisions.rs; 316-388: ApprovedSetup allowed files/bundle and setup_digest_of -> preparation_setup.rs; 438-698: ResolvedTool, PrepareState/Inspect/Stop, HoldState/PrepareHold -> preparation_state.rs; 699-755: FactoryCandidate validation/from_value/from_map -> preparation_candidate.rs; 756-1044: current record fixtures and validator/setup-digest/candidate cases -> preparation_validation_tests.rs; 1045-1209: prep_json/prepare_json, exact decoding messages and omitempty state output -> preparation_wire_tests.rs.
+
+Current JSON01 checkpoint `df4b2cf5` also transfers terminal stream/inspection, factory identity/receipt/request/run, and native preparation helper/state records. Their typed adapters retain alias timing, strict request preflight, output order, protected snapshots and original digest inputs. Remaining host clients still hold engine retirement, and the historical scanner allocation above is not a new split task.
 
 ## Current P06/P12 native preparation defining seams
 
