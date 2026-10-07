@@ -411,9 +411,12 @@ pub(crate) fn select_enrollment_address(
         ));
     }
     for (i, address) in addresses.iter().enumerate() {
-        console.print(
-            format_args!("{}. {:?}: {}", i + 1, address.name, address.ip),
-        );
+        console.print(format_args!(
+            "{}. {:?}: {}",
+            i + 1,
+            address.name,
+            address.ip
+        ));
     }
     loop {
         let value = console.ask(
@@ -423,9 +426,10 @@ pub(crate) fn select_enrollment_address(
         match parse_enrollment_choice(&value, addresses.len()) {
             Ok(index) => return Ok(addresses[index - 1].clone()),
             Err(err) if is_choice_hint(&err) => {
-                console.print(
-                    format_args!("Enter a number from 1 to {}, or back/cancel.", addresses.len()),
-                );
+                console.print(format_args!(
+                    "Enter a number from 1 to {}, or back/cancel.",
+                    addresses.len()
+                ));
             }
             Err(err) => return Err(err),
         }

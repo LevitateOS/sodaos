@@ -61,13 +61,16 @@ fn prompt_setup_address(
 ) -> Result<SetupAddress, Error> {
     console.page("Private browser setup");
     console.print(
-        "Use this SSH terminal to paste the Forgejo token when asked; input will be hidden.");
-    console.print(
-        "Select the appliance address your laptop can reach. No domain is needed.");
+        "Use this SSH terminal to paste the Forgejo token when asked; input will be hidden.",
+    );
+    console.print("Select the appliance address your laptop can reach. No domain is needed.");
     for (i, choice) in choices.iter().enumerate() {
-        console.print(
-            format_args!("{}. {} on {:?}", i + 1, choice.address, choice.interface),
-        );
+        console.print(format_args!(
+            "{}. {} on {:?}",
+            i + 1,
+            choice.address,
+            choice.interface
+        ));
     }
     loop {
         let answer = console.ask(ctx, "Address number, or cancel")?;
@@ -102,14 +105,11 @@ fn prompt_operator_token(
     console.print(format_args!("The final Soda address will be {origin}"));
     console.print(
         "Use a stable address or DHCP reservation. Changing it later needs explicit configuration maintenance.");
-    console.print(
-        format_args!(
-            "If you have no SSH key access yet, cancel and run {} enroll-key at the local console.",
-            crate::candidate::CANDIDATE_INSTALLER_BINARY
-        ),
-    );
-    console.print(
-        "From your laptop, connect with an SSH tunnel to the native Forgejo installer:");
+    console.print(format_args!(
+        "If you have no SSH key access yet, cancel and run {} enroll-key at the local console.",
+        crate::candidate::CANDIDATE_INSTALLER_BINARY
+    ));
+    console.print("From your laptop, connect with an SSH tunnel to the native Forgejo installer:");
     console.print(format_args!("ssh -L 33000:127.0.0.1:3000 root@{address}"));
     console.print(
         "Open http://localhost:33000 and complete Forgejo's own installation and administrator account setup.");

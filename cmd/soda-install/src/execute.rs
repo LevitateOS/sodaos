@@ -50,8 +50,7 @@ pub fn disk_installation_started(marker: &str) -> Result<bool, Error> {
 fn ask_restart_or_quit(console: &Console, ctx: &Ctx) -> Result<bool, Error> {
     console.page("Installation cancelled before disk writing");
     console.print("No disk installation was started.");
-    console.print(
-        "Restart reuses this already loaded installer executable.");
+    console.print("Restart reuses this already loaded installer executable.");
     loop {
         let choice = console.ask(ctx, "Type restart or quit")?;
         match choice.to_ascii_lowercase().as_str() {
@@ -118,25 +117,20 @@ fn destination_for_media(
 }
 
 fn print_disk_complete(console: &Console) {
-    console.print(
-        "SodaOS disk installation completed with all five application images local.");
+    console.print("SodaOS disk installation completed with all five application images local.");
     console.print("Remove installation media, then confirm the reboot prompt below; log in locally as root with your password.");
-    console.print(
-        "Native startup imports the included images before starting their services.");
-    console.print(
-        "SSH password access is enabled; log in as root over SSH with your password.");
+    console.print("Native startup imports the included images before starting their services.");
+    console.print("SSH password access is enabled; log in as root over SSH with your password.");
     console.print(
         format_args!(
             "To go key-only later, run locally after reboot: {} enroll-key, then disable password logins yourself.",
             candidate::CANDIDATE_INSTALLER_BINARY
         ),
     );
-    console.print(
-        format_args!(
-            "Then complete browser setup from your SSH terminal: {} configure",
-            candidate::CANDIDATE_INSTALLER_BINARY
-        ),
-    );
+    console.print(format_args!(
+        "Then complete browser setup from your SSH terminal: {} configure",
+        candidate::CANDIDATE_INSTALLER_BINARY
+    ));
 }
 
 /// Terminal visible state for every disk-install outcome: success,
@@ -149,9 +143,7 @@ pub fn land_diagnostic_console(
     install_err: Option<Error>,
 ) -> Result<(), Error> {
     if let Some(err) = &install_err {
-        console.print(
-            format_args!("Installation did not complete: {err}."),
-        );
+        console.print(format_args!("Installation did not complete: {err}."));
         console.print("No automatic retry or reboot was performed. Inspect this live boot from another terminal; confirming a power action below discards live-boot inspection state.");
     } else {
         console.print("Installation completed. The completion details above stay on screen; nothing further runs until you choose a power action.");
@@ -161,8 +153,7 @@ pub fn land_diagnostic_console(
         match console.ask(&land_ctx, "Type reboot or poweroff") {
             Err(err) => {
                 if land_ctx.err().is_some() && ctx.err().is_none() {
-                    console.print(
-                        "Interrupted; the console stays. Type reboot or poweroff.");
+                    console.print("Interrupted; the console stays. Type reboot or poweroff.");
                     land_ctx = ctx.interrupt_scope();
                     continue;
                 }
@@ -187,11 +178,9 @@ pub fn land_diagnostic_console(
                 }
                 if let Err(run_err) = run.run(ctx, "systemctl", std::slice::from_ref(&action), None)
                 {
-                    console.print(
-                        format_args!(
-                            "{action} failed: {run_err}. The console stays; inspect or choose again."
-                        ),
-                    );
+                    console.print(format_args!(
+                        "{action} failed: {run_err}. The console stays; inspect or choose again."
+                    ));
                     continue;
                 }
                 console.print(format_args!("{action} issued..."));
@@ -261,8 +250,8 @@ fn begin_disk_attempt(console: &Console) -> Result<(), Error> {
 /// Runs only after media verification, so Enter leads straight into the
 /// first step with no further silent work.
 pub fn prompt_disk_attempt(console: &Console, ctx: &Ctx) -> Result<(), Error> {
-    console.print(
-        "Media verified. Press Enter to begin. Ctrl-C cancels safely before disk writing.");
+    console
+        .print("Media verified. Press Enter to begin. Ctrl-C cancels safely before disk writing.");
     console.line(ctx).map(|_| ())
 }
 
@@ -294,8 +283,7 @@ fn install_disk_attempt(
     let ignition = write_attempt_ignition(&destination)?;
     console.page("Installing CoreOS");
     console.print("Writing the confirmed disk. Do not disconnect it.");
-    console.print(
-        "Raw diagnostics are suppressed to protect provisioning inputs.");
+    console.print("Raw diagnostics are suppressed to protect provisioning inputs.");
     let result = execute_attempt_disk(
         ctx,
         &choices.disk,

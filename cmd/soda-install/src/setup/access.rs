@@ -128,18 +128,15 @@ fn print_local_ca_guidance(console: &Console, address: &str, ca_path: &str) -> R
     };
     let fingerprint = local_ca_fingerprint(&certificate)?;
     console.print(format_args!("The browser services report active. Open {address:?} only after completing the client trust below; browser login still needs verification."));
-    console.print(
-        format_args!("Local CA certificate SHA-256: {fingerprint}"),
-    );
-    console.print(
-        "Copy only the public root.crt file over your verified SSH connection:");
+    console.print(format_args!("Local CA certificate SHA-256: {fingerprint}"));
+    console.print("Copy only the public root.crt file over your verified SSH connection:");
     let host = address
         .split_once("://")
         .map(|(_, rest)| rest.split(['/', '?', '#']).next().unwrap_or(""))
         .unwrap_or("");
-    console.print(
-        format_args!("scp root@{host:?}:{ca_path:?} ./soda-local-ca.crt"),
-    );
+    console.print(format_args!(
+        "scp root@{host:?}:{ca_path:?} ./soda-local-ca.crt"
+    ));
     console.print("Compare its certificate fingerprint, then trust it in your laptop/browser certificate settings. Never copy the CA private key.");
     Ok(())
 }

@@ -149,8 +149,7 @@ impl Console {
             }
             self.print("DHCP is ready by default.");
             self.print("Use nmtui to set a static address, gateway, or DNS.");
-            self.print(
-                "The installed system will receive the reviewed live settings.");
+            self.print("The installed system will receive the reviewed live settings.");
             let choice = self.choose_network_action(ctx, open_editor)?;
             open_editor = false;
             let (next, retry) = self.apply_network_choice(ctx, &choice)?;

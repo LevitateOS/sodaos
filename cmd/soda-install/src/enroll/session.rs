@@ -240,8 +240,7 @@ fn check_enrollment_result(console: &Console, ip: &str) -> Result<bool, Error> {
         ));
     }
     console.print("Public key installed. The import window is closing. Verify a NEW ordinary key-only SSH login from the laptop before continuing.");
-    console.print(
-        "Use the laptop private-key path matching the public .pub file you imported:");
+    console.print("Use the laptop private-key path matching the public .pub file you imported:");
     console.print(format_args!("ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ControlMaster=no -o ControlPath=none root@{ip}"));
     Ok(true)
 }

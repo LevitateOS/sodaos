@@ -44,8 +44,7 @@ pub(super) fn step_network(ctx: &Ctx, console: &Console, run: &dyn Runner) -> Re
 
 fn handle_disk_inspect_failure(console: &Console, ctx: &Ctx) -> Result<(), Error> {
     console.page("Step 2 of 5 — Installation disk");
-    console.print(
-        "Could not inspect disks. No disk installation started.");
+    console.print("Could not inspect disks. No disk installation started.");
     // Any non-navigation word retries; only navigation errors return.
     let _ = ask_nav(console, ctx, "Type retry, back, restart, or cancel")?;
     Ok(())
@@ -58,25 +57,22 @@ fn print_disk_list(console: &Console, disks: &[Disk], feedback: &str) {
         console.print("");
     }
     for (i, disk) in disks.iter().enumerate() {
-        console.print(
-            format_args!("{}. {}", i + 1, disk_summary(&disk.device)),
-        );
+        console.print(format_args!("{}. {}", i + 1, disk_summary(&disk.device)));
         for child in &disk.device.children {
-            console.print(
-                format_args!(
-                    "   {:?}: {:.1} GiB, filesystem {:?}",
-                    child.name,
-                    child.size as f64 / (1u64 << 30) as f64,
-                    child.fstype
-                ),
-            );
+            console.print(format_args!(
+                "   {:?}: {:.1} GiB, filesystem {:?}",
+                child.name,
+                child.size as f64 / (1u64 << 30) as f64,
+                child.fstype
+            ));
         }
         if !disk.blocked.is_empty() {
             console.print(format_args!("   Unavailable: {}", disk.blocked));
         }
         if disk.removable && disk.blocked.is_empty() {
             console.print(
-                "   Removable device: erasing it needs the explicit removable confirmation below.");
+                "   Removable device: erasing it needs the explicit removable confirmation below.",
+            );
         }
     }
 }
@@ -139,9 +135,10 @@ pub(super) fn step_hostname(
             console.print("");
             feedback.clear();
         }
-        console.print(
-            format_args!("Selected disk: {}", disk_summary(&selected.device)),
-        );
+        console.print(format_args!(
+            "Selected disk: {}",
+            disk_summary(&selected.device)
+        ));
         let default = if current.is_empty() { "soda" } else { current };
         let mut value = ask_nav(
             console,
@@ -205,13 +202,10 @@ pub(super) fn step_password(
             console.print("");
             feedback.clear();
         }
-        console.print(
-            "This password is for root login after reboot, local console and SSH.");
+        console.print("This password is for root login after reboot, local console and SSH.");
         console.print("Use at least 12 characters; both entries must match.");
-        console.print(
-            "Enroll a key later and disable password logins yourself to go key-only.");
-        console.print(
-            "Type back, restart, or cancel in a password field to navigate.");
+        console.print("Enroll a key later and disable password logins yourself to go key-only.");
+        console.print("Type back, restart, or cancel in a password field to navigate.");
         let password = ask_secret_nav(console, ctx, "Password")?;
         let confirmation = ask_secret_nav(console, ctx, "Confirm password")?;
         if !valid_password(&password, &confirmation) {

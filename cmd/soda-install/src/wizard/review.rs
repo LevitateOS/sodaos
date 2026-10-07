@@ -16,22 +16,18 @@ fn print_final_review(console: &Console, choices: &DiskInstallChoices, payload_b
     }
     if choices.disk.removable {
         console.print(
-            "  Removable device: this target writes only with the explicit removable confirmation.");
+            "  Removable device: this target writes only with the explicit removable confirmation.",
+        );
     }
     console.print(format_args!("Hostname: {}", choices.hostname));
     console.print(format_args!("Project subnet: {}", choices.subnet));
-    console.print(
-        "Operator access: root password (local console and SSH)");
-    console.print(
-        format_args!(
-            "Included Soda payload: {:.1} MiB verified",
-            payload_bytes as f64 / (1u64 << 20) as f64
-        ),
-    );
-    console.print(
-        "Network settings will be copied to the installed system.");
-    console.print(
-        "After writing, follow the completion screen for media removal and next steps.");
+    console.print("Operator access: root password (local console and SSH)");
+    console.print(format_args!(
+        "Included Soda payload: {:.1} MiB verified",
+        payload_bytes as f64 / (1u64 << 20) as f64
+    ));
+    console.print("Network settings will be copied to the installed system.");
+    console.print("After writing, follow the completion screen for media removal and next steps.");
 }
 
 pub(super) fn erase_phrase(disk: &Disk) -> String {
