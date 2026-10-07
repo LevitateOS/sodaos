@@ -63,15 +63,21 @@ export function joinEnvironment(input: AccessInput) {
 }
 
 export function removeSavedKey(input: AccessInput, event: Event, key: SavedKey) {
-  input.runCommand(event, () =>
-    mutate(
+  input.runCommand(event, () => {
+    if (
+      !window.confirm(
+        'Remove this saved public key? This may remove your final saved development key. Previously installed Project SSH keys remain unchanged.'
+      )
+    )
+      return;
+    return mutate(
       input.mutations,
       '/api/me/development-keys/' + key.id,
-      {},
+      {confirm_last: true},
       'Saved key removed. Existing project SSH access is unchanged until explicitly applied.',
       'DELETE'
-    )
-  );
+    );
+  });
 }
 
 export function selectForgejoKey(input: AccessInput, key: string) {

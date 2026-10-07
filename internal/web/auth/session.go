@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -85,10 +86,17 @@ func (s *Service) apiRemoveDevelopmentKey(w http.ResponseWriter, r *http.Request
 		JSONError(w, 400, "invalid_key", "Provide a saved key ID.")
 		return
 	}
-	if !DecodeAPIObject(w, r, &struct{}{}) {
+	var input struct {
+		ConfirmLast bool `json:"confirm_last"`
+	}
+	if !DecodeAPIObject(w, r, &input) {
 		return
 	}
-	removed, err := s.Store.RemoveKey(r.Context(), v.User.ID, id)
+	removed, err := s.Store.RemoveKey(r.Context(), v.User.ID, id, input.ConfirmLast)
+	if errors.Is(err, store.ErrLastKeyConfirmationRequired) {
+		JSONError(w, http.StatusConflict, "final_key_confirmation_required", "Confirm removal of your final saved development key.")
+		return
+	}
 	if err != nil {
 		JSONError(w, 503, "store_unavailable", "Could not remove saved key.")
 		return

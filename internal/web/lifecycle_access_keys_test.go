@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
@@ -95,6 +96,9 @@ func TestSavedKeyRemovalIsOwnOnlyAndNeverNativeRevocation(t *testing.T) {
 	if err := s.Store.AddKey(t.Context(), 1, "synthetic-public", "synthetic-fingerprint"); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.Store.AddKey(t.Context(), 1, "synthetic-public-2", "synthetic-fingerprint-2"); err != nil {
+		t.Fatal(err)
+	}
 	keys, _ := s.Store.Keys(t.Context(), 1)
 	path := fmt.Sprintf("/api/me/development-keys/%d", keys[0].ID)
 	for _, login := range []string{"bob", "alice"} {
@@ -111,8 +115,71 @@ func TestSavedKeyRemovalIsOwnOnlyAndNeverNativeRevocation(t *testing.T) {
 			t.Fatal("preference deletion claimed revocation")
 		}
 	}
+	remaining, _ := s.Store.Keys(t.Context(), 1)
+	if len(remaining) != 1 {
+		t.Fatal("nonfinal saved key was not removed")
+	}
+	lastPath := fmt.Sprintf("/api/me/development-keys/%d", remaining[0].ID)
+	w := httptest.NewRecorder()
+	nativeAPIServe(t, s, w, apiTestRequest("DELETE", lastPath, `{}`, "alice"))
+	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), `"final_key_confirmation_required"`) {
+		t.Fatal("final saved key removal did not require explicit confirmation", w.Code, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	nativeAPIServe(t, s, w, apiTestRequest("DELETE", lastPath, `{"confirm_last":true}`, "alice"))
+	if w.Code != http.StatusOK {
+		t.Fatal("confirmed final key removal failed", w.Code, w.Body.String())
+	}
 	if len(*calls) != 0 {
 		t.Fatal("saved key removal changed native access")
+	}
+}
+
+func TestConcurrentSavedKeyRemovalsCannotSilentlyRemoveFinalKey(t *testing.T) {
+	s, _ := managementWebFixture(t)
+	for _, key := range []struct{ public, fingerprint string }{
+		{"synthetic-public-a", "synthetic-fingerprint-a"},
+		{"synthetic-public-b", "synthetic-fingerprint-b"},
+	} {
+		if err := s.Store.AddKey(t.Context(), 1, key.public, key.fingerprint); err != nil {
+			t.Fatal(err)
+		}
+	}
+	keys, err := s.Store.Keys(t.Context(), 1)
+	if err != nil || len(keys) != 2 {
+		t.Fatalf("keys: %v %v", keys, err)
+	}
+	start := make(chan struct{})
+	codes := make(chan int, 2)
+	var wg sync.WaitGroup
+	for _, key := range keys {
+		wg.Add(1)
+		go func(id int64) {
+			defer wg.Done()
+			<-start
+			path := fmt.Sprintf("/api/me/development-keys/%d", id)
+			w := httptest.NewRecorder()
+			nativeAPIServe(t, s, w, apiTestRequest("DELETE", path, `{}`, "alice"))
+			codes <- w.Code
+		}(key.ID)
+	}
+	close(start)
+	wg.Wait()
+	close(codes)
+	removed, confirmationRequired := 0, 0
+	for code := range codes {
+		switch code {
+		case http.StatusOK:
+			removed++
+		case http.StatusConflict:
+			confirmationRequired++
+		default:
+			t.Fatalf("unexpected concurrent removal status: %d", code)
+		}
+	}
+	remaining, err := s.Store.Keys(t.Context(), 1)
+	if err != nil || removed != 1 || confirmationRequired != 1 || len(remaining) != 1 {
+		t.Fatalf("removals=%d confirmations=%d remaining=%d err=%v", removed, confirmationRequired, len(remaining), err)
 	}
 }
 
@@ -186,7 +253,7 @@ func TestAccessKeyPreviewApplyAndLastKeyConfirmation(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	keys, _ := s.Store.Keys(t.Context(), 1)
-	_, _ = s.Store.RemoveKey(t.Context(), 1, keys[0].ID)
+	_, _ = s.Store.RemoveKey(t.Context(), 1, keys[0].ID, false)
 	for _, confirm := range []bool{false, true} {
 		n := len(*calls)
 		body := fmt.Sprintf(`{"revision":%q,"saved_fingerprints":[],"confirm_empty":%t}`, strings.Repeat("a", 64), confirm)

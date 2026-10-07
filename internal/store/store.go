@@ -20,6 +20,10 @@ var ErrNotFound = sql.ErrNoRows
 // ErrCommandConflict reports a reused command identity with changed content.
 var ErrCommandConflict = errors.New("command identity reused for different content")
 
+// ErrLastKeyConfirmationRequired means this removal would delete the user's
+// final saved development key and its current mutation did not confirm that.
+var ErrLastKeyConfirmationRequired = errors.New("final saved key removal requires confirmation")
+
 type Store struct {
 	db     *sql.DB
 	grants *grantCipher
@@ -131,13 +135,43 @@ func (s *Store) AddKey(ctx context.Context, uid int64, public, fingerprint strin
 	return err
 }
 
-func (s *Store) RemoveKey(ctx context.Context, uid, id int64) (bool, error) {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM keys WHERE user_id=$1 AND id=$2`, uid, id)
+func (s *Store) RemoveKey(ctx context.Context, uid, id int64, confirmLast bool) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	var lockedID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users WHERE id=$1 FOR UPDATE`, uid).Scan(&lockedID); errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	var keyID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM keys WHERE user_id=$1 AND id=$2`, uid, id).Scan(&keyID); errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	var count int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM keys WHERE user_id=$1`, uid).Scan(&count); err != nil {
+		return false, err
+	}
+	if count == 1 && !confirmLast {
+		return false, ErrLastKeyConfirmationRequired
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM keys WHERE user_id=$1 AND id=$2`, uid, id)
 	if err != nil {
 		return false, err
 	}
 	n, err := result.RowsAffected()
-	return n == 1, err
+	if err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return n == 1, nil
 }
 
 func (s *Store) Keys(ctx context.Context, uid int64) ([]Key, error) {
