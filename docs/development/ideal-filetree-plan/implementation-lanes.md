@@ -5,13 +5,10 @@ audit. The [task list](implementation-tasks.md) retains its 27 primary packets
 and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
-for replacement are superseded. L01 and L02 are complete at their recorded
-source scopes; L03, L04 and L07 are also complete at their recorded scopes.
-L04 used medium admission/review and low caller transfer; shared-engine
-retirement ended in `229e9cce`. L00 preparation preceded L02; later unchecked
-packets retain their scoped implementation and admission requirements. L05/L06 are now complete
-at their source scopes in `7b42671d`/`7d063f15`, using Luna medium; CA proceeded
-independently of SSH. L08/L09 retain their already-completed source scopes.
+for replacement are superseded. The canonical
+[current task state](implementation-tasks.md#current-task-state-2026-10-07)
+records completed L00–L09, L11–L15 and L18 source scopes, completed L10.N3,
+held L10.N4/CFG01, open L16.G and deferred optional L16 adoption.
 Installed/native-worker qualification remains with the wider owner packets.
 
 Prepared on **2026-10-06** against clean checkout
@@ -20,7 +17,13 @@ source `f7e9cf9d` changes documentation only; unchanged source assessments are
 reused at their recorded scope. Historical structural reconciliation is still
 pending. The selective adoption reconciliation uses source
 `72e4bb9015b6d6a622b45638104c74851a137473`; it does not advance those historical
-baselines. Refresh affected source and guidance before a later authorized dispatch.
+baselines. The current reconciliation is pinned at `04286c48`, application
+source `0b073439`, on **2026-10-07**. The intervening audits change Markdown;
+R03.L retains its original verified scope. Current source responsibility coverage
+is reconciled; full R02.targets desired-tree regeneration follows settled
+replacement boundaries. The [finding allocation](execution-findings.md) supplies
+current scoped subtasks and dependent holds. Refresh affected source/guidance
+before a later authorized dispatch.
 
 The retained [tree](proposed-tree.md), [placement](placement.md),
 [ownership](package-ownership.md), [review records](reviews/README.md) and
@@ -34,7 +37,10 @@ Use built-in Codex subagents, with **two workers by default and a coordinator**.
 A third worker uses the fourth slot only for an independent ready assignment
 with disjoint files. Rotate implementation and review through these slots;
 additional concurrency is not a reason to duplicate investigation or reviews.
-Existing tmux checkpoints remain parked. Work stays in the canonical checkout.
+Checkpoint branches remain parked; their inactive worktrees were removed and
+artifacts preserved as recorded in the
+[checkpoint assessment](library-adoption.md#parked-checkpoints).
+Work stays in the canonical checkout.
 
 Choose the model and reasoning level **before dispatch**, using the table below.
 These are economical defaults for this repository's bounded assignments, not
@@ -78,6 +84,27 @@ an available worker can take another lane's ready packet through an explicit
 whole-file handoff. Prefer the longest remaining dependency chain and critical
 native assumptions; do not wait for every packet in a lane or wave to finish.
 
+## Current dispatch priority
+
+Select these outputs from the existing task list, using exact
+[finding scopes](execution-findings.md). This order replaces an early full-tree
+regeneration or another engine-splitting pass. It introduces no lane barrier.
+
+| Priority / selected output | Existing owner and model/reasoning | Dependency and concurrency rule |
+| --- | --- | --- |
+| 1. Trustworthy observation outcomes | C11.C-observers/custody, C08.C-evidence/artifact-cleanup and L16.G; C, except named OBS-G01 handoff to B. Luna medium for deadline/capture/custody; low for settled analyzer/Cargo/CLI-selection joins | Repair the observer before using its receipts. One writer per script/helper/evidence root; same-file format cleanup waits. Completed L01/L12 remain complete |
+| 1. Identity and Muse custody/bounds | A05.C-custody/bounds, A07.C-muse; A. Luna medium; low for settled startup cap | Select transaction/budget/progress contracts first. Acquisition/Store and Muse launch roots are separately reserved; schema changes go B→A mirror through coordinator |
+| 1. Go authority/lifetime and saved keys | A01.C-saved-key, B03.C/lifetime, B06.C-admission and B04.C; B. Luna medium | Reserve Store/publication/coordinator files across F08/F09 as one coherent writer; A owns exact native stop/finish handoff. Operator-body fix is independent of Q8. Loop waits only on its required Q3/Q8/native outputs |
+| 1. Independent setup/backup/enrollment fixes | C05.C, C06.C-rotation, C07.C-cleanup; C. Luna low for settled result/selection joins; medium if custody changes | Preserve completed source repairs. Serial shared installer/setup roots; no automatic uncertain-operation retry or native database/provider action |
+| 2. Costly boundary/profile decisions | B05.C/Q5, B06.M SDK contract, A05/C05/C10 profile decisions, L10.N4, L17 and retained helper questions; named finding owner. Luna medium | Prove exact selected producer/upstream/caller contract before dependent cut. Failed proof holds that replacement only; local typed snapshot/feature trim can proceed independently |
+| 3. Settled caller/dependency/test cuts | Existing A03/A05/A07, B06/B07 and C09/C10/C11 suffixed M tasks; physical owner. Luna low after profiles settle | Remove actual last callers/bridges; preserve current policy/signed bytes/fixtures. Coordinator owns all manifest/lock and shipping tuples. Park browser/A34/C41/matcher alternatives unless value is shown |
+| Integrate and qualify | R01/R03/R04 coordinator; low for receipts, medium for consequential review | Focused production-path checks and one independent review precede local coherent commit. Stable current source/producer/stage joins precede resource-heavy/native qualification; full R02.targets regeneration follows implemented boundaries |
+
+Default capacity remains two workers plus coordinator. Start the available
+rank-1 packets with disjoint files; a third worker is optional for another ready
+exclusive assignment. A held specification releases capacity for independent
+work. No full candidate build is a prerequisite for a source-only local fix.
+
 ## File ownership and conflict avoidance
 
 Work in the canonical checkout. Do not introduce worktrees or change Git state
@@ -87,15 +114,16 @@ default owner, not permission to edit every file under that directory.
 
 | Current/target shared surface | Default physical writer | Handoff rule |
 | --- | --- | --- |
-| `rust/soda-host/**` → `lib/host/**`; host binary entrypoint; provider-neutral Factory terminal models/pumps | A | A owns whole current monoliths, module roots and their private/oracle fixtures. B/C submit exact native changes. Descendant files transfer only after defining extraction is integrated. |
-| `rust/soda-identity/**`, `rust/identity-providers/**` → `cmd/soda-identity/**` | A | One Controller/State/Store/Tx and provider-support owner. Codex/Muse child work may split after construction/import/test ownership is fixed. |
+| `lib/host/**`; host binary at `lib/host/src/main.rs`, proposed entrypoint at `cmd/soda-host/main.rs`; provider-neutral Factory terminal models/pumps | A | The crate move is complete. A owns current module roots and their private/oracle fixtures. B/C submit exact native changes; any remaining entrypoint/application split uses current library adapters. |
+| `cmd/soda-identity/**`, including private `providers/{codex,muse}` | A | Broker/provider consolidation is complete. Preserve one Controller/State/Store/Tx and provider-support owner; no predecessor package recreation. |
 | Project terminal/account/factory-role crates → `cmd/soda-project-terminal/**` | A | One guest-package module/fixture owner; preserve the three installed executable identities. |
 | Go `cmd/`, `internal/` application/domain/Store/API/client files; `frontend/spaces/**`, `frontend/tailnet/**` | B | A/C send exact changes. B owns current `grants`, `dispatch`, `review_cycle`, `merge`, Store and API monoliths before releasing extracted leaves. |
 | `internal/store/schema.go` and its Rust broker mirror | B defining schema; A mirror | Reconcile together under H02. Existing mirror/drift assertion remains; no new schema generator or independent authority. |
 | `cmd/soda-forgejo-tailnet/main.rs` and `lib/host/src/tailnet/forgejo.rs` | A owns current native helper; C04 retains policy/qualification | L11 implemented the Rust helper and retired exclusive Go predecessors. Preserve remaining Go Forgejo/domain/status clients; future helper edits stay with A, and release selector/installed qualification joins remain C/R01/R04 duties. |
 | Other Rust commands/crates and retained JSON adapters, assets, Forgejo templates/locales/styles, system/image/rootfs definitions | C | A/B request primitive or payload changes; mixed setup/install/maintenance files have one current writer. |
 | Go installed-probe/test tooling, `internal/acceptance/**`, cross-component build/installed tests and source scripts | C | Preserve real subjects. B/A provide production changes; current shared fixtures/helpers remain single definitions with named consumers. |
-| `rust/soda-release-image/src/{sys,build}.rs` and other release crate composition roots | C | Coordinator takes a short exclusive whole-file handoff for shared compile/stage joins. C pauses edits to those files until the handoff returns. |
+| OBS-G01 selected `internal/acceptance/{installed,process}.go` correction | B accountable and temporary physical writer | C releases both whole files and related fixtures for this named follow-up, as the owning observation audit requires; no concurrent C edits. Return the tooling reservation after integration. Other installed-tooling/script work remains C-owned. |
+| `lib/soda-release-image/src/{sys,build}.rs` and other release crate composition roots | C | Coordinator takes a short exclusive whole-file handoff for shared compile/stage joins. C pauses edits to those files until the handoff returns. |
 | Root workspace/manifests/locks, every crate-local `Cargo.toml` dependency/bin/test declaration, package scripts, TS includes, shared payload manifests and plan indexes | Coordinator | Workers submit package/bin/dependency/source/destination tuples. Apply a coherent batch once; A/C do not concurrently edit even private crate manifests, and workers do not regenerate shared locks. |
 
 If a packet crosses an ownership row, name the recipient and exact change before
@@ -123,13 +151,28 @@ hunk editing of a shared file as a substitute for ownership.
   Keep M (behavior-preserving changes), C (named correctness corrections) and V
   (verification) distinguishable. Preserve binary/service identities and direct
   defining owners; replace obsolete callers without compatibility facades.
-- [ ] **R02 — Reconcile coverage and retirements.** L18 retirement maps and the parked A34/B27/C41 assessment are complete at `eaed66a9`; full historical census/range/table reconciliation remains pending. Every original file and mixed
-  responsibility must have its implemented defining destination or evidenced
-  retirement. Preserve generated/data/license duties separately. Check all
-  current Cargo members and Go packages, source-path tests and installed outputs;
-  retire `rust/`, old system roots and proven predecessors only as their actual
-  last callers/build/install/test duties close. Resolve historical structural
-  drift rather than copying old deletion tables.
+- [ ] **R02 — Reconcile coverage and retirements.** L18 retirement maps and the
+  parked A34/B27/C41 assessment are complete at `eaed66a9`; full historical
+  census/range/table reconciliation remains pending. The `rust/` subtree is
+  already absent; inspect current `cmd/`, `lib/`, `tools/` and `system/` owners
+  rather than schedule that move again. Use these bounded outputs:
+  - [x] **R02.inventory** Current responsibility coverage is reconciled at the
+    `519b76bd` snapshot with `58a99730` root/assets closure and separately counted
+    subsequent authored audit documents. The current inventory/maps cover source
+    and mixed duties, not just counts. Keep selective deltas current after each
+    integration; this completion does not refresh full target allocation.
+  - [x] **R02.tasks** Current findings are reconciled from `04286c48` into the
+    existing tasks/lanes with named owner/scope/prerequisites/acceptance, explicit
+    completed/withdrawn/held dispositions and superseded pending directions.
+  - [ ] **R02.targets** Reconcile implemented defining destinations, current
+    library adapters and evidenced retirements in the tree, ownership, ports,
+    slice cards and decomposition records after replacement boundaries settle.
+    Preserve generated/data/license and
+    live wire/fixture duties; omit superseded engine leaves and obsolete ports.
+  - [ ] **R02.joins** Close actual caller/import/manifest/test/compiler/payload/
+    installed-selector mappings and remaining target collisions; retain old
+    audit/runtime receipts at their original identities. Task-status upkeep does
+    not itself complete these joins or native qualification.
 - [ ] **R03 — Integrated source verification.** On a stable agreed snapshot,
   run the applicable existing Go/Rust/Bun/source/architecture checks. Reuse a
   passing result only for unchanged exercised source. Repeat an affected check
@@ -174,8 +217,8 @@ remaining work are in the adoption chapter.
 | 2. Finish admission and costly boundary preparation — complete | L00 / Coordinator; named disjoint proof writers | Luna low for dependency/license/cache inventory; Luna medium for PG/Hyper/WS proofs and independent review | Record exact compiler and feature closures, locked offline checks, PG deadline/cancel/discard/transaction custody, Unix client/server and upgrade read-ahead, nonblocking WS flush/close/reap; disposition every open cutover gate before L02 |
 | 3. Repair immediate trust and entropy defects — complete | L02 / C; RNG01 portion of L03 / A with C handoff | Luna low implementation; independent Luna medium trust/fail-closed review | `743dde17` completes strict trust/signature repair; `a84447ff` completes fail-closed entropy across ten packages. Preserve raw DER/TBS and role authority. Evidence and limits are recorded in the adoption chapter. |
 | 4. Replace common engines and native SQL parameters — L03/L04/L07 complete | L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles and independently review; Luna low for settled caller/SQL edits | Preserve L03 `52eee7ee` and L07 `d12bf6d3`; L04 producer/refusal checks and all engine removals are complete through `229e9cce`. Apply each dependent gate to the required verified profile |
-| 5. Adopt PostgreSQL and Unix HTTP/WS | L08/L09 / A, named B/C handoffs | Luna medium | PG requires L07 and LA-G2; ordinary clients precede servers, coupled upgrade/pump follows LA-G3; complete cancellation/flush/close/reap and affected offline graph |
-| 6. Adopt SSH and local CA formats | L05 / A; L06 / C | Luna medium | SSH consumes required L03/L04 outputs; CA consumes L02/relevant PEM profile and Caddy/critical-extension evidence, with no SSH prerequisite |
+| 5. Adopt PostgreSQL and Unix HTTP/WS — source complete | L08/L09 / A, named B/C handoffs | Luna medium | L07 and L00 proofs preceded the actual driver/client/server/upgrade cutovers. Cancellation, exclusion, flush/close/reap and affected offline graphs passed through `21387814`; installed qualification remains separate |
+| 6. Adopt SSH and local CA formats — source complete | L05 / A; L06 / C | Luna medium | SSH completed in `7b42671d` and CA in `7d063f15` after their required trust/encoding profiles; no SSH prerequisite for CA. Preserve recorded caller/Caddy evidence and native limits |
 | 7. Replace independent external/network adapters — source complete except held N4 | L10 / C; L11 / A with C acceptance handoff | Luna medium settled URL/HTTP boundary questions; Luna low transferred settled HTTP/URL/IP/time callers | Setup HTTP and L11 source/selected checks are complete. Host provider curl remains until resolver-inclusive cancellation/Executor custody fit passes; raw literals, bounds and unavailable/unconfirmed outcomes stay with callers |
 | 8. Consolidate file/FD/process mechanics — source complete | L12 / C, A host/guest/identity handoffs; B Go ownership unchanged | Luna medium for custody/cancellation and independent review; Luna low for settled repetitive plumbing | `c5cca5e7` completes same-FD bounds before temp convenience, rooted admission, owned CLOEXEC descriptors, bounded capture/cancellation, feeder/ticker joins and checked native cleanup. 1,687 selected tests and 20 package development builds pass; installed qualification remains separate |
 | 9. Replace release format and CLI emulators — source complete | L13/L14 / C | Luna low after declared format/CLI profiles; Luna medium for EOF/budget/metadata ownership and independent CLI review | 656 selected tests and ten affected offline development builds pass; complete gzip, bounded extraction/shared OCI, deterministic new output, original signed bytes, actual CLI help/refusals/tails and unchanged shipping selectors are verified. Installed/shipping qualification remains separate |
@@ -184,18 +227,18 @@ remaining work are in the adoption chapter.
 | 12. Consider optional matcher adoption — consideration complete; adoption deferred | L16 / C | Luna medium | Retain the matcher. L01/L12 completed scopes stand; L16.G aggregate input collection remains open. Reconsider only after that bound, demonstrated value and construction/streaming admission; no Aho-Corasick change gates step 1 or independent work |
 | 13. Qualify the integrated changed subjects — adoption source pass complete | R03.L / Coordinator; R04 remains pending | Luna low for commands/receipts; Luna medium for unresolved consequential results | Focused evidence16/16 and all-target offline Rust workspace checks pass at `d7eca882`; final unchanged-source packet receipts are reused. Native qualification requires a ready matching candidate, demonstrated producer/caller prerequisites and scoped operations; no native qualification is claimed |
 
-L00 initial preparation preceded L02. L02, L03, L04 and L07 are complete; their
-result
-details and exact dependent holds are recorded in the adoption chapter. L04
-caller transfers and engine retirement complete step 4 at their source scope.
-The per-adoption gates still apply to
-each changed package/features/runtime graph.
-Independent parts of later ready
-packets can fill available slots after dispatch; optional step 12 does not hold
-unrelated qualification. Do not treat the preparation probes as implemented
-production adapters or installed qualification.
+Completed rows are receipts for source work, not new dispatch assignments.
+Select remaining work from the current task-state table and its exact gates;
+fresh package/features/runtime changes still require scoped admission.
+Optional step 12 does not hold unrelated qualification. Preparation probes,
+implemented source adapters and installed qualification remain distinct.
 
 ### Restart state (2026-10-07)
+
+The preparation assignments and L07 checkpoint below preserve their historical
+scope. Their former L08/L09 production-integration holds were subsequently
+closed at the source scope recorded afterward and in the task list; they are
+not remaining dispatch work.
 
 The preparation source is `4b02122b`, after completed L01. The committed
 `Phase::child` correction remains `9fda53fe`: unbounded parents produce
@@ -266,8 +309,9 @@ separate reviewed commits. The original L00 proofs were reused before dispatch;
 actual cancellation/exclusion, callback admission/drain, short-write/Pong,
 deadline expiry and child-reap checks now pass, as does the final affected locked
 offline development build. The task-owned PG fixture is stopped. This closes
-step6 at development source scope; installed/native-worker qualification and
-the existing parked restructuring assessment remain separate. No lane or task
+step 5 at development source scope; installed/native-worker qualification remains
+separate. L18 subsequently completed the scoped parked-seam assessment, while
+full R02 reconciliation remains open. No lane or task
 queue was replaced.
 
 The exclusive writers and [parked checkpoint assessment](library-adoption.md#parked-checkpoints)
@@ -321,5 +365,6 @@ defect, and a passing unit test does not complete native qualification. Mark
 superseded pending splits in place and link their replacement L packet; preserve
 completed entries and their historical evidence. These two scheduling documents
 are H06 planning
-additions outside the older pinned inventories until a later baseline includes
-them; they do not advance the audit or historical structural evidence.
+documents accounted in the current inventories. Their original preparation and
+later source-status receipts remain separate from current planning allocation;
+they do not advance historical structural or native evidence.

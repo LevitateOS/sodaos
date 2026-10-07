@@ -5,13 +5,25 @@ handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and
 [lane schedule](implementation-lanes.md) remain the execution plan. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
-L00 initial preparation, L01, L02, L03, L04 and L07 are complete at their
-recorded source scopes. L04 used medium profile decisions and independent review,
-then low caller transfers; every selected engine is retired. Later cutovers
-retain their scoped authorization and admission checks.
+The [current task status](implementation-tasks.md#selected-library-adoption-subpackets)
+records L00 initial preparation, L01–L09, L11–L15 and L18 complete at their
+documented source scopes. L10.N3 is complete and L10.N4 remains held. Optional
+L16 adoption is deferred; L16.G aggregate input collection remains open.
+L17 evidence and candidate assessment are complete; CFG01 cutover remains held.
+Later cutovers retain their scoped authorization and admission checks.
 
-Planning reconciliation uses source `72e4bb9015b6d6a622b45638104c74851a137473`
-and SDK `86a70e1155f1036fdcd38f2af49d4ca6defa8280`. The completed
+The post-adoption [finding allocation](execution-findings.md) at `04286c48`
+adds exact current caller/custody/profile follow-ups under those same tasks.
+Correctness defects are selected before expensive mismatches and settled cuts;
+completed L scopes and their evidence are preserved. Pending generic-engine
+splits and unsigned historical byte-equivalence directions are superseded by
+actual retained policy, producer admission, direct caller transfer and verification.
+No new adoption pass or replacement execution queue is created.
+
+Initial planning reconciliation used source `72e4bb9015b6d6a622b45638104c74851a137473`
+and SDK `86a70e1155f1036fdcd38f2af49d4ca6defa8280`; later source completions
+and the distinct R03.L verification scope are recorded in the task list. The
+completed
 [investigation](../../research/library-reuse-investigation.md) and
 [coverage ledger](../../research/library-reuse-coverage.md) are non-normative
 evidence. Historical structural and 80-slice audit baselines remain distinct;
@@ -31,31 +43,32 @@ from these packets.
 L identifiers are subpackets of the existing A/B/C tasks. Each has one lead;
 physical writers remain the exclusive owners in the lane schedule. A lead sends
 cross-owner changes through named handoffs rather than editing another owner's
-files. The coordinator owns manifests/locks and integration. Packet state is
-recorded in the task list: L00 initial preparation, L01, L02, L03, L04 and L07
-are complete at their defined source scopes. Later unchecked packets remain
-undispatched subject to their exact gates below.
+files. The coordinator owns manifests/locks and integration. The
+[task list](implementation-tasks.md#selected-library-adoption-subpackets) owns
+current packet state; the table below summarizes completed source scopes and
+remaining gates. Source completion does not close wider M/C/V or installed
+qualification duties.
 
 | Packet | Lead | Existing task joins | Sequence and required output |
 | --- | --- | --- | --- |
-| L00 Admission and boundary preparation | Coordinator | R00/R01, C01/C02/C08 | Finish initial preparation before L02; retain admission per selected dependency/contract |
-| L01 Deadline and evidence repair | C | C11.C/V | Immediate; preserves the existing small lifecycle/evidence owners |
-| L02 Trust-key and signature repair | C | C07/C10 | Complete after L00; existing curve/DER libraries and raw-byte contracts preserved |
+| L00 Admission and boundary preparation | Coordinator | R00/R01, C01/C02/C08 | Initial preparation complete before L02; retain admission per new dependency/contract |
+| L01 Deadline and evidence repair | C | C11.C/V | Complete through `4c87f5e9`; existing small lifecycle/evidence owners preserved |
+| L02 Trust-key and signature repair | C | C07/C10 | Complete in `743dde17` after L00; existing curve/DER libraries and raw-byte contracts preserved |
 | L03 Hash, curve and randomness owners | A | A03/A05/A06, C10/C11 | Complete: RNG01 in `a84447ff`; CF-01 and CF-02 in `52eee7ee` |
 | L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | Complete: caller profiles verified; every selected engine and shared dependency retired, ending in `229e9cce` |
-| L05 SSH formats | A | A01/A07, C07 | Requires its CF-01/02/04 profiles from L03/L04 |
-| L06 Local CA parsing | C | C05/C07 | L02 and required L04 PEM/Base64 profile; no L05 dependency |
-| L07 Native SQL parameters | B | C02, B01 | Complete in `d12bf6d3`; can overlap driver preparation and precedes L08 cutover |
-| L08 PostgreSQL driver | A | A05, C02, B01 schema join | L07 plus demonstrated L00 driver deadline/transaction fit |
-| L09 Unix HTTP and WebSocket engines | A | C02/C03, A07, C08 fixture join | L00 transport/upgrade proofs; consume only required serialization profiles |
-| L10 External HTTP adapters | C | C05, C03 | Setup HTTPS can start independently; provider changes hand off to A |
-| L11 URL, IP and time adapters | A | C03/C05, A05/A07, C11 | Caller-specific admission; no global codec or syscall prerequisite |
-| L12 File, FD and process ownership | C | C01/C05/C06/C07/C08/C11, A07 | Same-FD bounds and cancellation first; rooted custody precedes temporary convenience |
-| L13 Archive and release formats | C | A04, C08/C09/C10 | Trailer/budget repairs first; independent format units can interleave |
-| L14 CLI and target discovery | C | C05/C08/C09/C11 | Selected CLI grammar or Cargo metadata contract and L00 admission |
+| L05 SSH formats | A | A01/A07, C07 | Complete in `7b42671d` after required L03/L04 profiles; dependency selection in `22496cb3` |
+| L06 Local CA parsing | C | C05/C07 | Complete in `7d063f15` after L02/relevant L04 profile and Caddy-root admission; no L05 dependency |
+| L07 Native SQL parameters | B | C02, B01 | Complete in `d12bf6d3`; preceded L08 cutover |
+| L08 PostgreSQL driver | A | A05, C02, B01 schema join | Complete in `6b18ee1b` after L07 and L00 driver deadline/transaction fit |
+| L09 Unix HTTP and WebSocket engines | A | C02/C03, A07, C08 fixture join | Complete through `21387814` after L00 transport/upgrade proofs and required serialization profiles |
+| L10 External HTTP adapters | C | C05, C03 | N3 setup HTTPS complete in `719d1137`; N4 provider cutover held on resolver-inclusive cancellation/Executor fit, with A handoff |
+| L11 URL, IP and time adapters | A | C03/C05, A05/A07, C11 | Complete through `380914ed` with caller-specific admission |
+| L12 File, FD and process ownership | C | C01/C05/C06/C07/C08/C11, A07 | Complete through `c5cca5e7`; same-FD bounds and rooted custody preceded temporary convenience |
+| L13 Archive and release formats | C | A04, C08/C09/C10 | Complete through `46d5c4cd`; trailer/budget repairs preceded format transfers |
+| L14 CLI and target discovery | C | C05/C08/C09/C11 | Complete through `c82125ee` after CLI/metadata profile and dependency admission |
 | L15 SDK input admission | B | B06, C01 | Complete at `c92db11c14` in the exact sibling checkout; retain meaningful per-dial credential transport |
-| L16 Evidence matching | C | C11 | Consideration complete; optional adoption deferred. L16.G must bound aggregate secret collection before any cutover; preserve completed L01/L12 repairs |
-| L17 Configuration evidence | C | C05/C09 | Native corpus collected; rust-ini 0.21.3 fails continuation admission, so CFG01 cutover is held; CFG02 retained independently |
+| L16 Evidence matching | C | C11 | Consideration complete; optional adoption deferred. L16.G aggregate secret collection remains open before any cutover; preserve completed L01/L12 repairs |
+| L17 Configuration evidence | C | C05/C09 | Native evidence and candidate assessment complete; rust-ini 0.21.3 fails continuation admission, so CFG01 cutover is held; CFG02 retained independently |
 | L18 Dead machinery removal | C | C05/C11, A/B handoffs | Complete in `eaed66a9`: N11/TMP02/DEAD01 retired after current reference and retained-duty checks |
 
 ### L00 Admission and boundary preparation
@@ -1022,12 +1035,12 @@ their existing owners and gates.
 | Gate | Exact requirement | Holds only |
 | --- | --- | --- |
 | LA-G1 Dependency admission | Initial compiler/candidate closures and humantime metadata recorded above; requalify exact changed workspace features/license/cache and affected locked offline build on the selected worker | Each new adoption before its substantial cutover |
-| LA-G2 Driver fit | tokio-postgres adapter deadline/cancel/discard/reconnect/exclusion proved locally; retain admitted auth/DSN/transport and actual Store/Tx integration checks | L08 cutover; not L07 or domain corrections |
-| LA-G3 Transport fit | Hyper Unix client/server/backend/shutdown/read-ahead and WS owner fit proved locally; retain production framing/caps/slow-peer/lifetime and affected graph checks | L09 relevant server/upgrade cutover; not L10 HTTPS |
+| LA-G2 Driver fit | L08 source acceptance complete in `6b18ee1b`: deadline/cancel/discard/reconnect/exclusion and actual Store/Tx integration checked locally; preserve admitted auth/DSN/transport for changed boundaries | Any new driver cutover; no remaining L08 source hold, and native qualification stays separate |
+| LA-G3 Transport fit | L09 source acceptance complete through `21387814`: Unix client/server/backend/shutdown/read-ahead, WS custody and production bounds checked locally; preserve affected framing/caps/lifetime and graph checks | Any new server/upgrade cutover; no remaining L09 source hold, and native qualification stays separate |
 | LA-G4 Encoding/trust profiles | Actual producer semantics, original signed bytes, Caddy roots and critical-extension choice | Corresponding L04/L05/L06 boundary only |
 | LA-G5 Native configuration | Native corpus collected; selected parser must pass continuation/quote/comment/effective-key and deployment override admission plus dependency closure | CFG01 parser cutover only |
 | LA-G6 External SDK | L15 exact pin/scope and cap+one source repair proved at Fountain `c92db11c14`; native authority findings retain their own gates | No remaining L15 input-repair hold |
-| LA-G7 Evidence input collection | L16.G must bound aggregate raw/trimmed/Ignition collection before evidence admission; automaton construction budgets remain unproved | Optional L16 matcher cutover only; completed L01/L12 scopes remain complete |
+| LA-G7 Evidence input collection | L16.G must bound aggregate raw/trimmed/Ignition collection before current evidence admission; automaton construction budgets remain unproved | Current collection correctness and any optional L16 cutover; matcher choice does not gate this repair. Completed L01/L12 scopes remain complete |
 
 Existing Q1–Q8 remain applicable to their domain corrections. Q9's old choice
 to maintain custom chunk decoding is superseded by the complete-driver direction

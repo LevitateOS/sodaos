@@ -18,25 +18,54 @@ implement just the named examples or repeat another packet's shared-file edits.
 Current source is post-integration canonical (run 20261005; implementation STARTED — see ticked boxes), superseding the clean `de65ff68` planning snapshot. The `f7e9cf9d` source audit and `d7e565aa`/`0d8d3b8e` structural baselines remain the preserved historical identities. All 80 slices have one primary packet
 below; shared duties route through their physical writer in the lane schedule.
 
-Current dispatch priority is [library adoption](library-adoption.md), initially
-reconciled at source `72e4bb9015b6d6a622b45638104c74851a137473` and selectively
-refreshed after L01 at `4b02122b`. L00 initial preparation, L01, and L02 are
-complete at their documented scopes, as are L03 (`a84447ff`, `52eee7ee`) and
-L07 (`d12bf6d3`). L04 is complete through shared-crate retirement `229e9cce`,
-with verified caller profiles and independent review. Other unchecked work remains undispatched.
-L00–L18 below are bounded subpackets of
-these existing owners, not new slices. Their scope, finding allocation and
-acceptance are defined once in the chapter. Completed M/C/V entries remain
-unchanged; replacement or fresh behavioral verification remains unchecked.
-Pending splits of generic engines named below are superseded. Unrelated
-lifecycle/domain corrections and their Q gates remain open.
+## Current task state (2026-10-07)
+
+Reconciled against canonical HEAD `04286c48`, application source
+`0b0734398f0350d75cc6fdb4dc8129251d8ab308`, preserving existing working plan
+edits and historical receipts. The intervening audit commits change Markdown;
+the latest implementation change is L18 at `eaed66a9`. This is planning upkeep,
+not implementation or runtime verification. Current responsibility accounting
+covers 2,562 tracked paths before this reconciliation's one new document and
+28 declared Cargo members, with no tracked `rust/` subtree. The current
+[coverage](coverage/README.md) replaces the old source inventory; the historical
+27-package desired tree still awaits R02.targets after boundaries settle.
+
+The [finding allocation](execution-findings.md) is the detailed subtask section
+of this same plan: 75 prior canonical dispositions plus the CA profile question,
+each with one accountable owner, current scope, prerequisites and acceptance.
+Existing 80-slice corrections outside that challenge remain in their rows and
+Q gates below. Select ready correctness first, expensive boundary/profile proofs
+second, then settled caller cuts. Same-file corrections and their simplification
+have one writer; a held profile does not hold a disjoint task. Completed M/C/V
+entries stay checked; the new suffixed follow-ups below are separate pending work.
+
+The [library-adoption work](library-adoption.md) replaced the selected custom
+hash/encoding/trust, PostgreSQL, HTTP/WebSocket, URL/IP/time, file/process,
+archive/ELF/SVG and CLI/metadata engines. **L00–L09, L11–L15 and L18 are complete
+at their recorded source scopes; L10.N3 is also complete.** L15's source is the
+separately identified Fountain checkout. L00–L18 are subpackets of the existing
+owners, not new slices. Their defining scope and acceptance remain in the
+chapter; the detailed rows below retain exact revisions and evidence limits.
+Completed conversions supersede pending decomposition of those old engines.
+Application/lifecycle corrections and their Q gates remain separate.
+
+| Remaining work | Current disposition and exact next boundary | Owner / task |
+| --- | --- | --- |
+| Current inventory / later target regeneration | Current source responsibility inventory/maps are complete at their recorded snapshot. Keep selective owner/caller deltas with each change; regenerate the full desired tree/decomposition after replacement boundaries settle. Existing task allocation is reconciled here. | Coordinator / R02.inventory complete; R02.targets/joins pending |
+| Operator request bound | Replace the still-current 4 KiB `LimitReader` admission with cap+one/read-error refusal before strict decoding; exact-cap success and principal/actions remain. This specified correction is independent of Q8. | B / B03.C |
+| Aggregate secret inputs | Set the count/byte profile and enforce it before retaining raw/trimmed/Ignition variants and before evidence admission; this remains useful with the retained matcher. | C / L16.G |
+| Host provider HTTP | Held until resolver-inclusive cancellation and native Executor custody are proved; setup HTTPS is already converted. | C, then A handoff / L10.N4 |
+| Effective configuration | Native corpus and candidate assessment are complete; CFG01 cutover is held on parser fit, deployment override evidence and dependency admission. CFG02 remains retained. | C / L17 |
+| Optional matcher conversion | Consideration complete; adoption deferred. Reconsider only after L16.G and demonstrated value plus construction/streaming admission. | C / L16 |
+| Other correctness and caller cuts | Follow the current [finding allocation](execution-findings.md), then remaining unchecked A/B/C scopes with precise Q gates. Parked A34/C41/browser seams are optional; B27 is integrated and is not replayed. | Named accountable finding owner; exclusive physical handoffs |
+| Wider verification | R03.L covers completed adoption source checks. Broader R03 checks and selected R04 native/installed/provider qualification remain open at their own scopes. | Coordinator |
 
 The coordinator's [R03.L source verification](implementation-lanes.md#coordinator-checklist)
 is complete for the implemented adoption scopes at `d7eca882`. Fresh focused
 evidence tests and locked offline all-target Rust workspace checks pass; final
 unchanged-source packet receipts and independent reviews retain their scope.
 The owning Go fixture row is reconciled in `93b50615`. L10.N4, L16.G, CFG01,
-full R02 reconciliation and selected R04 qualification remain open; none is
+R02.targets/joins and selected R04 qualification remain open; none is
 reclassified by this source-verification result.
 
 ## A — Projects, identity and Spaces
@@ -58,6 +87,8 @@ Lead A; [P01](reviews/P01.md), [P02](reviews/P02.md), [P03](reviews/P03.md), [P0
 - [x] **A01.M** [run 20261005: DONE, integrated d4597974 (11 commits 1d9d38b2..31bf88cf: R100 wholesale host+terminal, account/ssh/project splits, account fold, OS move-follow, reap fix) + R01 859cfb2d (members, project-account bin, lock -account stanza, zerocopy pin kept); 5 conflicts resolved (2 take-deletion, 3 take-A-side)] Retain Go `internal/project`, Project API/Store/client owners; move native creation/profile/OS/connection/account/SSH duties to `lib/host/src/project/` and account/SSH descendants. Fold the existing account binary into `cmd/soda-project-terminal` with C/R01 producer selectors.
 - [x] **A01.V** [run 20261005: DONE on canonical mixed tree (859cfb2d): TestAccount* 12/12 green (11 previously red), terminal 19+92+12+12, host 645/0, image 59/59, build 50/50, Go build clean, successors green, fmt clean, clippy 1 pre-existing (dbackend, byte-identical to base); native transport pumping + provider qualification separate] Preserve reservation reconciliation, immutable profile/login, explicit Join and exact admitted public-key revision/apply through existing real account/Project suites. Optional creation Tailnet intent is gate Q4, not new state.
 
+- [ ] **A01.C-saved-key** B is the accountable Go/frontend/Store owner for P04-F1 mutation-time final saved-key confirmation; native installed-key policy remains separate. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+
 ### A02 Preparation authority and Project lifecycle
 
 Lead A; [P05](reviews/P05.md), [P08](reviews/P08.md), [P09](reviews/P09.md), [P12](reviews/P12.md). B01/B03 grant/Store handoffs; A00 native extraction.
@@ -71,8 +102,10 @@ Lead A; [P05](reviews/P05.md), [P08](reviews/P08.md), [P09](reviews/P09.md), [P1
 Lead A; [P06](reviews/P06.md), [P07](reviews/P07.md). Shared guest-package ownership with A07; no simultaneous module-root edits.
 
 - [ ] **A03.M** Retain current guest role custody, checkout supervision, executable/install/hash selectors and actual compiled-helper subjects; reconcile any remaining package-fold duty against current source. Further custom SHA/JSON codec extraction is superseded by L03/L04, without changing child or checkout authority.
-- [ ] **A03.C** Correct P07-F1/F2 exact child retirement on capture failure and preservation of preexisting checkout state at the recorded real supervision/caller owners.
+- [ ] **A03.C** Source repairs for P07-F1 capture retirement (`368e1842`) and P07-F2 preexisting checkout preservation (`823334ac`) have landed, with later custody changes. Reconcile the complete current supervision/caller chain before closing this combined correction entry; preserve those repairs rather than schedule them again. Broader acceptance remains open.
 - [ ] **A03.V** Use actual compiled role-helper subjects for capture/cleanup and checkout failure, with exact requested binary selection; no Python predecessor recreation.
+
+- [ ] **A03.M-adapters** A owns SIMP-FD-1 typed project-terminal flags with retained no-follow/descriptor/errno contracts. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### A04 Shared tools, nested services and volumes
 
@@ -88,6 +121,11 @@ Lead A; [I01](reviews/I01.md), [I02](reviews/I02.md), [I03](reviews/I03.md), [I0
 - [x] **A05.M** [run 20261005: DONE, integrated 8c489d16 + R01 91c6d3e7] Consolidate broker/provider package ownership under `cmd/soda-identity`; keep one Controller/State/Store/Tx and reviewed enrollment/grant/acquisition/registration/retirement/store/wire descendants. Retain Go domain/client and canonical PostgreSQL schema with its existing mirror assertion.
 - [x] **A05.C** [run 20261005: DONE, lane V closed on live disposable PG; overall acceptance CLOSED via CORR-C-001 (merged + real-tree proven)] Correct I06-F1 terminal execution fencing after successful admitted End/expiry/return using actual provider-specific retirement; preserve legitimate recovery before any returned binding. Do not add I05 terminal-Muse InvocationID enforcement or public history/retention from unresolved requirements (Q3/Q4).
 - [x] **A05.V** [run 20261005: DONE, 25 unit + 10 integration executed, 0 skips] Exercise actual same-ID terminal fencing, current grants, encrypted custody and atomic append subjects; coordinate sponsor metadata and fixture rebinding with B01 before shadow-write retirement.
+
+- [ ] **A05.C-custody** New A-owned AUTH-I-ACQ-1/AUTH-I-CLOSE-1 reserve/link and close-observation corrections; completed I06-F1 fence remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **A05.C-bounds** A owns ID-CFG-01 startup, RES-I-PROBE-OUTPUT-1 provider output and RES-I-LEASE-ENUM-1/RES-GO-IDENTITY-CONNECTION-LIST-1 producer bounds; unknown aggregate profiles gate only their own changes. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **A05.M-adapters** A owns SIMP-I-PG-1 and profile-gated SIMP-I-JSON-1/REP-HOST-STRICT-1 at their actual identity/host readers. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **A05.M-dependencies** A supplies the exact Identity AEAD feature cut; coordinator owns manifest/lock integration and retains fallible RNG. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### A06 Provider adapters
 
@@ -105,6 +143,9 @@ roots once across their P/I/H duties, while A owns host/guest changes.
 - [ ] **A07.M** Retain the R02/A34 host/companion binding and R02/C41 Muse argument, connection, caller and cleanup-order duties at current owners; optional caller/cleanup splits require a concrete owner benefit and current-adapter diff. Define remaining run/binding/lifecycle/output/artifact duties directly under existing host/guest owners; preserve distinct Codex/Muse launch and custody. Pending manual HTTP/WS frame/handshake/pump decomposition is superseded by L09. Guest/Compose JSON, encoding and randomness use L03/L04/L12 through the physical owners; no new processes or forwarding facades.
 - [x] **A07.C** [run 20261005: LANDED 865f0e2f (H01-F3) + 9d5a9281 (S04-F1/S05-F1); H01-F3 reap repair LANDED (6edf58b7+31bf88cf, integrated d4597974) + kill-then-wait source-verified; native transport pumping unproven (helpers lack output reader), provider/native qualification separate] Correct S04-F1 C-string ABI and S05-F1 select writable-set handling; implement canonical H01-F3 pump mutex correction through C02's A-owned host handoff. Q3 gates harness/invocation-dependent enforcement only.
 - [ ] **A07.V** Exercise actual PTY/relay/attachment and replacement transport subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement. L09 upgrade/read-ahead/wakeup/close ownership must be proven before its cutover and expensive native runs.
+
+- [ ] **A07.C-muse** New A-owned CON-M01/CON-M02 signal/reap, supervisor joins and aggregate listener custody; completed H01-F3 remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **A07.M-dependencies** A supplies COST-HOST-BUILD-EDGE-1 current iconfig predicate/direct dependency cut; delivery payload authority remains. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### A08 Spaces browser inventory and viewer
 
@@ -140,6 +181,8 @@ Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 bound
 - [ ] **B03.C** Correct F07-F1 authority tuple freshness, F07-F2 recorded prompt context, F08-F1 registration/withdraw capture ordering, F08-F2 fresh retry attempt and F08-F3 stop-owned settlement. Resolve exact grant/quiescence/transaction specifications first; Q3 blocks undecided simultaneous provider-family selection. Separately retain the source-level operator 4 KiB limiter-EOF concern from L15: B owns cap+one/read-error admission before existing strict decode, with exact-cap/overrun checks and unchanged principal/actions. This narrow input follow-up needs no grant/selection decision.
 - [x] **B03.V** [run 20261005: DONE on disposable PG (11 pkgs, -race 4/4, raw logs archived, 0F/0S)] Exercise actual authority/registration/withdraw/retry/stop races with existing real Store and coordinator subjects; preserve historical attribution and usage.
 
+- [ ] **B03.C-lifetime** B owns CON-G01 dashboard admission/drain/flock/DB lifetime and RES-GO-ACCEPTANCE-DEPENDANTS-1 exhaustive traversal bounds; select supported graph/progress profile first. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+
 ### B04 Publication, review and correction loop
 
 Lead B; [F09](reviews/F09.md), [F10](reviews/F10.md). B03 durable attempt/settlement/registration, B07 native adapters, A07 shared exports; Q3/Q5 apply to dependent loop work.
@@ -164,13 +207,18 @@ Lead B; [G01](reviews/G01.md), [G02](reviews/G02.md), [G03](reviews/G03.md), [G0
 - [ ] **B06.C** Correct G01-F1 declared/admin scope mismatch only after exact SDK propagation evidence is retained. Cache-refresh/association/redaction hypotheses remain investigation tasks, not presumed fixes.
 - [ ] **B06.V** Verify existing real Go authority/transport/preference subjects and exact dependency correspondence; no adjacent-checkout substitution or new request authority.
 
+- [ ] **B06.C-admission** B owns CON-G02 cancellable bootstrap wait independent of SDK replacement. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **B06.M-adapters** B owns local SIMP-SNAPSHOT-1; broader SIMP-SDK-1 waits on exact upstream capabilities, SIMP-GJSON-1 on actual DTO profiles. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+
 ### B07 Native Forgejo effect adapters
 
 Lead B; [G04](reviews/G04.md), [G05](reviews/G05.md), [G06](reviews/G06.md), [G07](reviews/G07.md). B06 transport; coordinate B04/B05 rather than duplicating their registration fixes.
 
-- [ ] **B07.M** Move `internal/host/publish` to `internal/forgejo/publish`; split actual publication/review/check/merge observer/intent/receipt concerns, preserving one Background/StatusError/DTO owner and architecture assertions.
+- [x] **B07.M** Source placement and the named concern splits are complete: publication moved to `internal/forgejo/publish` in `33682cfc`, with observation/validation/push/receipt and actual test descendants; merge observation/completion are split through `6cb54cf9`. Current callers, shared Background/StatusError/DTO owners and architecture assertions use the defining destination; `internal/host/publish` is absent. This source reconciliation does not close B07.C/V or Q5/native qualification.
 - [ ] **B07.C** Complete the native adapter handoffs for canonical F09-F1/F10-F2/F12-F1 at their recorded owners after Q5. SHA length and evaluation-count unknowns do not authorize expanding accepted native input.
 - [ ] **B07.V** Exercise real source/client subjects and independently supplied pinned native producer evidence; durable coordinator registration stays with B04, not these adapters.
+
+- [ ] **B07.M-retirement** B decides CUST-G-SOURCE-1 method retention with current last callers; delete the dead method or bound its same-file read if retained, preserving sourceRepository. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### B08 Full Soda Forgejo presentation
 
@@ -187,7 +235,7 @@ Lead B; [G08](reviews/G08.md). Physical writer C; C09/H05/H06 payload/build/stag
 Lead C; [H03](reviews/H03.md), [H04](reviews/H04.md). Starts independently; A/B implement callers in their owned files; Q6 gates policy/equivalence changes.
 
 - [ ] **C01.M** [run 20261005: PARTIAL — historical json->lib/json move done; L04 later retires that engine; 36 config fixtures Q4-deferred spec-only] Preserve that landed move and fixture evidence. Pending Rust lexer/parser/binder/emitter splits are superseded by L04/JSON01 and explicit profile adapters. Retain Go strict binding and caller-specific file/config policy; L12 rooted custody precedes temporary convenience, and L17 holds only the effective-config decision.
-- [ ] **C01.C** [run 20261005: PARTIAL — H03-F1 done; other parser findings/root_chain open] Preserve the completed panic correction. L04 completed generic parser replacement and actual caller-profile checks; L12 preserves confinement under its allowed-link/admissibility gate. Retire root_chain only with current reference evidence; historical parser equivalence is not an adoption requirement.
+- [ ] **C01.C** Partial at the broader parser/filesystem scope: preserve the completed H03-F1 panic correction, L04 parser replacement/caller-profile checks and L12 confinement policy. H04-F1's unused `root_chain`, its exclusive test matrix and stale sys reference are already retired in `913de806`; no retirement task remains for that helper. Other linked findings and caller-specific admissibility gates remain open; historical parser equivalence is not an adoption requirement.
 - [x] **C01.V** [run 20261005: DONE, 5/5 json (truncated/duplicate/garbage subjects)] Exercise real malformed/truncated input and file/error subjects. Preserve distinct duplicate/null/case policies rather than treating all parsers as equivalent.
 
 ### C02 Private IPC and PostgreSQL persistence
@@ -221,21 +269,27 @@ Lead C; [N01](reviews/N01.md), [O02](reviews/O02.md), [O03](reviews/O03.md). C01
 - [ ] **C05.C** Correct established short-write/publication/cleanup findings through existing owners and L12. L18/TMP02 removed the unused migrate temporary in `eaed66a9`, preserving credential scrub/inode/mode behavior; retain single revocation and honest failure reporting.
 - [ ] **C05.V** Exercise actual setup publication/error subjects with private inputs, complete writes and correct cleanup precedence; no new onboarding authority.
 
+- [ ] **C05.M-profiles** C owns REP-CFG-1 command-local projections with B whole-config reader handoff; CFG01 INI fit is separate. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+
 ### C06 PostgreSQL initialization, backup and restore
 
 Lead C; [O01](reviews/O01.md), [O05](reviews/O05.md), [O06](reviews/O06.md). Can start independently; serialize shared maintenance/setup files with C05.
 
 - [ ] **C06.M** Retain one `cmd/soda-pg-maintenance` library and three existing bin/install selectors, established scopes/permissions and caller-owned quiescence.
-- [ ] **C06.C** Correct O01-F1/O06-F1 failed stdin delivery combined with child exit zero, preserving nonzero child errors and one reap. No retry or whole-state backup subsystem.
+- [x] **C06.C** O01-F1/O06-F1 source correction landed in `f9db9062`: shared `delivery_exit` refuses failed stdin delivery even with child exit zero, preserves nonzero child errors and is called after one reap by init-roles/restore. The retained regression and L12 package receipts cover their recorded subjects; C06.V and native database qualification remain separate.
 - [ ] **C06.V** Exercise real child/input/caller failure subjects and existing backup/restore contracts; database operations require explicitly disposable or owner-selected scope.
+
+- [ ] **C06.C-rotation** New C-owned O05-F1 exact-publication backup retention correction; completed O01/O06 stdin-delivery repairs remain checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C07 Operator recovery and SSH enrollment
 
 Lead C; [O04](reviews/O04.md), [O07](reviews/O07.md). Existing installer/private fixture ownership also intersects C05/C10.
 
 - [ ] **C07.M** Retain recovery/enrollment/window/session/cleanup and temporary SSH lifetime. Pending SSH/mpint/Base64/X509 grammar decomposition is superseded by L05/L06 and their profile gates. L12 owns file/temp mechanics; L17 holds only CFG01 candidate fit and effective-configuration cutover, not ready enrollment corrections.
-- [ ] **C07.C** Preserve unknown-marker failure before lift/start mutation; correct O07-F1 complete enrollment writes and O07-F2 ongoing selected-address binding at their existing owners.
+- [x] **C07.C** Named enrollment source corrections landed: `8524cb2c` refuses incomplete writes before publication (O07-F1), and `bc8b818b` revalidates the selected address throughout serve/session lifetime (O07-F2). Current owners retain both repairs and unknown-marker refusal before lift/start mutation. This closes the named source corrections; C07.V and native authentication/window qualification remain open.
 - [ ] **C07.V** Exercise actual publication/address/window/cleanup and marker subjects; root/Cockpit authority and native authentication proof remain distinct.
+
+- [ ] **C07.C-cleanup** New C-owned ENROLL-CLEANUP-RESULT-1 primary/close error join; completed O07 write/address repairs remain checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C08 Build controllers and candidate production
 
@@ -245,13 +299,18 @@ Lead C; [D01](reviews/D01.md), [D03](reviews/D03.md). Start early on disjoint re
 - [x] **C08.C** [run 20261005: LANDED (D01-F1..F5, D03-F1..F3, D01-F2/F3, mixed-cmd discovery proven); D01-F4 repair LANDED (86bce854, integrated 74a6a1b7) + SOURCE PASS per review-010; systemd/progress-output qualification separate] Correct recorded architecture namespace, clean-inspection/signal/progress and pipe-drain defects; explicitly fix D01-F2 obsolete Go controller build/candidate selectors and executable stamp, D03-F2 deleted Go artifact compile selector, and D03-F3 missing acceptance remote companion before inventory. Fix discovery for mixed Go/Rust `cmd` and explicit package/bin compilation in the actual cutover.
 - [x] **C08.V** [run 20261005: DONE (mirror counts matched, Go pins green, candidate-check no stale pins)] Verify real producer/worker subjects and exact tools/rootfs selectors without a full release first. `soda-candidate-check` is already Rust: rebind its paths, do not schedule another port.
 
+- [ ] **C08.C-evidence** New C-owned OBS-W01 exact-unit/runtime cleanup and OBS-R01 diagnostic byte admission; completed D03 drain/discovery work remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C08.C-artifact-cleanup** C owns CUST-C-BUTANE-CLEANUP-1 soda-artifacts output/child finalization, separate from installer enrollment. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+
 ### C09 Inputs, authenticated media, assets and attribution
 
 Lead C; [D02](reviews/D02.md), [D04](reviews/D04.md), [H05](reviews/H05.md). C08 compile/stage join, B08 presentation; Q7 version/attribution gates.
 
-- [x] **C09.M** [run 20261005: DONE, integrated c0a19d5a + R01 d296d340 (7 bins consolidated into tools/release-assets, ~70 system/license moves, package-selector rebinds; selinux move accepted per placement.md:151; cmd/soda-rootfs-server Go-app move queued to B per placement.md:150)] Consolidate seven existing fetch/render/locales binaries into `tools/release-assets`; rebind all actual package selections, manifest/fixture/loader inputs and notices. Move system definitions to `system/host`, `system/containers`, `system/project` and licenses to their selected owners.
+- [x] **C09.M** [run 20261005: DONE, integrated c0a19d5a + R01 d296d340 (7 bins consolidated into tools/release-assets, ~70 system/license moves, package-selector rebinds; selinux move accepted per placement.md:151); rootfs-server placement completed in d89f4563] Consolidate seven existing fetch/render/locales binaries into `tools/release-assets`; rebind all actual package selections, manifest/fixture/loader inputs and notices. Move system definitions to `system/host`, `system/containers`, `system/project` and licenses to their selected owners. The Go rootfs server already lives at `tools/soda-rootfs-server` with its test/service references rebound.
 - [ ] **C09.C** [run 20261005: PARTIAL — D02-F1 DONE (byte-safe predicate + regression, proven-red pre-fix at url.rs:60); installer-version media reconciliation NOT done, gate Q7 REMAINS OPEN per RULING-C-002 §3, no finalized finding] Correct the recorded byte-safe HTTPS predicate and reconcile actual installer-version media handoff only with retained producer evidence. Preserve full Forgejo design and installed payload destinations.
 - [x] **C09.V** [run 20261005: DONE (375/0 mirror + canonical post-merge, clippy 0, 7 bins live, Go FAIL sets identical base-vs-post, cargo-building Go + TS suites green post-join; cockpit playwright NOT run)] Check real input/media/asset/attribution subjects and every actual binary/importer; no new network acquisition or signing contract.
+
+- [ ] **C09.M-format** C owns SIMP-ASSET-NODE-1 provisioning Node/formatter cut for base.json; completed package/asset placement remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C10 Verification, delivery and native payload application
 
@@ -261,6 +320,10 @@ Lead C; [D05](reviews/D05.md), [D07](reviews/D07.md), [D08](reviews/D08.md), [D0
 - [ ] **C10.C** L13's decoded gzip EOF/trailer and bounded member/aggregate correction is source complete in `d4f3c922`, with actual build/delivery fixtures passing. Preserve the separately recorded exported-finalize publication/history correction at its real API and Q7 gates. Unknown console EOF or native equivalence stays explicit; library defaults do not decide it.
 - [ ] **C10.V** Exercise actual trust/null/duplicate/error/confinement/compression/result subjects and selected import/install lifecycle. Signing, publication and distribution effects are separately selected operations.
 
+- [ ] **C10.M-profiles** C owns SIMP-PEM-1, CA-ALGORITHM-PROFILE-1 and SIMP-REL-WIRE-1/ORDERED-1/INSTALL-OCI-1 decisions; settle actual producer/reader contracts before dependent removal. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C10.M-format** C owns REP-FMT-1/SIMP-REL-EMIT-1 controlled unsigned output cuts after actual consumers and current determinism are established. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C10.M-dependencies** C supplies installer feature-only trim preserving current algorithms and COST-BOOTSTRAP-SEAM-1 two-call Runner cut; coordinator owns graph changes. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+
 ### C11 Verification infrastructure and developer tooling
 
 Lead C; [D06](reviews/D06.md), [H06](reviews/H06.md). Local driver/gate corrections can start early; C08/C10 candidate binding precedes native qualification.
@@ -268,6 +331,12 @@ Lead C; [D06](reviews/D06.md), [H06](reviews/H06.md). Local driver/gate correcti
 - [ ] **C11.M** Retain actual Rust/Go/Bun drivers, fixture and source/stage/installed subjects. Pending custom JSON/time/hash, CLI/duration and process emulator extraction is superseded by L01/L03/L04/L11/L12/L14. Retain the current evidence owner without another matcher split while optional L16 adoption is deferred. Preserve active no-Python policy and live private-file custody; L18/DEAD01 removed the orphan OCI fixture in `eaed66a9`; active fixture/private-file custody remains retained.
 - [ ] **C11.C** Preserve completed L01 child/QMP deadlines, writer/error custody and slashless URL confidentiality, plus L12 read/output/cleanup bounds. L14 CLI/duration adoption is source complete; L16 consideration is complete and optional adoption deferred. L16.G separately owns the open aggregate secret-collection bound. Preserve recorded analyzer/SSH-pin/platform/hash-field corrections. Assess reachable SQLite-native fixture/probe consumers separately; do not schedule a Python port or globally remove their dependency.
 - [ ] **C11.V** Verify the selected driver/evidence/parser/process failures and actual stage/installed bindings after each bounded replacement. No-newline output, split secrets, absolute deadlines and fail-closed finalization precede trusting these observations. Source/build/installed evidence remains separate; R04 alone owns a selected native journey.
+
+- [ ] **C11.C-observers** C owns H06-F1, TEST-CARGO-RESULT-1/TEST-SOURCE-CLI-GATE-1, OBS-D01/OBS-S01 and JOIN-HOST-PROBE-PATH-1/JOIN-INVOKED-IDENTITY-1. OBS-G01 stays B-accountable through an exclusive installed.go/process.go handoff from C. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C11.C-custody** C owns ACC-SNAPSHOT-FILE-1 opened-file snapshot admission; no atomic filesystem snapshot claim. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C11.M-format** C owns REP-ACC-EVIDENCE-ROUNDTRIP-1 and the settled CLI03 precheck cut, preserving evidence custody and duration admission. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C11.M-dependencies** B owns COST-GO-SQLITE-FIXTURE-1 seeder/test-support relocation; preserve acceptance SQLite and current test consumers. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C11.M-tests** C owns the narrow TEST-RETIRED-PYTHON-OUTPUT-1/TEST-REL-ORACLE-1/TEST-RETIREMENT-GUARDS-1 consumer/oracle retirement; native-emulator evidence labels and current behavior tests remain. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ## Selected library-adoption subpackets
 

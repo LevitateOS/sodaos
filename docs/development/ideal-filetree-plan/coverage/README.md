@@ -12,10 +12,10 @@ one representation chapter, one concurrency/termination chapter and
 one authority/state chapter, one resource-bounds chapter, one custody chapter,
 one dependency/architecture-cost chapter, one test/evidence chapter and
 one build/installation/operational join chapter, one total maintenance chapter
-and one independent consequential-challenge chapter**
+one independent consequential-challenge chapter and one finding-allocation chapter**
 are accounted exactly once in the [tracked-file inventories](inventory/README.md).
 No working source additions were
-present. These seventeen H06 documents are the explicit current documentation delta;
+present. These eighteen H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -29,11 +29,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including seventeen authored documents / missing / duplicate rows | 2,562 / 0 / 0 |
+| Current paths including eighteen authored documents / missing / duplicate rows | 2,563 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus seventeen whole-document H06 duties | 20,117 + 17 = 20,134 |
+| Existing named duties plus eighteen whole-document H06 duties | 20,117 + 18 = 20,135 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -54,7 +54,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 322 |
+| `docs` | 323 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |
@@ -192,6 +192,12 @@ one H06 whole-document duty at source `24fc3ea7`. It challenges all 73 integrati
 recommendations and 75 canonical prior claims, corrects evidence associations
 and records one separate CA profile question. Supported, repaired, withdrawn,
 dormant and held conclusions remain distinct; agreement is not qualification.
+
+The [finding allocation](../execution-findings.md) adds one H06 whole-document
+duty at source `04286c48`. It assigns the challenged findings inside the existing
+task list/lanes with one accountable owner, exact scope, prerequisites and checks.
+Current source coverage remains maintained; full desired-tree regeneration follows
+settled replacement boundaries. No implementation or qualification is performed.
 
 - [Current tracked inventories](inventory/README.md)
 - [Current responsibility maps](maps/README.md)

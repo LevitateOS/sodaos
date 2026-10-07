@@ -8,35 +8,49 @@ implement a move or
 change product behavior. Existing ownership and trust boundaries remain the
 starting point for the refactor.
 
-Implementation is deferred until time is available. Keeping this plan current
+Further implementation is deferred until selected. Keeping this plan current
 is a separate, smaller task: update it after every merge, including merges that
 do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
-Current priority: [library adoption](library-adoption.md). Its initial
-reconciliation used source `72e4bb9015b6d6a622b45638104c74851a137473` and the
-recorded SDK pin; the task list records later implemented source scopes.
-Further unrelated restructuring dispatch remains parked. Completed structural
-work and parked checkpoints remain preserved; pending generic-engine decomposition is
-superseded only where the chapter names a replacement. The current task list
-and lane schedule remain the execution plan, using built-in Codex subagents.
-This scoped update does not regenerate the complete tree, advance historical
-coverage counts or qualify behavior. The non-normative
+The [current task state](implementation-tasks.md#current-task-state-2026-10-07)
+is reconciled at canonical HEAD `04286c48`, application source `0b073439`, on
+**2026-10-07**, preserving the existing working plan edits.
+The selected [library adoption](library-adoption.md) is largely source complete:
+L00–L09, L11–L15 and L18, plus L10.N3. Remaining work includes L10.N4's provider
+transport fit, L16.G aggregate secret collection and CFG01 parser fit; optional
+L16 matcher adoption is deferred. The [finding allocation](execution-findings.md)
+assigns all 76 challenged dispositions to existing subtasks with exact owner,
+scope, prerequisites and acceptance; older slice findings remain in their parent
+records. Correctness precedes costly boundary decisions and settled caller cuts.
+Current responsibility coverage is reconciled; full R02.targets desired-tree
+regeneration follows settled replacement boundaries. Broader R03/R04 verification
+retains its separate gates.
+The verified adoption source `d7eca882` differs from this checkout only in
+Markdown, so its recorded checks retain their original scope. No fresh runtime
+verification was performed for this documentation refresh.
+
+Further unrelated restructuring dispatch remains parked. Completed work and
+parked checkpoint branches remain preserved; superseded generic-engine splits
+must consume the current library adapters if an application seam is selected.
+The task list and lane schedule remain the execution plan. This scoped update
+does not regenerate the complete tree or advance historical audit coverage.
+The non-normative
 [investigation](../../research/library-reuse-investigation.md) supports the
 selected direction; product/trust owners remain authoritative.
 
-Last maintained: **2026-10-07**. The latest scoped R02 update accounts for
-L18 retirements at `eaed66a9` and reassesses parked A34/B27/C41 duties against
-current library adapters. Selected retirement maps are refreshed; full-tree
-coverage/count reconciliation remains pending below. The execution schedule
-provides
+Last maintained: **2026-10-07**. The task refresh also accounts for already-landed
+B07 publication/merge placement, C06 stdin-delivery and C07 enrollment corrections,
+rootfs-server placement and H04 `root_chain` retirement. The scoped L18 retirement maps and
+A34/B27/C41 assessment remain complete at their recorded scope. The execution
+schedule provides
 [parallel implementation lanes](implementation-lanes.md) and a
 [dependency-ordered task list](implementation-tasks.md), prepared against
 `de65ff68`. That checkout's delta from the audit source is documentation only;
 the scheduling update itself does not advance the audit or historical structural
-baseline. Implementation has since STARTED under run 20261005 (parallel lanes;
-landed boxes in implementation-tasks.md; current canonical post-dates de65ff68).
+baseline. Implementation started under run 20261005; checked task rows record
+landed work and remaining unchecked rows retain their specific source/native scope.
 Audit/structural baselines above are preserved historical identities, not current source. The latest coverage pass accounts for all
 **1,719 tracked paths** and their mixed responsibilities across **80 candidate
 review slices**, at `0d8d3b8ebb5a7df36759685529f27f417d96fac8`. The complete
@@ -44,9 +58,16 @@ proposed tree, package counts and historical decomposition use the structural
 baseline `d7e565aa1019753997a99fd430ba103d7a472b48`, corrected here to exclude
 11 positively evidenced obsolete proposed leaves. The plan folder layout is
 also reflected in the proposed tree. The five-file source delta and the
-documentation split are reconciled in the catalog and coverage ledger. Complete structural
-reconciliation of later changes remains pending. Post-integration status (run 20261005): task boxes record landed A00/A05/A06/A07.C(partial-acceptance), B01-B05, C01(partial)/C02.C/C08/C09 + CORRs + DELTA-C-001 work; package-ownership.md rows carry run-status notes. NOT YET reconciled: proposed-tree.md paths/counts, coverage/inventory/* + coverage/maps/* EXCEPT appliance-definitions.md + inventory/appliance.md (reconciled 3036bb47), slice cards + catalog refs, decomposition seam refs, root-count table recount. Parked checkpoint observations are separately assessed in the library-adoption chapter and excluded from merged coverage. The plan is NOT fully current; this paragraph is the explicit pending list. Pending source cutovers remain
-explicit; proposed paths are not landed code.
+documentation split are reconciled in the catalog and coverage ledger.
+The task list owns current M/C/V status. Current source inventory/maps are
+reconciled at their newer recorded snapshot; complete target reconciliation
+remains pending. R02.targets must refresh the desired-tree allocation, slice
+cards and decomposition after replacement boundaries settle, preserving current
+source coverage and historical counts. The appliance map/inventory has a separately reconciled
+scope at `3036bb47`; it does not refresh the whole catalog. Parked checkpoints
+are assessed separately in the library chapter and excluded from merged coverage.
+The task list is current at the scoped source/status level; the full structural
+plan is not yet current. Proposed paths do not establish landed code.
 
 The separately [pinned review input baseline](review-baseline.md) records source
 `f7e9cf9db616f93de351dd44c9bb7456feb608b9` plus the uncommitted working guidance.
@@ -58,7 +79,7 @@ questions remain visible; their dependent corrections stay pending. No tests,
 builds or native/installed qualification were performed. Audit completion does
 not advance earlier structural evidence or declare the code correct.
 
-Latest upkeep reconciles the complete delta from `26d420f2` to `0d8d3b8e`.
+The historical catalog upkeep reconciles the delta from `26d420f2` to `0d8d3b8e`.
 The five source/test paths below have current responsibility maps, test-scope
 descriptions and affected concern allocations. The new settlement test has an
 inventory entry and target leaf. The documentation split replaces one tracked
@@ -70,8 +91,10 @@ reconciliation, not a validity audit or new behavioral qualification.
 - [internal/factory/control/settle.go](../../../internal/factory/control/settle.go)
 - [internal/factory/control/settle_test.go](../../../internal/factory/control/settle_test.go) — new PostgreSQL regression scenarios with stub host/broker
 - [internal/factory/control/st15_demo_native_test.go](../../../internal/factory/control/st15_demo_native_test.go)
-- [rust/soda-host/src/pfactory.rs](../../../rust/soda-host/src/pfactory.rs)
-- [rust/soda-identity/tests/broker.rs](../../../rust/soda-identity/tests/broker.rs)
+- Historical `rust/soda-host/src/pfactory.rs`; current host Factory owner is
+  [lib/host/src/factory/mod.rs](../../../lib/host/src/factory/mod.rs).
+- Historical `rust/soda-identity/tests/broker.rs`; current broker subject is
+  [cmd/soda-identity/tests/broker.rs](../../../cmd/soda-identity/tests/broker.rs).
 
 ## Retained Forgejo presentation
 
@@ -136,7 +159,7 @@ single-file plan has been split without executing the proposed code refactor.
 | [Complete proposed tree](proposed-tree.md) | The entire desired repository tree, including this plan folder |
 | [Decomposition index](decomposition/README.md) | Historical oversized-file concern reviews, grouped by source component |
 | [Integration](integration.md) | Retained documents/data, wiring changes and review/implementation limits |
-| [Implementation lanes](implementation-lanes.md) | Three-worker scheduling, exclusive file ownership, shared integration and verification order |
+| [Implementation lanes](implementation-lanes.md) | Two workers plus coordinator by default, optional third worker, exclusive file ownership and verification order |
 | [Library adoption](library-adoption.md) | Selected finding allocations, bounded adoption packets, prerequisites and parked-work dispositions |
 | [Implementation tasks](implementation-tasks.md) | 27 primary work packets covering all 80 slices, shared extraction and precise dependent gates |
 | [Slice catalog](slices/README.md) | All 80 candidate review slices in nine capability groups |

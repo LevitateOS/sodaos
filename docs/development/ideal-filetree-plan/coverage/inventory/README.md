@@ -16,7 +16,7 @@ current inventory. No former-root rows count twice.
 | `.githooks` | 1 | [git-hooks.md](git-hooks.md) |
 | `assets` | 175 | [assets.md](assets.md) |
 | `cmd` | 338 | [cmd.md](cmd.md) |
-| `docs` | 322 | [docs.md](docs.md) |
+| `docs` | 323 | [docs.md](docs.md) |
 | `factory-os` | 1 | [factory-os.md](factory-os.md) |
 | `frontend` | 345 | [frontend.md](frontend.md) |
 | `internal` | 451 | [backend.md](backend.md) |
@@ -26,16 +26,16 @@ current inventory. No former-root rows count twice.
 | `tests` | 140 | [tests.md](tests.md) |
 | `tools` | 193 | [tools.md](tools.md) |
 
-Total scope: **2,562 paths**: **2,545** at `f8b22b0b` plus **4** library-caller
+Total scope: **2,563 paths**: **2,545** at `f8b22b0b` plus **4** library-caller
 documents, **1** observation-reliability chapter, **1** connected workflow-trace
 chapter, **1** adapter-challenge chapter, **1** representation chapter and
 **1** concurrency/termination chapter, **1** authority/state chapter and
 **1** resource-bounds chapter, **1** custody chapter,
 **1** dependency/architecture-cost chapter, **1** test/evidence chapter and
 **1** build/installation/operational join chapter, **1** total maintenance chapter
-and **1** independent consequential-challenge chapter.
-The latest authorized upkeep delta is the independent challenge at `24fc3ea7`;
-after its documentation commit all 2,562 are tracked. There are no application
+**1** independent consequential-challenge chapter and **1** finding-allocation chapter.
+The latest authorized upkeep delta is the finding allocation at `04286c48`;
+after its documentation commit all 2,563 are tracked. There are no application
 source additions.
 Generated/captured/third-party artifacts have producer/consumer dispositions;
 their presence does not imply authored-code, rendering or native-execution proof.

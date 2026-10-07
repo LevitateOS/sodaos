@@ -78,7 +78,7 @@ The following recommendations are design proposals for the owner to assess.
 
 | Current ownership | Proposed ownership | Reason and implementation closure |
 | --- | --- | --- |
-| `internal/host/publish` | `internal/forgejo/publish` | Its only production caller is `internal/forgejo`; it executes unprivileged repository publication. Keep the existing `BackgroundOperations` interface, credential isolation and factory/project domain inputs. Update the existing architecture rules to name this publication leaf correctly..* **[run 20261005:** PARTIAL — StatusError leaf moved to forgejo/publish (alias deleted, merged); package move retained for B07-full.] |
+| `internal/forgejo/publish` | Retain `internal/forgejo/publish`; predecessor `internal/host/publish` retired | B07.M's publication move and operation/observation/validation/push/receipt plus test splits landed in `33682cfc`; its merge-completion split landed in `6cb54cf9`. Direct callers and architecture assertions name the successor, with one `BackgroundOperations`/`StatusError` owner. Native effects, F09/F10/F12 corrections and Q5 remain separate; see current reconciliation in [G04](reviews/G04.md) and [G07](reviews/G07.md). |
 | Go acceptance Command/Evidence/process closure | Retire obsolete execution/evidence closure and its tests; no `internal/process` package | Its demonstrated process callers are the retiring Go image builder, Go worker and legacy acceptance harness. The Rust owners retain their real execution and descendant-cleanup behavior. Fold the live `PrivateFile` implementation into the existing installed probe input support before deleting `evidence.go`. |
 | `tools/soda-build/worker_linux.go` | `lib/soda-release-tools` (`worker.rs`, landed #30) | The Rust worker ports the tool-side worker and is the single worker owner. Retire the Go file at the release cutover. Preserve both admitted worker identities, trusted executable checks, mount/environment rules, root dispatch and exact systemd unit cleanup..* **[run 20261005:** crate path rust/->lib/ LANDED (C08); Go file still retires at cutover.] |
 | `internal/acceptance/worker_linux*` | Retire at the release cutover (no production caller left) | Its only production caller is the retired Go tool. Do not move it into the deleted tool as previously proposed. |
@@ -89,7 +89,12 @@ The following recommendations are design proposals for the owner to assess.
 | `rust/soda-host` | Retain at `lib/host`; one package also owns the moved `cmd/soda-host/main.rs` | Current source already owns the Rust daemon and native adapters; its manifest and release compile path select that binary. The proposed move preserves this one package/service and the surviving Go client/wire surface. No Go daemon or retired executor is a target. | **[run 20261005:** A00 in-place roots LANDED.] **[adoption reconciliation:** the crate is canonical at lib/host, with its binary still at lib/host/src/main.rs. The desired cmd/soda-host entrypoint placement remains a separate pending structural duty; parked A is assessed separately.]
 | `rust/soda-project-account` + `rust/soda-project-factory-roles` | Existing `cmd/soda-project-terminal` package; `src/bin/project-account.rs`, `src/bin/project-factory-roles.rs`, `src/account.rs` and `src/factory_roles/` | Both native ports already compile into Project tools via release-build `production.rs:222-236` and install through Project Containerfile lines 40-44. Consolidate their package roots/dependencies and update these actual compile selectors; preserve binary names, installed paths and real compiled-helper tests. P03/P06 and shared owners challenge the exact split. | **[adoption reconciliation:** package fold and installed executable identities are canonical at the investigation pin; preserve completed placement and distinguish parked later seams.]
 
-Publication evidence: `internal/forgejo/publish.go:37-58` and
+Current scoped placement also retains `tools/soda-rootfs-server`: `d89f4563`
+moved its Go command/tests and rebound service references. These B07/rootfs
+updates do not refresh the historical root counts, import census or full R02
+coverage above.
+
+Historical publication evidence: `internal/forgejo/publish.go:37-58` and
 `internal/host/publish/operation.go:19-35`. Process/worker evidence:
 `internal/release/image/build.go:639-645`,
 `internal/acceptance/worker_linux.go:137-176`, and
@@ -179,8 +184,11 @@ admission policies. The final host callers and custom scanner/string/binder engi
 `3bf7e75b`; strict admission, scalar/byte policy and producer formatting remain
 small Serde adapters at their existing owners.
 Activation and candidate/lab credential producers (`eba27412`) retain only
-configuration validation and required Python-compatible output formatters;
-their removed JSON machinery has no pending structural split.
+configuration validation and current Python-style output formatters; their
+spelling is implementation behavior, not a permanent unsigned byte contract.
+REP-FMT-1 supersedes pending historical-format equivalence with actual consumer,
+semantic and current deterministic-output checks. Their retired JSON engines
+have no pending structural split.
 
 ### Selected engine and adapter ownership
 
@@ -209,6 +217,21 @@ in the lane schedule; this table describes remaining responsibilities.
 KEEP01, N12, JSON02, CFG02, CLI01 and SQLITE01 retain their narrow application
 contracts. Consolidating primitives does not reopen completed provider/package
 moves, duplicate domain records or create credential/database/codec services.
+
+### Current correction and simplification reservations
+
+The [finding allocation](execution-findings.md) defines exact post-adoption
+subtasks under the existing plan. It changes no process/language boundary and
+adds no generic helper, third DTO, runtime or state owner. Selective reservations:
+
+| Current defining duty | Accountable finding owner / physical reservation | Integration boundary |
+| --- | --- | --- |
+| Identity Controller/Store/Tx, settings/probe/list producers, typed rows and strict readers | A / existing cmd/soda-identity and host readers | New acquisition/close/bounds follow-ups remain distinct from completed broker fence. B retains canonical schema and explicit Go list-consumer handoff; profiles precede representations |
+| Go dispatch/publication/review/shutdown and saved-key mutation | B / existing dashboard/domain/Store/API/browser | One Store/publication writer across F08/F09; B sends only exact stop-receipt changes to A. Saved preferences differ from installed Project access; original operation identity is retained without a second ledger |
+| Host Muse child/listener and stop-owned run receipts | A physical writer; B remains F08-F3 accountable | Exclusive current launch/finish/receipt files, supervisor/FD joins, identity-safe signal/reap and bounded workers. Preserve terminal repair and parked C41; no new process framework |
+| Go installed capture and C verification tooling | OBS-G01 B via temporary exclusive C11 handoff; remaining scripts/tools C | Reserve installed.go/process.go together, return after integration. Per-finding ownership overrides the generic directory default; one current writer and actual consumers |
+| Release worker/evidence, provisioning and installer CA/output duties | C / existing source owners | Same-file failure/admission repairs precede formatter removal. Feature-only trim preserves current CA algorithms; exact permanent profile consumes actual producer/guide decision. Real Runner/Production, signed originals and shipping selectors remain |
+| Dependencies, shared schemas/compile/payload joins and full target refresh | Coordinator integration, with canonical B schema/A mirror | Workers supply exact edge/tuple changes. Full tree/decomposition regeneration waits for implemented boundaries, while current source inventory and selective ownership remain maintained |
 
 ## Existing execution topology
 
