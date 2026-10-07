@@ -6,22 +6,63 @@ use crate::console::Console;
 use crate::errors::Error;
 use crate::fmtx::Arg;
 use crate::signal::Ctx;
+use url::Url;
 
-fn valid_installed_https_origin(origin: &crate::urlx::Url, raw: &str) -> bool {
-    if origin.scheme != "https"
-        || origin.user_present
-        || !origin.raw_query.is_empty()
-        || !origin.fragment.is_empty()
+fn valid_installed_https_origin(origin: &Url, raw: &str) -> bool {
+    if origin.scheme() != "https"
+        || origin.host().is_none()
+        || origin.username() != ""
+        || origin.password().is_some()
+        || origin.query().is_some_and(|query| !query.is_empty())
+        || origin
+            .fragment()
+            .is_some_and(|fragment| !fragment.is_empty())
     {
         return false;
     }
-    if !origin.path.is_empty() && origin.path != b"/" {
+    let Some((_, rest)) = raw.split_once("://") else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.is_empty()
+        || authority.contains('@')
+        || authority.starts_with('[')
+            && authority
+                .split_once(']')
+                .is_some_and(|(inside, _)| inside.contains('%'))
+    {
         return false;
     }
-    !raw.bytes().any(|b| matches!(b, b'\r' | b'\n' | b'\0'))
+    let raw_path = rest
+        .find('/')
+        .map(|at| rest[at..].split(['?', '#']).next().unwrap_or(""))
+        .unwrap_or("");
+    if !matches!(raw_path, "" | "/") || !matches!(origin.path(), "" | "/") {
+        return false;
+    }
+    !raw.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\') && valid_percent_escapes(raw)
 }
 
-fn installed_forgejo_origin(root: &str) -> Result<(crate::urlx::Url, String), Error> {
+fn valid_percent_escapes(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            at += 3;
+        } else {
+            at += 1;
+        }
+    }
+    true
+}
+
+fn installed_forgejo_origin(root: &str) -> Result<(Url, String), Error> {
     let data = crate::execute::read_regular(&format!("{root}/dashboard.json"), 65536)
         .map_err(|_| Error::msg("cannot read installed browser address"))?;
     let text = String::from_utf8_lossy(&data);
@@ -35,8 +76,7 @@ fn installed_forgejo_origin(root: &str) -> Result<(crate::urlx::Url, String), Er
         Some(serde_json::Value::String(value)) => value.clone(),
         Some(_) => return Err(Error::msg("invalid installed browser configuration")),
     };
-    let origin =
-        crate::urlx::parse(&url).map_err(|_| Error::msg("invalid installed HTTPS address"))?;
+    let origin = Url::parse(&url).map_err(|_| Error::msg("invalid installed HTTPS address"))?;
     if !valid_installed_https_origin(&origin, &url) {
         return Err(Error::msg("invalid installed HTTPS address"));
     }
@@ -76,12 +116,7 @@ fn confirm_active_browser_units(ctx: &Ctx, run: &dyn Runner) -> Result<(), Error
     Ok(())
 }
 
-fn print_local_ca_guidance(
-    console: &Console,
-    origin: &crate::urlx::Url,
-    address: &str,
-    ca_path: &str,
-) -> Result<(), Error> {
+fn print_local_ca_guidance(console: &Console, address: &str, ca_path: &str) -> Result<(), Error> {
     let certificate = match crate::execute::read_regular(ca_path, 16384) {
         Ok(certificate) => certificate,
         Err(_) => {
@@ -102,7 +137,10 @@ fn print_local_ca_guidance(
         "Copy only the public root.crt file over your verified SSH connection:",
         &[],
     );
-    let host = String::from_utf8_lossy(&origin.host);
+    let host = address
+        .split_once("://")
+        .map(|(_, rest)| rest.split(['/', '?', '#']).next().unwrap_or(""))
+        .unwrap_or("");
     console.print(
         "scp root@%s:%s ./soda-local-ca.crt",
         &[Arg::Str(&host), Arg::Str(ca_path)],
@@ -121,8 +159,10 @@ pub(super) fn configured_access(
     let (origin, address) = installed_forgejo_origin(root)?;
     let local = uses_internal_tls(root)?;
     if local {
-        let host = origin.hostname();
-        let hostname = String::from_utf8_lossy(&host);
+        let hostname = origin
+            .host()
+            .map(|host| host.to_string())
+            .unwrap_or_default();
         let expected = private_setup_origin(&hostname).unwrap_or_default();
         if address.strip_suffix('/').unwrap_or(&address) != expected {
             return Err(Error::msg(
@@ -132,7 +172,7 @@ pub(super) fn configured_access(
     }
     confirm_active_browser_units(ctx, run)?;
     if local {
-        print_local_ca_guidance(console, &origin, &address, ca_path)?;
+        print_local_ca_guidance(console, &address, ca_path)?;
     } else {
         console.print("The browser services report active. Open %s after setting up client trust for your supplied certificate; browser login still needs verification.", &[Arg::Str(&address)]);
     }

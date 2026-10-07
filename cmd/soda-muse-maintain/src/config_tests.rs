@@ -90,7 +90,7 @@ fn runtime_config_validation_order() {
     };
     assert!(validate_runtime_config(&c)
         .unwrap_err()
-        .starts_with("netip.ParsePrefix"));
+        .starts_with("invalid IP prefix"));
     // Tailnet errors precede network errors.
     let c = Config {
         subnet: String::from("10.0.0.0/24"),

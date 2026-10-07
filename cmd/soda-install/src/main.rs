@@ -20,7 +20,6 @@ mod run;
 mod setup;
 mod signal;
 mod sshkey;
-mod urlx;
 mod wizard;
 mod x509;
 

@@ -102,6 +102,10 @@ fn local_trust_guidance_rejects_untrusted_destination() {
         "https://192.168.1.2/path",
         "https://root@192.168.1.2",
         "https://192.168.1.2?argument",
+        "https://192.168.1.2/..",
+        "https:///192.168.1.2",
+        "https://192.168.1.2\\path",
+        "https://192.168.1.2/%zz",
     ] {
         let root = temp_dir();
         std::fs::write(
