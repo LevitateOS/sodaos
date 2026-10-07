@@ -1,34 +1,24 @@
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-
-use soda_json::JsonValue;
 
 use crate::buildx::fresh_directory;
 use crate::document::{read_document, read_file};
-use crate::jsonx::Binder;
 use crate::model::{admit_channel, empty_state, Channel, Permit, Release, Trust};
-use crate::payload::decode_opt_string;
 use crate::{hash_bytes, is_channel, now_unix, Error};
 
 use super::{local_policy, private_file, verify_copy, write_json, Runner};
 
 /// `SecretFiles`: restricted signer key inputs.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct SecretFiles {
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub key: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub passphrase: String,
 }
 
-impl SecretFiles {
-    pub fn decode(value: &JsonValue) -> Result<SecretFiles, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid secrets".to_string())?;
-        let secrets = SecretFiles {
-            key: decode_opt_string(&mut b, "Key")?,
-            passphrase: decode_opt_string(&mut b, "Passphrase")?,
-        };
-        b.finish_name()?;
-        Ok(secrets)
-    }
-}
+impl SecretFiles {}
 
 fn admit_sign_inputs(t: &Trust, p: &Permit, input: &str, key: &SecretFiles) -> Result<(), Error> {
     if t.validate().is_err()
@@ -75,11 +65,11 @@ fn admit_signed_payload(t: &Trust, p: &Permit, snapshot: &str) -> Result<(), Err
     }
     let role = t.role(&p.repository).unwrap_or_default();
     if is_channel(&role) {
-        let channel: Channel = read_document(snapshot, &p.digest, Channel::decode)?;
+        let channel: Channel = read_document(snapshot, &p.digest)?;
         admit_channel(t, &empty_state(), &channel, &p.digest, &role, now_unix())?;
     }
     if p.repository == format!("{}-release", t.prefix) {
-        let release: Release = read_document(snapshot, &p.digest, Release::decode)?;
+        let release: Release = read_document(snapshot, &p.digest)?;
         release.validate(t)?;
     }
     Ok(())

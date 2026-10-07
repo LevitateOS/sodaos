@@ -1,12 +1,10 @@
+use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
-
-use soda_json::JsonValue;
+use std::fmt;
 
 use crate::buildx::is_digest;
-use crate::jsonx::{as_i64, parse_lenient, parse_strict, Binder, Emit, Emitter, Soft};
-use crate::payload::{
-    decode_opt_i64, decode_opt_string, decode_opt_u64, decode_string_map, Payload, NAMES,
-};
+use crate::payload::{Payload, NAMES};
 use crate::{is_channel, is_digest_ref, Error};
 
 use super::{Candidate, Channel, Highwater, Trust};
@@ -15,54 +13,178 @@ use super::{Candidate, Channel, Highwater, Trust};
 // Media binding (lenient decode: extra fields ignored)
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct MediaFile {
     pub path: String,
+    #[serde(rename = "SHA256")]
     pub sha256: String,
     pub bytes: i64,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct I64Seed;
+impl<'de> serde::de::DeserializeSeed<'de> for I64Seed {
+    type Value = i64;
+    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<i64, D::Error> {
+        crate::json_serde::null_i64(d)
+    }
+}
+
+#[derive(Default)]
+struct RawI64(i64);
+impl<'de> Deserialize<'de> for RawI64 {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        I64Seed.deserialize(d).map(RawI64)
+    }
+}
+
+fn decode_slot<T: for<'de> Deserialize<'de> + Default, E: serde::de::Error>(
+    raw: Option<Box<serde_json::value::RawValue>>,
+) -> Result<T, E> {
+    let Some(raw) = raw else {
+        return Ok(T::default());
+    };
+    serde_json::from_str::<Option<T>>(raw.get())
+        .map_err(E::custom)
+        .map(Option::unwrap_or_default)
+}
+
+impl<'de> Deserialize<'de> for MediaFile {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = MediaFile;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a media file object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<MediaFile, M::Error> {
+                let (mut path, mut sha256, mut bytes) = (None, None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "Path" => path = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "SHA256" => {
+                            sha256 = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Bytes" => {
+                            bytes = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                let path = decode_slot(path)?;
+                let sha256 = decode_slot(sha256)?;
+                let bytes = decode_slot::<RawI64, M::Error>(bytes)?.0;
+                Ok(MediaFile {
+                    path,
+                    sha256,
+                    bytes,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct MediaBinding {
     pub revision: String,
     pub architecture: String,
     pub host_manifest: String,
+    #[serde(rename = "PayloadSHA256")]
     pub payload_sha256: String,
+    #[serde(rename = "RootfsURL")]
     pub rootfs_url: String,
     pub iso: MediaFile,
     pub rootfs: MediaFile,
 }
 
-fn decode_media_file(value: &JsonValue) -> Result<MediaFile, crate::jsonx::DecodeError> {
-    let soft = Soft::new(value)?;
-    Ok(MediaFile {
-        path: soft.string("Path")?.unwrap_or_default(),
-        sha256: soft.string("SHA256")?.unwrap_or_default(),
-        bytes: as_i64(soft.integer("Bytes")?.unwrap_or(0))?,
-    })
+impl<'de> Deserialize<'de> for MediaBinding {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = MediaBinding;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a media binding object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<MediaBinding, M::Error> {
+                let (
+                    mut revision,
+                    mut architecture,
+                    mut host_manifest,
+                    mut payload_sha256,
+                    mut rootfs_url,
+                    mut iso,
+                    mut rootfs,
+                ) = (None, None, None, None, None, None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "Revision" => {
+                            revision = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Architecture" => {
+                            architecture = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "HostManifest" => {
+                            host_manifest =
+                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "PayloadSHA256" => {
+                            payload_sha256 =
+                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "RootfsURL" => {
+                            rootfs_url = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "ISO" => iso = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "Rootfs" => {
+                            rootfs = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(MediaBinding {
+                    revision: decode_slot(revision)?,
+                    architecture: decode_slot(architecture)?,
+                    host_manifest: decode_slot(host_manifest)?,
+                    payload_sha256: decode_slot(payload_sha256)?,
+                    rootfs_url: decode_slot(rootfs_url)?,
+                    iso: decode_slot(iso)?,
+                    rootfs: decode_slot(rootfs)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
 }
 
 impl MediaBinding {
-    pub fn decode_lenient(data: &[u8]) -> Result<MediaBinding, crate::jsonx::DecodeError> {
-        let value = parse_lenient(data)?;
-        let soft = Soft::new(&value)?;
-        let iso = match soft.field("ISO") {
-            Some(v) => decode_media_file(v)?,
-            None => MediaFile::default(),
-        };
-        let rootfs = match soft.field("Rootfs") {
-            Some(v) => decode_media_file(v)?,
-            None => MediaFile::default(),
-        };
-        Ok(MediaBinding {
-            revision: soft.string("Revision")?.unwrap_or_default(),
-            architecture: soft.string("Architecture")?.unwrap_or_default(),
-            host_manifest: soft.string("HostManifest")?.unwrap_or_default(),
-            payload_sha256: soft.string("PayloadSHA256")?.unwrap_or_default(),
-            rootfs_url: soft.string("RootfsURL")?.unwrap_or_default(),
-            iso,
-            rootfs,
-        })
+    pub(crate) fn decode_lenient(
+        data: &[u8],
+    ) -> Result<MediaBinding, crate::json_serde::DecodeError> {
+        serde_json::from_slice(data).map_err(|_| crate::json_serde::DecodeError)
+    }
+}
+
+#[cfg(test)]
+mod media_json_tests {
+    use super::MediaBinding;
+
+    #[test]
+    fn media_binding_defers_validation_until_the_last_exact_raw_value() {
+        let value = MediaBinding::decode_lenient(br#"{"Revision":7,"Revision":"final","ISO":{"Path":false,"Path":"disk.iso","Bytes":1.5,"Bytes":-0,"Unknown":{"nested":[1]}},"Rootfs":null,"ignored":true}"#).unwrap();
+        assert_eq!(value.revision, "final");
+        assert_eq!(value.iso.path, "disk.iso");
+        assert_eq!(value.iso.bytes, 0);
+        assert_eq!(value.rootfs, Default::default());
+        assert!(MediaBinding::decode_lenient(br#"{"ISO":{"Bytes":-0.0}}"#).is_err());
+        assert!(MediaBinding::decode_lenient(br#"{"ISO":{"Bytes":-0,"Bytes":1e0}}"#).is_err());
+        let reset = MediaBinding::decode_lenient(br#"{"Revision":"old","Revision":null}"#).unwrap();
+        assert!(reset.revision.is_empty());
     }
 }
 
@@ -95,18 +217,53 @@ pub(crate) fn valid_media_binding(m: &MediaBinding, p: &Payload, c: &Candidate) 
 // Release
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct Release {
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub format: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_u64")]
     pub serial: u64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub class: String,
+    #[serde(serialize_with = "serialize_base64")]
+    #[serde(deserialize_with = "deserialize_base64")]
     pub payload: Vec<u8>,
+    #[serde(serialize_with = "serialize_base64")]
+    #[serde(deserialize_with = "deserialize_base64")]
     pub candidate: Vec<u8>,
+    #[serde(serialize_with = "serialize_base64")]
+    #[serde(deserialize_with = "deserialize_base64")]
     pub media: Vec<u8>,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub provenance: BTreeMap<String, String>,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub qualification: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub evidence: BTreeMap<String, String>,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub notes: String,
+}
+
+fn serialize_base64<S: serde::Serializer>(
+    bytes: &Vec<u8>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    use base64::Engine;
+    serializer.serialize_str(&base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
+fn deserialize_base64<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
+    use base64::Engine;
+    use serde::de::Error as _;
+    let value = Option::<String>::deserialize(deserializer)?.unwrap_or_default();
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(&value)
+        .map_err(D::Error::custom)?;
+    if base64::engine::general_purpose::STANDARD.encode(&decoded) != value {
+        return Err(D::Error::custom("non-canonical base64"));
+    }
+    Ok(decoded)
 }
 
 fn valid_release_identity(r: &Release) -> bool {
@@ -124,10 +281,8 @@ fn valid_release_notes_and_evidence(r: &Release) -> bool {
 }
 
 fn decode_release_payloads(r: &Release) -> Result<(Payload, Candidate), Error> {
-    let payload_value = parse_strict(&r.payload)?;
-    let candidate_value = parse_strict(&r.candidate)?;
-    let p = Payload::decode(&payload_value).map_err(|_| Error::refused())?;
-    let c = Candidate::decode(&candidate_value).map_err(|_| Error::refused())?;
+    let p = crate::json_serde::strict(&r.payload)?;
+    let c = crate::json_serde::strict(&r.candidate)?;
     Ok((p, c))
 }
 
@@ -207,70 +362,6 @@ impl Release {
             }
         }
         Ok(refs)
-    }
-
-    pub fn decode(value: &JsonValue) -> Result<Release, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid release".to_string())?;
-        let release = Release {
-            format: decode_opt_i64(&mut b, "Format")?,
-            serial: decode_opt_u64(&mut b, "Serial")?,
-            class: decode_opt_string(&mut b, "Class")?,
-            payload: b
-                .bytes("Payload")
-                .map_err(|_| "invalid field Payload".to_string())?
-                .unwrap_or_default(),
-            candidate: b
-                .bytes("Candidate")
-                .map_err(|_| "invalid field Candidate".to_string())?
-                .unwrap_or_default(),
-            media: b
-                .bytes("Media")
-                .map_err(|_| "invalid field Media".to_string())?
-                .unwrap_or_default(),
-            provenance: decode_string_map(&mut b, "Provenance")?,
-            qualification: decode_opt_string(&mut b, "Qualification")?,
-            evidence: decode_string_map(&mut b, "Evidence")?,
-            notes: decode_opt_string(&mut b, "Notes")?,
-        };
-        b.finish_name()?;
-        Ok(release)
-    }
-}
-
-impl Emit for Release {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Format");
-        e.int(self.format);
-        e.field(false, "Serial");
-        e.uint(self.serial);
-        e.field(false, "Class");
-        e.string(&self.class);
-        e.field(false, "Payload");
-        e.bytes(&self.payload);
-        e.field(false, "Candidate");
-        e.bytes(&self.candidate);
-        e.field(false, "Media");
-        e.bytes(&self.media);
-        e.field(false, "Provenance");
-        e.begin_object(self.provenance.is_empty());
-        for (i, (name, hash)) in self.provenance.iter().enumerate() {
-            e.field(i == 0, name);
-            e.string(hash);
-        }
-        e.end_object(self.provenance.is_empty());
-        e.field(false, "Qualification");
-        e.string(&self.qualification);
-        e.field(false, "Evidence");
-        e.begin_object(self.evidence.is_empty());
-        for (i, (name, hash)) in self.evidence.iter().enumerate() {
-            e.field(i == 0, name);
-            e.string(hash);
-        }
-        e.end_object(self.evidence.is_empty());
-        e.field(false, "Notes");
-        e.string(&self.notes);
-        e.end_object(false);
     }
 }
 

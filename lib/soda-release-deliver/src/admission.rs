@@ -1,16 +1,15 @@
 //! `admission.go`: qualification admission for protected final signing.
 
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use sha2::{Digest as _, Sha256};
-use soda_json::JsonValue;
 
 use crate::buildx::{read_at, Root};
 use crate::document::read_file;
 use crate::finalize::Config;
-use crate::jsonx::{parse_strict, Binder, Emit, Emitter};
 use crate::model::{Candidate, MediaBinding};
-use crate::payload::{decode_opt_bool, decode_opt_i64, decode_opt_string, Payload};
+use crate::payload::Payload;
 use crate::prepare::{read_media_binding, Qualification};
 use crate::Error;
 
@@ -18,117 +17,51 @@ use crate::Error;
 pub const QUALIFICATION_SCOPE: &str = "native-install-upgrade-recovery";
 
 /// `EvidenceCheck`: one required native observation.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct EvidenceCheck {
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub name: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub outcome: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub detail: String,
 }
 
-impl EvidenceCheck {
-    pub fn decode(value: &JsonValue) -> Result<EvidenceCheck, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid check".to_string())?;
-        let check = EvidenceCheck {
-            name: decode_opt_string(&mut b, "Name")?,
-            outcome: decode_opt_string(&mut b, "Outcome")?,
-            detail: decode_opt_string(&mut b, "Detail")?,
-        };
-        b.finish_name()?;
-        Ok(check)
-    }
-}
-
-impl Emit for EvidenceCheck {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Name");
-        e.string(&self.name);
-        e.field(false, "Outcome");
-        e.string(&self.outcome);
-        e.field(false, "Detail");
-        e.string(&self.detail);
-        e.end_object(false);
-    }
-}
+impl EvidenceCheck {}
 
 /// `QualificationEvidence`: exact protected-worker qualification record.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct QualificationEvidence {
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub format: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub outcome: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub scope: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub revision: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub architecture: String,
+    #[serde(rename = "PayloadSHA256")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub payload_sha256: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub host_manifest: String,
+    #[serde(rename = "ISOSHA256")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub iso_sha256: String,
+    #[serde(rename = "RootfsSHA256")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub rootfs_sha256: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub checks: Vec<EvidenceCheck>,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub fixture: bool,
 }
 
-impl QualificationEvidence {
-    pub fn decode(value: &JsonValue) -> Result<QualificationEvidence, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid evidence".to_string())?;
-        let mut evidence = QualificationEvidence {
-            format: decode_opt_i64(&mut b, "Format")?,
-            outcome: decode_opt_string(&mut b, "Outcome")?,
-            scope: decode_opt_string(&mut b, "Scope")?,
-            revision: decode_opt_string(&mut b, "Revision")?,
-            architecture: decode_opt_string(&mut b, "Architecture")?,
-            payload_sha256: decode_opt_string(&mut b, "PayloadSHA256")?,
-            host_manifest: decode_opt_string(&mut b, "HostManifest")?,
-            iso_sha256: decode_opt_string(&mut b, "ISOSHA256")?,
-            rootfs_sha256: decode_opt_string(&mut b, "RootfsSHA256")?,
-            checks: Vec::new(),
-            fixture: decode_opt_bool(&mut b, "Fixture")?,
-        };
-        if let Some(items) = b
-            .array("Checks")
-            .map_err(|_| "invalid field Checks".to_string())?
-        {
-            for item in items {
-                evidence.checks.push(EvidenceCheck::decode(item)?);
-            }
-        }
-        b.finish_name()?;
-        Ok(evidence)
-    }
-}
-
-impl Emit for QualificationEvidence {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Format");
-        e.int(self.format);
-        e.field(false, "Outcome");
-        e.string(&self.outcome);
-        e.field(false, "Scope");
-        e.string(&self.scope);
-        e.field(false, "Revision");
-        e.string(&self.revision);
-        e.field(false, "Architecture");
-        e.string(&self.architecture);
-        e.field(false, "PayloadSHA256");
-        e.string(&self.payload_sha256);
-        e.field(false, "HostManifest");
-        e.string(&self.host_manifest);
-        e.field(false, "ISOSHA256");
-        e.string(&self.iso_sha256);
-        e.field(false, "RootfsSHA256");
-        e.string(&self.rootfs_sha256);
-        e.field(false, "Checks");
-        e.begin_array(self.checks.is_empty());
-        for (i, check) in self.checks.iter().enumerate() {
-            e.item(i == 0);
-            check.emit(e);
-        }
-        e.end_array(self.checks.is_empty());
-        e.field(false, "Fixture");
-        e.boolean(self.fixture);
-        e.end_object(false);
-    }
-}
+impl QualificationEvidence {}
 
 fn required_qualification_checks() -> Vec<String> {
     ["install", "upgrade", "recovery", "preservation"]
@@ -156,8 +89,7 @@ fn sha256_hex(data: &[u8]) -> String {
 
 fn decode_qualification_evidence(path: &str) -> Result<(QualificationEvidence, Vec<u8>), Error> {
     let raw = read_file(path, 1 << 20)?;
-    let value = parse_strict(&raw).map_err(|_| Error::msg("qualification evidence refused"))?;
-    let evidence = QualificationEvidence::decode(&value)
+    let evidence: QualificationEvidence = crate::json_serde::strict(&raw)
         .map_err(|_| Error::msg("qualification evidence refused"))?;
     Ok((evidence, raw))
 }
@@ -218,14 +150,10 @@ pub(crate) fn load_admitted_candidate(
     let root = Root::open(candidate)?;
     let payload = read_at(&root, "payload.json", 1 << 20)?;
     let raw = read_at(&root, "candidate.json", 1 << 20)?;
-    let payload_value =
-        parse_strict(&payload).map_err(|_| Error::msg("candidate metadata refused"))?;
-    let candidate_value =
-        parse_strict(&raw).map_err(|_| Error::msg("candidate metadata refused"))?;
-    let p =
-        Payload::decode(&payload_value).map_err(|_| Error::msg("candidate metadata refused"))?;
-    let c = Candidate::decode(&candidate_value)
+    let p: Payload = crate::json_serde::strict(&payload)
         .map_err(|_| Error::msg("candidate metadata refused"))?;
+    let c: Candidate =
+        crate::json_serde::strict(&raw).map_err(|_| Error::msg("candidate metadata refused"))?;
     c.validate(&p, &payload)?;
     Ok((p, c, payload))
 }

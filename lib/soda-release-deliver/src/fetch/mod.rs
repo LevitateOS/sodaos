@@ -1,6 +1,6 @@
 //! `fetch.go`: verified channel fetch with durable state.
 
-use soda_json::JsonValue;
+use serde::de::DeserializeOwned;
 
 use crate::buildx::{fresh_directory, oci_architecture, private_destination};
 use crate::document::{read_document, read_json};
@@ -46,16 +46,15 @@ pub fn init_state(path: &str, t: &Trust) -> Result<(), Error> {
     write_json(path, &state)
 }
 
-pub(crate) fn fetch_document<T>(
+pub(crate) fn fetch_document<T: DeserializeOwned + Default>(
     r: &dyn Runner,
     t: &Trust,
     reference: &str,
     out: &str,
-    decode: impl Fn(&JsonValue) -> Result<T, String>,
 ) -> Result<T, Error> {
     verify_copy(r, t, reference, &format!("docker://{reference}"), out)?;
     let digest = reference.split('@').nth(1).unwrap_or("");
-    read_document(&format!("{out}/image"), digest, decode)
+    read_document(&format!("{out}/image"), digest)
 }
 
 fn admit_fetch_request(t: &Trust, name: &str, arch: &str) -> Result<(), Error> {
@@ -80,18 +79,12 @@ fn complete_fetch(
     let (next, verification) = verify_releases(r, t, state, offer, arch, out);
     save_state(state_path, &next)?;
     verification?;
-    let receipt = JsonValue::Object(vec![
-        ("Architecture".to_string(), JsonValue::Str(arch.to_string())),
-        ("Channel".to_string(), JsonValue::Str(reference.to_string())),
-        (
-            "Scope".to_string(),
-            JsonValue::Str(
-                "native signature/digest verification only; no installation or activation"
-                    .to_string(),
-            ),
-        ),
-        ("Withdrawn".to_string(), JsonValue::Bool(offer.withdrawn)),
-    ]);
+    let receipt = serde_json::json!({
+        "Architecture": arch,
+        "Channel": reference,
+        "Scope": "native signature/digest verification only; no installation or activation",
+        "Withdrawn": offer.withdrawn,
+    });
     write_json(&format!("{out}/verified.json"), &receipt)
 }
 
@@ -107,11 +100,10 @@ pub fn fetch(
 ) -> Result<(), Error> {
     admit_fetch_request(t, name, arch)?;
     let _lock = lock_state(state_path)?;
-    let state: Highwater = read_json(state_path, Highwater::decode)?;
+    let state: Highwater = read_json(state_path)?;
     fresh_directory(out)?;
     let reference = discover(r, t, name)?;
-    let offer: Channel =
-        fetch_document(r, t, &reference, &format!("{out}/channel"), Channel::decode)?;
+    let offer: Channel = fetch_document(r, t, &reference, &format!("{out}/channel"))?;
     let digest = reference.split('@').nth(1).unwrap_or("");
     let state = admit_channel(t, &state, &offer, digest, name, now_unix)?;
     save_state(state_path, &state)?;

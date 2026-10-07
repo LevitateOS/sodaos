@@ -106,11 +106,10 @@ fn trust_key_admission_preserves_cross_role_separation() {
 
 #[test]
 fn producer_trust_fixture_keeps_its_raw_der_fingerprint() {
-    let value = crate::jsonx::parse_strict(include_bytes!(
+    let trust: Trust = crate::json_serde::strict(include_bytes!(
         "../../../../system/host/trust/release-trust.json"
     ))
     .expect("producer trust fixture JSON");
-    let trust = Trust::decode(&value).expect("producer trust fixture");
     trust.validate().expect("producer trust fixture admits");
     let pem = trust
         .keys

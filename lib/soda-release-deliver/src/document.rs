@@ -1,18 +1,24 @@
 //! `document.go`: OCI document packaging plus confined file/JSON readers.
 
-use soda_json::JsonValue;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serde_json::ser::{CharEscape, Formatter, PrettyFormatter, Serializer};
+use std::io;
 
 use crate::buildx::{fresh_directory, read_at, write_new, Root};
-use crate::jsonx::{as_i64, marshal, parse_strict, Emit, Soft};
 use crate::{hash_bytes, is_digest_ref, Error};
 
 pub const MANIFEST_TYPE: &str = "application/vnd.oci.image.manifest.v1+json";
 pub const LAYER_TYPE: &str = "application/vnd.oci.image.layer.v1.tar";
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct Descriptor {
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub media_type: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub digest: String,
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub size: i64,
 }
 
@@ -135,13 +141,94 @@ fn set_mode(path: &str, mode: u32) -> Result<(), Error> {
 }
 
 /// `WriteDocument`: package one bounded JSON record as an OCI layout.
-pub fn write_document<T: Emit + ?Sized>(path: &str, value: &T) -> Result<String, Error> {
-    let data = marshal(value);
+pub fn write_document<T: Serialize + ?Sized>(path: &str, value: &T) -> Result<String, Error> {
+    let data = marshal_go_pretty(value)?;
     if data.len() > 1 << 20 {
         return Err(Error::refused());
     }
     fresh_directory(path)?;
     write_document_blobs(path, &data)
+}
+
+/// Encode release document bytes in the established Go producer format.
+pub fn marshal_go_pretty<T: Serialize + ?Sized>(value: &T) -> Result<Vec<u8>, Error> {
+    struct GoFormatter(PrettyFormatter<'static>);
+    impl Formatter for GoFormatter {
+        fn begin_array<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+            self.0.begin_array(w)
+        }
+        fn end_array<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+            self.0.end_array(w)
+        }
+        fn begin_array_value<W: ?Sized + io::Write>(
+            &mut self,
+            w: &mut W,
+            first: bool,
+        ) -> io::Result<()> {
+            self.0.begin_array_value(w, first)
+        }
+        fn end_array_value<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+            self.0.end_array_value(w)
+        }
+        fn begin_object<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+            self.0.begin_object(w)
+        }
+        fn end_object<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+            self.0.end_object(w)
+        }
+        fn begin_object_key<W: ?Sized + io::Write>(
+            &mut self,
+            w: &mut W,
+            first: bool,
+        ) -> io::Result<()> {
+            self.0.begin_object_key(w, first)
+        }
+        fn begin_object_value<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+            self.0.begin_object_value(w)
+        }
+        fn end_object_value<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+            self.0.end_object_value(w)
+        }
+        fn write_string_fragment<W: ?Sized + io::Write>(
+            &mut self,
+            w: &mut W,
+            fragment: &str,
+        ) -> io::Result<()> {
+            let mut start = 0;
+            for (i, ch) in fragment.char_indices() {
+                let escaped = match ch {
+                    '<' => Some("\\u003c"),
+                    '>' => Some("\\u003e"),
+                    '&' => Some("\\u0026"),
+                    '\u{2028}' => Some("\\u2028"),
+                    '\u{2029}' => Some("\\u2029"),
+                    _ => None,
+                };
+                if let Some(escaped) = escaped {
+                    w.write_all(fragment[start..i].as_bytes())?;
+                    w.write_all(escaped.as_bytes())?;
+                    start = i + ch.len_utf8();
+                }
+            }
+            w.write_all(fragment[start..].as_bytes())
+        }
+        fn write_char_escape<W: ?Sized + io::Write>(
+            &mut self,
+            w: &mut W,
+            escape: CharEscape,
+        ) -> io::Result<()> {
+            let mut compact = serde_json::ser::CompactFormatter;
+            compact.write_char_escape(w, escape)
+        }
+    }
+    let mut bytes = Vec::new();
+    let mut serializer =
+        Serializer::with_formatter(&mut bytes, GoFormatter(PrettyFormatter::with_indent(b"  ")));
+    value
+        .serialize(&mut serializer)
+        .map_err(|_| Error::refused())?;
+    bytes.push(b'\n');
+    Ok(bytes)
 }
 
 /// `ReadFile`: bounded regular read through a confined directory handle.
@@ -156,21 +243,16 @@ pub fn read_file(path: &str, maximum: i64) -> Result<Vec<u8>, Error> {
 }
 
 /// `ReadJSON`: strict-decode a bounded JSON file.
-pub fn read_json<T>(
-    path: &str,
-    decode: impl Fn(&JsonValue) -> Result<T, String>,
-) -> Result<T, Error> {
+pub fn read_json<T: DeserializeOwned + Default>(path: &str) -> Result<T, Error> {
     let data = read_file(path, 1 << 20)?;
-    let value = parse_strict(&data)?;
-    decode(&value).map_err(|_| Error::refused())
+    crate::json_serde::strict(&data)
 }
 
 fn decode_document_manifest(data: &[u8], want: &str) -> Result<OciManifestDoc, Error> {
     if hash_bytes(data) != want {
         return Err(Error::refused());
     }
-    let value = parse_strict(data)?;
-    let manifest = OciManifestDoc::decode(&value).map_err(|_| Error::refused())?;
+    let manifest: OciManifestDoc = crate::json_serde::strict(data)?;
     if manifest.schema_version != 2
         || manifest.media_type != MANIFEST_TYPE
         || manifest.layers.len() != 1
@@ -182,82 +264,17 @@ fn decode_document_manifest(data: &[u8], want: &str) -> Result<OciManifestDoc, E
     Ok(manifest)
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 struct OciManifestDoc {
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     schema_version: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     media_type: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     config: Descriptor,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     layers: Vec<Descriptor>,
-}
-
-impl OciManifestDoc {
-    fn decode(value: &JsonValue) -> Result<OciManifestDoc, String> {
-        let soft = Soft::new(value).map_err(|_| "invalid manifest".to_string())?;
-        // Strict shape: unknown fields refused, like Go's DisallowUnknownFields.
-        if let Some(entries) = soft.entries() {
-            for (key, _) in entries {
-                match key.as_str() {
-                    "schemaVersion" | "mediaType" | "config" | "layers" => {}
-                    _ => return Err(format!("json: unknown field \"{key}\"")),
-                }
-            }
-        }
-        let config = match soft.field("config") {
-            Some(v) => decode_doc_descriptor(v)?,
-            None => Descriptor::default(),
-        };
-        let mut layers = Vec::new();
-        if let Some(items) = soft
-            .array("layers")
-            .map_err(|_| "invalid layers".to_string())?
-        {
-            for item in items {
-                layers.push(decode_doc_descriptor(item)?);
-            }
-        }
-        Ok(OciManifestDoc {
-            schema_version: as_i64(
-                soft.integer("schemaVersion")
-                    .map_err(|_| "invalid schemaVersion".to_string())?
-                    .unwrap_or(0),
-            )
-            .map_err(|_| "invalid schemaVersion".to_string())?,
-            media_type: soft
-                .string("mediaType")
-                .map_err(|_| "invalid mediaType".to_string())?
-                .unwrap_or_default(),
-            config,
-            layers,
-        })
-    }
-}
-
-fn decode_doc_descriptor(value: &JsonValue) -> Result<Descriptor, String> {
-    let soft = Soft::new(value).map_err(|_| "invalid descriptor".to_string())?;
-    if let Some(entries) = soft.entries() {
-        for (key, _) in entries {
-            match key.as_str() {
-                "mediaType" | "digest" | "size" => {}
-                _ => return Err(format!("json: unknown field \"{key}\"")),
-            }
-        }
-    }
-    Ok(Descriptor {
-        media_type: soft
-            .string("mediaType")
-            .map_err(|_| "invalid descriptor".to_string())?
-            .unwrap_or_default(),
-        digest: soft
-            .string("digest")
-            .map_err(|_| "invalid descriptor".to_string())?
-            .unwrap_or_default(),
-        size: as_i64(
-            soft.integer("size")
-                .map_err(|_| "invalid descriptor".to_string())?
-                .unwrap_or(0),
-        )
-        .map_err(|_| "invalid descriptor".to_string())?,
-    })
 }
 
 fn read_document_blob(root: &Root, d: &Descriptor) -> Result<Vec<u8>, Error> {
@@ -299,19 +316,14 @@ fn read_document_record(data: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 /// `ReadDocument`: read one verified document from a fresh directory copy.
-pub fn read_document<T>(
-    path: &str,
-    want: &str,
-    decode: impl Fn(&JsonValue) -> Result<T, String>,
-) -> Result<T, Error> {
+pub fn read_document<T: DeserializeOwned + Default>(path: &str, want: &str) -> Result<T, Error> {
     let root = Root::open(path)?;
     let manifest_bytes = read_at(&root, "manifest.json", 64 << 10).map_err(|_| Error::refused())?;
     let manifest = decode_document_manifest(&manifest_bytes, want)?;
     read_document_blob(&root, &manifest.config)?;
     let data = read_document_blob(&root, &manifest.layers[0])?;
     let record = read_document_record(&data)?;
-    let value = parse_strict(&record)?;
-    decode(&value).map_err(|_| Error::refused())
+    crate::json_serde::strict(&record)
 }
 
 #[cfg(test)]
@@ -348,7 +360,10 @@ mod tests {
         };
         let out = format!("{dir}/doc");
         let digest = write_document(&out, &channel).unwrap();
-        assert!(digest.starts_with("sha256:"));
+        assert_eq!(
+            digest,
+            "sha256:5203d05966d2a64d48b1f30f3ace177cf2402dec02c00553bee56633c088e986"
+        );
         // Oversize records refuse before any write.
         let big = "x".repeat(1 << 20);
         assert_eq!(

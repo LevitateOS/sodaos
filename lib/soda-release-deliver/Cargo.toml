@@ -14,12 +14,8 @@ path = "src/lib.rs"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 base64 = "=0.22.1"
-soda-json = { path = "../json" }
 soda-build-tools = { path = "../release-inputs", features = ["trust-key"] }
 sha2 = "0.10"
 tar = "0.4"
 flate2 = "1"
 libc = "=0.2.190"
-
-[dev-dependencies]
-soda-json = { path = "../json" }

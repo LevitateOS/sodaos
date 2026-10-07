@@ -1,11 +1,11 @@
 //! `payload.go`: immutable appliance payload metadata.
 
+use serde::de::{DeserializeOwned, Error as DeError, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
-
-use soda_json::JsonValue;
+use std::fmt;
 
 use crate::buildx::{is_digest, is_revision, oci_architecture, Root};
-use crate::jsonx::{as_i64, Binder, Emit, Emitter};
 use crate::Error;
 
 pub const PATH: &str = "/usr/share/soda/release.json";
@@ -20,59 +20,232 @@ pub const NAMES: [&str; 6] = [
     "tailnet",
 ];
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Image {
     pub reference: String,
     pub config: String,
     pub manifest: String,
+    #[serde(rename = "ArchiveSHA256")]
     pub archive_sha256: String,
 }
 
-impl Image {
-    pub fn decode(value: &JsonValue) -> Result<Image, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid image".to_string())?;
-        let image = Image {
-            reference: decode_opt_string(&mut b, "Reference")?,
-            config: decode_opt_string(&mut b, "Config")?,
-            manifest: decode_opt_string(&mut b, "Manifest")?,
-            archive_sha256: decode_opt_string(&mut b, "ArchiveSHA256")?,
-        };
-        b.finish_name()?;
-        Ok(image)
+fn decode_raw_default<T: DeserializeOwned + Default, E: DeError>(
+    raw: Option<Box<serde_json::value::RawValue>>,
+) -> Result<T, E> {
+    let Some(raw) = raw else {
+        return Ok(T::default());
+    };
+    serde_json::from_str::<Option<T>>(raw.get())
+        .map_err(E::custom)
+        .map(Option::unwrap_or_default)
+}
+
+fn decode_images<E: DeError>(
+    raw: Option<Box<serde_json::value::RawValue>>,
+) -> Result<BTreeMap<String, Image>, E> {
+    let Some(raw) = raw else {
+        return Ok(BTreeMap::new());
+    };
+    let Some(entries) = serde_json::from_str::<
+        Option<BTreeMap<String, Box<serde_json::value::RawValue>>>,
+    >(raw.get())
+    .map_err(E::custom)?
+    else {
+        return Ok(BTreeMap::new());
+    };
+    entries
+        .into_iter()
+        .map(|(name, value)| {
+            serde_json::from_str::<Image>(value.get())
+                .map(|image| (name, image))
+                .map_err(E::custom)
+        })
+        .collect()
+}
+
+#[derive(Default)]
+struct RawI64(i64);
+impl<'de> Deserialize<'de> for RawI64 {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        crate::json_serde::null_i64(d).map(RawI64)
     }
 }
 
-impl Emit for Image {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Reference");
-        e.string(&self.reference);
-        e.field(false, "Config");
-        e.string(&self.config);
-        e.field(false, "Manifest");
-        e.string(&self.manifest);
-        e.field(false, "ArchiveSHA256");
-        e.string(&self.archive_sha256);
-        e.end_object(false);
+impl<'de> Deserialize<'de> for Image {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = Image;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an image object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<Image, M::Error> {
+                let (mut reference, mut config, mut manifest, mut archive_sha256) =
+                    (None, None, None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "Reference" => {
+                            reference = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Config" => {
+                            config = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Manifest" => {
+                            manifest = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "ArchiveSHA256" => {
+                            archive_sha256 =
+                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            return Err(M::Error::unknown_field(
+                                &key,
+                                &["Reference", "Config", "Manifest", "ArchiveSHA256"],
+                            ))
+                        }
+                    }
+                }
+                Ok(Image {
+                    reference: decode_raw_default(reference)?,
+                    config: decode_raw_default(config)?,
+                    manifest: decode_raw_default(manifest)?,
+                    archive_sha256: decode_raw_default(archive_sha256)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+impl Image {}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Payload {
     pub format: i64,
+    #[serde(rename = "ID")]
     pub id: String,
     pub revision: String,
     pub architecture: String,
+    #[serde(rename = "CoreOS")]
     pub core_os: String,
     pub base: String,
     pub repository_prefix: String,
     pub schema: i64,
+    #[serde(rename = "PresentationSHA256")]
     pub presentation_sha256: String,
+    #[serde(rename = "HostPackagesSHA256")]
     pub host_packages_sha256: String,
     pub images: BTreeMap<String, Image>,
     // `nil` vs empty is observable in JSON (`null` vs `[]`); Go leaves this
     // unset, so `None` marshals as `null` exactly like the owner.
     pub upgrade_from: Option<Vec<String>>,
+}
+
+impl<'de> Deserialize<'de> for Payload {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = Payload;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an appliance payload object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<Payload, M::Error> {
+                let (
+                    mut format,
+                    mut id,
+                    mut revision,
+                    mut architecture,
+                    mut core_os,
+                    mut base,
+                    mut repository_prefix,
+                    mut schema,
+                    mut presentation_sha256,
+                    mut host_packages_sha256,
+                    mut images,
+                    mut upgrade_from,
+                ) = (
+                    None, None, None, None, None, None, None, None, None, None, None, None,
+                );
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "Format" => {
+                            format = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "ID" => id = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "Revision" => {
+                            revision = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Architecture" => {
+                            architecture = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "CoreOS" => {
+                            core_os = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Base" => base = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "RepositoryPrefix" => {
+                            repository_prefix =
+                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Schema" => {
+                            schema = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "PresentationSHA256" => {
+                            presentation_sha256 =
+                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "HostPackagesSHA256" => {
+                            host_packages_sha256 =
+                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Images" => {
+                            images = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "UpgradeFrom" => {
+                            upgrade_from = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            return Err(M::Error::unknown_field(
+                                &key,
+                                &[
+                                    "Format",
+                                    "ID",
+                                    "Revision",
+                                    "Architecture",
+                                    "CoreOS",
+                                    "Base",
+                                    "RepositoryPrefix",
+                                    "Schema",
+                                    "PresentationSHA256",
+                                    "HostPackagesSHA256",
+                                    "Images",
+                                    "UpgradeFrom",
+                                ],
+                            ))
+                        }
+                    }
+                }
+                let format = decode_raw_default::<RawI64, M::Error>(format)?.0;
+                let schema = decode_raw_default::<RawI64, M::Error>(schema)?.0;
+                Ok(Payload {
+                    format,
+                    id: decode_raw_default(id)?,
+                    revision: decode_raw_default(revision)?,
+                    architecture: decode_raw_default(architecture)?,
+                    core_os: decode_raw_default(core_os)?,
+                    base: decode_raw_default(base)?,
+                    repository_prefix: decode_raw_default(repository_prefix)?,
+                    schema,
+                    presentation_sha256: decode_raw_default(presentation_sha256)?,
+                    host_packages_sha256: decode_raw_default(host_packages_sha256)?,
+                    images: decode_images(images)?,
+                    upgrade_from: decode_raw_default(upgrade_from)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
 }
 
 fn is_core_os_version(s: &str) -> bool {
@@ -164,146 +337,6 @@ impl Payload {
         }
         Ok(())
     }
-
-    pub fn decode(value: &JsonValue) -> Result<Payload, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid payload".to_string())?;
-        let mut payload = Payload {
-            format: decode_opt_i64(&mut b, "Format")?,
-            id: decode_opt_string(&mut b, "ID")?,
-            revision: decode_opt_string(&mut b, "Revision")?,
-            architecture: decode_opt_string(&mut b, "Architecture")?,
-            core_os: decode_opt_string(&mut b, "CoreOS")?,
-            base: decode_opt_string(&mut b, "Base")?,
-            repository_prefix: decode_opt_string(&mut b, "RepositoryPrefix")?,
-            schema: decode_opt_i64(&mut b, "Schema")?,
-            presentation_sha256: decode_opt_string(&mut b, "PresentationSHA256")?,
-            host_packages_sha256: decode_opt_string(&mut b, "HostPackagesSHA256")?,
-            images: BTreeMap::new(),
-            upgrade_from: None,
-        };
-        if let Some(entries) = b
-            .entries("Images")
-            .map_err(|_| "invalid field Images".to_string())?
-        {
-            for (name, item) in entries {
-                payload.images.insert(name.clone(), Image::decode(item)?);
-            }
-        }
-        if let Some(items) = b
-            .array("UpgradeFrom")
-            .map_err(|_| "invalid field UpgradeFrom".to_string())?
-        {
-            let mut entries = Vec::new();
-            for item in items {
-                match item {
-                    JsonValue::Str(s) => entries.push(s.clone()),
-                    _ => return Err("invalid field UpgradeFrom".to_string()),
-                }
-            }
-            payload.upgrade_from = Some(entries);
-        }
-        b.finish_name()?;
-        Ok(payload)
-    }
-
-    pub fn decode_build(value: &JsonValue) -> Result<Payload, Error> {
-        Payload::decode(&crate::jsonx::dedupe_last_wins(value.clone())).map_err(Error::msg)
-    }
-}
-
-pub fn decode_opt_string(b: &mut Binder<'_>, name: &str) -> Result<String, String> {
-    Ok(b.string(name)
-        .map_err(|_| format!("invalid field {name}"))?
-        .unwrap_or_default())
-}
-
-pub fn decode_opt_i64(b: &mut Binder<'_>, name: &str) -> Result<i64, String> {
-    let raw = b
-        .integer(name)
-        .map_err(|_| format!("invalid field {name}"))?
-        .unwrap_or(0);
-    as_i64(raw).map_err(|_| format!("invalid field {name}"))
-}
-
-pub fn decode_opt_u64(b: &mut Binder<'_>, name: &str) -> Result<u64, String> {
-    let raw = b
-        .integer(name)
-        .map_err(|_| format!("invalid field {name}"))?
-        .unwrap_or(0);
-    crate::jsonx::as_u64(raw).map_err(|_| format!("invalid field {name}"))
-}
-
-pub fn decode_opt_bool(b: &mut Binder<'_>, name: &str) -> Result<bool, String> {
-    Ok(b.boolean(name)
-        .map_err(|_| format!("invalid field {name}"))?
-        .unwrap_or(false))
-}
-
-pub fn decode_string_map(
-    b: &mut Binder<'_>,
-    name: &str,
-) -> Result<BTreeMap<String, String>, String> {
-    let mut map = BTreeMap::new();
-    if let Some(entries) = b
-        .entries(name)
-        .map_err(|_| format!("invalid field {name}"))?
-    {
-        for (key, item) in entries {
-            match item {
-                JsonValue::Str(s) => {
-                    map.insert(key.clone(), s.clone());
-                }
-                _ => return Err(format!("invalid field {name}")),
-            }
-        }
-    }
-    Ok(map)
-}
-
-impl Emit for Payload {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Format");
-        e.int(self.format);
-        e.field(false, "ID");
-        e.string(&self.id);
-        e.field(false, "Revision");
-        e.string(&self.revision);
-        e.field(false, "Architecture");
-        e.string(&self.architecture);
-        e.field(false, "CoreOS");
-        e.string(&self.core_os);
-        e.field(false, "Base");
-        e.string(&self.base);
-        e.field(false, "RepositoryPrefix");
-        e.string(&self.repository_prefix);
-        e.field(false, "Schema");
-        e.int(self.schema);
-        e.field(false, "PresentationSHA256");
-        e.string(&self.presentation_sha256);
-        e.field(false, "HostPackagesSHA256");
-        e.string(&self.host_packages_sha256);
-        e.field(false, "Images");
-        e.begin_object(self.images.is_empty());
-        for (i, (name, image)) in self.images.iter().enumerate() {
-            e.field(i == 0, name);
-            image.emit(e);
-        }
-        e.end_object(self.images.is_empty());
-        e.field(false, "UpgradeFrom");
-        match &self.upgrade_from {
-            None => e.null(),
-            Some(entries) => {
-                e.begin_array(entries.is_empty());
-                for (i, entry) in entries.iter().enumerate() {
-                    e.item(i == 0);
-                    e.string(entry);
-                }
-                e.end_array(entries.is_empty());
-            }
-        }
-        e.end_object(false);
-    }
 }
 
 /// `ValidRepositoryPrefix`: `^ghcr\.io/[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9._-]*$`
@@ -354,12 +387,7 @@ pub fn load(path: &str) -> Result<Payload, Error> {
         None => path,
     };
     let root = Root::open(&parent)?;
-    let mut payload = Payload::default();
-    crate::buildx::read_json_at(&root, base, &mut |value| {
-        Payload::decode_build(value)
-            .map(|decoded| payload = decoded)
-            .map_err(|e| e.0)
-    })?;
+    let (payload, _) = crate::buildx::read_json_at(&root, base)?;
     payload.validate()?;
     Ok(payload)
 }

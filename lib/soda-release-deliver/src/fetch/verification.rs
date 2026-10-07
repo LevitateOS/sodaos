@@ -1,14 +1,124 @@
 use std::collections::BTreeMap;
+use std::fmt;
+
+use serde::de::{DeserializeOwned, Error as DeError, IgnoredAny, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use crate::buildx::oci_architecture;
 use crate::document::read_file;
-use crate::jsonx::{parse_lenient, Soft};
 use crate::model::{admit_release, Candidate, Channel, Highwater, Release, Trust};
 use crate::native::{verify_copy, Runner};
 use crate::payload::Payload;
 use crate::Error;
 
 use super::fetch_document;
+
+fn decode_raw<T: DeserializeOwned + Default, E: DeError>(
+    raw: Option<Box<serde_json::value::RawValue>>,
+) -> Result<T, E> {
+    let Some(raw) = raw else {
+        return Ok(T::default());
+    };
+    serde_json::from_str::<Option<T>>(raw.get())
+        .map_err(E::custom)
+        .map(Option::unwrap_or_default)
+}
+
+#[derive(Default)]
+struct ImageMetadata {
+    os: String,
+    architecture: String,
+}
+impl<'de> Deserialize<'de> for ImageMetadata {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ImageMetadata;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an image config object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<ImageMetadata, M::Error> {
+                let (mut os, mut architecture) = (None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "os" => os = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "architecture" => {
+                            architecture = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(ImageMetadata {
+                    os: decode_raw(os)?,
+                    architecture: decode_raw(architecture)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct ImageManifest {
+    config: ImageConfig,
+}
+impl<'de> Deserialize<'de> for ImageManifest {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ImageManifest;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an image manifest object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<ImageManifest, M::Error> {
+                let mut config = None;
+                while let Some(key) = m.next_key::<String>()? {
+                    if key == "config" {
+                        config = Some(m.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        m.next_value::<IgnoredAny>()?;
+                    }
+                }
+                Ok(ImageManifest {
+                    config: decode_raw(config)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Default)]
+struct ImageConfig {
+    digest: String,
+}
+impl<'de> Deserialize<'de> for ImageConfig {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ImageConfig;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an image config descriptor")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<ImageConfig, M::Error> {
+                let mut digest = None;
+                while let Some(key) = m.next_key::<String>()? {
+                    if key == "digest" {
+                        digest = Some(m.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        m.next_value::<IgnoredAny>()?;
+                    }
+                }
+                Ok(ImageConfig {
+                    digest: decode_raw(digest)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
 
 fn resolve_verification_architectures(c: &Channel, arch: &str) -> Result<Vec<String>, Error> {
     if arch.is_empty() {
@@ -28,16 +138,9 @@ fn resolve_verification_architectures(c: &Channel, arch: &str) -> Result<Vec<Str
 }
 
 fn check_verified_image_metadata(config: &[u8], arch: &str) -> Result<(), Error> {
-    let value = parse_lenient(config).map_err(|_| Error::refused())?;
-    let soft = Soft::new(&value).map_err(|_| Error::refused())?;
-    let architecture = soft
-        .string("architecture")
-        .map_err(|_| Error::refused())?
-        .unwrap_or_default();
-    let os = soft
-        .string("os")
-        .map_err(|_| Error::refused())?
-        .unwrap_or_default();
+    let metadata: ImageMetadata = serde_json::from_slice(config).map_err(|_| Error::refused())?;
+    let architecture = metadata.architecture;
+    let os = metadata.os;
     let want = oci_architecture(arch).map_err(|_| Error::refused())?;
     if os != "linux" || architecture != want {
         return Err(Error::refused());
@@ -47,20 +150,39 @@ fn check_verified_image_metadata(config: &[u8], arch: &str) -> Result<(), Error>
 
 fn check_verified_image_manifest(manifest_path: &str, expected_config: &str) -> Result<(), Error> {
     let data = read_file(manifest_path, 1 << 20)?;
-    let value = parse_lenient(&data).map_err(|_| Error::refused())?;
-    let soft = Soft::new(&value).map_err(|_| Error::refused())?;
-    let config = soft.object("config").map_err(|_| Error::refused())?;
-    let digest = match config {
-        Some(config) => config
-            .string("digest")
-            .map_err(|_| Error::refused())?
-            .unwrap_or_default(),
-        None => String::new(),
-    };
+    let manifest: ImageManifest = serde_json::from_slice(&data).map_err(|_| Error::refused())?;
+    let digest = manifest.config.digest;
     if digest != expected_config {
         return Err(Error::refused());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod json_slot_tests {
+    use super::{ImageConfig, ImageManifest, ImageMetadata};
+
+    #[test]
+    fn fetch_metadata_uses_final_exact_values_before_typed_conversion() {
+        let metadata: ImageMetadata = serde_json::from_str(
+            r#"{"os":false,"os":"linux","architecture":"bad","architecture":null,"future":1}"#,
+        )
+        .unwrap();
+        assert_eq!(metadata.os, "linux");
+        assert_eq!(metadata.architecture, "");
+
+        let manifest: ImageManifest = serde_json::from_str(
+            r#"{"config":{"digest":false,"digest":"sha256:ok"},"config":{"digest":"sha256:last"}}"#,
+        )
+        .unwrap();
+        assert_eq!(manifest.config.digest, "sha256:last");
+        let config: ImageConfig =
+            serde_json::from_str(r#"{"digest":false,"digest":"sha256:last"}"#).unwrap();
+        assert_eq!(config.digest, "sha256:last");
+        assert!(
+            serde_json::from_str::<ImageConfig>(r#"{"digest":"valid","digest":false}"#).is_err()
+        );
+    }
 }
 
 fn verify_release_image_copy(
@@ -164,14 +286,8 @@ fn verify_architecture_release(
     tracker: &mut ReleaseIdentityTracker,
     refs_seen: &mut BTreeMap<String, String>,
 ) -> Result<Highwater, (Highwater, Error)> {
-    let release: Release = fetch_document(
-        r,
-        t,
-        reference,
-        &format!("{out}/{arch}-release"),
-        Release::decode,
-    )
-    .map_err(|e| (s.clone(), e))?;
+    let release: Release = fetch_document(r, t, reference, &format!("{out}/{arch}-release"))
+        .map_err(|e| (s.clone(), e))?;
     let next = admit_release(t, s, c, arch, reference, &release).map_err(|e| (s.clone(), e))?;
     let (p, candidate) = release.validate(t).map_err(|e| (s.clone(), e))?;
     tracker

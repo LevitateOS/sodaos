@@ -1,12 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use soda_json::JsonValue;
-
 use crate::buildx::oci_architecture;
-use crate::jsonx::{as_u64, Binder, Emit, Emitter};
-use crate::payload::{
-    decode_opt_bool, decode_opt_i64, decode_opt_string, decode_opt_u64, decode_string_map,
-};
 use crate::{is_channel, is_digest_ref, Error};
 
 use super::Trust;
@@ -15,108 +10,68 @@ use super::Trust;
 // Channel / Highwater
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct Channel {
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub format: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub name: String,
+    #[serde(deserialize_with = "crate::json_serde::null_u64")]
     pub sequence: u64,
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub issued: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub expires: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub withdrawn: bool,
+    #[serde(serialize_with = "nil_if_empty")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub releases: BTreeMap<String, String>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+fn nil_if_empty<S: serde::Serializer>(
+    value: &BTreeMap<String, String>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if value.is_empty() {
+        serializer.serialize_none()
+    } else {
+        value.serialize(serializer)
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct Seen {
+    #[serde(deserialize_with = "crate::json_serde::null_u64")]
     pub sequence: u64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub digest: String,
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub issued: i64,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct Highwater {
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub format: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_u64")]
     pub trust_epoch: u64,
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub checked_at: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub channels: BTreeMap<String, Seen>,
+    #[serde(deserialize_with = "crate::json_serde::null_u64_map")]
     pub serials: BTreeMap<String, u64>,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub releases: BTreeMap<String, String>,
 }
 
-impl Channel {
-    pub fn decode(value: &JsonValue) -> Result<Channel, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid channel".to_string())?;
-        let channel = Channel {
-            format: decode_opt_i64(&mut b, "Format")?,
-            name: decode_opt_string(&mut b, "Name")?,
-            sequence: decode_opt_u64(&mut b, "Sequence")?,
-            issued: decode_opt_i64(&mut b, "Issued")?,
-            expires: decode_opt_i64(&mut b, "Expires")?,
-            withdrawn: decode_opt_bool(&mut b, "Withdrawn")?,
-            releases: decode_string_map(&mut b, "Releases")?,
-        };
-        b.finish_name()?;
-        Ok(channel)
-    }
-}
+impl Channel {}
 
-impl Emit for Channel {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Format");
-        e.int(self.format);
-        e.field(false, "Name");
-        e.string(&self.name);
-        e.field(false, "Sequence");
-        e.uint(self.sequence);
-        e.field(false, "Issued");
-        e.int(self.issued);
-        e.field(false, "Expires");
-        e.int(self.expires);
-        e.field(false, "Withdrawn");
-        e.boolean(self.withdrawn);
-        e.field(false, "Releases");
-        // Withdrawn channels carry a nil map in Go; an empty map only ever
-        // arises from withdrawal, so empty marshals as `null` like the owner.
-        if self.releases.is_empty() {
-            e.null();
-        } else {
-            e.begin_object(false);
-            for (i, (arch, reference)) in self.releases.iter().enumerate() {
-                e.field(i == 0, arch);
-                e.string(reference);
-            }
-            e.end_object(false);
-        }
-        e.end_object(false);
-    }
-}
-
-impl Seen {
-    pub fn decode(value: &JsonValue) -> Result<Seen, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid seen".to_string())?;
-        let seen = Seen {
-            sequence: decode_opt_u64(&mut b, "Sequence")?,
-            digest: decode_opt_string(&mut b, "Digest")?,
-            issued: decode_opt_i64(&mut b, "Issued")?,
-        };
-        b.finish_name()?;
-        Ok(seen)
-    }
-}
-
-impl Emit for Seen {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Sequence");
-        e.uint(self.sequence);
-        e.field(false, "Digest");
-        e.string(&self.digest);
-        e.field(false, "Issued");
-        e.int(self.issued);
-        e.end_object(false);
-    }
-}
+impl Seen {}
 
 /// `EmptyState`: fresh high-water mark.
 pub fn empty_state() -> Highwater {
@@ -165,77 +120,6 @@ impl Highwater {
             return Err(Error::refused());
         }
         Ok(())
-    }
-
-    pub fn decode(value: &JsonValue) -> Result<Highwater, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid highwater".to_string())?;
-        let mut state = Highwater {
-            format: decode_opt_i64(&mut b, "Format")?,
-            trust_epoch: decode_opt_u64(&mut b, "TrustEpoch")?,
-            checked_at: decode_opt_i64(&mut b, "CheckedAt")?,
-            channels: BTreeMap::new(),
-            serials: BTreeMap::new(),
-            releases: BTreeMap::new(),
-        };
-        if let Some(entries) = b
-            .entries("Channels")
-            .map_err(|_| "invalid field Channels".to_string())?
-        {
-            for (channel, item) in entries {
-                state.channels.insert(channel.clone(), Seen::decode(item)?);
-            }
-        }
-        if let Some(entries) = b
-            .entries("Serials")
-            .map_err(|_| "invalid field Serials".to_string())?
-        {
-            for (arch, item) in entries {
-                let raw = item
-                    .as_integer()
-                    .ok_or_else(|| "invalid field Serials".to_string())?;
-                state.serials.insert(
-                    arch.clone(),
-                    as_u64(raw).map_err(|_| "invalid field Serials".to_string())?,
-                );
-            }
-        }
-        state.releases = decode_string_map(&mut b, "Releases")?;
-        b.finish_name()?;
-        Ok(state)
-    }
-}
-
-impl Emit for Highwater {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Format");
-        e.int(self.format);
-        e.field(false, "TrustEpoch");
-        e.uint(self.trust_epoch);
-        e.field(false, "CheckedAt");
-        e.int(self.checked_at);
-        e.field(false, "Channels");
-        e.begin_object(self.channels.is_empty());
-        for (i, (channel, seen)) in self.channels.iter().enumerate() {
-            e.field(i == 0, channel);
-            seen.emit(e);
-        }
-        e.end_object(self.channels.is_empty());
-        e.field(false, "Serials");
-        e.begin_object(self.serials.is_empty());
-        for (i, (arch, serial)) in self.serials.iter().enumerate() {
-            e.field(i == 0, arch);
-            e.uint(*serial);
-        }
-        e.end_object(self.serials.is_empty());
-        e.field(false, "Releases");
-        e.begin_object(self.releases.is_empty());
-        for (i, (arch, digest)) in self.releases.iter().enumerate() {
-            e.field(i == 0, arch);
-            e.string(digest);
-        }
-        e.end_object(self.releases.is_empty());
-        e.end_object(false);
     }
 }
 

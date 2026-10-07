@@ -2,15 +2,19 @@
 
 use std::os::unix::fs::MetadataExt;
 
-use soda_json::JsonValue;
+use serde::{Deserialize, Serialize};
 
 use crate::buildx::{fresh_directory, write_new};
 use crate::document::read_file;
-use crate::jsonx::{marshal, parse_lenient, Emit};
 use crate::model::Trust;
 use crate::{hash_bytes, Error};
 
 const TOOL_LOCK: &str = include_str!("../../tools.json");
+
+#[derive(Deserialize)]
+struct ToolLock {
+    skopeo: String,
+}
 
 /// Skopeo command runner. Failures surface as `ErrUnavailable`, like Go.
 pub trait Runner {
@@ -45,19 +49,9 @@ impl Runner for Native {
 
 /// `CheckNative`: require the locked skopeo version.
 pub fn check_native(r: &dyn Runner) -> Result<(), Error> {
-    let value = parse_lenient(TOOL_LOCK.as_bytes()).map_err(|_| Error::msg("invalid tool lock"))?;
-    let versions = match &value {
-        JsonValue::Object(entries) => entries,
-        _ => return Err(Error::msg("invalid tool lock")),
-    };
-    let mut skopeo = String::new();
-    for (key, item) in versions {
-        if key == "skopeo" {
-            if let JsonValue::Str(s) = item {
-                skopeo = s.clone();
-            }
-        }
-    }
+    let lock: ToolLock =
+        serde_json::from_str(TOOL_LOCK).map_err(|_| Error::msg("invalid tool lock"))?;
+    let skopeo = lock.skopeo;
     let output = r.run(&["--version"])?;
     let text = String::from_utf8_lossy(&output);
     if !text.starts_with(&format!("skopeo version {skopeo} ")) {
@@ -97,8 +91,9 @@ pub fn private_file(path: &str) -> Result<(), Error> {
     owned_private_regular(path)
 }
 
-pub(crate) fn write_json<T: Emit + ?Sized>(path: &str, value: &T) -> Result<(), Error> {
-    write_new(path, &marshal(value), 0o600)
+pub(crate) fn write_json<T: Serialize + ?Sized>(path: &str, value: &T) -> Result<(), Error> {
+    let data = crate::document::marshal_go_pretty(value)?;
+    write_new(path, &data, 0o600)
 }
 
 mod policy;

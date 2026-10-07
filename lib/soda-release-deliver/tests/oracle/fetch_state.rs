@@ -1,5 +1,4 @@
 use soda_release_deliver::fetch::{fetch, init_state};
-use soda_release_deliver::jsonx::parse_strict;
 use soda_release_deliver::model::Highwater;
 use soda_release_deliver::native::Runner;
 use soda_release_deliver::publish::Ledger;
@@ -14,8 +13,7 @@ fn state_and_ledger_init_round_trip() {
     let state_path = format!("{dir}/state.json");
     init_state(&state_path, &trust).expect("init state");
     let raw = std::fs::read(&state_path).unwrap();
-    let value = parse_strict(&raw).unwrap();
-    let state = Highwater::decode(&value).unwrap();
+    let state: Highwater = serde_json::from_slice(&raw).unwrap();
     assert_eq!(state.format, 1);
     assert_eq!(state.trust_epoch, trust.epoch);
     assert!(state.checked_at > 0);
@@ -23,8 +21,7 @@ fn state_and_ledger_init_round_trip() {
     let repo = format!("{}-release", trust.prefix);
     soda_release_deliver::publish::init_ledger(&ledger_path, &trust, &repo).expect("init ledger");
     let raw = std::fs::read(&ledger_path).unwrap();
-    let value = parse_strict(&raw).unwrap();
-    let ledger = Ledger::decode(&value).unwrap();
+    let ledger: Ledger = serde_json::from_slice(&raw).unwrap();
     assert_eq!(ledger.phase, "idle");
     ledger.validate(&trust).unwrap();
 }

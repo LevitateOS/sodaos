@@ -2,8 +2,6 @@
 
 use std::collections::BTreeMap;
 
-use soda_json::JsonValue;
-
 use crate::buildx::fresh_directory;
 use crate::document::read_json;
 use crate::fetch::{discover, lock_state, save_state};
@@ -47,7 +45,7 @@ fn upload(
 }
 
 // Policy/registry helpers shared with native.rs shapes.
-fn policy_for_upload(t: &Trust, repo: &str, signed: &str) -> Result<JsonValue, Error> {
+fn policy_for_upload(t: &Trust, repo: &str, signed: &str) -> Result<impl serde::Serialize, Error> {
     crate::native::policy_for_publish(t, repo, "dir", signed)
 }
 
@@ -91,7 +89,7 @@ fn admit_publish_ledger(
     if p.format != 1 || !is_digest_ref(&p.digest) {
         return Err(Error::refused());
     }
-    let ledger: Ledger = read_json(ledger_path, Ledger::decode)?;
+    let ledger: Ledger = read_json(ledger_path)?;
     if ledger.validate(t).is_err() || ledger.repository != p.repository {
         return Err(Error::refused());
     }

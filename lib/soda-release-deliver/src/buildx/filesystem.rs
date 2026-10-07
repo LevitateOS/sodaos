@@ -1,10 +1,9 @@
 use std::ffi::CString;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 
+use crate::payload::Payload;
 use sha2::{Digest as _, Sha256};
-use soda_json::JsonValue;
 
-use crate::jsonx::parse_lenient;
 use crate::Error;
 
 fn os_error(op: &str, path: &str, err: std::io::Error) -> Error {
@@ -308,20 +307,25 @@ pub fn write_new(path: &str, data: &[u8], mode: u32) -> Result<(), Error> {
 /// `build.ReadJSONAt` decode step: bounded strict-shape JSON with Go's
 /// unknown-field error text. Duplicate keys keep Go's last-wins rule here
 /// (unlike `strictjson`), matching `encoding/json` exactly.
-pub fn decode_build_json(data: &[u8]) -> Result<JsonValue, Error> {
+pub fn decode_build_json(data: &[u8]) -> Result<Payload, Error> {
     if data.len() > 4 << 20 {
         return Err(Error::msg("JSON input exceeds limit"));
     }
-    parse_lenient(data).map_err(|_| Error::msg("invalid JSON input"))
+    std::str::from_utf8(data).map_err(|_| Error::msg("invalid JSON input"))?;
+    serde_json::from_slice(data).map_err(|e| {
+        let message = e.to_string();
+        if let Some(rest) = message.strip_prefix("unknown field `") {
+            if let Some((name, _)) = rest.split_once('`') {
+                return Error::msg(format!("json: unknown field \"{name}\""));
+            }
+        }
+        Error::msg("invalid JSON input")
+    })
 }
 
 /// Read and decode bounded JSON confined to an open directory, returning
 /// the digest of the exact bytes decoded.
-pub fn read_json_at(
-    root: &Root,
-    name: &str,
-    decode: &mut dyn FnMut(&JsonValue) -> Result<(), String>,
-) -> Result<String, Error> {
+pub fn read_json_at(root: &Root, name: &str) -> Result<(Payload, String), Error> {
     check_confined(name)?;
     let cname = c_string(name)?;
     let st = fstatat_no_follow(root.fd(), &cname)
@@ -360,8 +364,7 @@ pub fn read_json_at(
         return Err(Error::msg("JSON input exceeds limit"));
     }
     let value = decode_build_json(&data)?;
-    decode(&value).map_err(Error::msg)?;
     let mut hasher = Sha256::new();
     hasher.update(&data);
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok((value, format!("{:x}", hasher.finalize())))
 }

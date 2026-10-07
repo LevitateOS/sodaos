@@ -15,7 +15,7 @@ pub mod document;
 pub mod fetch;
 pub mod finalize;
 pub mod import;
-pub mod jsonx;
+pub(crate) mod json_serde;
 pub mod model;
 pub mod native;
 pub mod oci;

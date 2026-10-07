@@ -4,9 +4,8 @@
 //! confined file helpers (`HashAt`, `FreshDirectory`, `PrivateDestination`,
 //! `WriteNew`, `ReadJSONAt`).
 
-use soda_json::JsonValue;
+use serde::{Deserialize, Serialize};
 
-use crate::jsonx::{base64_decode, Binder, Emit, Emitter};
 use crate::Error;
 
 pub use soda_build_tools::reader::{is_digest, is_revision, oci_architecture};
@@ -14,8 +13,8 @@ pub use soda_build_tools::reader::{is_digest, is_revision, oci_architecture};
 mod filesystem;
 
 pub use filesystem::{
-    fresh_directory, hash_at, private_destination, read_at, read_json_at, read_layout_entry,
-    write_new, Root,
+    decode_build_json, fresh_directory, hash_at, private_destination, read_at, read_json_at,
+    read_layout_entry, write_new, Root,
 };
 
 pub const FORGEJO_COMPILER_IMAGE: &str =
@@ -27,60 +26,36 @@ pub const FORGEJO_UPSTREAM_BASE: &str = "15.0.9";
 pub const FORGEJO_COMPAT_TOKEN: &str = "gitea-1.22.0";
 
 /// `build.Image`: verified OCI image identity.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct Image {
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub manifest: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub config: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub architecture: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub revision: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub source: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub base_name: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub base_digest: String,
 }
 
-impl Image {
-    pub fn decode(value: &JsonValue) -> Result<Image, String> {
-        use crate::payload::decode_opt_string;
-        let mut b = Binder::new(value).map_err(|_| "invalid image".to_string())?;
-        let image = Image {
-            manifest: decode_opt_string(&mut b, "Manifest")?,
-            config: decode_opt_string(&mut b, "Config")?,
-            architecture: decode_opt_string(&mut b, "Architecture")?,
-            revision: decode_opt_string(&mut b, "Revision")?,
-            source: decode_opt_string(&mut b, "Source")?,
-            base_name: decode_opt_string(&mut b, "BaseName")?,
-            base_digest: decode_opt_string(&mut b, "BaseDigest")?,
-        };
-        b.finish_name()?;
-        Ok(image)
-    }
-}
-
-impl Emit for Image {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Manifest");
-        e.string(&self.manifest);
-        e.field(false, "Config");
-        e.string(&self.config);
-        e.field(false, "Architecture");
-        e.string(&self.architecture);
-        e.field(false, "Revision");
-        e.string(&self.revision);
-        e.field(false, "Source");
-        e.string(&self.source);
-        e.field(false, "BaseName");
-        e.string(&self.base_name);
-        e.field(false, "BaseDigest");
-        e.string(&self.base_digest);
-        e.end_object(false);
-    }
-}
+impl Image {}
 
 /// `build.ForgejoToolchain`: pinned compiler provenance.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct ForgejoToolchain {
+    #[serde(rename = "CompilerImage")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub compiler_image: String,
+    #[serde(rename = "APKPackages")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub apk_packages: Vec<String>,
 }
 
@@ -95,44 +70,6 @@ impl ForgejoToolchain {
             return Err(Error::msg("incomplete Forgejo APK provenance"));
         }
         Ok(())
-    }
-
-    pub fn decode(value: &JsonValue) -> Result<ForgejoToolchain, String> {
-        use crate::payload::decode_opt_string;
-        let mut b = Binder::new(value).map_err(|_| "invalid toolchain".to_string())?;
-        let mut toolchain = ForgejoToolchain {
-            compiler_image: decode_opt_string(&mut b, "CompilerImage")?,
-            apk_packages: Vec::new(),
-        };
-        if let Some(items) = b
-            .array("APKPackages")
-            .map_err(|_| "invalid field APKPackages".to_string())?
-        {
-            for item in items {
-                match item {
-                    JsonValue::Str(s) => toolchain.apk_packages.push(s.clone()),
-                    _ => return Err("invalid field APKPackages".to_string()),
-                }
-            }
-        }
-        b.finish_name()?;
-        Ok(toolchain)
-    }
-}
-
-impl Emit for ForgejoToolchain {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "CompilerImage");
-        e.string(&self.compiler_image);
-        e.field(false, "APKPackages");
-        e.begin_array(self.apk_packages.is_empty());
-        for (i, package) in self.apk_packages.iter().enumerate() {
-            e.item(i == 0);
-            e.string(package);
-        }
-        e.end_array(self.apk_packages.is_empty());
-        e.end_object(false);
     }
 }
 
@@ -165,18 +102,6 @@ fn has_forgejo_native_build_tools(packages: &[String]) -> bool {
         musl = musl || name.starts_with("musl-dev-");
     }
     base && gcc && musl
-}
-
-/// Unknown-field error text matching Go's `encoding/json`.
-pub fn unknown_field(name: &str) -> String {
-    format!("json: unknown field \"{name}\"")
-}
-
-pub fn decode_bytes_value(value: &JsonValue) -> Result<Vec<u8>, crate::jsonx::DecodeError> {
-    match value {
-        JsonValue::Str(s) => base64_decode(s),
-        _ => Err(crate::jsonx::DecodeError),
-    }
 }
 
 #[cfg(test)]

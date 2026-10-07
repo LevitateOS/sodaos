@@ -1,13 +1,81 @@
-use soda_json::JsonValue;
+use std::fmt;
+
+use serde::de::{DeserializeOwned, Error as DeError, IgnoredAny, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use crate::document::read_document;
 use crate::fetch::{discover, fetch_document, verify_releases};
-use crate::jsonx::parse_lenient;
 use crate::model::{admit_channel, Channel, Highwater, Permit, Seen, Trust};
 use crate::native::Runner;
 use crate::{is_digest_ref, now_unix, Error};
 
 use super::{upload, Ledger};
+
+fn decode_raw<T: DeserializeOwned + Default, E: DeError>(
+    raw: Option<Box<serde_json::value::RawValue>>,
+) -> Result<T, E> {
+    let Some(raw) = raw else {
+        return Ok(T::default());
+    };
+    serde_json::from_str::<Option<T>>(raw.get())
+        .map_err(E::custom)
+        .map(Option::unwrap_or_default)
+}
+
+#[derive(Default)]
+struct TagList {
+    repository: String,
+    tags: Vec<String>,
+}
+impl<'de> Deserialize<'de> for TagList {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = TagList;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a tag-list object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<TagList, M::Error> {
+                let (mut repository, mut tags) = (None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "Repository" => {
+                            repository = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "Tags" => tags = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(TagList {
+                    repository: decode_raw(repository)?,
+                    tags: decode_raw(tags)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[cfg(test)]
+mod json_slot_tests {
+    use super::TagList;
+
+    #[test]
+    fn tag_list_uses_final_exact_values_before_typed_conversion() {
+        let tags: TagList = serde_json::from_str(
+            r#"{"Repository":false,"Repository":"repo","Tags":["old"],"Tags":null,"unknown":true}"#,
+        )
+        .unwrap();
+        assert_eq!(tags.repository, "repo");
+        assert!(tags.tags.is_empty());
+        assert!(serde_json::from_str::<TagList>(
+            r#"{"Repository":"repo","Tags":null,"Tags":[false]}"#
+        )
+        .is_err());
+    }
+}
 
 pub(super) fn validate_channel_history(current: &Seen, previous: &str) -> Result<(), Error> {
     if previous != "absent" && !is_digest_ref(previous) {
@@ -39,7 +107,7 @@ pub(super) fn admit_channel_offer(
     let empty = Seen::default();
     let seen = current.channels.get(role).unwrap_or(&empty);
     validate_channel_history(seen, &p.previous)?;
-    let offer: Channel = read_document(copy, &p.digest, Channel::decode)?;
+    let offer: Channel = read_document(copy, &p.digest)?;
     let next = admit_channel(t, current, &offer, &p.digest, role, now_unix())?;
     let (verified, result) = verify_releases(r, t, &next, &offer, "", out);
     result?;
@@ -53,27 +121,11 @@ fn channel_tag_exists(r: &dyn Runner, repository: &str, role: &str) -> Result<bo
         "--no-creds",
         &format!("docker://{repository}"),
     ])?;
-    let value = parse_lenient(&tags).map_err(|_| Error::refused())?;
-    let soft = crate::jsonx::Soft::new(&value).map_err(|_| Error::refused())?;
-    let listed = soft
-        .string("Repository")
-        .map_err(|_| Error::refused())?
-        .unwrap_or_default();
-    let names = soft
-        .array("Tags")
-        .map_err(|_| Error::refused())?
-        .unwrap_or(&[]);
-    if listed != repository || names.is_empty() {
+    let listed: TagList = serde_json::from_slice(&tags).map_err(|_| Error::refused())?;
+    if listed.repository != repository || listed.tags.is_empty() {
         return Err(Error::refused());
     }
-    for tag in names {
-        match tag {
-            JsonValue::Str(name) if name == role => return Ok(true),
-            JsonValue::Str(_) => {}
-            _ => return Err(Error::refused()),
-        }
-    }
-    Ok(false)
+    Ok(listed.tags.iter().any(|name| name == role))
 }
 
 fn verify_previous_channel(
@@ -89,13 +141,7 @@ fn verify_previous_channel(
     if digest != p.previous {
         return Err(Error::msg("channel changed since protected admission"));
     }
-    let old: Channel = fetch_document(
-        r,
-        t,
-        &previous,
-        &format!("{out}/previous-channel"),
-        Channel::decode,
-    )?;
+    let old: Channel = fetch_document(r, t, &previous, &format!("{out}/previous-channel"))?;
     if old.format != 1
         || old.name != role
         || old.sequence >= offer.sequence

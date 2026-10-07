@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 
 use crate::buildx::{hash_at, read_at, Image as BuildImage, Root};
 use crate::document::{read_file, write_document};
-use crate::jsonx::marshal;
 use crate::model::{Candidate, MediaBinding, Release, Trust};
 use crate::oci::{inspect_oci, inspect_oci_content};
 use crate::payload::{Payload, NAMES};
@@ -108,7 +107,7 @@ fn candidate_image_content(
 fn candidate_content_with_embedded_inventory(
     content: &BTreeMap<String, String>,
 ) -> Result<BTreeMap<String, String>, Error> {
-    let data = marshal(content);
+    let data = crate::document::marshal_go_pretty(content)?;
     let mut with_inventory = content.clone();
     with_inventory.insert(
         "host:/usr/share/soda/host-image/content.json".to_string(),

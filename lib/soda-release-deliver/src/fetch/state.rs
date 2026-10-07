@@ -1,9 +1,9 @@
 use std::os::fd::AsRawFd;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::jsonx::{marshal, Emit};
 use crate::native::private_file;
 use crate::Error;
+use serde::Serialize;
 
 pub(crate) struct StateLock {
     #[allow(dead_code)]
@@ -63,8 +63,8 @@ fn create_temp(dir: &str, prefix: &str) -> Result<(std::fs::File, String), Error
     Err(Error::msg("create temp: too many attempts"))
 }
 
-pub(crate) fn save_state<T: Emit + ?Sized>(path: &str, value: &T) -> Result<(), Error> {
-    let data = marshal(value);
+pub(crate) fn save_state<T: Serialize + ?Sized>(path: &str, value: &T) -> Result<(), Error> {
+    let data = crate::document::marshal_go_pretty(value)?;
     let parent = match path.rfind('/') {
         Some(0) | None => "/".to_string(),
         Some(i) => path[..i].to_string(),

@@ -35,3 +35,33 @@ fn payload_identity_errors_match_go() {
         Error::msg("invalid appliance payload identity")
     );
 }
+
+#[test]
+fn payload_raw_slots_keep_only_the_last_exact_value() {
+    let payload: Payload = crate::buildx::decode_build_json(br#"{"Format":1.5,"Format":-0,"ID":"old","ID":"new","Schema":-0,"Images":{"x":{"Reference":7,"Reference":"ok"}}}"#).unwrap();
+    assert_eq!(payload.format, 0);
+    assert_eq!(payload.id, "new");
+    assert_eq!(payload.schema, 0);
+    assert_eq!(payload.images["x"].reference, "ok");
+
+    assert!(crate::buildx::decode_build_json(br#"{"Format":-0.0}"#).is_err());
+    assert!(crate::buildx::decode_build_json(br#"{"Format":1e0}"#).is_err());
+    assert!(crate::buildx::decode_build_json(br#"{"Format":9223372036854775808}"#).is_err());
+    let reset: Payload =
+        crate::buildx::decode_build_json(br#"{"Format":3,"Format":null}"#).unwrap();
+    assert_eq!(reset.format, 0);
+}
+
+#[test]
+fn images_map_decodes_only_the_last_duplicate_entry() {
+    let payload: Payload = crate::buildx::decode_build_json(
+        br#"{"Images":{"x":{"Reference":false},"x":{"Reference":"winner"}}}"#,
+    )
+    .unwrap();
+    assert_eq!(payload.images["x"].reference, "winner");
+
+    assert!(crate::buildx::decode_build_json(
+        br#"{"Images":{"x":{"Reference":"valid"},"x":{"Reference":false}}}"#,
+    )
+    .is_err());
+}

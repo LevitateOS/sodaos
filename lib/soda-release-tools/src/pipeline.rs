@@ -43,6 +43,7 @@ use soda_release_image::build::ProductionInputs;
 use soda_release_image::build_runner::{Cancel, Runner};
 use soda_release_image::error::Error as ImageError;
 use soda_release_image::foreign::{Production as ImageProduction, Progress as ImageProgress};
+use soda_release_image::foreign::PackagingInputs;
 use soda_release_image::{model, request};
 
 use crate::build_spec;
@@ -430,10 +431,8 @@ impl ImageProduction for RealProduction {
     fn write_document(
         &self,
         path: &str,
-        value: &soda_json::JsonValue,
+        value: &PackagingInputs,
     ) -> Result<String, ImageError> {
-        // `soda_json::JsonValue` implements the deliver `Emit` trait, so the
-        // pipeline value passes through to the owner unchanged.
         document::write_document(path, value).map_err(deliver_err)
     }
 }

@@ -1,90 +1,60 @@
-use std::collections::BTreeMap;
-
-use soda_json::JsonValue;
-
-use crate::jsonx::{base64_encode, marshal, parse_strict, Binder, Emit, Emitter};
+use super::write_json;
+use crate::json_serde::strict;
 use crate::model::Trust;
 use crate::Error;
+use base64::Engine;
+use serde::Serialize;
+use std::collections::BTreeMap;
 
-use super::write_json;
-
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 struct Requirement {
+    #[serde(rename = "type")]
     type_name: String,
+    #[serde(rename = "keyDatas", skip_serializing_if = "Vec::is_empty")]
     key_datas: Vec<String>,
+    #[serde(rename = "signedIdentity", skip_serializing_if = "BTreeMap::is_empty")]
     signed_identity: BTreeMap<String, String>,
 }
 
-impl Emit for Requirement {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "type");
-        e.string(&self.type_name);
-        if !self.key_datas.is_empty() {
-            e.field(false, "keyDatas");
-            e.begin_array(false);
-            for (i, key) in self.key_datas.iter().enumerate() {
-                e.item(i == 0);
-                e.string(key);
-            }
-            e.end_array(false);
-        }
-        if !self.signed_identity.is_empty() {
-            e.field(false, "signedIdentity");
-            e.begin_object(false);
-            for (i, (key, value)) in self.signed_identity.iter().enumerate() {
-                e.field(i == 0, key);
-                e.string(value);
-            }
-            e.end_object(false);
-        }
-        e.end_object(false);
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PolicyDocument {
+    #[serde(rename = "default")]
+    default_policy: Vec<Requirement>,
+    transports: BTreeMap<String, BTreeMap<String, Vec<Requirement>>>,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum ScopeValue {
+    Existing(serde_json::Value),
+    Generated(Vec<Requirement>),
+}
+
+fn simple_rule(kind: &str) -> Requirement {
+    Requirement {
+        type_name: kind.to_string(),
+        ..Requirement::default()
     }
 }
 
 fn requirement(t: &Trust, repo: &str) -> Result<Requirement, Error> {
     let role = t.role(repo)?;
-    let mut keys = Vec::new();
-    if let Some(role_keys) = t.keys.get(&role) {
-        for key in role_keys {
-            keys.push(base64_encode(key.as_bytes()));
-        }
-    }
-    let mut identity = BTreeMap::new();
-    identity.insert("type".to_string(), "exactRepository".to_string());
-    identity.insert("dockerRepository".to_string(), repo.to_string());
+    let key_datas = t
+        .keys
+        .get(&role)
+        .into_iter()
+        .flatten()
+        .map(|key| base64::engine::general_purpose::STANDARD.encode(key.as_bytes()))
+        .collect();
+    let signed_identity = BTreeMap::from([
+        ("type".to_string(), "exactRepository".to_string()),
+        ("dockerRepository".to_string(), repo.to_string()),
+    ]);
     Ok(Requirement {
         type_name: "sigstoreSigned".to_string(),
-        key_datas: keys,
-        signed_identity: identity,
+        key_datas,
+        signed_identity,
     })
-}
-
-fn requirement_value(req: &Requirement) -> JsonValue {
-    let mut entries = vec![("type".to_string(), JsonValue::Str(req.type_name.clone()))];
-    if !req.key_datas.is_empty() {
-        entries.push((
-            "keyDatas".to_string(),
-            JsonValue::Array(
-                req.key_datas
-                    .iter()
-                    .map(|k| JsonValue::Str(k.clone()))
-                    .collect(),
-            ),
-        ));
-    }
-    if !req.signed_identity.is_empty() {
-        entries.push((
-            "signedIdentity".to_string(),
-            JsonValue::Object(
-                req.signed_identity
-                    .iter()
-                    .map(|(k, v)| (k.clone(), JsonValue::Str(v.clone())))
-                    .collect(),
-            ),
-        ));
-    }
-    JsonValue::Object(entries)
 }
 
 pub(crate) fn policy_for_publish(
@@ -92,7 +62,7 @@ pub(crate) fn policy_for_publish(
     repo: &str,
     transport: &str,
     scope: &str,
-) -> Result<JsonValue, Error> {
+) -> Result<PolicyDocument, Error> {
     policy_for(t, repo, transport, scope)
 }
 
@@ -105,52 +75,28 @@ pub(super) fn policy_for(
     repo: &str,
     transport: &str,
     scope: &str,
-) -> Result<JsonValue, Error> {
+) -> Result<PolicyDocument, Error> {
     let req = requirement(t, repo)?;
-    Ok(JsonValue::Object(vec![
-        (
-            "default".to_string(),
-            JsonValue::Array(vec![JsonValue::Object(vec![(
-                "type".to_string(),
-                JsonValue::Str("reject".to_string()),
-            )])]),
-        ),
-        (
-            "transports".to_string(),
-            JsonValue::Object(vec![(
-                transport.to_string(),
-                JsonValue::Object(vec![(
-                    scope.to_string(),
-                    JsonValue::Array(vec![requirement_value(&req)]),
-                )]),
-            )]),
-        ),
-    ]))
+    Ok(PolicyDocument {
+        default_policy: vec![simple_rule("reject")],
+        transports: BTreeMap::from([(
+            transport.to_string(),
+            BTreeMap::from([(scope.to_string(), vec![req])]),
+        )]),
+    })
 }
 
-pub(crate) fn local_policy(transport: &str, path: &str) -> JsonValue {
-    JsonValue::Object(vec![
-        (
-            "default".to_string(),
-            JsonValue::Array(vec![JsonValue::Object(vec![(
-                "type".to_string(),
-                JsonValue::Str("reject".to_string()),
-            )])]),
-        ),
-        (
-            "transports".to_string(),
-            JsonValue::Object(vec![(
-                transport.to_string(),
-                JsonValue::Object(vec![(
-                    path.to_string(),
-                    JsonValue::Array(vec![JsonValue::Object(vec![(
-                        "type".to_string(),
-                        JsonValue::Str("insecureAcceptAnything".to_string()),
-                    )])]),
-                )]),
+pub(crate) fn local_policy(transport: &str, path: &str) -> PolicyDocument {
+    PolicyDocument {
+        default_policy: vec![simple_rule("reject")],
+        transports: BTreeMap::from([(
+            transport.to_string(),
+            BTreeMap::from([(
+                path.to_string(),
+                vec![simple_rule("insecureAcceptAnything")],
             )]),
-        ),
-    ])
+        )]),
+    }
 }
 
 fn soda_trust_repos(t: &Trust) -> Vec<String> {
@@ -174,66 +120,67 @@ fn soda_override_exists(existing: &str, repo: &str) -> bool {
         || existing.starts_with(&format!("{repo}/"))
 }
 
-fn apply_soda_trust(t: &Trust, docker: &mut Vec<(String, JsonValue)>) -> Result<(), Error> {
+fn apply_soda_trust(t: &Trust, docker: &mut BTreeMap<String, ScopeValue>) -> Result<(), Error> {
     for repo in soda_trust_repos(t) {
-        for (existing, _) in docker.iter() {
-            if soda_override_exists(existing, &repo) {
-                return Err(Error::msg(
-                    "existing Soda trust override requires explicit review",
-                ));
-            }
+        if docker
+            .keys()
+            .any(|existing| soda_override_exists(existing, &repo))
+        {
+            return Err(Error::msg(
+                "existing Soda trust override requires explicit review",
+            ));
         }
-        let req = requirement(t, &repo)?;
-        docker.push((repo, JsonValue::Array(vec![requirement_value(&req)])));
+        docker.insert(
+            repo.clone(),
+            ScopeValue::Generated(vec![requirement(t, &repo)?]),
+        );
     }
     Ok(())
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolicyInput {
+    #[serde(rename = "default")]
+    default_policy: serde_json::Value,
+    #[serde(default, deserialize_with = "crate::json_serde::null_default")]
+    transports: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
+}
+
 /// `MergePolicy`: emit a proposed policy; never installs it.
-///
-/// Preserved scopes keep their parsed values (re-emitted, not byte-kept);
-/// Soda scopes are emitted in Go struct order with sorted scope keys.
 pub fn merge_policy(t: &Trust, original: &[u8]) -> Result<Vec<u8>, Error> {
     t.validate()?;
-    let value = parse_strict(original)?;
-    let mut binder = Binder::new(&value).map_err(|_| Error::refused())?;
-    let default_raw = binder
-        .raw("default")
-        .map_err(|_| Error::refused())?
-        .cloned()
-        .ok_or_else(Error::refused)?;
-    let mut transports: BTreeMap<String, Vec<(String, JsonValue)>> = BTreeMap::new();
-    if let Some(entries) = binder.entries("transports").map_err(|_| Error::refused())? {
-        for (transport, scopes) in entries {
-            let mut scope_list = Vec::new();
-            match scopes {
-                JsonValue::Object(scopes) => {
-                    for (scope, raw) in scopes {
-                        scope_list.push((scope.clone(), raw.clone()));
-                    }
-                }
-                _ => return Err(Error::refused()),
-            }
-            transports.insert(transport.clone(), scope_list);
-        }
+    let input: PolicyInput = strict(original).map_err(|_| Error::refused())?;
+    if input.default_policy.is_null() {
+        return Err(Error::refused());
     }
-    binder.finish().map_err(|_| Error::refused())?;
+    let mut transports: BTreeMap<String, BTreeMap<String, ScopeValue>> = input
+        .transports
+        .into_iter()
+        .map(|(name, scopes)| {
+            (
+                name,
+                scopes
+                    .into_iter()
+                    .map(|(scope, value)| (scope, ScopeValue::Existing(value)))
+                    .collect(),
+            )
+        })
+        .collect();
     let docker = transports.entry("docker".to_string()).or_default();
+    // Preserve source members verbatim as values while ordering maps deterministically.
     apply_soda_trust(t, docker)?;
-    let mut transport_entries = Vec::new();
-    for (transport, scopes) in &transports {
-        let mut scopes = scopes.clone();
-        scopes.sort_by(|a, b| a.0.cmp(&b.0));
-        transport_entries.push((transport.clone(), JsonValue::Object(scopes)));
+    #[derive(Serialize)]
+    struct MergedPolicy {
+        #[serde(rename = "default")]
+        default_policy: serde_json::Value,
+        transports: BTreeMap<String, BTreeMap<String, ScopeValue>>,
     }
-    let merged = JsonValue::Object(vec![
-        ("default".to_string(), default_raw),
-        (
-            "transports".to_string(),
-            JsonValue::Object(transport_entries),
-        ),
-    ]);
-    Ok(marshal(&merged))
+    let merged = MergedPolicy {
+        default_policy: input.default_policy,
+        transports,
+    };
+    crate::document::marshal_go_pretty(&merged)
 }
 
 /// `WriteRegistryConfig`: registries.d snippet for Sigstore attachments.
@@ -252,7 +199,7 @@ pub(super) fn registry_config(out: &str, t: &Trust) -> Result<String, Error> {
             .create(&dir)
             .map_err(|e| Error::msg(format!("mkdir {dir}: {e}")))?;
     }
-    let mut repos: Vec<(String, JsonValue)> = Vec::new();
+    let mut repos = BTreeMap::new();
     let mut names = vec![
         "host",
         "release",
@@ -262,18 +209,14 @@ pub(super) fn registry_config(out: &str, t: &Trust) -> Result<String, Error> {
     ];
     names.extend(crate::payload::NAMES.iter().copied());
     for name in names {
-        repos.push((
+        repos.insert(
             format!("{}-{name}", t.prefix),
-            JsonValue::Object(vec![(
-                "use-sigstore-attachments".to_string(),
-                JsonValue::Bool(true),
-            )]),
-        ));
+            serde_json::json!({"use-sigstore-attachments": true}),
+        );
     }
-    repos.sort_by(|a, b| a.0.cmp(&b.0));
     write_json(
         &format!("{dir}/soda.yaml"),
-        &JsonValue::Object(vec![("docker".to_string(), JsonValue::Object(repos))]),
+        &serde_json::json!({"docker": repos}),
     )?;
     Ok(dir)
 }

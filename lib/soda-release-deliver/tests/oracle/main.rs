@@ -5,8 +5,8 @@
 //! round-trip byte-identically; validation outcomes and error text must
 //! match the owner exactly.
 
-use soda_json::JsonValue;
-use soda_release_deliver::jsonx::{marshal, parse_strict};
+use serde_json::Value as JsonValue;
+use soda_release_deliver::document::marshal_go_pretty;
 use soda_release_deliver::model::{
     admit_channel, admit_release, empty_state, valid_candidate_content, Candidate, Channel,
     Highwater, Permit, Release, Trust,
@@ -21,7 +21,7 @@ mod fetch_state;
 const GOLDENS: &str = include_str!("../goldens/deliver.json");
 
 fn goldens() -> JsonValue {
-    JsonValue::parse(GOLDENS).expect("goldens parse")
+    serde_json::from_str(GOLDENS).expect("goldens parse")
 }
 
 fn golden_str(g: &JsonValue, name: &str) -> String {
@@ -47,52 +47,59 @@ fn golden_result(g: &JsonValue, name: &str) -> (bool, String) {
 
 fn decode_trust(g: &JsonValue) -> Trust {
     let raw = golden_str(g, "trust");
-    let value = parse_strict(raw.as_bytes()).expect("trust strict");
-    Trust::decode(&value).expect("trust decode")
+    serde_json::from_str(&raw).expect("trust decode")
 }
 
 fn decode_payload(g: &JsonValue) -> (Payload, Vec<u8>) {
     let raw = golden_str(g, "payload");
-    let value = parse_strict(raw.as_bytes()).expect("payload strict");
-    let payload = Payload::decode(&value).expect("payload decode");
+    let payload = serde_json::from_str(&raw).expect("payload decode");
     (payload, raw.into_bytes())
 }
 
 fn decode_candidate(g: &JsonValue) -> (Candidate, Vec<u8>) {
     let raw = golden_str(g, "candidate");
-    let value = parse_strict(raw.as_bytes()).expect("candidate strict");
-    let candidate = Candidate::decode(&value).expect("candidate decode");
+    let candidate = serde_json::from_str(&raw).expect("candidate decode");
     (candidate, raw.into_bytes())
 }
 
 fn decode_release(g: &JsonValue) -> Release {
     let raw = golden_str(g, "release");
-    let value = parse_strict(raw.as_bytes()).expect("release strict");
-    Release::decode(&value).expect("release decode")
+    serde_json::from_str(&raw).expect("release decode")
 }
 
 fn decode_channel(g: &JsonValue) -> Channel {
     let raw = golden_str(g, "channel");
-    let value = parse_strict(raw.as_bytes()).expect("channel strict");
-    Channel::decode(&value).expect("channel decode")
+    serde_json::from_str(&raw).expect("channel decode")
 }
 
 #[test]
 fn fixtures_round_trip_byte_identical() {
     let g = goldens();
     let trust = decode_trust(&g);
-    assert_eq!(marshal(&trust), golden_str(&g, "trust").into_bytes());
+    assert_eq!(
+        marshal_go_pretty(&trust).unwrap(),
+        golden_str(&g, "trust").into_bytes()
+    );
     let (payload, _) = decode_payload(&g);
-    assert_eq!(marshal(&payload), golden_str(&g, "payload").into_bytes());
+    assert_eq!(
+        marshal_go_pretty(&payload).unwrap(),
+        golden_str(&g, "payload").into_bytes()
+    );
     let (candidate, _) = decode_candidate(&g);
     assert_eq!(
-        marshal(&candidate),
+        marshal_go_pretty(&candidate).unwrap(),
         golden_str(&g, "candidate").into_bytes()
     );
     let release = decode_release(&g);
-    assert_eq!(marshal(&release), golden_str(&g, "release").into_bytes());
+    assert_eq!(
+        marshal_go_pretty(&release).unwrap(),
+        golden_str(&g, "release").into_bytes()
+    );
     let channel = decode_channel(&g);
-    assert_eq!(marshal(&channel), golden_str(&g, "channel").into_bytes());
+    assert_eq!(
+        marshal_go_pretty(&channel).unwrap(),
+        golden_str(&g, "channel").into_bytes()
+    );
 }
 
 #[test]
@@ -183,8 +190,7 @@ fn validation_battery_matches_oracle() {
 /// Recover the oracle's `now` from the admitted state's CheckedAt.
 fn golden_now(g: &JsonValue) -> i64 {
     let raw = golden_str(g, "channel.admitted_state");
-    let value = parse_strict(raw.as_bytes()).expect("admitted strict");
-    Highwater::decode(&value)
+    serde_json::from_str::<Highwater>(&raw)
         .expect("admitted decode")
         .checked_at
 }
@@ -203,7 +209,7 @@ fn channel_progression_matches_oracle() {
     let next =
         admit_channel(&trust, &state, &channel, &digest, "candidate", now).expect("channel.admit");
     assert_eq!(
-        marshal(&next),
+        marshal_go_pretty(&next).unwrap(),
         golden_str(&g, "channel.admitted_state").into_bytes()
     );
     let (ok, _) = golden_result(&g, "channel.readmit_same");
@@ -238,8 +244,7 @@ fn release_admission_matches_oracle() {
     let now = golden_now(&g);
     let admitted: Highwater = {
         let raw = golden_str(&g, "channel.admitted_state");
-        let value = parse_strict(raw.as_bytes()).unwrap();
-        Highwater::decode(&value).unwrap()
+        serde_json::from_str(&raw).unwrap()
     };
     let arch_ref = format!("{}-release@sha256:{}", trust.prefix, "9".repeat(64));
     let offer = Channel {
@@ -256,7 +261,7 @@ fn release_admission_matches_oracle() {
     let next = admit_release(&trust, &admitted, &offer, "x86_64", &arch_ref, &release)
         .expect("release.admit_candidate");
     assert_eq!(
-        marshal(&next),
+        marshal_go_pretty(&next).unwrap(),
         golden_str(&g, "release.admitted_state").into_bytes()
     );
     let mut stable = offer.clone();
@@ -274,8 +279,8 @@ fn merge_policy_matches_oracle_semantically() {
     let original = br#"{"default":[{"type":"insecureAcceptAnything"}],"transports":{"docker":{"registry.example.com/app":[{"type":"insecureAcceptAnything"}]}}}"#;
     let merged = merge_policy(&trust, original).expect("policy.merge");
     // Preserved scopes are re-emitted (not byte-kept), so compare as DOM.
-    let got = JsonValue::parse(std::str::from_utf8(&merged).unwrap()).unwrap();
-    let want = JsonValue::parse(&golden_str(&g, "policy.merged")).unwrap();
+    let got: JsonValue = serde_json::from_slice(&merged).unwrap();
+    let want: JsonValue = serde_json::from_str(&golden_str(&g, "policy.merged")).unwrap();
     assert_eq!(dom_sort(got), dom_sort(want));
     // New Soda scopes carry the exact sigstore requirement shape.
     let text = String::from_utf8(merged).unwrap();
@@ -297,10 +302,7 @@ fn merge_policy_matches_oracle_semantically() {
 fn dom_sort(value: JsonValue) -> JsonValue {
     match value {
         JsonValue::Object(entries) => {
-            let mut entries: Vec<(String, JsonValue)> =
-                entries.into_iter().map(|(k, v)| (k, dom_sort(v))).collect();
-            entries.sort_by(|a, b| a.0.cmp(&b.0));
-            JsonValue::Object(entries)
+            JsonValue::Object(entries.into_iter().map(|(k, v)| (k, dom_sort(v))).collect())
         }
         JsonValue::Array(items) => JsonValue::Array(items.into_iter().map(dom_sort).collect()),
         scalar => scalar,

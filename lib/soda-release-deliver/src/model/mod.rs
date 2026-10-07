@@ -1,9 +1,7 @@
 //! `model.go`: trust, candidate, release, channel, high-water mark, permit.
 
-use soda_json::JsonValue;
+use serde::{Deserialize, Serialize};
 
-use crate::jsonx::{Binder, Emit, Emitter};
-use crate::payload::{decode_opt_i64, decode_opt_string};
 use crate::{is_digest_ref, Error};
 
 mod trust;
@@ -24,12 +22,18 @@ pub use channel::{admit_channel, empty_state, Channel, Highwater, Seen};
 // Permit
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct Permit {
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub format: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub repository: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub digest: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub previous: String,
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub expires: i64,
 }
 
@@ -44,36 +48,6 @@ impl Permit {
             return Err(Error::refused());
         }
         Ok(())
-    }
-
-    pub fn decode(value: &JsonValue) -> Result<Permit, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid permit".to_string())?;
-        let permit = Permit {
-            format: decode_opt_i64(&mut b, "Format")?,
-            repository: decode_opt_string(&mut b, "Repository")?,
-            digest: decode_opt_string(&mut b, "Digest")?,
-            previous: decode_opt_string(&mut b, "Previous")?,
-            expires: decode_opt_i64(&mut b, "Expires")?,
-        };
-        b.finish_name()?;
-        Ok(permit)
-    }
-}
-
-impl Emit for Permit {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Format");
-        e.int(self.format);
-        e.field(false, "Repository");
-        e.string(&self.repository);
-        e.field(false, "Digest");
-        e.string(&self.digest);
-        e.field(false, "Previous");
-        e.string(&self.previous);
-        e.field(false, "Expires");
-        e.int(self.expires);
-        e.end_object(false);
     }
 }
 

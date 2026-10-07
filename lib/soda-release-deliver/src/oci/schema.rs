@@ -1,10 +1,11 @@
+use serde::de::{DeserializeOwned, Error as DeError, IgnoredAny, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use std::collections::BTreeMap;
+use std::fmt;
 
 use sha2::{Digest as _, Sha256};
-use soda_json::JsonValue;
 
 use crate::buildx::{is_digest, Image as BuildImage};
-use crate::jsonx::{as_i64, parse_lenient, Soft};
 use crate::Error;
 
 use super::{Blob, CONFIG_TYPE, INDEX_TYPE, LAYER_GZIP, LAYER_TAR, LAYER_ZSTD, MANIFEST_TYPE};
@@ -19,120 +20,352 @@ pub(super) struct Descriptor {
 }
 
 #[derive(Debug, Clone, Default)]
+struct IndexDocument {
+    schema_version: i64,
+    media_type: String,
+    manifests: Vec<Descriptor>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ManifestDocument {
+    schema_version: i64,
+    media_type: String,
+    config: Descriptor,
+    layers: Vec<Descriptor>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct RootfsDocument {
+    rootfs_type: String,
+    diff_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ImageConfigDocument {
+    labels: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ConfigDocument {
+    os: String,
+    architecture: String,
+    rootfs: RootfsDocument,
+    config: ImageConfigDocument,
+}
+
+#[derive(Default)]
+struct LayoutDocument {
+    image_layout_version: String,
+}
+
+fn decode_raw<T: DeserializeOwned + Default, E: DeError>(
+    raw: Option<Box<serde_json::value::RawValue>>,
+) -> Result<T, E> {
+    let Some(raw) = raw else {
+        return Ok(T::default());
+    };
+    serde_json::from_str::<Option<T>>(raw.get())
+        .map_err(E::custom)
+        .map(Option::unwrap_or_default)
+}
+
+#[derive(Default)]
+struct RawI64(i64);
+impl<'de> Deserialize<'de> for RawI64 {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        crate::json_serde::null_i64(d).map(RawI64)
+    }
+}
+
+impl<'de> Deserialize<'de> for Descriptor {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = Descriptor;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI descriptor")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<Descriptor, M::Error> {
+                let (mut digest, mut size, mut media_type, mut urls, mut annotations) =
+                    (None, None, None, None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "digest" => {
+                            digest = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "size" => size = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "mediaType" => {
+                            media_type = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "urls" => urls = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "annotations" => {
+                            annotations = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(Descriptor {
+                    digest: decode_raw(digest)?,
+                    size: decode_raw::<RawI64, M::Error>(size)?.0,
+                    media_type: decode_raw(media_type)?,
+                    urls: decode_raw(urls)?,
+                    annotations: decode_raw(annotations)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+impl<'de> Deserialize<'de> for IndexDocument {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = IndexDocument;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI index object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<IndexDocument, M::Error> {
+                let (mut version, mut media, mut manifests) = (None, None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "schemaVersion" => {
+                            version = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "mediaType" => {
+                            media = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "manifests" => {
+                            manifests = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(IndexDocument {
+                    schema_version: decode_raw::<RawI64, M::Error>(version)?.0,
+                    media_type: decode_raw(media)?,
+                    manifests: decode_raw(manifests)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+impl<'de> Deserialize<'de> for ManifestDocument {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ManifestDocument;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI manifest object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<ManifestDocument, M::Error> {
+                let (mut version, mut media, mut config, mut layers) = (None, None, None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "schemaVersion" => {
+                            version = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "mediaType" => {
+                            media = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "config" => {
+                            config = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "layers" => {
+                            layers = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(ManifestDocument {
+                    schema_version: decode_raw::<RawI64, M::Error>(version)?.0,
+                    media_type: decode_raw(media)?,
+                    config: decode_raw(config)?,
+                    layers: decode_raw(layers)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+impl<'de> Deserialize<'de> for RootfsDocument {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = RootfsDocument;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI rootfs object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<RootfsDocument, M::Error> {
+                let (mut kind, mut ids) = (None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "type" => kind = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "diff_ids" => {
+                            ids = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(RootfsDocument {
+                    rootfs_type: decode_raw(kind)?,
+                    diff_ids: decode_raw(ids)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+impl<'de> Deserialize<'de> for ImageConfigDocument {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ImageConfigDocument;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI config object")
+            }
+            fn visit_map<M: MapAccess<'de>>(
+                self,
+                mut m: M,
+            ) -> Result<ImageConfigDocument, M::Error> {
+                let mut labels = None;
+                while let Some(key) = m.next_key::<String>()? {
+                    if key == "Labels" {
+                        labels = Some(m.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        m.next_value::<IgnoredAny>()?;
+                    }
+                }
+                Ok(ImageConfigDocument {
+                    labels: decode_raw(labels)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+impl<'de> Deserialize<'de> for ConfigDocument {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = ConfigDocument;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI image config object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<ConfigDocument, M::Error> {
+                let (mut os, mut arch, mut rootfs, mut config) = (None, None, None, None);
+                while let Some(key) = m.next_key::<String>()? {
+                    match key.as_str() {
+                        "os" => os = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
+                        "architecture" => {
+                            arch = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "rootfs" => {
+                            rootfs = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        "config" => {
+                            config = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
+                        _ => {
+                            m.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(ConfigDocument {
+                    os: decode_raw(os)?,
+                    architecture: decode_raw(arch)?,
+                    rootfs: decode_raw(rootfs)?,
+                    config: decode_raw(config)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+impl<'de> Deserialize<'de> for LayoutDocument {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = LayoutDocument;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an OCI layout object")
+            }
+            fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<LayoutDocument, M::Error> {
+                let mut version = None;
+                while let Some(key) = m.next_key::<String>()? {
+                    if key == "imageLayoutVersion" {
+                        version = Some(m.next_value::<Box<serde_json::value::RawValue>>()?);
+                    } else {
+                        m.next_value::<IgnoredAny>()?;
+                    }
+                }
+                Ok(LayoutDocument {
+                    image_layout_version: decode_raw(version)?,
+                })
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 pub(super) struct OciManifest {
     pub(super) config: Descriptor,
     pub(super) layers: Vec<Descriptor>,
 }
 
-// ---------------------------------------------------------------------------
-// Small decoders (encoding/json semantics: lenient, last-wins)
-// ---------------------------------------------------------------------------
-
-fn decode_descriptor(value: &JsonValue) -> Result<Descriptor, crate::jsonx::DecodeError> {
-    let soft = Soft::new(value)?;
-    let mut descriptor = Descriptor {
-        digest: soft.string("digest")?.unwrap_or_default(),
-        size: as_i64(soft.integer("size")?.unwrap_or(0))?,
-        media_type: soft.string("mediaType")?.unwrap_or_default(),
-        urls: Vec::new(),
-        annotations: BTreeMap::new(),
-    };
-    if let Some(items) = soft.array("urls")? {
-        for item in items {
-            match item {
-                JsonValue::Str(s) => descriptor.urls.push(s.clone()),
-                _ => return Err(crate::jsonx::DecodeError),
-            }
-        }
-    }
-    if let Some(entries) = soft
-        .object("annotations")?
-        .and_then(|o| o.entries().map(|e| e.to_vec()))
-    {
-        for (key, item) in &entries {
-            match item {
-                JsonValue::Str(s) => {
-                    descriptor.annotations.insert(key.clone(), s.clone());
-                }
-                _ => return Err(crate::jsonx::DecodeError),
-            }
-        }
-    }
-    Ok(descriptor)
-}
-
 pub(super) fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Descriptor>, Error> {
-    let layout_data = entries.get("oci-layout").and_then(|b| b.data.as_deref());
-    let layout_value = layout_data.and_then(|data| parse_lenient(data).ok());
-    let layout_ok = layout_value
-        .as_ref()
-        .and_then(|v| Soft::new(v).ok())
-        .and_then(|s| s.string("imageLayoutVersion").ok().flatten())
-        == Some("1.0.0".to_string());
-    if !layout_ok {
+    let invalid = || Error::msg("valid OCI index required");
+    let layout_data = entries
+        .get("oci-layout")
+        .and_then(|b| b.data.as_deref())
+        .ok_or_else(|| Error::msg("missing OCI layout"))?;
+    let layout: LayoutDocument =
+        serde_json::from_slice(layout_data).map_err(|_| Error::msg("missing OCI layout"))?;
+    if layout.image_layout_version != "1.0.0" {
         return Err(Error::msg("missing OCI layout"));
     }
-    let index_data = entries.get("index.json").and_then(|b| b.data.as_deref());
-    let value = index_data
-        .and_then(|data| parse_lenient(data).ok())
-        .ok_or_else(|| Error::msg("valid OCI index required"))?;
-    let soft = Soft::new(&value).map_err(|_| Error::msg("valid OCI index required"))?;
-    let version = as_i64(
-        soft.integer("schemaVersion")
-            .map_err(|_| Error::msg("valid OCI index required"))?
-            .unwrap_or(0),
-    )
-    .map_err(|_| Error::msg("valid OCI index required"))?;
-    let media = soft
-        .string("mediaType")
-        .map_err(|_| Error::msg("valid OCI index required"))?
-        .unwrap_or_default();
-    if version != 2 || (!media.is_empty() && media != INDEX_TYPE) {
-        return Err(Error::msg("valid OCI index required"));
-    }
-    let mut manifests = Vec::new();
-    if let Some(items) = soft
-        .array("manifests")
-        .map_err(|_| Error::msg("valid OCI index required"))?
+    let index_data = entries
+        .get("index.json")
+        .and_then(|b| b.data.as_deref())
+        .ok_or_else(invalid)?;
+    let index: IndexDocument = serde_json::from_slice(index_data).map_err(|_| invalid())?;
+    if index.schema_version != 2 || (!index.media_type.is_empty() && index.media_type != INDEX_TYPE)
     {
-        for item in items {
-            manifests
-                .push(decode_descriptor(item).map_err(|_| Error::msg("valid OCI index required"))?);
-        }
+        return Err(invalid());
     }
-    Ok(manifests)
+    Ok(index.manifests)
 }
 
 pub(super) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifest, Error> {
-    let value = parse_lenient(data).map_err(|_| Error::msg("invalid OCI image manifest"))?;
-    let soft = Soft::new(&value).map_err(|_| Error::msg("invalid OCI image manifest"))?;
     let invalid = || Error::msg("invalid OCI image manifest");
-    let version = soft
-        .integer("schemaVersion")
-        .map_err(|_| invalid())?
-        .unwrap_or(0);
-    let media = soft
-        .string("mediaType")
-        .map_err(|_| invalid())?
-        .unwrap_or_default();
-    if version != 2 || (!media.is_empty() && media != MANIFEST_TYPE) {
+    let manifest: ManifestDocument = serde_json::from_slice(data).map_err(|_| invalid())?;
+    if manifest.schema_version != 2
+        || (!manifest.media_type.is_empty() && manifest.media_type != MANIFEST_TYPE)
+    {
         return Err(invalid());
     }
-    let config_value = soft
-        .field("config")
-        .cloned()
-        .unwrap_or(JsonValue::Object(Vec::new()));
-    let config = decode_descriptor(&config_value).map_err(|_| invalid())?;
-    if config.media_type != CONFIG_TYPE {
+    if manifest.config.media_type != CONFIG_TYPE {
         return Err(invalid());
     }
-    let mut layers = Vec::new();
-    if let Some(items) = soft.array("layers").map_err(|_| invalid())? {
-        for item in items {
-            layers.push(decode_descriptor(item).map_err(|_| invalid())?);
-        }
-    }
-    Ok(OciManifest { config, layers })
+    Ok(OciManifest {
+        config: manifest.config,
+        layers: manifest.layers,
+    })
 }
 
 struct OciConfig {
@@ -145,63 +378,19 @@ struct OciConfig {
 
 fn parse_oci_config(data: &[u8]) -> Result<OciConfig, Error> {
     let invalid = || Error::msg("invalid OCI image config");
-    let value = parse_lenient(data).map_err(|_| invalid())?;
-    let soft = Soft::new(&value).map_err(|_| invalid())?;
-    let rootfs = soft.object("rootfs").map_err(|_| invalid())?;
-    let mut diff_ids = Vec::new();
-    let mut rootfs_type = String::new();
-    if let Some(rootfs) = rootfs {
-        rootfs_type = rootfs
-            .string("type")
-            .map_err(|_| invalid())?
-            .unwrap_or_default();
-        if let Some(items) = rootfs.array("diff_ids").map_err(|_| invalid())? {
-            for item in items {
-                match item {
-                    JsonValue::Str(s) => diff_ids.push(s.clone()),
-                    _ => return Err(invalid()),
-                }
-            }
-        }
-    }
-    let mut labels = BTreeMap::new();
-    if let Some(config) = soft.object("config").map_err(|_| invalid())? {
-        if let Some(entries) = config
-            .object("Labels")
-            .map_err(|_| invalid())?
-            .and_then(|o| o.entries().map(|e| e.to_vec()))
-        {
-            for (key, item) in &entries {
-                match item {
-                    JsonValue::Str(s) => {
-                        labels.insert(key.clone(), s.clone());
-                    }
-                    _ => return Err(invalid()),
-                }
-            }
-        }
-    }
+    let config: ConfigDocument = serde_json::from_slice(data).map_err(|_| invalid())?;
     Ok(OciConfig {
-        os: soft
-            .string("os")
-            .map_err(|_| invalid())?
-            .unwrap_or_default(),
-        arch: soft
-            .string("architecture")
-            .map_err(|_| invalid())?
-            .unwrap_or_default(),
-        rootfs_type,
-        diff_ids,
-        labels,
+        os: config.os,
+        arch: config.architecture,
+        rootfs_type: config.rootfs.rootfs_type,
+        diff_ids: config.rootfs.diff_ids,
+        labels: config.config.labels,
     })
 }
 
-// ---------------------------------------------------------------------------
-// Blob ingestion
-// ---------------------------------------------------------------------------
-
 fn is_json(data: &[u8]) -> bool {
-    parse_lenient(data).is_ok()
+    let mut decoder = serde_json::Deserializer::from_slice(data);
+    serde::de::IgnoredAny::deserialize(&mut decoder).is_ok() && decoder.end().is_ok()
 }
 
 pub(super) fn read_oci_blob(
@@ -242,7 +431,6 @@ pub(super) fn read_oci_blob(
     );
     Ok(())
 }
-
 pub(super) fn fetch_oci_blob(
     entries: &BTreeMap<String, Blob>,
     d: &Descriptor,
@@ -379,4 +567,32 @@ pub(super) fn inspect_oci_image(
         &image.digest,
         &manifest.config.digest,
     )
+}
+
+#[cfg(test)]
+mod json_admission_tests {
+    use super::{Descriptor, IndexDocument};
+
+    #[test]
+    fn oci_raw_slots_validate_only_the_last_known_value() {
+        let descriptor: Descriptor = serde_json::from_str(
+            r#"{"size":1.5,"size":-0,"digest":false,"digest":"sha256:abc","urls":2,"urls":[]}"#,
+        )
+        .unwrap();
+        assert_eq!(descriptor.size, 0);
+        assert_eq!(descriptor.digest, "sha256:abc");
+        assert!(descriptor.urls.is_empty());
+
+        assert!(serde_json::from_str::<Descriptor>(r#"{"size":-0.0}"#).is_err());
+        assert!(serde_json::from_str::<Descriptor>(r#"{"size":1e0}"#).is_err());
+        assert!(serde_json::from_str::<Descriptor>(r#"{"size":9223372036854775808}"#).is_err());
+        assert!(serde_json::from_str::<Descriptor>(r#"{"size":-0,"size":1.25}"#).is_err());
+
+        let index: IndexDocument = serde_json::from_str(
+            r#"{"schemaVersion":false,"schemaVersion":2,"manifests":null,"manifests":[{}]}"#,
+        )
+        .unwrap();
+        assert_eq!(index.schema_version, 2);
+        assert_eq!(index.manifests.len(), 1);
+    }
 }

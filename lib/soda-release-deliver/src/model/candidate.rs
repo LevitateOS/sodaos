@@ -1,31 +1,46 @@
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-
-use soda_json::JsonValue;
 
 use crate::buildx::{
     is_digest, is_revision, oci_architecture, ForgejoToolchain, Image as BuildImage,
 };
-use crate::jsonx::{Binder, Emit, Emitter};
-use crate::payload::{decode_opt_i64, decode_opt_string, decode_string_map, Payload};
+use crate::payload::Payload;
 use crate::{hash_bytes, is_digest_ref, Error};
 
 // ---------------------------------------------------------------------------
 // Candidate
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
 pub struct Candidate {
+    #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub format: i64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub host: BuildImage,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub host_reference: String,
+    #[serde(rename = "HostArchiveSHA256")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub host_archive_sha256: String,
+    #[serde(rename = "PayloadSHA256")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub payload_sha256: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub migration: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub notes: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub forgejo_revision: String,
+    #[serde(rename = "ForgejoSourceSHA256")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub forgejo_source_sha256: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub forgejo_toolchain: ForgejoToolchain,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub architecture: String,
+    #[serde(rename = "ContentSHA256")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub content_sha256: BTreeMap<String, String>,
 }
 
@@ -172,75 +187,5 @@ impl Candidate {
             return Err(Error::refused());
         }
         Ok(())
-    }
-
-    pub fn decode(value: &JsonValue) -> Result<Candidate, String> {
-        let mut b = Binder::new(value).map_err(|_| "invalid candidate".to_string())?;
-        let mut candidate = Candidate {
-            format: decode_opt_i64(&mut b, "Format")?,
-            host: BuildImage::default(),
-            host_reference: decode_opt_string(&mut b, "HostReference")?,
-            host_archive_sha256: decode_opt_string(&mut b, "HostArchiveSHA256")?,
-            payload_sha256: decode_opt_string(&mut b, "PayloadSHA256")?,
-            migration: decode_opt_string(&mut b, "Migration")?,
-            notes: decode_opt_string(&mut b, "Notes")?,
-            forgejo_revision: decode_opt_string(&mut b, "ForgejoRevision")?,
-            forgejo_source_sha256: decode_opt_string(&mut b, "ForgejoSourceSHA256")?,
-            forgejo_toolchain: ForgejoToolchain::default(),
-            architecture: decode_opt_string(&mut b, "Architecture")?,
-            content_sha256: BTreeMap::new(),
-        };
-        if let Some(host) = b
-            .entries("Host")
-            .map_err(|_| "invalid field Host".to_string())?
-        {
-            candidate.host = BuildImage::decode(&JsonValue::Object(host.to_vec()))?;
-        }
-        if let Some(toolchain) = b
-            .entries("ForgejoToolchain")
-            .map_err(|_| "invalid field ForgejoToolchain".to_string())?
-        {
-            candidate.forgejo_toolchain =
-                ForgejoToolchain::decode(&JsonValue::Object(toolchain.to_vec()))?;
-        }
-        candidate.content_sha256 = decode_string_map(&mut b, "ContentSHA256")?;
-        b.finish_name()?;
-        Ok(candidate)
-    }
-}
-
-impl Emit for Candidate {
-    fn emit(&self, e: &mut Emitter) {
-        e.begin_object(false);
-        e.field(true, "Format");
-        e.int(self.format);
-        e.field(false, "Host");
-        self.host.emit(e);
-        e.field(false, "HostReference");
-        e.string(&self.host_reference);
-        e.field(false, "HostArchiveSHA256");
-        e.string(&self.host_archive_sha256);
-        e.field(false, "PayloadSHA256");
-        e.string(&self.payload_sha256);
-        e.field(false, "Migration");
-        e.string(&self.migration);
-        e.field(false, "Notes");
-        e.string(&self.notes);
-        e.field(false, "ForgejoRevision");
-        e.string(&self.forgejo_revision);
-        e.field(false, "ForgejoSourceSHA256");
-        e.string(&self.forgejo_source_sha256);
-        e.field(false, "ForgejoToolchain");
-        self.forgejo_toolchain.emit(e);
-        e.field(false, "Architecture");
-        e.string(&self.architecture);
-        e.field(false, "ContentSHA256");
-        e.begin_object(self.content_sha256.is_empty());
-        for (i, (name, hash)) in self.content_sha256.iter().enumerate() {
-            e.field(i == 0, name);
-            e.string(hash);
-        }
-        e.end_object(self.content_sha256.is_empty());
-        e.end_object(false);
     }
 }
