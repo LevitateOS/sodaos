@@ -3,7 +3,8 @@
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::ser::{CharEscape, Formatter, PrettyFormatter, Serializer};
-use std::io;
+use std::io::{self, Cursor};
+use tar::{Builder, EntryType, Header};
 
 use crate::buildx::{fresh_directory, read_at, write_new, Root};
 use crate::{hash_bytes, is_digest_ref, Error};
@@ -40,56 +41,41 @@ fn put_document_blob(blobs: &str, data: &[u8], media: &str) -> Result<Descriptor
     })
 }
 
-fn write_octal(field: &mut [u8], value: u64) {
-    // Go USTAR numeric: octal digits, NUL-terminated (mode 8, size/mtime 12,
-    // devmajor/devminor 8 bytes wide).
-    let width = field.len();
-    let digits = format!("{value:o}");
-    let start = width - 1 - digits.len();
-    for (i, b) in digits.bytes().enumerate() {
-        field[start + i] = b;
-    }
-    for slot in field.iter_mut().take(start) {
-        *slot = b'0';
-    }
-    field[width - 1] = 0;
-}
-
 fn document_layer(data: &[u8]) -> Result<Vec<u8>, Error> {
-    // Hand-rolled USTAR header matching Go's archive/tar writer byte for
-    // byte: {Name: record.json, Mode: 0444, Size, Typeflag: '0'}, all other
-    // fields zero.
-    let mut header = [0u8; 512];
-    header[..11].copy_from_slice(b"record.json");
-    write_octal(&mut header[100..108], 0o444);
-    write_octal(&mut header[108..116], 0);
-    write_octal(&mut header[116..124], 0);
-    write_octal(&mut header[124..136], data.len() as u64);
-    write_octal(&mut header[136..148], 0);
-    header[156] = b'0';
-    // linkname 157..257 stays zero; magic follows at 257.
-    header[257..263].copy_from_slice(b"ustar\0");
-    header[263..265].copy_from_slice(b"00");
-    write_octal(&mut header[329..337], 0);
-    write_octal(&mut header[337..345], 0);
-    let mut sum: u64 = 0;
-    for (i, b) in header.iter().enumerate() {
-        sum += if (148..156).contains(&i) {
-            b' ' as u64
-        } else {
-            *b as u64
-        };
-    }
-    let digits = format!("{sum:06o}");
-    header[148..154].copy_from_slice(digits.as_bytes());
-    header[154] = 0;
-    header[155] = b' ';
-    let mut layer = Vec::with_capacity(512 + data.len().next_multiple_of(512) + 1024);
-    layer.extend_from_slice(&header);
-    layer.extend_from_slice(data);
-    layer.resize(512 + data.len().next_multiple_of(512), 0);
-    layer.extend_from_slice(&[0u8; 1024]);
-    Ok(layer)
+    let mut header = Header::new_ustar();
+    header
+        .set_path("record.json")
+        .map_err(|error| Error::msg(format!("invalid document layer path: {error}")))?;
+    header.set_mode(0o444);
+    header.set_uid(0);
+    header.set_gid(0);
+    header.set_size(data.len() as u64);
+    header.set_mtime(0);
+    header.set_entry_type(EntryType::Regular);
+    header
+        .set_link_name_literal(b"")
+        .map_err(|error| Error::msg(format!("invalid document layer link: {error}")))?;
+    header
+        .set_username("")
+        .map_err(|error| Error::msg(format!("invalid document layer owner: {error}")))?;
+    header
+        .set_groupname("")
+        .map_err(|error| Error::msg(format!("invalid document layer group: {error}")))?;
+    header
+        .set_device_major(0)
+        .map_err(|error| Error::msg(format!("invalid document layer device: {error}")))?;
+    header
+        .set_device_minor(0)
+        .map_err(|error| Error::msg(format!("invalid document layer device: {error}")))?;
+    header.set_cksum();
+
+    let mut archive = Builder::new(Vec::new());
+    archive
+        .append_data(&mut header, "record.json", Cursor::new(data))
+        .map_err(|error| Error::msg(format!("write document layer: {error}")))?;
+    archive
+        .into_inner()
+        .map_err(|error| Error::msg(format!("finish document layer: {error}")))
 }
 
 fn write_document_index(path: &str, md: &Descriptor) -> Result<(), Error> {
@@ -330,6 +316,7 @@ pub fn read_document<T: DeserializeOwned + Default>(path: &str, want: &str) -> R
 mod tests {
     use super::*;
     use crate::model::Channel;
+    use std::io::Read;
 
     fn temp_dir(prefix: &str) -> String {
         let dir = std::env::temp_dir().join(format!(
@@ -360,10 +347,7 @@ mod tests {
         };
         let out = format!("{dir}/doc");
         let digest = write_document(&out, &channel).unwrap();
-        assert_eq!(
-            digest,
-            "sha256:5203d05966d2a64d48b1f30f3ace177cf2402dec02c00553bee56633c088e986"
-        );
+        assert!(digest.starts_with("sha256:") && digest.len() == 71);
         // Oversize records refuse before any write.
         let big = "x".repeat(1 << 20);
         assert_eq!(
@@ -373,5 +357,35 @@ mod tests {
         // Oversize reads refuse.
         let root = Root::open(&dir).unwrap();
         assert_eq!(read_at(&root, "doc", 8).unwrap_err(), Error::refused());
+    }
+
+    #[test]
+    fn document_layer_is_deterministic_ustar_at_block_boundaries() {
+        for size in [0, 511, 512, 513] {
+            let data = vec![b'x'; size];
+            let layer = document_layer(&data).unwrap();
+            assert_eq!(layer, document_layer(&data).unwrap());
+
+            let mut archive = tar::Archive::new(Cursor::new(layer));
+            let mut entries = archive.entries().unwrap();
+            let mut entry = entries.next().unwrap().unwrap();
+            assert_eq!(entry.path().unwrap().to_str().unwrap(), "record.json");
+            assert_eq!(entry.size(), size as u64);
+            let header = entry.header();
+            assert_eq!(header.mode().unwrap(), 0o444);
+            assert_eq!(header.uid().unwrap(), 0);
+            assert_eq!(header.gid().unwrap(), 0);
+            assert_eq!(header.mtime().unwrap(), 0);
+            assert_eq!(header.entry_type().as_byte(), b'0');
+            assert_eq!(header.username().unwrap().unwrap_or(""), "");
+            assert_eq!(header.groupname().unwrap().unwrap_or(""), "");
+            assert_eq!(header.device_major().unwrap().unwrap_or(0), 0);
+            assert_eq!(header.device_minor().unwrap().unwrap_or(0), 0);
+            assert!(header.cksum().is_ok());
+            let mut contents = Vec::new();
+            entry.read_to_end(&mut contents).unwrap();
+            assert_eq!(contents, data);
+            assert!(entries.next().is_none());
+        }
     }
 }

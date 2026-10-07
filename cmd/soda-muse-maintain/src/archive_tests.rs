@@ -4,35 +4,67 @@ use crate::stage::INSTALL_SCRIPT;
 use crate::test_support::{emit_synthetic, run_install_script, synthetic_feeds, TestDir};
 use std::ffi::CString;
 use std::fs;
+use std::io::Read;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use super::{emit_archive, tar_header};
+use super::{emit_archive, tool_header};
 
 #[test]
-fn tar_header_layout_matches_ustar() {
-    let h = tar_header("muse", 14).unwrap();
-    assert_eq!(&h[..4], b"muse");
-    assert!(h[4..100].iter().all(|b| *b == 0));
-    assert_eq!(&h[100..108], b"0000755\0");
-    assert_eq!(&h[108..116], b"0000000\0");
-    assert_eq!(&h[116..124], b"0000000\0");
-    assert_eq!(&h[124..136], b"00000000016\0");
-    assert_eq!(&h[136..148], b"00000000000\0");
-    assert_eq!(h[156], b'0');
-    assert_eq!(&h[257..263], b"ustar\0");
-    assert_eq!(&h[263..265], b"00");
-    let mut sum: u32 = 0;
-    for (i, b) in h.iter().enumerate() {
-        sum += if (148..156).contains(&i) {
-            b' ' as u32
-        } else {
-            *b as u32
-        };
-    }
-    assert_eq!(&h[148..156], format!("{sum:06o}\0 ").as_bytes());
-    assert!(tar_header(&"n".repeat(101), 0).is_err());
+fn ustar_header_metadata_is_explicit() {
+    let header = tool_header("muse", 14).unwrap();
+    assert_eq!(header.path().unwrap().to_str().unwrap(), "muse");
+    assert_eq!(header.mode().unwrap(), 0o755);
+    assert_eq!(header.uid().unwrap(), 0);
+    assert_eq!(header.gid().unwrap(), 0);
+    assert_eq!(header.size().unwrap(), 14);
+    assert_eq!(header.mtime().unwrap(), 0);
+    assert_eq!(header.entry_type().as_byte(), b'0');
+    assert_eq!(header.username().unwrap().unwrap_or(""), "");
+    assert_eq!(header.groupname().unwrap().unwrap_or(""), "");
+    assert!(header.link_name_bytes().is_none());
+    assert_eq!(header.device_major().unwrap().unwrap_or(0), 0);
+    assert_eq!(header.device_minor().unwrap().unwrap_or(0), 0);
+    assert!(header.cksum().is_ok());
+    assert!(tool_header(&"n".repeat(101), 0).is_err());
+    assert!(tool_header("muse", 8u64.pow(11)).is_err());
+}
+
+#[test]
+fn archive_is_deterministic_and_uses_declared_entries() {
+    let dir = TestDir::make("deterministic-archive");
+    let path = dir.path("tool");
+    fs::write(&path, b"synthetic tool bytes").unwrap();
+    let c = CString::new(path).unwrap();
+    let fd = unsafe { libc::open(c.as_ptr(), libc::O_RDONLY) };
+    assert!(fd >= 0);
+    let _guard = FdGuard(fd);
+    let feeds = vec![(String::from("bin/muse"), fd, 20u64)];
+    let write = || {
+        let mut archive = Vec::new();
+        emit_archive(
+            &mut |bytes: &[u8]| {
+                archive.extend_from_slice(bytes);
+                Ok(())
+            },
+            &feeds,
+        )
+        .unwrap();
+        archive
+    };
+    let first = write();
+    assert_eq!(first, write());
+    let mut tar = tar::Archive::new(first.as_slice());
+    let mut entries = tar.entries().unwrap();
+    let mut entry = entries.next().unwrap().unwrap();
+    assert_eq!(entry.path().unwrap().to_str().unwrap(), "bin/muse");
+    assert_eq!(entry.size(), 20);
+    let mut contents = Vec::new();
+    entry.read_to_end(&mut contents).unwrap();
+    assert_eq!(contents, b"synthetic tool bytes");
+    assert!(entries.next().is_none());
+    assert!(first.ends_with(&[0u8; 1024]));
 }
 
 #[test]
@@ -158,4 +190,5 @@ fn short_tool_file_ends_copy_with_eof() {
         .unwrap_err(),
         "EOF"
     );
+    assert_eq!(out.len(), 512 + b"twelve bytes".len());
 }

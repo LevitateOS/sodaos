@@ -1,8 +1,9 @@
 use std::fs;
+use std::io::{self, Read, Write};
 use std::os::unix::io::RawFd;
 use std::time::{Duration, Instant};
 
-use super::filesystem::{go_errno, last_errno};
+use tar::{Builder, EntryType, Header};
 
 // feed_archive streams the tar byte sequence to podman's stdin. Writes
 // poll non-blocking against the deadline so an abandoned pipe ends with
@@ -32,7 +33,7 @@ pub(crate) fn feed_archive(
             if n == 0 {
                 continue;
             }
-            let no = last_errno();
+            let no = super::filesystem::last_errno();
             if no == libc::EINTR {
                 continue;
             }
@@ -50,68 +51,136 @@ pub(crate) fn feed_archive(
     emit_archive(&mut emit, feeds)
 }
 
-// emit_archive ports archiveTools: one USTAR header per tool, CopyN of
-// exactly size bytes, 512 padding, and the two zero trailer blocks.
-// A short file ends CopyN with raw io.EOF; read failures keep the
-// PathError shape with the tool's archive name.
+struct ExactPread {
+    fd: RawFd,
+    name: String,
+    offset: i64,
+    remaining: u64,
+}
+
+impl Read for ExactPread {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        if self.remaining == 0 || buffer.is_empty() {
+            return Ok(0);
+        }
+        let length = self.remaining.min(buffer.len() as u64) as usize;
+        let n = unsafe {
+            libc::pread(
+                self.fd,
+                buffer.as_mut_ptr() as *mut libc::c_void,
+                length,
+                self.offset,
+            )
+        };
+        if n < 0 {
+            return Err(io::Error::other(format!(
+                "read {}: {}",
+                self.name,
+                super::filesystem::go_errno(super::filesystem::last_errno())
+            )));
+        }
+        if n == 0 {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "EOF"));
+        }
+        self.offset += n as i64;
+        self.remaining -= n as u64;
+        Ok(n as usize)
+    }
+}
+
+struct EmitWriter<'a> {
+    emit: &'a mut dyn FnMut(&[u8]) -> Result<(), String>,
+    error: Option<String>,
+}
+
+impl Write for EmitWriter<'_> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        if let Some(error) = &self.error {
+            return Err(io::Error::other(error.clone()));
+        }
+        match (self.emit)(buffer) {
+            Ok(()) => Ok(buffer.len()),
+            Err(error) => {
+                self.error = Some(error.clone());
+                Err(io::Error::other(error))
+            }
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn archive_error(error: io::Error, emit_error: Option<String>) -> String {
+    emit_error.unwrap_or_else(|| error.to_string())
+}
+
+fn tool_header(name: &str, size: u64) -> Result<Header, String> {
+    if name.len() > 100 || name.contains('\0') {
+        return Err(String::from("public tool name exceeds archive limit"));
+    }
+    // USTAR size is an 11-digit octal field. Header::set_size panics when
+    // the value cannot be represented, so reject it before calling upstream.
+    if size >= 8u64.pow(11) {
+        return Err(String::from("public tool size exceeds archive limit"));
+    }
+    let mut header = Header::new_ustar();
+    header
+        .set_path(name)
+        .map_err(|error| format!("invalid public tool name: {error}"))?;
+    header.set_mode(0o755);
+    header.set_uid(0);
+    header.set_gid(0);
+    header.set_size(size);
+    header.set_mtime(0);
+    header.set_entry_type(EntryType::Regular);
+    header
+        .set_link_name_literal(b"")
+        .map_err(|error| error.to_string())?;
+    header.set_username("").map_err(|error| error.to_string())?;
+    header
+        .set_groupname("")
+        .map_err(|error| error.to_string())?;
+    header
+        .set_device_major(0)
+        .map_err(|error| error.to_string())?;
+    header
+        .set_device_minor(0)
+        .map_err(|error| error.to_string())?;
+    header.set_cksum();
+    Ok(header)
+}
+
+// emit_archive uses tar's USTAR writer while retaining the maintenance pipe
+// writer and exact-size FD reads. The bounded reader makes a shrinking tool an
+// error rather than letting Builder::append_data write a short entry.
 pub(crate) fn emit_archive(
     emit: &mut dyn FnMut(&[u8]) -> Result<(), String>,
     feeds: &[(String, RawFd, u64)],
 ) -> Result<(), String> {
+    let mut archive = Builder::new(EmitWriter { emit, error: None });
     for (name, fd, size) in feeds {
-        emit(&tar_header(name, *size)?)?;
-        let mut remaining = *size;
-        let mut offset: i64 = 0;
-        let mut chunk = [0u8; 65536];
-        while remaining > 0 {
-            let want = remaining.min(chunk.len() as u64) as usize;
-            let n =
-                unsafe { libc::pread(*fd, chunk.as_mut_ptr() as *mut libc::c_void, want, offset) };
-            if n < 0 {
-                return Err(format!("read {name}: {}", go_errno(last_errno())));
-            }
-            if n == 0 {
-                return Err(String::from("EOF"));
-            }
-            emit(&chunk[..n as usize])?;
-            offset += n as i64;
-            remaining -= n as u64;
-        }
-        let pad = (512 - (size % 512)) % 512;
-        if pad > 0 {
-            let zeros = vec![0u8; pad as usize];
-            emit(&zeros)?;
+        let mut header = tool_header(name, *size)?;
+        let reader = ExactPread {
+            fd: *fd,
+            name: name.clone(),
+            offset: 0,
+            remaining: *size,
+        };
+        if let Err(error) = archive.append_data(&mut header, name, reader) {
+            let error = archive_error(error, archive.get_mut().error.clone());
+            // Builder finishes on Drop. A failed source must not gain zero
+            // trailer bytes that could make its truncated body appear valid.
+            archive.get_mut().error = Some(error.clone());
+            return Err(error);
         }
     }
-    emit(&[0u8; 1024])?;
+    if let Err(error) = archive.finish() {
+        let emit_error = archive.get_mut().error.clone();
+        return Err(archive_error(error, emit_error));
+    }
     Ok(())
-}
-
-// tar_header writes the USTAR byte stream Go's archive/tar emits for
-// these short regular names: fixed headers, 512-block data, two zero
-// blocks. Names are fixed constants, so the length guard never fires.
-pub(crate) fn tar_header(name: &str, size: u64) -> Result<[u8; 512], String> {
-    let mut header = [0u8; 512];
-    if name.len() > 100 || name.contains('\0') {
-        return Err(String::from("public tool name exceeds archive limit"));
-    }
-    header[..name.len()].copy_from_slice(name.as_bytes());
-    // Mode 0755, uid/gid 0, size octal, mtime 0, regular file, USTAR.
-    header[100..108].copy_from_slice(format!("{:07o}\0", 0o755).as_bytes());
-    header[108..116].copy_from_slice(b"0000000\0");
-    header[116..124].copy_from_slice(b"0000000\0");
-    header[124..136].copy_from_slice(format!("{:011o}\0", size).as_bytes());
-    header[136..148].copy_from_slice(b"00000000000\0");
-    header[156] = b'0';
-    header[329..337].copy_from_slice(b"0000000\0");
-    header[337..345].copy_from_slice(b"0000000\0");
-    header[257..263].copy_from_slice(b"ustar\0");
-    header[263..265].copy_from_slice(b"00");
-    // Checksum over spaces, then six octal digits, NUL, space.
-    header[148..156].copy_from_slice(b"        ");
-    let sum: u32 = header.iter().map(|b| *b as u32).sum();
-    header[148..156].copy_from_slice(format!("{sum:06o}\0 ").as_bytes());
-    Ok(header)
 }
 
 #[cfg(test)]
