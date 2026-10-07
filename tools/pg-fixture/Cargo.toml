@@ -8,4 +8,5 @@ name = "soda-pg-fixture"
 path = "src/main.rs"
 
 [dependencies]
+tempfile = "=3.27.0"
 getrandom = { version = "=0.4.3", features = ["std"] }

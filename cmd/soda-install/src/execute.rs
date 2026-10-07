@@ -2,7 +2,6 @@
 //! destination rendering, the destructive `coreos-installer` boundary, and
 //! the diagnostic landing console every outcome reaches.
 
-use std::ffi::CString;
 use std::io::Read;
 
 use crate::buildx;
@@ -217,45 +216,32 @@ pub fn verify_disk_media() -> Result<(crate::run::MediaIdentity, u64), Error> {
 }
 
 struct AttemptIgnition {
-    directory: String,
+    directory: tempfile::TempDir,
     path: String,
 }
 
 impl AttemptIgnition {
-    fn close(mut self) -> Result<(), Error> {
-        let directory = std::mem::take(&mut self.directory);
-        std::fs::remove_dir_all(&directory)
-            .map_err(|err| crate::errors::path_error("remove", &directory, err))
-    }
-}
-
-impl Drop for AttemptIgnition {
-    fn drop(&mut self) {
-        if !self.directory.is_empty() {
-            let _ = std::fs::remove_dir_all(&self.directory);
-        }
+    fn close(self) -> Result<(), Error> {
+        let path = self.directory.path().to_string_lossy().into_owned();
+        self.directory
+            .close()
+            .map_err(|err| crate::errors::path_error("remove", &path, err))
     }
 }
 
 fn write_attempt_ignition(destination: &[u8]) -> Result<AttemptIgnition, Error> {
-    let template = CString::new("/run/soda-installer-XXXXXX").unwrap();
-    let raw = template.into_raw();
-    let ok = unsafe { libc::mkdtemp(raw) };
-    let template = unsafe { CString::from_raw(raw) };
-    if ok.is_null() {
-        let errno = unsafe { *libc::__errno_location() };
-        return Err(crate::errors::path_error(
-            "mkdir",
-            &template.to_string_lossy(),
-            std::io::Error::from_raw_os_error(errno),
-        ));
-    }
-    let work = template.to_string_lossy().into_owned();
-    let ignition = format!("{work}/destination.ign");
-    let owner = AttemptIgnition {
-        directory: work,
-        path: ignition,
-    };
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::Builder::new()
+        .prefix("soda-installer-")
+        .permissions(std::fs::Permissions::from_mode(0o700))
+        .tempdir_in("/run")
+        .map_err(|err| crate::errors::path_error("mkdir", "/run", err))?;
+    let path = directory
+        .path()
+        .join("destination.ign")
+        .to_string_lossy()
+        .into_owned();
+    let owner = AttemptIgnition { directory, path };
     if let Err(primary) = buildx::write_new(&owner.path, destination, 0o600) {
         return match owner.close() {
             Ok(()) => Err(primary),

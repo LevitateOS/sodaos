@@ -171,24 +171,13 @@ fn verify_address_still_assigned(
     ))
 }
 
-fn make_setup_workdir(temporary: &str) -> Result<String, Error> {
-    for _ in 0..100 {
-        let path = format!(
-            "{temporary}/soda-setup-{}",
-            crate::enroll::keys::random_hex(8)?
-        );
-        use std::os::unix::fs::DirBuilderExt;
-        match std::fs::DirBuilder::new().mode(0o700).create(&path) {
-            Ok(()) => return Ok(path),
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => return Err(errors::path_error("mkdir", &path, err)),
-        }
-    }
-    Err(errors::path_error(
-        "mkdir",
-        temporary,
-        std::io::Error::from_raw_os_error(libc::EEXIST),
-    ))
+fn make_setup_workdir(temporary: &str) -> Result<tempfile::TempDir, Error> {
+    use std::os::unix::fs::PermissionsExt;
+    tempfile::Builder::new()
+        .prefix("soda-setup-")
+        .permissions(std::fs::Permissions::from_mode(0o700))
+        .tempdir_in(temporary)
+        .map_err(|err| errors::path_error("mkdir", temporary, err))
 }
 
 pub(super) fn execute_setup_and_activation(
@@ -201,24 +190,8 @@ pub(super) fn execute_setup_and_activation(
     selected: &SetupAddress,
 ) -> Result<(), Error> {
     let work = make_setup_workdir(temporary)?;
-    // The operator token must not outlive this attempt, including failures.
-    struct WorkDir(String);
-    impl WorkDir {
-        fn close(mut self) -> Result<(), Error> {
-            let path = std::mem::take(&mut self.0);
-            std::fs::remove_dir_all(&path).map_err(|err| errors::path_error("remove", &path, err))
-        }
-    }
-    impl Drop for WorkDir {
-        fn drop(&mut self) {
-            if !self.0.is_empty() {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
-    }
-    let work = WorkDir(work);
     let result = (|| -> Result<(), Error> {
-        let work = &work.0;
+        let work = work.path().to_string_lossy();
         let token_path = format!("{work}/operator-token");
         let mut token_data = token.to_vec();
         token_data.push(b'\n');
@@ -272,7 +245,10 @@ pub(super) fn execute_setup_and_activation(
         }
         Ok(())
     })();
-    let cleanup = work.close();
+    let work_path = work.path().to_string_lossy().into_owned();
+    let cleanup = work
+        .close()
+        .map_err(|err| errors::path_error("remove", &work_path, err));
     match (result, cleanup) {
         (Ok(()), Ok(())) => Ok(()),
         (Err(primary), Ok(())) => Err(primary),

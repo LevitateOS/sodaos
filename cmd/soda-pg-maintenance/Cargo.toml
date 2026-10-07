@@ -20,4 +20,6 @@ name = "soda-pg-init-roles"
 path = "src/bin/soda-pg-init-roles.rs"
 
 [dependencies]
+libc = "=0.2.190"
+tempfile = "=3.27.0"
 soda-wire-time = { path = "../../lib/wire-time" }
