@@ -2,7 +2,7 @@ use super::super::*;
 use super::fixtures::*;
 
 fn decode(json: &str) -> Result<Payload, String> {
-    decode_payload(&parse_json(json.as_bytes())?)
+    decode_payload(json.as_bytes())
 }
 
 #[test]
@@ -34,6 +34,19 @@ fn payload_decode_is_strict_like_disallow_unknown_fields() {
     assert_eq!(decode(&nul).expect("null").format, 3);
     let folded = valid.replacen("\"Format\":3", "\"format\":3", 1);
     assert_eq!(decode(&folded).expect("fold").format, 3);
+    let invalid_earlier_image = valid.replacen(
+        "\"dashboard\":{",
+        "\"dashboard\":{\"Reference\":false},\"dashboard\":{",
+        1,
+    );
+    assert!(decode(&invalid_earlier_image).is_err());
+    let negative_zero = valid.replacen("\"Format\":3", "\"Format\":-0", 1);
+    assert_eq!(
+        decode(&negative_zero)
+            .expect("negative zero integer")
+            .format,
+        0
+    );
     // Null and missing UpgradeFrom both decode as empty.
     let null_up = valid.replace("\"UpgradeFrom\":[]", "\"UpgradeFrom\":null");
     assert!(decode(&null_up).expect("null list").upgrade_from.is_empty());

@@ -1,12 +1,9 @@
+use crate::json::{parse_json, raw_int, raw_string};
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 use std::collections::HashMap;
 
-use soda_json::JsonValue;
-
-use super::super::{obj_fields, parse_json, t_field, t_int, t_string, t_string_list, t_string_map};
-
-// ---------- OCI inspection (build/oci.go layout path) ----------
-
-/// Mirrors Go's `build.Image`; identity fields are asserted by the tests.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub(crate) struct OciImage {
@@ -18,7 +15,6 @@ pub(crate) struct OciImage {
     pub(crate) base_name: String,
     pub(crate) base_digest: String,
 }
-
 #[derive(Debug, Clone, Default)]
 pub(crate) struct OciDescriptor {
     pub(crate) digest: String,
@@ -27,58 +23,100 @@ pub(crate) struct OciDescriptor {
     pub(crate) urls: Vec<String>,
     pub(crate) annotations: HashMap<String, String>,
 }
-
 #[derive(Debug, Clone)]
 pub(crate) struct OciBlobData {
     pub(crate) size: i64,
-    /// Buffered only for small JSON blobs, like Go's `copyOCIBlob`.
     pub(crate) data: Option<Vec<u8>>,
 }
 
-fn decode_descriptor(value: &JsonValue) -> Result<OciDescriptor, String> {
-    if *value == JsonValue::Null {
-        return Ok(OciDescriptor::default());
+macro_rules! raw_record {
+    ($name:ident { $($field:ident => [$($alias:literal),+]),+ $(,)? } unknown $unknown:ident) => {
+        struct $name { $($field: Option<Box<RawValue>>),+ }
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D:Deserializer<'de>>(d:D)->Result<Self,D::Error>{
+                struct V; impl<'de> Visitor<'de> for V { type Value=$name;
+                    fn expecting(&self,f:&mut std::fmt::Formatter)->std::fmt::Result{f.write_str("an object")}
+                    fn visit_map<M:MapAccess<'de>>(self,mut m:M)->Result<$name,M::Error>{
+                        $(let mut $field: Option<Box<RawValue>> = None;)+
+                        let _ = stringify!($unknown);
+                        while let Some(k)=m.next_key::<String>()? { match k.to_ascii_lowercase().as_str() {
+                            $( $( $alias => { let v=m.next_value::<Box<RawValue>>()?; if v.get()!="null" { $field=Some(v); } }, )+ )+
+                            _ => { let _:serde::de::IgnoredAny=m.next_value()?; }
+                        }} Ok($name{$($field),+})
+                    }
+                } d.deserialize_map(V)
+            }
+        }
     }
-    if obj_fields(value).is_none() {
-        return Err("OCI descriptor must be an object".to_string());
+}
+raw_record!(DescriptorWire { digest=>["digest"], size=>["size"], media_type=>["mediatype"], urls=>["urls"], annotations=>["annotations"] } unknown ignored);
+raw_record!(ManifestWire { schema=>["schemaversion"], media=>["mediatype"], config=>["config"], layers=>["layers"] } unknown ignored);
+raw_record!(IndexWire { schema=>["schemaversion"], media=>["mediatype"], manifests=>["manifests"] } unknown ignored);
+raw_record!(LayoutWire { version=>["imagelayoutversion"] } unknown ignored);
+raw_record!(ConfigWire { os=>["os"], architecture=>["architecture"], rootfs=>["rootfs"], config=>["config"] } unknown ignored);
+raw_record!(RootfsWire { kind=>["type"], diff_ids=>["diff_ids"] } unknown ignored);
+raw_record!(LabelsWire { labels=>["labels"] } unknown ignored);
+
+fn string_list(raw: Option<&RawValue>, name: &str) -> Result<Vec<String>, String> {
+    match raw {
+        None => Ok(Vec::new()),
+        Some(v) => serde_json::from_str::<Vec<Option<String>>>(v.get())
+            .map(|a| a.into_iter().map(Option::unwrap_or_default).collect())
+            .map_err(|_| format!("field {name} must be a string list")),
     }
+}
+fn string_map(raw: Option<&RawValue>, name: &str) -> Result<HashMap<String, String>, String> {
+    match raw {
+        None => Ok(HashMap::new()),
+        Some(v) => serde_json::from_str::<HashMap<String, Option<String>>>(v.get())
+            .map(|m| {
+                m.into_iter()
+                    .map(|(k, v)| (k, v.unwrap_or_default()))
+                    .collect()
+            })
+            .map_err(|_| format!("field {name} must be a string map")),
+    }
+}
+fn descriptor(raw: &RawValue) -> Result<OciDescriptor, String> {
+    let w: DescriptorWire = parse_json(raw.get().as_bytes())
+        .map_err(|_| "OCI descriptor must be an object".to_string())?;
     Ok(OciDescriptor {
-        digest: t_string(value, "digest")?,
-        size: t_int(value, "size")?,
-        media_type: t_string(value, "mediaType")?,
-        urls: t_string_list(value, "urls")?,
-        annotations: t_string_map(value, "annotations")?,
+        digest: raw_string(w.digest.as_deref(), "digest")?,
+        size: raw_int(w.size.as_deref(), "size")?,
+        media_type: raw_string(w.media_type.as_deref(), "mediaType")?,
+        urls: string_list(w.urls.as_deref(), "urls")?,
+        annotations: string_map(w.annotations.as_deref(), "annotations")?,
     })
 }
-
-fn decode_descriptor_list(value: &JsonValue, name: &str) -> Result<Vec<OciDescriptor>, String> {
-    match t_field(value, name) {
+fn descriptors(raw: Option<&RawValue>) -> Result<Vec<OciDescriptor>, String> {
+    match raw {
         None => Ok(Vec::new()),
-        Some(JsonValue::Array(items)) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                out.push(decode_descriptor(item)?);
-            }
-            Ok(out)
+        Some(v) => {
+            let a: Vec<Option<Box<RawValue>>> = serde_json::from_str(v.get())
+                .map_err(|_| "field manifests must be a list".to_string())?;
+            a.into_iter()
+                .map(|x| match x {
+                    None => Ok(OciDescriptor::default()),
+                    Some(x) => descriptor(&x),
+                })
+                .collect()
         }
-        Some(_) => Err(format!("field {name} must be a list")),
     }
 }
-
 pub(crate) struct OciManifestData {
     pub(crate) config: OciDescriptor,
     pub(crate) layers: Vec<OciDescriptor>,
 }
-
 pub(crate) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifestData, String> {
-    let value = parse_json(data)?;
-    let schema = t_int(&value, "schemaVersion")?;
-    let media = t_string(&value, "mediaType")?;
-    let config = match t_field(&value, "config") {
+    let w: ManifestWire = parse_json(data)?;
+    let schema = raw_int(w.schema.as_deref(), "schemaVersion")?;
+    let media = raw_string(w.media.as_deref(), "mediaType")?;
+    let config = match w.config.as_deref() {
         None => OciDescriptor::default(),
-        Some(c) => decode_descriptor(c)?,
+        Some(v) if v.get() == "null" => OciDescriptor::default(),
+        Some(v) => descriptor(v)?,
     };
-    let layers = decode_descriptor_list(&value, "layers")?;
+    let layers = descriptors(w.layers.as_deref())?;
     if schema != 2
         || (!media.is_empty() && media != "application/vnd.oci.image.manifest.v1+json")
         || config.media_type != "application/vnd.oci.image.config.v1+json"
@@ -87,7 +125,6 @@ pub(crate) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifestData, String>
     }
     Ok(OciManifestData { config, layers })
 }
-
 pub(crate) struct OciConfigData {
     pub(crate) os: String,
     pub(crate) arch: String,
@@ -95,30 +132,29 @@ pub(crate) struct OciConfigData {
     pub(crate) diff_ids: Vec<String>,
     pub(crate) labels: HashMap<String, String>,
 }
-
 pub(crate) fn parse_oci_config(data: &[u8]) -> Result<OciConfigData, String> {
-    let value = parse_json(data)?;
-    let os = t_string(&value, "os")?;
-    let arch = t_string(&value, "architecture")?;
-    let (rootfs_type, diff_ids) = match t_field(&value, "rootfs") {
+    let w: ConfigWire = parse_json(data)?;
+    let os = raw_string(w.os.as_deref(), "os")?;
+    let arch = raw_string(w.architecture.as_deref(), "architecture")?;
+    let (rootfs_type, diff_ids) = match w.rootfs.as_deref() {
         None => (String::new(), Vec::new()),
-        Some(rootfs) => {
-            if obj_fields(rootfs).is_none() {
-                return Err("field rootfs must be an object".to_string());
-            }
+        Some(v) if v.get() == "null" => (String::new(), Vec::new()),
+        Some(v) => {
+            let x: RootfsWire = parse_json(v.get().as_bytes())
+                .map_err(|_| "field rootfs must be an object".to_string())?;
             (
-                t_string(rootfs, "type")?,
-                t_string_list(rootfs, "diff_ids")?,
+                raw_string(x.kind.as_deref(), "type")?,
+                string_list(x.diff_ids.as_deref(), "diff_ids")?,
             )
         }
     };
-    let labels = match t_field(&value, "config") {
+    let labels = match w.config.as_deref() {
         None => HashMap::new(),
-        Some(config) => {
-            if obj_fields(config).is_none() {
-                return Err("field config must be an object".to_string());
-            }
-            t_string_map(config, "Labels")?
+        Some(v) if v.get() == "null" => HashMap::new(),
+        Some(v) => {
+            let x: LabelsWire = parse_json(v.get().as_bytes())
+                .map_err(|_| "field config must be an object".to_string())?;
+            string_map(x.labels.as_deref(), "Labels")?
         }
     };
     Ok(OciConfigData {
@@ -129,32 +165,30 @@ pub(crate) fn parse_oci_config(data: &[u8]) -> Result<OciConfigData, String> {
         labels,
     })
 }
-
 pub(crate) fn read_oci_index(
     entries: &HashMap<String, OciBlobData>,
 ) -> Result<Vec<OciDescriptor>, String> {
-    let layout_data = entries.get("oci-layout").and_then(|b| b.data.as_ref());
-    let version = match layout_data {
-        Some(data) => {
-            let value = parse_json(data).map_err(|_| "missing OCI layout".to_string())?;
-            t_string(&value, "imageLayoutVersion").map_err(|_| "missing OCI layout".to_string())?
-        }
-        None => return Err("missing OCI layout".to_string()),
-    };
+    let layout = entries
+        .get("oci-layout")
+        .and_then(|b| b.data.as_ref())
+        .ok_or_else(|| "missing OCI layout".to_string())?;
+    let l: LayoutWire = parse_json(layout).map_err(|_| "missing OCI layout".to_string())?;
+    let version = raw_string(l.version.as_deref(), "imageLayoutVersion")
+        .map_err(|_| "missing OCI layout".to_string())?;
     if version != "1.0.0" {
         return Err("missing OCI layout".to_string());
     }
-    let index_data = entries.get("index.json").and_then(|b| b.data.as_ref());
-    let value = match index_data {
-        Some(data) => parse_json(data).map_err(|_| "valid OCI index required".to_string())?,
-        None => return Err("valid OCI index required".to_string()),
-    };
-    let schema =
-        t_int(&value, "schemaVersion").map_err(|_| "valid OCI index required".to_string())?;
-    let media =
-        t_string(&value, "mediaType").map_err(|_| "valid OCI index required".to_string())?;
-    let manifests = decode_descriptor_list(&value, "manifests")
+    let data = entries
+        .get("index.json")
+        .and_then(|b| b.data.as_ref())
+        .ok_or_else(|| "valid OCI index required".to_string())?;
+    let w: IndexWire = parse_json(data).map_err(|_| "valid OCI index required".to_string())?;
+    let schema = raw_int(w.schema.as_deref(), "schemaVersion")
         .map_err(|_| "valid OCI index required".to_string())?;
+    let media = raw_string(w.media.as_deref(), "mediaType")
+        .map_err(|_| "valid OCI index required".to_string())?;
+    let manifests =
+        descriptors(w.manifests.as_deref()).map_err(|_| "valid OCI index required".to_string())?;
     if schema != 2 || (!media.is_empty() && media != "application/vnd.oci.image.index.v1+json") {
         return Err("valid OCI index required".to_string());
     }

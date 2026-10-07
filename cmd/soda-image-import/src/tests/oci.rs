@@ -63,17 +63,15 @@ fn mutate_layout(root: &Path, kind: &str) -> (PathBuf, HashMap<String, String>) 
         _ => {
             let path = layout.join("index.json");
             let raw = fs::read_to_string(&path).expect("index");
-            let mut value = parse_json(raw.as_bytes()).expect("index json");
+            let mut value: serde_json::Value = serde_json::from_str(&raw).expect("index json");
             let manifests = match &mut value {
-                JsonValue::Object(entries) => entries
-                    .iter_mut()
-                    .find(|(k, _)| k == "manifests")
-                    .map(|(_, v)| v)
-                    .expect("manifests"),
+                serde_json::Value::Object(entries) => {
+                    entries.get_mut("manifests").expect("manifests")
+                }
                 _ => panic!("index object"),
             };
             let items = match manifests {
-                JsonValue::Array(items) => items,
+                serde_json::Value::Array(items) => items,
                 _ => panic!("manifests array"),
             };
             match kind {
@@ -97,7 +95,8 @@ fn mutate_layout(root: &Path, kind: &str) -> (PathBuf, HashMap<String, String>) 
                 }
                 _ => panic!("unknown kind"),
             }
-            fs::write(&path, render_json(&value)).expect("rewrite index");
+            fs::write(&path, serde_json::to_vec(&value).expect("serialize index"))
+                .expect("rewrite index");
         }
     }
     if kind == "symlink-root" {
@@ -108,83 +107,34 @@ fn mutate_layout(root: &Path, kind: &str) -> (PathBuf, HashMap<String, String>) 
     (layout, revisions)
 }
 
-fn render_json(value: &JsonValue) -> String {
-    match value {
-        JsonValue::Null => "null".to_string(),
-        JsonValue::Bool(true) => "true".to_string(),
-        JsonValue::Bool(false) => "false".to_string(),
-        JsonValue::Number(raw) => raw.clone(),
-        JsonValue::Str(s) => render_string(s),
-        JsonValue::Array(items) => {
-            let parts: Vec<String> = items.iter().map(render_json).collect();
-            format!("[{}]", parts.join(","))
-        }
-        JsonValue::Object(entries) => {
-            let parts: Vec<String> = entries
-                .iter()
-                .map(|(k, v)| format!("{}:{}", render_string(k), render_json(v)))
-                .collect();
-            format!("{{{}}}", parts.join(","))
-        }
-    }
+fn set_field(item: &mut serde_json::Value, key: &str, value: serde_json::Value) {
+    item.as_object_mut()
+        .expect("descriptor object")
+        .insert(key.to_string(), value);
 }
 
-fn render_string(s: &str) -> String {
-    let mut out = String::from("\"");
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
-}
-
-fn set_field(item: &mut JsonValue, key: &str, value: JsonValue) {
-    let entries = match item {
-        JsonValue::Object(entries) => entries,
-        _ => panic!("descriptor object"),
-    };
-    if let Some(slot) = entries.iter_mut().find(|(k, _)| k == key) {
-        slot.1 = value;
-    } else {
-        entries.push((key.to_string(), value));
-    }
-}
-
-fn set_annotation(item: &mut JsonValue, reference: &str) {
+fn set_annotation(item: &mut serde_json::Value, reference: &str) {
     set_field(
         item,
         "annotations",
-        JsonValue::Object(vec![(
-            "org.opencontainers.image.ref.name".to_string(),
-            JsonValue::Str(reference.to_string()),
-        )]),
+        serde_json::json!({"org.opencontainers.image.ref.name": reference}),
     );
 }
 
-fn set_size(item: &mut JsonValue, size: i64) {
-    set_field(item, "size", JsonValue::Number(size.to_string()));
+fn set_size(item: &mut serde_json::Value, size: i64) {
+    set_field(item, "size", serde_json::json!(size));
 }
 
-fn set_urls(item: &mut JsonValue) {
+fn set_urls(item: &mut serde_json::Value) {
     set_field(
         item,
         "urls",
-        JsonValue::Array(vec![JsonValue::Str(
-            "https://example.invalid/layer".to_string(),
-        )]),
+        serde_json::json!(["https://example.invalid/layer"]),
     );
 }
 
-fn set_media(item: &mut JsonValue, media: &str) {
-    set_field(item, "mediaType", JsonValue::Str(media.to_string()));
+fn set_media(item: &mut serde_json::Value, media: &str) {
+    set_field(item, "mediaType", serde_json::json!(media));
 }
 
 #[test]

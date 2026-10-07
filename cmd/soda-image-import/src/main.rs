@@ -6,8 +6,7 @@
 //! OCI layout inspection). CLI surface, exit codes, stderr text, podman
 //! argv, and verification rules match the Go implementation.
 //!
-//! Std + `soda-json` only (`cargo build --offline`); no new crates-io
-//! dependencies.
+//! Std and the workspace's locked Serde stack; no new crates-io dependencies.
 
 use std::collections::HashMap;
 use std::fs;
@@ -15,11 +14,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use soda_json::JsonValue;
-
 mod context;
 mod import;
-mod json_binding;
+mod json;
 mod oci;
 mod payload;
 mod platform;
@@ -27,10 +24,7 @@ mod sha256;
 
 use context::{admit, run, ImportCtx};
 use import::{import_images, native_import, run_podman, verify_content, PodmanOutcome};
-use json_binding::{
-    json_valid, obj_fields, parse_json, t_field, t_int, t_string, t_string_list, t_string_map,
-    Binder,
-};
+use json::json_valid;
 use oci::{inspect_oci_layout, OciImage};
 use payload::{decode_payload, ImageBinding, Payload};
 use platform::{

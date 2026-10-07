@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 use crate::sha256::{hex_lower, Sha256};
 use sha2::Digest;
 
-use super::super::{is_digest, json_valid};
+use super::super::is_digest;
+use super::super::json::json_valid;
 use super::metadata::{OciBlobData, OciDescriptor};
 
 // ---------- shared layout loading (build/oci_layout.go) ----------
