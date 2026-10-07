@@ -44,6 +44,82 @@ fn failed_attempt_keeps_primary_and_cleanup_errors() {
     );
 }
 
+#[test]
+fn attempt_runtime_release_requires_terminal_unit_custody() {
+    let parent_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.artifacts")
+        .join(format!(
+            "soda-worker-custody-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+    std::fs::create_dir(&parent_path).unwrap();
+    let parent = parent_path.to_string_lossy().into_owned();
+    let uid = unsafe { libc::getuid() };
+    let gid = unsafe { libc::getgid() };
+
+    let retained = claim_attempt_runtime(&parent, "/source/out/retained", uid, gid).unwrap();
+    let error = runtime::finish_attempt(
+        Err::<(), _>(WorkerError::Cancelled("stop timed out".to_owned())),
+        WorkerUnitCustody::ExactUnitUnconfirmed,
+        &parent,
+        &retained,
+    )
+    .unwrap_err();
+    assert_eq!(error, WorkerError::Cancelled(format!(
+        "stop timed out\nworker runtime retained at {retained}: exact unit termination is unconfirmed"
+    )));
+    assert!(std::fs::metadata(&retained).unwrap().is_dir());
+
+    let completed = claim_attempt_runtime(&parent, "/source/out/completed", uid, gid).unwrap();
+    runtime::finish_attempt(
+        Err::<(), _>(WorkerError::Failed("result parse failed".to_owned())),
+        WorkerUnitCustody::ExactUnitTerminal,
+        &parent,
+        &completed,
+    )
+    .unwrap_err();
+    assert!(std::fs::metadata(&completed).is_err());
+
+    let undispatched =
+        claim_attempt_runtime(&parent, "/source/out/undispatched", uid, gid).unwrap();
+    runtime::finish_attempt(
+        Err::<(), _>(WorkerError::Failed("admission failed".to_owned())),
+        WorkerUnitCustody::NeverDispatched,
+        &parent,
+        &undispatched,
+    )
+    .unwrap_err();
+    assert!(std::fs::metadata(&undispatched).is_err());
+
+    std::fs::remove_dir_all(parent_path).unwrap();
+}
+
+#[test]
+fn systemd_unit_state_requires_exact_terminal_observation() {
+    assert_eq!(
+        execution::unit_state_is_terminal("not-found", "", false),
+        Ok(true)
+    );
+    assert_eq!(
+        execution::unit_state_is_terminal("loaded", "inactive", false),
+        Ok(true)
+    );
+    assert_eq!(
+        execution::unit_state_is_terminal("loaded", "failed", false),
+        Ok(true)
+    );
+    assert_eq!(
+        execution::unit_state_is_terminal("loaded", "active", false),
+        Ok(false)
+    );
+    assert!(execution::unit_state_is_terminal("not-found", "active", false).is_err());
+    assert!(execution::unit_state_is_terminal("loaded", "", false).is_err());
+    assert!(execution::unit_state_is_terminal("loaded", "unknown", false).is_err());
+    assert!(execution::unit_state_is_terminal("activating", "activating", false).is_err());
+    assert!(execution::unit_state_is_terminal("loaded", "inactive", true).is_err());
+}
+
 fn test_config() -> WorkerConfig {
     WorkerConfig {
         executable: "/bin/true".to_owned(),
@@ -300,6 +376,14 @@ fn claim_attempt_runtime_isolates_attempts() {
     )
     .unwrap();
     assert_ne!(first, second);
+    let first_unit = runtime::attempt_worker_name(&first).unwrap();
+    let second_unit = runtime::attempt_worker_name(&second).unwrap();
+    assert_ne!(first_unit, second_unit);
+    assert!(valid_worker_name(&first_unit));
+    assert!(valid_worker_name(&second_unit));
+    assert!(
+        runtime::attempt_worker_name("/run/preexisting-00000000000000000000000000000000").is_err()
+    );
     for dir in [&first, &second] {
         assert_eq!(dir.rfind('/').map(|i| &dir[..i]), Some(parent.as_str()));
         let st = std::fs::metadata(dir).unwrap();

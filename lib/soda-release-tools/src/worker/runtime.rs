@@ -14,7 +14,7 @@ use super::config::{
     worker_runtime_ids, Worker, WorkerConfig, PINNED_GO_ROOT, WORKER_FORGEJO, WORKER_HOME,
     WORKER_RUNTIME, WORKER_SOURCE, WORKER_TOOLS,
 };
-use super::execution::{run_worker, WorkerError};
+use super::execution::{run_worker, WorkerError, WorkerUnitCustody};
 
 /// Claim one fresh attempt runtime directory under `parent` and hand it to
 /// (`uid`, `gid`). Returns the directory; release with `release_attempt_runtime`.
@@ -47,13 +47,8 @@ pub(super) fn claim_attempt_runtime_with_random(
         }
     }
     for _ in 0..100 {
-        let nonce: u32 = unsafe { libc::getpid() as u32 }
-            ^ (std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.subsec_nanos())
-                .unwrap_or(0))
-            ^ rand_u32(&mut fill)?;
-        let dir = format!("{parent}/soda-build-{leaf}-{nonce:08x}");
+        let nonce = rand_nonce(&mut fill)?;
+        let dir = format!("{parent}/soda-build-{leaf}-{nonce}");
         let mut builder = std::fs::DirBuilder::new();
         builder.mode(0o700);
         match builder.create(&dir) {
@@ -75,10 +70,31 @@ pub(super) fn claim_attempt_runtime_with_random(
     Err("cannot claim attempt runtime: no unique name".to_owned())
 }
 
-fn rand_u32(fill: &mut impl FnMut(&mut [u8]) -> std::io::Result<()>) -> Result<u32, String> {
-    let mut bytes = [0u8; 4];
+fn rand_nonce(fill: &mut impl FnMut(&mut [u8]) -> std::io::Result<()>) -> Result<String, String> {
+    let mut bytes = [0u8; 16];
     fill(&mut bytes).map_err(|_| "worker runtime randomness unavailable".to_owned())?;
-    Ok(u32::from_ne_bytes(bytes))
+    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+pub(super) fn attempt_worker_name(attempt: &str) -> Result<String, String> {
+    let leaf = Path::new(attempt)
+        .file_name()
+        .and_then(std::ffi::OsStr::to_str)
+        .ok_or_else(|| "claimed worker runtime identity required".to_owned())?;
+    if !leaf.starts_with("soda-build-") {
+        return Err("claimed worker runtime identity required".to_owned());
+    }
+    let nonce = leaf
+        .rsplit_once('-')
+        .map(|(_, nonce)| nonce)
+        .filter(|nonce| {
+            nonce.len() == 32
+                && nonce
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+        .ok_or_else(|| "claimed worker runtime identity required".to_owned())?;
+    Ok(format!("soda-build-{nonce}"))
 }
 
 /// Remove one claimed attempt directory, refusing anything that is not a
@@ -450,8 +466,40 @@ pub fn run_build_worker(
     let attempt = claim_attempt_runtime(&c.runtime, &r.out, uid, gid)?;
     let parent = c.runtime.clone();
     c.runtime = attempt.clone();
-    let outcome = run_build_worker_attempt(&c, &r, progress);
-    combine_attempt_cleanup(outcome, release_attempt_runtime(&parent, &attempt))
+    let mut custody = WorkerUnitCustody::NeverDispatched;
+    let outcome = run_build_worker_attempt(&c, &r, progress, &mut custody);
+    finish_attempt(outcome, custody, &parent, &attempt)
+}
+
+pub(super) fn finish_attempt<T>(
+    outcome: Result<T, WorkerError>,
+    custody: WorkerUnitCustody,
+    parent: &str,
+    attempt: &str,
+) -> Result<T, WorkerError> {
+    match custody {
+        WorkerUnitCustody::NeverDispatched | WorkerUnitCustody::ExactUnitTerminal => {
+            combine_attempt_cleanup(outcome, release_attempt_runtime(parent, attempt))
+        }
+        WorkerUnitCustody::ExactUnitUnconfirmed => retain_attempt_runtime(outcome, attempt),
+    }
+}
+
+fn retain_attempt_runtime<T>(
+    outcome: Result<T, WorkerError>,
+    attempt: &str,
+) -> Result<T, WorkerError> {
+    let retained =
+        format!("worker runtime retained at {attempt}: exact unit termination is unconfirmed");
+    match outcome {
+        Ok(_) => Err(WorkerError::Failed(retained)),
+        Err(WorkerError::Failed(primary)) => {
+            Err(WorkerError::Failed(format!("{primary}\n{retained}")))
+        }
+        Err(WorkerError::Cancelled(primary)) => {
+            Err(WorkerError::Cancelled(format!("{primary}\n{retained}")))
+        }
+    }
 }
 
 pub(super) fn combine_attempt_cleanup<T>(
@@ -484,11 +532,13 @@ fn run_build_worker_attempt(
     c: &WorkerConfig,
     r: &Request,
     progress: &mut BuildProgress,
+    custody: &mut WorkerUnitCustody,
 ) -> Result<ImageResult, WorkerError> {
-    let w = build_worker(c, r)?;
+    let mut w = build_worker(c, r)?;
+    w.name = attempt_worker_name(&c.runtime)?;
     let mut out = std::io::stderr();
     let mut err = std::io::stderr();
-    run_worker(&w, &mut out, &mut err, &worker_cancelled)?;
+    run_worker(&w, &mut out, &mut err, &worker_cancelled, custody)?;
     // Producer output is not qualification authority. P9 independently admits it.
     let mut result = read_image_result(&format!(
         "{}/evidence/build.json",

@@ -206,6 +206,116 @@ fn stop_worker_unit(unit: &str) -> Option<String> {
     }
 }
 
+fn systemctl_unit_terminal(unit: &str) -> Result<bool, String> {
+    let mut child = Command::new("/usr/bin/systemctl")
+        .args([
+            "show",
+            unit,
+            "--property=LoadState",
+            "--property=ActiveState",
+            "--value",
+        ])
+        .env_clear()
+        .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+        .env("LANG", "C.UTF-8")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| format!("systemctl show {unit}: {error}"))?;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(10)),
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("systemctl show {unit}: timed out"));
+            }
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("systemctl show {unit}: {error}"));
+            }
+        }
+    };
+    let mut output = Vec::new();
+    use std::io::Read;
+    child
+        .stdout
+        .take()
+        .ok_or_else(|| format!("systemctl show {unit}: stdout unavailable"))?
+        .take(257)
+        .read_to_end(&mut output)
+        .map_err(|error| format!("systemctl show {unit}: {error}"))?;
+    if !status.success() || output.len() > 256 {
+        return Err(format!("systemctl show {unit}: invalid result"));
+    }
+    let text = std::str::from_utf8(&output)
+        .map_err(|_| format!("systemctl show {unit}: invalid state encoding"))?;
+    let mut lines = text.lines();
+    let load = lines.next().unwrap_or_default();
+    let active = lines.next().unwrap_or_default();
+    let terminal = unit_state_is_terminal(load, active, lines.next().is_some())
+        .map_err(|()| format!("systemctl show {unit}: unrecognized unit state"))?;
+    Ok(terminal)
+}
+
+pub(super) fn unit_state_is_terminal(load: &str, active: &str, extra: bool) -> Result<bool, ()> {
+    if extra {
+        return Err(());
+    }
+    if load == "not-found" {
+        return if active.is_empty() { Ok(true) } else { Err(()) };
+    }
+    if !matches!(load, "loaded" | "masked" | "error") {
+        return Err(());
+    }
+    if !matches!(
+        active,
+        "active" | "reloading" | "inactive" | "failed" | "activating" | "deactivating"
+    ) {
+        return Err(());
+    }
+    Ok(matches!(active, "inactive" | "failed"))
+}
+
+fn settle_worker_unit(unit: &str) -> (WorkerUnitCustody, Option<String>) {
+    match systemctl_unit_terminal(unit) {
+        Ok(true) => (WorkerUnitCustody::ExactUnitTerminal, None),
+        initial => {
+            let initial_error = match initial {
+                Err(error) => Some(error),
+                _ => None,
+            };
+            let stop_error = stop_worker_unit(unit);
+            if stop_error.is_none() {
+                return (WorkerUnitCustody::ExactUnitTerminal, None);
+            }
+            let mut errors = Vec::new();
+            errors.extend(initial_error);
+            errors.extend(stop_error);
+            match systemctl_unit_terminal(unit) {
+                Ok(true) => (WorkerUnitCustody::ExactUnitTerminal, None),
+                Ok(false) => (
+                    WorkerUnitCustody::ExactUnitUnconfirmed,
+                    Some(errors.join("; ")),
+                ),
+                Err(observation_error) => {
+                    errors.push(format!(
+                        "terminal-state check also failed: {observation_error}"
+                    ));
+                    (
+                        WorkerUnitCustody::ExactUnitUnconfirmed,
+                        Some(errors.join("; ")),
+                    )
+                }
+            }
+        }
+    }
+}
+
 /// Typed worker result: cancellation (with exact-unit stop/reap evidence)
 /// is distinct from failure so the CLI boundary maps exits without
 /// inferring cancellation from string text.
@@ -213,6 +323,15 @@ fn stop_worker_unit(unit: &str) -> Option<String> {
 pub enum WorkerError {
     Failed(String),
     Cancelled(String),
+}
+
+/// What the controller knows about the exact transient unit owned by this
+/// dispatch. A launcher process exit is not itself terminal-unit evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkerUnitCustody {
+    NeverDispatched,
+    ExactUnitTerminal,
+    ExactUnitUnconfirmed,
 }
 
 impl From<String> for WorkerError {
@@ -227,12 +346,14 @@ impl From<String> for WorkerError {
 /// crate, so `try_wait` polling); on cancellation the exact unit is
 /// stopped with a 30s timeout. Bounded pipe readers forward output as it
 /// arrives and finish under a separate drain deadline.
-pub fn run_worker(
+pub(super) fn run_worker(
     w: &Worker,
     out: &mut dyn std::io::Write,
     err_out: &mut dyn std::io::Write,
     cancelled: &dyn Fn() -> bool,
+    custody: &mut WorkerUnitCustody,
 ) -> Result<(), WorkerError> {
+    *custody = WorkerUnitCustody::NeverDispatched;
     if euid() != 0 {
         return Err(WorkerError::Failed(
             "trusted root controller required for worker dispatch".to_owned(),
@@ -266,16 +387,28 @@ pub fn run_worker(
         .spawn()
         .map_err(|e| e.to_string())?;
     let mut child = ChildGuard(child);
+    *custody = WorkerUnitCustody::ExactUnitUnconfirmed;
     let mut stdout = child.stdout.take();
     let mut stderr = child.stderr.take();
     if let Err(error) = set_nonblocking(stdout.as_ref().map(std::os::fd::AsRawFd::as_raw_fd))
         .and_then(|()| set_nonblocking(stderr.as_ref().map(std::os::fd::AsRawFd::as_raw_fd)))
     {
-        let stop_error = stop_worker_unit(&unit);
-        let _ = child.kill();
-        let _ = child.wait();
+        let (settled, stop_error) = settle_worker_unit(&unit);
+        *custody = settled;
+        let child_error = child
+            .kill()
+            .err()
+            .map(|error| format!("launcher kill: {error}"))
+            .into_iter()
+            .chain(
+                child
+                    .wait()
+                    .err()
+                    .map(|error| format!("launcher wait: {error}")),
+            );
         let mut details = vec![error];
         details.extend(stop_error);
+        details.extend(child_error);
         return Err(WorkerError::Failed(details.join("\n")));
     }
     let mut output_error = None;
@@ -348,7 +481,8 @@ pub fn run_worker(
         }
     }
     if output_error.is_some() || cancel_seen {
-        let stop_error = stop_worker_unit(&unit);
+        let (settled, stop_error) = settle_worker_unit(&unit);
+        *custody = settled;
         let _ = child.kill();
         let child_error = child.wait().err().map(|e| e.to_string());
         // Close only our pipe descriptors. The exact unit stop above owns
@@ -378,7 +512,8 @@ pub fn run_worker(
     }
     let flush_error = out.flush().err().or_else(|| err_out.flush().err());
     if let Some(error) = flush_error {
-        let stop_error = stop_worker_unit(&unit);
+        let (settled, stop_error) = settle_worker_unit(&unit);
+        *custody = settled;
         let mut details = vec![error.to_string()];
         details.extend(stop_error);
         return Err(WorkerError::Failed(format!(
@@ -387,8 +522,22 @@ pub fn run_worker(
             details.join("\n")
         )));
     }
-    let status = status
-        .ok_or_else(|| WorkerError::Failed("worker launcher status unavailable".to_owned()))?;
+    let Some(status) = status else {
+        let (settled, stop_error) = settle_worker_unit(&unit);
+        *custody = settled;
+        let mut details = vec!["worker launcher status unavailable".to_owned()];
+        details.extend(stop_error);
+        return Err(WorkerError::Failed(details.join("\n")));
+    };
+    let (settled, stop_error) = settle_worker_unit(&unit);
+    *custody = settled;
+    if settled == WorkerUnitCustody::ExactUnitUnconfirmed {
+        let reason = stop_error.unwrap_or_else(|| "unit termination unconfirmed".to_owned());
+        return Err(WorkerError::Failed(format!(
+            "worker {} failed: exact unit termination unconfirmed: {reason}",
+            w.name
+        )));
+    }
     if status.success() {
         Ok(())
     } else {
