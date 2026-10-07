@@ -7,7 +7,7 @@ use percent_encoding::percent_decode_str;
 use crate::error::Error;
 
 /// Inline gzip bound: 1 MiB of decoded bytes.
-pub(super) const INLINE_GZIP_LIMIT: u64 = 1 << 20;
+pub(crate) const INLINE_GZIP_LIMIT: u64 = 1 << 20;
 const INLINE_GZIP_COMPRESSED_LIMIT: usize = 2 << 20;
 
 /// Standard-alphabet Go `StdEncoding` decode: canonical padding with unused
@@ -77,6 +77,10 @@ pub fn decode_data_uri(source: &str) -> Result<Vec<u8>, Error> {
 
 /// Bounded gzip decode with the Go owner's error taxonomy.
 pub fn gunzip_bounded(data: &[u8]) -> Result<Vec<u8>, Error> {
+    gunzip_with_limit(data, INLINE_GZIP_LIMIT)
+}
+
+fn gunzip_with_limit(data: &[u8], limit: u64) -> Result<Vec<u8>, Error> {
     if data.len() > INLINE_GZIP_COMPRESSED_LIMIT {
         return Err(Error::msg("invalid or oversized compressed inline data"));
     }
@@ -85,9 +89,9 @@ pub fn gunzip_bounded(data: &[u8]) -> Result<Vec<u8>, Error> {
     }
     let mut decoder = flate2::read::MultiGzDecoder::new(data);
     let mut decoded = Vec::new();
-    let mut bounded = std::io::Read::take(&mut decoder, INLINE_GZIP_LIMIT + 1);
+    let mut bounded = std::io::Read::take(&mut decoder, limit.saturating_add(1));
     match std::io::Read::read_to_end(&mut bounded, &mut decoded) {
-        Ok(_) if decoded.len() as u64 <= INLINE_GZIP_LIMIT => Ok(decoded),
+        Ok(_) if decoded.len() as u64 <= limit => Ok(decoded),
         _ => Err(Error::msg("invalid or oversized compressed inline data")),
     }
 }
@@ -95,17 +99,36 @@ pub fn gunzip_bounded(data: &[u8]) -> Result<Vec<u8>, Error> {
 /// Decode one file's inline bytes: plain or bounded gzip. Mirrors
 /// `inlineData`, including raw error passthrough.
 pub fn inline_data(source: &str, compression: &str) -> Result<Vec<u8>, Error> {
+    let limit = if compression == "gzip" {
+        INLINE_GZIP_LIMIT as usize
+    } else {
+        usize::MAX
+    };
+    inline_data_limited(source, compression, limit)
+}
+
+/// Decode through the normal inline path with an additional caller budget.
+/// Gzip output stops at the limit plus one byte; plain URI decoding is bounded
+/// by its source text and checked against the caller limit before returning.
+pub fn inline_data_limited(
+    source: &str,
+    compression: &str,
+    limit: usize,
+) -> Result<Vec<u8>, Error> {
     if compression == "gzip" && source.len() > INLINE_GZIP_COMPRESSED_LIMIT * 3 + 64 {
         return Err(Error::msg("invalid or oversized compressed inline data"));
     }
     let data = decode_data_uri(source)?;
     if compression.is_empty() {
+        if data.len() > limit {
+            return Err(Error::msg("invalid or oversized inline data"));
+        }
         return Ok(data);
     }
     if compression != "gzip" {
         return Err(Error::msg("unsupported inline compression"));
     }
-    gunzip_bounded(&data)
+    gunzip_with_limit(&data, limit as u64)
 }
 
 /// Ignition file entry (lenient shape: unknown fields ignored, like Go's
@@ -119,10 +142,26 @@ pub struct IgnitionFile {
     pub compression: String,
 }
 
-/// Decode the storage files of an Ignition document, ignoring unknown
-/// fields like the Go owner does. Present-but-mistyped shapes fail like
-/// Go's `Unmarshal` type errors; callers map them to their own message.
-pub fn decode_ignition_files(value: &JsonValue) -> Result<Vec<IgnitionFile>, Error> {
+/// Borrowed Ignition file entry for callers that must account source bytes
+/// before retaining copies. Unknown fields remain ignored.
+pub struct IgnitionFileRef<'a> {
+    pub path: &'a str,
+    pub source: &'a str,
+    pub compression: &'a str,
+}
+
+fn borrowed_string_field<'a>(
+    contents: Option<&'a JsonValue>,
+    name: &str,
+) -> Result<&'a str, Error> {
+    match contents.and_then(|c| c.get(name)) {
+        None | Some(JsonValue::Null) => Ok(""),
+        Some(JsonValue::Str(s)) => Ok(s),
+        Some(_) => Err(Error::msg(format!("invalid {name}: string required"))),
+    }
+}
+
+pub fn decode_ignition_file_refs(value: &JsonValue) -> Result<Vec<IgnitionFileRef<'_>>, Error> {
     let mut files = Vec::new();
     let storage = match value.get("storage") {
         None | Some(JsonValue::Null) => return Ok(files),
@@ -143,22 +182,30 @@ pub fn decode_ignition_files(value: &JsonValue) -> Result<Vec<IgnitionFile>, Err
             Some(JsonValue::Object(_)) => item.get("contents"),
             Some(_) => return Err(Error::msg("invalid contents: object required")),
         };
-        let field = |name: &str| -> Result<String, Error> {
-            match contents.and_then(|c| c.get(name)) {
-                None | Some(JsonValue::Null) => Ok(String::new()),
-                Some(JsonValue::Str(s)) => Ok(s.clone()),
-                Some(_) => Err(Error::msg(format!("invalid {name}: string required"))),
-            }
+        let path = match item.get("path") {
+            None | Some(JsonValue::Null) => "",
+            Some(JsonValue::Str(path)) => path,
+            Some(_) => return Err(Error::msg("invalid path: string required")),
         };
-        files.push(IgnitionFile {
-            path: match item.get("path") {
-                None | Some(JsonValue::Null) => String::new(),
-                Some(JsonValue::Str(path)) => path.clone(),
-                Some(_) => return Err(Error::msg("invalid path: string required")),
-            },
-            source: field("source")?,
-            compression: field("compression")?,
+        files.push(IgnitionFileRef {
+            path,
+            source: borrowed_string_field(contents, "source")?,
+            compression: borrowed_string_field(contents, "compression")?,
         });
     }
     Ok(files)
+}
+
+/// Decode the storage files of an Ignition document, ignoring unknown
+/// fields like the Go owner does. Present-but-mistyped shapes fail like
+/// Go's `Unmarshal` type errors; callers map them to their own message.
+pub fn decode_ignition_files(value: &JsonValue) -> Result<Vec<IgnitionFile>, Error> {
+    Ok(decode_ignition_file_refs(value)?
+        .into_iter()
+        .map(|file| IgnitionFile {
+            path: file.path.to_string(),
+            source: file.source.to_string(),
+            compression: file.compression.to_string(),
+        })
+        .collect())
 }
