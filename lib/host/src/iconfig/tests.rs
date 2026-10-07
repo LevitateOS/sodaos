@@ -210,3 +210,22 @@ fn crate_helpers_match_go_validators() {
     // JSON quoting behind request encoding.
     assert_eq!(json::quote("a&b"), "\"a\\u0026b\"");
 }
+
+#[test]
+fn configured_muse_socket_requires_clean_absolute_spelling() {
+    let mut c = Config::default();
+    c.muse_sha256 = "a".repeat(64);
+    c.muse_version = "1".into();
+    c.identity_socket = "/run/soda/identity.sock".into();
+    for path in [
+        "/run/soda-muse/launch.sock/",
+        "/run//soda-muse/launch.sock",
+        "/run/soda-muse/./launch.sock",
+        "/run/other/../soda-muse/launch.sock",
+    ] {
+        c.muse_socket = path.into();
+        assert!(validate_muse_runtime(&c).is_err(), "{path}");
+    }
+    c.muse_socket = "/run/soda-muse/launch.sock".into();
+    assert!(validate_muse_runtime(&c).is_ok());
+}

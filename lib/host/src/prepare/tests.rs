@@ -137,33 +137,9 @@ pub(super) fn approve_response(fid: &str) -> Vec<u8> {
 }
 
 #[test]
-fn path_clean_matches_go_vectors() {
-    for (input, want) in [
-        ("", "."),
-        ("/", "/"),
-        ("//", "/"),
-        ("/a/", "/a"),
-        ("a/", "a"),
-        ("/a//b", "/a/b"),
-        ("/a/./b", "/a/b"),
-        ("a/./b", "a/b"),
-        ("/a/../b", "/b"),
-        ("a/../../b", "../b"),
-        ("/../", "/"),
-        ("../a", "../a"),
-        ("/..", "/"),
-        ("..", ".."),
-        (".", "."),
-        ("/a/b/..", "/a"),
-        ("a/b/../..", "."),
-        ("/usr/bin/../bin/git", "/usr/bin/git"),
-        ("/a/.../b", "/a/.../b"),
-        ("a/.../b", "a/.../b"),
-    ] {
-        assert_eq!(path_clean(input), want, "{input:?}");
-    }
+fn path_join_uses_native_components_and_tool_admission_is_strict() {
     assert_eq!(path_join(&["a", "b", "c"]), "a/b/c");
-    assert_eq!(path_join(&["/a", "b/../c"]), "/a/c");
+    assert_eq!(path_join(&["/a", "b", "c"]), "/a/b/c");
     assert_eq!(path_join(&[]), "");
     assert_eq!(path_join(&[""]), "");
     assert_eq!(path_join(&["", "a", "b"]), "a/b");
@@ -171,6 +147,10 @@ fn path_clean_matches_go_vectors() {
     assert_eq!(path_join(&["", ""]), "");
     assert!(path_is_abs("/x"));
     assert!(!path_is_abs("x"));
+    assert!(valid_resolved_tool_path("/usr/bin/git"));
+    assert!(!valid_resolved_tool_path("/usr/bin/../bin/git"));
+    assert!(!valid_resolved_tool_path("/usr//bin/git"));
+    assert!(!valid_resolved_tool_path("/usr/bin/./git"));
 }
 
 #[test]

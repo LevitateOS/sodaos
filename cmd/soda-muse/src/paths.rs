@@ -1,55 +1,40 @@
 use std::ffi::CStr;
 use std::io;
+use std::path::{Component, Path, PathBuf};
 
 pub(crate) fn go_base(path: &str) -> &str {
     if path.is_empty() {
         return ".";
     }
-    let stripped = path.trim_end_matches('/');
-    if stripped.is_empty() {
-        return "/";
-    }
-    match stripped.rfind('/') {
-        Some(i) => &stripped[i + 1..],
-        None => stripped,
-    }
-}
-
-// go_clean mirrors filepath.Clean lexical rules.
-pub(crate) fn go_clean(path: &str) -> String {
-    if path.is_empty() {
-        return String::from(".");
-    }
-    let rooted = path.starts_with('/');
-    let mut out: Vec<&str> = Vec::new();
-    for part in path.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                if let Some(last) = out.pop() {
-                    if last == ".." {
-                        out.push("..");
-                        out.push("..");
-                    }
-                } else if !rooted {
-                    out.push("..");
-                }
-            }
-            _ => out.push(part),
-        }
-    }
-    let mut clean = out.join("/");
-    if rooted {
-        clean.insert(0, '/');
-    }
-    if clean.is_empty() {
-        clean.push('.');
-    }
-    clean
+    Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(if Path::new(path).is_absolute() {
+            "/"
+        } else {
+            "."
+        })
 }
 
 pub(crate) fn go_join(first: &str, second: &str) -> String {
-    go_clean(&format!("{first}/{second}"))
+    let mut joined = PathBuf::from(first);
+    joined.push(second);
+    joined.to_string_lossy().into_owned()
+}
+
+pub(crate) fn is_clean_absolute_path(path: &str) -> bool {
+    if !Path::new(path).is_absolute() {
+        return false;
+    }
+    let mut rebuilt = PathBuf::new();
+    for component in Path::new(path).components() {
+        match component {
+            Component::RootDir => rebuilt.push("/"),
+            Component::Normal(part) => rebuilt.push(part),
+            Component::CurDir | Component::ParentDir | Component::Prefix(_) => return false,
+        }
+    }
+    rebuilt.to_str() == Some(path)
 }
 
 // errno_str renders the current errno the way Go formats syscall errors.

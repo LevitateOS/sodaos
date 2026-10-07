@@ -468,6 +468,8 @@ fn binding_matrix() {
         Box::new(|b: &mut Binding| b.invocation_id = "short".to_string()),
         Box::new(|b: &mut Binding| b.child_id = "nope".to_string()),
         Box::new(|b: &mut Binding| b.credential_root = "/elsewhere".to_string()),
+        Box::new(|b: &mut Binding| b.credential_root = format!("{}/../run", run_dir())),
+        Box::new(|b: &mut Binding| b.credential_root = run_dir().replace("/", "//")),
     ] {
         let mut broken = lease.clone();
         mutate(broken.binding.as_mut().unwrap());

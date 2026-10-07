@@ -1,4 +1,4 @@
-use super::paths::{errno_str, go_base, go_clean, go_quote_rune, go_strerror};
+use super::paths::{errno_str, go_base, go_quote_rune, go_strerror, is_clean_absolute_path};
 use super::MUSE_NATIVE;
 use std::ffi::CString;
 use std::fs;
@@ -13,18 +13,17 @@ pub(crate) fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<St
     if unsafe { libc::chdir(ccwd.as_ptr()) } != 0 {
         return (1, Some(format!("chdir {cwd}: {}", errno_str())));
     }
-    let root = go_clean(root);
-    if !root.starts_with("/run/soda-muse/") || root.contains("..") {
+    if !is_clean_absolute_path(root) || !root.starts_with("/run/soda-muse/") {
         return (1, Some(String::from("invalid Muse execution root")));
     }
-    if let Err(e) = await_admission(&root) {
+    if let Err(e) = await_admission(root) {
         return (1, Some(e));
     }
-    let state = match execution_state(&root) {
+    let state = match execution_state(root) {
         Ok(s) => s,
         Err(e) => return (1, Some(e)),
     };
-    let env = muse_environment(&root, &state);
+    let env = muse_environment(root, &state);
     // execve only returns on failure; success replaces this process.
     let binary = CString::new(MUSE_NATIVE).unwrap();
     let mut argv: Vec<CString> = vec![CString::new("muse").unwrap()];

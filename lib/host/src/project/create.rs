@@ -1,25 +1,22 @@
 use super::Executor;
 use crate::domain;
+use std::path::Path;
 use std::time::{Duration, Instant};
 
-/// `path/filepath.Dir` for socket paths.
-fn go_dir(path: &str) -> &str {
-    let trimmed = path.trim_end_matches('/');
-    if trimmed.is_empty() {
-        return "/";
-    }
-    match trimmed.rfind('/') {
-        None => ".",
-        Some(0) => "/",
-        Some(i) => {
-            let dir = trimmed[..i].trim_end_matches('/');
-            if dir.is_empty() {
-                "/"
+/// Parent directory for the configured launch socket path.
+fn go_dir(path: &str) -> String {
+    let path = Path::new(path);
+    path.parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| {
+            if path.is_absolute() {
+                Path::new("/")
             } else {
-                dir
+                Path::new(".")
             }
-        }
-    }
+        })
+        .to_string_lossy()
+        .into_owned()
 }
 
 impl<E: Executor> super::Runtime<E> {

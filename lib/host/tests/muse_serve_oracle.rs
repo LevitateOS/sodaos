@@ -222,30 +222,29 @@ fn self_pid() -> i32 {
     std::process::id() as i32
 }
 
-/// Peer whose pidfd is already dead: `poll(-1)` errors, so the runtime
-/// treats the caller as gone before touching the executor.
+/// A closed socket endpoint is a readable/dead pidfd stand-in.
 fn dead_peer() -> MusePeer {
+    let (read, write) = std::os::unix::net::UnixStream::pair().unwrap();
+    drop(write);
     MusePeer {
         pid: self_pid(),
         uid: 1000,
         gid: 1000,
-        pidfd: -1,
+        pidfd: read.into(),
     }
 }
 
-/// Peer with a live (poll-quiet) pidfd stand-in: the read end of an open
-/// pipe. Returns the peer plus both pipe ends for the caller to close.
-fn live_peer() -> (MusePeer, [RawFd; 2]) {
-    let mut pair = [0; 2];
-    assert_eq!(unsafe { libc::pipe(pair.as_mut_ptr()) }, 0);
+/// A quiet socket endpoint stands in for a live pidfd; both owners close once.
+fn live_peer() -> (MusePeer, std::os::fd::OwnedFd) {
+    let (read, write) = std::os::unix::net::UnixStream::pair().unwrap();
     (
         MusePeer {
             pid: self_pid(),
             uid: 1000,
             gid: 1000,
-            pidfd: pair[0],
+            pidfd: read.into(),
         },
-        pair,
+        write.into(),
     )
 }
 
@@ -406,8 +405,7 @@ fn start_denies_live_peer_outside_any_project() {
             .unwrap_err(),
         terminal::ERR_DENIED
     );
-    close_fd(pipe[0]);
-    close_fd(pipe[1]);
+    drop(pipe);
 }
 
 // ---------- `muse` action dispatch (fake Executor/Hooks) ----------

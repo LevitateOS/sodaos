@@ -1,6 +1,6 @@
 //! Process, time, fd, and lock primitives for the project terminal.
 //!
-//! Conventions: libc + std only; every raw syscall checks its return; opened
+//! Conventions: typed rustix file operations and scoped libc calls; opened
 //! fds are owned [`std::fs::File`]s with `O_CLOEXEC` set at open time.
 //!
 //! Name rule for the dir-fd APIs ([`open_child_dir`], [`open_at`]): `name`
@@ -8,8 +8,8 @@
 //! `'/'`, and names with NUL bytes are rejected with `InvalidInput`. Callers
 //! walk multi-component paths one component at a time.
 
-use std::ffi::CString;
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::io::Read;
+use std::os::unix::io::AsRawFd;
 use std::process::{Command, Output, Stdio};
 use std::sync::OnceLock;
 use std::time::Instant;
@@ -52,18 +52,24 @@ fn wait_timeout(
     child: &mut std::process::Child,
     timeout_secs: u64,
 ) -> std::io::Result<std::process::ExitStatus> {
-    let deadline = monotonic() + timeout_secs as f64;
+    let deadline = Instant::now() + std::time::Duration::from_secs(timeout_secs);
     loop {
-        if let Some(status) = child.try_wait()? {
-            return Ok(status);
-        }
-        if monotonic() >= deadline {
+        if Instant::now() >= deadline {
             let _ = child.kill();
             let _ = child.wait();
             return Err(std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
                 "command timed out",
             ));
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => return Ok(status),
+            Ok(None) => {}
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
         }
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
@@ -82,54 +88,153 @@ pub fn run_checked(argv: &[String], timeout_secs: u64) -> std::io::Result<()> {
     }
 }
 
-/// Run `argv` with stdin null and stdout/stderr piped; on timeout the child
-/// is killed and `Err(TimedOut)` returned. The caller checks
-/// `Output.status`. Pipes are drained on reader threads so large output
-/// cannot deadlock the wait.
+/// Run `argv` with stdin null and stdout/stderr piped; capture each stream up
+/// to 8 MiB. Timeout, read failure, overflow, or pipes retained past the
+/// post-exit grace are errors. The caller checks `Output.status`.
 pub fn run_output(argv: &[String], timeout_secs: u64) -> std::io::Result<Output> {
-    use std::io::Read as _;
+    const OUTPUT_LIMIT: usize = 8 << 20;
+    const DRAIN_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
     let mut child = spawn_argv(argv, true)?;
     let mut stdout = child.stdout.take();
     let mut stderr = child.stderr.take();
-    let out_handle = std::thread::spawn(move || {
-        let mut buf = Vec::new();
-        if let Some(ref mut pipe) = stdout {
-            let _ = pipe.read_to_end(&mut buf);
+    if let Err(error) =
+        set_pipe_nonblocking(stdout.as_ref()).and_then(|()| set_pipe_nonblocking(stderr.as_ref()))
+    {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(error);
+    }
+    let deadline = Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    let mut status = None;
+    let mut drain_deadline = None;
+    let mut out = Vec::new();
+    let mut err = Vec::new();
+    let mut out_buf = [0u8; 65536];
+    let mut err_buf = [0u8; 65536];
+    while status.is_none() || stdout.is_some() || stderr.is_some() {
+        let now = Instant::now();
+        if status.is_none() && now >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "command timed out",
+            ));
         }
-        buf
-    });
-    let err_handle = std::thread::spawn(move || {
-        let mut buf = Vec::new();
-        if let Some(ref mut pipe) = stderr {
-            let _ = pipe.read_to_end(&mut buf);
+        if status.is_none() {
+            match child.try_wait() {
+                Ok(Some(done)) => {
+                    status = Some(done);
+                    drain_deadline = Some(now + DRAIN_GRACE);
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(error);
+                }
+            }
         }
-        buf
-    });
-    let status = match wait_timeout(&mut child, timeout_secs) {
-        Ok(status) => status,
-        Err(err) => {
-            let _ = out_handle.join();
-            let _ = err_handle.join();
-            return Err(err);
+        let mut progressed = false;
+        let mut close_stdout = false;
+        if let Some(pipe) = stdout.as_mut() {
+            match pipe.read(&mut out_buf) {
+                Ok(0) => {
+                    close_stdout = true;
+                    progressed = true;
+                }
+                Ok(n) => {
+                    if out.len().saturating_add(n) > OUTPUT_LIMIT {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "command stdout exceeded capture bound",
+                        ));
+                    }
+                    out.extend_from_slice(&out_buf[..n]);
+                    progressed = true;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(error);
+                }
+            }
         }
-    };
-    let stdout = out_handle.join().unwrap_or_default();
-    let stderr = err_handle.join().unwrap_or_default();
-    Ok(Output {
-        status,
-        stdout,
-        stderr,
-    })
+        if close_stdout {
+            stdout.take();
+        }
+        let mut close_stderr = false;
+        if let Some(pipe) = stderr.as_mut() {
+            match pipe.read(&mut err_buf) {
+                Ok(0) => {
+                    close_stderr = true;
+                    progressed = true;
+                }
+                Ok(n) => {
+                    if err.len().saturating_add(n) > OUTPUT_LIMIT {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "command stderr exceeded capture bound",
+                        ));
+                    }
+                    err.extend_from_slice(&err_buf[..n]);
+                    progressed = true;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(error);
+                }
+            }
+        }
+        if close_stderr {
+            stderr.take();
+        }
+        if let Some(done) = status {
+            if stdout.is_none() && stderr.is_none() {
+                return Ok(Output {
+                    status: done,
+                    stdout: out,
+                    stderr: err,
+                });
+            }
+            if drain_deadline.is_some_and(|at| Instant::now() >= at) {
+                stdout.take();
+                stderr.take();
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "command output pipes did not close",
+                ));
+            }
+        }
+        if !progressed {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+    Err(std::io::Error::other("command status unavailable"))
 }
 
-fn cstr(text: &str) -> std::io::Result<CString> {
-    CString::new(text)
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "name contains NUL"))
+fn set_pipe_nonblocking<T: AsRawFd>(pipe: Option<&T>) -> std::io::Result<()> {
+    let Some(pipe) = pipe else { return Ok(()) };
+    let fd = pipe.as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
 }
 
 /// Single-component rule shared by the dir-fd opens.
 fn check_component(name: &str) -> std::io::Result<()> {
-    if name.is_empty() || name == "." || name == ".." || name.contains('/') {
+    if name.is_empty() || name == "." || name == ".." || name.contains('/') || name.contains('\0') {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "invalid name component",
@@ -146,20 +251,16 @@ pub fn open_child_dir(dir: &std::fs::File, name: &str) -> std::io::Result<std::f
 
 /// `open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC)`.
 pub fn open_root() -> std::io::Result<std::fs::File> {
-    let path = cstr("/")?;
-    let fd = unsafe {
-        libc::open(
-            path.as_ptr(),
-            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC,
-        )
-    };
-    if fd < 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(unsafe { std::fs::File::from_raw_fd(fd) })
+    rustix::fs::open(
+        "/",
+        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::DIRECTORY | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )
+    .map(std::fs::File::from)
+    .map_err(Into::into)
 }
 
-/// `openat(dir, name, flags|O_CLOEXEC|O_NOFOLLOW, mode)`.
+/// Open exactly one caller-admitted component below the held directory.
 pub fn open_at(
     dir: &std::fs::File,
     name: &str,
@@ -167,56 +268,44 @@ pub fn open_at(
     mode: libc::mode_t,
 ) -> std::io::Result<std::fs::File> {
     check_component(name)?;
-    let c = cstr(name)?;
-    let fd = unsafe {
-        libc::openat(
-            dir.as_raw_fd(),
-            c.as_ptr(),
-            flags | libc::O_CLOEXEC | libc::O_NOFOLLOW,
-            mode,
-        )
-    };
-    if fd < 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(unsafe { std::fs::File::from_raw_fd(fd) })
+    rustix::fs::openat(
+        dir,
+        name,
+        rustix::fs::OFlags::from_bits_retain(flags as u32)
+            | rustix::fs::OFlags::CLOEXEC
+            | rustix::fs::OFlags::NOFOLLOW,
+        rustix::fs::Mode::from_bits_retain(mode),
+    )
+    .map(std::fs::File::from)
+    .map_err(Into::into)
 }
 
-/// `flock(fd, LOCK_EX|LOCK_NB)`; contention (`EWOULDBLOCK`) is `Ok(false)`.
 pub fn flock_exclusive_nb(file: &std::fs::File) -> std::io::Result<bool> {
-    let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-    if rc == 0 {
-        return Ok(true);
+    match rustix::fs::flock(file, rustix::fs::FlockOperation::NonBlockingLockExclusive) {
+        Ok(()) => Ok(true),
+        Err(rustix::io::Errno::WOULDBLOCK) => Ok(false),
+        Err(error) => Err(error.into()),
     }
-    let err = std::io::Error::last_os_error();
-    if err.raw_os_error() == Some(libc::EWOULDBLOCK) {
-        return Ok(false);
-    }
-    Err(err)
 }
 
-fn flock_blocking(file: &std::fs::File, op: libc::c_int) -> std::io::Result<()> {
+fn flock_blocking(
+    file: &std::fs::File,
+    operation: rustix::fs::FlockOperation,
+) -> std::io::Result<()> {
     loop {
-        let rc = unsafe { libc::flock(file.as_raw_fd(), op) };
-        if rc == 0 {
-            return Ok(());
+        match rustix::fs::flock(file, operation) {
+            Err(rustix::io::Errno::INTR) => continue,
+            result => return result.map_err(Into::into),
         }
-        let err = std::io::Error::last_os_error();
-        if err.raw_os_error() == Some(libc::EINTR) {
-            continue;
-        }
-        return Err(err);
     }
 }
 
-/// `flock(fd, LOCK_SH)`, blocking (retries `EINTR`).
 pub fn flock_shared(file: &std::fs::File) -> std::io::Result<()> {
-    flock_blocking(file, libc::LOCK_SH)
+    flock_blocking(file, rustix::fs::FlockOperation::LockShared)
 }
 
-/// `flock(fd, LOCK_EX)`, blocking (retries `EINTR`).
 pub fn flock_exclusive(file: &std::fs::File) -> std::io::Result<()> {
-    flock_blocking(file, libc::LOCK_EX)
+    flock_blocking(file, rustix::fs::FlockOperation::LockExclusive)
 }
 
 /// Trimmed contents of `/proc/sys/kernel/random/uuid`.
@@ -302,6 +391,36 @@ mod tests {
         assert!(out.stdout.len() > 1_000_000);
         assert!(out.stdout.ends_with(b"200000\n"));
         assert!(out.stdout.starts_with(b"1\n2\n3\n"));
+    }
+
+    #[test]
+    fn run_output_drains_both_pipes_in_bounded_passes() {
+        let out = run_output(
+            &argv(&[
+                "/bin/sh",
+                "-c",
+                "head -c 1000000 /dev/zero; head -c 1000000 /dev/zero >&2",
+            ]),
+            10,
+        )
+        .unwrap();
+        assert!(out.status.success());
+        assert_eq!(out.stdout.len(), 1_000_000);
+        assert_eq!(out.stderr.len(), 1_000_000);
+    }
+
+    #[test]
+    fn run_output_fails_promptly_at_per_stream_bound() {
+        let err = run_output(&argv(&["/usr/bin/yes"]), 10).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        let err = run_output(&argv(&["/bin/sh", "-c", "exec yes >&2"]), 10).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn run_output_requires_pipe_eof_after_child_exit() {
+        let err = run_output(&argv(&["/bin/sh", "-c", "sleep 2.5 & exit 0"]), 10).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::TimedOut);
     }
 
     #[test]

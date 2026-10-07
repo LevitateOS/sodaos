@@ -1,72 +1,21 @@
 // Path, ID-map and output-line helpers for preparation operations.
 use crate::preparation::FACTORY_PREPARATIONS_DIR;
+use std::path::{Component, Path, PathBuf};
 
 /// `path.IsAbs`: a leading slash.
 pub(crate) fn path_is_abs(p: &str) -> bool {
     p.starts_with('/')
 }
 
-/// `path.Clean`: lexical cleanup, byte-for-byte with the Go algorithm.
-pub fn path_clean(path: &str) -> String {
-    let b = path.as_bytes();
-    if b.is_empty() {
-        return ".".to_string();
-    }
-    let rooted = b[0] == b'/';
-    let n = b.len();
-    let mut out: Vec<u8> = Vec::with_capacity(n);
-    let mut r = 0usize;
-    let mut dotdot = 0usize;
-    if rooted {
-        out.push(b'/');
-        r = 1;
-        dotdot = 1;
-    }
-    while r < n {
-        if b[r] == b'/' || (b[r] == b'.' && (r + 1 == n || b[r + 1] == b'/')) {
-            r += 1;
-        } else if b[r] == b'.' && r + 1 < n && b[r + 1] == b'.' && (r + 2 == n || b[r + 2] == b'/')
-        {
-            r += 2;
-            if out.len() > dotdot {
-                // Back over the trailing element to its slash (Go's w-- loop
-                // inspects the first excluded byte, not the last kept one).
-                let mut w = out.len() - 1;
-                while w > dotdot && out[w] != b'/' {
-                    w -= 1;
-                }
-                out.truncate(w);
-            } else if !rooted {
-                if !out.is_empty() {
-                    out.push(b'/');
-                }
-                out.push(b'.');
-                out.push(b'.');
-                dotdot = out.len();
-            }
-        } else {
-            if (rooted && out.len() != 1) || (!rooted && !out.is_empty()) {
-                out.push(b'/');
-            }
-            while r < n && b[r] != b'/' {
-                out.push(b[r]);
-                r += 1;
-            }
+/// Join the audited relative components under their first path.
+pub fn path_join(parts: &[&str]) -> String {
+    let mut path = PathBuf::new();
+    for part in parts {
+        if !part.is_empty() {
+            path.push(part);
         }
     }
-    if out.is_empty() {
-        return ".".to_string();
-    }
-    String::from_utf8(out).unwrap_or_else(|_| ".".to_string())
-}
-
-/// `path.Join`: leading empty elements skipped, the rest slash-joined
-/// then cleaned; empty when every element is empty.
-pub fn path_join(parts: &[&str]) -> String {
-    let Some(first) = parts.iter().position(|p| !p.is_empty()) else {
-        return String::new();
-    };
-    path_clean(&parts[first..].join("/"))
+    path.to_string_lossy().into_owned()
 }
 
 /// `prepareIDMap`: every mapping keeps host root out of the container and
@@ -123,8 +72,23 @@ pub fn single_line(out: &[u8], limit: usize) -> Option<String> {
 
 /// `validResolvedToolPath`: absolute, clean, under a fixed tool prefix.
 pub fn valid_resolved_tool_path(value: &str) -> bool {
-    if value.is_empty() || value.len() > 256 || !path_is_abs(value) || path_clean(value) != value {
+    if value.is_empty() || value.len() > 256 || !is_clean_absolute_path(value) {
         return false;
     }
     value.starts_with("/usr/bin/") || value.starts_with("/usr/local/bin/")
+}
+
+fn is_clean_absolute_path(value: &str) -> bool {
+    if !Path::new(value).is_absolute() {
+        return false;
+    }
+    let mut rebuilt = PathBuf::new();
+    for component in Path::new(value).components() {
+        match component {
+            Component::RootDir => rebuilt.push("/"),
+            Component::Normal(part) => rebuilt.push(part),
+            Component::CurDir | Component::ParentDir | Component::Prefix(_) => return false,
+        }
+    }
+    rebuilt.to_str() == Some(value)
 }

@@ -38,7 +38,10 @@ pub fn checked_binding_paths(
     }
     // Harness fields are not in the binding; paths need only role/prep/run.
     let paths = run_paths(&b.login, &b.child_id, &b.id).ok_or_else(terminal::err_denied)?;
-    if paths.0.is_empty() || terminal::clean_path(&b.credential_root) != paths.1 {
+    if paths.0.is_empty()
+        || !terminal::is_clean_absolute_path(&b.credential_root)
+        || b.credential_root != paths.1
+    {
         return Err(terminal::err_denied());
     }
     Ok(paths)

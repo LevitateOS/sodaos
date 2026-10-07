@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::io::AsRawFd;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::account::AGENT_PROGRAM;
@@ -14,29 +15,32 @@ use super::{
     TerminalRequest, FRAME_LIMIT,
 };
 
-/// Lexical path cleaning matching Go `path/filepath.Clean` (Linux).
+/// Render path components with Rust, preserving parent components so callers
+/// can reject them instead of silently resolving them.
 pub fn clean_path(path: &str) -> String {
-    let rooted = path.starts_with('/');
-    let mut parts: Vec<&str> = Vec::new();
-    for part in path.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                if parts.pop().is_none() && !rooted {
-                    parts.push("..");
-                }
-            }
-            _ => parts.push(part),
+    let components: PathBuf = Path::new(path).components().collect();
+    if components.as_os_str().is_empty() {
+        ".".to_string()
+    } else {
+        components.to_string_lossy().into_owned()
+    }
+}
+
+pub fn is_clean_absolute_path(path: &str) -> bool {
+    if !Path::new(path).is_absolute() {
+        return false;
+    }
+    let mut rebuilt = PathBuf::new();
+    for component in Path::new(path).components() {
+        match component {
+            std::path::Component::RootDir => rebuilt.push("/"),
+            std::path::Component::Normal(part) => rebuilt.push(part),
+            std::path::Component::CurDir
+            | std::path::Component::ParentDir
+            | std::path::Component::Prefix(_) => return false,
         }
     }
-    let mut out = parts.join("/");
-    if rooted {
-        out.insert(0, '/');
-    }
-    if out.is_empty() {
-        out.push('.');
-    }
-    out
+    rebuilt.to_str() == Some(path)
 }
 
 impl<E: Executor> Service<E> {
@@ -81,7 +85,21 @@ pub fn agent_program_path() -> String {
 /// wrongly owned, writable, or oddly sized files. Production passes 0.
 pub fn agent_program_hash(uid: u32) -> Result<String, String> {
     let path = agent_program_path();
-    let info = std::fs::symlink_metadata(&path)
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(&path)
+        .map_err(|e| {
+            if e.raw_os_error() == Some(libc::ELOOP) {
+                "project terminal agent is not a regular file".to_string()
+            } else {
+                format!("project terminal agent unavailable: {e}")
+            }
+        })?;
+    let info = file
+        .metadata()
         .map_err(|e| format!("project terminal agent unavailable: {e}"))?;
     if !info.file_type().is_file() {
         return Err("project terminal agent is not a regular file".to_string());
@@ -95,8 +113,10 @@ pub fn agent_program_hash(uid: u32) -> Result<String, String> {
     if info.len() < 1 || info.len() > 32 << 20 {
         return Err("project terminal agent has unexpected size".to_string());
     }
-    let raw =
-        std::fs::read(&path).map_err(|e| format!("project terminal agent unreadable: {e}"))?;
+    let mut raw = Vec::new();
+    file.take((32 << 20) + 1)
+        .read_to_end(&mut raw)
+        .map_err(|e| format!("project terminal agent unreadable: {e}"))?;
     if raw.is_empty() || raw.len() > 32 << 20 {
         return Err("project terminal agent changed during verification".to_string());
     }

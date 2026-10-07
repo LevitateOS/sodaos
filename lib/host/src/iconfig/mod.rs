@@ -183,8 +183,8 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
     if c.muse_sha256.is_empty() {
         return Ok(());
     }
-    if !c.muse_socket.starts_with('/')
-        || !c.identity_socket.starts_with('/')
+    if !crate::terminal::is_clean_absolute_path(&c.muse_socket)
+        || !crate::terminal::is_clean_absolute_path(&c.identity_socket)
         || !domain::valid_container_id(&c.muse_sha256)
         || c.muse_version.is_empty()
         || base_name(&c.muse_socket) != "launch.sock"
@@ -199,8 +199,8 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
 /// verified pin, exactly like codex.
 fn validate_identity_runtime(c: &Config) -> Result<(), String> {
     if !c.codex_harness.is_empty() {
-        if !c.identity_socket.starts_with('/')
-            || !c.codex_harness.starts_with('/')
+        if !crate::terminal::is_clean_absolute_path(&c.identity_socket)
+            || !crate::terminal::is_clean_absolute_path(&c.codex_harness)
             || c.codex_harness_sha256.len() != 64
         {
             return Err(
@@ -214,8 +214,8 @@ fn validate_identity_runtime(c: &Config) -> Result<(), String> {
         }
     }
     if !c.muse_harness.is_empty() {
-        if !c.identity_socket.starts_with('/')
-            || !c.muse_harness.starts_with('/')
+        if !crate::terminal::is_clean_absolute_path(&c.identity_socket)
+            || !crate::terminal::is_clean_absolute_path(&c.muse_harness)
             || c.muse_harness_sha256.len() != 64
         {
             return Err(

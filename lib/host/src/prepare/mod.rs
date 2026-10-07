@@ -23,7 +23,7 @@ mod state;
 mod tools;
 
 pub use self::paths::{
-    path_clean, path_join, preparation_paths, prepare_id_map, single_line, valid_resolved_tool_path,
+    path_join, preparation_paths, prepare_id_map, single_line, valid_resolved_tool_path,
 };
 pub use self::state::{map_preparation_state, LauncherEvidence};
 

@@ -712,6 +712,9 @@ fn signal_and_root_matrix() {
     assert!(muse_project_credential_root(&nested));
     for root in [
         format!("/run/soda-muse/{TID}/../escape"),
+        format!("/run/soda-muse//{TID}"),
+        format!("/run/soda-muse/./{TID}"),
+        format!("/run/soda-muse/{TID}/"),
         "/run/other/x".to_string(),
         "/run/soda-muse/other".to_string(),
         format!("/run/soda-muse/nested/{IID}"),

@@ -504,7 +504,7 @@ pub fn muse_signal(sig: i64) -> bool {
 /// `museProjectCredentialRoot`: exact `/run/soda-muse/` execution path.
 pub fn muse_project_credential_root(binding: &Binding) -> bool {
     if !domain::valid_container_id(&binding.project)
-        || terminal::clean_path(&binding.credential_root) != binding.credential_root
+        || !terminal::is_clean_absolute_path(&binding.credential_root)
         || !binding.credential_root.starts_with("/run/soda-muse/")
     {
         return false;

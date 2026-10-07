@@ -84,7 +84,10 @@ impl<E: Executor> Service<E> {
         }
         let (checkout, run_dir, _, _) = run_paths(&binding.login, &binding.child_id, &binding.id)
             .ok_or_else(terminal::err_denied)?;
-        if checkout.is_empty() || terminal::clean_path(&binding.credential_root) != run_dir {
+        if checkout.is_empty()
+            || !terminal::is_clean_absolute_path(&binding.credential_root)
+            || binding.credential_root != run_dir
+        {
             return Err(terminal::err_denied());
         }
         let container = self.factory_project_container(project_id, true, deadline)?;

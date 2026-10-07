@@ -1,6 +1,6 @@
 use super::execution::muse_environment_with;
 use super::launch_wire::{base64_encode, parse_launch_exit, shell_request_json};
-use super::paths::{go_base, go_clean, go_join, go_quote_rune};
+use super::paths::{go_base, go_join, go_quote_rune, is_clean_absolute_path};
 use super::shell::validate_shell;
 use super::shell::ShellRequest;
 
@@ -157,22 +157,18 @@ fn base64_matches_standard_vectors() {
 }
 
 #[test]
-fn go_clean_matches_filepath_cases() {
-    for (input, want) in [
-        ("", "."),
-        ("/", "/"),
-        ("//", "/"),
-        ("/a/b/../c", "/a/c"),
-        ("/../a", "/a"),
-        ("a/./b", "a/b"),
-        ("a/../../b", "../b"),
-        ("/run/soda-muse/", "/run/soda-muse"),
-        ("/home/u/", "/home/u"),
-    ] {
-        assert_eq!(go_clean(input), want, "input {input:?}");
-    }
+fn native_path_join_and_root_admission() {
     assert_eq!(go_join("/home/u/", ".config"), "/home/u/.config");
     assert_eq!(go_join("/", ".config"), "/.config");
+    assert!(is_clean_absolute_path("/run/soda-muse/0123456789abcdef"));
+    for input in [
+        "/run/soda-muse//0123456789abcdef",
+        "/run/soda-muse/./0123456789abcdef",
+        "/run/soda-muse/../soda-muse/0123456789abcdef",
+        "/run/soda-muse/0123456789abcdef/",
+    ] {
+        assert!(!is_clean_absolute_path(input), "{input:?}");
+    }
 }
 
 #[test]

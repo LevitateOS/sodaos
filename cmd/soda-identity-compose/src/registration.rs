@@ -5,22 +5,9 @@ use super::MUSE_LAUNCH_SOCKET;
 use std::ffi::CString;
 use std::fs;
 use std::io;
+use std::os::unix::fs::DirBuilderExt;
 
 const TMPFS_MAGIC: i64 = 0x01021994;
-
-pub(crate) fn go_base(path: &str) -> &str {
-    if path.is_empty() {
-        return ".";
-    }
-    let stripped = path.trim_end_matches('/');
-    if stripped.is_empty() {
-        return "/";
-    }
-    match stripped.rfind('/') {
-        Some(i) => &stripped[i + 1..],
-        None => stripped,
-    }
-}
 
 pub(crate) fn registration_root() -> Result<(String, String), String> {
     let mut id = [0u8; 16];
@@ -58,31 +45,9 @@ fn hex_encode(bytes: &[u8]) -> String {
 }
 
 fn mkdir_p(path: &str, mode: u32) -> Result<(), String> {
-    // Mirror Go MkdirAll: create missing ancestors, leave existing alone.
-    let mut current = String::new();
-    for part in path.split('/') {
-        if part.is_empty() {
-            if current.is_empty() {
-                current.push('/');
-            }
-            continue;
-        }
-        if current == "/" || current.is_empty() {
-            current.push_str(part);
-        } else {
-            current.push('/');
-            current.push_str(part);
-        }
-        let c = CString::new(current.clone()).unwrap();
-        let rc = unsafe { libc::mkdir(c.as_ptr(), mode) };
-        if rc != 0 {
-            let e = io::Error::last_os_error();
-            if e.kind() != io::ErrorKind::AlreadyExists {
-                return Err(e.to_string());
-            }
-        }
-    }
-    Ok(())
+    let mut builder = fs::DirBuilder::new();
+    builder.recursive(true).mode(mode);
+    builder.create(path).map_err(|error| error.to_string())
 }
 
 pub(crate) fn account(login: &str) -> Result<i64, String> {

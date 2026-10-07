@@ -70,8 +70,8 @@ pub use self::transfer::{tar_consumer_argv, tar_producer_argv};
 mod native;
 
 pub use self::native::{
-    agent_program_hash, agent_program_path, clean_path, native_argv, parse_output_line,
-    NativeAttach,
+    agent_program_hash, agent_program_path, clean_path, is_clean_absolute_path, native_argv,
+    parse_output_line, NativeAttach,
 };
 
 mod stream;

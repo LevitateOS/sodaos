@@ -1101,7 +1101,7 @@ fn argv_vectors() {
         ]
     );
     assert_eq!(
-        tar_producer_argv("/opt/harness//x/../"),
+        tar_producer_argv("/opt/harness"),
         vec!["--create", "--file=-", "--directory", "/opt/harness", "."]
     );
     assert_eq!(
@@ -1123,20 +1123,12 @@ fn argv_vectors() {
 }
 
 #[test]
-fn clean_path_vectors() {
-    for (input, want) in [
-        ("/a/b/c", "/a/b/c"),
-        ("/a//b/./c/", "/a/b/c"),
-        ("/a/b/../c", "/a/c"),
-        ("/../a", "/a"),
-        ("", "."),
-        (".", "."),
-        ("a/../../b", "../b"),
-        ("/", "/"),
-        ("a/b/", "a/b"),
-        ("/opt/harness//x/../", "/opt/harness"),
-    ] {
-        assert_eq!(clean_path(input), want, "{input:?}");
+fn native_path_components_and_clean_admission() {
+    assert_eq!(clean_path("/a//b/./c"), "/a/b/c");
+    assert_eq!(clean_path("/a/b/../c"), "/a/b/../c");
+    assert!(is_clean_absolute_path("/a/b/c"));
+    for input in ["/a//b", "/a/./b", "/a/../b", "/a/b/"] {
+        assert!(!is_clean_absolute_path(input), "{input:?}");
     }
 }
 

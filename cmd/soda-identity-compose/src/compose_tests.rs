@@ -1,7 +1,6 @@
 use super::compose::{select_compose_child, write_override};
 use super::launch_wire::{json_string, launch_request_json, parse_launch_exit, NestedRegistration};
 use super::options::parse_bool_flag;
-use super::registration::go_base;
 use super::*;
 
 #[test]
@@ -88,14 +87,6 @@ fn override_escapes_like_go_encoding_json() {
         json_string("<>&\u{2028}\u{2029}"),
         "\"\\u003c\\u003e\\u0026\\u2028\\u2029\""
     );
-}
-
-#[test]
-fn go_base_matches_filepath_semantics() {
-    assert_eq!(go_base("login"), "login");
-    assert_eq!(go_base("a/b"), "b");
-    assert_eq!(go_base("/"), "/");
-    assert_eq!(go_base(""), ".");
 }
 
 #[test]
