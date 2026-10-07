@@ -375,7 +375,7 @@ Historical source size: 623 lines, including tests. Checkpoint `c5fef89a` remove
 - `lib/soda-release-deliver/src/json_serde.rs` — Strict object/decoded duplicate/depth/cap admission and raw scalar policy over Serde. The strict depth-100 and arbitrary-number preflight preservation is verified in `02a788be`.
 - Existing model/payload/OCI/fetch/publication record owners — Concrete exact-field DTOs, last-winner raw slots where lenient callers require them, and original signed/hash custody.
 - `lib/soda-release-deliver/src/document.rs` — OCI document custody and actual Go two-space/newline producer formatter. Five frozen byte goldens and the captured Channel manifest digest remain verification requirements.
-- `lib/soda-release-deliver/src/native/policy.rs` — Generated trust requirements and proposed policy merging. Retained arbitrary scope values still require ordered/raw-number preservation before this follow-up can close.
+- `lib/soda-release-deliver/src/native/policy.rs` — Generated trust requirements and proposed policy merging. Ordered/raw-number scope values and generated trust requirements are verified in `02a788be`; strict depth 100 admission remains ahead of merging.
 
 Historical Evidence: 1-18 cap/error; 22-96 Base64; 97-352 duplicate traversal and Binder/Soft; 353-558 Emitter/Emit; 559-573 marshal; 574-623 tests. These ranges record completed structural work, not remaining engine ownership.
 

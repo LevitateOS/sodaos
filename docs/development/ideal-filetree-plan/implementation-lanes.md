@@ -6,9 +6,10 @@ and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. L01 and L02 are complete at their recorded
-source scopes; L03 and L07 are also complete at their recorded scopes. L04 is
-dispatched and in progress, with medium profile decisions preceding low caller
-transfers. L00 preparation preceded L02; later unchecked packets retain
+source scopes; L03, L04 and L07 are also complete at their recorded scopes.
+L04 used medium admission/review and low caller transfer; shared-engine
+retirement ended in `229e9cce`. L00 preparation preceded L02; later unchecked
+packets retain
 their scoped implementation and admission requirements.
 
 Prepared on **2026-10-06** against clean checkout
@@ -90,7 +91,7 @@ default owner, not permission to edit every file under that directory.
 | Go `cmd/`, `internal/` application/domain/Store/API/client files; `frontend/spaces/**`, `frontend/tailnet/**` | B | A/C send exact changes. B owns current `grants`, `dispatch`, `review_cycle`, `merge`, Store and API monoliths before releasing extracted leaves. |
 | `internal/store/schema.go` and its Rust broker mirror | B defining schema; A mirror | Reconcile together under H02. Existing mirror/drift assertion remains; no new schema generator or independent authority. |
 | `cmd/soda-forgejo-tailnet/**` and helper-exclusive `internal/forgejo/tailnet*.go` → same-host Rust helper | A during C04 port | Reserve these exact files from B first. Preserve all other Go Forgejo/domain/status clients; release compiler/install joins remain C/R01 duties. |
-| Other Rust commands/crates, `rust/soda-json/**`, assets, Forgejo templates/locales/styles, system/image/rootfs definitions | C | A/B request primitive or payload changes; mixed setup/install/maintenance files have one current writer. |
+| Other Rust commands/crates and retained JSON adapters, assets, Forgejo templates/locales/styles, system/image/rootfs definitions | C | A/B request primitive or payload changes; mixed setup/install/maintenance files have one current writer. |
 | Go installed-probe/test tooling, `internal/acceptance/**`, cross-component build/installed tests and source scripts | C | Preserve real subjects. B/A provide production changes; current shared fixtures/helpers remain single definitions with named consumers. |
 | `rust/soda-release-image/src/{sys,build}.rs` and other release crate composition roots | C | Coordinator takes a short exclusive whole-file handoff for shared compile/stage joins. C pauses edits to those files until the handoff returns. |
 | Root workspace/manifests/locks, every crate-local `Cargo.toml` dependency/bin/test declaration, package scripts, TS includes, shared payload manifests and plan indexes | Coordinator | Workers submit package/bin/dependency/source/destination tuples. Apply a coherent batch once; A/C do not concurrently edit even private crate manifests, and workers do not regenerate shared locks. |
@@ -159,7 +160,7 @@ remaining work are in the adoption chapter.
 | 1. Finish deadlines and evidence — complete | L01 / C | Luna medium for QMP/redaction/VM pump lifetime; Luna low for CoreOS close/error joins | Recorded absolute deadlines, final curl metadata, safe split/malformed URLs, bounded evidence and failure propagation |
 | 2. Finish admission and costly boundary preparation — complete | L00 / Coordinator; named disjoint proof writers | Luna low for dependency/license/cache inventory; Luna medium for PG/Hyper/WS proofs and independent review | Record exact compiler and feature closures, locked offline checks, PG deadline/cancel/discard/transaction custody, Unix client/server and upgrade read-ahead, nonblocking WS flush/close/reap; disposition every open cutover gate before L02 |
 | 3. Repair immediate trust and entropy defects — complete | L02 / C; RNG01 portion of L03 / A with C handoff | Luna low implementation; independent Luna medium trust/fail-closed review | `743dde17` completes strict trust/signature repair; `a84447ff` completes fail-closed entropy across ten packages. Preserve raw DER/TBS and role authority. Evidence and limits are recorded in the adoption chapter. |
-| 4. Replace common engines and native SQL parameters — L03/L07 complete; L04 in progress | L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles and independently review; Luna low for settled caller/SQL edits | Preserve L03 `52eee7ee` and L07 `d12bf6d3`; finish L04 producer/refusal checks and remove every engine with its last callers. Apply each dependent gate to the required verified profile |
+| 4. Replace common engines and native SQL parameters — L03/L04/L07 complete | L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles and independently review; Luna low for settled caller/SQL edits | Preserve L03 `52eee7ee` and L07 `d12bf6d3`; L04 producer/refusal checks and all engine removals are complete through `229e9cce`. Apply each dependent gate to the required verified profile |
 | 5. Adopt PostgreSQL and Unix HTTP/WS | L08/L09 / A, named B/C handoffs | Luna medium | PG requires L07 and LA-G2; ordinary clients precede servers, coupled upgrade/pump follows LA-G3; complete cancellation/flush/close/reap and affected offline graph |
 | 6. Adopt SSH and local CA formats | L05 / A; L06 / C | Luna medium | SSH consumes required L03/L04 outputs; CA consumes L02/relevant PEM profile and Caddy/critical-extension evidence, with no SSH prerequisite |
 | 7. Replace independent external/network adapters | L10 / C; L11 / A with C acceptance handoff | Luna low for settled caller adapters; Luna medium for unresolved admission/deadline semantics | Setup/provider HTTP and URL/IP/time preserve each caller's credentials, raw literals, bounds and unavailable/uncertain outcomes |
@@ -170,9 +171,11 @@ remaining work are in the adoption chapter.
 | 12. Consider optional matcher adoption | L16 / C | Luna medium | Separate change after L01 and its bounded secret-input custody; no Aho-Corasick change is required to complete step 1 |
 | 13. Qualify the integrated changed subjects | R03/R04 / Coordinator | Luna low for commands/receipts; Luna medium for unresolved consequential results | Applicable source/build checks first, native qualification only for a ready selected candidate and its authorized operations; evidence states its actual scope |
 
-L00 initial preparation preceded L02. L02, L03 and L07 are complete; their result
+L00 initial preparation preceded L02. L02, L03, L04 and L07 are complete; their
+result
 details and exact dependent holds are recorded in the adoption chapter. L04
-caller transfers remain in progress for step 4. The per-adoption gates still apply to
+caller transfers and engine retirement complete step 4 at their source scope.
+The per-adoption gates still apply to
 each changed package/features/runtime graph.
 Independent parts of later ready
 packets can fill available slots after dispatch; optional step 12 does not hold

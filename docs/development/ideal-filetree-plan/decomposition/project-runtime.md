@@ -198,6 +198,15 @@ these concern files are not targets for a new general process or session engine.
 
 Evidence: 19-57,87-200: fixed unit naming/properties/argv, parse/verify service fields, state/confirmed stop -> svc.rs; 58-68,201-458: bounded statfs subprocess/read-only filesystem checks and cgroup_parent/events/empty -> cgroup.rs; shared existing wait/exit helpers stay crate-private to consumers; 15-18,459-604: SocketCheck/socket_identity_kinded/connect classification/exact socket_identity -> socket.rs; 69-86,605-665: infocmp/tmux fixed argv and tmux_control -> tmux.rs; 666-882: exact argv/fields/cgroup/socket/statfs/supervisor/tmux-negative vectors -> svc_tests.rs.
 
+L04 completed guest JSON transfer in `1350250a`, with borrowed-child refinement
+in `3e1504ac`. Binding/reservation/ready and control records now use concrete
+Serde admission. `state_json.rs` retains only dynamic factory/subscription data,
+ordinary last-wins dictionary position, raw numbers and 127-container admission;
+`pyemit.rs` and factory emission keep the actual Python byte profiles. Grammar
+and escaping belong to Serde. The existing executable, private-file, lease,
+service and PTY authority boundaries remain; further parser/codec splits are
+superseded, while the parked filesystem/socket/time work below remains open.
+
 ## rust/soda-project-terminal/src/term.rs
 
 Observed size: 1821 lines, including tests where embedded. Split 1,363 lines before the embedded test module along already-defined terminal phases: held path/record helpers; account binding/reservation records and serialization; native status; confirmed finished-terminal collection; pinned-program reservation/create; exclusive writer attach/subscription lifetime; list/mutate/control dispatcher; and systemd post-start tmux preparation. Keep the parent TERMINALS shared/exclusive lock in control_terminal spanning its current operations, and keep the writer lock held throughout relay. Split 457 embedded-test lines into binding/reservation/status, exact argv/output/lifetime, and program-hash/native entry smoke groups. Do not move terminal transcript/bytes into persisted state or add lifecycle behavior.

@@ -5,9 +5,9 @@ handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and
 [lane schedule](implementation-lanes.md) remain the execution plan. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
-L00 initial preparation, L01, L02, L03, and L07 are complete at their recorded
-source scopes. L04 is in progress: medium profile decisions precede low caller
-transfers, and completion requires retirement of every selected engine. Later cutovers
+L00 initial preparation, L01, L02, L03, L04 and L07 are complete at their
+recorded source scopes. L04 used medium profile decisions and independent review,
+then low caller transfers; every selected engine is retired. Later cutovers
 retain their scoped authorization and admission checks.
 
 Planning reconciliation uses source `72e4bb9015b6d6a622b45638104c74851a137473`
@@ -32,8 +32,8 @@ L identifiers are subpackets of the existing A/B/C tasks. Each has one lead;
 physical writers remain the exclusive owners in the lane schedule. A lead sends
 cross-owner changes through named handoffs rather than editing another owner's
 files. The coordinator owns manifests/locks and integration. Packet state is
-recorded in the task list: L00 initial preparation, L01, L02, L03, and L07 are
-complete; L04 is in progress as described below. Later unchecked packets remain
+recorded in the task list: L00 initial preparation, L01, L02, L03, L04 and L07
+are complete at their defined source scopes. Later unchecked packets remain
 undispatched subject to their exact gates below.
 
 | Packet | Lead | Existing task joins | Sequence and required output |
@@ -42,7 +42,7 @@ undispatched subject to their exact gates below.
 | L01 Deadline and evidence repair | C | C11.C/V | Immediate; preserves the existing small lifecycle/evidence owners |
 | L02 Trust-key and signature repair | C | C07/C10 | Complete after L00; existing curve/DER libraries and raw-byte contracts preserved |
 | L03 Hash, curve and randomness owners | A | A03/A05/A06, C10/C11 | Complete: RNG01 in `a84447ff`; CF-01 and CF-02 in `52eee7ee` |
-| L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | In progress: settle each selected caller profile before its transfer; retire every engine with its last callers |
+| L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | Complete: caller profiles verified; every selected engine and shared dependency retired, ending in `229e9cce` |
 | L05 SSH formats | A | A01/A07, C07 | Requires its CF-01/02/04 profiles from L03/L04 |
 | L06 Local CA parsing | C | C05/C07 | L02 and required L04 PEM/Base64 profile; no L05 dependency |
 | L07 Native SQL parameters | B | C02, B01 | Complete in `d12bf6d3`; can overlap driver preparation and precedes L08 cutover |
@@ -295,78 +295,51 @@ JSON02. Test consequential profile examples and current producer/consumer
 round trips, then delete each replaced lexer/binder/emitter/codec owner. No
 universal permissive decoder or foreign-diagnostic compatibility layer.
 
-Progress: **in progress**. Luna medium settled the
+Progress: **source scope complete**. CF-04 completed in `26493cf2`; JSON01
+finished with guest `1350250a`, Acceptance `747959ed`, bounded borrowed child
+capture `3e1504ac`, and shared-crate retirement `229e9cce`. `lib/json`, its
+workspace member, lock entry and every source/dependency consumer are removed.
+No forwarding crate or replacement general parser remains. Luna medium settled
 [JSON caller profiles](../../../.artifacts/l03-l04/json-profiles.md),
-[host details](../../../.artifacts/l03-l04/host-json-profile.md), and
-[encoding profiles](../../../.artifacts/l03-l04/encoding-profiles.md).
-`ec2e0a80` admits existing cached serde/base64 versions and the host RawValue
-feature; locked offline dependency checks passed. Luna low writers own disjoint
-host, strict-identity/Setup, launch and codec transfers; the coordinator owns
-manifests, checks, reviews and commits. Completed source packets are recorded
-separately as they pass verification. CF-04 is complete in `26493cf2`: all
-selected engines use their declared Base64 profiles, including raw fingerprints
-and intentional refusal of installer unpadded tails and identity interior
-padding. Eight focused codec tests across six owners, Setup encoding checks,
-Muse's 16 tests and affected development builds passed, with medium review.
-JSON01 has completed identity/Setup (`ae09f634`), Compose (`22c858fc`), Muse
-(`26493cf2`) and maintenance (`bf88640b`) parser/emitter transfers. Compose's
-12 tests and maintenance's seven focused checks passed; their source reviews
-and development builds passed. `e20647c1` transfers host config, Muse framing
-and tcontrol DTOs, while the legacy host engine still serves pending callers;
-new strict-boundary checks and the 57-test tcontrol oracle passed.
-Installer JSON01 completed in `595fb604`: `jsongo` and its dependency edge are
-deleted, with concrete payload/media/OCI/lsblk records, duplicate-aware factory
-defaults and a small Go-compatible Ignition formatter. All 128 installer tests,
-the development build and independent medium review passed. Release-build
-completed in `d52d8ca8`: `json_go`, `Fields`, `Strict` and recursive `Emit` are
-deleted with their callers and dependency edge. Its 48 library checks, 12
-integration oracles, development build and medium review passed. Integer-token
-adapters retain `-0` as zero while rejecting fractions, exponents and overflow;
-raw input hashes and required producer bytes remain at their owners.
-Host checkpoint `df4b2cf5` transfers terminal stream/inspection, factory records
-and preparation/helper records to owner DTOs. Its signed token adapter preserves
-`-0`, nullable exits and per-occurrence alias validation; unsigned bytes retain
-their separate refusal policy. All 325 host library tests, 198 private Muse
-oracles, 58 native-control oracles, the development build and medium review
-passed with fresh local fixtures. The final host caller transfer and engine removal completed in `3bf7e75b`: 317 library tests, 286 integration checks, the development build and medium closure review passed. The lower library count reflects retired engine tests, not skipped application checks.
-Activation and candidate/lab credential producers completed in `eba27412`:
-54 tests, development builds and medium review passed. Typed producer records
-retain Python escaping, property order, indentation and newline contracts.
-Import completed in `0cd73f16`: the payload/OCI binder and dependency edge are
-removed, with final non-null alias selection, validation of every image-map
-entry, original blob custody and all 14 tests, development build and review.
-Console/factory completed in `c8997d1d` with 12 tests, builds and review; console
-consumes only its two configuration fields, and factory retains sorted Go
-envelope bytes including separator escaping. Dependencies remain direct cached
-Serde edges (`3909ce8a`).
-Release-image completed in `9ee0a75b`: its dependency and generic codec surface
-are removed. Typed records retain first-exact/folded admission; ordered raw
-metadata retains duplicate and numeric identity, stable top-level sorting and
-Ignition comparison. Its 62 library checks, 12 integration oracles, final
-producer-order regression, development build and medium closure review passed.
-Delivery checkpoint `c5fef89a` removes `jsonx` and its dependency with 34
-library tests, 13 producer/admission oracles and downstream development builds.
-The raw-number/order policy merge and exact strict-depth follow-up closed in
-`02a788be`: 34 library tests, 14 oracles, the development build and medium
-review passed. Policy merge keeps ordered raw values behind the existing
-strict depth-100 admission. Release-assets completed
-in `b67d9d97`: typed exact-last raw slots and the ordered Butane application
-document retain original downloaded hashes and Python producer bytes. Its 83
-library tests, 31 integration checks, development build and medium review
-passed with home-disk fixtures; the missing-checkout case requires fixtures
-outside the source checkout. Release-tools completed its remaining typed consumers and dependency removal
-in `b35ae13c`, with 94 library and 11 CLI checks and medium review. Guest and
-acceptance callers still hold JSON01 completion and deletion of `lib/json`.
-Dynamic image and provisioning documents now admit at most 127 nested
-containers (`f038a5fc`), matching ordinary Serde admission; the root container
-counts as one and scalar roots as zero. Their focused boundary checks and
-medium review passed. This intentionally replaces the old parser's incidental
-10,000-container allowance; raw numbers, duplicates and producer bytes remain
-preserved for admitted inputs. Deliver retains its separate strict depth rule.
-The [active verification record](../../../.artifacts/l03-l04/verification.md)
-links commits to local receipt scope and retains failed/environment-limited
-attempts separately from qualifying checks. `54176eb6` adds the verified host
-account/profile DTO group; its earlier partial scope remains distinct from the final host engine removal.
+[host profiles](../../../.artifacts/l03-l04/host-json-profile.md) and
+[encoding profiles](../../../.artifacts/l03-l04/encoding-profiles.md), and
+independently reviewed the transfers; Luna low implemented settled callers.
+
+Completed owner packets retain their distinct input and producer policies:
+
+| Owner scope | Completed source and local verification |
+| --- | --- |
+| Identity/Setup, Compose, Muse and maintenance | `ae09f634`, `22c858fc`, `26493cf2`, `bf88640b`: strict request and typed caller admission, explicit Base64 profiles, exact producer checks, affected builds and review |
+| Host | Earlier DTO/structural checkpoints remain recorded; `3bf7e75b` completes all engine callers and deletion. 317 library tests, 286 integration checks, build and review passed. Lower counts reflect deleted engine tests, not skipped application checks |
+| Installer and release-build | `595fb604`, `d52d8ca8`: 128 installer tests; build 48 library plus 12 oracles; affected builds and review. Raw integer tokens, original hashes and required Go producer bytes retained |
+| Activation, candidate/lab, import, console/factory | `eba27412`, `0cd73f16`, `c8997d1d`: 54, 14 and 12 checks respectively, builds and review; Python/Go property order, escaping, newline and custody remain caller-owned |
+| Release-image | `9ee0a75b`: 62 library tests, 12 integration oracles, final stable-sort producer regression, build and review; typed first-exact/folded admission plus ordered duplicate/raw-number metadata and Ignition comparison |
+| Delivery and release-tools | `c5fef89a`, `02a788be`, `b35ae13c`: delivery 34 plus 14 oracles, tools 94 plus 11 CLI checks, builds and review; ordered/raw policy merge and strict depth 100 closed, typed image/tools boundary retained |
+| Release-assets | `b67d9d97`: 83 library and 31 integration checks, build and review; exact-last raw slots, ordered Butane document, original downloaded hashes and Python output |
+| Guest | `1350250a`: 19 account, 67 factory and 93 terminal unit tests; 33 integration checks, build and review. Exact control-frame shapes, decoded duplicate policy, ordinary dictionary insertion position and Python producer bytes retained |
+| Acceptance | `747959ed`: 131 tests and three binary builds, static/dynamic review; L01 absolute deadlines, pump/error/close custody, unterminated curl metadata, split redaction and failed-evidence publication checks remain passing |
+
+Dynamic guest, image, provisioning and Acceptance trees admit at most **127
+nested containers**; the root container counts as one and scalar roots as zero.
+The guard refuses the 128th container before recursive conversion. This matches
+ordinary pinned Serde admission and intentionally tightens the former parser's
+incidental 10,000-container allowance. Deliver retains its separate strict
+100-depth rule. Nested RawValue captures borrow original input rather than
+retaining a full subtree copy at each level. Owner boundary and byte-preservation
+checks passed after the final borrowed-capture change; evidence producers also
+use a capped 16 MiB serialization sink before structural scrub and publication.
+Signed bytes and fingerprints always use admitted original bytes.
+
+The final locked offline graph builds guest, Acceptance, image, assets and tools
+without warnings. The source/manifest/resolved graph census finds zero references
+or edges to the retired crate. Existing producer oracles include five frozen
+Go marshal goldens and the actual Channel manifest digest
+`sha256:5203d05966d2a64d48b1f30f3ace177cf2402dec02c00553bee56633c088e986`.
+The [verification record](../../../.artifacts/l03-l04/verification.md) preserves
+receipts and failed diagnostic attempts separately. These are source and local
+development checks, not installed appliance or native artifact-worker
+qualification. Historical moves and audit findings retain their recorded
+scope; unrelated correctness tasks and full tree regeneration remain parked.
 
 ### L05 SSH formats
 

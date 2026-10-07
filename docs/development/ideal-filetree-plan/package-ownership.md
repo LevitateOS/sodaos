@@ -162,15 +162,16 @@ and terminal emission differences at their existing owners. Do not introduce a
 universal permissive facade or preserve lexer modules merely because they were
 previously allocated. Signed raw bytes remain raw.
 
-Installer (`595fb604`), release-build (`d52d8ca8`) and release-image
-(`9ee0a75b`) have removed their last
-engine callers and direct dependency edges. Their current JSON responsibilities
-are bounded raw-byte custody, concrete record admission and required producer
-formatters. Image additionally retains an application-local ordered metadata
-representation for duplicate/raw-number identity, required stable sorting and
-Ignition comparison, with Serde owning grammar and escaping. Pending consumers
-still hold shared-crate deletion; a completed
-owner transfer does not complete JSON01 repository-wide.
+Every selected Rust JSON owner has removed its engine callers and dependency
+edges; `229e9cce` deletes the shared crate and workspace/lock entries. Current
+responsibilities are bounded raw-byte custody, concrete record admission and
+required producer formatters. Image retains ordered metadata for duplicate/raw
+number identity, stable sorting and Ignition comparison. Guest retains ordinary
+dictionary semantics for factory/subscription state. Acceptance retains arbitrary
+QMP/Ignition/probe/evidence data and bounded structural redaction/publication.
+Those owner-local trees use borrowed raw child tokens, explicit 127-container
+admission and Serde grammar/escaping; they grant no operation authority. Delivery
+retains its stricter depth 100 policy. JSON02 Go admission remains unchanged.
 
 Host terminal/factory/preparation records now use caller-owned Serde DTOs
 (`df4b2cf5`), with signed token and byte adapters preserving their distinct
@@ -197,7 +198,7 @@ in the lane schedule; this table describes remaining responsibilities.
 | Entropy callers (RNG01) | Implemented getrandom acquisition; A owns host/identity IDs, nonces and policy revision failure propagation, C owns installer/setup/maintenance/release callers and their retained custody |
 | Release trust-key intake (CF-05) | C owns the shared typed P-256 adapter in `lib/release-inputs/src/trust_key.rs`; image/delivery retain role/timing/reference policy and original-DER fingerprints |
 | Installer X509/DER/calendar/URL engines (X50901/CF-06) | C owns implemented strict ECDSA signature admission and original-TBS verification; bounded local-CA and critical-extension/parser adoption remain L06 |
-| JSON grammars/emitters (JSON01) | Existing profile adapters and domain validation; no shared replacement parser process |
+| JSON grammars/emitters (JSON01) | L04 complete through `229e9cce`: caller-owned Serde DTO/admission/formatting and bounded dynamic-data adapters; shared grammar crate retired |
 | Generic file/FD/process mechanics (L12) | Existing C operator/release and A host/guest adapters retain authority, same-FD bounds, cancellation and cleanup; no broad framework |
 | Archive/OCI/XML/CLI/Cargo emulators (L13/L14) | Existing C-owned format/renderer/command/shipping policy; delivery owns shared OCI scanning with an acyclic build dependency |
 | Evidence matching/deadlines (RED01/N13/N14) | C-owned evidence publication and bounded overlap adapter; small Phase/QMP lifecycle policy remains |

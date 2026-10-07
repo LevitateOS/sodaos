@@ -11,7 +11,8 @@ Shared HTTP/test support and native assertion destinations also intentionally
 consolidate existing concerns. Each shared leaf has one implementation owner;
 duplicate file leaves or competing Rust module roots are not intended.
 
-Selective adoption update at source `72e4bb9015b6d6a622b45638104c74851a137473`:
+Initial selective adoption update at source `72e4bb9015b6d6a622b45638104c74851a137473`,
+refreshed for completed L04 at `229e9cce`:
 this remains the desired application tree, with superseded generic-engine leaves
 removed below. Retained names describe application policy or library adapters,
 not a requirement to recreate their old implementation. The
@@ -22,9 +23,9 @@ the earlier exact-match/delta counts below are historical observations.
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
-| Host `daemon/{http,response,websocket}`, `json/{bind,specs}`, `ssh/material` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
+| Host `daemon/{http,response,websocket}`, `json/{mod,number}`, `ssh/material` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
 | Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar grammar is retired after L06 gates |
-| `lib/json`, release `json*`, Compose/Muse/guest wire | Only demonstrated shared or caller-specific Serde admission/emission profiles; no replacement generic lexer or emitter |
+| Release `json*`, Compose/Muse/guest wire and Acceptance structured data | Concrete Serde admission/emission and bounded ordered/raw application data; `lib/json` is retired with no target allocation |
 | Release/build/import OCI adapters | Delivery owns low-level scanning; callers retain admitted content/layout/descriptor policy and original blob custody |
 | `lib/release-inputs/src/trust_key.rs` and release trust callers | Shared typed P-256 admission; image/delivery retain role authority and original-DER fingerprints |
 | Release/terminal/acceptance process, file and evidence modules | Existing authority, bounded input/output, cancellation, cleanup and narrow library adapters; no new framework |
@@ -612,6 +613,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── pty_relay.rs
 │   │   │   ├── pty_tests.rs
 │   │   │   ├── socket.rs
+│   │   │   ├── state_json.rs
 │   │   │   ├── subscription_cgroup.rs
 │   │   │   ├── subscription_credentials.rs
 │   │   │   ├── subscription_prepare.rs
@@ -1890,10 +1892,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── state.rs
 │   │   │   │   └── stop.rs
 │   │   │   ├── json/
-│   │   │   │   ├── bind.rs
-│   │   │   │   ├── binding_tests.rs
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── specs.rs
+│   │   │   │   ├── number.rs
 │   │   │   │   └── strict_tests.rs
 │   │   │   ├── muse/
 │   │   │   │   ├── tests/
@@ -2121,10 +2121,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── daemon.rs
 │   │   │   └── terminal_transport.rs
 │   │   └── Cargo.toml
-│   ├── json/
-│   │   ├── src/
-│   │   │   └── lib.rs
-│   │   └── Cargo.toml
 │   ├── release-inputs/
 │   │   ├── src/
 │   │   │   ├── reader/
@@ -2162,7 +2158,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── forgejo.rs
 │   │   │   ├── http.rs
 │   │   │   ├── json_emit.rs
-│   │   │   ├── json_go.rs
 │   │   │   ├── json_input.rs
 │   │   │   ├── lib.rs
 │   │   │   ├── live_inputs.rs
@@ -2204,9 +2199,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── state.rs
 │   │   │   │   ├── tests.rs
 │   │   │   │   └── verification.rs
-│   │   │   ├── jsonx/
-│   │   │   │   ├── mod.rs
-│   │   │   │   └── tests.rs
+│   │   │   ├── json_serde.rs
 │   │   │   ├── model/
 │   │   │   │   ├── candidate.rs
 │   │   │   │   ├── channel.rs
@@ -2292,6 +2285,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── media_container.rs
 │   │   │   ├── media_installer.rs
 │   │   │   ├── model.rs
+│   │   │   ├── ordered_json.rs
 │   │   │   ├── packages.rs
 │   │   │   ├── payload_stage.rs
 │   │   │   ├── prepare.rs
@@ -2773,6 +2767,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── provisioning.rs
 │   │   │   ├── qmp.rs
 │   │   │   ├── remote.rs
+│   │   │   ├── structured.rs
 │   │   │   └── timestamps.rs
 │   │   ├── Cargo.toml
 │   │   └── build.rs

@@ -35,14 +35,14 @@ Support current PostgreSQL connections, transactions, schema admission and mecha
 
 Implement bounded, explicit wire decoding/encoding used by the established callers.
 
-- **Entrypoints:** strictjson.Decode(); soda_json::JsonValue::parse(); Host/broker request and DTO decoders; response projections.
+- **Entrypoints:** strictjson.Decode(); caller-owned Serde request/DTO admission and response projections. The shared Rust syntax engine is retired by L04.
 - **Owned data:** Transient decoded values, declared field specs and shared contract vectors; no independent durable product state.
 - **Authority:** Established caller/protocol contracts define accepted representations; parser helpers grant no operation authority.
 - **Dependencies:** [H01](#h01-private-ipc-and-service-lifetime); [G03](forgejo-integration.md#g03-authoritative-native-reads); Domain wire contracts.
-- **Source files:** [internal/strictjson/decode.go:15](../../../../internal/strictjson/decode.go#L15); [rust/soda-json/src/lib.rs:19](../../../../rust/soda-json/src/lib.rs#L19); [rust/soda-host/src/json.rs](../../../../rust/soda-host/src/json.rs); [rust/soda-identity/src/strict.rs](../../../../rust/soda-identity/src/strict.rs); [rust/soda-identity/src/wire.rs](../../../../rust/soda-identity/src/wire.rs).
-- **Tests:** [internal/strictjson/decode_test.go:15](../../../../internal/strictjson/decode_test.go#L15) — Duplicate/unknown fields, object shape, UTF-8 and size-limit tests; [scripts/wire_contracts_test.go:50](../../../../scripts/wire_contracts_test.go#L50) — Recorded wire vectors and limits; [rust/soda-json/src/lib.rs:315](../../../../rust/soda-json/src/lib.rs#L315) — Inline parse/escape vectors.
+- **Source files:** [internal/strictjson/decode.go:15](../../../../internal/strictjson/decode.go#L15); [lib/host/src/json/mod.rs](../../../../lib/host/src/json/mod.rs); [cmd/soda-identity/src/strict.rs](../../../../cmd/soda-identity/src/strict.rs); [cmd/soda-identity/src/wire.rs](../../../../cmd/soda-identity/src/wire.rs).
+- **Tests:** [internal/strictjson/decode_test.go:15](../../../../internal/strictjson/decode_test.go#L15) — Duplicate/unknown fields, object shape, UTF-8 and size-limit tests; [scripts/wire_contracts_test.go:50](../../../../scripts/wire_contracts_test.go#L50) — Recorded wire vectors and limits; actual Serde caller admission and producer-byte checks recorded in [L04](../library-adoption.md#l04-json-and-base64-profiles). Retired engine-only vectors remain historical evidence.
 - **Unclear boundaries:** Similar parser/DTO code is not proof of equivalent semantics or a justified shared abstraction. Caller-specific fields/limits stay with their slices; fixture agreement can preserve an obsolete assumption and needs contract review.
-- **Evidence status:** Current source mapped; correctness and installed behavior unreviewed.
+- **Evidence status:** L03/L04 source boundaries verified at their recorded scopes; historical structural findings and installed behavior retain separate status.
 - **Validity review:** [H03 record](../reviews/H03.md) — actual scope, model, findings, challenge and target-allocation status.
 
 ## H04 Configuration and filesystem primitives
