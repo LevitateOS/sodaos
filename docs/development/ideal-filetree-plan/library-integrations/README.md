@@ -29,6 +29,12 @@ at `1cb4bbd8` checks selected feature/version/toolchain and shipping costs. It
 assigns five narrow dependency, feature and bootstrap-interface cuts, while
 preserving real adapter/state owners and conditional artifact-notice questions.
 
+The [test/evidence audit](../test-evidence.md) at `a0bdba84` traces assertions
+into production callees and distinguishes actual producer fixtures, controlled
+peers, captured emitter goldens and source/build/installed evidence. It assigns
+a build-result repair and narrow test-selector/retirement work while refining
+the existing saved-key confirmation and profile-dependent regression scopes.
+
 The subsequent [selected-version adapter challenge](adapter-challenges.md) at
 `2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
 It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON

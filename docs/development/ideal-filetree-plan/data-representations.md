@@ -39,6 +39,11 @@ retain assertions about values, stable generation, trust custody and real consum
 RawValue is useful for opaque unowned input and exact integer tokens; its presence
 does not make every deferred field parse necessary.
 
+The subsequent [test/evidence audit](test-evidence.md) at `a0bdba84` narrows
+old emitter/error and Python layout goldens by actual current consumer profile.
+It preserves original signed bytes, fingerprints, domain refusals and deterministic
+current generation while separating fixture execution from native proof.
+
 ## Producer and representation coverage
 
 Tracked discovery found 451 source/support/template files with 3,710 JSON-related
