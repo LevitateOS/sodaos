@@ -94,6 +94,74 @@ fn serve_fixture_busy_port_is_not_an_error() {
 }
 
 #[test]
+fn fixture_stop_closes_partial_request_and_drop_joins_server() {
+    let serve_dir = temp_dir("partial");
+    let (stop, listen) = serve_fixture("127.0.0.1:0", serve_dir.to_str().unwrap()).unwrap();
+    let mut client = std::net::TcpStream::connect(&listen).unwrap();
+    client
+        .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+        .unwrap();
+    client
+        .write_all(b"GET /partial.img HTTP/1.1\r\nHost:")
+        .unwrap();
+
+    // Dropping the stop closure exercises the same RAII path as an early `?`
+    // return in run_candidate. Its destructor joins the listener thread.
+    drop(stop);
+    drop(client);
+    let rebound =
+        std::net::TcpListener::bind(&listen).expect("fixture listener was joined and released");
+    drop(rebound);
+    let _ = std::fs::remove_dir_all(&serve_dir);
+}
+
+#[test]
+fn fixture_refuses_symlink_escape() {
+    let serve_dir = temp_dir("symlink");
+    let outside = temp_dir("outside");
+    std::fs::write(outside.join("secret.img"), b"secret").unwrap();
+    std::os::unix::fs::symlink(outside.join("secret.img"), serve_dir.join("escape.img")).unwrap();
+    let (stop, listen) = serve_fixture("127.0.0.1:0", serve_dir.to_str().unwrap()).unwrap();
+    let (code, _) = http_get(&listen, "/escape.img");
+    assert_eq!(code, 404);
+    stop();
+    let _ = std::fs::remove_dir_all(&serve_dir);
+    let _ = std::fs::remove_dir_all(&outside);
+}
+
+#[test]
+fn fixture_stop_joins_active_large_file_stream() {
+    let serve_dir = temp_dir("stream");
+    let file = std::fs::File::create(serve_dir.join("large.img")).unwrap();
+    file.set_len(64 * 1024 * 1024).unwrap();
+    let (stop, listen) = serve_fixture("127.0.0.1:0", serve_dir.to_str().unwrap()).unwrap();
+    let mut client = std::net::TcpStream::connect(&listen).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    client
+        .write_all(b"GET /large.img HTTP/1.1\r\nHost: x\r\n\r\n")
+        .unwrap();
+    let mut head = Vec::new();
+    while !head.ends_with(b"\r\n\r\n") {
+        let mut byte = [0];
+        client.read_exact(&mut byte).unwrap();
+        head.push(byte[0]);
+        assert!(head.len() < MAX_HEADER_BYTES);
+    }
+    assert!(head.starts_with(b"HTTP/1.1 200"));
+    let mut prefix = [1; 1024];
+    client.read_exact(&mut prefix).unwrap();
+    assert_eq!(prefix, [0; 1024]);
+    let started = std::time::Instant::now();
+    drop(stop);
+    assert!(started.elapsed() < Duration::from_secs(2));
+    drop(client);
+    drop(std::net::TcpListener::bind(&listen).expect("active file stream joined"));
+    std::fs::remove_dir_all(serve_dir).unwrap();
+}
+
+#[test]
 fn copy_file_refuses_occupied_pickup() {
     let dir = temp_dir("copy");
     let src = dir.join("src.img");

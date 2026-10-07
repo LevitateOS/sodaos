@@ -39,3 +39,6 @@ soda-release-deliver = { path = "../soda-release-deliver" }
 soda-release-image = { path = "../soda-release-image" }
 libc = "=0.2.190"
 sha2 = "0.10"
+hyper = { version = "=1.12.0", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
+tokio = { version = "=1.53.2", default-features = false, features = ["rt", "net", "time", "sync", "fs", "io-util", "macros"] }

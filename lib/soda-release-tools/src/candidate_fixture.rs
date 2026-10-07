@@ -1,9 +1,19 @@
 //! `soda-candidate` loopback fixture server and rootfs filing (Go
 //! `tools/soda-candidate` `fixture.go`).
 
-use std::io::{BufRead, Read, Write};
+use std::ffi::CString;
 use std::net::TcpListener;
+use std::os::fd::{AsRawFd, FromRawFd};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::time::Duration;
+
+use hyper::body::{Body, Bytes, Frame, Incoming, SizeHint};
+use hyper::service::service_fn;
+use hyper::{Request, Response, StatusCode};
+use hyper_util::rt::{TokioIo, TokioTimer};
+use tokio::io::{AsyncRead, ReadBuf};
 
 use crate::candidate::Options;
 use crate::worker::lookup_user;
@@ -97,6 +107,28 @@ pub fn fixture_addr(rootfs_url: &str) -> Result<String, String> {
 /// Stop handle for a running fixture server plus its listen address.
 pub type FixtureServer = (Box<dyn FnOnce() + Send>, String);
 
+const MAX_HEADERS: usize = 64;
+const MAX_HEADER_BYTES: usize = 64 * 1024;
+const MAX_CONNECTIONS: usize = 16;
+const CHUNK_SIZE: usize = 64 * 1024;
+const HEADER_DEADLINE: Duration = Duration::from_secs(5);
+
+struct FixtureStop {
+    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for FixtureStop {
+    fn drop(&mut self) {
+        if let Some(shutdown) = self.shutdown.take() {
+            let _ = shutdown.send(());
+        }
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
 pub fn serve_fixture(addr: &str, dir: &str) -> Result<FixtureServer, String> {
     match std::fs::metadata(dir) {
         Ok(st) if st.file_type().is_dir() => {}
@@ -118,64 +150,189 @@ pub fn serve_fixture(addr: &str, dir: &str) -> Result<FixtureServer, String> {
         .local_addr()
         .map_err(|e| e.to_string())?
         .to_string();
-    let dir = dir.to_owned();
-    let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-    let flag = std::sync::Arc::clone(&running);
-    std::thread::spawn(move || {
-        while flag.load(std::sync::atomic::Ordering::SeqCst) {
-            match listener.accept() {
-                Ok((stream, _)) => {
-                    let _ = handle_fixture_request(stream, &dir);
+    let dir = std::fs::File::open(dir).map_err(|e| e.to_string())?;
+    let (shutdown, shutdown_rx) = tokio::sync::oneshot::channel();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())?;
+    let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+    let thread = std::thread::Builder::new()
+        .name("soda-candidate-fixture".to_owned())
+        .spawn(move || {
+            runtime.block_on(async move {
+                let listener = match tokio::net::TcpListener::from_std(listener) {
+                    Ok(listener) => listener,
+                    Err(error) => {
+                        let _ = ready_tx.send(Err(error.to_string()));
+                        return;
+                    }
+                };
+                let _ = ready_tx.send(Ok(()));
+                let dir = std::sync::Arc::new(dir);
+                let slots = std::sync::Arc::new(tokio::sync::Semaphore::new(MAX_CONNECTIONS));
+                let mut shutdown_rx = shutdown_rx;
+                let mut tasks = tokio::task::JoinSet::new();
+                loop {
+                    tokio::select! {
+                        _ = &mut shutdown_rx => break,
+                        accepted = listener.accept() => match accepted {
+                            Ok((stream, _)) => {
+                                let Ok(permit) = std::sync::Arc::clone(&slots).try_acquire_owned() else {
+                                    drop(stream);
+                                    continue;
+                                };
+                                let dir = std::sync::Arc::clone(&dir);
+                                tasks.spawn(async move {
+                                    let _permit = permit;
+                                    let service = service_fn(move |request| {
+                                        let dir = std::sync::Arc::clone(&dir);
+                                        async move { fixture_response(request, dir).await }
+                                    });
+                                    let connection = hyper::server::conn::http1::Builder::new()
+                                        .timer(TokioTimer::new())
+                                        .header_read_timeout(HEADER_DEADLINE)
+                                        .max_headers(MAX_HEADERS)
+                                        .max_header_size(MAX_HEADER_BYTES)
+                                        .max_buf_size(MAX_HEADER_BYTES)
+                                        .keep_alive(false)
+                                        .serve_connection(TokioIo::new(stream), service);
+                                    let _ = connection.await;
+                                });
+                            }
+                            Err(_) => break,
+                        },
+                        _ = tasks.join_next(), if !tasks.is_empty() => {}
+                    }
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    std::thread::sleep(std::time::Duration::from_millis(25));
-                }
-                Err(_) => break,
-            }
+                tasks.abort_all();
+                while tasks.join_next().await.is_some() {}
+            });
+        })
+        .map_err(|e| e.to_string())?;
+    match ready_rx.recv() {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => {
+            let _ = thread.join();
+            return Err(error);
         }
-    });
-    Ok((
-        Box::new(move || {
-            running.store(false, std::sync::atomic::Ordering::SeqCst);
-        }),
-        listen,
-    ))
+        Err(error) => {
+            let _ = thread.join();
+            return Err(error.to_string());
+        }
+    }
+    let stop = FixtureStop {
+        shutdown: Some(shutdown),
+        thread: Some(thread),
+    };
+    Ok((Box::new(move || drop(stop)), listen))
 }
 
-fn handle_fixture_request(stream: std::net::TcpStream, dir: &str) -> std::io::Result<()> {
-    let mut reader = std::io::BufReader::new(stream.try_clone()?);
-    let mut request = String::new();
-    reader.read_line(&mut request)?;
-    let path = request.split_whitespace().nth(1).unwrap_or("/");
-    // Drain headers.
-    loop {
-        let mut line = String::new();
-        reader.read_line(&mut line)?;
-        if line.trim().is_empty() {
-            break;
-        }
-    }
-    let mut stream = reader.into_inner();
-    let name = path.trim_start_matches('/');
-    let name = percent_decode(name);
+async fn fixture_response(
+    request: Request<Incoming>,
+    dir: std::sync::Arc<std::fs::File>,
+) -> Result<Response<FixtureBody>, std::convert::Infallible> {
+    let name = percent_decode(request.uri().path().trim_start_matches('/'));
     if name.contains('/') || name.contains('\\') || name.is_empty() || name == "." || name == ".." {
-        return write_response(&mut stream, 404, b"not found");
+        return Ok(not_found());
     }
-    let file = std::path::Path::new(dir).join(&name);
-    let mut body = Vec::new();
-    match std::fs::File::open(&file) {
-        Ok(mut f) => {
-            if f.metadata()
-                .map(|m| !m.file_type().is_file())
-                .unwrap_or(true)
-            {
-                return write_response(&mut stream, 404, b"not found");
+    let Ok(name) = CString::new(name) else {
+        return Ok(not_found());
+    };
+    let fd = unsafe {
+        libc::openat(
+            dir.as_raw_fd(),
+            name.as_ptr(),
+            libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK,
+        )
+    };
+    if fd < 0 {
+        return Ok(not_found());
+    }
+    let file = unsafe { std::fs::File::from_raw_fd(fd) };
+    let Ok(metadata) = file.metadata() else {
+        return Ok(not_found());
+    };
+    if !metadata.file_type().is_file() {
+        return Ok(not_found());
+    }
+    let file = tokio::fs::File::from_std(file);
+    let body = FixtureBody::File {
+        file,
+        buffer: Box::new([0; CHUNK_SIZE]),
+        done: false,
+    };
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(hyper::header::CONTENT_LENGTH, metadata.len())
+        .header(hyper::header::CONTENT_TYPE, "application/octet-stream")
+        .header(hyper::header::CONNECTION, "close")
+        .body(body)
+        .unwrap_or_else(|_| not_found()))
+}
+
+fn not_found() -> Response<FixtureBody> {
+    Response::builder()
+        .status(StatusCode::NOT_FOUND)
+        .header(hyper::header::CONTENT_LENGTH, "9")
+        .header(hyper::header::CONTENT_TYPE, "text/plain")
+        .header(hyper::header::CONNECTION, "close")
+        .body(FixtureBody::Bytes(Some(Bytes::from_static(b"not found"))))
+        .expect("static response is valid")
+}
+
+enum FixtureBody {
+    Bytes(Option<Bytes>),
+    File {
+        file: tokio::fs::File,
+        buffer: Box<[u8; CHUNK_SIZE]>,
+        done: bool,
+    },
+}
+
+impl Body for FixtureBody {
+    type Data = Bytes;
+    type Error = std::io::Error;
+
+    fn poll_frame(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Frame<Bytes>, Self::Error>>> {
+        match self.as_mut().get_mut() {
+            Self::Bytes(body) => Poll::Ready(body.take().map(|bytes| Ok(Frame::data(bytes)))),
+            Self::File { file, buffer, done } => {
+                if *done {
+                    return Poll::Ready(None);
+                }
+                let mut read_buf = ReadBuf::new(buffer.as_mut_slice());
+                match Pin::new(file).poll_read(cx, &mut read_buf) {
+                    Poll::Pending => Poll::Pending,
+                    Poll::Ready(Err(error)) => {
+                        *done = true;
+                        Poll::Ready(Some(Err(error)))
+                    }
+                    Poll::Ready(Ok(())) if read_buf.filled().is_empty() => {
+                        *done = true;
+                        Poll::Ready(None)
+                    }
+                    Poll::Ready(Ok(())) => Poll::Ready(Some(Ok(Frame::data(
+                        Bytes::copy_from_slice(read_buf.filled()),
+                    )))),
+                }
             }
-            f.read_to_end(&mut body)?;
         }
-        Err(_) => return write_response(&mut stream, 404, b"not found"),
     }
-    write_response(&mut stream, 200, &body)
+
+    fn is_end_stream(&self) -> bool {
+        matches!(self, Self::Bytes(None) | Self::File { done: true, .. })
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        match self {
+            Self::Bytes(Some(bytes)) => SizeHint::with_exact(bytes.len() as u64),
+            Self::Bytes(None) | Self::File { .. } => SizeHint::new(),
+        }
+    }
 }
 
 fn percent_decode(s: &str) -> String {
@@ -203,13 +360,6 @@ fn hex_val(b: u8) -> Option<u8> {
         b'A'..=b'F' => Some(b - b'A' + 10),
         _ => None,
     }
-}
-
-fn write_response(stream: &mut std::net::TcpStream, code: u16, body: &[u8]) -> std::io::Result<()> {
-    let reason = if code == 200 { "OK" } else { "Not Found" };
-    stream.write_all(format!("HTTP/1.1 {code} {reason}\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: application/octet-stream\r\n\r\n", body.len()).as_bytes())?;
-    stream.write_all(body)?;
-    stream.flush()
 }
 
 /// File the produced image into the served directory; report the pickup name.
