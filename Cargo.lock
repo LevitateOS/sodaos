@@ -1332,10 +1332,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soda-json"
-version = "0.1.0"
-
-[[package]]
 name = "soda-muse"
 version = "0.1.0"
 dependencies = [
