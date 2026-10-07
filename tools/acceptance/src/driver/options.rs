@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use crate::error::Error;
 use crate::report;
+
+pub(super) const HELP_REQUESTED: &str = "support command help requested";
 use clap::{Arg, ArgAction, Command};
 
 /// Parse the admitted positive humantime grammar into a bounded duration.
@@ -164,8 +166,15 @@ fn run_command(action: &str) -> Command {
     }
 }
 
+pub(super) fn help_text(action: &str) -> String {
+    run_command(action).render_help().to_string()
+}
+
 pub(super) fn parse_run_options(args: &[String]) -> Result<RunOptions, Error> {
-    let action = args.first().cloned().ok_or_else(|| Error::msg("support action required"))?;
+    let action = args
+        .first()
+        .cloned()
+        .ok_or_else(|| Error::msg("support action required"))?;
     match action.as_str() {
         "exec" | "native" | "vm" | "probe-ssh" => {}
         _ => {
@@ -178,7 +187,13 @@ pub(super) fn parse_run_options(args: &[String]) -> Result<RunOptions, Error> {
         .try_get_matches_from(
             std::iter::once("soda-acceptance").chain(args.iter().map(String::as_str)),
         )
-        .map_err(|_| Error::msg("invalid support command flags"))?;
+        .map_err(|error| {
+            if error.kind() == clap::error::ErrorKind::DisplayHelp {
+                Error::msg(HELP_REQUESTED)
+            } else {
+                Error::msg("invalid support command flags")
+            }
+        })?;
     let get = |name: &str| matches.get_one::<String>(name).cloned().unwrap_or_default();
     let timeout = matches
         .get_one::<String>("timeout")
@@ -186,7 +201,8 @@ pub(super) fn parse_run_options(args: &[String]) -> Result<RunOptions, Error> {
         .transpose()?
         .unwrap_or(Duration::from_secs(30 * 60));
     let cmd_args = if action == "exec" {
-        matches.get_many::<String>("cmd")
+        matches
+            .get_many::<String>("cmd")
             .map(|values| values.cloned().collect())
             .unwrap_or_default()
     } else {

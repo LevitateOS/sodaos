@@ -45,6 +45,7 @@ fn clap_schema_keeps_repeats_overrides_and_literal_exec_tail() {
         "true",
         "--hold",
         "false",
+        "--help",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -53,8 +54,32 @@ fn clap_schema_keeps_repeats_overrides_and_literal_exec_tail() {
     assert_eq!(parsed.target, "fixture");
     assert!(!parsed.hold);
     assert_eq!(parsed.secret_files, vec!["one", "two"]);
-    assert_eq!(parsed.cmd_args, vec!["true", "--hold", "false"]);
+    assert_eq!(parsed.cmd_args, vec!["true", "--hold", "false", "--help"]);
     assert_eq!(parsed.remote_file, "-opaque");
+}
+
+#[test]
+fn generated_help_is_clean_and_does_not_consume_exec_tail_help() {
+    let help = ["exec", "--help"].map(str::to_owned);
+    assert_eq!(
+        parse_run_options(&help).err().unwrap().to_string(),
+        HELP_REQUESTED
+    );
+    assert!(run(&Phase::background(), &["--help".to_owned()]).is_ok());
+    assert!(run(
+        &Phase::background(),
+        &["--help".to_owned(), "--bogus".to_owned()]
+    )
+    .is_err());
+    assert!(requested_top_level_help(&["--help".to_owned()])
+        .unwrap()
+        .contains("probe-ssh"));
+    assert!(options::help_text("exec").contains("--secret-file"));
+    assert!(run(
+        &Phase::background(),
+        &["report".to_owned(), "--help".to_owned()]
+    )
+    .is_ok());
 }
 
 #[test]

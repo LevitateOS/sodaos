@@ -29,7 +29,7 @@ use finalization::finalize_observation;
 use inputs::collect_all_secrets;
 #[cfg(test)]
 use options::parse_duration;
-use options::{parse_run_options, RunOptions};
+use options::{parse_run_options, RunOptions, HELP_REQUESTED};
 
 /// SIGINT/SIGTERM cancel this phase, like `signal.NotifyContext`.
 static SIGNAL_PHASE: OnceLock<Phase> = OnceLock::new();
@@ -114,10 +114,21 @@ pub fn run(root: &Phase, args: &[String]) -> Result<(), Error> {
             "usage: soda-acceptance exec|native|vm|probe-ssh|report [flags]",
         ));
     }
+    if let Some(help) = requested_top_level_help(args) {
+        print!("{help}");
+        return Ok(());
+    }
     if args[0] == "report" {
         return report(&args[1..]);
     }
-    let opts = parse_run_options(args)?;
+    let opts = match parse_run_options(args) {
+        Ok(opts) => opts,
+        Err(error) if error.to_string() == HELP_REQUESTED => {
+            print!("{}", options::help_text(&args[0]));
+            return Ok(());
+        }
+        Err(error) => return Err(error),
+    };
     let (secrets, vm_config) = collect_all_secrets(&opts)?;
     let evidence = create_evidence(&opts.evidence, &secrets)?;
     let phase = root.child(opts.timeout);
@@ -164,9 +175,17 @@ fn report(args: &[String]) -> Result<(), Error> {
                 .num_args(1)
                 .allow_hyphen_values(true),
         );
-    let matches = command
+    let help = command.clone().render_help().to_string();
+    let matches = match command
         .try_get_matches_from(std::iter::once("report").chain(args.iter().map(String::as_str)))
-        .map_err(|_| Error::msg("invalid report flags"))?;
+    {
+        Ok(matches) => matches,
+        Err(error) if error.kind() == clap::error::ErrorKind::DisplayHelp => {
+            print!("{help}");
+            return Ok(());
+        }
+        Err(_) => return Err(Error::msg("invalid report flags")),
+    };
     let get = |name: &str| matches.get_one::<String>(name).cloned().unwrap_or_default();
     report::handoff(
         &get("out"),
@@ -177,6 +196,28 @@ fn report(args: &[String]) -> Result<(), Error> {
             .map(|v| v.cloned().collect::<Vec<_>>())
             .unwrap_or_default(),
     )
+}
+
+fn top_level_command() -> Command {
+    Command::new("soda-acceptance")
+        .about("Run existing owned support checks")
+        .subcommand(Command::new("exec").about("Run one owned check command"))
+        .subcommand(Command::new("native").about("Run the admitted native acceptance action"))
+        .subcommand(Command::new("vm").about("Run the admitted fresh VM action"))
+        .subcommand(Command::new("probe-ssh").about("Probe a pinned SSH target"))
+        .subcommand(Command::new("report").about("Create a report handoff"))
+}
+
+fn requested_top_level_help(args: &[String]) -> Option<String> {
+    if args.len() != 1 {
+        return None;
+    }
+    let error = top_level_command()
+        .try_get_matches_from(
+            std::iter::once("soda-acceptance").chain(args.iter().map(String::as_str)),
+        )
+        .err()?;
+    (error.kind() == clap::error::ErrorKind::DisplayHelp).then(|| error.to_string())
 }
 
 #[cfg(test)]
