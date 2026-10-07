@@ -1,132 +1,15 @@
 use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::net::IpAddr;
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
-
-use serde::de::{IgnoredAny, MapAccess, SeqAccess, Visitor};
-use serde::{Deserialize, Deserializer};
-use serde_json::value::RawValue;
-use std::fmt;
 
 use crate::cli::CliArgs;
 use crate::forgejo_env::rewrite_forgejo_env;
 use crate::origin::{activate_rejects_ip, check_browser_origin, origin_host_port};
 use crate::system::{runtime, usage, ActivateError, Paths, Sys};
 
-struct Dashboard {
-    operator_id: Option<Box<RawValue>>,
-    forgejo_url: Option<Box<RawValue>>,
-    forgejo_internal_url: Option<Box<RawValue>>,
-    listen: Option<Box<RawValue>>,
-    grant_key_file: Option<Box<RawValue>>,
-    host_socket: Option<Box<RawValue>>,
-    identity_socket: Option<Box<RawValue>>,
-    has_public_url: bool,
-}
-
-enum DashboardRoot {
-    Object(Dashboard),
-    Other,
-}
-
-impl<'de> Deserialize<'de> for DashboardRoot {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct RootVisitor;
-
-        impl<'de> Visitor<'de> for RootVisitor {
-            type Value = DashboardRoot;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("a dashboard JSON value")
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut dashboard = Dashboard {
-                    operator_id: None,
-                    forgejo_url: None,
-                    forgejo_internal_url: None,
-                    listen: None,
-                    grant_key_file: None,
-                    host_socket: None,
-                    identity_socket: None,
-                    has_public_url: false,
-                };
-                while let Some(key) = map.next_key::<String>()? {
-                    match key.as_str() {
-                        "operator_id" => dashboard.operator_id = Some(map.next_value()?),
-                        "forgejo_url" => dashboard.forgejo_url = Some(map.next_value()?),
-                        "forgejo_internal_url" => {
-                            dashboard.forgejo_internal_url = Some(map.next_value()?)
-                        }
-                        "listen" => dashboard.listen = Some(map.next_value()?),
-                        "grant_key_file" => dashboard.grant_key_file = Some(map.next_value()?),
-                        "host_socket" => dashboard.host_socket = Some(map.next_value()?),
-                        "identity_socket" => dashboard.identity_socket = Some(map.next_value()?),
-                        "public_url" => {
-                            dashboard.has_public_url = true;
-                            map.next_value::<IgnoredAny>()?;
-                        }
-                        _ => {
-                            map.next_value::<IgnoredAny>()?;
-                        }
-                    }
-                }
-                Ok(DashboardRoot::Object(dashboard))
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                while seq.next_element::<IgnoredAny>()?.is_some() {}
-                Ok(DashboardRoot::Other)
-            }
-
-            fn visit_bool<E>(self, _: bool) -> Result<Self::Value, E> {
-                Ok(DashboardRoot::Other)
-            }
-
-            fn visit_i64<E>(self, _: i64) -> Result<Self::Value, E> {
-                Ok(DashboardRoot::Other)
-            }
-
-            fn visit_u64<E>(self, _: u64) -> Result<Self::Value, E> {
-                Ok(DashboardRoot::Other)
-            }
-
-            fn visit_f64<E>(self, _: f64) -> Result<Self::Value, E> {
-                Ok(DashboardRoot::Other)
-            }
-
-            fn visit_str<E>(self, _: &str) -> Result<Self::Value, E> {
-                Ok(DashboardRoot::Other)
-            }
-
-            fn visit_string<E>(self, _: String) -> Result<Self::Value, E> {
-                Ok(DashboardRoot::Other)
-            }
-
-            fn visit_unit<E>(self) -> Result<Self::Value, E> {
-                Ok(DashboardRoot::Other)
-            }
-        }
-
-        deserializer.deserialize_any(RootVisitor)
-    }
-}
-
-fn string_or_empty(value: Option<Box<RawValue>>) -> String {
-    value
-        .and_then(|value| serde_json::from_str::<String>(value.get()).ok())
-        .unwrap_or_default()
-}
+const MAX_DASHBOARD_BYTES: usize = 64 * 1024;
 
 pub(crate) fn activate(
     args: &CliArgs,
@@ -161,38 +44,38 @@ pub(crate) fn activate(
     if root.join("activated").exists() {
         return Err(usage("already activated; use explicit native configuration maintenance instead of blind reactivation"));
     }
-    let raw = fs::read_to_string(root.join("dashboard.json"))
+    let dashboard_path = root.join("dashboard.json");
+    let dashboard_file = fs::File::open(&dashboard_path)
         .map_err(|e| runtime(format!("cannot read dashboard.json: {e}")))?;
-    let mut deserializer = serde_json::Deserializer::from_str(&raw);
-    let cfg = DashboardRoot::deserialize(&mut deserializer)
-        .map_err(|_| runtime("dashboard.json is not valid JSON"))?;
-    deserializer
-        .end()
-        .map_err(|_| runtime("dashboard.json is not valid JSON"))?;
-    let DashboardRoot::Object(cfg) = cfg else {
-        return Err(runtime("dashboard configuration must be a JSON object"));
-    };
-    if cfg.has_public_url {
+    let mut raw = Vec::with_capacity(MAX_DASHBOARD_BYTES + 1);
+    dashboard_file
+        .take((MAX_DASHBOARD_BYTES + 1) as u64)
+        .read_to_end(&mut raw)
+        .map_err(|e| runtime(format!("cannot read dashboard.json: {e}")))?;
+    if raw.len() > MAX_DASHBOARD_BYTES {
+        return Err(runtime("dashboard.json exceeds size limit"));
+    }
+    let value: serde_json::Value =
+        serde_json::from_slice(&raw).map_err(|_| runtime("dashboard.json is not valid JSON"))?;
+    let cfg = value
+        .as_object()
+        .ok_or_else(|| runtime("dashboard configuration must be a JSON object"))?;
+    if cfg.contains_key("public_url") {
         return Err(usage(
             "legacy separate-origin configuration; use rehearsed configuration maintenance",
         ));
     }
-    let operator_id = match cfg
-        .operator_id
-        .as_ref()
-        .and_then(|value| value.get().parse::<i64>().ok())
-    {
+    let operator_id = match cfg.get("operator_id").and_then(serde_json::Value::as_i64) {
         Some(id) if id > 0 => id,
         _ => return Err(usage("dashboard operator identity is invalid")),
     };
     let forgejo_url = cfg
-        .forgejo_url
-        .as_ref()
-        .and_then(|value| serde_json::from_str::<String>(value.get()).ok())
+        .get("forgejo_url")
+        .and_then(serde_json::Value::as_str)
         .ok_or_else(|| runtime("dashboard forgejo_url must be a string"))?;
-    check_browser_origin(&forgejo_url)?;
+    check_browser_origin(forgejo_url)?;
     if args.local_tls {
-        let origin = origin_host_port(&forgejo_url)?;
+        let origin = origin_host_port(forgejo_url)?;
         if origin.hostname != address.to_string()
             || (origin.port_present && origin.port != Some(443))
         {
@@ -201,21 +84,32 @@ pub(crate) fn activate(
             ));
         }
     }
-    let internal = string_or_empty(cfg.forgejo_internal_url);
-    let listen = string_or_empty(cfg.listen);
+    let internal = cfg
+        .get("forgejo_internal_url")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let listen = cfg
+        .get("listen")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
     if internal != "http://127.0.0.1:3000" || listen != "127.0.0.1:8080" {
         return Err(usage(
             "bundled service recipes require the documented internal listeners",
         ));
     }
-    let grant_key = string_or_empty(cfg.grant_key_file);
-    let host_socket = string_or_empty(cfg.host_socket);
-    let identity_socket = string_or_empty(cfg.identity_socket);
-    let identity_socket = if identity_socket.is_empty() {
-        "/run/soda/identity/admin.sock"
-    } else {
-        &identity_socket
-    };
+    let grant_key = cfg
+        .get("grant_key_file")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let host_socket = cfg
+        .get("host_socket")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let identity_socket = cfg
+        .get("identity_socket")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/run/soda/identity/admin.sock");
     if grant_key != "/etc/soda/grant-key"
         || host_socket != "/run/soda/host.sock"
         || identity_socket != "/run/soda/identity/admin.sock"
@@ -330,11 +224,7 @@ pub(crate) fn activate(
     .map_err(|e| runtime(e.to_string()))?;
     fs::set_permissions(root.join("proxy.env"), fs::Permissions::from_mode(0o600))
         .map_err(|e| runtime(e.to_string()))?;
-    rewrite_forgejo_env(
-        &root.join("forgejo.env"),
-        &forgejo_url,
-        &address.to_string(),
-    )?;
+    rewrite_forgejo_env(&root.join("forgejo.env"), forgejo_url, &address.to_string())?;
     let network = paths.containers_systemd.join("forgejo.container.d");
     fs::create_dir_all(&network).map_err(|e| runtime(e.to_string()))?;
     let bind = match address {

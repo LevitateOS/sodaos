@@ -1,31 +1,29 @@
 use std::fs;
+use std::io::Read;
 
 use crate::origin::{valid_listen, valid_origin};
 
-/// The embedded Python block: read only public origins and the dashboard
-/// port, never credentials or the whole document.
+const MAX_CONFIG_BYTES: usize = 64 * 1024;
+
+/// Display only the configured public origin and dashboard port; never emit
+/// unrelated configuration fields or credentials.
 pub(crate) fn render_config(config: &str, tunnel_host: &str) {
     let host = if tunnel_host == "HOST" {
         ""
     } else {
         tunnel_host
     };
-    let raw = fs::read(config).unwrap_or_default();
-    let text = String::from_utf8_lossy(&raw);
-    let parsed = parse_top_object(&text);
-    let rendered = parsed.as_ref().and_then(|fields| {
+    let parsed = fs::File::open(config).ok().and_then(read_config);
+    let rendered = parsed.as_ref().and_then(|value| {
+        let fields = value.as_object()?;
         // `config.get('listen', default)`: absent takes the default, but a
         // present non-string is invalid, never defaulted.
         let listen = match fields.get("listen") {
             None => "127.0.0.1:8080".to_string(),
-            Some(Some(value)) => value.clone(),
-            Some(None) => return None,
+            Some(value) => value.as_str()?.to_string(),
         };
         let (listen_host, listen_port) = valid_listen(&listen)?;
-        let url = match fields.get("forgejo_url") {
-            Some(Some(url)) => url,
-            _ => return None,
-        };
+        let url = fields.get("forgejo_url")?.as_str()?;
         let display = valid_origin(url)?;
         Some((listen_host, listen_port, display))
     });
@@ -62,49 +60,16 @@ pub(crate) fn render_config(config: &str, tunnel_host: &str) {
     }
 }
 
-/// Read the consumed top-level string fields while Serde validates the entire value.
-pub(crate) fn parse_top_object(
-    text: &str,
-) -> Option<std::collections::HashMap<String, Option<String>>> {
-    use serde::de::{IgnoredAny, MapAccess, Visitor};
-    use serde::Deserialize;
-
-    struct TopObject(std::collections::HashMap<String, Option<String>>);
-    impl<'de> Deserialize<'de> for TopObject {
-        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-            struct ObjectVisitor;
-            impl<'de> Visitor<'de> for ObjectVisitor {
-                type Value = TopObject;
-                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    f.write_str("a JSON object")
-                }
-                fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
-                    let mut fields = std::collections::HashMap::new();
-                    while let Some(key) = map.next_key::<String>()? {
-                        if key == "listen" || key == "forgejo_url" {
-                            let raw = map.next_value::<Box<serde_json::value::RawValue>>()?;
-                            let value = if raw.get().starts_with('"') {
-                                Some(
-                                    serde_json::from_str::<String>(raw.get())
-                                        .map_err(serde::de::Error::custom)?,
-                                )
-                            } else {
-                                None
-                            };
-                            fields.insert(key, value);
-                        } else {
-                            let _: IgnoredAny = map.next_value()?;
-                        }
-                    }
-                    Ok(TopObject(fields))
-                }
-            }
-            deserializer.deserialize_map(ObjectVisitor)
-        }
+/// Cap the opened input before decoding the public guidance configuration.
+pub(crate) fn read_config(reader: impl Read) -> Option<serde_json::Value> {
+    let mut raw = Vec::with_capacity(MAX_CONFIG_BYTES + 1);
+    reader
+        .take((MAX_CONFIG_BYTES + 1) as u64)
+        .read_to_end(&mut raw)
+        .ok()?;
+    if raw.len() > MAX_CONFIG_BYTES {
+        return None;
     }
-
-    let mut deserializer = serde_json::Deserializer::from_str(text);
-    let TopObject(fields) = TopObject::deserialize(&mut deserializer).ok()?;
-    deserializer.end().ok()?;
-    Some(fields)
+    let text = String::from_utf8_lossy(&raw);
+    serde_json::from_str(&text).ok()
 }

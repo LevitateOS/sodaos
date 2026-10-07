@@ -1721,7 +1721,6 @@ name = "soda-activate"
 version = "0.1.0"
 dependencies = [
  "libc",
- "serde",
  "serde_json",
  "url",
 ]
@@ -1749,7 +1748,6 @@ dependencies = [
 name = "soda-console-welcome"
 version = "0.1.0"
 dependencies = [
- "serde",
  "serde_json",
  "url",
 ]

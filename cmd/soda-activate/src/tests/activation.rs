@@ -290,6 +290,51 @@ fn public_url_null_is_present_and_trailing_values_are_rejected_before_mutation()
 }
 
 #[test]
+fn dashboard_input_cap_accepts_exact_limit_and_refuses_overflow_before_effects() {
+    const LIMIT: usize = 64 * 1024;
+    let valid = dashboard(
+        "https://192.168.2.100",
+        "/run/soda/identity/admin.sock",
+        "7",
+    );
+    let exact = format!("{valid}{}", " ".repeat(LIMIT - valid.len()));
+    let fx = fixture(&exact, "");
+    let args = cli("192.168.2.100", true, &fx.temp);
+    let mut sys = FakeSys::new();
+    let mut stdout = Vec::new();
+    activate(&args, &fx.paths, &mut sys, &mut stdout).expect("exact dashboard cap accepted");
+
+    let overflow = format!("{exact} ");
+    let fx = fixture(&overflow, "");
+    let args = cli("192.168.2.100", true, &fx.temp);
+    let root_mode = fs::metadata(&fx.paths.root)
+        .expect("root metadata")
+        .permissions()
+        .mode()
+        & 0o777;
+    let mut sys = FakeSys::new();
+    let mut stdout = Vec::new();
+    assert_eq!(
+        activate(&args, &fx.paths, &mut sys, &mut stdout),
+        Err(ActivateError::Runtime(
+            "dashboard.json exceeds size limit".to_string()
+        ))
+    );
+    assert!(sys.calls.is_empty());
+    assert!(sys.chowns.is_empty());
+    assert!(!fx.paths.root.join("activated").exists());
+    assert!(!fx.paths.root.join("proxy.env").exists());
+    assert_eq!(
+        fs::metadata(&fx.paths.root)
+            .expect("root metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        root_mode
+    );
+}
+
+#[test]
 fn refuses_without_root_before_effects() {
     let fx = fixture(
         &dashboard(

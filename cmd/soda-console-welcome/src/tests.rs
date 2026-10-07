@@ -1,31 +1,65 @@
-use crate::config::parse_top_object;
+use crate::config::read_config;
 use crate::origin::{valid_listen, valid_origin};
+use std::io::Cursor;
 
 #[test]
-fn top_object_extracts_strings_last_wins() {
-    let fields =
-        parse_top_object(r#"{"listen": "1", "forgejo_url": 2, "listen": "3", "unknown": null}"#)
-            .unwrap();
-    assert_eq!(fields.get("listen"), Some(&Some("3".to_string())));
-    assert_eq!(fields.get("forgejo_url"), Some(&None));
-    assert!(!fields.contains_key("unknown"));
-    assert!(parse_top_object(r#"{"unclosed""#).is_none());
-    assert!(parse_top_object(r#"[1,2]"#).is_none());
-    assert!(parse_top_object(r#"{"listen": "1"} trailing"#).is_none());
-    assert!(parse_top_object(r#"{"listen": NaN, "b": Infinity, "c": -Infinity}"#).is_none());
+fn config_value_keeps_last_duplicate_and_unknown_values() {
+    let value = read_config(Cursor::new(
+        br#"{"listen": "1", "forgejo_url": 2, "listen": "3", "unknown": null}"#,
+    ))
+    .unwrap();
+    let fields = value.as_object().unwrap();
+    assert_eq!(
+        fields.get("listen").and_then(serde_json::Value::as_str),
+        Some("3")
+    );
+    assert!(fields.get("forgejo_url").unwrap().as_str().is_none());
+    assert!(fields.get("unknown").unwrap().is_null());
+    assert!(read_config(Cursor::new(br#"{"unclosed""#)).is_none());
+    assert!(read_config(Cursor::new(br#"{"listen": "1"} trailing"#)).is_none());
+    assert!(read_config(Cursor::new(
+        br#"{"listen": NaN, "b": Infinity, "c": -Infinity}"#
+    ))
+    .is_none());
+    let non_object = read_config(Cursor::new(b"[1,2]")).unwrap();
+    assert!(non_object.as_object().is_none());
 }
 
 #[test]
 fn string_escapes_decode_like_python() {
-    let fields = parse_top_object(r#"{"listen": "x\"y\\z\/\b\f\n\r\té☃"}"#).unwrap();
+    let fields = read_config(Cursor::new(
+        r#"{"listen": "x\"y\\z\/\b\f\n\r\té☃"}"#.as_bytes(),
+    ))
+    .unwrap();
+    let fields = fields.as_object().unwrap();
     assert_eq!(
-        fields.get("listen"),
-        Some(&Some("x\"y\\z/\u{8}\u{c}\n\r\té☃".to_string()))
+        fields.get("listen").and_then(serde_json::Value::as_str),
+        Some("x\"y\\z/\u{8}\u{c}\n\r\té☃")
     );
-    let fields = parse_top_object(r#"{"listen": "A𝄞B"}"#).unwrap();
-    assert_eq!(fields.get("listen"), Some(&Some("A𝄞B".to_string())));
-    assert!(parse_top_object("{\"listen\": \"\\ud800\"}").is_none());
-    assert!(parse_top_object("{\"listen\": \"line\nbreak\"}").is_none());
+    let fields = read_config(Cursor::new(r#"{"listen": "A𝄞B"}"#.as_bytes())).unwrap();
+    assert_eq!(
+        fields
+            .as_object()
+            .and_then(|fields| fields.get("listen"))
+            .and_then(serde_json::Value::as_str),
+        Some("A𝄞B")
+    );
+    assert!(read_config(Cursor::new(b"{\"listen\": \"\\ud800\"}")).is_none());
+    assert!(read_config(Cursor::new(b"{\"listen\": \"line\nbreak\"}")).is_none());
+}
+
+#[test]
+fn config_reader_accepts_exact_cap_and_rejects_cap_plus_one() {
+    const LIMIT: usize = 64 * 1024;
+    let base = br#"{"listen":"127.0.0.1:8080","forgejo_url":"https://forgejo.example.test"}"#;
+    let mut exact = base.to_vec();
+    exact.resize(LIMIT, b' ');
+    assert!(read_config(Cursor::new(exact)).is_some());
+
+    let mut overflow = base.to_vec();
+    overflow.resize(LIMIT + 1, b' ');
+    overflow[LIMIT] = 0xff;
+    assert!(read_config(Cursor::new(overflow)).is_none());
 }
 
 #[test]
