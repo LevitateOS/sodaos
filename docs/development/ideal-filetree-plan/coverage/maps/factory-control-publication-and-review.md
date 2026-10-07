@@ -107,6 +107,40 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–187; file scaffold; PublicationExecutor; publishPassLimit; PublishLink; PublishWait; PublishError; PublishReport; PublishPass; publicationError; publicationWait; publishAfterSettle; publishOne; assignmentForPublication; completePublication; publicationCallError; cancelRepositoryPublications; cancelAcceptancePublications; exportTerminal | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 18 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-f09-correction-reconcile"></a>
+
+## [internal/factory/control/correction.go](../../../../../internal/factory/control/correction.go)
+
+Correction registration and recovery have mixed F09/F10 responsibilities. F09 owns the shared gate, cancellation, and publication recovery joins; F10 retains correction creation and the correction chain.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| F09 overlay at `0352f4ba`: correction gate recheck, recorded-operation adoption, and cancellation integration; F10: `PublishCorrection` and correction-chain progression/recovery | [F09](../../slices/factory-coordination.md#f09-publication-progression); [F10](../../slices/factory-coordination.md#f10-finite-review-and-correction-loop) | retained | F09's bounded Store/coordinator subcut serializes registration and withdrawal, and covers cancellation/recovery joins. F10 remains responsible for creating and advancing the correction chain. The `0352f4ba` packet passed 31 actual PG17 checks (six Store, 25 coordinator), with no fixture skips; two initial fixture failures remain recorded. This does not close broader B04.C or claim native producer qualification. |
+
+<a id="coverage-f09-correction-tests"></a>
+
+## [internal/factory/control/correction_test.go](../../../../../internal/factory/control/correction_test.go)
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| At `0352f4ba`: TestPublishCorrectionAdvancesHead; TestPublishCorrectionRefusesWithoutChange (F10); TestWithdrawalCancelsRecordedCorrectionAndKeepsPublishedHead; TestWithdrawalWaitsForCommittedCorrectionCompletion (F09/F10 join) | [F09](../../slices/factory-coordination.md#f09-publication-progression); [F10](../../slices/factory-coordination.md#f10-finite-review-and-correction-loop) | retained | The first two regressions exercise correction-chain behavior; the withdrawal cases exercise cancellation and committed-completion recovery across both owners. All scoped checks ran against disposable PG17; native-provider behavior remains unqualified. |
+
+<a id="coverage-f09-publication-reconcile"></a>
+
+## [internal/factory/control/publication_reconcile.go](../../../../../internal/factory/control/publication_reconcile.go)
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| F09 published-stage reconciliation of persisted correction operations, as added at `0352f4ba` | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | This bounded path reloads the assignment/run/gate and reconciles the recorded operation; pending completion remains recoverable. It does not transfer F10's correction-chain creation/progression responsibility. |
+
+<a id="coverage-f09-publication-withdraw"></a>
+
+## [internal/factory/control/publication_withdraw.go](../../../../../internal/factory/control/publication_withdraw.go)
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| F09 withdrawal gate, recorded-operation cancellation and completion-pending handling, as added at `0352f4ba` | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Withdrawal materializes/uses the shared gate, records exact cancellation and preserves committed-but-incomplete state for later recovery. Correction-chain creation remains F10. Broader B04.C remains open for other registration/review duties. |
+
 <a id="coverage-cd3691f7a87a"></a>
 
 ## [internal/factory/control/publication_hooks_test.go](../../../../../internal/factory/control/publication_hooks_test.go)

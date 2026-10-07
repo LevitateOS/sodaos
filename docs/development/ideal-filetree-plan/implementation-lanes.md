@@ -7,8 +7,9 @@ and A00, with L00–L18 adoption subpackets defined in the
 remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. The canonical
 [current task state](implementation-tasks.md#current-task-state-2026-10-08)
-records completed L00–L09, L11–L15 and L18 source scopes, completed L10.N3,
-held L10.N4/CFG01, completed L16.G and deferred optional L16 adoption.
+records completed L00–L15 and L18 source scopes, completed L16.G and deferred
+optional L16 adoption. L10.N4 retains curl at source scope; its shipped-image,
+TLS and provider qualification remain with R04. CFG01 remains held.
 Installed/native-worker qualification remains with the wider owner packets.
 
 Prepared on **2026-10-06** against clean checkout
@@ -31,7 +32,7 @@ prior audit and R03.L receipts keep their original evidence scope.
 The selective source receipts `f29ff882`, `96dadd55`, `37dc05fd`, `1ee47d0c`,
 `00a2d4a1`, `71cfb075`, `eb83115c`, `8bcaec9c`, `71bb28bd`, `a94edec6`,
 `856c68ee`, `d7d86a38`, `5186c2eb`, `9cea539f`, `274621ce`, `fe220232`,
-`b62d25ea`, `206d262c`, and `420db69c` are recorded in
+`b62d25ea`, `206d262c`, `420db69c`, `8026d9ac`, and `0352f4ba` are recorded in
 that same table without regenerating the full tree or census. Identity HTTP
 decoder checks are complete in `1a297425`; Settings retains its separate
 decoder profile. A07's child-wait failure-trigger repair completed in
@@ -111,7 +112,7 @@ regeneration or another engine-splitting pass. It introduces no lane barrier.
 | 1. Identity and Muse custody/bounds | A05.C-custody/bounds, A07.C-muse; A. Luna medium; low for settled startup cap | Select transaction/budget/progress contracts first. Acquisition/Store and Muse launch roots are separately reserved; schema changes go B→A mirror through coordinator |
 | 1. Go authority/lifetime and saved keys | A01.C-saved-key, B03.C/lifetime, B06.C-admission and B04.C; B. Luna medium | Reserve Store/publication/coordinator files across F08/F09 as one coherent writer; A owns exact native stop/finish handoff. Operator-body fix is independent of Q8. Loop waits only on its required Q3/Q8/native outputs |
 | 1. Independent setup/backup/enrollment fixes | C05.C, C06.C-rotation, C07.C-cleanup; C. Luna low for settled result/selection joins; medium if custody changes | Preserve completed source repairs. Serial shared installer/setup roots; no automatic uncertain-operation retry or native database/provider action |
-| 2. Costly boundary/profile decisions | B05.C/Q5, B06.M SDK contract, A05/C05/C10 profile decisions, L10.N4, L17 and retained helper questions; named finding owner. Luna medium | Prove exact selected producer/upstream/caller contract before dependent cut. Failed proof holds that replacement only; local typed snapshot/feature trim can proceed independently |
+| 2. Costly boundary/profile decisions | B05.C/Q5, B06.M SDK contract, A05/C05/C10 profile decisions, L17 and retained helper questions; named finding owner. Luna medium | Prove exact selected producer/upstream/caller contract before dependent cut. Failed proof holds that replacement only; local typed snapshot/feature trim can proceed independently. L10.N4 source selection is complete with curl retained; R04 qualification remains distinct |
 | 3. Settled caller/dependency/test cuts | Existing A03/A05/A07, B06/B07 and C09/C10/C11 suffixed M tasks; physical owner. Luna low after profiles settle | Remove actual last callers/bridges; preserve current policy/signed bytes/fixtures. Coordinator owns all manifest/lock and shipping tuples. Park browser/A34/C41/matcher alternatives unless value is shown |
 | Integrate and qualify | R01/R03/R04 coordinator; low for receipts, medium for consequential review | Focused production-path checks and one independent review precede local coherent commit. Stable current source/producer/stage joins precede resource-heavy/native qualification; full R02.targets regeneration follows implemented boundaries |
 
@@ -158,7 +159,8 @@ hunk editing of a shared file as a substitute for ownership.
   Existing normal-mode restrictions
   still apply; L00 preparation and proofs are complete at their recorded scope.
   Refresh this state from the completed adoption scopes and the remaining
-  L10.N4 and CFG01 gates before dispatching new work.
+  remaining CFG01 gate before dispatching new work; L10.N4 source selection is
+  complete and its R04 qualification remains separate.
 - [ ] **R01 — Integrate each coherent packet.** Complete module/import/manifest,
   compiler, payload, source-check and caller joins in the same reviewable change.
   Commit bounded coherent batches early and often when commits are authorized;
@@ -234,7 +236,7 @@ remaining work are in the adoption chapter.
 | 4. Replace common engines and native SQL parameters — L03/L04/L07 complete | L03 / A; L04 / C; L07 / B with A Rust handoff | Luna medium to settle duplicate/alias/encoding profiles and independently review; Luna low for settled caller/SQL edits | Preserve L03 `52eee7ee` and L07 `d12bf6d3`; L04 producer/refusal checks and all engine removals are complete through `229e9cce`. Apply each dependent gate to the required verified profile |
 | 5. Adopt PostgreSQL and Unix HTTP/WS — source complete | L08/L09 / A, named B/C handoffs | Luna medium | L07 and L00 proofs preceded the actual driver/client/server/upgrade cutovers. Cancellation, exclusion, flush/close/reap and affected offline graphs passed through `21387814`; installed qualification remains separate |
 | 6. Adopt SSH and local CA formats — source complete | L05 / A; L06 / C | Luna medium | SSH completed in `7b42671d` and CA in `7d063f15` after their required trust/encoding profiles; no SSH prerequisite for CA. Preserve recorded caller/Caddy evidence and native limits |
-| 7. Replace independent external/network adapters — source complete except held N4 | L10 / C; L11 / A with C acceptance handoff | Luna medium settled URL/HTTP boundary questions; Luna low transferred settled HTTP/URL/IP/time callers | Setup HTTP and L11 source/selected checks are complete. Host provider curl remains until resolver-inclusive cancellation/Executor custody fit passes; raw literals, bounds and unavailable/unconfirmed outcomes stay with callers |
+| 7. External/network adapters — source complete | L10 / C; L11 / A with C acceptance handoff | Luna medium settled URL/HTTP boundary questions; Luna low transferred settled HTTP/URL/IP/time callers | Setup HTTP and L11 source/selected checks are complete. L10.N4 retains curl through the owned Executor after the source-fit review; curl is declared in generated host package inputs. Shipped-image/RPM inventory, TLS and live provider qualification remain open under R04. Raw literals, bounds and unavailable/unconfirmed outcomes stay with callers |
 | 8. Consolidate file/FD/process mechanics — source complete | L12 / C, A host/guest/identity handoffs; B Go ownership unchanged | Luna medium for custody/cancellation and independent review; Luna low for settled repetitive plumbing | `c5cca5e7` completes same-FD bounds before temp convenience, rooted admission, owned CLOEXEC descriptors, bounded capture/cancellation, feeder/ticker joins and checked native cleanup. 1,687 selected tests and 20 package development builds pass; installed qualification remains separate |
 | 9. Replace release format and CLI emulators — source complete | L13/L14 / C | Luna low after declared format/CLI profiles; Luna medium for EOF/budget/metadata ownership and independent CLI review | 656 selected tests and ten affected offline development builds pass; complete gzip, bounded extraction/shared OCI, deterministic new output, original signed bytes, actual CLI help/refusals/tails and unchanged shipping selectors are verified. Installed/shipping qualification remains separate |
 | 10. Close bounded external/configuration questions — evidence complete; CFG01 cutover held | L15 / B; L17 / C | Luna low for pinned census/corpus collection; Luna medium for demonstrated semantic mismatch | SDK input repair and retained transport checks complete at Fountain `c92db11c14`. Twenty-one native configuration cases are recorded; rust-ini 0.21.3 fails continuation admission. C owns revised fit/override/dependency checks before CFG01 cutover; CFG02 and unrelated work remain independent |

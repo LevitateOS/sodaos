@@ -6,9 +6,11 @@ infrastructure. The [task list](implementation-tasks.md) and
 [lane schedule](implementation-lanes.md) remain the execution plan. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
 The [current task status](implementation-tasks.md#selected-library-adoption-subpackets)
-records L00 initial preparation, L01–L09, L11–L15 and L18 complete at their
-documented source scopes. L10.N3 is complete and L10.N4 remains held. Optional
-L16 adoption is deferred; L16.G aggregate input collection is complete in `7334f36b`.
+records L00 initial preparation, L01–L15 and L18 complete at their documented
+source scopes. L10 source scope is complete: N3 uses ureq for setup,
+while N4 retains curl through the owned Executor. N4's shipped-image/RPM, TLS
+and provider qualification remains open under R04. Optional L16 adoption is
+deferred; L16.G aggregate input collection is complete in `7334f36b`.
 L17 evidence and candidate assessment are complete; CFG01 cutover remains held.
 Later cutovers retain their scoped authorization and admission checks.
 
@@ -61,7 +63,7 @@ qualification duties.
 | L07 Native SQL parameters | B | C02, B01 | Complete in `d12bf6d3`; preceded L08 cutover |
 | L08 PostgreSQL driver | A | A05, C02, B01 schema join | Complete in `6b18ee1b` after L07 and L00 driver deadline/transaction fit |
 | L09 Unix HTTP and WebSocket engines | A | C02/C03, A07, C08 fixture join | Complete through `21387814` after L00 transport/upgrade proofs and required serialization profiles |
-| L10 External HTTP adapters | C | C05, C03 | N3 setup HTTPS complete in `719d1137`; N4 provider cutover held on resolver-inclusive cancellation/Executor fit, with A handoff |
+| L10 External HTTP adapters | C | C05, C03 | N3 setup HTTPS complete in `719d1137`; N4 retains curl through the owned Executor at source scope, with R04 shipping/provider qualification open |
 | L11 URL, IP and time adapters | A | C03/C05, A05/A07, C11 | Complete through `380914ed` with caller-specific admission |
 | L12 File, FD and process ownership | C | C01/C05/C06/C07/C08/C11, A07 | Complete through `c5cca5e7`; same-FD bounds and rooted custody preceded temporary convenience |
 | L13 Archive and release formats | C | A04, C08/C09/C10 | Complete through `46d5c4cd`; trailer/budget repairs preceded format transfers |
@@ -558,14 +560,17 @@ native acceptance.
 
 ### L10 External HTTP adapters
 
-Scope: setup Forgejo client (N3) and host provider request recipes (N4). C owns
-setup; A receives provider changes. Adopt already resolved ureq 2.12.1 with
-purpose-specific Agent/redirect/proxy/TLS/compression and bounded body policy.
-Keep distinct credential/status/execution contracts and uncertain key creation.
-Setup HTTPS is independent of L09. Acceptance: real facade status/credential
-cases, TLS rejection, body framing/caps and no secret-bearing argv/logs.
-Declare the actual DNS/deadline guarantee. Acceptance curl remains an existing
-engine with its L01 completion repair; do not replace that lifecycle by analogy.
+Scope: setup Forgejo client (N3) and host provider request path (N4). C owns
+setup; the host provider retains its existing mature curl transport through the
+owned Executor. N3 uses ureq 2.12.1 with purpose-specific
+Agent/redirect/proxy/TLS/compression and bounded body policy. Keep distinct
+credential/status/execution contracts and uncertain key creation. Setup HTTPS
+is independent of L09. Acceptance: real facade status/credential cases, TLS
+rejection, body framing/caps and no secret-bearing argv/logs. N4's resolver,
+child/process-group cancellation, pipe transfer and join guarantees are proven
+for the source-level owned Executor path. No detached DNS worker was
+introduced. The user's all-task scope remains the authorization boundary; these
+source findings do not establish installed resolver or TLS behavior.
 
 N3 source transfer is complete in `719d1137`: one purpose-specific ureq Agent,
 normal rustls trust, no redirect/environment proxy/compression, bounded success
@@ -575,16 +580,20 @@ deadline. Local fixtures prove framing, cap-plus-one, literal token authorizatio
 The OS resolver can exceed that deadline; setup's previous resolver was also
 unbounded. This is a development check, not installed Forgejo qualification.
 
-**N4 remains held.** C owns the transport fit proof and A receives any later host
-cutover. The native Executor currently bounds the whole child, including DNS,
-and joins/kills transfers while preserving its host-native authority marker and
-injected test seam. ureq 2.12.1 explicitly cannot interrupt blocking DNS; a
-worker detached on timeout would leave credential-bearing work alive. The
-replacement prerequisite is a concrete owned resolver/transport fit that keeps
-that contract. Acceptance requires resolver-inclusive deadline/cancellation,
-Basic/Bearer custody, bounded framing, TLS/redirect/proxy policy and a single
-uncertain key-create attempt. Curl remains the implementation until that proof
-passes. Its form and timestamp adapters may change independently through L11.
+**N4 source scope is complete with curl retained.** `9cea539f` confirms the
+owned `Executor` path's resolver-inclusive deadline, child/process-group
+cancellation, joined pipe transfer, host-native marker and one-shot uncertain
+key-create behavior: five Executor checks, six provider checks, host daemon
+compilation and independent review pass. `8026d9ac` adds curl to the generated
+host package inputs; both existing package-profile selectors pass with the
+exact one-package delta. The selected CoreOS digest is resolved per build and
+passed into the context; the `Containerfile` invocation itself fails if curl is
+unavailable at build time. Keep curl through the existing Executor; no detached
+DNS worker was introduced. These checks establish local owned-Executor
+behavior, not native resolver, TLS or installed-provider behavior. The shipped
+executable/RPM inventory, TLS behavior and actual provider operation remain R04
+qualification. Curl's form and timestamp adapters may change
+independently through L11.
 
 ### L11 URL, IP and time adapters
 
@@ -655,8 +664,9 @@ introduced. Existing already-bounded libc/stat/publication adapters remain where
 a library transfer would not reduce policy-bearing code. The old generic PATH,
 errno and shell-diagnostic engines and manual active ancillary parser are retired.
 N11's separate daemon peer duplicate and TMP02's unused migrate temporary were
-outside L12; L18 has since retired both. L10.N4's transport hold and L16's
-optional matcher remain unchanged.
+outside L12; L18 has since retired both. L10.N4 source scope is complete with
+curl retained; its shipped-image/RPM, TLS and provider qualification remain
+separate. L16's optional matcher remains deferred.
 
 | Acceptance boundary | Executed local evidence |
 | --- | --- |
@@ -812,8 +822,9 @@ The locked admission added eleven cached dependency nodes without changing
 existing pins. Clap uses std/help/usage/error-context only; the highest declared
 new MSRV is Rust 1.85, and cached manifests/licenses plus the actual affected
 feature closure were checked. L15 input admission and L18 cleanup subsequently
-completed at their defined source scopes. CFG01 fit, the held L10.N4 and
-optional L16 remain separately scoped.
+completed at their defined source scopes. CFG01 fit and optional L16 remain
+separately scoped; L10.N4 source scope is complete, with R04 provider
+qualification still open.
 
 Final passing receipts are `muse-writer-test`, `oci-writer-test`,
 `inventory-assets-test`, `assets-format-test` (canonical renderer),
@@ -1027,8 +1038,9 @@ three affected development entrypoints (`soda-host`, `soda-forgejo-tailnet`,
 not claim installed systemd/container behavior or release qualification.
 
 The scoped R02 retirement maps and parked-seam assessment below are reconciled;
-full historical inventory/count/table regeneration remains pending. L10.N4,
-CFG01 fit and optional L16 keep their existing owners and gates.
+full historical inventory/count/table regeneration remains pending. L10.N4
+source scope is complete; CFG01 fit, R04 provider qualification and optional
+L16 keep their existing owners and gates.
 
 ## Readiness gates
 
