@@ -8,19 +8,6 @@ import (
 	"testing"
 )
 
-func TestWorkloadExecProbeBytes(t *testing.T) {
-	// The piped program must stay byte-identical to the retired Python probe.
-	want := "set -eu\n" +
-		"podman exec workload_database_1 grep -Eq '^Uid:[[:space:]]+999[[:space:]]+999[[:space:]]+999[[:space:]]+999$' /proc/1/status\n" +
-		"test \"$(podman exec workload_database_1 id -u)\" = 0\n" +
-		"test \"$(podman exec --user postgres workload_database_1 id -u)\" = 999\n" +
-		"podman exec --user postgres workload_database_1 psql -X -U developer -d soda_example -At -c 'select current_database()'\n" +
-		"podman exec -t --user postgres workload_database_1 true\n"
-	if workloadExecProbe != want {
-		t.Errorf("probe bytes differ:\n%q", workloadExecProbe)
-	}
-}
-
 func writeExecFixture(t *testing.T, target string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -41,10 +28,15 @@ func stubSSH(t *testing.T, aliceStdout string, bobExit int) string {
 	t.Helper()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "argv.log")
+	inputDir := filepath.Join(dir, "stdin")
+	if err := os.Mkdir(inputDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STUBSSH_INPUT_DIR", inputDir)
 	script := "#!/bin/sh\n" +
 		"printf '%s\\n' \"$@\" >> " + log + "\n" +
-		"for arg in \"$@\"; do case \"$arg\" in u08-bob-8417@*) echo 'permission denied: engine socket' >&2; exit " + bobExitString(bobExit) + ";; esac; done\n" +
-		"cat >/dev/null\n" +
+		"login=\"\"; for arg in \"$@\"; do case \"$arg\" in u08-alice-8417@*) login=alice;; u08-bob-8417@*) echo 'permission denied: engine socket' >&2; exit " + bobExitString(bobExit) + ";; esac; done\n" +
+		"cat > \"$STUBSSH_INPUT_DIR/$login\"\n" +
 		"printf '%s' '" + aliceStdout + "'\n"
 	path := filepath.Join(dir, "ssh")
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
@@ -79,6 +71,22 @@ func TestRunWorkloadExec(t *testing.T) {
 	for _, want := range []string{"-F", "BatchMode=yes", "sh -se", "u08-alice-8417@10.89.0.2", "u08-bob-8417@10.89.0.2"} {
 		if !strings.Contains(string(argv), want) {
 			t.Errorf("argv log misses %q:\n%s", want, argv)
+		}
+	}
+	probe, err := os.ReadFile(filepath.Join(filepath.Dir(log), "stdin", "alice"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"set -eu",
+		"grep -Eq '^Uid:[[:space:]]+999[[:space:]]+999[[:space:]]+999[[:space:]]+999$' /proc/1/status",
+		`test "$(podman exec workload_database_1 id -u)" = 0`,
+		`test "$(podman exec --user postgres workload_database_1 id -u)" = 999`,
+		"psql -X -U developer -d soda_example -At -c 'select current_database()'",
+		"exec -t --user postgres workload_database_1 true",
+	} {
+		if !strings.Contains(string(probe), required) {
+			t.Errorf("piped sh -se probe misses required check %q:\n%s", required, probe)
 		}
 	}
 }

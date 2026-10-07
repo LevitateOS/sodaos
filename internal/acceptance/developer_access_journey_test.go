@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// stubAccessTransport installs ssh-keygen, ssh, scp and sftp emulators that
-// prove the full success path without a network.
+// stubAccessTransport installs ssh-keygen, ssh, scp and sftp emulators. It
+// exercises orchestration and response handling, not native SSH behavior.
 func stubAccessTransport(t *testing.T) (state, log string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -60,7 +60,7 @@ func stubAccessTransport(t *testing.T) (state, log string) {
 	return state, log
 }
 
-func TestRunDeveloperAccessEndToEnd(t *testing.T) {
+func TestRunDeveloperAccessEmulatedOrchestration(t *testing.T) {
 	t.Setenv("SODA_NATIVE_VALIDATE", "test-target-01")
 	preserveUmask(t)
 	stubAccessTransport(t)
@@ -95,11 +95,23 @@ func TestRunDeveloperAccessEndToEnd(t *testing.T) {
 	if json.Unmarshal(results, &decoded) != nil {
 		t.Fatalf("results invalid: %s", results)
 	}
+	if decoded.Revision != strings.Repeat("a", 40) || decoded.Target != "test-target-01" || decoded.Project != "p"+strings.Repeat("b", 24) || decoded.Client == "" {
+		t.Errorf("result identity = %+v", decoded)
+	}
 	if decoded.Outcome != "passed-scoped-access" || decoded.CrossUserKey != "public-key authentication denied" {
 		t.Errorf("outcome = %+v", decoded)
 	}
-	if len(decoded.Users) != 2 || decoded.Users[0].Login != "alice" || decoded.Users[1].IP != "10.89.0.11" {
-		t.Errorf("users = %+v", decoded.Users)
+	wantUsers := []accessUserResult{
+		{ID: "1001", Login: "alice", IP: "10.89.0.11", ProjectAdministrator: true, DirectSSH: true, SSHAuthentication: true, InteractivePTY: true, SCPRoundtrip: true, SFTPRoundtrip: true, ProbeDirectory: "/home/alice/" + filepath.Base(output)},
+		{ID: "1002", Login: "bob", IP: "10.89.0.11", ProjectAdministrator: false, DirectSSH: true, SSHAuthentication: true, InteractivePTY: true, SCPRoundtrip: true, SFTPRoundtrip: true, ProbeDirectory: "/home/bob/" + filepath.Base(output)},
+	}
+	if len(decoded.Users) != len(wantUsers) {
+		t.Fatalf("user count = %d, want %d: %+v", len(decoded.Users), len(wantUsers), decoded.Users)
+	}
+	for i, want := range wantUsers {
+		if decoded.Users[i] != want {
+			t.Errorf("user result %d = %+v, want %+v", i, decoded.Users[i], want)
+		}
 	}
 	if decoded.Transport != "direct project IP" || decoded.ClientArch != machineArch() || decoded.ScriptSHA256 == "" {
 		t.Errorf("results = %+v", decoded)
@@ -112,25 +124,15 @@ func TestRunDeveloperAccessEndToEnd(t *testing.T) {
 			t.Errorf("script digest not lowercase hex: %q", decoded.ScriptSHA256)
 		}
 	}
-	// Key order must match the retired Python insertion order.
-	ordered := []string{`"revision"`, `"target"`, `"project"`, `"client"`, `"client_arch"`, `"transport"`, `"script_sha256"`, `"users"`, `"cross_user_key"`, `"outcome"`}
-	previous := -1
-	for _, key := range ordered {
-		next := strings.Index(string(results), key)
-		if next <= previous {
-			t.Errorf("key order breaks at %s:\n%s", key, results)
-		}
-		previous = next
-	}
-	if !strings.HasSuffix(string(results), "}\n") {
-		t.Error("results lack trailing newline")
-	}
 	payload, err := os.ReadFile(filepath.Join(output, "payload"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(payload) != 8192*(len("sodaspaces-access-")+32+1) {
 		t.Errorf("payload size = %d", len(payload))
+	}
+	if !bytes.Equal(payload, []byte(strings.Repeat(filepath.Base(output)+"\n", 8192))) {
+		t.Error("payload contents do not identify this emulated access run")
 	}
 	known, err := os.ReadFile(filepath.Join(output, "alice-known-hosts"))
 	if err != nil {
