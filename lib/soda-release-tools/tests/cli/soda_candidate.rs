@@ -1,43 +1,46 @@
 use super::{candidate_bin, run, TempDir};
 
-fn go_candidate_usage() -> String {
-    "Usage of soda-candidate:\n  -arch string\n    \tmatching native x86_64 (default \"x86_64\")\n  -controller string\n    \tadmitted soda-build executable (asked when empty)\n  -media-compression string\n    \tfast: development media only\n  -mode string\n    \tcandidate or media (asked when empty)\n  -non-interactive\n    \trequire all flags; timestamped log output\n  -out string\n    \tfresh output below .artifacts/releases (asked when empty)\n  -repository-prefix string\n    \tintended image repositories; no publication (default \"ghcr.io/levitateos/sodaos\")\n  -rootfs-base-url string\n    \tpublic base URL for the hash-named rootfs file\n  -rootfs-dir string\n    \tpickup folder served for loopback development media (default .artifacts/rootfs)\n  -worker-config string\n    \trestricted worker configuration (asked when empty)\n"
-        .to_owned()
-}
-
 #[test]
-fn candidate_help_matches_go() {
+fn candidate_help_is_generated_and_safe() {
     let scratch = TempDir::new("cand-help");
-    let (code, out, err) = run(&candidate_bin(), &scratch.path, &["-h"]);
-    assert_eq!(code, 1);
-    assert_eq!(out, "");
-    assert_eq!(
-        err,
-        format!(
-            "{}soda-candidate: flag: help requested\n",
-            go_candidate_usage()
-        )
-    );
+    let (code, out, err) = run(&candidate_bin(), &scratch.path, &["--help"]);
+    assert_eq!(code, 0);
+    assert!(err.is_empty(), "{err}");
+    for flag in [
+        "--mode",
+        "--controller",
+        "--worker-config",
+        "--non-interactive",
+    ] {
+        assert!(out.contains(flag), "help omitted {flag}: {out}");
+    }
+    assert!(!out.contains("--sign"), "help suggests signing: {out}");
 }
 
 #[test]
-fn candidate_flag_errors_match_go() {
+fn candidate_flag_errors_refuse_before_admission() {
     let scratch = TempDir::new("cand-flags");
     let (code, out, err) = run(&candidate_bin(), &scratch.path, &["--bogus", "x"]);
     assert_eq!(code, 1);
     assert_eq!(out, "");
-    assert_eq!(
-        err,
-        format!(
-            "flag provided but not defined: -bogus\n{}soda-candidate: flag provided but not defined: -bogus\n",
-            go_candidate_usage()
-        )
+    assert!(err.contains("invalid candidate command flags"), "{err}");
+    assert!(err.contains("Usage:") || err.contains("--help"), "{err}");
+    let (code, out, err) = run(&candidate_bin(), &scratch.path, &["--mode"]);
+    assert_eq!(code, 1);
+    assert_eq!(out, "");
+    assert!(err.contains("--mode"), "{err}");
+    let (code, out, err) = run(
+        &candidate_bin(),
+        &scratch.path,
+        &["--non-interactive=maybe"],
+    );
+    assert_eq!(code, 1);
+    assert_eq!(out, "");
+    assert!(
+        err.contains("invalid candidate command flags") && !err.contains("maybe"),
+        "{err}"
     );
     for (args, want) in [
-        (
-            vec!["positional"],
-            "soda-candidate: unexpected positional arguments\n",
-        ),
         (
             vec!["--mode", "bogus"],
             "soda-candidate: --mode accepts candidate or media\n",
@@ -64,7 +67,7 @@ fn candidate_flag_errors_match_go() {
 }
 
 #[test]
-fn candidate_validation_matches_go() {
+fn candidate_validation_preserves_admission_boundaries() {
     let scratch = TempDir::new("cand-valid");
     let base = |out: &str| -> Vec<String> {
         vec![

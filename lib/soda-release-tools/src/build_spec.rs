@@ -3,7 +3,7 @@
 
 use url::{Host, Url};
 
-/// Build request: the same fields the Go flag set fills.
+/// Build request populated by the `soda-build` command schema.
 #[derive(Debug, Clone, Default)]
 pub struct Request {
     pub source: String,

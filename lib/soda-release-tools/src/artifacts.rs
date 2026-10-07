@@ -6,49 +6,75 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::process::{Command, Stdio};
 
 use crate::digest::{hash_file, is_revision, is_signer, require_native};
-use crate::goflag::{self, FlagKind, FlagSpec};
+use clap::{Arg, ArgAction, Command as ClapCommand};
 
 pub const USAGE: &str =
     "usage: soda-artifacts inspect-oci|fetch-coreos|fetch-coreos-iso|convert-butane [flags]";
+const HELP_REQUESTED: &str = "artifact help requested";
 
-const ARTIFACT_SPECS: &[FlagSpec] = &[
-    FlagSpec {
-        name: "arch",
-        kind: FlagKind::Text,
-        usage: "matching native architecture",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "revision",
-        kind: FlagKind::Text,
-        usage: "full source revision",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "source",
-        kind: FlagKind::Text,
-        usage: "OCI archive or private Butane file",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "out",
-        kind: FlagKind::Text,
-        usage: "new absolute output directory/file",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "keyring",
-        kind: FlagKind::Text,
-        usage: "already trusted Fedora keyring",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "signer",
-        kind: FlagKind::Text,
-        usage: "full independently trusted signer fingerprint",
-        default_text: "",
-    },
-];
+fn command() -> ClapCommand {
+    ClapCommand::new("soda-artifacts")
+        .no_binary_name(true)
+        .args_override_self(true)
+        .arg(Arg::new("action").required(true).value_parser([
+            "inspect-oci",
+            "fetch-coreos",
+            "fetch-coreos-iso",
+            "convert-butane",
+        ]))
+        .arg(
+            Arg::new("arch")
+                .long("arch")
+                .help("matching native architecture")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("revision")
+                .long("revision")
+                .help("full source revision")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("source")
+                .long("source")
+                .help("OCI archive or private Butane file")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("out")
+                .long("out")
+                .help("new absolute output directory/file")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("keyring")
+                .long("keyring")
+                .help("already trusted Fedora keyring")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("signer")
+                .long("signer")
+                .help("full independently trusted signer fingerprint")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+}
+
+fn help_text() -> String {
+    command().render_help().to_string()
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct ArtifactFlags {
@@ -64,23 +90,46 @@ pub fn parse_artifact_flags(args: &[String]) -> Result<(String, ArtifactFlags), 
     if args.is_empty() {
         return Err(USAGE.to_owned());
     }
-    let action = args[0].clone();
-    let outcome = match goflag::parse(ARTIFACT_SPECS, &args[1..]) {
-        Ok(o) => o,
-        Err(_) => return Err("invalid artifact command flags".to_owned()),
-    };
-    if !outcome.positionals.is_empty() {
-        return Err("invalid artifact command flags".to_owned());
-    }
+    let matches = command()
+        .try_get_matches_from(args.iter().map(String::as_str))
+        .map_err(|error| {
+            if error.kind() == clap::error::ErrorKind::DisplayHelp {
+                HELP_REQUESTED.to_owned()
+            } else {
+                "invalid artifact command flags".to_owned()
+            }
+        })?;
+    let action = matches
+        .get_one::<String>("action")
+        .cloned()
+        .unwrap_or_default();
     Ok((
         action,
         ArtifactFlags {
-            arch: outcome.text("arch"),
-            revision: outcome.text("revision"),
-            source: outcome.text("source"),
-            out: outcome.text("out"),
-            keyring: outcome.text("keyring"),
-            signer: outcome.text("signer"),
+            arch: matches
+                .get_one::<String>("arch")
+                .cloned()
+                .unwrap_or_default(),
+            revision: matches
+                .get_one::<String>("revision")
+                .cloned()
+                .unwrap_or_default(),
+            source: matches
+                .get_one::<String>("source")
+                .cloned()
+                .unwrap_or_default(),
+            out: matches
+                .get_one::<String>("out")
+                .cloned()
+                .unwrap_or_default(),
+            keyring: matches
+                .get_one::<String>("keyring")
+                .cloned()
+                .unwrap_or_default(),
+            signer: matches
+                .get_one::<String>("signer")
+                .cloned()
+                .unwrap_or_default(),
         },
     ))
 }
@@ -316,7 +365,14 @@ pub fn run_artifact_action(action: &str, f: &ArtifactFlags) -> Result<Option<Str
 }
 
 pub fn run(args: &[String]) -> Result<Option<String>, String> {
-    let (action, flags) = parse_artifact_flags(args)?;
+    let (action, flags) = match parse_artifact_flags(args) {
+        Ok(parsed) => parsed,
+        Err(e) if e == HELP_REQUESTED => {
+            print!("{}", help_text());
+            return Ok(None);
+        }
+        Err(e) => return Err(e),
+    };
     run_artifact_action(&action, &flags)
 }
 

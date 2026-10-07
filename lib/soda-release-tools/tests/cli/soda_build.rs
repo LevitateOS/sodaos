@@ -1,53 +1,49 @@
 use super::{build_bin, run, TempDir};
 
-fn go_build_usage(argv0: &str) -> String {
-    format!(
-        "Usage of {argv0}:\n  -arch string\n    \tmatching native x86_64\n  -development\n    \texplicit development-only run; never release-qualified\n  -forgejo-revision string\n    \tinternal exact Forgejo source revision\n  -forgejo-source string\n    \texplicit clean canonical Forgejo fork checkout\n  -live-inputs string\n    \tinternal controller-resolved live inputs file\n  -media-authority string\n    \tworker-local fixture authority; not release custody\n  -media-compression string\n    \tfast: development media only; changes host compression metadata (default: upstream)\n  -out string\n    \tfresh absolute output below .artifacts/releases (parent must exist)\n  -repository-prefix string\n    \tintended immutable image repositories; no publication (default \"ghcr.io/levitateos/sodaos\")\n  -rootfs-base-url string\n    \tpublic base URL for the exact hash-named rootfs file\n  -target string\n    \tdevelopment boundary: candidate or media (requires --development)\n  -worker-build\n    \tinternal build stage; requires the isolated build identity\n  -worker-config string\n    \troot-owned configuration for isolated worker dispatch\n"
-    )
-}
-
 #[test]
-fn build_help_matches_go() {
+fn build_help_is_generated_and_safe() {
     let scratch = TempDir::new("build-help");
-    for flag in ["-h", "--help", "-help"] {
-        let (code, out, err) = run(&build_bin(), &scratch.path, &[flag]);
-        assert_eq!(code, 0, "{flag}");
-        assert_eq!(out, "", "{flag}");
-        assert_eq!(
-            err,
-            go_build_usage(&build_bin().to_string_lossy()),
-            "{flag}"
-        );
+    let (code, out, err) = run(&build_bin(), &scratch.path, &["--help"]);
+    assert_eq!(code, 0);
+    assert!(err.is_empty(), "{err}");
+    for flag in [
+        "--development",
+        "--target",
+        "--worker-build",
+        "--worker-config",
+    ] {
+        assert!(out.contains(flag), "help omitted {flag}: {out}");
     }
+    assert!(!out.contains("--sign"), "help suggests signing: {out}");
 }
 
 #[test]
-fn build_flag_errors_match_go() {
+fn build_flag_errors_refuse_without_running() {
     let scratch = TempDir::new("build-flags");
-    let usage = go_build_usage(&build_bin().to_string_lossy());
     let (code, out, err) = run(&build_bin(), &scratch.path, &["--bogus", "x"]);
     assert_eq!(code, 2);
     assert_eq!(out, "");
-    assert_eq!(
-        err,
-        format!("flag provided but not defined: -bogus\n{usage}")
-    );
+    assert!(err.contains("invalid build command flags"), "{err}");
+    assert!(err.contains("Usage:") || err.contains("--help"), "{err}");
     let (code, _, err) = run(&build_bin(), &scratch.path, &["--arch"]);
     assert_eq!(code, 2);
-    assert!(err.starts_with("flag needs an argument: -arch\n"), "{err}");
+    assert!(err.contains("--arch"), "{err}");
     let (code, _, err) = run(&build_bin(), &scratch.path, &["--development=maybe"]);
     assert_eq!(code, 2);
     assert!(
-        err.starts_with("invalid boolean value \"maybe\" for -development: strconv.ParseBool: parsing \"maybe\": invalid syntax\n"),
+        err.contains("invalid build command flags") && !err.contains("maybe"),
         "{err}"
     );
+    let (code, out, err) = run(&build_bin(), &scratch.path, &["positional"]);
+    assert_eq!(code, 2);
+    assert!(out.is_empty());
+    assert!(err.contains("invalid build command flags"));
 }
 
 #[test]
-fn build_admission_matrix_matches_go() {
+fn build_admission_matrix_preserves_release_boundaries() {
     let scratch = TempDir::new("build-admit");
     for (args, want) in [
-        (vec!["positional"], "unexpected positional arguments\n"),
         (
             vec!["--development"],
             "--development requires --target candidate or media\n",
@@ -95,25 +91,40 @@ fn build_admission_matrix_matches_go() {
 }
 
 #[test]
-fn build_bool_forms_match_go() {
+fn build_bool_and_scalar_forms_preserve_contract() {
     let scratch = TempDir::new("build-bool");
-    // `-flag=false` keeps production dispatch, which the parent refuses.
+    // Explicit false keeps production dispatch, which the parent refuses.
     let (code, _, err) = run(
         &build_bin(),
         &scratch.path,
         &[
-            "-development=false",
-            "-target=candidate",
+            "--development=false",
+            "--target=candidate",
+            "--target=media",
             "--worker-config",
             "/cfg",
         ],
     );
     assert_eq!(code, 1);
     assert_eq!(err, "--target requires --development\n");
+    // A scalar repeated with documented long syntax resolves to its last value.
+    let (code, _, err) = run(
+        &build_bin(),
+        &scratch.path,
+        &[
+            "--development",
+            "--target=candidate",
+            "--target=media",
+            "--worker-config",
+            "/cfg",
+        ],
+    );
+    assert_eq!(code, 1);
+    assert_eq!(err, "explicit public HTTP(S) rootfs base URL required\n");
     // A bare bool never consumes the next argument: `false` is positional.
     let (code, _, err) = run(&build_bin(), &scratch.path, &["--development", "false"]);
-    assert_eq!(code, 1);
-    assert_eq!(err, "unexpected positional arguments\n");
+    assert_eq!(code, 2);
+    assert!(err.contains("invalid build command flags"));
 }
 
 #[test]

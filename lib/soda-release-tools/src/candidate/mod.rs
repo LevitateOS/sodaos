@@ -4,7 +4,6 @@
 use crate::candidate_controller::{file_built_rootfs, maybe_serve_fixture, start_controller_run};
 use crate::candidate_display::is_terminal;
 use crate::candidate_prompts::{prompter_overview, suggest_out};
-use crate::goflag;
 
 pub mod options;
 
@@ -32,19 +31,14 @@ impl std::fmt::Display for ExitError {
 pub fn run_candidate() -> Result<(), CandidateError> {
     let argv: Vec<String> = std::env::args().collect();
     let args = if argv.len() > 1 { &argv[1..] } else { &[] };
-    // ContinueOnError: flag failures print error + usage, then surface
-    // through the run error like the Go owner.
-    let specs = flag_specs();
-    if native_arch().is_err() {
-        return Err(CandidateError::Message(native_arch().unwrap_err()));
-    }
-    if let Err(e) = goflag::parse(&specs, args) {
-        let mut text = String::new();
-        if e != goflag::ERR_HELP {
-            text.push_str(&format!("{e}\n"));
+    if let Err(e) = parse_options(args) {
+        if e == "candidate help requested" {
+            print!("{}", usage());
+            return Ok(());
         }
-        text.push_str(&usage());
-        eprint!("{text}");
+        if e == "invalid candidate command flags" {
+            eprintln!("{e}\n{}", usage());
+        }
         return Err(CandidateError::Message(e));
     }
     let stdin_tty = is_terminal(libc::STDIN_FILENO);

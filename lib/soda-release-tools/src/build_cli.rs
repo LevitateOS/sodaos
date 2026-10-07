@@ -9,91 +9,90 @@ use std::process::Command;
 use crate::build_spec::Request;
 use crate::digest::is_revision;
 use crate::exitcode::{build_exit_code, note_interrupt, take_interrupt, ToolError};
-use crate::goflag::{self, FlagKind, FlagSpec};
 use crate::progress::BuildProgress;
 use crate::worker;
+use clap::{Arg, ArgAction, Command as ClapCommand};
 
-pub const FLAG_SPECS: &[FlagSpec] = &[
-    FlagSpec {
-        name: "development",
-        kind: FlagKind::Bool,
-        usage: "explicit development-only run; never release-qualified",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "target",
-        kind: FlagKind::Text,
-        usage: "development boundary: candidate or media (requires --development)",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "media-compression",
-        kind: FlagKind::Text,
-        usage:
+fn value(name: &'static str, help: &'static str) -> Arg {
+    Arg::new(name)
+        .long(name)
+        .help(help)
+        .action(ArgAction::Set)
+        .num_args(1)
+        .allow_hyphen_values(true)
+}
+
+fn boolean(name: &'static str, help: &'static str) -> Arg {
+    Arg::new(name)
+        .long(name)
+        .help(help)
+        .action(ArgAction::Set)
+        .num_args(0..=1)
+        .require_equals(true)
+        .default_missing_value("true")
+        .value_parser([
+            "true", "false", "1", "0", "t", "T", "TRUE", "True", "f", "F", "FALSE", "False",
+        ])
+}
+
+fn command(name: &str) -> ClapCommand {
+    ClapCommand::new("soda-build")
+        .bin_name(name)
+        .args_override_self(true)
+        .disable_help_subcommand(true)
+        .arg(boolean(
+            "development",
+            "explicit development-only run; never release-qualified",
+        ))
+        .arg(value(
+            "target",
+            "development boundary: candidate or media (requires --development)",
+        ))
+        .arg(value(
+            "media-compression",
             "fast: development media only; changes host compression metadata (default: upstream)",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "arch",
-        kind: FlagKind::Text,
-        usage: "matching native x86_64",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "out",
-        kind: FlagKind::Text,
-        usage: "fresh absolute output below .artifacts/releases (parent must exist)",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "repository-prefix",
-        kind: FlagKind::Text,
-        usage: "intended immutable image repositories; no publication",
-        default_text: "ghcr.io/levitateos/sodaos",
-    },
-    FlagSpec {
-        name: "rootfs-base-url",
-        kind: FlagKind::Text,
-        usage: "public base URL for the exact hash-named rootfs file",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "media-authority",
-        kind: FlagKind::Text,
-        usage: "worker-local fixture authority; not release custody",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "live-inputs",
-        kind: FlagKind::Text,
-        usage: "internal controller-resolved live inputs file",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "forgejo-source",
-        kind: FlagKind::Text,
-        usage: "explicit clean canonical Forgejo fork checkout",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "forgejo-revision",
-        kind: FlagKind::Text,
-        usage: "internal exact Forgejo source revision",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "worker-config",
-        kind: FlagKind::Text,
-        usage: "root-owned configuration for isolated worker dispatch",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "worker-build",
-        kind: FlagKind::Bool,
-        usage: "internal build stage; requires the isolated build identity",
-        default_text: "",
-    },
-];
+        ))
+        .arg(value("arch", "matching native x86_64"))
+        .arg(value(
+            "out",
+            "fresh absolute output below .artifacts/releases (parent must exist)",
+        ))
+        .arg(
+            value(
+                "repository-prefix",
+                "intended immutable image repositories; no publication",
+            )
+            .default_value("ghcr.io/levitateos/sodaos"),
+        )
+        .arg(value(
+            "rootfs-base-url",
+            "public base URL for the exact hash-named rootfs file",
+        ))
+        .arg(value(
+            "media-authority",
+            "worker-local fixture authority; not release custody",
+        ))
+        .arg(value(
+            "live-inputs",
+            "internal controller-resolved live inputs file",
+        ))
+        .arg(value(
+            "forgejo-source",
+            "explicit clean canonical Forgejo fork checkout",
+        ))
+        .arg(value(
+            "forgejo-revision",
+            "internal exact Forgejo source revision",
+        ))
+        .arg(value(
+            "worker-config",
+            "root-owned configuration for isolated worker dispatch",
+        ))
+        .arg(boolean(
+            "worker-build",
+            "internal build stage; requires the isolated build identity",
+        ))
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct BuildFlags {
@@ -103,29 +102,71 @@ pub struct BuildFlags {
 }
 
 pub fn parse_build_flags(args: &[String]) -> Result<BuildFlags, String> {
-    let outcome = goflag::parse(FLAG_SPECS, args)?;
-    if !outcome.positionals.is_empty() {
-        return Err("unexpected positional arguments".to_owned());
-    }
+    let matches = command("soda-build")
+        .try_get_matches_from(std::iter::once("soda-build").chain(args.iter().map(String::as_str)))
+        .map_err(|error| {
+            if error.kind() == clap::error::ErrorKind::DisplayHelp {
+                "build help requested".to_owned()
+            } else {
+                "invalid build command flags".to_owned()
+            }
+        })?;
     let request = Request {
-        out: outcome.text("out"),
-        arch: outcome.text("arch"),
-        repository_prefix: outcome.text("repository-prefix"),
-        rootfs_base_url: outcome.text("rootfs-base-url"),
-        media_authority: outcome.text("media-authority"),
-        development: outcome.boolean("development"),
-        target: outcome.text("target"),
-        media_compression: outcome.text("media-compression"),
-        live_inputs: outcome.text("live-inputs"),
-        forgejo_source: outcome.text("forgejo-source"),
-        forgejo_revision: outcome.text("forgejo-revision"),
+        out: matches
+            .get_one::<String>("out")
+            .cloned()
+            .unwrap_or_default(),
+        arch: matches
+            .get_one::<String>("arch")
+            .cloned()
+            .unwrap_or_default(),
+        repository_prefix: matches
+            .get_one::<String>("repository-prefix")
+            .cloned()
+            .unwrap_or_else(|| "ghcr.io/levitateos/sodaos".to_owned()),
+        rootfs_base_url: matches
+            .get_one::<String>("rootfs-base-url")
+            .cloned()
+            .unwrap_or_default(),
+        media_authority: matches
+            .get_one::<String>("media-authority")
+            .cloned()
+            .unwrap_or_default(),
+        development: matches.get_one::<String>("development").is_some_and(|v| {
+            v == "true" || v == "1" || v == "t" || v == "T" || v == "TRUE" || v == "True"
+        }),
+        target: matches
+            .get_one::<String>("target")
+            .cloned()
+            .unwrap_or_default(),
+        media_compression: matches
+            .get_one::<String>("media-compression")
+            .cloned()
+            .unwrap_or_default(),
+        live_inputs: matches
+            .get_one::<String>("live-inputs")
+            .cloned()
+            .unwrap_or_default(),
+        forgejo_source: matches
+            .get_one::<String>("forgejo-source")
+            .cloned()
+            .unwrap_or_default(),
+        forgejo_revision: matches
+            .get_one::<String>("forgejo-revision")
+            .cloned()
+            .unwrap_or_default(),
         ..Request::default()
     };
     request.validate_target()?;
     Ok(BuildFlags {
         request,
-        worker_build: outcome.boolean("worker-build"),
-        worker_config: outcome.text("worker-config"),
+        worker_build: matches.get_one::<String>("worker-build").is_some_and(|v| {
+            v == "true" || v == "1" || v == "t" || v == "T" || v == "TRUE" || v == "True"
+        }),
+        worker_config: matches
+            .get_one::<String>("worker-config")
+            .cloned()
+            .unwrap_or_default(),
     })
 }
 
@@ -168,7 +209,7 @@ pub fn admit_build_dispatch(f: &BuildFlags) -> Result<(), String> {
 }
 
 pub fn usage(argv0: &str) -> String {
-    goflag::print_defaults(argv0, FLAG_SPECS)
+    command(argv0).render_help().to_string()
 }
 
 pub fn sanitize_build_env(worker_build: bool) {
@@ -335,18 +376,18 @@ pub fn run() -> Result<(), ToolError> {
         .cloned()
         .unwrap_or_else(|| "soda-build".to_owned());
     let args = if argv.len() > 1 { &argv[1..] } else { &[] };
-    match goflag::parse(FLAG_SPECS, args) {
-        Err(e) if e == goflag::ERR_HELP => {
-            eprint!("{}", usage(&argv0));
+    let mut f = match parse_build_flags(args) {
+        Ok(flags) => flags,
+        Err(e) if e == "build help requested" => {
+            print!("{}", usage(&argv0));
             std::process::exit(0);
         }
-        Err(e) => {
+        Err(e) if e == "invalid build command flags" => {
             eprint!("{e}\n{}", usage(&argv0));
             std::process::exit(2);
         }
-        Ok(_) => {}
-    }
-    let mut f = parse_build_flags(args).map_err(ToolError::msg)?;
+        Err(e) => return Err(ToolError::msg(e)),
+    };
     if let Err(e) = admit_build_dispatch(&f) {
         return Err(ToolError::msg(e));
     }

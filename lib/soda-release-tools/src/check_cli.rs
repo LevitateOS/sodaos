@@ -3,34 +3,50 @@
 //! validation owner. It never builds, installs, publishes or changes
 //! trust.
 
-use crate::goflag::{self, FlagKind, FlagSpec};
+use clap::{Arg, ArgAction, Command};
 
-const CHECK_SPECS: &[FlagSpec] = &[
-    FlagSpec {
-        name: "candidate",
-        kind: FlagKind::Text,
-        usage: "delivered candidate artifacts directory",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "arch",
-        kind: FlagKind::Text,
-        usage: "requested native architecture",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "soda-revision",
-        kind: FlagKind::Text,
-        usage: "requested Soda source revision",
-        default_text: "",
-    },
-    FlagSpec {
-        name: "forgejo-revision",
-        kind: FlagKind::Text,
-        usage: "requested Fountain source revision",
-        default_text: "",
-    },
-];
+const HELP_REQUESTED: &str = "candidate check help requested";
+
+fn command() -> Command {
+    Command::new("soda-candidate-check")
+        .args_override_self(true)
+        .arg(
+            Arg::new("candidate")
+                .long("candidate")
+                .help("delivered candidate artifacts directory")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("arch")
+                .long("arch")
+                .help("requested native architecture")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("soda-revision")
+                .long("soda-revision")
+                .help("requested Soda source revision")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("forgejo-revision")
+                .long("forgejo-revision")
+                .help("requested Fountain source revision")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+}
+
+fn help_text() -> String {
+    command().render_help().to_string()
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct CheckFlags {
@@ -41,18 +57,34 @@ pub struct CheckFlags {
 }
 
 pub fn parse_check_flags(args: &[String]) -> Result<CheckFlags, String> {
-    let outcome = match goflag::parse(CHECK_SPECS, args) {
-        Ok(o) => o,
-        Err(_) => return Err("invalid candidate check flags".to_owned()),
-    };
-    if !outcome.positionals.is_empty() {
-        return Err("invalid candidate check flags".to_owned());
-    }
+    let matches = command()
+        .try_get_matches_from(
+            std::iter::once("soda-candidate-check").chain(args.iter().map(String::as_str)),
+        )
+        .map_err(|error| {
+            if error.kind() == clap::error::ErrorKind::DisplayHelp {
+                HELP_REQUESTED.to_owned()
+            } else {
+                "invalid candidate check flags".to_owned()
+            }
+        })?;
     let flags = CheckFlags {
-        candidate: outcome.text("candidate"),
-        arch: outcome.text("arch"),
-        soda_revision: outcome.text("soda-revision"),
-        forgejo_revision: outcome.text("forgejo-revision"),
+        candidate: matches
+            .get_one::<String>("candidate")
+            .cloned()
+            .unwrap_or_default(),
+        arch: matches
+            .get_one::<String>("arch")
+            .cloned()
+            .unwrap_or_default(),
+        soda_revision: matches
+            .get_one::<String>("soda-revision")
+            .cloned()
+            .unwrap_or_default(),
+        forgejo_revision: matches
+            .get_one::<String>("forgejo-revision")
+            .cloned()
+            .unwrap_or_default(),
     };
     if flags.candidate.is_empty()
         || flags.arch.is_empty()
@@ -65,7 +97,14 @@ pub fn parse_check_flags(args: &[String]) -> Result<CheckFlags, String> {
 }
 
 pub fn run(args: &[String]) -> Result<(), String> {
-    let flags = parse_check_flags(args)?;
+    let flags = match parse_check_flags(args) {
+        Ok(flags) => flags,
+        Err(e) if e == HELP_REQUESTED => {
+            print!("{}", help_text());
+            return Ok(());
+        }
+        Err(e) => return Err(e),
+    };
     soda_release_deliver::check::check_candidate(
         &flags.candidate,
         &flags.arch,
@@ -157,10 +196,10 @@ mod tests {
             parse_list(&unknown).unwrap_err(),
             "invalid candidate check flags"
         );
-        assert_eq!(
-            parse_list(&["-h"]).unwrap_err(),
-            "invalid candidate check flags"
-        );
+        assert_eq!(parse_list(&["-h"]).unwrap_err(), HELP_REQUESTED);
+        assert_eq!(parse_list(&["--help"]).unwrap_err(), HELP_REQUESTED);
+        assert!(help_text().contains("--forgejo-revision"));
+        assert!(run_list(&["--help"]).is_ok());
     }
 
     #[test]

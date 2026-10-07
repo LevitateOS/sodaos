@@ -1,8 +1,8 @@
-//! CLI-surface parity tests: every `--help`, usage, admission, and
-//! refusal path must match the Go owners byte-for-byte (exit code, stdout,
-//! stderr). Expected strings were captured from the Go binaries built at
-//! the base revision. Success paths that need root, the worker identity,
-//! network, or external tools stop at explicit boundary errors instead.
+//! CLI-surface tests cover generated help, documented flag forms, admission,
+//! and refusal boundaries. They retain the release/authority checks without
+//! requiring Rust's parser diagnostics to mimic the former Go flag package.
+//! Success paths that need root, the worker identity, network, or external
+//! tools stop at explicit boundary errors instead.
 
 use std::env;
 use std::fs;

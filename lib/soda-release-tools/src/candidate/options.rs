@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::candidate_fixture::default_rootfs_dir;
-use crate::goflag::{self, FlagKind, FlagSpec};
+use clap::{Arg, ArgAction, Command as ClapCommand};
 
 #[derive(Debug, Clone, Default)]
 pub struct Options {
@@ -19,70 +19,60 @@ pub struct Options {
     pub non_interactive: bool,
 }
 
-pub fn flag_specs() -> Vec<FlagSpec> {
-    vec![
-        FlagSpec {
-            name: "controller",
-            kind: FlagKind::Text,
-            usage: "admitted soda-build executable (asked when empty)",
-            default_text: "",
-        },
-        FlagSpec {
-            name: "worker-config",
-            kind: FlagKind::Text,
-            usage: "restricted worker configuration (asked when empty)",
-            default_text: "",
-        },
-        FlagSpec {
-            name: "arch",
-            kind: FlagKind::Text,
-            usage: "matching native x86_64",
-            default_text: ARCH_DEFAULT,
-        },
-        FlagSpec {
-            name: "out",
-            kind: FlagKind::Text,
-            usage: "fresh output below .artifacts/releases (asked when empty)",
-            default_text: "",
-        },
-        FlagSpec {
-            name: "mode",
-            kind: FlagKind::Text,
-            usage: "candidate or media (asked when empty)",
-            default_text: "",
-        },
-        FlagSpec {
-            name: "media-compression",
-            kind: FlagKind::Text,
-            usage: "fast: development media only",
-            default_text: "",
-        },
-        FlagSpec {
-            name: "rootfs-base-url",
-            kind: FlagKind::Text,
-            usage: "public base URL for the hash-named rootfs file",
-            default_text: "",
-        },
-        FlagSpec {
-            name: "rootfs-dir",
-            kind: FlagKind::Text,
-            usage:
-                "pickup folder served for loopback development media (default .artifacts/rootfs)",
-            default_text: "",
-        },
-        FlagSpec {
-            name: "repository-prefix",
-            kind: FlagKind::Text,
-            usage: "intended image repositories; no publication",
-            default_text: "ghcr.io/levitateos/sodaos",
-        },
-        FlagSpec {
-            name: "non-interactive",
-            kind: FlagKind::Bool,
-            usage: "require all flags; timestamped log output",
-            default_text: "",
-        },
-    ]
+fn value(name: &'static str, help: &'static str) -> Arg {
+    Arg::new(name)
+        .long(name)
+        .help(help)
+        .action(ArgAction::Set)
+        .num_args(1)
+        .allow_hyphen_values(true)
+}
+
+fn command() -> ClapCommand {
+    ClapCommand::new("soda-candidate")
+        .args_override_self(true)
+        .arg(value(
+            "controller",
+            "admitted soda-build executable (asked when empty)",
+        ))
+        .arg(value(
+            "worker-config",
+            "restricted worker configuration (asked when empty)",
+        ))
+        .arg(value("arch", "matching native x86_64").default_value(ARCH_DEFAULT))
+        .arg(value(
+            "out",
+            "fresh output below .artifacts/releases (asked when empty)",
+        ))
+        .arg(value("mode", "candidate or media (asked when empty)"))
+        .arg(value("media-compression", "fast: development media only"))
+        .arg(value(
+            "rootfs-base-url",
+            "public base URL for the hash-named rootfs file",
+        ))
+        .arg(value(
+            "rootfs-dir",
+            "pickup folder served for loopback development media (default .artifacts/rootfs)",
+        ))
+        .arg(
+            value(
+                "repository-prefix",
+                "intended image repositories; no publication",
+            )
+            .default_value("ghcr.io/levitateos/sodaos"),
+        )
+        .arg(
+            Arg::new("non-interactive")
+                .long("non-interactive")
+                .help("require all flags; timestamped log output")
+                .action(ArgAction::Set)
+                .num_args(0..=1)
+                .require_equals(true)
+                .default_missing_value("true")
+                .value_parser([
+                    "true", "false", "1", "0", "t", "T", "TRUE", "True", "f", "F", "FALSE", "False",
+                ]),
+        )
 }
 
 // The `--arch` default is the native arch, always `x86_64` on the only
@@ -90,7 +80,7 @@ pub fn flag_specs() -> Vec<FlagSpec> {
 const ARCH_DEFAULT: &str = "x86_64";
 
 pub fn usage() -> String {
-    goflag::print_defaults("soda-candidate", &flag_specs())
+    command().render_help().to_string()
 }
 
 pub fn native_arch() -> Result<String, String> {
@@ -119,23 +109,58 @@ pub fn validate_arch_flag(arch: &str) -> Result<(), String> {
 }
 
 pub fn parse_options(args: &[String]) -> Result<Options, String> {
+    let matches = command()
+        .try_get_matches_from(
+            std::iter::once("soda-candidate").chain(args.iter().map(String::as_str)),
+        )
+        .map_err(|error| {
+            if error.kind() == clap::error::ErrorKind::DisplayHelp {
+                "candidate help requested".to_owned()
+            } else {
+                "invalid candidate command flags".to_owned()
+            }
+        })?;
     let _native = native_arch()?;
-    let specs = flag_specs();
-    let outcome = goflag::parse(&specs, args)?;
-    if !outcome.positionals.is_empty() {
-        return Err("unexpected positional arguments".to_owned());
-    }
     let o = Options {
-        controller: outcome.text("controller"),
-        worker_config: outcome.text("worker-config"),
-        arch: outcome.text("arch"),
-        out: outcome.text("out"),
-        mode: outcome.text("mode"),
-        compression: outcome.text("media-compression"),
-        rootfs_url: outcome.text("rootfs-base-url"),
-        rootfs_dir: outcome.text("rootfs-dir"),
-        repo_prefix: outcome.text("repository-prefix"),
-        non_interactive: outcome.boolean("non-interactive"),
+        controller: matches
+            .get_one::<String>("controller")
+            .cloned()
+            .unwrap_or_default(),
+        worker_config: matches
+            .get_one::<String>("worker-config")
+            .cloned()
+            .unwrap_or_default(),
+        arch: matches
+            .get_one::<String>("arch")
+            .cloned()
+            .unwrap_or_else(|| ARCH_DEFAULT.to_owned()),
+        out: matches
+            .get_one::<String>("out")
+            .cloned()
+            .unwrap_or_default(),
+        mode: matches
+            .get_one::<String>("mode")
+            .cloned()
+            .unwrap_or_default(),
+        compression: matches
+            .get_one::<String>("media-compression")
+            .cloned()
+            .unwrap_or_default(),
+        rootfs_url: matches
+            .get_one::<String>("rootfs-base-url")
+            .cloned()
+            .unwrap_or_default(),
+        rootfs_dir: matches
+            .get_one::<String>("rootfs-dir")
+            .cloned()
+            .unwrap_or_default(),
+        repo_prefix: matches
+            .get_one::<String>("repository-prefix")
+            .cloned()
+            .unwrap_or_else(|| "ghcr.io/levitateos/sodaos".to_owned()),
+        non_interactive: matches
+            .get_one::<String>("non-interactive")
+            .is_some_and(|v| matches!(v.as_str(), "true" | "1" | "t" | "T" | "TRUE" | "True")),
     };
     validate_mode_flag(&o.mode)?;
     validate_arch_flag(&o.arch)?;

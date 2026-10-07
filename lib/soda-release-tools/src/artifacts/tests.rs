@@ -35,8 +35,14 @@ fn flag_parse_matrix() {
     );
     assert_eq!(
         parse_list(&["inspect-oci", "-h"]).unwrap_err(),
-        "invalid artifact command flags"
+        HELP_REQUESTED
     );
+    assert_eq!(
+        parse_list(&["inspect-oci", "--help"]).unwrap_err(),
+        HELP_REQUESTED
+    );
+    assert!(help_text().contains("--keyring"));
+    assert!(run(&["inspect-oci".to_owned(), "--help".to_owned()]).is_ok());
 }
 
 #[test]

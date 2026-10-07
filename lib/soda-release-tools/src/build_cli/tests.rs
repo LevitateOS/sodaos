@@ -100,12 +100,31 @@ fn flag_parse_matrix() {
     assert_eq!(f.worker_config, "/cfg");
     assert_eq!(f.request.repository_prefix, "custom");
     assert!(flags(&["--development", "positional"]).is_err());
-    assert!(flags(&["--bogus"]).unwrap_err().contains("not defined"));
-    assert_eq!(
-        flags(&["--arch"]).unwrap_err(),
-        "flag needs an argument: -arch"
+    assert!(flags(&["--bogus"]).is_err());
+    assert!(flags(&["--arch"]).is_err());
+    assert!(
+        !flags(&[
+            "--development",
+            "--development=false",
+            "--rootfs-base-url=https://public.example/release",
+        ])
+        .unwrap()
+        .request
+        .development
     );
-    assert_eq!(flags(&["-h"]).unwrap_err(), goflag::ERR_HELP);
+    assert!(flags(&["--development", "false"]).is_err());
+    let last = flags(&[
+        "--target=candidate",
+        "--development",
+        "--target=media",
+        "--rootfs-base-url=https://public.example/release",
+    ])
+    .unwrap();
+    assert!(last.request.development);
+    assert_eq!(last.request.target, "media");
+    assert!(flags(&["-target=media"]).is_err());
+    assert_eq!(flags(&["--help"]).unwrap_err(), "build help requested");
+    assert!(usage("soda-build").contains("--worker-config"));
 }
 
 #[test]

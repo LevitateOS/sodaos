@@ -10,12 +10,8 @@ fn artifacts_dispatch_matches_go() {
     for (args, want) in [
         (vec![], "usage: soda-artifacts inspect-oci|fetch-coreos|fetch-coreos-iso|convert-butane [flags]\n"),
         (
-            vec!["-h"],
-            "unknown artifact action; use fetch-coreos-iso for upstream ISO inputs; QCOW2 media delivery is not selected\n",
-        ),
-        (
             vec!["bogus-action"],
-            "unknown artifact action; use fetch-coreos-iso for upstream ISO inputs; QCOW2 media delivery is not selected\n",
+            "invalid artifact command flags\n",
         ),
         (vec!["inspect-oci"], "expected x86_64\n"),
         (
@@ -48,6 +44,18 @@ fn artifacts_dispatch_matches_go() {
         assert_eq!(out, "", "{args:?}");
         assert_eq!(err, want, "{args:?}");
     }
+}
+
+#[test]
+fn artifacts_generated_help_exits_before_work() {
+    let scratch = TempDir::new("art-help");
+    for args in [vec!["-h"], vec!["--help"], vec!["inspect-oci", "--help"]] {
+        let (code, out, err) = run(&artifacts_bin(), &scratch.path, &args);
+        assert_eq!(code, 0, "{args:?}: {err}");
+        assert!(out.contains("--keyring"), "{out}");
+        assert!(err.is_empty(), "{err}");
+    }
+    assert!(fs::read_dir(&scratch.path).unwrap().next().is_none());
 }
 
 #[test]

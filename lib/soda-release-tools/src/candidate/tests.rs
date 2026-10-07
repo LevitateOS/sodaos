@@ -22,6 +22,28 @@ fn arch_flag_admits_only_x86_64() {
 }
 
 #[test]
+fn parser_uses_double_dash_equals_and_last_scalar_value() {
+    let args = [
+        "--mode=candidate",
+        "--mode=media",
+        "--non-interactive=false",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<Vec<_>>();
+    let parsed = parse_options(&args).unwrap();
+    assert_eq!(parsed.mode, "media");
+    assert!(!parsed.non_interactive);
+
+    assert!(parse_options(&["-mode=media".to_owned()]).is_err());
+    assert_eq!(
+        parse_options(&["--help".to_owned()]).unwrap_err(),
+        "candidate help requested"
+    );
+    assert!(usage().contains("--non-interactive"));
+}
+
+#[test]
 fn resolved_boundaries() {
     let mut o = base_options();
     assert!(validate_resolved(&o).is_ok());
