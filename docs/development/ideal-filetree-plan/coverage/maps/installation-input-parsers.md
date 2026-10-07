@@ -15,7 +15,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–188; file scaffold; maximumRequestBytes; Decode; decodeUniqueObject; requireObject; decodeFields; decodeFieldName; rejectDuplicateKeys; rejectObjectDuplicates; finishObject | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–144; file scaffold; maximumRequestBytes; Decode; validateUniqueObject; requireObject; scanObject; decodeFieldName; scanValue; finishInput | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Token preflight enforces bounded input, UTF-8, root-object, duplicate-key, depth and trailing-input rules before the original bytes decode directly into the typed DTO. This removes the intermediate RawMessage/map/remarshal bridge; caller-specific alias and presence semantics remain with their actual DTO readers. |
 
 <a id="coverage-8ce2fde29edc"></a>
 
@@ -25,7 +25,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–76; file scaffold; testRequest; TestDecodeAcceptsOneKnownObject; TestDecodeRejectsInvalidRequestShapes; nestedRequest; listedRequest; TestDecodeRejectsNestedDuplicateFields; TestDecodeAcceptsUniqueNestedFields; TestDecodeRejectsInvalidUTF8AndOversizedRequests | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–120; current strictjson token-preflight and typed-decode regression tests | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | The actual seven-package caller check set passed 128 tests with zero skips; caller-specific Go document-order alias selection and Tailnet presence/HaveNodeKey semantics are preserved. |
 
 <a id="coverage-96556299160e"></a>
 

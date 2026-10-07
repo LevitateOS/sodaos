@@ -87,7 +87,7 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–107; current module/import/attribute shell; declaration setup; declaration read_random_32_inner; declaration write_setup_secret; declaration write_setup_config | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) | retained | Imports and module declarations wire cmd/soda-setup/src/setup.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–107; current module/import/attribute shell; declaration setup; declaration read_random_32_inner; declaration write_setup_secret; declaration write_setup_config | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) | retained | Setup publication uses complete writes with honest close/error precedence. After publication, one revocation attempt whose response is lost is reported as unconfirmed; the published config remains and is neither automatically retried nor activated. Ten actual installer/setup checks passed for this bounded source scope; no installed qualification is claimed. |
 
 <a id="coverage-4c136f5c5d6f"></a>
 

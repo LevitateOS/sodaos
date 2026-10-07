@@ -434,7 +434,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–88; file scaffold; BackgroundSnapshotReader; ReadNativeRevision; ReadSnapshot; decodeSnapshotAnswer | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–74; file scaffold; BackgroundSnapshotReader; ReadNativeRevision; ReadSnapshot; decodeSnapshotAnswer | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Snapshot responses use the pinned sibling SDK's typed values directly; the duplicate wire DTO and marshal/decode bridge are removed. Revision bracket, completeness, digest, visibility and repository binding remain validated. |
 
 <a id="coverage-b982934975cb"></a>
 
@@ -444,4 +444,4 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–177; file scaffold; fakeBackgroundClient; ReadNativeRevision; ReadSnapshot; SubmitOperation; GetOperation; CancelOperation; wireSnapshotAnswer; TestBackgroundSnapshotReaderMapsWireSnapshot; TestBackgroundSnapshotReaderRefusesUnusableTransport; TestBracketedReadBindsRevisionFromBracket; TestValidateRequestRequiresFamilySelectors | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–177; file scaffold; fakeBackgroundClient; typed snapshot answer and bracket/binding regressions | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current tests retain wire binding, transport refusal, bracketed revision, family selector, digest and repository visibility checks for the direct typed SDK path. |
