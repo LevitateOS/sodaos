@@ -200,6 +200,10 @@ func (s *Store) RegisterDispatch(ctx context.Context, d factory.DispatchRegistra
 // inside the caller's transaction. The dispatch packet shares it so a
 // refused packet leaves no orphan registration behind.
 func registerDispatchTx(ctx context.Context, t *sql.Tx, d factory.DispatchRegistration) error {
+	if _, err := t.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data)
+		VALUES($1,0,TRUE,'{}'::jsonb) ON CONFLICT(repository) DO NOTHING`, d.Repository); err != nil {
+		return err
+	}
 	var open bool
 	err := t.QueryRowContext(ctx, `SELECT open FROM factory_dispatch WHERE repository=$1 FOR UPDATE`, d.Repository).Scan(&open)
 	if err != nil {
@@ -249,14 +253,36 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 	if repository <= 0 || cause == "" || len(cause) > 256 || closedBy == "" || len(closedBy) > 128 {
 		return factory.Withdrawal{}, errors.New("invalid dispatch withdrawal")
 	}
-	open, revision, recorded, err := s.DispatchState(ctx, repository)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return factory.Withdrawal{}, err
 	}
+	defer func() { _ = tx.Rollback() }()
+	// Create the logical default-open row before locking it. Dispatch
+	// registration and publication correction registration lock this same row,
+	// so the captured set cannot miss work that committed just before closure.
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data)
+		VALUES($1,0,TRUE,'{}'::jsonb) ON CONFLICT(repository) DO NOTHING`, repository); err != nil {
+		return factory.Withdrawal{}, err
+	}
+	var open bool
+	var revision int64
+	var raw []byte
+	err = tx.QueryRowContext(ctx, `SELECT open,revision,data FROM factory_dispatch WHERE repository=$1 FOR UPDATE`, repository).Scan(&open, &revision, &raw)
+	if err != nil {
+		return factory.Withdrawal{}, err
+	}
+	var recorded factory.Withdrawal
+	if err = json.Unmarshal(raw, &recorded); err != nil {
+		return factory.Withdrawal{}, err
+	}
 	if !open {
+		if err = tx.Commit(); err != nil {
+			return factory.Withdrawal{}, err
+		}
 		return recorded, nil
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id FROM factory_dispatch_regs WHERE repository=$1 ORDER BY seq LIMIT $2`, repository, factory.MaxCapturedDispatch+1)
+	rows, err := tx.QueryContext(ctx, `SELECT id FROM factory_dispatch_regs WHERE repository=$1 ORDER BY seq LIMIT $2`, repository, factory.MaxCapturedDispatch+1)
 	if err != nil {
 		return factory.Withdrawal{}, err
 	}
@@ -283,9 +309,8 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 	if err != nil {
 		return factory.Withdrawal{}, err
 	}
-	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data) VALUES($1,$2,FALSE,$3)
-		ON CONFLICT(repository) DO UPDATE SET revision=$4,open=FALSE,data=$5 WHERE factory_dispatch.revision=$6 AND factory_dispatch.open`,
-		repository, withdrawal.Revision, string(data), withdrawal.Revision, string(data), revision)
+	result, err := tx.ExecContext(ctx, `UPDATE factory_dispatch SET revision=$1,open=FALSE,data=$2
+		WHERE repository=$3 AND revision=$4 AND open`, withdrawal.Revision, string(data), repository, revision)
 	if err != nil {
 		return factory.Withdrawal{}, fmt.Errorf("dispatch withdrawal failed: %w", err)
 	}
@@ -295,6 +320,9 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 	}
 	if n != 1 {
 		return factory.Withdrawal{}, ErrStaleRevision
+	}
+	if err = tx.Commit(); err != nil {
+		return factory.Withdrawal{}, err
 	}
 	return withdrawal, nil
 }

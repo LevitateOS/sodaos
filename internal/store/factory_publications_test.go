@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -230,6 +231,232 @@ func TestOutstandingPublicationsListsOpenAndFenced(t *testing.T) {
 	if got[0].AssignmentID != open.AssignmentID || got[1].AssignmentID != fenced.AssignmentID {
 		t.Fatalf("order: %+v", got)
 	}
+}
+
+func TestCorrectionRegistrationAndWithdrawalShareAbsentGate(t *testing.T) {
+	t.Run("registration first is captured for recovery", func(t *testing.T) {
+		db, ctx := publicationStoreFixture(t), context.Background()
+		p := recordPublishedCorrectionFixture(t, db, ctx)
+		var rows int
+		if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_dispatch WHERE repository=$1`, p.Repository).Scan(&rows); err != nil || rows != 0 {
+			t.Fatalf("gate fixture was not absent: rows=%d err=%v", rows, err)
+		}
+		appendPendingCorrection(&p)
+		if err := db.UpdatePublication(ctx, p); err != nil {
+			t.Fatalf("register correction under default-open gate: %v", err)
+		}
+		recovery, err := db.OpenPublications(ctx, 10)
+		if err != nil || len(recovery) != 1 || len(recovery[0].Corrections) != 1 {
+			t.Fatalf("published correction omitted from recovery pass: %+v %v", recovery, err)
+		}
+		if _, err := db.WithdrawDispatch(ctx, p.Repository, "pause", "operator"); err != nil {
+			t.Fatal(err)
+		}
+		pending, err := db.OutstandingPublications(ctx, p.Repository, 10)
+		if err != nil || len(pending) != 1 || len(pending[0].Corrections) != 1 {
+			t.Fatalf("registered correction escaped recovery: %+v %v", pending, err)
+		}
+	})
+	t.Run("withdrawal first rejects correction", func(t *testing.T) {
+		db, ctx := publicationStoreFixture(t), context.Background()
+		p := recordPublishedCorrectionFixture(t, db, ctx)
+		if _, err := db.WithdrawDispatch(ctx, p.Repository, "pause", "operator"); err != nil {
+			t.Fatal(err)
+		}
+		appendPendingCorrection(&p)
+		if err := db.UpdatePublication(ctx, p); !errors.Is(err, ErrDispatchClosed) {
+			t.Fatalf("correction registered after withdrawal: %v", err)
+		}
+		stored, err := db.PublicationByAssignment(ctx, p.AssignmentID)
+		if err != nil || len(stored.Corrections) != 0 {
+			t.Fatalf("refused correction changed publication: %+v %v", stored, err)
+		}
+	})
+	t.Run("concurrent absent-row race has no lost registration", func(t *testing.T) {
+		db, ctx := publicationStoreFixture(t), context.Background()
+		p := recordPublishedCorrectionFixture(t, db, ctx)
+		appendPendingCorrection(&p)
+		start := make(chan struct{})
+		registered := make(chan error, 1)
+		withdrawn := make(chan error, 1)
+		go func() { <-start; registered <- db.UpdatePublication(ctx, p) }()
+		go func() {
+			<-start
+			_, err := db.WithdrawDispatch(ctx, p.Repository, "pause", "operator")
+			withdrawn <- err
+		}()
+		close(start)
+		regErr, withdrawErr := <-registered, <-withdrawn
+		if withdrawErr != nil {
+			t.Fatal(withdrawErr)
+		}
+		if regErr != nil && !errors.Is(regErr, ErrDispatchClosed) {
+			t.Fatalf("unexpected registration result: %v", regErr)
+		}
+		stored, err := db.PublicationByAssignment(ctx, p.AssignmentID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if regErr == nil {
+			pending, err := db.OutstandingPublications(ctx, p.Repository, 10)
+			if err != nil || len(pending) != 1 || len(pending[0].Corrections) != 1 {
+				t.Fatalf("accepted correction was lost to withdrawal: %+v %v", pending, err)
+			}
+		} else if len(stored.Corrections) != 0 {
+			t.Fatalf("refused concurrent correction persisted: %+v", stored.Corrections)
+		}
+	})
+	t.Run("withdrawal waits for registered update at publication row", func(t *testing.T) {
+		db, ctx := publicationStoreFixture(t), context.Background()
+		p := recordPublishedCorrectionFixture(t, db, ctx)
+		appendPendingCorrection(&p)
+
+		// Hold the publication row so registration blocks after acquiring the
+		// shared dispatch gate. The observer below waits for PostgreSQL to
+		// report that exact statement waiting on a lock; this does not depend
+		// on goroutine scheduling or an arbitrary sleep.
+		blocker, err := db.db.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = blocker.Rollback() }()
+		var locked []byte
+		if err = blocker.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1 FOR UPDATE`, p.AssignmentID).Scan(&locked); err != nil {
+			t.Fatal(err)
+		}
+		registered := make(chan error, 1)
+		go func() { registered <- db.UpdatePublication(ctx, p) }()
+
+		waitCtx, cancelWait := context.WithTimeout(ctx, 5*time.Second)
+		defer cancelWait()
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			var waiting int
+			err = db.db.QueryRowContext(waitCtx, `SELECT count(*) FROM pg_stat_activity
+				WHERE datname=current_database() AND state='active' AND wait_event_type='Lock'
+				AND query LIKE '%UPDATE factory_publications SET stage=%'`).Scan(&waiting)
+			if err != nil {
+				_ = blocker.Rollback()
+				t.Fatalf("observe blocked publication update: %v", err)
+			}
+			if waiting > 0 {
+				break
+			}
+			select {
+			case err = <-registered:
+				_ = blocker.Rollback()
+				t.Fatalf("registration returned before reaching its locked publication row: %v", err)
+			case <-waitCtx.Done():
+				_ = blocker.Rollback()
+				t.Fatal("registration never reached its publication-row wait")
+			case <-ticker.C:
+			}
+		}
+
+		withdrawCtx, cancelWithdraw := context.WithTimeout(ctx, 150*time.Millisecond)
+		_, withdrawErr := db.WithdrawDispatch(withdrawCtx, p.Repository, "pause", "operator")
+		cancelWithdraw()
+		if withdrawErr == nil {
+			_ = blocker.Rollback()
+			<-registered
+			t.Fatal("withdrawal closed a gate already owned by registration")
+		}
+		if !errors.Is(withdrawErr, context.DeadlineExceeded) && !errors.Is(withdrawErr, context.Canceled) {
+			_ = blocker.Rollback()
+			<-registered
+			t.Fatalf("withdrawal did not wait on the registration-owned gate: %v", withdrawErr)
+		}
+		open, revision, _, err := db.DispatchState(ctx, p.Repository)
+		if err != nil || !open || revision != 0 {
+			_ = blocker.Rollback()
+			<-registered
+			t.Fatalf("timed-out withdrawal changed the open gate: open=%v revision=%d err=%v", open, revision, err)
+		}
+		if err = blocker.Commit(); err != nil {
+			t.Fatal(err)
+		}
+		if err = <-registered; err != nil {
+			t.Fatalf("registered correction did not commit: %v", err)
+		}
+		if _, err = db.WithdrawDispatch(ctx, p.Repository, "pause", "operator"); err != nil {
+			t.Fatalf("withdraw after registration commit: %v", err)
+		}
+		pending, err := db.OutstandingPublications(ctx, p.Repository, 10)
+		if err != nil || len(pending) != 1 || len(pending[0].Corrections) != 1 {
+			t.Fatalf("registered correction escaped recovery after ordered withdrawal: %+v %v", pending, err)
+		}
+	})
+}
+
+func recordPublishedCorrectionFixture(t *testing.T, db *Store, ctx context.Context) factory.Publication {
+	t.Helper()
+	p := publicationTestRecord()
+	seedPublicationAssignment(t, db, p)
+	if err := db.RecordPublication(ctx, p); err != nil {
+		t.Fatalf("record initial publication: %v", err)
+	}
+	p.NativeRev, p.ObservedUnix, p.Comparison = 9, 1150, strings.Repeat("c", 40)
+	publish := publishedStoreOperation(p, factory.OpRefPublish, 1, "branch-receipt")
+	publish.Effect, publish.Completion = factory.OpEffectPending, factory.OpCompletionPending
+	publish.Receipt = ""
+	p.Publish = publish
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatalf("register initial branch intent: %v", err)
+	}
+	p.Publish.Effect, p.Publish.Completion, p.Publish.Receipt = factory.OpEffectCommitted, factory.OpCompletionComplete, "branch-receipt"
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatalf("record initial branch receipt: %v", err)
+	}
+	pr := publishedStoreOperation(p, factory.OpPRCreate, 1, `{"pr_number":9}`)
+	pr.Effect, pr.Completion, pr.Receipt = factory.OpEffectPending, factory.OpCompletionPending, ""
+	pr.PRNumber, pr.PRID, pr.IssueID, pr.HeadRef, pr.BaseRef, pr.HeadOID, pr.BaseOID = 0, 0, 0, "", "", "", ""
+	p.PRCreate = pr
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatalf("register initial PR intent: %v", err)
+	}
+	p.PRCreate.Effect, p.PRCreate.Completion, p.PRCreate.Receipt = factory.OpEffectCommitted, factory.OpCompletionComplete, `{"pr_number":9}`
+	p.PRNumber, p.PRID = 9, 8
+	p.PRCreate.PRNumber, p.PRCreate.PRID, p.PRCreate.IssueID = 9, 8, p.Issue
+	p.PRCreate.HeadRef, p.PRCreate.BaseRef = factory.PublishBranchName(p.AssignmentID), p.TargetBranch
+	p.PRCreate.HeadOID, p.PRCreate.BaseOID = p.Candidate, p.Comparison
+	p.Stage, p.Outcome, p.Reason, p.FinishedUnix = factory.PublicationPublished, factory.Succeeded, factory.PublishReasonLinked, 1200
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatalf("record linked PR: %v", err)
+	}
+	// Publication registration owns its own gate lock. Remove the dispatch
+	// row created by the assignment fixture to exercise the logical default-
+	// open case before either correction registration or withdrawal.
+	if _, err := db.db.ExecContext(ctx, `DELETE FROM factory_dispatch WHERE repository=$1`, p.Repository); err != nil {
+		t.Fatalf("reset dispatch gate fixture: %v", err)
+	}
+	return p
+}
+
+func publishedStoreOperation(p factory.Publication, kind string, ordinal int, receipt string) factory.PublicationOperation {
+	id := factory.PublicationOperationID(p.ID, kind, ordinal)
+	intent := publicationStoreIntent(id)
+	intent.TargetBranch, intent.ComparisonRef, intent.ComparisonOID = p.TargetBranch, p.TargetBranch, p.Comparison
+	intent.Candidate, intent.ExpectedOld = p.Candidate, "absent"
+	if kind == factory.OpPRCreate {
+		intent.ExpectedOld = p.Candidate
+	}
+	return factory.PublicationOperation{Work: intent, OperationID: id, Kind: kind, Effect: factory.OpEffectCommitted,
+		Completion: factory.OpCompletionComplete, Receipt: receipt, Attempts: 1, UpdatedUnix: 1150}
+}
+
+func appendPendingCorrection(p *factory.Publication) {
+	id := factory.PublicationOperationID(p.ID, factory.OpRefPublish, len(p.Corrections)+2)
+	intent := publicationStoreIntent(id)
+	intent.TargetBranch, intent.ComparisonRef, intent.ComparisonOID = p.TargetBranch, p.TargetBranch, p.Comparison
+	intent.Candidate, intent.ExpectedOld = strings.Repeat("d", 40), p.Candidate
+	intent.CorrectionNumber, intent.CorrectionAuthor = p.PRNumber, p.PRCreate.Work.ActorID
+	p.Corrections = append(p.Corrections, factory.PublicationOperation{Work: intent, OperationID: id, Kind: factory.OpRefPublish, Attempts: 1, UpdatedUnix: 1250})
+	p.Revision++
 }
 
 func publicationStoreIntent(id string) *factory.PublicationIntent {

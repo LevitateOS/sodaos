@@ -11,6 +11,46 @@ import (
 // Reconciliation never depends on an export, current actor credential, or open
 // dispatch. Those are prerequisites for new writes, not for learning old effects.
 func (c *Coordinator) reconcilePublication(ctx context.Context, p factory.Publication, report *PublishReport) {
+	if p.Stage == factory.PublicationPublished {
+		a, err := c.assignmentForPublication(ctx, p)
+		if err != nil {
+			publicationError(report, p.ID, "store_unavailable")
+			return
+		}
+		run, err := c.Store.FactoryRun(ctx, p.Run)
+		if err != nil {
+			publicationError(report, p.ID, "store_unavailable")
+			return
+		}
+		open, _, _, err := c.Store.DispatchState(ctx, p.Repository)
+		if err != nil {
+			publicationError(report, p.ID, "store_unavailable")
+			return
+		}
+		if p.WithdrawRequested || !open {
+			c.withdrawPublication(ctx, a, &p, run, report)
+			return
+		}
+		corrections := CorrectionReport{}
+		c.reconcileRecordedCorrection(ctx, &p, a, &corrections)
+		for _, wait := range corrections.Waits {
+			publicationWait(report, wait.ID, wait.Reason)
+		}
+		for _, failure := range corrections.Errors {
+			publicationError(report, failure.ID, failure.Reason)
+		}
+		for _, id := range corrections.Fenced {
+			report.Fenced = append(report.Fenced, id)
+		}
+		if len(p.Corrections) > 0 {
+			last := p.Corrections[len(p.Corrections)-1]
+			if last.Effect == factory.OpEffectCommitted && last.Completion != factory.OpCompletionComplete &&
+				len(corrections.Waits) == 0 && len(corrections.Errors) == 0 {
+				publicationWait(report, p.ID, "branch_completion_pending")
+			}
+		}
+		return
+	}
 	if p.Stage != factory.PublicationOpen && p.Stage != factory.PublicationFenced {
 		return
 	}

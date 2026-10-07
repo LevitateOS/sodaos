@@ -58,7 +58,17 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	if err := p.Validate(); err != nil {
 		return err
 	}
-	previous, err := s.PublicationByAssignment(ctx, p.AssignmentID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var previous factory.Publication
+	var previousData []byte
+	err = tx.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1`, p.AssignmentID).Scan(&previousData)
+	if err == nil {
+		err = json.Unmarshal(previousData, &previous)
+	}
 	if err != nil {
 		return err
 	}
@@ -68,9 +78,27 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	if err := publicationUpdateAllowed(previous, p); err != nil {
 		return err
 	}
-	registering := previous.Publish.Work == nil && p.Publish.Work != nil || previous.PRCreate.Work == nil && p.PRCreate.Work != nil
+	registering := previous.Publish.Work == nil && p.Publish.Work != nil ||
+		previous.PRCreate.Work == nil && p.PRCreate.Work != nil ||
+		len(p.Corrections) > len(previous.Corrections)
 	if registering && (previous.WithdrawRequested || p.WithdrawRequested) {
 		return ErrDispatchClosed
+	}
+	if registering {
+		// Materialize the logical default-open gate so registration and
+		// WithdrawDispatch serialize on the same row even before its first
+		// withdrawal. A missing row otherwise has no lockable identity.
+		if _, err = tx.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data)
+			VALUES($1,0,TRUE,'{}'::jsonb) ON CONFLICT(repository) DO NOTHING`, p.Repository); err != nil {
+			return err
+		}
+		var open bool
+		if err = tx.QueryRowContext(ctx, `SELECT open FROM factory_dispatch WHERE repository=$1 FOR UPDATE`, p.Repository).Scan(&open); err != nil {
+			return err
+		}
+		if !open {
+			return ErrDispatchClosed
+		}
 	}
 	data, err := json.Marshal(p)
 	if err != nil {
@@ -78,7 +106,7 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	}
 	// Gate inspection and registration share one statement: a withdrawal
 	// either sees this operation or closes the gate before it can register.
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_publications SET stage=$1,revision=$2,data=$3
+	result, err := tx.ExecContext(ctx, `UPDATE factory_publications SET stage=$1,revision=$2,data=$3
 		WHERE assignment=$4 AND revision=$5
 		AND (NOT $6 OR (
 		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=$7 AND NOT open)
@@ -106,16 +134,9 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 		return err
 	}
 	if n != 1 {
-		if registering {
-			if open, _, _, readErr := s.DispatchState(ctx, p.Repository); readErr != nil {
-				return readErr
-			} else if !open {
-				return ErrDispatchClosed
-			}
-		}
 		return ErrStaleRevision
 	}
-	return nil
+	return tx.Commit()
 }
 
 func publicationUpdateAllowed(old, next factory.Publication) error {
@@ -168,9 +189,10 @@ func publicationOperationUpdateAllowed(old, next factory.PublicationOperation) b
 	return true
 }
 
-// OutstandingPublications lists every open or fenced publication for one
-// repository, oldest first. Recovery reconciles each one against native
-// state; withdrawal cancels each one's outstanding operations.
+// OutstandingPublications lists every open or fenced publication and each
+// published record with an unresolved correction for one repository, oldest
+// first. Recovery reconciles each one against native state; withdrawal
+// cancels each one's outstanding operations.
 func (s *Store) OutstandingPublications(ctx context.Context, repository int64, limit int) ([]factory.Publication, error) {
 	if repository <= 0 {
 		return nil, errors.New("invalid publication repository")
@@ -179,7 +201,15 @@ func (s *Store) OutstandingPublications(ctx context.Context, repository int64, l
 		return nil, errors.New("invalid publication listing limit")
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_publications
-		WHERE repository=$1 AND stage IN ('open','fenced') ORDER BY seq LIMIT $2`, repository, limit)
+		WHERE repository=$1 AND (
+			stage IN ('open','fenced') OR
+			(stage='published' AND EXISTS (
+				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'corrections','[]'::jsonb)) AS correction
+				WHERE COALESCE(correction->>'effect','') IN ('','pending','indeterminate')
+				   OR COALESCE(correction->>'cancellation','') IN ('pending','indeterminate')
+				   OR (correction->>'effect'='committed' AND COALESCE(correction->>'completion','') <> 'complete')
+			))
+		) ORDER BY seq LIMIT $2`, repository, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +237,12 @@ func (s *Store) OpenPublications(ctx context.Context, limit int) ([]factory.Publ
 		return nil, errors.New("invalid publication listing limit")
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_publications
-		WHERE stage IN ('open','fenced') ORDER BY seq LIMIT $1`, limit)
+		WHERE stage IN ('open','fenced') OR (stage='published' AND EXISTS (
+			SELECT 1 FROM jsonb_array_elements(COALESCE(data->'corrections','[]'::jsonb)) AS correction
+			WHERE COALESCE(correction->>'effect','') IN ('','pending','indeterminate')
+			   OR COALESCE(correction->>'cancellation','') IN ('pending','indeterminate')
+			   OR (correction->>'effect'='committed' AND COALESCE(correction->>'completion','') <> 'complete')
+		)) ORDER BY seq LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}

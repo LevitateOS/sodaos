@@ -121,6 +121,125 @@ func TestPublishCorrectionRefusesWithoutChange(t *testing.T) {
 	}
 }
 
+func TestWithdrawalCancelsRecordedCorrectionAndKeepsPublishedHead(t *testing.T) {
+	fx, p := checkSeed(t, 8)
+	ctx := context.Background()
+	exec := happyPublisher()
+	fx.wire(exec)
+	seedPublishedNativeOperations(exec, p)
+	intent := *p.Publish.Work
+	intent.OperationID = factory.PublicationOperationID(p.ID, factory.OpRefPublish, 2)
+	intent.Candidate, intent.ExpectedOld = strings.Repeat("d", 40), p.Candidate
+	intent.CorrectionNumber, intent.CorrectionAuthor = p.PRNumber, p.PRCreate.Work.ActorID
+	op := factory.PublicationOperation{Work: &intent, OperationID: intent.OperationID, Kind: factory.OpRefPublish, Attempts: 1, UpdatedUnix: time.Now().Unix()}
+	p.Corrections = append(p.Corrections, op)
+	p.Revision++
+	if err := fx.db.UpdatePublication(ctx, p); err != nil {
+		t.Fatalf("record correction intent: %v", err)
+	}
+	exec.ledger[intent.OperationID] = publicationTestOutcome(factory.PublicationWork{
+		OperationID: intent.OperationID, Repository: intent.Repository, ActorID: intent.ActorID,
+	}, factory.OpRefPublish, pendingOutcome())
+	if _, err := fx.db.WithdrawDispatch(ctx, p.Repository, "pause", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	withdrawal := fx.coord.cancelRepositoryPublications(ctx, p.Repository)
+	if withdrawal.Pending {
+		t.Fatalf("confirmed cancellation remained pending: %+v", withdrawal)
+	}
+	found := false
+	for _, id := range withdrawal.Operations {
+		if id == intent.OperationID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("correction operation omitted from cancellation set: %+v", withdrawal)
+	}
+	if countOperation(exec.cancels, intent.OperationID) != 1 {
+		t.Fatalf("correction identity not cancelled exactly: %+v", exec.cancels)
+	}
+	stored, err := fx.db.PublicationByAssignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Stage != factory.PublicationPublished || stored.Candidate != p.Candidate ||
+		stored.Corrections[0].Effect != factory.OpEffectNotCommitted || stored.Corrections[0].Cancellation != factory.OpCancelCancelled {
+		t.Fatalf("withdrawal changed linked publication or lost correction verdict: %+v", stored)
+	}
+}
+
+func TestWithdrawalWaitsForCommittedCorrectionCompletion(t *testing.T) {
+	fx, p := checkSeed(t, 9)
+	ctx := context.Background()
+	exec := happyPublisher()
+	fx.wire(exec)
+	seedPublishedNativeOperations(exec, p)
+	intent := *p.Publish.Work
+	intent.OperationID = factory.PublicationOperationID(p.ID, factory.OpRefPublish, 2)
+	intent.Candidate, intent.ExpectedOld = strings.Repeat("d", 40), p.Candidate
+	intent.CorrectionNumber, intent.CorrectionAuthor = p.PRNumber, p.PRCreate.Work.ActorID
+	outcome := committedOutcome("correction-receipt")
+	outcome.Completion = factory.OpCompletionPending
+	op := factory.PublicationOperation{
+		Work: &intent, OperationID: intent.OperationID, Kind: factory.OpRefPublish,
+		Effect: factory.OpEffectCommitted, Cancellation: factory.OpCancelTooLate,
+		Completion: factory.OpCompletionPending, Receipt: string(outcome.Receipt), Attempts: 1, UpdatedUnix: time.Now().Unix(),
+	}
+	p.Corrections = append(p.Corrections, op)
+	p.Candidate = intent.Candidate
+	p.Revision++
+	if err := fx.db.UpdatePublication(ctx, p); err != nil {
+		t.Fatalf("record committed correction: %v", err)
+	}
+	exec.ledger[intent.OperationID] = publicationTestOutcome(factory.PublicationWork{
+		OperationID: intent.OperationID, Repository: intent.Repository, ActorID: intent.ActorID,
+	}, factory.OpRefPublish, outcome)
+	if _, err := fx.db.WithdrawDispatch(ctx, p.Repository, "pause", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	withdrawal := fx.coord.cancelRepositoryPublications(ctx, p.Repository)
+	if !withdrawal.Pending {
+		t.Fatalf("withdrawal claimed completion while correction remained incomplete: %+v", withdrawal)
+	}
+	if countOperation(exec.cancels, intent.OperationID) != 1 {
+		t.Fatalf("correction cancellation was not observed: %+v", exec.cancels)
+	}
+	stored, err := fx.db.PublicationByAssignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Stage != factory.PublicationPublished || stored.Candidate != intent.Candidate ||
+		stored.Corrections[0].Effect != factory.OpEffectCommitted || stored.Corrections[0].Completion != factory.OpCompletionPending {
+		t.Fatalf("withdrawal lost committed correction custody: %+v", stored)
+	}
+	recovery, err := fx.db.OpenPublications(ctx, 10)
+	if err != nil || len(recovery) != 1 || recovery[0].AssignmentID != p.AssignmentID {
+		t.Fatalf("incomplete correction no longer selected for recovery: %+v %v", recovery, err)
+	}
+}
+
+func seedPublishedNativeOperations(exec *fakePublisher, p factory.Publication) {
+	for _, op := range []factory.PublicationOperation{p.Publish, p.PRCreate} {
+		work := op.Work.Apply(factory.PublicationWork{OperationID: op.OperationID, Repository: p.Repository})
+		outcome := factory.OperationOutcome{
+			Receipt: []byte(op.Receipt), Effect: factory.OpEffectCommitted,
+			Cancellation: factory.OpCancelNone, Completion: factory.OpCompletionComplete,
+		}
+		exec.ledger[op.OperationID] = publicationTestOutcome(work, op.Kind, outcome)
+	}
+}
+
+func countOperation(ids []string, want string) int {
+	n := 0
+	for _, id := range ids {
+		if id == want {
+			n++
+		}
+	}
+	return n
+}
+
 func (fx *publishFixture) dbMustPublication(t *testing.T, assignmentID string) factory.Publication {
 	t.Helper()
 	p, err := fx.db.PublicationByAssignment(context.Background(), assignmentID)

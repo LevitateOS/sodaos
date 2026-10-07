@@ -29,6 +29,11 @@ func (c *Coordinator) cancelPublications(ctx context.Context, repository, issue 
 				result.Operations = append(result.Operations, op.OperationID)
 			}
 		}
+		for _, op := range p.Corrections {
+			if op.OperationID != "" {
+				result.Operations = append(result.Operations, op.OperationID)
+			}
+		}
 		a, err := c.assignmentForPublication(ctx, p)
 		if err != nil {
 			result.Pending = true
@@ -46,7 +51,7 @@ func (c *Coordinator) cancelPublications(ctx context.Context, repository, issue 
 		}
 		c.withdrawPublication(ctx, a, &p, run, &report)
 		current, err := c.Store.PublicationByAssignment(ctx, p.AssignmentID)
-		if err != nil || current.Stage == factory.PublicationOpen || current.Stage == factory.PublicationFenced || len(report.Errors) > 0 {
+		if err != nil || current.Stage == factory.PublicationOpen || current.Stage == factory.PublicationFenced || len(report.Errors) > 0 || len(report.Waits) > 0 {
 			result.Pending = true
 		}
 	}
@@ -100,11 +105,46 @@ func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignm
 			confirmed = false
 		}
 	}
+	for i := range p.Corrections {
+		op := &p.Corrections[i]
+		if op.Attempts == 0 {
+			continue
+		}
+		outcome, err := c.Publication.CancelOp(ctx, op.OperationID)
+		if err != nil || outcome.NotObserved {
+			confirmed = false
+			continue
+		}
+		if !c.adoptObserved(op, outcome, time.Now()) {
+			confirmed = false
+			continue
+		}
+		if outcome.Effect != factory.OpEffectCommitted && outcome.Effect != factory.OpEffectNotCommitted {
+			confirmed = false
+		}
+		if outcome.Effect == factory.OpEffectCommitted {
+			if op.Work == nil {
+				confirmed = false
+				continue
+			}
+			p.Candidate = op.Work.Candidate
+			work := op.Work.Apply(factory.PublicationWork{AssignmentID: p.AssignmentID, Publication: p.ID})
+			if _, err := c.Publication.AdoptBranch(work, operationOutcomeOf(*op)); err != nil {
+				confirmed = false
+			}
+		}
+	}
 	if !c.storePublication(ctx, p, report) {
 		return
 	}
 	if !c.adoptPublicationReceipts(ctx, a, p, run, report) {
 		return
+	}
+	for _, op := range p.Corrections {
+		if op.Effect == factory.OpEffectCommitted && op.Completion != factory.OpCompletionComplete {
+			publicationWait(report, p.ID, "branch_completion_pending")
+			return
+		}
 	}
 	if !confirmed {
 		publicationWait(report, p.ID, "cancellation_pending")

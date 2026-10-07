@@ -290,8 +290,8 @@ func (c *Coordinator) reconcileRecordedCorrection(ctx context.Context, p *factor
 		return
 	}
 	op := &p.Corrections[len(p.Corrections)-1]
-	if op.Attempts == 0 || op.Effect == factory.OpEffectCommitted ||
-		op.Effect == factory.OpEffectNotCommitted || op.Effect == factory.OpEffectIndeterminate {
+	if op.Attempts == 0 || op.Effect == factory.OpEffectNotCommitted || op.Effect == factory.OpEffectIndeterminate ||
+		(op.Effect == factory.OpEffectCommitted && op.Completion == factory.OpCompletionComplete) {
 		return
 	}
 	outcome, err := c.Publication.LookupOp(ctx, op.OperationID)
@@ -360,6 +360,18 @@ func (c *Coordinator) cancelRecordedCorrection(ctx context.Context, p *factory.P
 	if !outcome.NotObserved && !c.adoptObserved(op, outcome, time.Now()) {
 		c.fenceCorrection(ctx, report, p, factory.PublishReasonUnattributed)
 		return
+	}
+	if !outcome.NotObserved && op.Effect == factory.OpEffectCommitted {
+		if op.Work == nil {
+			c.fenceCorrection(ctx, report, p, factory.PublishReasonUnattributed)
+			return
+		}
+		p.Candidate = op.Work.Candidate
+		work := op.Work.Apply(factory.PublicationWork{AssignmentID: p.AssignmentID, Publication: p.ID})
+		if _, err := c.Publication.AdoptBranch(work, operationOutcomeOf(*op)); err != nil {
+			c.fenceCorrection(ctx, report, p, factory.PublishReasonUnattributed)
+			return
+		}
 	}
 	if !c.storeCorrection(ctx, p, report) {
 		return
