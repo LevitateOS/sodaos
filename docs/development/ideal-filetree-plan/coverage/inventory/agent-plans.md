@@ -1,12 +1,11 @@
 # Tracked files: .agents
 
-[Inventory index](README.md) · [Coverage snapshot and limits](../README.md).
+[Inventory index](README.md) · [Coverage scope](../README.md).
 
-## Coverage inventory: .agents
+Current path accounting at `519b76bd` (2026-10-07).
+A file may contain several duties; each named duty has one defining owner and disposition.
+Generated/third-party status and runtime use are separate from disposition.
 
-R02 check @HEAD `64b57b83`: 1/1 row verified present at HEAD (bulk sweep gap-fill, 0 GONE).
-
-| Current tracked path | Kind / lifecycle | Slice mapping |
-| --- | --- | --- |
-| [.agents/plans/2026-09-16-remove-rpm-pinning.md](../../../../../.agents/plans/2026-09-16-remove-rpm-pinning.md) | documentation / unknown | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) |
-
+| Current tracked path | Kind | Owner / disposition | Responsibility evidence |
+| --- | --- | --- | --- |
+| [.agents/plans/2026-09-16-remove-rpm-pinning.md](../../../../../.agents/plans/2026-09-16-remove-rpm-pinning.md) | documentation | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / obsolete | [current units](../maps/root-and-retired-definitions.md#coverage-e25a660ce02b) |

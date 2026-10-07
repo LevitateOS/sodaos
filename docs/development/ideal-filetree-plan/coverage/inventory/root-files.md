@@ -1,38 +1,32 @@
-# Tracked files: (root files)
+# Tracked files: (root)
 
-[Inventory index](README.md) · [Coverage snapshot and limits](../README.md).
+[Inventory index](README.md) · [Coverage scope](../README.md).
 
-The current uncommitted AGENTS.md refresh is H06 documentation upkeep. It aligns
-authorization and language guidance with the current user instructions and links
-the [guidance conflict register](../../review-assignments.md#guidance-conflicts-and-controlling-decisions).
-The row below continues to account for the committed file at `0d8d3b8e`; this
-upkeep does not advance the inventory baseline or claim a slice validity review.
+Current path accounting at `519b76bd` (2026-10-07).
+A file may contain several duties; each named duty has one defining owner and disposition.
+Generated/third-party status and runtime use are separate from disposition.
 
-## Coverage inventory: (root files)
-
-R02 check @HEAD `64b57b83`: 22/22 rows verified present at HEAD (bulk sweep gap-fill, 0 GONE).
-
-| Current tracked path | Kind / lifecycle | Slice mapping |
-| --- | --- | --- |
-| [.containerignore](../../../../../.containerignore) | configuration / active | [D03](../../slices/release-and-installation.md#d03-candidate-production) |
-| [.gitignore](../../../../../.gitignore) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [.oxfmtrc.json](../../../../../.oxfmtrc.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [.oxlintrc.json](../../../../../.oxlintrc.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [AGENTS.md](../../../../../AGENTS.md) | documentation / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [Cargo.lock](../../../../../Cargo.lock) | manifest / generated | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [Cargo.toml](../../../../../Cargo.toml) | manifest / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [LICENSE](../../../../../LICENSE) | documentation / active | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) |
-| [NOTICE](../../../../../NOTICE) | documentation / active | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) |
-| [README.md](../../../../../README.md) | documentation / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure), [P03](../../slices/projects.md#p03-human-membership-and-accounts), [P01](../../slices/projects.md#p01-repository-association-and-creation), [N02](../../slices/networking.md#n02-project-lan-access), [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) — [interval map](../maps/root-and-retired-definitions.md#coverage-b33563055168) |
-| [bun.lock](../../../../../bun.lock) | manifest / generated | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [bunfig.toml](../../../../../bunfig.toml) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [go.mod](../../../../../go.mod) | manifest / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [go.sum](../../../../../go.sum) | manifest / generated | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [installer](../../../../../installer) | generated / generated | Artifact; no active implementation owner |
-| [package.json](../../../../../package.json) | manifest / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure), [D03](../../slices/release-and-installation.md#d03-candidate-production), [D06](../../slices/release-and-installation.md#d06-installed-qualification), [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) — [interval map](../maps/root-and-retired-definitions.md#coverage-7ae45ad102ea) |
-| [rust-toolchain.toml](../../../../../rust-toolchain.toml) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [soda-candidate](../../../../../soda-candidate) | generated / generated | Artifact; no active implementation owner |
-| [tsconfig.base.json](../../../../../tsconfig.base.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [tsconfig.browser.json](../../../../../tsconfig.browser.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [tsconfig.json](../../../../../tsconfig.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
-| [tsconfig.tests.json](../../../../../tsconfig.tests.json) | configuration / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
+| Current tracked path | Kind | Owner / disposition | Responsibility evidence |
+| --- | --- | --- | --- |
+| [.containerignore](../../../../../.containerignore) | configuration | [D03](../../slices/release-and-installation.md#d03-candidate-production) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-2a6c4de4fd4d) |
+| [.gitignore](../../../../../.gitignore) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-bc37d034bad5) |
+| [.oxfmtrc.json](../../../../../.oxfmtrc.json) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-ba6bdb5315b1) |
+| [.oxlintrc.json](../../../../../.oxlintrc.json) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-2113aef2ff3d) |
+| [AGENTS.md](../../../../../AGENTS.md) | documentation | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-a54ff182c7e8) |
+| [Cargo.lock](../../../../../Cargo.lock) | manifest | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-13ee4b2252c9) |
+| [Cargo.toml](../../../../../Cargo.toml) | manifest | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-2e9d962a0832) |
+| [LICENSE](../../../../../LICENSE) | configuration | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-c693279643b8) |
+| [NOTICE](../../../../../NOTICE) | configuration | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-dfb14fbb9e7d) |
+| [README.md](../../../../../README.md) | documentation | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / retained, [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / obsolete, [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / retained, [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) / obsolete, [P03](../../slices/projects.md#p03-human-membership-and-accounts) / retained, [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / retained, [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / obsolete, [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / unresolved, [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / obsolete, [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained, [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / retained, [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / obsolete, [P01](../../slices/projects.md#p01-repository-association-and-creation) / retained, [N02](../../slices/networking.md#n02-project-lan-access) / retained, [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / obsolete | [current units](../maps/root-and-retired-definitions.md#coverage-b33563055168) |
+| [bun.lock](../../../../../bun.lock) | manifest | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-bfd0ef82a011) |
+| [bunfig.toml](../../../../../bunfig.toml) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-d20a1d3c8f2b) |
+| [go.mod](../../../../../go.mod) | manifest | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-33ef32bf6c23) |
+| [go.sum](../../../../../go.sum) | manifest | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-3295df723452) |
+| [installer](../../../../../installer) | generated binary | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / unresolved | [current units](../maps/root-and-retired-definitions.md#coverage-9c0d294c05fc) |
+| [package.json](../../../../../package.json) | manifest | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained, [D03](../../slices/release-and-installation.md#d03-candidate-production) / retained, [D06](../../slices/release-and-installation.md#d06-installed-qualification) / retained, [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-7ae45ad102ea) |
+| [rust-toolchain.toml](../../../../../rust-toolchain.toml) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-2b1bde2cf3a8) |
+| [soda-candidate](../../../../../soda-candidate) | generated binary | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / unresolved | [current units](../maps/root-and-retired-definitions.md#coverage-619e7e2459fb) |
+| [tsconfig.base.json](../../../../../tsconfig.base.json) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-0b280a445be1) |
+| [tsconfig.browser.json](../../../../../tsconfig.browser.json) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-7053a2fc9b8a) |
+| [tsconfig.json](../../../../../tsconfig.json) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-b55cdbef4907) |
+| [tsconfig.tests.json](../../../../../tsconfig.tests.json) | configuration | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-e05a8a3e3685) |
