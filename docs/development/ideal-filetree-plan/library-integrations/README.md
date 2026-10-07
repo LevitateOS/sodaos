@@ -24,6 +24,11 @@ The [file/descriptor/process custody audit](../file-and-process-custody.md) at
 `1d8c4e11` checks opened-file admission, confinement and cleanup result ownership.
 It assigns four bounded corrections and a dormant-method retention decision.
 
+The [dependency and architectural cost audit](../dependency-and-architecture-cost.md)
+at `1cb4bbd8` checks selected feature/version/toolchain and shipping costs. It
+assigns five narrow dependency, feature and bootstrap-interface cuts, while
+preserving real adapter/state owners and conditional artifact-notice questions.
+
 The subsequent [selected-version adapter challenge](adapter-challenges.md) at
 `2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
 It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON

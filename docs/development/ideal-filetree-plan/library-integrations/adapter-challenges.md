@@ -21,6 +21,11 @@ reassesses retained visitors and formatting against actual producers. Old L04
 profiles/goldens do not impose permanent unreleased compatibility; release wire,
 ordered-tree and formatter cuts now have explicit scoped dispositions there.
 
+The subsequent [dependency/architecture cost audit](../dependency-and-architecture-cost.md)
+at `1cb4bbd8` selects five caller-specific dependency/feature/interface cuts.
+Its bootstrap Runner cut removes one overbroad trait implementation; the actual
+release production bridge and separate authority/state owners remain retained.
+
 ## Selected API coverage and dispositions
 
 The Rust partition covers all **38 direct external dependency names**. Exact
