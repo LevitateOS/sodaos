@@ -132,7 +132,9 @@ func runBoundedEnv(name string, args []string, stdin []byte, extraEnv []string, 
 func runBoundedDirEnv(name string, args []string, stdin []byte, extraEnv []string, dir string, timeout time.Duration) (runOutcome, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
+	runCtx, cancelRun := context.WithCancel(ctx)
+	defer cancelRun()
+	cmd := exec.Command(name, args...)
 	if dir != "" {
 		cmd.Dir = dir
 	}
@@ -142,25 +144,82 @@ func runBoundedDirEnv(name string, args []string, stdin []byte, extraEnv []strin
 	if extraEnv != nil {
 		cmd.Env = append(os.Environ(), extraEnv...)
 	}
-	var stdout, stderr bytes.Buffer
+	stdout := boundedCapture{limit: probeStdoutLimit, onLimit: cancelRun}
+	stderr := boundedCapture{limit: probeStderrLimit, onLimit: cancelRun}
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	err := cmd.Run()
-	outcome := runOutcome{stdout: stdout.Bytes(), stderr: stderr.Bytes(), exitCode: -1}
-	if cmd.ProcessState != nil {
-		outcome.exitCode = cmd.ProcessState.ExitCode()
+	process, err := StartCommand(runCtx, cmd)
+	if err != nil {
+		return runOutcome{exitCode: -1}, err
 	}
-	if ctx.Err() == context.DeadlineExceeded {
-		return outcome, fmt.Errorf("command timed out: %w", ctx.Err())
+	waitErr := process.Wait(runCtx)
+	if waitErr != nil && (errors.Is(waitErr, context.DeadlineExceeded) || errors.Is(waitErr, context.Canceled)) {
+		cleanupErr := process.Stop()
+		select {
+		case <-process.Done():
+		default:
+			return runOutcome{exitCode: -1}, errors.Join(waitErr, cleanupErr, errors.New("owned process cleanup remains unresolved"))
+		}
+		outcome := boundedOutcome(process, &stdout, &stderr)
+		return outcome, errors.Join(waitErr, cleanupErr, stdout.err, stderr.err)
 	}
-	if err == nil {
+	outcome := boundedOutcome(process, &stdout, &stderr)
+	if stdout.err != nil || stderr.err != nil {
+		return outcome, errors.Join(stdout.err, stderr.err, process.cleanupErr, process.waitErr)
+	}
+	if process.cleanupErr != nil {
+		return outcome, errors.Join(process.cleanupErr, process.waitErr)
+	}
+	if process.waitErr == nil {
 		return outcome, nil
 	}
 	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if errors.As(process.waitErr, &exitErr) {
 		return outcome, nil
 	}
-	return outcome, err
+	return outcome, process.waitErr
+}
+
+const (
+	probeStdoutLimit = 8 * 1024 * 1024
+	probeStderrLimit = 1 * 1024 * 1024
+)
+
+var errProbeOutputLimit = errors.New("command output exceeded capture bound")
+
+type boundedCapture struct {
+	buffer  bytes.Buffer
+	limit   int
+	err     error
+	onLimit context.CancelFunc
+}
+
+func (capture *boundedCapture) Write(data []byte) (int, error) {
+	remaining := capture.limit - capture.buffer.Len()
+	if remaining <= 0 {
+		capture.err = errProbeOutputLimit
+		capture.onLimit()
+		return 0, capture.err
+	}
+	if len(data) > remaining {
+		_, _ = capture.buffer.Write(data[:remaining])
+		capture.err = errProbeOutputLimit
+		capture.onLimit()
+		return remaining, capture.err
+	}
+	return capture.buffer.Write(data)
+}
+
+func boundedOutcome(process *Process, stdout, stderr *boundedCapture) runOutcome {
+	outcome := runOutcome{
+		stdout:   stdout.buffer.Bytes(),
+		stderr:   stderr.buffer.Bytes(),
+		exitCode: -1,
+	}
+	if process.cmd.ProcessState != nil {
+		outcome.exitCode = process.cmd.ProcessState.ExitCode()
+	}
+	return outcome
 }
 
 // uuidHex returns 32 lowercase hex digits with RFC 4122 version-4 bits, the

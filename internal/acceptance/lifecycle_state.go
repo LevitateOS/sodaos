@@ -56,9 +56,6 @@ func lifecycleRun(dir string, args []string, stdin []byte) ([]byte, error) {
 		}
 		return nil, &snapReportError{msg: "Snapshot command failed; no empty substitution: " + detail}
 	}
-	if len(outcome.stdout) > 8*1024*1024 {
-		return nil, &snapReportError{msg: "Snapshot exceeded bound"}
-	}
 	return outcome.stdout, nil
 }
 

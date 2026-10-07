@@ -57,6 +57,39 @@ func TestOwnedChildFixture(t *testing.T) {
 	}
 }
 
+func TestRunBoundedOutputFixture(t *testing.T) {
+	mode := os.Getenv("SODA_BOUNDED_OUTPUT_TEST")
+	if mode == "" {
+		return
+	}
+	var stream *os.File
+	size := probeStdoutLimit + 1
+	if mode == "exact-stdout" {
+		size = probeStdoutLimit
+	}
+	if mode == "stderr" || mode == "exact-stderr" {
+		stream = os.Stderr
+		size = probeStderrLimit + 1
+		if mode == "exact-stderr" {
+			size = probeStderrLimit
+		}
+	} else {
+		stream = os.Stdout
+	}
+	chunk := make([]byte, 32*1024)
+	for size > 0 {
+		write := len(chunk)
+		if size < write {
+			write = size
+		}
+		if _, err := stream.Write(chunk[:write]); err != nil {
+			os.Exit(0)
+		}
+		size -= write
+	}
+	os.Exit(0)
+}
+
 func TestOwnedLeaderExitAndCancellationStopResistantDescendant(t *testing.T) {
 	for _, mode := range []string{"leader-exit", "leader-term", "leader-resistant"} {
 		t.Run(mode, func(t *testing.T) {
@@ -116,5 +149,69 @@ func TestOwnedLeaderExitAndCancellationStopResistantDescendant(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 			}
 		})
+	}
+}
+
+func TestRunBoundedCapsBeforeRetentionAndRejectsOverflow(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		limit int
+	}{
+		{name: "stdout", limit: probeStdoutLimit},
+		{name: "stderr", limit: probeStderrLimit},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			outcome, err := runBoundedEnv(os.Args[0], []string{"-test.run=^TestRunBoundedOutputFixture$"}, nil, []string{"SODA_BOUNDED_OUTPUT_TEST=" + test.name}, 10*time.Second)
+			if err == nil || len(outcome.stdout)+len(outcome.stderr) > test.limit {
+				t.Fatalf("overflow was not bounded and rejected: retained stdout=%d stderr=%d err=%v", len(outcome.stdout), len(outcome.stderr), err)
+			}
+		})
+	}
+}
+
+func TestRunBoundedAcceptsExactCaptureLimit(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		limit int
+	}{
+		{name: "exact-stdout", limit: probeStdoutLimit},
+		{name: "exact-stderr", limit: probeStderrLimit},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			outcome, err := runBoundedEnv(os.Args[0], []string{"-test.run=^TestRunBoundedOutputFixture$"}, nil, []string{"SODA_BOUNDED_OUTPUT_TEST=" + test.name}, 10*time.Second)
+			if err != nil || len(outcome.stdout)+len(outcome.stderr) != test.limit {
+				t.Fatalf("exact-limit output rejected or miscounted: stdout=%d stderr=%d err=%v", len(outcome.stdout), len(outcome.stderr), err)
+			}
+		})
+	}
+}
+
+func TestRunBoundedReapsDescendantHoldingOutputPipes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "descendant.pid")
+	started := time.Now()
+	outcome, err := runBoundedEnv(os.Args[0], []string{"-test.run=^TestOwnedChildFixture$"}, nil, []string{
+		"SODA_OWNED_CHILD_TEST=leader-exit",
+		"SODA_OWNED_CHILD_PID=" + path,
+	}, 5*time.Second)
+	if err != nil || outcome.exitCode != 0 {
+		t.Fatalf("bounded command outcome=%#v err=%v", outcome, err)
+	}
+	if time.Since(started) > 5*time.Second {
+		t.Fatal("descendant-held output pipes exceeded command allowance")
+	}
+}
+
+func TestRunBoundedCancellationReportsForcedCleanup(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "descendant.pid")
+	started := time.Now()
+	_, err := runBoundedEnv(os.Args[0], []string{"-test.run=^TestOwnedChildFixture$"}, nil, []string{
+		"SODA_OWNED_CHILD_TEST=leader-resistant",
+		"SODA_OWNED_CHILD_PID=" + path,
+	}, 100*time.Millisecond)
+	if err == nil || !strings.Contains(err.Error(), "forced termination") {
+		t.Fatalf("timeout cleanup was not reported: %v", err)
+	}
+	if time.Since(started) > 20*time.Second {
+		t.Fatal("cancellation cleanup exceeded bounded allowance")
 	}
 }
