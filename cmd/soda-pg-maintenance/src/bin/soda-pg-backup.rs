@@ -133,7 +133,7 @@ fn run() -> i32 {
     }
     // Trap disarmed: rotate only after the new run is published; never
     // delete the run just made.
-    rotate(&backup_root, keep);
+    rotate(&backup_root, keep, &stamp);
 
     println!("backup complete: {final_dir}");
     0
@@ -193,19 +193,19 @@ fn has_pgdmp_magic(dump: &str) -> bool {
 }
 
 /// `ls -1 | grep -E '^[0-9]{8}T[0-9]{6}Z$' | sort`, dropping the oldest
-/// while more than `keep` runs exist.
-fn rotate(backup_root: &str, keep: usize) {
+/// older run while retaining the published run and `keep - 1` other runs.
+fn rotate(backup_root: &str, keep: usize, published: &str) {
     let mut runs: Vec<String> = fs::read_dir(backup_root)
         .map(|entries| {
             entries
                 .filter_map(|e| e.ok())
                 .map(|e| e.file_name().to_string_lossy().into_owned())
-                .filter(|name| is_run_name(name))
+                .filter(|name| is_run_name(name) && name != published)
                 .collect()
         })
         .unwrap_or_default();
     runs.sort();
-    while runs.len() > keep {
+    while runs.len() > keep.saturating_sub(1) {
         let victim = runs.remove(0);
         let _ = fs::remove_dir_all(Path::new(backup_root).join(&victim));
     }
@@ -255,5 +255,33 @@ mod tests {
         assert!(rename_noreplace(source.to_str().unwrap(), destination.to_str().unwrap()).is_err());
         assert_eq!(fs::read(destination.join("globals.sql")).unwrap(), b"old");
         assert_eq!(fs::read(source.join("globals.sql")).unwrap(), b"new");
+    }
+
+    #[test]
+    fn rotation_never_deletes_the_just_published_run() {
+        let parent = tempfile::tempdir().unwrap();
+        fs::create_dir(parent.path().join("20261007T120000Z")).unwrap();
+        fs::create_dir(parent.path().join("20261007T120001Z")).unwrap();
+        fs::create_dir(parent.path().join("20261008T120000Z")).unwrap();
+
+        rotate(parent.path().to_str().unwrap(), 1, "20261007T120001Z");
+
+        assert!(parent.path().join("20261007T120001Z").is_dir());
+        assert!(!parent.path().join("20261008T120000Z").exists());
+        assert!(!parent.path().join("20261007T120000Z").exists());
+    }
+
+    #[test]
+    fn rotation_counts_published_run_and_keeps_newest_other_run() {
+        let parent = tempfile::tempdir().unwrap();
+        fs::create_dir(parent.path().join("20261007T120000Z")).unwrap();
+        fs::create_dir(parent.path().join("20261007T120001Z")).unwrap();
+        fs::create_dir(parent.path().join("20261008T120000Z")).unwrap();
+
+        rotate(parent.path().to_str().unwrap(), 2, "20261007T120001Z");
+
+        assert!(!parent.path().join("20261007T120000Z").exists());
+        assert!(parent.path().join("20261007T120001Z").is_dir());
+        assert!(parent.path().join("20261008T120000Z").is_dir());
     }
 }
