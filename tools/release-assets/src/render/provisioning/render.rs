@@ -2,9 +2,7 @@
 
 use std::path::Path;
 
-use super::document::{
-    clear_files, dump_json, file_entry, object_mut, public_config, push_file, str_value,
-};
+use super::document::{clear_files, file_entry, public_config, push_file};
 use super::private_files::{
     derive_host_public, is_appliance_hostname, is_fixture_hostname, regular, write_exclusive,
 };
@@ -45,7 +43,8 @@ pub fn render(source: &Path, inputs: &RenderInputs<'_>) -> Result<(), ProvError>
         }
     }
     if inputs.bootstrap == "minimal" {
-        let entries = object_mut(&mut config)
+        let entries = config
+            .as_object_mut()
             .ok_or_else(|| ProvError::new(ProvKind::Type, "bootstrap must be an object"))?;
         if entries.remove("systemd").is_none() {
             return Err(ProvError::new(ProvKind::Key, "bootstrap has no systemd"));
@@ -54,15 +53,16 @@ pub fn render(source: &Path, inputs: &RenderInputs<'_>) -> Result<(), ProvError>
     } else if inputs.bootstrap != "extensions" {
         return Err(ProvError::value("unknown bootstrap profile"));
     }
-    let entries = object_mut(&mut config)
+    let entries = config
+        .as_object_mut()
         .ok_or_else(|| ProvError::new(ProvKind::Type, "bootstrap must be an object"))?;
     entries.insert(
         "passwd".to_string(),
         serde_json::json!({
             "users": [{
-                "name": str_value("root"),
-                "ssh_authorized_keys": [str_value(key)],
-                "password_hash": str_value(password),
+                "name": "root",
+                "ssh_authorized_keys": [key],
+                "password_hash": password,
             }]
         }),
     );
@@ -95,5 +95,7 @@ pub fn render(source: &Path, inputs: &RenderInputs<'_>) -> Result<(), ProvError>
             file_entry("/etc/ssh/ssh_host_ed25519_key.pub", 0o644, &public),
         )?;
     }
-    write_exclusive(inputs.out, &dump_json(&config))
+    let output =
+        serde_json::to_string_pretty(&config).expect("serializing a JSON bootstrap is infallible");
+    write_exclusive(inputs.out, &output)
 }
