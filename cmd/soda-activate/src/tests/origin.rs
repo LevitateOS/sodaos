@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use crate::origin::{activate_rejects_ip, check_browser_origin};
+use crate::origin::{activate_rejects_ip, check_browser_origin, origin_host_port};
 
 #[test]
 fn ip_classifier_matches_cpython_oracle() {
@@ -74,6 +74,10 @@ fn browser_origin_checks_match_activate_rules() {
         "https://forgejo.test?x",
         "https://forgejo.test#x",
         "https://",
+        "https:///forgejo.test",
+        "https://forgejo.test/..",
+        "https://forgejo.test/%zz",
+        "https://forgejo.test\\path",
         "https://forgejo.test\n",
         "not a url",
     ] {
@@ -82,4 +86,22 @@ fn browser_origin_checks_match_activate_rules() {
     // Empty userinfo fields are falsy in the Python check, so they pass.
     assert!(check_browser_origin("https://@forgejo.test").is_ok());
     assert!(check_browser_origin("https://:@forgejo.test").is_ok());
+}
+
+#[test]
+fn origin_port_presence_and_ipv6_host_are_retained() {
+    let zero = origin_host_port("https://forgejo.test:0").unwrap();
+    assert_eq!(zero.hostname, "forgejo.test");
+    assert_eq!(zero.port, Some(0));
+    assert!(zero.port_present);
+
+    let default = origin_host_port("https://[fd00::5]:443/").unwrap();
+    assert_eq!(default.hostname, "fd00::5");
+    assert_eq!(default.port, Some(443));
+    assert!(default.port_present);
+
+    let absent = origin_host_port("https://forgejo.test").unwrap();
+    assert_eq!(absent.port, None);
+    assert!(!absent.port_present);
+    assert!(origin_host_port("https://forgejo.test:65536").is_err());
 }

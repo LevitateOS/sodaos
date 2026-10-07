@@ -63,18 +63,22 @@ fn origin_shapes() {
     );
     assert!(valid_origin("HTTPS://forgejo.example.test").is_some());
     assert!(valid_origin("https://forgejo.example.test:8443").is_some());
+    assert!(valid_origin("https://forgejo.example.test:0").is_some());
     assert!(valid_origin("https://forgejo.example.test/?").is_some());
     for bad in [
         "https://name:private-value@soda.example.test",
         "https://@soda.example.test",
         "https://soda.example.test:bad-port",
         "https://soda.example.test:65536",
+        "https://soda.example.test:65536/..",
         "http://soda.example.test",
         "https://soda.example.test/path",
         "https://soda.example.test?q=1",
         "https://soda.example.test#frag",
         "https://soda.example.test/pa th",
         "https://",
+        "https:///soda.example.test",
+        "https://soda.example.test/%2e%2e",
         "not a url",
         "",
     ] {

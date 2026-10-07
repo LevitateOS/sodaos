@@ -2,6 +2,7 @@ use crate::structured::Value as JsonValue;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 use base64::engine::DecodePaddingMode;
 use base64::{alphabet, Engine};
+use percent_encoding::percent_decode_str;
 
 use crate::error::Error;
 
@@ -31,26 +32,29 @@ pub fn encode_base64(input: &[u8]) -> String {
 /// Percent-decode bytes, like Go's `url.PathUnescape`: `+` stays literal,
 /// malformed escapes fail, and non-UTF-8 results are kept as bytes.
 fn percent_decode(input: &str) -> Result<Vec<u8>, Error> {
+    if !valid_percent_escapes(input) {
+        return Err(Error::msg("invalid inline encoding"));
+    }
+    Ok(percent_decode_str(input).collect())
+}
+
+fn valid_percent_escapes(input: &str) -> bool {
     let bytes = input.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' {
-            if i + 2 >= bytes.len() {
-                return Err(Error::msg("invalid inline encoding"));
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
             }
-            let hex = std::str::from_utf8(&bytes[i + 1..i + 3])
-                .map_err(|_| Error::msg("invalid inline encoding"))?;
-            let byte =
-                u8::from_str_radix(hex, 16).map_err(|_| Error::msg("invalid inline encoding"))?;
-            out.push(byte);
-            i += 3;
+            at += 3;
         } else {
-            out.push(bytes[i]);
-            i += 1;
+            at += 1;
         }
     }
-    Ok(out)
+    true
 }
 
 /// Decode an inline `data:` URI: unescape first, then base64-decode when

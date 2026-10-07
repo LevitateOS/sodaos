@@ -1,6 +1,8 @@
 //! Build request validation (Go `internal/release/image` `build.go` and
 //! `assemble.go` request subset) plus `soda-build` dispatch admission.
 
+use url::{Host, Url};
+
 /// Build request: the same fields the Go flag set fills.
 #[derive(Debug, Clone, Default)]
 pub struct Request {
@@ -93,77 +95,66 @@ impl Request {
     }
 }
 
-/// Minimal `url.Parse` equivalent for the rootfs admission rule: the Go
-/// owner rejects parse failures, missing hosts, non-HTTP(S) schemes,
-/// userinfo, queries, fragments, whitespace, and loopback hosts.
+/// Public rootfs URL admission uses WHATWG host parsing for loopback policy.
 pub fn media_base_url(value: &str) -> Result<(), String> {
     let failed = "explicit public HTTP(S) rootfs base URL required".to_owned();
     let loopback =
         "rootfs base URL must be reachable from the installing machine, not loopback".to_owned();
-    if value.chars().any(|c| c == '\r' || c == '\n' || c == ' ') {
+    if value.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\') || !valid_percent_escapes(value)
+    {
         return Err(failed);
     }
-    let rest = value
-        .strip_prefix("https://")
-        .or_else(|| value.strip_prefix("http://"))
-        .ok_or_else(|| failed.clone())?;
-    if rest.is_empty() {
+    if !(value.starts_with("https://") || value.starts_with("http://")) {
         return Err(failed);
     }
-    let authority = rest.split('/').next().unwrap_or_default();
-    let authority = authority.split(['?', '#']).next().unwrap_or_default();
-    if authority.is_empty() || rest.contains(['?', '#']) {
+    let rest = value.split_once("://").map(|(_, rest)| rest).unwrap_or("");
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.is_empty()
+        || authority.contains('@')
+        || value.contains('#')
+        || authority.starts_with('[')
+            && authority
+                .split_once(']')
+                .is_some_and(|(inside, _)| inside.contains('%'))
+    {
         return Err(failed);
     }
-    if authority.contains('@') {
+    let parsed = Url::parse(value).map_err(|_| failed.clone())?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none_or(str::is_empty)
+        || parsed.query().is_some_and(|query| !query.is_empty())
+    {
         return Err(failed);
     }
-    let (host, port, bracketed) = if let Some(rest) = authority.strip_prefix('[') {
-        let Some((inside, after)) = rest.split_once(']') else {
-            return Err(failed);
-        };
-        if !after.is_empty() && !after.starts_with(':') {
-            return Err(failed);
-        }
-        (inside, after.strip_prefix(':').unwrap_or(""), true)
-    } else {
-        if authority.contains(']') {
-            return Err(failed);
-        }
-        match authority.rsplit_once(':') {
-            Some((h, p)) => (h, p, false),
-            None => (authority, "", false),
-        }
+    let host = parsed.host().ok_or_else(|| failed.clone())?;
+    let is_loopback = match host {
+        Host::Domain(domain) => domain.eq_ignore_ascii_case("localhost"),
+        Host::Ipv4(ip) => ip.is_loopback(),
+        Host::Ipv6(ip) => ip.is_loopback(),
     };
-    if host.is_empty() || host.contains('@') || (!bracketed && host.contains(':')) {
-        return Err(failed);
-    }
-    if !port.is_empty() && !port.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(failed);
-    }
-    if host.eq_ignore_ascii_case("localhost") || is_loopback_ip(host) {
+    if is_loopback {
         return Err(loopback);
     }
     Ok(())
 }
 
-fn is_loopback_ip(host: &str) -> bool {
-    if host == "::1" {
-        return true;
-    }
-    let mut parts = host.split('.');
-    let first = parts.next();
-    if first != Some("127") {
-        return false;
-    }
-    let mut count = 1;
-    for part in parts {
-        count += 1;
-        if part.is_empty() || part.len() > 3 || !part.bytes().all(|b| b.is_ascii_digit()) {
-            return false;
+fn valid_percent_escapes(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            at += 3;
+        } else {
+            at += 1;
         }
     }
-    count == 4
+    true
 }
 
 #[cfg(test)]
@@ -223,6 +214,7 @@ mod tests {
     #[test]
     fn media_url_boundaries() {
         assert!(media_base_url("https://example.invalid/rootfs").is_ok());
+        assert!(media_base_url("https://example.invalid/rootfs?").is_ok());
         assert!(media_base_url("http://192.168.122.1:8080/").is_ok());
         for bad in [
             "",
@@ -234,6 +226,10 @@ mod tests {
             "https://host:abc/x",
             "HTTPS://host/x",
             "https://ho st/x",
+            "https://host\\x",
+            "https://host:65536/x",
+            "https://host/x?token=x",
+            "https://host/x#f",
             "not-a-url",
         ] {
             assert_eq!(
@@ -247,6 +243,8 @@ mod tests {
             "http://127.0.0.1:8080/x",
             "http://[::1]:8080/x",
             "https://LOCALHOST/",
+            "https://0177.0.0.1/",
+            "https://2130706433/",
         ] {
             assert_eq!(
                 media_base_url(loopback).unwrap_err(),

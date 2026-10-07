@@ -5,6 +5,8 @@ fn oracle_media_url_has_no_credentials_or_mutable_query() {
     // Oracle: Go TestMediaURLHasNoCredentialsOrMutableQuery.
     assert!(media_base_url("https://example.invalid/rootfs").is_ok());
     assert!(media_base_url("http://example.invalid/rootfs").is_ok());
+    assert!(media_base_url("https://example.invalid/rootfs?").is_ok());
+    assert!(media_base_url("https://example.invalid/rootfs#").is_ok());
     for bad in [
         "https://user@example.invalid/rootfs",
         "https://example.invalid/rootfs?tag=latest",
@@ -12,8 +14,12 @@ fn oracle_media_url_has_no_credentials_or_mutable_query() {
         "ftp://example.invalid/rootfs",
         "https:///noroot",
         "https://example.invalid/has space",
+        "https://example.invalid\\path",
+        "https://example.invalid/%zz",
         "https://localhost/rootfs",
         "https://127.0.0.1/rootfs",
+        "https://0177.0.0.1/rootfs",
+        "https://2130706433/rootfs",
         "https://[::1]/rootfs",
         "not-a-url",
         "",

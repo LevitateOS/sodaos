@@ -55,16 +55,25 @@ fn mode(path: &Path) -> u32 {
 }
 
 #[test]
-fn query_escape_matches_go() {
-    assert_eq!(query_escape("muse-x86-linux"), "muse-x86-linux");
-    assert_eq!(query_escape("1.4.0-R4161.1"), "1.4.0-R4161.1");
-    assert_eq!(query_escape("a b"), "a+b");
-    assert_eq!(query_escape("a/b?c=d&e"), "a%2Fb%3Fc%3Dd%26e");
-    assert_eq!(query_escape("~tilde"), "~tilde");
+fn download_form_keeps_named_pairs_and_order() {
+    let url = download_url("https://host/dl/", "1.0.0-R1.1", "f");
+    let pairs: Vec<_> = url::form_urlencoded::parse(url.split_once('?').unwrap().1.as_bytes())
+        .map(|(key, value)| (key.into_owned(), value.into_owned()))
+        .collect();
     assert_eq!(
-        download_url("https://host/dl/", "1.0.0-R1.1", "f"),
-        "https://host/dl/?channel=muse&file=f&version=1.0.0-R1.1"
+        pairs,
+        [
+            ("channel".to_owned(), "muse".to_owned()),
+            ("file".to_owned(), "f".to_owned()),
+            ("version".to_owned(), "1.0.0-R1.1".to_owned()),
+        ]
     );
+    let corner = download_url("https://host/dl/", "v +~", "a/b?c=d&e");
+    let pairs: Vec<_> = url::form_urlencoded::parse(corner.split_once('?').unwrap().1.as_bytes())
+        .map(|(key, value)| (key.into_owned(), value.into_owned()))
+        .collect();
+    assert_eq!(pairs[1], ("file".to_owned(), "a/b?c=d&e".to_owned()));
+    assert_eq!(pairs[2], ("version".to_owned(), "v +~".to_owned()));
 }
 
 #[test]

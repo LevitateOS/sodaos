@@ -3,6 +3,7 @@ use bytes::Bytes;
 use http_body_util::Full;
 use hyper::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE, X_CONTENT_TYPE_OPTIONS};
 use hyper::{Response, StatusCode};
+use percent_encoding::percent_decode_str;
 
 pub(crate) const MAX_BODY: usize = 512 << 10;
 pub(crate) const MAX_HEADER: usize = 8192;
@@ -15,26 +16,32 @@ pub(crate) struct HttpRequest {
 }
 
 pub(crate) fn percent_decode(input: &str) -> Result<String, String> {
+    if !valid_percent_escapes(input) {
+        return Err("invalid percent encoding".to_string());
+    }
+    percent_decode_str(input)
+        .decode_utf8()
+        .map(|decoded| decoded.into_owned())
+        .map_err(|_| "invalid percent encoding".to_string())
+}
+
+fn valid_percent_escapes(input: &str) -> bool {
     let bytes = input.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' {
-            if i + 2 >= bytes.len() {
-                return Err("invalid percent encoding".to_string());
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
             }
-            let hex = std::str::from_utf8(&bytes[i + 1..i + 3])
-                .map_err(|_| "invalid percent encoding".to_string())?;
-            out.push(
-                u8::from_str_radix(hex, 16).map_err(|_| "invalid percent encoding".to_string())?,
-            );
-            i += 3;
+            at += 3;
         } else {
-            out.push(bytes[i]);
-            i += 1;
+            at += 1;
         }
     }
-    String::from_utf8(out).map_err(|_| "invalid percent encoding".to_string())
+    true
 }
 
 pub(crate) fn success_response(output: &Option<Vec<u8>>) -> Response<Full<Bytes>> {

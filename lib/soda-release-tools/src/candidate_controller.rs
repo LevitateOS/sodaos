@@ -5,6 +5,7 @@
 use std::io::{BufRead, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicI32, Ordering};
+use url::{Host, Url};
 
 use crate::candidate::{describe, monotonic_ns, Options};
 use crate::candidate_display::{is_terminal, term_width, Renderer};
@@ -162,16 +163,41 @@ pub fn file_built_rootfs(o: &Options, stderr: &mut dyn Write) -> Result<(), Stri
 }
 
 fn url_hostname(url: &str) -> String {
-    let Some((scheme, rest)) = url.split_once("://") else {
+    if url.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\') || !valid_percent_escapes(url) {
+        return String::new();
+    }
+    let Some((_, rest)) = url.split_once("://") else {
         return String::new();
     };
-    if scheme.is_empty() {
+    if rest.split(['/', '?', '#']).next().is_none_or(str::is_empty) {
         return String::new();
     }
-    let authority = rest.split('/').next().unwrap_or_default();
-    if let Some(bracketed) = authority.strip_prefix('[') {
-        return bracketed.split(']').next().unwrap_or_default().to_owned();
+    let Ok(parsed) = Url::parse(url) else {
+        return String::new();
+    };
+    match parsed.host() {
+        Some(Host::Domain(host)) => host.to_owned(),
+        Some(Host::Ipv4(host)) => host.to_string(),
+        Some(Host::Ipv6(host)) => host.to_string(),
+        None => String::new(),
     }
-    let host_port = authority.split('@').next_back().unwrap_or_default();
-    host_port.split(':').next().unwrap_or_default().to_owned()
+}
+
+fn valid_percent_escapes(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            at += 3;
+        } else {
+            at += 1;
+        }
+    }
+    true
 }

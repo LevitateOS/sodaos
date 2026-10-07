@@ -12,25 +12,31 @@ fn oracle_prefix_and_digest_shapes() {
 }
 
 #[test]
-fn oracle_url_parser_matches_go_probe() {
-    // Oracle: /tmp/urlprobe vectors from the real Go url.Parse.
+fn url_parser_preserves_metadata_policy_fields() {
     let upper = parse_url("HTTPS://Example.COM:8080/p").unwrap();
     assert_eq!(upper.scheme, "https");
-    assert_eq!(upper.hostname, "Example.COM");
+    assert_eq!(upper.hostname, "example.com");
     assert!(parse_url("https://h:bad/p").is_none());
-    assert_eq!(parse_url("https:///p").unwrap().host, "");
+    assert!(parse_url("https:///p").is_none());
     assert!(parse_url("https://h p/").is_none());
     assert!(parse_url("https://[::1]/p").unwrap().hostname == "::1");
+    assert_eq!(
+        parse_url("https://2130706433/p").unwrap().hostname,
+        "127.0.0.1"
+    );
     assert!(https_url(
         "https://example.invalid/builds/1.0.0.0/release.json"
     ));
     assert!(!https_url("http://example.invalid/x"));
     assert!(!https_url("https://example.invalid/x?"));
+    assert!(!https_url("https://example.invalid/x#"));
     assert!(is_loopback_addr("127.0.0.1"));
     assert!(is_loopback_addr("::1"));
     assert!(is_loopback_addr("0:0:0:0:0:0:0:1"));
     assert!(!is_loopback_addr("10.0.0.1"));
     assert!(!is_loopback_addr("::ffff:127.0.0.1"));
+    assert!(is_loopback_addr("2130706433"));
+    assert!(is_loopback_addr("0177.0.0.1"));
     assert!(!is_loopback_addr("example.invalid"));
 }
 

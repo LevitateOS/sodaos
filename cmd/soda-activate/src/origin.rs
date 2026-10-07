@@ -1,4 +1,5 @@
 use std::net::IpAddr;
+use url::Url;
 
 use crate::system::{runtime, usage, ActivateError};
 
@@ -113,67 +114,49 @@ pub(crate) struct OriginParts {
     pub(crate) port_present: bool,
 }
 
-fn split_origin(value: &str) -> Result<(String, String, String, String, String), ActivateError> {
-    // Split into (scheme, authority, path, query, fragment). Bracket errors
-    // raise in urlsplit, so they are runtime failures here too.
-    let (scheme, rest) = value
+fn split_origin(value: &str) -> Result<Url, ActivateError> {
+    if value.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\')
+        || !value.contains("://")
+        || !valid_percent_escapes(value)
+    {
+        return Err(usage("invalid HTTPS browser origin"));
+    }
+    let (_, rest) = value
         .split_once("://")
         .ok_or_else(|| usage("invalid HTTPS browser origin"))?;
-    let frag_at = rest.find('#');
-    let query_at = rest.find('?');
-    let (before_frag, fragment) = match frag_at {
-        Some(at) => (&rest[..at], &rest[at + 1..]),
-        None => (rest, ""),
-    };
-    let (authority_path, query) = match query_at {
-        Some(at) if frag_at.is_none_or(|fat| at < fat) => {
-            (&before_frag[..at], &before_frag[at + 1..])
-        }
-        _ => (before_frag, ""),
-    };
-    let split_at = authority_path.find('/').unwrap_or(authority_path.len());
-    let (authority, path) = authority_path.split_at(split_at);
-    if authority.contains('[') || authority.contains(']') {
-        if !authority.starts_with('[') {
-            return Err(runtime(format!("invalid IPv6 URL in {value:?}")));
-        }
-        let end = authority
-            .find(']')
-            .ok_or_else(|| runtime(format!("invalid IPv6 URL in {value:?}")))?;
-        let after = &authority[end + 1..];
-        if !after.is_empty() && !after.starts_with(':') {
-            return Err(runtime(format!("invalid IPv6 URL in {value:?}")));
-        }
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if authority.is_empty()
+        || authority.starts_with('[')
+            && authority
+                .split_once(']')
+                .is_some_and(|(inside, _)| inside.contains('%'))
+    {
+        return Err(usage("invalid HTTPS browser origin"));
     }
-    Ok((
-        scheme.to_string(),
-        authority.to_string(),
-        path.to_string(),
-        query.to_string(),
-        fragment.to_string(),
-    ))
+    let path = rest
+        .find('/')
+        .map(|at| rest[at..].split(['?', '#']).next().unwrap_or(""))
+        .unwrap_or("");
+    if !matches!(path, "" | "/") {
+        return Err(usage("invalid HTTPS browser origin"));
+    }
+    Url::parse(value).map_err(|_| usage("invalid HTTPS browser origin"))
 }
 
 pub(crate) fn check_browser_origin(value: &str) -> Result<(), ActivateError> {
-    let (scheme, authority, path, query, fragment) = split_origin(value)?;
-    if !scheme.eq_ignore_ascii_case("https") {
+    let parsed = split_origin(value)?;
+    if parsed.scheme() != "https" {
         return Err(usage("invalid HTTPS browser origin"));
     }
-    let hostname = authority.rsplit('@').next().unwrap_or("");
-    let hostname = hostname.strip_suffix(':').unwrap_or(hostname);
-    let hostname = if hostname.starts_with('[') {
-        hostname
-            .find(']')
-            .map(|end| &hostname[1..end])
-            .unwrap_or("")
-    } else {
-        hostname.split(':').next().unwrap_or("")
+    let Some(hostname) = parsed.host().map(host_to_string) else {
+        return Err(usage("invalid HTTPS browser origin"));
     };
     if hostname.is_empty() {
         return Err(usage("invalid HTTPS browser origin"));
     }
-    if authority.contains('@') {
-        let userinfo = authority.rsplit('@').nth(1).unwrap_or("");
+    let authority = raw_authority(value);
+    if authority.is_some_and(|authority| authority.contains('@')) {
+        let userinfo = authority.unwrap().rsplit('@').nth(1).unwrap_or("");
         let (username, password) = match userinfo.split_once(':') {
             Some((u, p)) => (u, Some(p)),
             None => (userinfo, None),
@@ -182,10 +165,14 @@ pub(crate) fn check_browser_origin(value: &str) -> Result<(), ActivateError> {
             return Err(usage("invalid HTTPS browser origin"));
         }
     }
-    if !query.is_empty() || !fragment.is_empty() {
+    if parsed.query().is_some_and(|query| !query.is_empty())
+        || parsed
+            .fragment()
+            .is_some_and(|fragment| !fragment.is_empty())
+    {
         return Err(usage("invalid HTTPS browser origin"));
     }
-    if !path.is_empty() && path != "/" {
+    if !matches!(parsed.path(), "" | "/") {
         return Err(usage("invalid HTTPS browser origin"));
     }
     if value.contains(['\r', '\n']) {
@@ -195,42 +182,58 @@ pub(crate) fn check_browser_origin(value: &str) -> Result<(), ActivateError> {
 }
 
 pub(crate) fn origin_host_port(value: &str) -> Result<OriginParts, ActivateError> {
-    let (_, authority, _, _, _) = split_origin(value)?;
+    let parsed = split_origin(value)?;
+    let hostname = parsed.host().map(host_to_string).unwrap_or_default();
+    let authority = raw_authority(value).unwrap_or("");
     let hostport = authority.rsplit('@').next().unwrap_or("");
-    if hostport.starts_with('[') {
-        let end = hostport
-            .find(']')
-            .ok_or_else(|| usage("invalid HTTPS browser origin"))?;
-        let hostname = hostport[1..end].to_ascii_lowercase();
-        let rest = &hostport[end + 1..];
-        let port = if let Some(number) = rest.strip_prefix(':') {
-            Some(
-                number
-                    .parse::<u16>()
-                    .map_err(|_| runtime(format!("invalid port in {value:?}")))?,
-            )
-        } else {
-            None
-        };
-        return Ok(OriginParts {
-            hostname,
-            port_present: port.is_some(),
-            port,
-        });
-    }
-    let (hostname, port) = match hostport.split_once(':') {
-        Some((h, p)) => (
-            h,
-            Some(
-                p.parse::<u16>()
-                    .map_err(|_| runtime(format!("invalid port in {value:?}")))?,
-            ),
-        ),
-        None => (hostport, None),
+    let raw_port = if hostport.starts_with('[') {
+        hostport
+            .split_once(']')
+            .and_then(|(_, rest)| rest.strip_prefix(':'))
+    } else {
+        hostport.rsplit_once(':').map(|(_, port)| port)
     };
+    let port = raw_port
+        .map(|raw| {
+            raw.parse::<u16>()
+                .map_err(|_| runtime(format!("invalid port in {value:?}")))
+        })
+        .transpose()?;
     Ok(OriginParts {
-        hostname: hostname.to_ascii_lowercase(),
-        port_present: port.is_some(),
+        hostname,
+        port_present: raw_port.is_some(),
         port,
     })
+}
+
+fn raw_authority(value: &str) -> Option<&str> {
+    let (_, rest) = value.split_once("://")?;
+    Some(rest.split(['/', '?', '#']).next().unwrap_or(""))
+}
+
+fn host_to_string(host: url::Host<&str>) -> String {
+    match host {
+        url::Host::Domain(domain) => domain.to_owned(),
+        url::Host::Ipv4(address) => address.to_string(),
+        url::Host::Ipv6(address) => address.to_string(),
+    }
+}
+
+fn valid_percent_escapes(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            at += 3;
+        } else {
+            at += 1;
+        }
+    }
+    true
 }

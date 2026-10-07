@@ -1,5 +1,6 @@
 use crate::gmux_admission::{body_limit_for, RequestHead};
 use hyper::{body::Incoming, Request};
+use percent_encoding::percent_decode_str;
 use std::time::Duration;
 
 pub const MAX_HEADER: usize = 8192;
@@ -72,21 +73,30 @@ pub async fn read_body(mut body: Incoming, path: &str) -> Result<(Vec<u8>, bool)
 }
 
 fn percent_decode(input: &str) -> Result<String, ()> {
-    let raw = input.as_bytes();
-    let mut out = Vec::with_capacity(raw.len());
-    let mut i = 0;
-    while i < raw.len() {
-        if raw[i] == b'%' {
-            if i + 2 >= raw.len() {
-                return Err(());
+    if !valid_percent_escapes(input) {
+        return Err(());
+    }
+    percent_decode_str(input)
+        .decode_utf8()
+        .map(|decoded| decoded.into_owned())
+        .map_err(|_| ())
+}
+
+fn valid_percent_escapes(input: &str) -> bool {
+    let bytes = input.as_bytes();
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
             }
-            let hex = std::str::from_utf8(&raw[i + 1..i + 3]).map_err(|_| ())?;
-            out.push(u8::from_str_radix(hex, 16).map_err(|_| ())?);
-            i += 3;
+            at += 3;
         } else {
-            out.push(raw[i]);
-            i += 1;
+            at += 1;
         }
     }
-    String::from_utf8(out).map_err(|_| ())
+    true
 }

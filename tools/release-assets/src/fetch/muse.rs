@@ -10,6 +10,7 @@ use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::value::RawValue;
 use soda_build_tools::reader::muse::{valid_muse_artifact, MuseArtifact};
+use url::form_urlencoded::Serializer;
 
 pub const DOWNLOAD_BASE: &str = "https://lookaside.facebook.com/lookaside/muse/download/";
 /// The Go HTTP client sends this by default; the endpoint has only ever
@@ -21,30 +22,14 @@ const MANIFEST_LIMIT: usize = 8192;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-/// Go `url.QueryEscape` for the download query: alphanumerics and `-_.~`
-/// verbatim, space as `+`, everything else `%XX`.
-fn query_escape(value: &str) -> String {
-    let mut out = String::new();
-    for byte in value.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(byte as char)
-            }
-            b' ' => out.push('+'),
-            _ => out.push_str(&format!("%{byte:02X}")),
-        }
-    }
-    out
-}
-
-/// `url.Values{"channel", "file", "version"}.Encode()`: keys sorted,
-/// values escaped, appended to the download base.
+/// The endpoint consumes named form pairs; retain its established key order.
 fn download_url(base: &str, version: &str, file: &str) -> String {
-    format!(
-        "{base}?channel=muse&file={}&version={}",
-        query_escape(file),
-        query_escape(version)
-    )
+    let query = Serializer::new(String::new())
+        .append_pair("channel", "muse")
+        .append_pair("file", file)
+        .append_pair("version", version)
+        .finish();
+    format!("{base}?{query}")
 }
 
 /// A string field: missing and null decode to zero like Go; any other

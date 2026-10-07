@@ -173,7 +173,7 @@ fn expanded_redaction_is_bounded_and_sticky() {
 fn tiny_split_url_stream_keeps_only_safe_components() {
     let fixture = Fixture::new(&["known-secret"]);
     let mut writer = fixture.evidence.writer("split").unwrap();
-    let input = b"KEEP\xff known-secret HTTPS://user:pw@h?token=unknown-token https://h/%zz?bad=unknown-percent https://h\\?token=unknown-backslash https://h/path\xff?token=unknown-binary Z\0";
+    let input = b"KEEP\xff known-secret HTTPS://user:pw@h?token=unknown-token https://h/%zz?bad=unknown-percent https://h\\?token=unknown-backslash https://h/path\xff?token=unknown-binary https://user:pw@h#unknown-fragment Z\0";
     for byte in input {
         writer.write_bytes(std::slice::from_ref(byte)).unwrap();
     }
@@ -185,6 +185,7 @@ fn tiny_split_url_stream_keeps_only_safe_components() {
         b"unknown-percent",
         b"unknown-backslash",
         b"unknown-binary",
+        b"unknown-fragment",
         b"user:pw",
     ] {
         assert!(
@@ -201,7 +202,7 @@ fn tiny_split_url_stream_keeps_only_safe_components() {
         "unrelated binary suffix lost: {retained:?}"
     );
     assert!(
-        contains_slice(&retained, b"HTTPS://h"),
+        contains_slice(&retained, b"https://h/"),
         "safe authority lost: {retained:?}"
     );
 }
@@ -380,7 +381,7 @@ fn finalization_does_not_publish_failed_or_occupied_attempts() {
 }
 
 #[test]
-fn url_shapes_match_go() {
+fn url_spans_use_safe_url_sanitization() {
     assert_eq!(redact_urls("no url here"), "no url here");
     assert_eq!(
         redact_urls("see https://example.test/callback?code=x&state=y done"),
@@ -394,11 +395,12 @@ fn url_shapes_match_go() {
     assert_eq!(redact_urls("http://[::1/x"), "[URL OMITTED]");
     assert_eq!(redact_urls("https://h/%zz"), "[URL OMITTED]");
     assert_eq!(redact_urls("https://h/a%20b?x=1"), "https://h/a%20b");
-    assert_eq!(redact_urls("HTTPS://h?token=secret"), "HTTPS://h");
-    assert_eq!(redact_urls("http://user:pass@h?token=secret"), "http://h");
+    assert_eq!(redact_urls("HTTPS://h?token=secret"), "https://h/");
+    assert_eq!(redact_urls("https://h#fragment-secret"), "https://h/");
+    assert_eq!(redact_urls("http://user:pass@h?token=secret"), "http://h/");
     assert_eq!(
         redact_urls("https://h/path\u{00ff}?token=secret"),
-        "[URL OMITTED]"
+        "https://h/path%C3%BF"
     );
     assert_eq!(redact_urls("https://user%40hidden@h/path"), "[URL OMITTED]");
     assert_eq!(
@@ -406,7 +408,7 @@ fn url_shapes_match_go() {
         "[URL OMITTED]"
     );
     assert_eq!(redact_urls("https://h\\?token=secret"), "[URL OMITTED]");
-    // Go's URL class keeps single quotes inside the match.
+    // The matched token boundary keeps single quotes inside the URL span.
     assert_eq!(
         redact_urls("see https://h/a'b?x=1 done"),
         "see https://h/a'b done"

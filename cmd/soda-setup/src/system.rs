@@ -24,9 +24,8 @@ pub(crate) const POSTGRES_SOCKET_DIR: &str = "/run/soda/postgres";
 pub(crate) const FORGEJO_TIMEOUT: Duration = Duration::from_secs(30);
 pub(crate) const FORGEJO_RESPONSE_LIMIT: usize = 2 * 1024 * 1024;
 
-// Minimal libc surface (chown/geteuid/errno) declared directly so this crate
-// stays dependency-free and offline-buildable; the full libc crate is not
-// vendored in this tree.
+// Narrow local libc declarations for ownership and process identity.
+// HTTP and URL formats are handled by the selected network libraries.
 #[link(name = "c")]
 extern "C" {
     fn geteuid() -> u32;

@@ -13,7 +13,9 @@ use hyper::body::{Body, Bytes, Frame, Incoming, SizeHint};
 use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
 use hyper_util::rt::{TokioIo, TokioTimer};
+use percent_encoding::percent_decode_str;
 use tokio::io::{AsyncRead, ReadBuf};
+use url::{Host, Url};
 
 use crate::candidate::Options;
 use crate::worker::lookup_user;
@@ -31,43 +33,57 @@ pub fn default_rootfs_dir(o: &mut Options) -> Result<(), String> {
     Ok(())
 }
 
-fn url_host(url: &str) -> Option<String> {
-    let rest = url.split("://").nth(1)?;
-    let authority = rest.split('/').next().unwrap_or_default();
-    let authority = authority.split(['?', '#']).next().unwrap_or_default();
-    if authority.is_empty() {
+fn pickup_url(url: &str) -> Option<(Host<String>, Option<u16>)> {
+    if url.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\') || !valid_percent_escapes(url) {
         return None;
     }
-    if let Some(bracketed) = authority.strip_prefix('[') {
-        return bracketed.split(']').next().map(str::to_owned);
+    let (_, rest) = url.split_once("://")?;
+    let authority = rest.split(['/', '?', '#']).next()?;
+    if authority.is_empty()
+        || authority.starts_with('[')
+            && authority
+                .split_once(']')
+                .is_some_and(|(inside, _)| inside.contains('%'))
+    {
+        return None;
     }
-    Some(
-        authority
-            .split('@')
-            .next_back()
-            .unwrap_or_default()
-            .split(':')
-            .next()
-            .unwrap_or_default()
-            .to_owned(),
-    )
+    let hostport = authority.rsplit('@').next()?;
+    let port_text = if hostport.starts_with('[') {
+        hostport.split_once(']')?.1.strip_prefix(':')
+    } else {
+        hostport.rsplit_once(':').map(|(_, port)| port)
+    };
+    let port = match port_text {
+        Some(text) if !text.is_empty() => Some(text.parse::<u16>().ok().filter(|port| *port != 0)?),
+        Some(_) => return None,
+        None => None,
+    };
+    let parsed = Url::parse(url).ok()?;
+    let host = match parsed.host()? {
+        Host::Domain(host) => Host::Domain(host.to_owned()),
+        Host::Ipv4(host) => Host::Ipv4(host),
+        Host::Ipv6(host) => Host::Ipv6(host),
+    };
+    Some((host, port))
 }
 
-fn url_port(url: &str) -> Option<String> {
-    let rest = url.split("://").nth(1)?;
-    let authority = rest.split('/').next().unwrap_or_default();
-    if let Some(bracketed) = authority.strip_prefix('[') {
-        let after = bracketed.split(']').nth(1).unwrap_or_default();
-        return after
-            .strip_prefix(':')
-            .map(str::to_owned)
-            .filter(|p| !p.is_empty());
+fn valid_percent_escapes(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            at += 3;
+        } else {
+            at += 1;
+        }
     }
-    let host_port = authority.split('@').next_back().unwrap_or_default();
-    host_port
-        .split_once(':')
-        .map(|(_, p)| p.to_owned())
-        .filter(|p| !p.is_empty())
+    true
 }
 
 /// Report whether the wrapper should serve the pickup address itself.
@@ -75,25 +91,31 @@ pub fn fixture_wanted(mode: &str, rootfs_url: &str) -> bool {
     if mode != "media" {
         return false;
     }
-    if !rootfs_url.contains("://") {
-        return false;
-    }
-    match url_host(rootfs_url) {
-        Some(host) => host == "127.0.0.1" || host == "localhost" || host == "::1",
+    match pickup_url(rootfs_url)
+        .filter(|(_, port)| port.is_none_or(|port| port != 0))
+        .map(|(host, _)| host)
+    {
+        Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        Some(Host::Ipv4(host)) => host.is_loopback(),
+        Some(Host::Ipv6(host)) => host.is_loopback(),
         None => false,
     }
 }
 
 /// Split the pickup URL into a listen address for the file server.
 pub fn fixture_addr(rootfs_url: &str) -> Result<String, String> {
-    let mut host = url_host(rootfs_url).unwrap_or_default();
-    if host == "localhost" {
-        host = "127.0.0.1".to_owned();
-    }
-    let port = url_port(rootfs_url).unwrap_or_default();
-    if host.is_empty() || port.is_empty() {
-        return Err("rootfs URL needs an explicit port".to_owned());
-    }
+    let (host, port) = pickup_url(rootfs_url)
+        .filter(|(host, _)| match host {
+            Host::Domain(host) => host.eq_ignore_ascii_case("localhost"),
+            Host::Ipv4(host) => host.is_loopback(),
+            Host::Ipv6(host) => host.is_loopback(),
+        })
+        .ok_or_else(|| "rootfs URL needs an explicit loopback port".to_owned())?;
+    let port = port.ok_or_else(|| "rootfs URL needs an explicit loopback port".to_owned())?;
+    let host = match host {
+        Host::Domain(_) | Host::Ipv4(_) => "127.0.0.1".to_owned(),
+        Host::Ipv6(host) => host.to_string(),
+    };
     if host.contains(':') {
         Ok(format!("[{host}]:{port}"))
     } else {
@@ -336,30 +358,7 @@ impl Body for FixtureBody {
 }
 
 fn percent_decode(s: &str) -> String {
-    let mut out = Vec::with_capacity(s.len());
-    let bytes = s.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let (Some(h), Some(l)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
-                out.push(h * 16 + l);
-                i += 3;
-                continue;
-            }
-        }
-        out.push(bytes[i]);
-        i += 1;
-    }
-    String::from_utf8_lossy(&out).into_owned()
-}
-
-fn hex_val(b: u8) -> Option<u8> {
-    match b {
-        b'0'..=b'9' => Some(b - b'0'),
-        b'a'..=b'f' => Some(b - b'a' + 10),
-        b'A'..=b'F' => Some(b - b'A' + 10),
-        _ => None,
-    }
+    percent_decode_str(s).decode_utf8_lossy().into_owned()
 }
 
 /// File the produced image into the served directory; report the pickup name.

@@ -28,6 +28,10 @@ fn fixture_wanted_matrix() {
     assert!(!fixture_wanted("candidate", "http://127.0.0.1:8080"));
     assert!(!fixture_wanted("", "http://127.0.0.1:8080"));
     assert!(!fixture_wanted("media", "://bogus"));
+    assert!(fixture_wanted("media", "http://2130706433:8080"));
+    assert!(!fixture_wanted("media", "http://127.0.0.1:0"));
+    assert!(!fixture_wanted("media", "http://127.0.0.1:65536"));
+    assert!(fixture_wanted("media", "http://127.0.0.1"));
 }
 
 #[test]
@@ -37,6 +41,12 @@ fn fixture_addr_matrix() {
         "127.0.0.1:8080"
     );
     assert!(fixture_addr("http://127.0.0.1/").is_err());
+    assert_eq!(
+        fixture_addr("http://2130706433:8080").unwrap(),
+        "127.0.0.1:8080"
+    );
+    assert!(fixture_addr("http://127.0.0.1:0").is_err());
+    assert!(fixture_addr("http://127.0.0.1").is_err());
 }
 
 fn http_get(addr: &str, path: &str) -> (u16, Vec<u8>) {
