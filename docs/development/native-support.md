@@ -437,6 +437,14 @@ metadata admits at most 16,384 distinct raw/escaped patterns within a 16 MiB
 budget, with conservative allowance for escaping before copying inputs. Exceeding
 these limits is an evidence failure; structured output is never silently truncated.
 
+Before evidence creation or capture, secret collection separately admits at most
+16,384 nonempty candidates and 16 MiB cumulative candidate bytes across all
+secret-file and Ignition inputs. Duplicates and required derived variants consume
+that budget. Private-file/URI staging keeps its existing per-file bound; gzip
+expansion and retained variant copies also respect the remaining collection
+budget. The later escaped-pattern admission can refuse earlier and remains a
+separate bound. Any refusal prevents capture and final publication.
+
 QMP uses one finite phase across connection, capability negotiation, writes and
 response matching, including buffered events. Command and VM capture pumps retain
 the operation phase; pipes held past that phase produce an incomplete-capture

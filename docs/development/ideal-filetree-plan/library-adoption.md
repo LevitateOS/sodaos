@@ -8,7 +8,7 @@ defines their library-adoption packets; it is not another queue or architecture.
 The [current task status](implementation-tasks.md#selected-library-adoption-subpackets)
 records L00 initial preparation, L01–L09, L11–L15 and L18 complete at their
 documented source scopes. L10.N3 is complete and L10.N4 remains held. Optional
-L16 adoption is deferred; L16.G aggregate input collection remains open.
+L16 adoption is deferred; L16.G aggregate input collection is complete in `7334f36b`.
 L17 evidence and candidate assessment are complete; CFG01 cutover remains held.
 Later cutovers retain their scoped authorization and admission checks.
 
@@ -67,7 +67,7 @@ qualification duties.
 | L13 Archive and release formats | C | A04, C08/C09/C10 | Complete through `46d5c4cd`; trailer/budget repairs preceded format transfers |
 | L14 CLI and target discovery | C | C05/C08/C09/C11 | Complete through `c82125ee` after CLI/metadata profile and dependency admission |
 | L15 SDK input admission | B | B06, C01 | Complete at `c92db11c14` in the exact sibling checkout; retain meaningful per-dial credential transport |
-| L16 Evidence matching | C | C11 | Consideration complete; optional adoption deferred. L16.G aggregate secret collection remains open before any cutover; preserve completed L01/L12 repairs |
+| L16 Evidence matching | C | C11 | Consideration complete; optional adoption deferred. L16.G aggregate secret collection is complete in `7334f36b`; preserve completed L01/L12 repairs |
 | L17 Configuration evidence | C | C05/C09 | Native evidence and candidate assessment complete; rust-ini 0.21.3 fails continuation admission, so CFG01 cutover is held; CFG02 retained independently |
 | L18 Dead machinery removal | C | C05/C11, A/B handoffs | Complete in `eaed66a9`: N11/TMP02/DEAD01 retired after current reference and retained-duty checks |
 
@@ -881,20 +881,23 @@ within 16 MiB, and preserves the 16 MiB output/pending/tee limits documented in
 [native support](../native-support.md). These are per-input or admitted-set
 bounds, not a bound on collection before admission.
 
-**L16.G — aggregate input prerequisite, owner C:**
-`driver/inputs.rs::read_secret_files` accumulates raw and trimmed copies for
-repeated `--secret-file` arguments; `provisioning.rs::provisioning_secrets`
-accumulates hash/source/decoded/line variants. `collect_all_secrets` joins these
-vectors before `create_evidence` applies its pattern budget. Aggregate collection
-is therefore still open, distinct from the completed same-FD read repairs.
-Scope a follow-up to these collectors and their evidence-admission handoff;
-establish count/byte accounting before retaining, cloning or deriving values.
-Preserve complete raw/trimmed/escaped/Ignition coverage, private-file custody
-and generic errors. Prerequisites are the existing L01/L12 bounds and an explicit
-collection profile. Acceptance must cover repeated files, aggregate count/byte
-limits, many derived Ignition variants, exact-limit admission and refusal before
-capture/publication, without printing secrets or silently dropping patterns.
-This pending repair is useful independently of matcher adoption.
+**L16.G — aggregate input prerequisite, owner C: complete in `7334f36b`.**
+One collector admits at most 16,384 nonempty candidates and 16 MiB cumulative
+candidate bytes, charging duplicates as well as raw/trimmed/hash/source/decoded
+and line variants before retaining them. Secret-file arguments and Ignition share
+that owner. Borrowed Ignition admission avoids copying all source strings; the
+owned reader projects from the same shape decoder. Gzip inflation uses the lesser
+of remaining candidate bytes and its 1 MiB ceiling, with cap+one refusal. Exact
+lossy UTF-8/line byte accounting precedes derived copies. Existing private-file
+and URI decode staging remains bounded by the 1 MiB per-file input; this is not a
+global heap claim. Final escaped/deduplicated pattern admission remains distinct
+and can refuse earlier under its existing conservative escaping allowance.
+
+Luna medium independent review and ten actual collector/repeated-file/trust
+checks pass, including count/byte boundaries, many derived lines and a small key
+near the aggregate ceiling. The collection handoff precedes evidence creation,
+capture and publication. No matcher/dependency replacement, native or installed
+qualification is claimed. L01/L12 remain complete at their recorded scopes.
 
 **Optional cutover, owner C:** reconsider only after L16.G and a demonstrated
 simplification or material caller cost justify the work. Coordinate exact
@@ -1037,7 +1040,7 @@ CFG01 fit and optional L16 keep their existing owners and gates.
 | LA-G4 Encoding/trust profiles | Actual producer semantics, original signed bytes, Caddy roots and critical-extension choice | Corresponding L04/L05/L06 boundary only |
 | LA-G5 Native configuration | Native corpus collected; selected parser must pass continuation/quote/comment/effective-key and deployment override admission plus dependency closure | CFG01 parser cutover only |
 | LA-G6 External SDK | L15 exact pin/scope and cap+one source repair proved at Fountain `c92db11c14`; native authority findings retain their own gates | No remaining L15 input-repair hold |
-| LA-G7 Evidence input collection | L16.G must bound aggregate raw/trimmed/Ignition collection before current evidence admission; automaton construction budgets remain unproved | Current collection correctness and any optional L16 cutover; matcher choice does not gate this repair. Completed L01/L12 scopes remain complete |
+| LA-G7 Evidence input collection | L16.G bounds aggregate raw/trimmed/Ignition collection in `7334f36b`; automaton construction budgets remain unproved | Current collection correctness and any optional L16 cutover; matcher choice does not gate this repair. Completed L01/L12 scopes remain complete |
 
 Existing Q1–Q8 remain applicable to their domain corrections. Q9's old choice
 to maintain custom chunk decoding is superseded by the complete-driver direction
@@ -1091,7 +1094,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [WALK01](../../research/library-reuse-investigation.md#walk01) | REPLACE | L12 | C |
 | [CFG01](../../research/library-reuse-investigation.md#cfg01) | HOLD: candidate semantic fit | L17 native evidence complete; parser cutover held | C |
 | [SQLITE01](../../research/library-reuse-investigation.md#sqlite01) | RETAIN | Existing Store/probe duties retained | B |
-| [RED01](../../research/library-reuse-investigation.md#red01) | REPAIR complete in L01; matcher DEFER | L16 consideration complete; L16.G collection bound open; optional cutover deferred | C |
+| [RED01](../../research/library-reuse-investigation.md#red01) | REPAIR complete in L01; matcher DEFER | L16 consideration complete; L16.G collection bound complete; optional cutover deferred | C |
 | [CLI03](../../research/library-reuse-investigation.md#cli03) | REPLACE | L14 | C |
 | [REL01](../../research/library-reuse-investigation.md#rel01) | REPLACE | L13 | C |
 | [REL02](../../research/library-reuse-investigation.md#rel02) | CONSOLIDATE | L13 | C |

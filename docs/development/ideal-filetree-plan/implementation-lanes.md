@@ -8,7 +8,7 @@ remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. The canonical
 [current task state](implementation-tasks.md#current-task-state-2026-10-07)
 records completed L00–L09, L11–L15 and L18 source scopes, completed L10.N3,
-held L10.N4/CFG01, open L16.G and deferred optional L16 adoption.
+held L10.N4/CFG01, completed L16.G and deferred optional L16 adoption.
 Installed/native-worker qualification remains with the wider owner packets.
 
 Prepared on **2026-10-06** against clean checkout
@@ -147,7 +147,7 @@ hunk editing of a shared file as a substitute for ownership.
   Existing normal-mode restrictions
   still apply; L00 preparation and proofs are complete at their recorded scope.
   Refresh this state from the completed adoption scopes and the remaining
-  L10.N4, L16.G and CFG01 gates before dispatching new work.
+  L10.N4 and CFG01 gates before dispatching new work.
 - [ ] **R01 — Integrate each coherent packet.** Complete module/import/manifest,
   compiler, payload, source-check and caller joins in the same reviewable change.
   Commit bounded coherent batches early and often when commits are authorized;
@@ -228,7 +228,7 @@ remaining work are in the adoption chapter.
 | 9. Replace release format and CLI emulators — source complete | L13/L14 / C | Luna low after declared format/CLI profiles; Luna medium for EOF/budget/metadata ownership and independent CLI review | 656 selected tests and ten affected offline development builds pass; complete gzip, bounded extraction/shared OCI, deterministic new output, original signed bytes, actual CLI help/refusals/tails and unchanged shipping selectors are verified. Installed/shipping qualification remains separate |
 | 10. Close bounded external/configuration questions — evidence complete; CFG01 cutover held | L15 / B; L17 / C | Luna low for pinned census/corpus collection; Luna medium for demonstrated semantic mismatch | SDK input repair and retained transport checks complete at Fountain `c92db11c14`. Twenty-one native configuration cases are recorded; rust-ini 0.21.3 fails continuation admission. C owns revised fit/override/dependency checks before CFG01 cutover; CFG02 and unrelated work remain independent |
 | 11. Remove dead machinery and assess parked seams — complete at scoped source/assessment boundary | L18 / C with A/B handoffs; R02 | Luna low | `eaed66a9` retires N11/TMP02/DEAD01; 40 existing tests, eight command byte/inode/mode fixtures and three offline entrypoint builds pass. A34/C41 retained duties and optional seams are assigned to C04/A07; B27 is integrated and not replayed. Full R02 census and installed qualification remain separate |
-| 12. Consider optional matcher adoption — consideration complete; adoption deferred | L16 / C | Luna medium | Retain the matcher. L01/L12 completed scopes stand; L16.G aggregate input collection remains open. Reconsider only after that bound, demonstrated value and construction/streaming admission; no Aho-Corasick change gates step 1 or independent work |
+| 12. Consider optional matcher adoption — consideration complete; adoption deferred | L16 / C | Luna medium | Retain the matcher. L01/L12 completed scopes stand; L16.G aggregate input collection is complete in `7334f36b`. Reconsider only after that bound, demonstrated value and construction/streaming admission; no Aho-Corasick change gates step 1 or independent work |
 | 13. Qualify the integrated changed subjects — adoption source pass complete | R03.L / Coordinator; R04 remains pending | Luna low for commands/receipts; Luna medium for unresolved consequential results | Focused evidence16/16 and all-target offline Rust workspace checks pass at `d7eca882`; final unchanged-source packet receipts are reused. Native qualification requires a ready matching candidate, demonstrated producer/caller prerequisites and scoped operations; no native qualification is claimed |
 
 Completed rows are receipts for source work, not new dispatch assignments.
