@@ -4,7 +4,6 @@
 
 use crate::files::{fresh_directory, hash_file, require_native, write_new};
 use crate::http::{get_follow, HttpTransport, UreqTransport};
-use crate::json_emit::marshal_indent;
 use crate::{io_error, look_path, Error};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -90,12 +89,6 @@ pub struct VerifiedBase {
     pub release: String,
     #[serde(rename = "Signer")]
     pub signer: String,
-}
-
-impl VerifiedBase {
-    pub fn marshal(&self) -> String {
-        marshal_indent(self)
-    }
 }
 
 /// Strict metadata-URL shape shared with sibling packages.
@@ -287,11 +280,10 @@ pub fn fetch_coreos_with<T: HttpTransport>(
         release,
         signer: signer.to_ascii_uppercase(),
     };
-    write_new(
-        &out_path.join("verified-base.json"),
-        (result.marshal() + "\n").as_bytes(),
-        0o600,
-    )?;
+    let body = serde_json::to_string_pretty(&result)
+        .expect("serializing a verified base record cannot fail")
+        + "\n";
+    write_new(&out_path.join("verified-base.json"), body.as_bytes(), 0o600)?;
     Ok(result)
 }
 
@@ -391,20 +383,6 @@ mod tests {
         assert!(download_http(&stub, "https://t.test/ok", &out, 16).is_err());
         assert!(download_http(&stub, "https://t.test/ok", &dir.join("limited"), 3).is_err());
         let _ = Duration::from_secs(0);
-    }
-
-    #[test]
-    fn verified_base_marshal_shape() {
-        let base = VerifiedBase {
-            path: "/out/coreos.qcow2".to_string(),
-            sha256: "a".repeat(64),
-            architecture: "x86_64".to_string(),
-            release: "44.20260901.1.0".to_string(),
-            signer: "ABC".to_string(),
-        };
-        let text = base.marshal();
-        assert!(text.starts_with("{\n  \"Path\": "));
-        assert!(text.contains("\n  \"Signer\": \"ABC\"\n}"));
     }
 
     /// Serializes the child-process regressions: run_bounded is the only

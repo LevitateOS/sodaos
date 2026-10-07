@@ -69,10 +69,9 @@ pub fn fetch_coreos_iso_with<T: HttpTransport>(
         release,
         signer: signer.to_ascii_uppercase(),
     };
-    write_new(
-        &out_path.join("verified-iso.json"),
-        (result.marshal() + "\n").as_bytes(),
-        0o600,
-    )?;
+    let body = serde_json::to_string_pretty(&result)
+        .expect("serializing a verified base record cannot fail")
+        + "\n";
+    write_new(&out_path.join("verified-iso.json"), body.as_bytes(), 0o600)?;
     Ok(result)
 }

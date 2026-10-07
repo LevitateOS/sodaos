@@ -366,7 +366,7 @@ fn raw_tar_entry_test(name: &str, body: &[u8]) -> Vec<u8> {
 }
 
 #[test]
-fn inspect_positive_returns_go_encoder_document() {
+fn inspect_positive_returns_image_identity_json() {
     // oci.rs fixture builders are #[cfg(test)]-gated inside
     // soda-release-build, so unavailable to this crate; replicate the
     // minimal single-layer archive with raw ustar headers (no tar
@@ -412,12 +412,15 @@ fn inspect_positive_returns_go_encoder_document() {
     let file = scratch.join("image.oci");
     std::fs::write(&file, &archive).unwrap();
     let doc = inspect_artifact_oci(file.to_str().unwrap(), "x86_64", &revision).unwrap();
-    assert_eq!(
-        doc,
-        format!(
-            "{{\"Manifest\":\"sha256:{manifest_sum}\",\"Config\":\"sha256:{config_sum}\",\"Architecture\":\"amd64\",\"Revision\":\"{revision}\",\"Source\":\"https://github.com/LevitateOS/sodaos\",\"BaseName\":\"synthetic-base\",\"BaseDigest\":\"sha256:{base}\"}}"
-        )
-    );
+    let value: serde_json::Value = serde_json::from_str(&doc).unwrap();
+    assert_eq!(value["Manifest"], format!("sha256:{manifest_sum}"));
+    assert_eq!(value["Config"], format!("sha256:{config_sum}"));
+    assert_eq!(value["Architecture"], "amd64");
+    assert_eq!(value["Revision"], revision);
+    assert_eq!(value["Source"], "https://github.com/LevitateOS/sodaos");
+    assert_eq!(value["BaseName"], "synthetic-base");
+    assert_eq!(value["BaseDigest"], format!("sha256:{base}"));
+    assert_eq!(value.as_object().unwrap().len(), 7);
     assert!(!doc.ends_with('\n'));
     let _ = std::fs::remove_dir_all(&scratch);
 }

@@ -249,7 +249,7 @@ fn oracle_production_refusals() {
             }
             "tailnet" => {
                 let raw = fixture_live_inputs();
-                let mut text = raw.marshal();
+                let mut text = serde_json::to_string_pretty(&raw).unwrap();
                 text = text.replacen("\"Version\": \"1.98.2\"", "\"Version\": \"yesterday\"", 1);
                 std::fs::write(PathBuf::from(&prod.source).join("live-inputs.json"), text).unwrap();
             }

@@ -29,57 +29,9 @@ pub const LAYOUT_INDEXHASH: &str =
     "da95ff130c78dc61e49e1588584f917244d46d747c5a4c2f46ae8d05fbc62371";
 pub const LAYOUT_ERR_ARCH: &str = "expected x86_64";
 
-pub const LIVE_INPUTS_JSON: &str = r###"{
-  "CoreOS": {
-    "Release": "44.20260901.1.0",
-    "MetadataURL": "https://builds.test/prod/streams/stable/builds/44.20260901.1.0/release.json",
-    "Container": {
-      "x86_64": "quay.io/fedora/fedora-coreos@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    },
-    "ISO": {
-      "x86_64": {
-        "URL": "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso",
-        "SignatureURL": "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso.sig",
-        "SHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "UncompressedSHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-      }
-    },
-    "QEMU": {
-      "x86_64": {
-        "URL": "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso",
-        "SignatureURL": "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso.sig",
-        "SHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "UncompressedSHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-      }
-    }
-  },
-  "Tailnet": {
-    "Version": "1.98.2",
-    "SHA256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-    "Base": "docker.io/tailscale/alpine-base:3.22"
-  }
-}
-"###;
 pub const LIVE_ERR_TAILNET: &str = "invalid Tailnet version";
 pub const LIVE_ERR_RELEASE: &str = "stable stream release is malformed";
 pub const LIVE_ERR_CONTAINER: &str = "x86_64 base digest required";
-
-pub const VERIFIED_BASE_JSON: &str = r###"{
-  "Path": "$OUT/coreos.qcow2",
-  "SHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "Architecture": "x86_64",
-  "Release": "44.20260901.1.0",
-  "Signer": "ABC"
-}
-"###;
-pub const RESOLVED_INPUTS_JSON: &str = r###"[
-  {
-    "Requested": "docker.io/rockylinux/rockylinux:10.2",
-    "Reference": "docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "Config": "sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691"
-  }
-]
-"###;
 
 pub const FORGEJO_ARGV: &str = r###"--remote=false
 run
@@ -202,30 +154,6 @@ podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --bui
 STEP Export and verify image: tailnet
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/tailnet.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 "###;
-pub const APP_INPUTS_JSON: &str = r###"[
-  {
-    "Requested": "docker.io/rockylinux/rockylinux:10.2",
-    "Reference": "docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "Config": "sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691"
-  },
-  {
-    "Requested": "codeberg.org/forgejo/forgejo:15.0.9",
-    "Reference": "codeberg.org/forgejo/forgejo@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "Config": "sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691"
-  },
-  {
-    "Requested": "docker.io/library/caddy:2",
-    "Reference": "docker.io/library/caddy@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "Config": "sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691"
-  },
-  {
-    "Requested": "docker.io/tailscale/alpine-base:3.22",
-    "Reference": "docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "Config": "sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691"
-  }
-]
-"###;
-
 pub const PROGRESS_BYTES: &str = r###"LOG      $TMP/timing.log
 START    P3
 START    Compile once

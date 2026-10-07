@@ -1,10 +1,9 @@
 //! Native artifact support (`files.go`): validators, hashing, and
 //! private-output admission. No product policy or release qualification.
 
-use crate::json_emit::marshal_indent;
 use crate::{io_error, sha256_hex_stream, Error};
 use serde::de::{self, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer};
 use std::fs::{File as FsFile, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
@@ -21,32 +20,6 @@ pub struct File {
     pub mode: u32,
     pub link: String,
     pub directory: bool,
-}
-
-impl File {
-    pub fn marshal(&self) -> String {
-        marshal_indent(&FileOutput {
-            sha256: &self.sha256,
-            mode: self.mode,
-            link: &self.link,
-            directory: self.directory,
-        })
-    }
-}
-
-#[derive(Serialize)]
-struct FileOutput<'a> {
-    #[serde(rename = "sha256", skip_serializing_if = "str::is_empty")]
-    sha256: &'a str,
-    mode: u32,
-    #[serde(rename = "link", skip_serializing_if = "str::is_empty")]
-    link: &'a str,
-    #[serde(rename = "directory", skip_serializing_if = "is_false")]
-    directory: bool,
-}
-
-fn is_false(value: &bool) -> bool {
-    !value
 }
 
 impl<'de> Deserialize<'de> for File {

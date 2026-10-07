@@ -102,17 +102,17 @@ fn write_new_is_exclusive() {
 fn read_json_strict_round_trip() {
     let dir = scratch();
     let path = dir.join("file.json");
-    let file = File {
-        sha256: "a".repeat(64),
-        mode: 0o644,
-        link: String::new(),
-        directory: true,
-    };
-    let body = file.marshal() + "\n";
+    let body = format!(
+        "{{\"SHA256\":\"{}\",\"Mode\":420,\"Directory\":true}}\n",
+        "a".repeat(64)
+    );
     std::fs::write(&path, &body).unwrap();
     let root = Root::open(&dir).unwrap();
     let (back, digest) = read_json_at::<File>(&root, "file.json").unwrap();
-    assert_eq!(back, file);
+    assert_eq!(back.sha256, "a".repeat(64));
+    assert_eq!(back.mode, 0o644);
+    assert!(back.directory);
+    assert!(back.link.is_empty());
     assert_eq!(digest, crate::sha256_hex(body.as_bytes()));
     // Unknown fields and trailing data are refused.
     std::fs::write(&path, "{\"Mode\":420,\"bogus\":1}").unwrap();

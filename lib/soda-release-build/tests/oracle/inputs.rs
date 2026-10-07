@@ -4,29 +4,23 @@
 use super::{oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
 use soda_build_tools::reader::settings::soda_commands;
 use soda_release_build::confined_files::Root;
-use soda_release_build::coreos::{https_url, VerifiedBase};
+use soda_release_build::coreos::https_url;
 use soda_release_build::coreos_stream::{
     read_live_inputs, valid_live_inputs, valid_tailnet_inputs, write_live_inputs, TailnetInputs,
 };
 use soda_release_build::files::{is_digest, File};
 use soda_release_build::forgejo::{forgejo_build_args, ForgejoToolchain, FORGEJO_COMPILER_IMAGE};
-use soda_release_build::json_emit;
 use soda_release_build::json_input::{read_json, read_json_at};
 use soda_release_build::production::Production;
-use soda_release_build::production_inputs::ResolvedInput;
 use std::collections::HashMap;
 
 #[test]
-fn oracle_live_inputs_bytes() {
+fn oracle_live_inputs_write_and_read() {
     let inputs = oracle_live_inputs();
-    assert_eq!(inputs.marshal() + "\n", oracle::LIVE_INPUTS_JSON);
     let dir = scratch("live");
     let path = dir.join("live-inputs.json");
     write_live_inputs(&path, &inputs).unwrap();
-    assert_eq!(
-        std::fs::read_to_string(&path).unwrap(),
-        oracle::LIVE_INPUTS_JSON
-    );
+    assert!(std::fs::read(&path).unwrap().ends_with(b"\n"));
     assert_eq!(read_live_inputs(&path).unwrap(), inputs);
     let mut bad = inputs.clone();
     bad.tailnet.version = "yesterday".to_string();
@@ -46,29 +40,6 @@ fn oracle_live_inputs_bytes() {
         valid_live_inputs(&bad).unwrap_err().message(),
         oracle::LIVE_ERR_CONTAINER
     );
-}
-
-#[test]
-fn oracle_verified_base_bytes() {
-    let base = VerifiedBase {
-        path: "$OUT/coreos.qcow2".to_string(),
-        sha256: "a".repeat(64),
-        architecture: "x86_64".to_string(),
-        release: "44.20260901.1.0".to_string(),
-        signer: "ABC".to_string(),
-    };
-    assert_eq!(base.marshal() + "\n", oracle::VERIFIED_BASE_JSON);
-}
-
-#[test]
-fn oracle_resolved_inputs_bytes() {
-    let inputs = [ResolvedInput {
-        requested: "docker.io/rockylinux/rockylinux:10.2".to_string(),
-        reference: format!("docker.io/rockylinux/rockylinux@sha256:{}", "b".repeat(64)),
-        config: oracle::OCI_CONFIG.to_string(),
-    }];
-    let body = json_emit::marshal_indent(&inputs) + "\n";
-    assert_eq!(body, oracle::RESOLVED_INPUTS_JSON);
 }
 
 #[test]

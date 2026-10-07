@@ -1,18 +1,11 @@
-//! Rust port of `internal/release/build`: shared native build primitives
-//! (OCI inspection, CoreOS inputs, production steps). It never signs,
-//! publishes, or installs anything, matching the Go owner.
+//! Shared native build primitives: OCI inspection, CoreOS inputs, and
+//! production steps. Signing, publication, and installation belong to callers.
 //!
-//! Every pinned success output and every sentinel error message matches the
-//! Go owner byte for byte. Only unpinned failure text differs: OS error
-//! details, JSON-decode diagnostics, HTTP transport errors, and Go
-//! toolchain/exec internals. Pure validators are reused from
-//! `soda-build-tools`; this crate owns the IO, network, and pipeline logic.
-//!
-//! One deliberate deviation from the Go owner:
-//!
-//! - File modes passed to creators are applied with an explicit chmod, so
-//!   outputs are exact under any umask (identical to Go under a standard
-//!   umask, where the tests pin them).
+//! Producer records use standard Serde JSON with explicit field order and
+//! caller-owned newlines. Consumers validate decoded fields or hash newly
+//! emitted bytes; original signed inputs retain their byte identity. Pure
+//! validators come from `soda-build-tools`; this crate owns IO, network, and
+//! pipeline operations. Creators apply explicit modes under every umask.
 
 pub mod confined_files;
 pub mod coreos;
@@ -23,7 +16,6 @@ pub mod elf;
 pub mod files;
 pub mod forgejo;
 pub mod http;
-pub mod json_emit;
 pub mod json_input;
 pub mod live_inputs;
 pub mod oci;

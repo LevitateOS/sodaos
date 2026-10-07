@@ -3,7 +3,6 @@
 
 use crate::coreos_stream::{read_live_inputs, TailnetInputs};
 use crate::files::{is_digest, oci_architecture, write_new};
-use crate::json_emit::marshal_indent;
 use crate::production::Production;
 use crate::{io_error, Error};
 use serde::Serialize;
@@ -60,7 +59,9 @@ impl Production {
     }
 
     fn admit_resolved_input_record(&self, inputs: &[ResolvedInput]) -> Result<(), Error> {
-        let body = marshal_indent(inputs) + "\n";
+        let body = serde_json::to_string_pretty(inputs)
+            .expect("serializing resolved app inputs cannot fail")
+            + "\n";
         // This private, fresh production attempt owns this growing record.
         let path = PathBuf::from(&self.out).join("app-inputs.json");
         std::fs::write(&path, body.as_bytes()).map_err(|e| io_error("open", &path, e))?;

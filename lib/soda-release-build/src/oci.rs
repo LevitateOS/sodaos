@@ -4,7 +4,6 @@
 //!
 //! Identity checks adapted from soda-os bc1d3e0 release/inspection.go.
 
-use crate::json_emit::marshal_compact;
 use crate::{io_error, Error};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -45,12 +44,10 @@ pub struct Image {
 }
 
 impl Image {
-    /// Go-`Encoder`-compatible compact JSON document: struct field order
-    /// (`Manifest` first, `BaseDigest` last), Go string escaping, no
-    /// trailing newline (the calling binary's `println!` adds it, matching
-    /// `json.Encoder.Encode`).
+    /// Compact JSON document with the declared struct field order and no
+    /// trailing newline. The CLI owns its line terminator.
     pub fn marshal_compact(&self) -> String {
-        marshal_compact(self)
+        serde_json::to_string(self).expect("serializing an inspected OCI image cannot fail")
     }
 }
 

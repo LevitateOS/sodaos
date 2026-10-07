@@ -5,6 +5,7 @@ use super::{data_path, oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
 use soda_release_build::coreos_stream::write_live_inputs;
 use soda_release_build::oci::inspect_oci;
 use soda_release_build::production::Production;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -162,9 +163,36 @@ fn oracle_production_sequence() {
         .map(|call| call.replace(&root_str, "$ROOT"))
         .collect();
     assert_eq!(normalized.join("\n") + "\n", oracle::PRODUCTION_SEQUENCE);
-    let app_inputs = std::fs::read_to_string(out.join("app-inputs.json")).unwrap();
+    let app_inputs_path = out.join("app-inputs.json");
+    let app_inputs_bytes = std::fs::read(&app_inputs_path).unwrap();
+    assert!(app_inputs_bytes.ends_with(b"\n"));
     assert_eq!(
-        app_inputs.replace(&root_str, "$ROOT"),
-        oracle::APP_INPUTS_JSON
+        std::fs::metadata(&app_inputs_path)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
     );
+    let app_inputs: serde_json::Value = serde_json::from_slice(&app_inputs_bytes).unwrap();
+    let entries = app_inputs.as_array().unwrap();
+    assert_eq!(entries.len(), 4);
+    let requests = [
+        "docker.io/rockylinux/rockylinux:10.2",
+        "codeberg.org/forgejo/forgejo:15.0.9",
+        "docker.io/library/caddy:2",
+        "docker.io/tailscale/alpine-base:3.22",
+    ];
+    for (entry, request) in entries.iter().zip(requests) {
+        assert_eq!(entry["Requested"], request);
+        assert_eq!(
+            entry["Reference"],
+            format!(
+                "{}@sha256:{}",
+                request.split(':').next().unwrap(),
+                "b".repeat(64)
+            )
+        );
+        assert_eq!(entry["Config"], oracle::OCI_CONFIG);
+    }
 }

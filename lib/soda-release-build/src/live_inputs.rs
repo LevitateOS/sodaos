@@ -4,7 +4,6 @@
 
 use crate::coreos::{https_url, CoreOSImage};
 use crate::files::{is_digest, write_new};
-use crate::json_emit::marshal_indent;
 use crate::json_input::read_json;
 use crate::Error;
 use serde::de::{self, MapAccess, Visitor};
@@ -158,12 +157,6 @@ pub struct LiveInputs {
     pub tailnet: TailnetInputs,
 }
 
-impl LiveInputs {
-    pub fn marshal(&self) -> String {
-        marshal_indent(self)
-    }
-}
-
 impl<'de> Deserialize<'de> for LiveInputs {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct LiveVisitor;
@@ -206,7 +199,10 @@ impl<'de> Deserialize<'de> for LiveInputs {
 /// Records one attempt's live inputs. Validation mirrors the live path.
 pub fn write_live_inputs(path: &Path, inputs: &LiveInputs) -> Result<(), Error> {
     valid_live_inputs(inputs)?;
-    write_new(path, (inputs.marshal() + "\n").as_bytes(), 0o644)
+    let body = serde_json::to_string_pretty(inputs)
+        .expect("serializing validated live inputs cannot fail")
+        + "\n";
+    write_new(path, body.as_bytes(), 0o644)
 }
 
 /// Admits controller-resolved inputs for the isolated worker.
