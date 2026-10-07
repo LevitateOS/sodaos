@@ -9,8 +9,10 @@ for replacement are superseded. L01 and L02 are complete at their recorded
 source scopes; L03, L04 and L07 are also complete at their recorded scopes.
 L04 used medium admission/review and low caller transfer; shared-engine
 retirement ended in `229e9cce`. L00 preparation preceded L02; later unchecked
-packets retain
-their scoped implementation and admission requirements.
+packets retain their scoped implementation and admission requirements. L05/L06 are now complete
+at their source scopes in `7b42671d`/`7d063f15`, using Luna medium; CA proceeded
+independently of SSH. L08/L09 retain their already-completed source scopes.
+Installed/native-worker qualification remains with the wider owner packets.
 
 Prepared on **2026-10-06** against clean checkout
 `de65ff684c29cf9510134d01917ec4e5a7afdcc3`. Its committed delta from the audit

@@ -297,15 +297,25 @@ TBS bytes rather than a re-encoded certificate.
 
 ## rust/soda-install/src/sshkey.rs
 
-Observed size: 904 lines, including tests where embedded. CF-03 replaces the full key/certificate wire reader and serializer with ssh-key 0.6.7; CF-04 supplies named base64 0.22.1 profiles. Keep a small installer adapter and authorized_keys text/admission policy with one library key representation. The complete ordinary/certificate algorithm matrix is an acceptance gate, not separate hand-written wire modules to extract.
+Observed size: 904 lines, including tests where embedded. CF-03 replaces the full key/certificate wire reader and serializer with pinned upstream ssh-key 0.7.0-rc.11; CF-04 supplies named base64 0.22.1 profiles. Keep a small installer adapter and authorized_keys text/admission policy with one library key representation. The complete ordinary/certificate algorithm matrix is an acceptance gate, not separate hand-written wire modules to extract.
 
 - `cmd/soda-install/src/sshkey/mod.rs`
 - `cmd/soda-install/src/sshkey/authorized_keys.rs`
+- `cmd/soda-install/src/sshkey/base64.rs`
+- `cmd/soda-install/src/sshkey/wire.rs`
 - `cmd/soda-install/src/sshkey/tests.rs`
 
 Evidence: rust/soda-install/src/sshkey.rs:15-113 Go-compatible Base64 decode/encode; rust/soda-install/src/sshkey.rs:115-568 SSH wire integers, keys, certificates and marshaling; rust/soda-install/src/sshkey.rs:570-721 authorized_keys parsing, operator key policy and fingerprint; rust/soda-install/src/sshkey.rs:724-904 key vectors, unsupported types, canonicalization and codec tests.
 
-Open detail: Retire the historical base64 and wire leaves after the actual callers migrate. Retain the installer key allowlist, option/comment/newline and input-size policy; reject library Other explicitly. Use the existing RustCrypto PublicKey adapters for real ECDSA curve validation while retaining the uncompressed-point gate. Parsing a certificate does not authorize it or request Certificate::validate. Review canonical mpint/UTF8/trailing-data and padding changes through CF-03/04 fixtures, rather than retain a parallel Go-compatible parser.
+Current boundary: `wire.rs` is a small typed-key and point-admission adapter;
+`base64.rs` retains the L04 library profile. The broad key/certificate wire and
+serializer engine is removed. Keep the seven-family raw operator allowlist,
+option/comment/newline and 16 KiB input policy, explicit Other/nested-certificate
+refusal and canonical raw fingerprints. The host handles eight raw/eight
+certificate families; installer enrollment refuses DSA and certificates.
+Certificate parsing adds no trust or expiry check. Accepted certificate wire
+must survive library serialization unchanged, including forever validity; no
+parallel Go-compatible MPINT/text parser remains.
 
 ## rust/soda-install/src/urlx.rs
 
@@ -333,17 +343,29 @@ Evidence: rust/soda-install/src/wizard.rs:25-284 navigation and network/disk/hos
 Observed size: 3624 lines, including tests where embedded. X50901 plans replacement of the complete parser with x509-cert 0.2.5's strict profile and a narrow local self-signed-CA adapter. CF-06's custom ECDSA signature DER reader is now retired through ecdsa::Signature::from_der on all four supported curves; existing RustCrypto libraries verify the original signed TBS. The prior DER/calendar/name/extension module split is historical extraction evidence, not a target generic parser hierarchy.
 
 - `cmd/soda-install/src/x509/mod.rs`
+- `cmd/soda-install/src/x509/certificate.rs`
+- `cmd/soda-install/src/x509/algorithms.rs`
+- `cmd/soda-install/src/x509/types.rs`
 - `cmd/soda-install/src/x509/verify.rs`
 - `cmd/soda-install/src/x509/tests/mod.rs`
-- `cmd/soda-install/src/x509/tests/fixtures.rs`
-- `cmd/soda-install/src/x509/tests/structure.rs`
-- `cmd/soda-install/src/x509/tests/public_key.rs`
-- `cmd/soda-install/src/x509/tests/algorithms.rs`
-- `cmd/soda-install/src/x509/tests/verify.rs`
+- `cmd/soda-install/src/x509/tests/fixtures/caddy-2.10.2-root.pem`
+- `cmd/soda-install/src/x509/tests/fixtures/README.md`
 
 Evidence: rust/soda-install/src/x509.rs:1-27 scope, exact Go parser/error semantics, rejected x509-cert profile and existing crypto delegates; rust/soda-install/src/x509.rs:38-378 DER reader and tag/OID constants; rust/soda-install/src/x509.rs:388-506 algorithm enums/public key/certificate types; rust/soda-install/src/x509.rs:512-781 validity time and ASN1 name/algorithm parsing; rust/soda-install/src/x509.rs:783-1481 extension and name-constraint parsing; rust/soda-install/src/x509.rs:1488-1862 signature algorithm and public-key parsing; rust/soda-install/src/x509.rs:1870-2046 ParseCertificate sequence; rust/soda-install/src/x509.rs:2052-2336 CheckSignatureFrom and existing signature verification delegates; rust/soda-install/src/x509.rs:2339-3624 structural/key/time/extension/signature vectors and DER fixture builders.
 
-Open detail: Preserve raw admitted DER for the fingerprint and the exact signed TBS bytes for verification; do not hash or verify re-encoded data. Retain CA/self-signature policy and weak-signature refusal. X50901 explicitly narrows noncanonical DER, long serials, legacy UTC forms and trailing DER at the fixture gate; the display caller already collapses parser failures to one neutral error. It does not consult expiry, chains or the recorded unhandled-critical-extension list. Define the critical-extension admission decision in that gate, rather than add a new trust verifier. ASN.1 time, SAN/name/constraint parsing and netip/urlx dependencies retire with the complete L06 owner cutover; the separate CF-06 signature repair is complete.
+Current boundary: x509-cert/der own the complete certificate structure, SPKI,
+names, extensions and calendar. The adapter retains only the
+[local-root admission policy](../../../guides/installation.md#local-ca-fingerprint-admission),
+supported signature selection/math, original DER and exact original TBS TLV.
+The custom DER reader, names/SAN/constraints/calendar/public-key parser and their
+foreign grammar suites are removed. The pinned Caddy public root and focused
+admission/signature/caller failures replace those grammar tests. Unused
+noncritical extensions do not need independent validators; duplicate OIDs and
+unsupported critical extensions fail. RSA/EC/Ed and PSS parameters follow their
+strict supported profiles. This establishes neither expiry nor chain/browser
+trust. `urlx` remains for live setup/origin callers until L11; L06 removes only
+its obsolete URI-SAN caller. Historical structural work and the completed CF-06
+signature repair retain their original scope.
 
 ## rust/soda-rotate-lab-creds/src/main.rs
 

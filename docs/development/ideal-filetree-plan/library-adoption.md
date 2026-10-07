@@ -345,7 +345,8 @@ scope; unrelated correctness tasks and full tree regeneration remain parked.
 
 Scope: host `ssh/`, installer `sshkey/authorized_keys.rs` and wire helpers,
 through account/key-revision/enrollment callers. A leads host; C owns installer.
-Select ssh-key 0.6.7 plus L03/L04 curve/hash/encoding decisions. Keep separate
+Select pinned upstream ssh-key 0.7.0-rc.11 plus L03/L04 curve/hash/encoding
+decisions. Keep separate
 algorithm/options/line/count/size policies and canonical fingerprint inputs.
 Reject ssh-key KeyData::Other; preserve the current Ed25519 length-only policy.
 Parsing is not NIST point validation or a new Ed25519 torsion policy.
@@ -355,6 +356,30 @@ allowlists, no options, malformed mpints/points/encodings, revision application
 and fingerprints. Library certificate parsing does not confer trust/expiry
 authority. Replace parsing and canonical serialization, remove mpint/certificate
 format engines and unsupported equivalence-only tests together.
+
+The original 0.6.7 selection fails an actual producer boundary: OpenSSH uses
+`valid_before = u64::MAX` for certificates without an expiry. Its timestamp
+wrapper rejects that value. Official upstream
+[PR 504](https://github.com/RustCrypto/SSH/pull/504) is merged, and the published
+0.7.0-rc.11 parser stores and decodes both endpoints as protocol `u64` values.
+Use only `std`/`ecdsa` format features; signing and random-key generation are
+not dependencies of this adapter. The pinned release candidate requires Rust
+1.85, within the inspected local toolchain. Its source, archive checksums,
+licenses and locked offline graph are admitted. Keep this explicit prerelease
+choice visible; installed/native-worker qualification remains separate.
+
+Source scope is complete in `7b42671d`, with dependency selection in `22496cb3`,
+using Luna medium for implementation and independent review. Host retains its
+eight raw/eight certificate families and installer its seven raw operator-key
+families. NIST/scalar checks, comments/options/line/count/size policy and raw
+fingerprint recipes stay with callers. The original forever certificate round
+trips byte-for-byte; certificate aliases or other serialization changes are
+refused before any signed bytes can change. Redundant MPINT sign octets and
+invalid UTF-8 are deliberate stricter admission, not a parallel compatibility
+parser. All 697 host and 114 installer tests pass on the final source; the
+locked offline native development build passes. Remaining installed evidence
+belongs to the wider owner packets. Historical extraction and parked checkpoints
+keep their recorded scope.
 
 ### L06 Local CA parsing
 
@@ -369,6 +394,38 @@ before deleting validators; strict DER serial/time behavior is an explicit
 contract choice. Acceptance covers actual roots, signature/used-extension
 failures, duplicates/trailing content and input custody. Remove the broad custom
 certificate/DER/SAN/calendar/URL machinery after its last real caller is gone.
+
+The pinned Caddy 2.10.2 Linux/amd64 binary generated the retained public root
+with trust installation disabled, isolated state, no listeners and joined
+shutdown. [Fixture provenance](../../../cmd/soda-install/src/x509/tests/fixtures/README.md)
+records its exact production image, selected manifest, binary and original-DER
+digests. This closes the producer/profile gate, independently of L05. The
+root uses P-256/ECDSA-SHA256, typed CA BasicConstraints/KeyUsage and UTCTime
+2026/2036; the fixture proves that profile, not an installed appliance.
+
+The [owning installation guide](../../guides/installation.md#local-ca-fingerprint-admission)
+defines the admitted root envelope and policy. The adapter deliberately narrows
+legacy acceptance: canonical DER equality, positive nonzero serials of at most
+20 INTEGER content octets, duplicate-OID refusal, understood critical
+BasicConstraints/KeyUsage only, supported SPKI and signature parameters, and
+strict DER signatures. PSS requires matching SHA-2/MGF1/hash-length salt.
+`x509-cert`/`der` own names, times, extensions and framing; original DER and the
+original TBS TLV remain fingerprint and signature inputs. Legacy time forms
+outside the library profile are refused; no expiry/chain/name authority is
+added. `urlx` stays with its remaining setup/origin callers until L11.
+
+Source scope is complete in `7d063f15`, using Luna medium for implementation
+and independent review. Custom DER, names/SAN/constraints, calendar and SPKI
+engines and their unused grammar suites are deleted. Consequential tests retain
+strict ECDSA DER on all four curves, original-TBS verification for RSA PKCS#1/PSS,
+all four EC curves and Ed25519, weak/unsupported algorithm refusal, malformed
+used extensions, duplicates, signature parameters, private/multiple/trailing PEM
+and raw fingerprint/caller policy. All 114 installer tests and the final locked
+offline native development build pass. Eight existing unrelated public-export
+warnings remain; no installed/native-worker qualification is claimed. The
+[development receipt](../../../.artifacts/l05-l06/verification.md) records scope,
+producer provenance and failed diagnostics separately. CA did not wait for SSH;
+A34/B27 and full inventory/count regeneration remain parked.
 
 ### L07 Native SQL parameters
 

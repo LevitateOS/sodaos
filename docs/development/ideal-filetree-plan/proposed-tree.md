@@ -12,7 +12,8 @@ consolidate existing concerns. Each shared leaf has one implementation owner;
 duplicate file leaves or competing Rust module roots are not intended.
 
 Initial selective adoption update at source `72e4bb9015b6d6a622b45638104c74851a137473`,
-refreshed for completed L04 at `229e9cce` and L08/L09 at `21387814`:
+refreshed for completed L04 at `229e9cce`, L08/L09 at `21387814` and
+L05/L06 source adapters at `7d063f15`:
 this remains the desired application tree, with superseded generic-engine leaves
 removed below. Retained names describe application policy or library adapters,
 not a requirement to recreate their old implementation. The
@@ -24,8 +25,8 @@ the earlier exact-match/delta counts below are historical observations.
 | --- | --- |
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
 | A-owned `lib/unix-http/{Cargo.toml,src/lib.rs}` | Shared bounded Hyper Unix client and driver/deadline custody; callers retain socket, status and credential policy |
-| Host `daemon/{http,response,websocket}`, `json/{mod,number}`, `ssh/material` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
-| Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar grammar is retired after L06 gates |
+| Host `daemon/{http,response,websocket}`, `json/{mod,number}`, `ssh/mod` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
+| Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar grammar is retired; live setup URL callers remain for L11 |
 | Release `json*`, Compose/Muse/guest wire and Acceptance structured data | Concrete Serde admission/emission and bounded ordered/raw application data; `lib/json` is retired with no target allocation |
 | Release/build/import OCI adapters | Delivery owns low-level scanning; callers retain admitted content/layout/descriptor policy and original blob custody |
 | `lib/release-inputs/src/trust_key.rs` and release trust callers | Shared typed P-256 admission; image/delivery retain role authority and original-DER fingerprints |
@@ -490,8 +491,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── mod.rs
 │   │   │   ├── sshkey/
 │   │   │   │   ├── authorized_keys.rs
+│   │   │   │   ├── base64.rs
 │   │   │   │   ├── mod.rs
-│   │   │   │   └── tests.rs
+│   │   │   │   ├── tests.rs
+│   │   │   │   └── wire.rs
 │   │   │   ├── wizard/
 │   │   │   │   ├── mod.rs
 │   │   │   │   ├── review.rs
@@ -499,13 +502,14 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── tests.rs
 │   │   │   ├── x509/
 │   │   │   │   ├── tests/
-│   │   │   │   │   ├── algorithms.rs
-│   │   │   │   │   ├── fixtures.rs
-│   │   │   │   │   ├── mod.rs
-│   │   │   │   │   ├── public_key.rs
-│   │   │   │   │   ├── structure.rs
-│   │   │   │   │   └── verify.rs
+│   │   │   │   │   ├── fixtures/
+│   │   │   │   │   │   ├── caddy-2.10.2-root.pem
+│   │   │   │   │   │   └── README.md
+│   │   │   │   │   └── mod.rs
+│   │   │   │   ├── algorithms.rs
+│   │   │   │   ├── certificate.rs
 │   │   │   │   ├── mod.rs
+│   │   │   │   ├── types.rs
 │   │   │   │   └── verify.rs
 │   │   │   ├── buildx.rs
 │   │   │   ├── candidate.rs
@@ -1956,7 +1960,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── profile.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── ssh/
-│   │   │   │   ├── material.rs
+│   │   │   │   ├── base64.rs
 │   │   │   │   ├── mod.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── tailnet/

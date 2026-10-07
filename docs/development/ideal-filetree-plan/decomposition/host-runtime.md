@@ -533,18 +533,18 @@ Disposition: retained at `lib/host/` under the decided language policy; pending 
 
 - `lib/host/src/ssh/mod.rs`
 - `lib/host/src/ssh/base64.rs`
-- `lib/host/src/ssh/mpint.rs`
-- `lib/host/src/ssh/material.rs`
-- `lib/host/src/ssh/certificate.rs`
 - `lib/host/src/ssh/tests.rs`
 
-Current target: `ssh/base64.rs`, `ssh/mpint.rs`, `ssh/material.rs` and
-`ssh/certificate.rs` are existing custom-engine locations, not additional
-extraction tasks. Remove or reduce them to the selected admission/output
-adapters after caller transfer; keep account preview/apply and filesystem
-publication at their existing owners. SHA-256 compression disappears through
-[CF-01](../../../research/library-reuse-investigation.md#cf-01), while exact
-canonical bytes, lower-case presentation and revision recipes remain local.
+Current adapter: `ssh/mod.rs` delegates key/certificate/mpint formats to pinned
+upstream ssh-key 0.7.0-rc.11; `ssh/base64.rs` retains the completed L04 caller
+profile. The old `mpint.rs`, `material.rs` and `certificate.rs` engines are
+removed. RSA/DSA scalar bounds, exact uncompressed NIST points, algorithm/options
+policy and SHA-256 fingerprint recipes remain local. Signed certificates must
+retain their exact admitted wire bytes; aliases or serialization changes are
+refused. The actual OpenSSH forever certificate retains `u64::MAX` unchanged.
+Account preview/apply, revision checks and filesystem publication stay at their
+existing owners. This selective adoption refresh preserves the earlier
+structural split as completed historical work, not an unresolved correctness gate.
 
 Evidence: 26-64,756-907: trim_ws, parse_public_key/parse_key_text/scan_options/parse_authorized_key and public marshal/fingerprint -> ssh.rs; 65-229: strict standard and Go-specific base64 decoders/encoders -> ssh_base64.rs; 231-412: read_string/read_u32/read_u64/put_string, Mpint parsing/comparison/marshalling -> ssh_mpint.rs; 436-471,489-594,698-755: ParsedKey/KeyMaterial, curve_for, ordinary key parsing/marshalling -> ssh_material.rs; 413-435,472-488,595-697: certificate algorithm names/material, parse_tuples/parse_cert/marshal_tuples -> ssh_certificate.rs; certificate arm of marshal_fields stays with certificate responsibility; 908-1028: base64, canonical/authorized-key and fingerprint fixtures -> ssh_tests.rs.
 

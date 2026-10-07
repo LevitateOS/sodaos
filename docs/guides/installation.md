@@ -71,6 +71,25 @@ directory. Forgejo joins only that IPC directory through supplemental group
 Browser origins, Git advertisement and project routing are separate configuration
 facts.
 
+## Local CA fingerprint admission
+
+The installer reads the public local root from one regular file without following
+symlinks, with a 16 KiB input limit. It accepts one `CERTIFICATE` PEM envelope,
+standard padded Base64 and surrounding whitespace. It refuses private keys,
+multiple certificates and additional content.
+
+Before displaying the SHA-256 fingerprint of the original DER, it requires
+canonical DER, a positive nonzero serial using at most 20 INTEGER content octets,
+matching signature identifiers, CA BasicConstraints, and certificate-signing permission
+when KeyUsage is present. It refuses duplicate extensions and critical extensions
+other than BasicConstraints and KeyUsage. Supported RSA, named-curve ECDSA and
+Ed25519 keys must have valid algorithm parameters; the self-signature must verify
+with the supported SHA-2 or Ed25519 profile.
+
+This admission identifies the public root for explicit client trust. The operator
+still decides whether to trust it; the display operation performs no validity-window,
+chain or hostname verification. Invalid input prevents ready-to-open trust guidance.
+
 ## Operator services
 
 Stock Cockpit listens on all interfaces with the operator credential. Tailscaled and project units follow
