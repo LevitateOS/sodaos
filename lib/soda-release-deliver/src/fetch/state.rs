@@ -1,5 +1,4 @@
 use std::os::fd::AsRawFd;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::native::private_file;
 use crate::Error;
@@ -42,25 +41,16 @@ pub(crate) fn lock_state(path: &str) -> Result<StateLock, Error> {
     Ok(StateLock { file })
 }
 
-static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn create_temp(dir: &str, prefix: &str) -> Result<(std::fs::File, String), Error> {
-    use std::os::unix::fs::OpenOptionsExt;
-    for _ in 0..100 {
-        let id = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let name = format!("{dir}/{prefix}{}-{}", std::process::id(), id);
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&name)
-        {
-            Ok(file) => return Ok((file, name)),
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(e) => return Err(Error::msg(format!("create temp: {e}"))),
-        }
-    }
-    Err(Error::msg("create temp: too many attempts"))
+fn create_temp(dir: &str, prefix: &str) -> Result<(std::fs::File, std::path::PathBuf), Error> {
+    let staged = tempfile::Builder::new()
+        .prefix(prefix)
+        .tempfile_in(dir)
+        .map_err(|e| Error::msg(format!("create temp: {e}")))?;
+    // Incomplete state is operator evidence. Transfer its lifecycle before the
+    // first write so a write/sync failure preserves that exact owned attempt.
+    staged
+        .keep()
+        .map_err(|e| Error::msg(format!("retain temp: {}", e.error)))
 }
 
 pub(crate) fn save_state<T: Serialize + ?Sized>(path: &str, value: &T) -> Result<(), Error> {
