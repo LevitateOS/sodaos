@@ -80,75 +80,87 @@ pub(super) fn warm_worker_caches(
             stripped_string(&out)
         }
     };
-    // Like the script's `trap` at this point, the bun scratch tree is only
-    // removed by the explicit `sudo rm -rf` after a successful warm: a
-    // failure here leaks it, worker-owned, under the scratch root.
-    let tmpw_tools = format!("{tmpw}/tools");
-    run("mkdir", &["-p", &tmpw_tools])?;
-    run("cp", &["package.json", "bun.lock", "bunfig.toml", &tmpw])?;
-    run("cp", &["-a", "tools/lit-check", &tmpw_tools])?;
-    run("sudo", &["chown", "-R", &owned, &tmpw])?;
-    run(
-        "sudo",
-        &[
-            "find", &tmpw, "-type", "d", "-exec", "chmod", "0755", "{}", "+",
-        ],
-    )?;
-    if run_in_dir(
-        "sudo",
-        &[
-            "-u",
-            WORKER_USER,
-            "env",
-            &format!("HOME={}", storage.home),
-            &bun_final,
-            "install",
-            "--frozen-lockfile",
-        ],
-        &tmpw,
-        true,
-        "cannot warm Bun cache",
-    )
-    .is_err()
-    {
-        return fail("cannot warm Bun cache");
+    // The worker owns this tree after chown, so a host TempDir cannot perform
+    // reliable Drop cleanup. Keep the exact scratch path and always run the
+    // owner-privileged cleanup after staging, including failed warm commands.
+    let warm_result = (|| {
+        let tmpw_tools = format!("{tmpw}/tools");
+        run("mkdir", &["-p", &tmpw_tools])?;
+        run("cp", &["package.json", "bun.lock", "bunfig.toml", &tmpw])?;
+        run("cp", &["-a", "tools/lit-check", &tmpw_tools])?;
+        run("sudo", &["chown", "-R", &owned, &tmpw])?;
+        run(
+            "sudo",
+            &[
+                "find", &tmpw, "-type", "d", "-exec", "chmod", "0755", "{}", "+",
+            ],
+        )?;
+        if run_in_dir(
+            "sudo",
+            &[
+                "-u",
+                WORKER_USER,
+                "env",
+                &format!("HOME={}", storage.home),
+                &bun_final,
+                "install",
+                "--frozen-lockfile",
+            ],
+            &tmpw,
+            true,
+            "cannot warm Bun cache",
+        )
+        .is_err()
+        {
+            return fail("cannot warm Bun cache");
+        }
+        let browsers = format!("{}/browsers", storage.home);
+        run(
+            "sudo",
+            &[
+                "install",
+                "-d",
+                "-o",
+                WORKER_USER,
+                "-g",
+                WORKER_USER,
+                &browsers,
+            ],
+        )?;
+        if run_in_dir(
+            "sudo",
+            &[
+                "-u",
+                WORKER_USER,
+                "env",
+                &format!("HOME={}", storage.home),
+                &format!("PLAYWRIGHT_BROWSERS_PATH={browsers}"),
+                &bun_final,
+                "x",
+                "playwright",
+                "install",
+                "chromium",
+            ],
+            &tmpw,
+            false,
+            "cannot stage Playwright chromium",
+        )
+        .is_err()
+        {
+            return fail("cannot stage Playwright chromium");
+        }
+        Ok(())
+    })();
+    let cleanup_result = run("sudo", &["rm", "-rf", &tmpw]);
+    match (warm_result, cleanup_result) {
+        (Ok(()), Ok(())) => {}
+        (Err(primary), Ok(())) => return Err(primary),
+        (Err(primary), Err(cleanup)) => {
+            eprintln!("cannot remove worker Bun scratch {tmpw}: {cleanup:?}");
+            return Err(primary);
+        }
+        (Ok(()), Err(cleanup)) => return Err(cleanup),
     }
-    let browsers = format!("{}/browsers", storage.home);
-    run(
-        "sudo",
-        &[
-            "install",
-            "-d",
-            "-o",
-            WORKER_USER,
-            "-g",
-            WORKER_USER,
-            &browsers,
-        ],
-    )?;
-    if run_in_dir(
-        "sudo",
-        &[
-            "-u",
-            WORKER_USER,
-            "env",
-            &format!("HOME={}", storage.home),
-            &format!("PLAYWRIGHT_BROWSERS_PATH={browsers}"),
-            &bun_final,
-            "x",
-            "playwright",
-            "install",
-            "chromium",
-        ],
-        &tmpw,
-        false,
-        "cannot stage Playwright chromium",
-    )
-    .is_err()
-    {
-        return fail("cannot stage Playwright chromium");
-    }
-    run("sudo", &["rm", "-rf", &tmpw])?;
     run("sudo", &["chown", "-R", &owned, &storage.home])?;
     Ok(WorkerCaches {
         go_mod,

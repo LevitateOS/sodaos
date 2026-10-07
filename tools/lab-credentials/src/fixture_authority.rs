@@ -3,12 +3,10 @@ use std::ffi::CString;
 use std::fs;
 use std::io::{self, Write};
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
-use crate::process::{
-    capture, config_json, run, run_stdout_null, stripped_string, trust_json, Captured,
-};
+use crate::process::{config_json, run, run_stdout_null, trust_json};
 use crate::{faccessat, fail, umask, Exit, AT_FDCWD, AUTHORITY, PREFIX_DEFAULT, WORKER_USER, X_OK};
 
 /// `env_or` mirrors `${VAR:-default}`: unset or empty falls back.
@@ -105,20 +103,13 @@ pub(crate) fn rotate_fixture_authority(cleanup: &mut Vec<PathBuf>) -> Result<(),
     if command_v("skopeo").is_none() {
         return fail("skopeo required");
     }
-    let tmpd = match capture("mktemp", &["-d"], false) {
-        Captured::SpawnFailed => return fail("cannot stage secrets"),
-        Captured::Done(code, out) => {
-            if code != 0 {
-                return fail("cannot stage secrets");
-            }
-            stripped_string(&out)
-        }
-    };
-    if tmpd.is_empty() || fs::metadata(&tmpd).map(|m| !m.is_dir()).unwrap_or(true) {
-        return fail("cannot stage secrets");
-    }
-    cleanup.push(PathBuf::from(&tmpd));
-    run("chmod", &["0700", &tmpd])?;
+    let owner = tempfile::Builder::new()
+        .prefix("tmp")
+        .permissions(fs::Permissions::from_mode(0o700))
+        .tempdir()
+        .map_err(|_| Exit::Fail("cannot stage secrets".to_owned()))?;
+    let tmpd = owner.path().to_string_lossy().into_owned();
+    cleanup.push(owner.path().to_path_buf());
     let staged_passphrase = format!("{tmpd}/passphrase");
     stage_file(&staged_passphrase, random_hex_passphrase()?.as_bytes())?;
     run("chmod", &["0600", &staged_passphrase])?;
@@ -180,7 +171,9 @@ pub(crate) fn rotate_fixture_authority(cleanup: &mut Vec<PathBuf>) -> Result<(),
     // Remove staging before the final line, not only at process exit: the
     // script's trap on EXIT also runs when the shell itself dies on SIGPIPE,
     // so a closed stdout at this print must not leave secrets in /tmp.
-    let _ = fs::remove_dir_all(&tmpd);
+    owner
+        .close()
+        .map_err(|e| Exit::Fail(format!("cannot remove fixture authority staging: {e}")))?;
     println!("fixture authority rotated; old fixture signatures no longer verify.");
     Ok(())
 }

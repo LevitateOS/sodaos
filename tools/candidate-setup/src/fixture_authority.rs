@@ -1,10 +1,11 @@
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use super::config::{config_json, trust_json, worker_json};
 use super::process::{capture, run, run_piped_stdin, run_stdout_null, Captured};
 use super::storage::{refuse_active_build, Storage};
-use super::{is_file, stripped_string, write_staged, Exit, ADMITTED, AUTHORITY, TOOLS};
+use super::{is_file, write_staged, Exit, ADMITTED, AUTHORITY, TOOLS};
 
 /// `random_hex_passphrase` mirrors `head -c 32 /dev/urandom | od -An -tx1
 /// | tr -d ' \n'`: 64 lowercase hex characters, no trailing newline.
@@ -104,17 +105,13 @@ pub(super) fn admit_fixture_authority(
     } else {
         println!("-- fixture-only media authority (never release keys)");
         refuse_active_build()?;
-        let authority_template = format!("{}/setup-authority.XXXXXXXX", storage.scratch);
-        let tmpd = match capture("mktemp", &["-d", &authority_template], false) {
-            Captured::SpawnFailed(code) => return Err(Exit::Propagate(code)),
-            Captured::Done(code, out) => {
-                if code != 0 {
-                    return Err(Exit::Propagate(code));
-                }
-                stripped_string(&out)
-            }
-        };
-        cleanup.push(PathBuf::from(&tmpd));
+        let owner = tempfile::Builder::new()
+            .prefix("setup-authority.")
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir_in(&storage.scratch)
+            .map_err(|e| Exit::Fail(format!("cannot stage fixture authority: {e}")))?;
+        let tmpd = owner.path().to_string_lossy().into_owned();
+        cleanup.push(owner.path().to_path_buf());
         let staged_passphrase = format!("{tmpd}/passphrase");
         stage_file(&staged_passphrase, random_hex_passphrase()?.as_bytes())?;
         for role in ["artifact", "candidate", "preview", "stable"] {
@@ -160,6 +157,9 @@ pub(super) fn admit_fixture_authority(
             )?;
         }
         run("sudo", &["chmod", "0700", AUTHORITY])?;
+        owner
+            .close()
+            .map_err(|e| Exit::Fail(format!("cannot remove fixture authority staging: {e}")))?;
     }
     run(
         "sudo",
