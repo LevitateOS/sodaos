@@ -211,25 +211,19 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         if shutdown.load(Ordering::SeqCst) {
             return self.denied_after_cleanup(&execution);
         }
-        // The supervisor resizes through the parent's stdin handle.
-        // SAFETY: dup before spawn transfers ownership of stdio to the child.
-        let stdin_fd = unsafe { libc::dup(stdio[0].as_raw_fd()) };
-        if stdin_fd < 0 {
-            return self.denied_after_cleanup(&execution);
-        }
+        // Keep a close-on-exec duplicate of stdin for the supervisor while
+        // the original stdio files move into the child command.
+        let stdin_control = match stdio[0].try_clone() {
+            Ok(file) => file,
+            Err(_) => return self.denied_after_cleanup(&execution),
+        };
         let mut child = match spawn_execution(&execution, stdio) {
             Ok(child) => child,
-            Err(_) => {
-                unsafe {
-                    libc::close(stdin_fd);
-                }
-                return self.denied_after_cleanup(&execution);
-            }
+            Err(_) => return self.denied_after_cleanup(&execution),
         };
         if shutdown.load(Ordering::SeqCst) {
             let _ = child.kill();
             let _ = child.wait();
-            unsafe { libc::close(stdin_fd) };
             return self.denied_after_cleanup(&execution);
         }
         if self
@@ -239,15 +233,11 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         {
             let _ = child.kill();
             let _ = child.wait();
-            unsafe {
-                libc::close(stdin_fd);
-            }
             return self.denied_after_cleanup(&execution);
         }
         if shutdown.load(Ordering::SeqCst) {
             let _ = child.kill();
             let _ = child.wait();
-            unsafe { libc::close(stdin_fd) };
             return self.denied_after_cleanup(&execution);
         }
         // Open an identity-bound handle before delegating control. Numeric PIDs
@@ -257,31 +247,25 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             Err(_) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                unsafe { libc::close(stdin_fd) };
                 return self.denied_after_cleanup(&execution);
             }
         };
-        // SAFETY: dup the conn for the supervisor; it closes its copy.
-        let conn_dup = unsafe { libc::dup(conn) };
-        if conn_dup < 0 {
-            let _ = child.kill();
-            let _ = child.wait();
-            unsafe {
-                libc::close(stdin_fd);
+        // `conn` remains owned by serve_one until this shell returns.
+        let conn_dup = match unsafe { BorrowedFd::borrow_raw(conn) }.try_clone_to_owned() {
+            Ok(fd) => fd,
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return self.denied_after_cleanup(&execution);
             }
-            return self.denied_after_cleanup(&execution);
-        }
-        // Convert raw duplicates to owned descriptors before moving them to
-        // the worker, so unwinding also closes every copy.
-        let conn_dup = unsafe { OwnedFd::from_raw_fd(conn_dup) };
-        let stdin_dup = unsafe { OwnedFd::from_raw_fd(stdin_fd) };
+        };
         let control_cancel = std::sync::Arc::new(AtomicBool::new(false));
         let supervisor_cancel = control_cancel.clone();
         let snapshot = execution.clone();
         let supervisor = std::thread::Builder::new().spawn(move || {
             supervisor_owner.control_loop(
                 conn_dup.as_raw_fd(),
-                stdin_dup.as_raw_fd(),
+                stdin_control.as_raw_fd(),
                 pidfd.as_raw_fd(),
                 &supervisor_cancel,
                 &shutdown,
@@ -292,7 +276,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             // cannot signal a newly reused numeric PID.
             let _ = pidfd_send_signal(pidfd.as_raw_fd(), libc::SIGKILL);
             drop(conn_dup);
-            drop(stdin_dup);
+            drop(stdin_control);
             drop(pidfd);
         });
         let supervisor = match supervisor {
@@ -300,6 +284,8 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             Err(_) => {
                 let _ = child.kill();
                 let _ = child.wait();
+                // Captured descriptors are dropped when the failed spawn
+                // closure is discarded; keep cleanup under this owner.
                 return self.denied_after_cleanup(&execution);
             }
         };
