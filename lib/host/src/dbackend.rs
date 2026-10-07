@@ -1501,14 +1501,22 @@ where
     let socket_fd = ws.get_ref().as_raw_fd();
     let flags = unsafe { libc::fcntl(socket_fd, libc::F_GETFL) };
     if flags < 0 || unsafe { libc::fcntl(socket_fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
-        attach.close();
+        let close_error = attach.close().err();
+        if let Some(error) = close_error {
+            attach.retain_child_until_exit();
+            return Err(format!("terminal transport ended; {error}"));
+        }
         return Err("terminal transport ended".to_string());
     }
     let mut reader = match attach.take_reader() {
         Some(reader) => reader,
         None => {
-            attach.close();
-            return Ok(());
+            let close_error = attach.close().err();
+            if let Some(error) = close_error {
+                attach.retain_child_until_exit();
+                return Err(format!("terminal output ended; {error}"));
+            }
+            return Err("terminal output ended".to_string());
         }
     };
 
@@ -1725,8 +1733,10 @@ where
     }
     cancel_reader.store(true, Ordering::Release);
     drop(out_rx);
-    attach.close();
-    let _ = output.join();
+    let close_result = attach.close();
+    let output_result = output
+        .join()
+        .map_err(|_| "terminal output reader panicked".to_string());
     let _ = ws.close(None);
     let close_deadline = (Instant::now() + Duration::from_millis(250)).min(deadline);
     while Instant::now() < close_deadline {
@@ -1745,7 +1755,20 @@ where
             Err(_) => break,
         }
     }
-    Ok(())
+    match (close_result, output_result) {
+        (Err(close_error), Err(output_error)) => {
+            // Keep the same pump task as Child owner until wait confirms exit.
+            // The host's absolute shutdown deadline bounds this retained task.
+            attach.retain_child_until_exit();
+            Err(format!("{close_error}; {output_error}"))
+        }
+        (Err(close_error), Ok(())) => {
+            attach.retain_child_until_exit();
+            Err(close_error)
+        }
+        (Ok(()), Err(output_error)) => Err(output_error),
+        (Ok(()), Ok(())) => Ok(()),
+    }
 }
 
 fn wake_reader_read(stream: &UnixStream, buf: &mut [u8]) -> usize {
@@ -2019,7 +2042,7 @@ mod tests {
             elapsed >= Duration::from_millis(1900),
             "stdin backpressure should use its 2s budget: {elapsed:?}"
         );
-        attach.close();
+        attach.close().unwrap();
         assert_eq!(
             unsafe { libc::kill(pid as i32, 0) },
             -1,

@@ -8,6 +8,10 @@ ExecStart=/usr/local/libexec/soda/soda-host
 User=root
 Group=root
 UMask=0077
+# Allow the daemon's 200-second shutdown deadline to report unconfirmed custody.
+# Retire all remaining attachment processes together when that window expires.
+KillMode=control-group
+TimeoutStopSec=210s
 RuntimeDirectory=soda-muse-interface
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=yes

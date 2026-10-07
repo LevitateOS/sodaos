@@ -136,6 +136,7 @@ struct ScriptBackend {
     pumped_message: Arc<Mutex<Option<String>>>,
     blocked_calls: Option<Arc<(AtomicU64, AtomicBool)>>,
     hold_pump: bool,
+    fail_pump: bool,
 }
 
 struct ReleaseBlockedCalls(Arc<(AtomicU64, AtomicBool)>);
@@ -163,6 +164,7 @@ impl ScriptBackend {
             pumped_message: Arc::new(Mutex::new(None)),
             blocked_calls: None,
             hold_pump: false,
+            fail_pump: false,
         }
     }
 
@@ -176,6 +178,7 @@ impl ScriptBackend {
             pumped_message: Arc::new(Mutex::new(None)),
             blocked_calls: None,
             hold_pump: false,
+            fail_pump: false,
         }
     }
 
@@ -288,6 +291,12 @@ impl ExecBackend for ScriptBackend {
         shutdown: Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<(), BackendError> {
         self.pumped.store(session.id, Ordering::SeqCst);
+        if self.fail_pump {
+            while !shutdown.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            return Err(BackendError::Internal);
+        }
         if self.hold_pump {
             while !shutdown.load(Ordering::SeqCst) {
                 std::thread::sleep(std::time::Duration::from_millis(5));
@@ -1239,7 +1248,7 @@ fn server_serves_stub_routes_and_parser_rejections() {
     assert_eq!(status_of(&read_all(&mut client)), 501);
 
     server.shutdown();
-    handle.join().unwrap();
+    handle.join().unwrap().unwrap();
     assert_eq!(server.inflight(), 0);
     let _ = std::fs::remove_file(&path);
 }
@@ -1281,8 +1290,37 @@ fn server_runs_terminal_upgrade_and_pump() {
     );
 
     server.shutdown();
-    handle.join().unwrap();
+    handle.join().unwrap().unwrap();
     assert_eq!(server.inflight(), 0, "upgrade pump ownership is joined");
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn terminal_pump_failure_is_reported_by_server_serve() {
+    let path = socket_path("gmux-pump-error");
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+    let mut backend = ScriptBackend::ok(b"{}");
+    backend.fail_pump = true;
+    let pumped = Arc::clone(&backend.pumped);
+    let server = Arc::new(Server::new(Arc::new(backend), DaemonConfig::all_enabled()));
+    let _stop_on_exit = StopSmokeServer(Arc::clone(&server));
+    let serving = Arc::clone(&server);
+    let handle = std::thread::spawn(move || serving.serve(&listener));
+
+    let mut client = UnixStream::connect(&path).unwrap();
+    client.write_all(b"GET /terminal HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n").unwrap();
+    assert_eq!(status_of(&read_http_head(&mut client)), 101);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while pumped.load(Ordering::SeqCst) != 7 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert_eq!(pumped.load(Ordering::SeqCst), 7);
+    server.shutdown();
+    assert_eq!(
+        handle.join().unwrap().unwrap_err(),
+        "terminal pump failed: Internal"
+    );
     let _ = std::fs::remove_file(&path);
 }
 
@@ -1312,7 +1350,7 @@ fn server_keeps_upgrade_inflight_until_pump_shutdown_join() {
         "inflight includes the active upgrade pump"
     );
     server.shutdown();
-    handle.join().unwrap();
+    handle.join().unwrap().unwrap();
     assert_eq!(
         server.inflight(),
         0,
@@ -1385,7 +1423,7 @@ fn server_bounds_backend_work_and_joins_it_during_shutdown() {
         "shutdown must join active backend callbacks"
     );
     callback_state.1.store(true, Ordering::SeqCst);
-    handle.join().unwrap();
+    handle.join().unwrap().unwrap();
     assert_eq!(
         server.inflight(),
         0,

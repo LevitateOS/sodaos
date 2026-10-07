@@ -182,20 +182,44 @@ pub struct NativeAttach {
     pub(in crate::terminal) stdin: Option<File>,
     pub(in crate::terminal) reader: Option<BufReader<File>>,
     pub(in crate::terminal) closed: bool,
+    pub(in crate::terminal) close_failure: Option<String>,
+}
+
+fn reap_failed_attach(mut child: std::process::Child, reason: &str) -> String {
+    drop(child.stdin.take());
+    drop(child.stdout.take());
+    let grace_deadline = Instant::now() + Duration::from_secs(3);
+    let mut may_kill = true;
+    let mut kill_attempted = false;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return reason.to_string(),
+            Ok(None) if may_kill && !kill_attempted && Instant::now() >= grace_deadline => {
+                kill_attempted = true;
+                let _ = child.kill();
+            }
+            Ok(None) => {}
+            Err(_) => may_kill = false,
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 impl NativeAttach {
     #[cfg(test)]
     pub(crate) fn from_child_for_test(mut child: std::process::Child) -> Result<Self, String> {
         use std::os::fd::FromRawFd;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| "test stdin unavailable".to_string())?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| "test stdout unavailable".to_string())?;
+        let stdin = match child.stdin.take() {
+            Some(stdin) => stdin,
+            None => return Err(reap_failed_attach(child, "test stdin unavailable")),
+        };
+        let stdout = match child.stdout.take() {
+            Some(stdout) => stdout,
+            None => {
+                drop(stdin);
+                return Err(reap_failed_attach(child, "test stdout unavailable"));
+            }
+        };
         let stdin_fd = stdin.as_raw_fd();
         let stdout_fd = stdout.as_raw_fd();
         std::mem::forget(stdin);
@@ -207,15 +231,16 @@ impl NativeAttach {
             || unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) }
                 < 0
         {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err("test terminal input unavailable".to_string());
+            drop(stdin);
+            drop(stdout);
+            return Err(reap_failed_attach(child, "test terminal input unavailable"));
         }
         Ok(NativeAttach {
             child: Some(child),
             stdin: Some(stdin),
             reader: Some(BufReader::new(stdout)),
             closed: false,
+            close_failure: None,
         })
     }
 
@@ -246,14 +271,17 @@ impl NativeAttach {
             .stderr(std::process::Stdio::null())
             .spawn()
             .map_err(|e| format!("/usr/bin/podman failed: {e}"))?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| "terminal stdin unavailable".to_string())?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| "terminal stdout unavailable".to_string())?;
+        let stdin = match child.stdin.take() {
+            Some(stdin) => stdin,
+            None => return Err(reap_failed_attach(child, "terminal stdin unavailable")),
+        };
+        let stdout = match child.stdout.take() {
+            Some(stdout) => stdout,
+            None => {
+                drop(stdin);
+                return Err(reap_failed_attach(child, "terminal stdout unavailable"));
+            }
+        };
         use std::os::unix::io::FromRawFd;
         // `ChildStdin` has no timeout API; convert to `File` for deadlines.
         // SAFETY: the stdio handles are owned by us exactly once.
@@ -268,15 +296,16 @@ impl NativeAttach {
             || unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) }
                 < 0
         {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err("terminal input unavailable".to_string());
+            drop(stdin);
+            drop(stdout);
+            return Err(reap_failed_attach(child, "terminal input unavailable"));
         }
         Ok(NativeAttach {
             child: Some(child),
             stdin: Some(stdin),
             reader: Some(BufReader::new(stdout)),
             closed: false,
+            close_failure: None,
         })
     }
 
@@ -381,30 +410,80 @@ impl NativeAttach {
         parse_output_line(&line)
     }
 
-    /// `nativeTerminal.Close`: stdin EOF, 3s grace, then kill. Idempotent.
-    pub fn close(&mut self) {
+    /// `nativeTerminal.Close`: stdin EOF, 3s grace, then kill and bounded reap.
+    /// An unconfirmed child remains owned here; callers must retain this attach
+    /// until termination is confirmed or the host's shutdown cutoff is reached.
+    pub fn close(&mut self) -> Result<(), String> {
+        if let Some(error) = &self.close_failure {
+            return Err(error.clone());
+        }
         if self.closed {
-            return;
+            return Ok(());
         }
         self.closed = true;
         drop(self.stdin.take());
         drop(self.reader.take());
-        if let Some(mut child) = self.child.take() {
+        if self.child.is_some() {
             let deadline = Instant::now() + Duration::from_secs(3);
             loop {
-                match child.try_wait() {
-                    Ok(Some(_)) | Err(_) => break,
-                    Ok(None) => {
+                let status = match self.child.as_mut().expect("child checked").try_wait() {
+                    Ok(status) => status,
+                    Err(_) => return self.fail_close("terminal child status unconfirmed"),
+                };
+                match status {
+                    Some(_) => {
+                        self.child.take();
+                        return Ok(());
+                    }
+                    None => {
                         if Instant::now() >= deadline {
-                            let _ = child.kill();
-                            // Reap the killed child (CODEX-H01-REAP-1):
-                            // kill leaves a zombie without wait.
-                            let _ = child.wait();
-                            break;
+                            if self.child.as_mut().expect("child checked").kill().is_err() {
+                                return self.fail_close("terminal child termination unconfirmed");
+                            }
+                            let reap_deadline = Instant::now() + Duration::from_secs(3);
+                            loop {
+                                match self.child.as_mut().expect("child checked").try_wait() {
+                                    Ok(Some(_)) => {
+                                        self.child.take();
+                                        return Ok(());
+                                    }
+                                    Ok(None) if Instant::now() < reap_deadline => {
+                                        std::thread::sleep(Duration::from_millis(10));
+                                    }
+                                    Ok(None) => {
+                                        return self.fail_close("terminal child reap unconfirmed");
+                                    }
+                                    Err(_) => {
+                                        return self.fail_close("terminal child reap unconfirmed");
+                                    }
+                                }
+                            }
                         }
                         std::thread::sleep(Duration::from_millis(10));
                     }
                 }
+            }
+        }
+        Ok(())
+    }
+
+    fn fail_close(&mut self, message: &str) -> Result<(), String> {
+        let error = message.to_string();
+        self.close_failure = Some(error.clone());
+        Err(error)
+    }
+
+    /// Keep the child handle in its current pump owner until wait confirms
+    /// terminal state. The host shutdown deadline bounds how long this owner
+    /// may remain in the server task tree.
+    pub(crate) fn retain_child_until_exit(&mut self) {
+        while let Some(child) = self.child.as_mut() {
+            match child.try_wait() {
+                Ok(Some(_)) => {
+                    self.child.take();
+                    return;
+                }
+                Ok(None) | Err(_) => std::thread::sleep(Duration::from_millis(25)),
             }
         }
     }
@@ -412,6 +491,8 @@ impl NativeAttach {
 
 impl Drop for NativeAttach {
     fn drop(&mut self) {
-        self.close();
+        if self.close().is_err() {
+            self.retain_child_until_exit();
+        }
     }
 }

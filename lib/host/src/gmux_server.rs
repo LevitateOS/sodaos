@@ -18,7 +18,7 @@ use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixListener;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 #[path = "daemon/http.rs"]
@@ -62,29 +62,31 @@ impl<B: ExecBackend + 'static> Server<B> {
     /// Serve until `shutdown`. Listener errors fail fast after a short
     /// burst so the supervisor restarts a deaf daemon (http.rs precedent,
     /// mirroring Go's Serve returning on fatal listener errors).
-    pub fn serve(&self, listener: &UnixListener) {
-        listener.set_nonblocking(true).ok();
-        let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+    pub fn serve(&self, listener: &UnixListener) -> Result<(), String> {
+        listener.set_nonblocking(true)
+            .map_err(|_| "server listener setup failed".to_string())?;
+        let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-        else {
-            return;
-        };
-        let Ok(listener) = listener.try_clone() else {
-            return;
-        };
+            .map_err(|_| "server runtime setup failed".to_string())?;
+        let listener = listener
+            .try_clone()
+            .map_err(|_| "server listener clone failed".to_string())?;
         let shutdown = Arc::clone(&self.shutdown);
         let backend = Arc::clone(&self.backend);
         let config = self.config.clone();
         let gate = Arc::clone(&self.gate);
         let terminal_gate = Arc::clone(&self.terminal_gate);
         let inflight = Arc::clone(&self.inflight);
+        let task_failure = Arc::new(Mutex::new(None::<String>));
+        let failures = Arc::clone(&task_failure);
         let backend_permits = Arc::new(tokio::sync::Semaphore::new(16));
         let backend_jobs = Arc::new(std::sync::Mutex::new(
             Vec::<tokio::task::JoinHandle<()>>::new(),
         ));
-        runtime.block_on(async move {
-            let Ok(listener) = tokio::net::UnixListener::from_std(listener) else { return; };
+        let result = runtime.block_on(async move {
+            let listener = tokio::net::UnixListener::from_std(listener)
+                .map_err(|_| "server listener conversion failed".to_string())?;
             let permits = Arc::new(tokio::sync::Semaphore::new(128));
             let upgrades = Arc::new(std::sync::Mutex::new(Vec::<tokio::task::JoinHandle<()>>::new()));
             let mut connections = tokio::task::JoinSet::new();
@@ -98,7 +100,11 @@ impl<B: ExecBackend + 'static> Server<B> {
                     *jobs = pending;
                     finished
                 };
-                for job in finished { let _ = job.await; }
+                for job in finished {
+                    if job.await.is_err() {
+                        record_task_failure(&failures, "backend worker panicked");
+                    }
+                }
                 let finished_upgrades = {
                     let mut tasks = upgrades.lock().unwrap();
                     let all = std::mem::take(&mut *tasks);
@@ -106,7 +112,11 @@ impl<B: ExecBackend + 'static> Server<B> {
                     *tasks = pending;
                     finished
                 };
-                for task in finished_upgrades { let _ = task.await; }
+                for task in finished_upgrades {
+                    if task.await.is_err() {
+                        record_task_failure(&failures, "terminal upgrade worker panicked");
+                    }
+                }
                 tokio::select! {
                     accepted = listener.accept() => match accepted {
                         Ok((stream, _)) => {
@@ -119,23 +129,59 @@ impl<B: ExecBackend + 'static> Server<B> {
                             connections.spawn(handle_connection(
                                 stream, Arc::clone(&backend), config.clone(), Arc::clone(&gate),
                                 Arc::clone(&terminal_gate), Arc::clone(&shutdown), Arc::clone(&upgrades),
-                                Arc::clone(&backend_permits), Arc::clone(&backend_jobs), permit, Arc::clone(&inflight),
+                                Arc::clone(&backend_permits), Arc::clone(&backend_jobs), permit,
+                                Arc::clone(&inflight), Arc::clone(&failures),
                             ));
                         }
                         Err(e) if e.kind() == std::io::ErrorKind::Interrupted || e.kind() == std::io::ErrorKind::ConnectionAborted => {}
-                        Err(_) => { fatal_errors += 1; if fatal_errors >= 20 { break; } }
+                        Err(_) => {
+                            fatal_errors += 1;
+                            if fatal_errors >= 20 {
+                                record_task_failure(
+                                    &failures,
+                                    "HTTP listener failed after repeated accept errors",
+                                );
+                                break;
+                            }
+                        }
                     },
-                    joined = connections.join_next(), if !connections.is_empty() => { let _ = joined; }
+                    joined = connections.join_next(), if !connections.is_empty() => {
+                        if matches!(joined, Some(Err(_))) {
+                            record_task_failure(&failures, "HTTP connection worker panicked");
+                        }
+                    }
                     _ = tokio::time::sleep(Duration::from_millis(50)) => {}
                 }
             }
             shutdown.store(true, Ordering::SeqCst);
-            while connections.join_next().await.is_some() {}
+            while let Some(joined) = connections.join_next().await {
+                if joined.is_err() {
+                    record_task_failure(&failures, "HTTP connection worker panicked");
+                }
+            }
             let tasks = upgrades.lock().map(|mut tasks| std::mem::take(&mut *tasks)).unwrap_or_default();
-            for task in tasks { let _ = task.await; }
+            for task in tasks {
+                if task.await.is_err() {
+                    record_task_failure(&failures, "terminal upgrade worker panicked");
+                }
+            }
             let jobs = backend_jobs.lock().map(|mut jobs| std::mem::take(&mut *jobs)).unwrap_or_default();
-            for job in jobs { let _ = job.await; }
+            for job in jobs {
+                if job.await.is_err() {
+                    record_task_failure(&failures, "backend worker panicked");
+                }
+            }
+            Ok::<(), String>(())
         });
+        result?;
+        let failure_result = match task_failure.lock() {
+            Ok(failure) => match failure.clone() {
+                Some(error) => Err(error),
+                None => Ok(()),
+            },
+            Err(_) => Err("server failure state unavailable".to_string()),
+        };
+        failure_result
     }
 }
 
@@ -151,6 +197,7 @@ async fn handle_connection<B: ExecBackend + 'static>(
     backend_jobs: Arc<std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
     _permit: tokio::sync::OwnedSemaphorePermit,
     inflight: Arc<AtomicUsize>,
+    task_failure: Arc<Mutex<Option<String>>>,
 ) {
     struct Inflight(Arc<AtomicUsize>);
     impl Drop for Inflight {
@@ -170,6 +217,7 @@ async fn handle_connection<B: ExecBackend + 'static>(
         let upgrades = Arc::clone(&upgrades);
         let backend_permits = Arc::clone(&backend_permits);
         let backend_jobs = Arc::clone(&backend_jobs);
+        let task_failure = Arc::clone(&task_failure);
         let connection_count = Arc::clone(&connection_count);
         async move {
             let on_upgrade = hyper::upgrade::on(&mut request);
@@ -248,6 +296,7 @@ async fn handle_connection<B: ExecBackend + 'static>(
                         }
                         let _pump_inflight = PumpInflight(connection_count);
                         let _slot = slot;
+                        let task_failure = Arc::clone(&task_failure);
                         let upgraded = tokio::select! {
                             upgraded = on_upgrade => upgraded,
                             _ = wait_shutdown(Arc::clone(&shutdown)) => return,
@@ -273,10 +322,20 @@ async fn handle_connection<B: ExecBackend + 'static>(
                                         Some(websocket_config),
                                     );
                                     let job_shutdown = Arc::clone(&shutdown);
-                                    let _ = tokio::task::spawn_blocking(move || {
+                                    match tokio::task::spawn_blocking(move || {
                                         backend.pump_terminal(ws, session, job_shutdown)
                                     })
-                                    .await;
+                                    .await {
+                                        Ok(Ok(())) => {}
+                                        Ok(Err(error)) => record_task_failure(
+                                            &task_failure,
+                                            &format!("terminal pump failed: {error:?}"),
+                                        ),
+                                        Err(_) => record_task_failure(
+                                            &task_failure,
+                                            "terminal pump worker panicked",
+                                        ),
+                                    }
                                 }
                             }
                         }
@@ -299,6 +358,14 @@ async fn handle_connection<B: ExecBackend + 'static>(
     tokio::select! {
         _ = builder.serve_connection(TokioIo::new(stream), service).with_upgrades() => {},
         _ = wait_shutdown(Arc::clone(&shutdown)) => {},
+    }
+}
+
+fn record_task_failure(failure: &Mutex<Option<String>>, message: &str) {
+    if let Ok(mut failure) = failure.lock() {
+        if failure.is_none() {
+            *failure = Some(message.to_string());
+        }
     }
 }
 

@@ -6,7 +6,8 @@
 //
 // The mux owns all HTTP, backend and terminal pump tasks and joins them
 // during shutdown. In-flight backend operations retain their domain
-// deadlines; no task is detached to satisfy an invented process-exit cap.
+// deadlines; if ownership remains unconfirmed at the bounded host shutdown
+// horizon, main reports failure so the service supervisor can retire it.
 use std::os::unix::io::AsRawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -21,6 +22,9 @@ const DEFAULT_CONFIG: &str = "/etc/soda/host.json";
 const RELEASE_CONFIG: &str = "/usr/share/soda/release.json";
 const FACTORY_STATE_DIR: &str = "/var/lib/soda/host/factory";
 const MUSE_JOIN_TIMEOUT: Duration = Duration::from_secs(65);
+// Covers a 180-second native operation, six seconds for graceful close/kill
+// confirmation, and join/scheduling margin. Expiry is an error, never success.
+const HOST_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(200);
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -289,8 +293,9 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
     let serve_handle = std::thread::spawn(move || {
         // `serve` polls its own shutdown flag; the listener is borrowed
         // for the loop and closed on return.
-        serve_server.serve(&listener);
+        let result = serve_server.serve(&listener);
         drop(listener);
+        result
     });
     while !SHUTDOWN.load(Ordering::SeqCst) {
         if serve_handle.is_finished() {
@@ -301,38 +306,61 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
 
     // Stop HTTP admission and cancel mux-owned request work as soon as the
     // signal arrives, before waiting for Muse execution retirement.
+    let shutdown_started = Instant::now();
+    let shutdown_deadline = shutdown_started + HOST_SHUTDOWN_TIMEOUT;
     muse_shutdown.store(true, Ordering::SeqCst);
     server.shutdown();
     let mut launch_failure: Option<String> = None;
-    if let Some(handle) = muse_handle {
-        let deadline = Instant::now() + MUSE_JOIN_TIMEOUT;
-        loop {
-            if handle.is_finished() {
-                match handle.join() {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => launch_failure = Some(e),
-                    Err(_) => {
-                        launch_failure = Some("launch execution retirement panicked".to_string());
-                    }
+    let muse_deadline = shutdown_started + MUSE_JOIN_TIMEOUT;
+    let mut muse_window_expired = false;
+    let mut muse_handle = muse_handle;
+    loop {
+        if !muse_window_expired
+            && muse_deadline <= Instant::now()
+            && muse_handle.as_ref().is_some_and(|handle| !handle.is_finished())
+        {
+            launch_failure = Some("launch execution retirement remains unconfirmed".to_string());
+            muse_window_expired = true;
+        }
+        let muse_done = muse_handle.as_ref().map_or(true, |handle| handle.is_finished());
+        if muse_done && serve_handle.is_finished() {
+            break;
+        }
+        if Instant::now() >= shutdown_deadline {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    if let Some(handle) = muse_handle.take() {
+        if handle.is_finished() {
+            match handle.join() {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => launch_failure = Some(e),
+                Err(_) => {
+                    launch_failure = Some("launch execution retirement panicked".to_string());
                 }
-                break;
             }
-            if Instant::now() >= deadline {
-                launch_failure =
-                    Some("launch execution retirement remains unconfirmed".to_string());
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(50));
+        } else if launch_failure.is_none() {
+            launch_failure = Some("launch execution retirement remains unconfirmed".to_string());
         }
     }
-    // `Server::serve` still joins mux tasks without a deadline; this join is
-    // also unbounded until child-task custody gets its own bounded policy.
-    let _ = serve_handle.join();
+    let server_failure = if serve_handle.is_finished() {
+        match serve_handle.join() {
+            Ok(Ok(())) => None,
+            Ok(Err(error)) => Some(error),
+            Err(_) => Some("HTTP server retirement panicked".to_string()),
+        }
+    } else {
+        Some("HTTP server retirement remains unconfirmed".to_string())
+    };
 
-    if let Some(e) = launch_failure {
-        return Err(MainError::Other(e));
+    match (launch_failure, server_failure) {
+        (Some(launch), Some(server)) => {
+            Err(MainError::Other(format!("{launch}; {server}")))
+        }
+        (Some(error), None) | (None, Some(error)) => Err(MainError::Other(error)),
+        (None, None) => Ok(()),
     }
-    Ok(())
 }
 
 fn run() -> Result<(), MainError> {

@@ -2157,6 +2157,7 @@ fn take_reader_detaches_output() {
         stdin: Some(in_file),
         reader: Some(BufReader::new(out_file)),
         closed: false,
+        close_failure: None,
     };
     let mut reader = attach.take_reader().expect("reader detached");
     assert!(attach.take_reader().is_none());
@@ -2168,7 +2169,7 @@ fn take_reader_detaches_output() {
         NativeAttach::output_frame(&mut reader).unwrap_err(),
         "terminal output ended"
     );
-    attach.close();
+    attach.close().unwrap();
     assert!(attach.closed);
 }
 
@@ -2181,6 +2182,7 @@ fn quiet_output_never_blocks_input() {
         stdin: Some(in_file),
         reader: Some(BufReader::new(out_file)),
         closed: false,
+        close_failure: None,
     };
     let mut reader = attach.take_reader().unwrap();
     let out = std::thread::spawn(move || NativeAttach::output_frame(&mut reader));
@@ -2196,7 +2198,7 @@ fn quiet_output_never_blocks_input() {
     attach.input_frame(&frame).unwrap();
     drop(out_peer);
     assert_eq!(out.join().unwrap().unwrap_err(), "terminal output ended");
-    attach.close();
+    attach.close().unwrap();
 }
 
 /// Spawn a real quiet child owned by a test `NativeAttach` (reader
@@ -2226,6 +2228,7 @@ fn attach_with_child(argv: &[&str]) -> (NativeAttach, u32, u64) {
             stdin: Some(stdin),
             reader: None,
             closed: false,
+            close_failure: None,
         },
         pid,
         starttime,
@@ -2272,11 +2275,11 @@ fn close_reaps_eof_exited_child() {
     // CODEX-H01-REAP-1: `cat` exits on the stdin EOF that `close`
     // causes by dropping stdin; the exit must be reaped.
     let (mut attach, pid, starttime) = attach_with_child(&["cat"]);
-    attach.close();
+    attach.close().unwrap();
     assert!(attach.child.is_none());
     assert_pid_reaped(pid, starttime);
     // Once-only close stays idempotent.
-    attach.close();
+    attach.close().unwrap();
 }
 
 #[test]
@@ -2285,9 +2288,27 @@ fn close_reaps_killed_child() {
     // kill after the 3s grace and then reap the forced termination.
     let (mut attach, pid, starttime) = attach_with_child(&["sleep", "30"]);
     let start = Instant::now();
-    attach.close();
+    attach.close().unwrap();
     assert!(start.elapsed() >= Duration::from_secs(3), "grace skipped");
     assert!(attach.child.is_none());
     assert_pid_reaped(pid, starttime);
-    attach.close();
+    attach.close().unwrap();
+}
+
+#[test]
+fn close_keeps_child_owned_after_wait_error() {
+    let (mut attach, pid, starttime) = attach_with_child(&["sleep", "30"]);
+    let child = attach.child.as_mut().unwrap();
+    child.kill().unwrap();
+    let waited = unsafe { libc::waitpid(pid as libc::pid_t, std::ptr::null_mut(), 0) };
+    assert_eq!(waited, pid as libc::pid_t);
+
+    let first = attach.close().unwrap_err();
+    assert_eq!(first, "terminal child status unconfirmed");
+    assert!(attach.child.is_some(), "unconfirmed Child must remain owned");
+    assert_eq!(attach.close().unwrap_err(), first, "failure remains sticky");
+    assert_pid_reaped(pid, starttime);
+    // ECHILD is intentionally unconfirmable through this Child owner, so do
+    // not run the production Drop wait loop in this fault-injection test.
+    std::mem::forget(attach);
 }
