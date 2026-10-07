@@ -152,7 +152,7 @@ func runBoundedDirEnv(name string, args []string, stdin []byte, extraEnv []strin
 	if err != nil {
 		return runOutcome{exitCode: -1}, err
 	}
-	waitErr := process.Wait(runCtx)
+	waitErr := errors.Join(process.Wait(runCtx), ctx.Err())
 	if waitErr != nil && (errors.Is(waitErr, context.DeadlineExceeded) || errors.Is(waitErr, context.Canceled)) {
 		cleanupErr := process.Stop()
 		select {
