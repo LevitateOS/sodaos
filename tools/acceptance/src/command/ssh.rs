@@ -1,6 +1,8 @@
 use std::net::IpAddr;
+use std::path::Path;
+use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::value::RawValue;
 use std::collections::BTreeMap;
@@ -9,7 +11,7 @@ use crate::error::Error;
 use crate::files;
 use crate::process::Phase;
 
-use super::{look_path, quote, CommandSpec, StdinSpec};
+use super::{CommandSpec, StdinSpec, look_path, quote};
 
 /// Pinned SSH endpoint. Keys are file references, never inline contents.
 pub struct Remote {
@@ -178,17 +180,102 @@ impl Remote {
     /// Wait for pinned SSH readiness, retrying `ssh true` until the phase
     /// ends, like Go's `Remote.WaitReady`.
     pub fn wait_ready(&self, phase: &Phase) -> Result<(), Error> {
+        phase.check()?;
         look_path("ssh")?;
         let args = self.args()?;
-        loop {
-            if ssh_true(&args) {
-                return Ok(());
-            }
-            if let Err(e) = phase.check() {
-                return Err(Error::wrap("pinned SSH readiness", e));
-            }
-            std::thread::sleep(Duration::from_secs(1));
+        wait_ready_with(phase, Path::new("ssh"), &args, Duration::from_secs(12))
+    }
+}
+
+pub(super) fn wait_ready_with(
+    phase: &Phase,
+    ssh_program: &Path,
+    args: &[String],
+    attempt_limit: Duration,
+) -> Result<(), Error> {
+    loop {
+        phase.check()?;
+        if ssh_true_with(ssh_program, args, phase, attempt_limit)? {
+            phase.check()?;
+            return Ok(());
         }
+        phase.check()?;
+        let sleep = phase
+            .deadline()
+            .map(|deadline| {
+                Duration::from_secs(1).min(deadline.saturating_duration_since(Instant::now()))
+            })
+            .unwrap_or(Duration::from_secs(1));
+        if sleep.is_zero() {
+            phase.check()?;
+        }
+        std::thread::sleep(sleep);
+    }
+}
+
+pub(super) fn ssh_true_with(
+    ssh_program: &Path,
+    args: &[String],
+    phase: &Phase,
+    attempt_limit: Duration,
+) -> Result<bool, Error> {
+    phase.check()?;
+    let now = Instant::now();
+    let attempt_deadline =
+        (now + attempt_limit).min(phase.deadline().unwrap_or(now + attempt_limit));
+    phase.check()?;
+
+    let mut command = Command::new(ssh_program);
+    command.args(args).arg("true");
+    command.stdin(Stdio::null());
+    command.stdout(Stdio::null());
+    command.stderr(Stdio::null());
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(_) => {
+            phase.check()?;
+            return Ok(false);
+        }
+    };
+    loop {
+        if let Err(primary) = phase.check() {
+            return Err(
+                Error::join(vec![Some(primary), stop_ssh_child(&mut child).err()]).unwrap(),
+            );
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                // The process may have exited successfully after the phase
+                // or attempt ended but before this thread observed it.
+                phase.check()?;
+                return Ok(status.success() && Instant::now() < attempt_deadline);
+            }
+            Ok(None) if Instant::now() >= attempt_deadline => {
+                stop_ssh_child(&mut child)?;
+                return Ok(false);
+            }
+            Ok(None) => {
+                let remaining = attempt_deadline.saturating_duration_since(Instant::now());
+                std::thread::sleep(Duration::from_millis(25).min(remaining));
+            }
+            Err(wait_error) => {
+                let wait_error = Error::wrap("SSH readiness client wait failed", wait_error.into());
+                return Err(
+                    Error::join(vec![Some(wait_error), stop_ssh_child(&mut child).err()]).unwrap(),
+                );
+            }
+        }
+    }
+}
+
+fn stop_ssh_child(child: &mut Child) -> Result<(), Error> {
+    if matches!(child.try_wait(), Ok(Some(_))) {
+        return Ok(());
+    }
+    let kill_error = child.kill().err().map(Error::from);
+    match child.wait() {
+        Ok(_) => Ok(()),
+        Err(wait_error) => Err(Error::join(vec![kill_error, Some(wait_error.into())]).unwrap()),
     }
 }
 
@@ -211,32 +298,5 @@ mod json_tests {
         assert!(decode_remote(&fractional).is_err());
         let unknown = RawValue::from_string(r#"{"Other":null}"#.to_string()).unwrap();
         assert!(decode_remote(&unknown).is_err());
-    }
-}
-
-fn ssh_true(args: &[String]) -> bool {
-    let mut command = std::process::Command::new("ssh");
-    command.args(args).arg("true");
-    command.stdin(std::process::Stdio::null());
-    command.stdout(std::process::Stdio::null());
-    command.stderr(std::process::Stdio::null());
-    let mut child = match command.spawn() {
-        Ok(child) => child,
-        Err(_) => return false,
-    };
-    let deadline = std::time::Instant::now() + Duration::from_secs(12);
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => return status.success(),
-            Ok(None) => {
-                if std::time::Instant::now() >= deadline {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return false;
-                }
-                std::thread::sleep(Duration::from_millis(50));
-            }
-            Err(_) => return false,
-        }
     }
 }

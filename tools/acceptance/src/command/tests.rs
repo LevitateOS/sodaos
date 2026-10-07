@@ -3,6 +3,7 @@ use std::time::Duration;
 use crate::evidence::Evidence;
 use crate::process::Phase;
 
+use super::ssh::wait_ready_with;
 use super::*;
 
 fn fixture_evidence() -> (std::path::PathBuf, Evidence) {
@@ -80,6 +81,70 @@ fn pinned_ssh_options() {
     std::fs::set_permissions(&key, std::fs::Permissions::from_mode(0o644)).unwrap();
     assert!(remote.args().is_err());
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn readiness_checks_phase_and_reaps_timed_out_ssh() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let scratch = crate::files::TempDir::new("ssh-readiness").unwrap();
+    let executable = scratch.join("ssh");
+    let started = scratch.join("started");
+    let pid_path = scratch.join("ssh.pid");
+    std::fs::write(
+        &executable,
+        format!(
+            "#!/bin/sh\nprintf started > '{}'\nprintf '%s' \"$$\" > '{}'\nexec sleep 60\n",
+            started.display(),
+            pid_path.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+    let expired = Phase::timeout(Duration::ZERO);
+    assert!(wait_ready_with(&expired, &executable, &[], Duration::from_secs(12)).is_err());
+    assert!(!started.exists(), "expired phase must not start SSH");
+
+    let phase = Phase::timeout(Duration::from_millis(250));
+    let error = wait_ready_with(&phase, &executable, &[], Duration::from_secs(12)).unwrap_err();
+    assert!(error.to_string().contains("context deadline exceeded"));
+    assert!(started.exists(), "live phase must attempt SSH");
+    let pid: u32 = std::fs::read_to_string(pid_path).unwrap().parse().unwrap();
+    assert!(
+        !std::path::Path::new(&format!("/proc/{pid}")).exists(),
+        "timed-out SSH child must be gone before readiness returns"
+    );
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn readiness_accepts_timely_success_with_pinned_arguments() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let scratch = crate::files::TempDir::new("ssh-readiness-success").unwrap();
+    let executable = scratch.join("ssh");
+    let args_path = scratch.join("args");
+    std::fs::write(
+        &executable,
+        format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\nexit 0\n",
+            args_path.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+    wait_ready_with(
+        &Phase::timeout(Duration::from_secs(2)),
+        &executable,
+        &["-F".to_owned(), "/dev/null".to_owned()],
+        Duration::from_secs(12),
+    )
+    .unwrap();
+    let args = std::fs::read_to_string(args_path).unwrap();
+    assert_eq!(args, "-F\n/dev/null\ntrue\n");
 }
 
 #[test]

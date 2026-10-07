@@ -230,3 +230,92 @@ fn evidence_failure_records_failed_evidence_and_outcome() {
     assert!(text.contains("\"Outcome\": \"failed\""), "{text}");
     assert!(!text.contains("\"Outcome\": \"completed\""), "{text}");
 }
+
+#[test]
+fn redacted_artifact_key_collision_prevents_observation_publication() {
+    let scratch = TempDir::new("driver-artifact-collision").unwrap();
+    let path = scratch.join("evidence").to_string_lossy().into_owned();
+    let evidence = crate::evidence::create_evidence(
+        &path,
+        &[
+            b"artifact-secret-one".to_vec(),
+            b"artifact-secret-two".to_vec(),
+        ],
+    )
+    .unwrap();
+    let mut artifacts = std::collections::BTreeMap::new();
+    artifacts.insert(
+        "/artifacts/artifact-secret-one.bin".to_owned(),
+        "hash-one".to_owned(),
+    );
+    artifacts.insert(
+        "/artifacts/artifact-secret-two.bin".to_owned(),
+        "hash-two".to_owned(),
+    );
+
+    let error = finalize_observation(
+        &evidence,
+        Observation {
+            artifacts: Some(artifacts),
+            ..Observation::default()
+        },
+        None,
+        None,
+    )
+    .unwrap_err();
+
+    assert!(error.to_string().contains("redacted JSON key collision"));
+    assert!(
+        !std::path::Path::new(&path)
+            .join("observation.json")
+            .exists()
+    );
+    assert!(
+        !std::path::Path::new(&path)
+            .join("observation.pending.json")
+            .exists()
+    );
+    assert!(!error.to_string().contains("artifact-secret"));
+}
+
+#[test]
+fn distinct_redacted_artifact_keys_preserve_both_hashes() {
+    let scratch = TempDir::new("driver-artifact-redaction").unwrap();
+    let path = scratch.join("evidence").to_string_lossy().into_owned();
+    let evidence = crate::evidence::create_evidence(
+        &path,
+        &[
+            b"artifact-secret-one".to_vec(),
+            b"artifact-secret-two".to_vec(),
+        ],
+    )
+    .unwrap();
+    let mut artifacts = std::collections::BTreeMap::new();
+    artifacts.insert(
+        "/first/artifact-secret-one.bin".to_owned(),
+        "hash-one".to_owned(),
+    );
+    artifacts.insert(
+        "/second/artifact-secret-two.bin".to_owned(),
+        "hash-two".to_owned(),
+    );
+
+    finalize_observation(
+        &evidence,
+        Observation {
+            artifacts: Some(artifacts),
+            ..Observation::default()
+        },
+        None,
+        None,
+    )
+    .unwrap();
+
+    let text =
+        std::fs::read_to_string(std::path::Path::new(&path).join("observation.json")).unwrap();
+    assert!(text.contains("/first/[REDACTED].bin"), "{text}");
+    assert!(text.contains("/second/[REDACTED].bin"), "{text}");
+    assert!(text.contains("hash-one"), "{text}");
+    assert!(text.contains("hash-two"), "{text}");
+    assert!(!text.contains("artifact-secret"), "{text}");
+}

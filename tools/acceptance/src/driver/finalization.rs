@@ -21,13 +21,6 @@ fn redact_observation_strings(evidence: &Evidence, observation: &mut Observation
     }
     observation.topology = evidence.redact_string(&observation.topology);
     observation.cleanup = evidence.redact_string(&observation.cleanup);
-    if let Some(artifacts) = observation.artifacts.as_mut() {
-        let redacted: Vec<(String, String)> = artifacts
-            .iter()
-            .map(|(name, sum)| (evidence.redact_string(name), sum.clone()))
-            .collect();
-        *artifacts = redacted.into_iter().collect();
-    }
 }
 
 /// Join error Displays like [`Error::join`]: single messages pass
