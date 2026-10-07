@@ -1,185 +1,247 @@
 # Documentation contracts
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-f4ba726f8b49"></a>
 
-## [docs/architecture/factory-interfaces.md](../../../../architecture/factory-interfaces.md)
+## [docs/architecture/factory-interfaces.md](../../../../../docs/architecture/factory-interfaces.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Current artifact role, concrete consumer/provenance and established contract owner inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–10 | Capability contract/reference |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 11–46 | Service and persistence placement |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 47–77 | Common identities and request rules |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 78–140 | Soda API and UI commands |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 141–172 | Soda durable records |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 173–209 | Transitions and ordered cancellation |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 210–291 | Project execution and broker interface |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 292–359 | Generic Fountain integration |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–10; # Factory implementation interfaces | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Owning/reference document section: Factory implementation interfaces — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 11–46, 141–172; ## Service and persistence placement; ## Soda durable records | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Owning/reference document section: Service and persistence placement; Owning/reference document section: Soda durable records — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 47–77, 292–359; ## Common identities and request rules; ## Generic Fountain integration | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Owning/reference document section: Common identities and request rules; Owning/reference document section: Generic Fountain integration — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 78–140; ## Soda API and UI commands | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Owning/reference document section: Soda API and UI commands — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 173–209; ## Transitions and ordered cancellation | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Owning/reference document section: Transitions and ordered cancellation — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 210–291; ## Project execution and broker interface | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) | retained | Owning/reference document section: Project execution and broker interface — Current section and requirements extraction; document does not grant implementation or native qualification |
 
 <a id="coverage-fa967c3731b1"></a>
 
-## [docs/architecture/networking.md](../../../../architecture/networking.md)
+## [docs/architecture/networking.md](../../../../../docs/architecture/networking.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Exact source identity at0d8d3b8e with maintained per-section responsibility units reused
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 1–4 | Private Project LAN addressing and routing |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 5–13 | Project reachability |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 14–24 | Origins and endpoints |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 25–31 | Cockpit |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 32–51 | Tailnet model |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 52–56 | CI networking |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–13, 25–31, 52–56; Private Project LAN addressing and routing; Project reachability; Cockpit; CI networking | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Private Project LAN addressing and routing; 4 named units assigned here; remaining selectors preserve each duty — docs/development/ideal-filetree-plan/coverage/maps/documentation-contracts.md; byte-identical prior docs/architecture/networking.md |
+| 14–24; Origins and endpoints | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Origins and endpoints — docs/development/ideal-filetree-plan/coverage/maps/documentation-contracts.md; byte-identical prior docs/architecture/networking.md |
+| 32–51; Tailnet model | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Tailnet model — docs/development/ideal-filetree-plan/coverage/maps/documentation-contracts.md; byte-identical prior docs/architecture/networking.md |
 
 <a id="coverage-e5a5102f18de"></a>
 
-## [docs/architecture/overview.md](../../../../architecture/overview.md)
+## [docs/architecture/overview.md](../../../../../docs/architecture/overview.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Current artifact role, concrete consumer/provenance and established contract owner inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–12 | Capability contract/reference |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 13–39 | Topology |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 40–61 | Component ownership |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 62–75 | Factory flow |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 76–115 | Factory architecture decisions |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 116–140 | Shared Project execution |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 141–157 | Control and data flow |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 158–180 | Persistence boundaries |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 181–186 | Related source |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 62–90; # Architecture overview; ## Factory flow; ## Factory architecture decisions | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Owning/reference document section: Architecture overview; Owning/reference document section: Factory flow; Owning/reference document section: Factory architecture decisions — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 13–61; ## Topology; ## Component ownership | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Owning/reference document section: Topology; Owning/reference document section: Component ownership — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 91–115; ### Native observations and accepted inputs | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Owning/reference document section: Native observations and accepted inputs — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 116–140; ## Shared Project execution | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | Owning/reference document section: Shared Project execution — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 141–157; ## Control and data flow | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Owning/reference document section: Control and data flow — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 158–180; ## Persistence boundaries | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Owning/reference document section: Persistence boundaries — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 181–186; ## Related source | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Owning/reference document section: Related source — Current section and requirements extraction; document does not grant implementation or native qualification |
 
 <a id="coverage-4a7c1984f1fe"></a>
 
-## [docs/architecture/release.md](../../../../architecture/release.md)
+## [docs/architecture/release.md](../../../../../docs/architecture/release.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Current artifact role, concrete consumer/provenance and established contract owner inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–10 | Candidate application/host image production and packaging |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 11–21 | Candidate model |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 22–29 | Host update ownership |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 30–39 | Architectures |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 40–46 | Media |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 47–51 | Separation from product features |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20, 61–64; lines 1-20: Canonical candidate pipeline architecture; lines 61-64: Shipping/qualification versus domain authority | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Canonical candidate pipeline architecture; Shipping/qualification versus domain authority — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
+| 21–28; lines 21-28: Typed public trust-key admission/fingerprint and signer separation | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Typed public trust-key admission/fingerprint and signer separation — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
+| 29–33; lines 29-33: Installer strict signature/TBS policy | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Installer strict signature/TBS policy — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
+| 34–43; lines 34-43: Native CoreOS update ownership | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Native CoreOS update ownership — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
+| 44–54; lines 44-54: Platform/native qualification scope | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Platform/native qualification scope — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
+| 55–60; lines 55-60: Installation media model | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Installation media model — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
 
 <a id="coverage-648cce1716a4"></a>
 
-## [docs/architecture/trust.md](../../../../architecture/trust.md)
+## [docs/architecture/trust.md](../../../../../docs/architecture/trust.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Current mixed canonical contract clauses, section and operation boundaries inspected; prior broad attribution corrected by independent challenge
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 1–4 | Native extension context and browser contribution admission |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 5–19 | Distinct authorities |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 20–36 | Identity split |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 37–42 | Runtime identities |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 43–145 | Factory authority boundary |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 146–210 | Project execution boundary |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 211–899 | Fountain consumption boundary |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 900–936 | Frontend and session boundary |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 937–944 | Host helper |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 945–956 | Maintaining the Forgejo extension layer |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 9, 835–876; Host root; lines835-876: Recovery authority | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Host root; lines835-876: Recovery authority — Current clause/column source; distinct canonical authority and workflow context; Current source clauses/section; canonical workflow requirements at519b76bd |
+| 10; Configured Soda operator | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | retained | Configured Soda operator — Current clause/column source; distinct canonical authority and workflow context |
+| 1–8, 11–12, 15–36, 211–231; Forgejo site administrator; Organization owner/admin; Section title, framing and non-interchangeability/navigation constraints; lines20-36: Identity split; lines211-231: Fountain consumption boundary | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Forgejo site administrator; 5 named units assigned here; remaining selectors preserve each duty — Current clause/column source; distinct canonical authority and workflow context; Current source clauses/section; canonical workflow requirements at519b76bd |
+| 13; Repository owner | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Repository owner — Current clause/column source; distinct canonical authority and workflow context |
+| 14; Project member | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Project member — Current clause/column source; distinct canonical authority and workflow context |
+| 37–42, 937–944; lines37-42: Runtime identities; lines937-944: Host helper | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | lines37-42: Runtime identities; lines937-944: Host helper — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 43–51, 54, 80–98; lines43-54: Factory authority boundary; lines80-98: confirm product decisions, or pause, cancel, resume, retry or take over repository; Standing grant: Current native repository owner/administrator | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | lines43-54: Factory authority boundary; lines80-98: confirm product decisions, or pause, cancel, resume, retry or take over repository; Standing grant: Current native repository owner/administrator — Current source clauses/section; canonical workflow requirements at519b76bd; Current clause/column source; distinct canonical authority and workflow context |
+| 53, 55–63; lines55-63: One person may hold several roles, but each authority is checked separately.; Standing grant: Provider-account owner | [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) | retained | lines55-63: One person may hold several roles, but each authority is checked separately.; Standing grant: Provider-account owner — Current source clauses/section; canonical workflow requirements at519b76bd; Current clause/column source; distinct canonical authority and workflow context |
+| 64–79; lines64-79: of that objective by such a maintainer. An issue from another source waits for | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | lines64-79: of that objective by such a maintainer. An issue from another source waits for — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 99–105, 122–128; lines99-105: grant themselves broader access, receive general Forgejo write authority or bypass; lines122-128: agent can grant itself or its subagents. An issue may trigger work under an | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | lines99-105: grant themselves broader access, receive general Forgejo write authority or bypass; lines122-128: agent can grant itself or its subagents. An issue may trigger work under an — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 106–112; lines106-112: Project execution boundary reference. The reviewer cannot | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | lines106-112: Project execution boundary reference. The reviewer cannot — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 113–121; lines113-121: runs, with credential state maintained by its supported CLI. Deleting a workspace | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | lines113-121: runs, with credential state maintained by its supported CLI. Deleting a workspace — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 129–145; lines129-145: operates only on recorded run-owned resources; a run does not acquire ownership of | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | lines129-145: operates only on recorded run-owned resources; a run does not acquire ownership of — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 146–155, 178–185; lines146-155: Project execution boundary; lines178-185: Project root/wheel remains trusted and can inspect accounts, processes and secrets. | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | lines146-155: Project execution boundary; lines178-185: Project root/wheel remains trusted and can inspect accounts, processes and secrets. — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 156–162; lines156-162: Project Start and Stop require the configured Soda operator or the repository's | [P05](../../slices/projects.md#p05-project-startstop) | retained | lines156-162: Project Start and Stop require the configured Soda operator or the repository's — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 163–168, 186–210; lines163-168: Each run receives only its assigned writable checkout, scratch and approved test; lines186-210: Project preparation authority | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | lines163-168: Each run receives only its assigned writable checkout, scratch and approved test; lines186-210: Project preparation authority — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 169–177; lines169-177:  | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) | retained | lines169-177:  — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 232–328, 491–834; lines232-284: Conditional native mutations; lines285-328: Operation identity and authorization; lines491-525: Sequencing and database recovery; lines526-551: Submission, lookup and cancellation; lines552-591: Outcomes, failures and retries; lines592-607: Native enforcement placement; lines608-685: Selected coordination mechanism; lines686-751: Background authentication; lines752-800: Native execution binding; lines801-834: Participating native writers | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | lines232-284: Conditional native mutations; 10 named units assigned here; remaining selectors preserve each duty — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 329–354, 877–899; lines329-354: Merge intent and effect; lines877-899: Initial merge methods | [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) | retained | lines329-354: Merge intent and effect; lines877-899: Initial merge methods — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 355–457; lines355-412: Candidate ref publication; lines413-457: PR creation | [G04](../../slices/forgejo-integration.md#g04-candidate-publication-and-pr-creation) | retained | lines355-412: Candidate ref publication; lines413-457: PR creation — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 458–490; lines458-490: Review submission | [G05](../../slices/forgejo-integration.md#g05-native-review-submission) | retained | lines458-490: Review submission — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 900–936; lines900-936: Frontend and session boundary | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | lines900-936: Frontend and session boundary — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 945–952; lines945-952: Maintaining the Forgejo extension layer | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) | retained | lines945-952: Maintaining the Forgejo extension layer — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 953–956; Related authority/navigation | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Related authority/navigation — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 52; Standing grant: Configured Soda operator | [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) | retained | Standing grant: Configured Soda operator — Current clause/column source; distinct canonical authority and workflow context |
 
 <a id="coverage-1cde8356b6a0"></a>
 
-## [docs/factory/decision-gate.md](../../../../factory/decision-gate.md)
+## [docs/factory/decision-gate.md](../../../../../docs/factory/decision-gate.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Current artifact role, concrete consumer/provenance and established contract owner inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–9 | Shared database mechanics |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 10–27 | Measured load (A10) |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 28–38 | Decision (A10, A11) |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 39–59 | Reservation race (N-ST1) |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 60–75 | Intake fail-closed (B3) |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–9; lines 1-9: Controlling PostgreSQL disposition with historical SQLite evidence | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Controlling PostgreSQL disposition with historical SQLite evidence — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
+| 10–68; lines 10-68: Superseded SQLite measurement/decision/reservation assertions | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | obsolete | Superseded SQLite measurement/decision/reservation assertions — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
+| 69–82; lines 69-82: Backend-independent intake fail-closed contract | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Backend-independent intake fail-closed contract — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
+
+<a id="coverage-6edc9717162e"></a>
+
+## [docs/product/overview.md](../../../../../docs/product/overview.md)
+
+Current mixed canonical contract clauses, section and operation boundaries inspected; prior broad attribution corrected by independent challenge
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–23, 30, 45–52, 476–488; lines1-23: Soda OS product overview; **Attempt**; lines45-52: Software factory workflow; lines476-488: Implementation boundaries | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | lines1-23: Soda OS product overview; 4 named units assigned here; remaining selectors preserve each duty — Current source clauses/section; canonical workflow requirements at519b76bd; Current clause/column source; distinct canonical authority and workflow context |
+| 28; **Host** | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | **Host** — Current clause/column source; distinct canonical authority and workflow context |
+| 29, 53–56, 145–293; **Work Item**; lines53-56: 1. **Consider the issue.** A new issue enters readiness assessment. Relevant issue; lines145-293: Accepted requirements and native records | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | **Work Item**; lines53-56: 1. **Consider the issue.** A new issue enters readiness assessment. Relevant issue; lines145-293: Accepted requirements and native records — Current clause/column source; distinct canonical authority and workflow context; Current source clauses/section; canonical workflow requirements at519b76bd |
+| 31, 71–76, 92–98, 294–317, 442–475; **Run**; lines71-76:    context. The Identity Broker supplies the authorized provider connection.; lines92-98: ; lines294-317: Prompt assembly; lines442-475: Human intervention | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | **Run**; 5 named units assigned here; remaining selectors preserve each duty — Current clause/column source; distinct canonical authority and workflow context; Current source clauses/section; canonical workflow requirements at519b76bd |
+| 32, 65–70; **Workspace**; lines65-70:    Project environment relationship reference, creating it when authorized | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | **Workspace**; lines65-70:    Project environment relationship reference, creating it when authorized — Current clause/column source; distinct canonical authority and workflow context; Current source clauses/section; canonical workflow requirements at519b76bd |
+| 33; **Project** | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | **Project** — Current clause/column source; distinct canonical authority and workflow context |
+| 34; **Project OS** | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | **Project OS** — Current clause/column source; distinct canonical authority and workflow context |
+| 35; **Session / view** | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | **Session / view** — Current clause/column source; distinct canonical authority and workflow context |
+| 36, 537–546; **Spaces**; lines537-546: Frontend model | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | **Spaces**; lines537-546: Frontend model — Current clause/column source; distinct canonical authority and workflow context; Current source clauses/section; canonical workflow requirements at519b76bd |
+| 37; **Runner** | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | **Runner** — Current clause/column source; distinct canonical authority and workflow context |
+| 38; **Tailnet** | [N05](../../slices/networking.md#n05-project-tailnet-selection) | retained | **Tailnet** — Current clause/column source; distinct canonical authority and workflow context |
+| 24–27, 39–44, 489–509; Section title, framing and non-interchangeability/navigation constraints; lines489-509: System shape | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | lines24-44: Major concepts; lines489-509: System shape — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 57–64, 105–144; lines57-64:    when required information is missing, including questions raised by an agent.; lines105-144: Readiness and blockers | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | lines57-64:    when required information is missing, including questions raised by an agent.; lines105-144: Readiness and blockers — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 77–80; lines77-80: 6. **Review and correct.** Soda starts another agent session in the same repository | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | lines77-80: 6. **Review and correct.** Soda starts another agent session in the same repository — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 81–85, 380–400; lines81-85: 7. **Merge automatically.** Soda performs the native forge merge when the required; lines380-400: Review and correction | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | lines81-85: 7. **Merge automatically.** Soda performs the native forge merge when the required; lines380-400: Review and correction — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 86–91, 401–441; lines86-91: 8. **Reconsider dependent work.** After confirmed merge and the corresponding issue; lines401-441: Automatic merge conditions | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | lines86-91: 8. **Reconsider dependent work.** After confirmed merge and the corresponding issue; lines401-441: Automatic merge conditions — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 99–104, 510–522; lines99-104: Factory operating rules; lines510-522: Product roles | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | lines99-104: Factory operating rules; lines510-522: Product roles — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 318–379; lines318-379: Concurrency and usage limits | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | lines318-379: Concurrency and usage limits — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 523–536; lines523-536: What Soda owns vs Forgejo | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | lines523-536: What Soda owns vs Forgejo — Current source clauses/section; canonical workflow requirements at519b76bd |
 
 <a id="coverage-20acc51791c3"></a>
 
-## [docs/product/projects.md](../../../../product/projects.md)
+## [docs/product/projects.md](../../../../../docs/product/projects.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Current artifact role, concrete consumer/provenance and established contract owner inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–13 | Repository selection, association and explicit creation |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 14–46 | Environment relationships |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 47–80 | Accounts and checkout ownership |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 81–208 | Preparing the environment |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 209–224 | Creation and ownership |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 225–242 | Selected profiles |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 243–267 | Explicit joining |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 268–297 | Persistence |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 298–306 | Access |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 307–312 | Related guides |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–46, 209–224; # Projects; ## Environment relationships; ## Creation and ownership | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Owning/reference document section: Projects; Owning/reference document section: Environment relationships; Owning/reference document section: Creation and ownership — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 47–80; ## Accounts and checkout ownership | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | Owning/reference document section: Accounts and checkout ownership — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 81–161, 189–208; ## Preparing the environment; ### Approved preparation inputs; ### Preparation sequence; ### Changes and failed preparation | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Owning/reference document section: Preparing the environment; 4 named units assigned here; remaining selectors preserve each duty — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 162–188, 225–242; ### Services and readiness evidence; ## Selected profiles | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Owning/reference document section: Services and readiness evidence; Owning/reference document section: Selected profiles — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 243–262, 271; ## Explicit joining | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Owning/reference document section: Explicit joining — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 272–301; ## Persistence | [P05](../../slices/projects.md#p05-project-startstop) | retained | Owning/reference document section: Persistence — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 263–270, 302–310; ## Access; Explicit joining: saved public-key replacement and final-key confirmation | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Owning/reference document section: Access; Saved development-key contract within Join guide — Current section and requirements extraction; document does not grant implementation or native qualification; Owner decision committed929c9a38; native key installation/revocation is separate |
+| 311–316; ## Related guides | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Owning/reference document section: Related guides — Current section and requirements extraction; document does not grant implementation or native qualification |
+
+<a id="coverage-2c08c6c93d00"></a>
+
+## [docs/product/scope.md](../../../../../docs/product/scope.md)
+
+Current scope capability rows and retirement/defer decision blocks inspected independently of source implementation
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 31, 48; Scope capability: Native repositories, issues, PRs, reviews, permissions and Actions; Scope capability: Native Git authentication and packaged `tea`/`gh` CLIs | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Scope capability: Native repositories, issues, PRs, reviews, permissions and Actions; Scope capability: Native Git authentication and packaged `tea`/`gh` CLIs — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 32, 69–74, 133; Scope capability: Soda extension pages, panel and native authorization; Scope decision clauses lines69-74; Scope decision clauses lines133-133 | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Scope capability: Soda extension pages, panel and native authorization; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 1–30, 33, 39–43, 54–58, 68, 75–79, 100–103; Scope capability: Work items, attempts, runs and resource accounting; Scope decision clauses lines1-26; Scope decision clauses lines75-79; Scope decision clauses lines100-103; Scope table/heading framing | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Scope capability: Work items, attempts, runs and resource accounting; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation; Scope table/heading framing — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 34; Scope capability: Candidate publication, reviews and CI evidence | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Scope capability: Candidate publication, reviews and CI evidence — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 35; Scope capability: Coding, review and correction sessions | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Scope capability: Coding, review and correction sessions — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 36, 125–130; Scope capability: Cancellation, limits, outcomes and cleanup; Scope decision clauses lines125-130 | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Scope capability: Cancellation, limits, outcomes and cleanup; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 37, 107–111; Scope capability: Identity Broker enrollment, account custody and provider selection; Scope decision clauses lines107-111 | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Scope capability: Identity Broker enrollment, account custody and provider selection; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 38; Scope capability: Broker execution leases and credential return | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | Scope capability: Broker execution leases and credential return — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 44; Scope capability: Spaces page and persistent Workspace panel | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Scope capability: Spaces page and persistent Workspace panel — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 45; Scope capability: Human terminals, tmux persistence, tabs and splits | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Scope capability: Human terminals, tmux persistence, tabs and splits — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 46, 94–95, 136–137; Scope capability: Project-local accounts, explicit human Join and membership; Scope decision clauses lines94-95; Scope decision clauses lines136-137 | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Scope capability: Project-local accounts, explicit human Join and membership; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 47, 92–93; Scope capability: Development-access public keys and ordinary SSH/SCP/SFTP; Scope decision clauses lines92-93 | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Scope capability: Development-access public keys and ordinary SSH/SCP/SFTP; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 49, 53; Scope capability: Repository environment creation and preparation; Scope capability: Personal checkouts and factory checkout/worktree allocation | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Scope capability: Repository environment creation and preparation; Scope capability: Personal checkouts and factory checkout/worktree allocation — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 50, 104–106; Scope capability: Rocky headless Project OS; Scope decision clauses lines104-106 | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Scope capability: Rocky headless Project OS; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 51, 98–99, 134; Scope capability: Persistent homes, dirty work, shared mise tools, packages and files; Scope decision clauses lines98-99; Scope decision clauses lines134-134 | [P05](../../slices/projects.md#p05-project-startstop) | retained | Scope capability: Persistent homes, dirty work, shared mise tools, packages and files; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 52; Scope capability: Nested workloads, Compose/systemd services and volumes | [P11](../../slices/projects.md#p11-nested-services-and-volumes) | retained | Scope capability: Nested workloads, Compose/systemd services and volumes — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 59; Scope capability: Private LAN access, project IPs and native service ports | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Scope capability: Private LAN access, project IPs and native service ports — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 60; Scope capability: Caddy/private HTTPS and client trust setup | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Scope capability: Caddy/private HTTPS and client trust setup — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 61; Scope capability: Optional host Tailnet and project companions | [N05](../../slices/networking.md#n05-project-tailnet-selection) | retained | Scope capability: Optional host Tailnet and project companions — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 62–63, 80–83, 112–114; Scope capability: Native Forgejo CI with separately managed capacity; Scope capability: Soda-provisioned local CI execution and Runner OS; Scope decision clauses lines80-83; Scope decision clauses lines112-114 | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Scope capability: Native Forgejo CI with separately managed capacity; Scope capability: Soda-provisioned local CI execution and Runner OS; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 64; Scope capability: Operator bootstrap, appliance identity and privileged helper | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | retained | Scope capability: Operator bootstrap, appliance identity and privileged helper — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 65, 96–97; Scope capability: Stock Cockpit and host diagnosis/recovery; Scope decision clauses lines96-97 | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Scope capability: Stock Cockpit and host diagnosis/recovery; Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current source clauses/section; canonical workflow requirements at519b76bd; Current product scope contract and workflows |
+| 66; Scope capability: Soda branding, avatars and console guidance | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Scope capability: Soda branding, avatars and console guidance — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 67; Scope capability: Build, installation, updates, backup and recovery | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Scope capability: Build, installation, updates, backup and recovery — Current source clauses/section; canonical workflow requirements at519b76bd |
+| 84–87; Scope decision clauses lines84-87 | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) | retained | Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current product scope contract and workflows |
+| 88–91; Scope decision clauses lines88-91 | [P10](../../slices/projects.md#p10-shared-tools-and-packages) | retained | Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current product scope contract and workflows |
+| 115–124; Scope decision clauses lines115-124 | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current product scope contract and workflows |
+| 131–132; Scope decision clauses lines131-132 | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current product scope contract and workflows |
+| 135; Scope decision clauses lines135-135 | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current product scope contract and workflows |
+| 138–140; Scope decision clauses lines138-140 | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Canonical scope/defer/retire decision; does not create a live executor or permanent compatibility obligation — Current product scope contract and workflows |
 
 <a id="coverage-fac20dc59e6f"></a>
 
-## [docs/product/spaces.md](../../../../product/spaces.md)
+## [docs/product/spaces.md](../../../../../docs/product/spaces.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Exact source identity at0d8d3b8e with maintained per-section responsibility units reused
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / active | 1–31 | Mounted workspace/component lifetime, navigation and focus |
-| [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / active | 32–46 | Product surface |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 47–75 | Sessions and views |
-| [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / active | 76–88 | Factory visibility |
-| [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / active | 89–103 | Workspace behavior |
-| [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / active | 104–112 | Settings ownership |
-| [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / active | 113–121 | Integration boundary |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–46, 76–121; Mounted workspace/component lifetime, navigation and focus; Product surface; Factory visibility; Workspace behavior; Settings ownership; Integration boundary | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Mounted workspace/component lifetime, navigation and focus; 6 named units assigned here; remaining selectors preserve each duty — docs/development/ideal-filetree-plan/coverage/maps/documentation-contracts.md; byte-identical prior docs/product/spaces.md |
+| 47–75; Sessions and views | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Sessions and views — docs/development/ideal-filetree-plan/coverage/maps/documentation-contracts.md; byte-identical prior docs/product/spaces.md |
 
 <a id="coverage-91833ce6a0b0"></a>
 
-## [docs/reference/credentials.md](../../../../reference/credentials.md)
+## [docs/reference/credentials.md](../../../../../docs/reference/credentials.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Current artifact role, concrete consumer/provenance and established contract owner inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 1–17 | Provider enrollment, owner consent and connection selection |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 18–30 | New installations |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 31–36 | Operator identity |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 37–42 | Credential encryption |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 43–49 | Existing-install maintenance |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 50–56 | Source owners |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 57–210 | Identity Broker |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17, 37–42, 168–210; # Credentials and grants; ## Credential encryption; ### Service configuration | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | Owning/reference document section: Credentials and grants; Owning/reference document section: Credential encryption; Owning/reference document section: Service configuration — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 18–36; ## New installations; ## Operator identity | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | retained | Owning/reference document section: New installations; Owning/reference document section: Operator identity — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 43–49; ## Existing-install maintenance | [O03](../../slices/operator-administration.md#o03-existing-install-credential-maintenance) | retained | Owning/reference document section: Existing-install maintenance — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 50–56; ## Source owners | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Owning/reference document section: Source owners — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 57–125; ## Identity Broker; ### Authentication and billing choice; ### Current providers | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Owning/reference document section: Identity Broker; Owning/reference document section: Authentication and billing choice; Owning/reference document section: Current providers — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 126–167; ### Muse subscription custody; ### Normal Muse command | [I08](../../slices/identity-brokering.md#i08-muse-adapter) | retained | Owning/reference document section: Muse subscription custody; Owning/reference document section: Normal Muse command — Current section and requirements extraction; document does not grant implementation or native qualification |
 
 <a id="coverage-f6a05514830b"></a>
 
-## [docs/reference/factory.md](../../../../reference/factory.md)
+## [docs/reference/factory.md](../../../../../docs/reference/factory.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Current artifact role, concrete consumer/provenance and established contract owner inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1–15 | Capability contract/reference |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 16–42 | Operator endpoint |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 43–63 | Stop and reconcile |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 64–80 | Run provenance and custody |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 81–95 | Retained publication validation |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 96–100 | Storage decision gate |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15, 42–64; # Supervised factory-run operator interface; Stop/reconcile and terminal run outcomes | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Owning/reference document section: Supervised factory-run operator interface; Stop/reconcile and terminal run outcomes — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 16–41; ## Operator endpoint | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Owning/reference document section: Operator endpoint — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 65–81; Run provenance and credential execution binding | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Run provenance and credential execution binding — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 82–95; Retained publication validation | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Retained publication validation — Current section and requirements extraction; document does not grant implementation or native qualification |
+| 96–100; ## Storage decision gate | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Owning/reference document section: Storage decision gate — Current section and requirements extraction; document does not grant implementation or native qualification |
 
 <a id="coverage-66ff5131b700"></a>
 
-## [docs/reference/terminal.md](../../../../reference/terminal.md)
+## [docs/reference/terminal.md](../../../../../docs/reference/terminal.md)
 
-Documentation is mapped by its stated subject; linked contracts retain authority.
+Exact source identity at0d8d3b8e with maintained per-section responsibility units reused
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1–15 | Human terminal Create/Rename/End request and outcome |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 16–24 | Goals |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 25–37 | Workspace rules |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 38–50 | Persistence mechanism |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 51–59 | Extension mounting |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 60–66 | Boundary with desktop and automation |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 67–74 | Source owners |
-
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–37, 51–74; Human terminal Create/Rename/End request and outcome; Goals; Workspace rules; Extension mounting; Boundary with desktop and automation; Source owners | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Human terminal Create/Rename/End request and outcome; 6 named units assigned here; remaining selectors preserve each duty — docs/development/ideal-filetree-plan/coverage/maps/documentation-contracts.md; byte-identical prior docs/reference/terminal.md |
+| 38–50; Persistence mechanism | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Persistence mechanism — docs/development/ideal-filetree-plan/coverage/maps/documentation-contracts.md; byte-identical prior docs/reference/terminal.md |

@@ -2,211 +2,138 @@
 
 ## Complete source-to-slice coverage
 
-The later [80-slice source-validity audit](../reviews/README.md#completed-source-audit-coverage)
-is complete at pinned `f7e9cf9d`, separately from the catalog snapshot below.
-Its four completion dimensions, assigned mapped duties, independently challenged
-findings and exact target owners are recorded per slice. The source delta from
-the catalog is documentation only; no runtime verification follows from either
-coverage ledger or source-audit completion.
+Current responsibility snapshot: **2026-10-07**, source `519b76bd`, with
+root/asset packet `58a99730` and this authorized documentation refresh recorded
+separately. The baseline’s 12 already modified guidance inputs retain their
+recorded working bytes. All **2,545 tracked paths** are accounted exactly once in the
+[tracked-file inventories](inventory/README.md). No working source additions were
+present; ignored dependencies, caches, private inputs, failed experiment output and
+`.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
+The [workflow requirements](../workflow-requirements.md) establish contract context.
+This pass accounts for source, embedded Forgejo/guest programs, frontend state and
+views, SQL fields, configuration, service definitions, scripts, fixtures, generated
+assets, dependency/build/shipping selectors, and documentation ownership. Mixed
+units use current complete symbols, fields/columns, clauses and numeric spans;
+binary/captured artifacts identify producer/consumer or an explicit uncertainty.
+A dependency or reader does not acquire defining ownership of the duty it consumes.
 
-Coverage snapshot: **2026-10-05**, committed source `0d8d3b8ebb5a7df36759685529f27f417d96fac8`. Every one of the **1,719 tracked paths** is listed exactly once across the [tracked-file inventories](inventory/README.md), including source, tests, SQL inside source, configuration, manifests, documents, binary assets and generated exports. The pass inspected entrypoints/declarations, fields, routes, stored-state groups, install/build consumers and ambiguous bodies; it is a responsibility inventory, not a claim that every statement is correct.
-
-The full responsibility inventory was established at `26d420f2`, using the
-previous immutable-source inspection and its checked merge deltas. Latest upkeep
-checks the complete committed delta to `0d8d3b8e`: five source/test files, the
-replacement of one plan document with 122 maintained sections, and three incoming
-documentation links. The changed code, affected callers/tests and current concern
-allocations were inspected; unchanged source coverage is reused. The new test and
-every split document have inventory entries. The plan sections retain H06
-documentation-upkeep attribution and do not become runtime owners of the subjects
-they describe. No tests, builds, native drivers or installed journeys ran.
-
-The current detailed-map span count below is computed from the maintained
-Markdown, including disjoint spans within rows. The original full pass recorded
-18,956 underlying declaration/field intervals; that historical count used a
-different representation and is not relabeled as the current rendered count.
-
-| Coverage check | Result |
+| Coverage dimension/check | Current result |
 | --- | ---: |
-| Tracked paths accounted for / missing / duplicate ledger entries | 1,719 / 0 / 0 |
-| Candidate slices | 80 |
-| Rendered responsibility spans checked in detailed maps | 14535 |
-| Files with multiple slice responsibilities or mixed retirement units | 365 |
-| Current executable/style/template/test/configuration files over 400 lines | 199 |
-| Files with linked responsibility maps | 458 |
-| Active unowned responsibility intervals | 0 |
-| Explicit competing-ownership findings awaiting reconciliation | 0 |
-| Files carrying uncertain lifecycle or unresolved boundary notes | 28 |
+| Tracked paths / missing / duplicate inventory rows | 2,545 / 0 / 0 |
+| Established slice IDs represented | 80 |
+| Files with current detailed maps | 1,583 |
+| Current mapped page families | 75 |
+| Named source/artifact duty selectors in normalized evidence | 20,117 |
+| Files with more than one defining slice | 492 |
+| Files carrying explicit unresolved disposition | 24 |
 
-| File lifecycle | Paths |
+Each named duty has exactly one slice owner and one disposition. `retained`
+means the application/artifact duty currently remains; it does not approve its
+current wrapper, implementation complexity or proposed decomposition. `replaced`
+identifies a predecessor whose function transferred; `obsolete` excludes the
+old implementation/claim from the current direction; `unresolved` names a bounded
+retention, consumer or contract question while keeping one accountable slice.
+Kind (program, fixture, generated output, third-party input) is separate from use.
+
+### Source roots
+
+| Current root | Tracked paths |
 | --- | ---: |
-| active | 1662 |
-| unknown | 8 |
-| obsolete | 11 |
-| generated | 38 |
-
-Lifecycle is separate from the slice: obsolete sources are attributed to their former capability where known and excluded from the active ideal implementation. Unknown means current references did not establish retention or retirement. Tests with superseded assertions are recorded at the smallest evidenced unit; their surrounding live driver is not discarded. Generated describes copied schema source, tool-maintained locks, captured fixture data and derived assets/binaries; it does not decide whether a current consumer needs them.
-
-| Source root | Tracked paths |
-| --- | ---: |
-| `(root files)` | 22 |
+| `(root)` | 22 |
 | `.agents` | 1 |
 | `.githooks` | 1 |
-| `appliance` | 306 |
-| `assets` | 170 |
-| `cmd` | 18 |
-| `docs` | 214 |
+| `assets` | 175 |
+| `cmd` | 338 |
+| `docs` | 305 |
 | `factory-os` | 1 |
-| `frontend` | 32 |
-| `internal` | 357 |
-| `project-os` | 15 |
-| `rust` | 369 |
-| `scripts` | 79 |
-| `tests` | 110 |
-| `tools` | 24 |
+| `frontend` | 345 |
+| `internal` | 451 |
+| `lib` | 429 |
+| `scripts` | 80 |
+| `system` | 64 |
+| `tests` | 140 |
+| `tools` | 193 |
 
-### Coverage-driven additions to the catalog
+### Inspection and evidence reuse
 
-Four maintained responsibilities were absent from the initial 76 cards: [G08](../slices/forgejo-integration.md#g08-native-forgejo-presentation), [G09](../slices/forgejo-integration.md#g09-local-profile-preferences), [O07](../slices/operator-administration.md#o07-operator-ssh-enrollment), [I10](../slices/identity-brokering.md#i10-identity-audit-history). Native Forgejo customization is separate from shared artwork and extension admission; profile preferences are separate from mirrored native identity; an armed operator SSH enrollment window is separate from disk installation; transactional identity audit state is separate from credential custody. These additions describe existing code and introduce no behavior or service.
+The prior catalog counted 1,719 paths at `0d8d3b8e`; the 80-slice source-validity
+audit remains pinned at `f7e9cf9d`. Current path and body accounting replaces old
+intervals that survived moves, splits and engine deletion. Source identity plus
+the same responsibility question permits reuse of unchanged detailed units;
+matching a filename or declaration alone does not establish body coverage.
 
-The existing O03 card now includes the shipped one-shot Forgejo credential-configuration migration. D03 names the six exported application images. Neither correction creates an additional sidecar.
+Three Luna medium primaries inspected application, native runtime and release/system
+families and independently challenged another family. The coordinator owns shared
+records and documentation/assets. Challenges corrected dropped Go receiver methods,
+SQL mechanics/columns/domain guards, factory versus human streams and their assertions,
+repository selection/readiness,
+HTTP/backend lifetime, broker endpoint policy, manifest/shipping duties and asset
+provenance. Luna low independently checked the census and predecessor metadata.
+Grouped map rows preserve all current selectors and disjoint spans without
+requiring a separate source file or package for each helper. Exact per-duty span
+and input identity evidence remains in the local ignored
+`.artifacts/responsibility-coverage-20261007-519b76bd/` working evidence. Current
+tracked inventories and maps preserve the responsibility accounting in Git.
 
-### Retired code and superseded units
+The 400-line threshold remains an inspection trigger. All changed mixed/oversized
+program families were attributed against their current bodies and joins; locks,
+fixtures and documents can legitimately remain intact. Size/counts are bookkeeping,
+not correctness, performance or maintenance-cost verdicts. This pass introduces
+no decomposition, parser, compatibility, service or recovery implementation.
 
-Do not move these implementations into the active target. Record retained attribution/history separately; physical deletion, test cleanup and build-reference changes remain deferred implementation work. The historical tree baseline is corrected for positively evidenced obsolete leaves only; this pass does not claim full structural reconciliation of all later source changes.
+### Replaced and retired predecessors
 
-| Current source or unit | Former slice | Evidence and disposition |
-| --- | --- | --- |
-| [README.md](../../../../README.md) — mixed file | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure), [P03](../slices/projects.md#p03-human-membership-and-accounts), [P01](../slices/projects.md#p01-repository-association-and-creation), [N02](../slices/networking.md#n02-project-lan-access), [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Lines 6–10,16–19,29–43 describe retired manual admission/one repair/human merge, Soda OAuth/drawer/Runners and disposable factory topology. docs/product/scope.md:29–39,43–57 and Retire section select automatic native progression, current extension host authority and persistent Project role execution. See its [interval map](maps/root-and-retired-definitions.md#coverage-b33563055168). |
-| [assets/branding/cockpit/provenance/_global-variables.scss](../../../../assets/branding/cockpit/provenance/_global-variables.scss) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Retired historical upstream/host override, explicitly not compiled or staged; preserve attribution separately and omit implementation from ideal target. |
-| [assets/branding/cockpit/provenance/cockpit-dark-theme.ts](../../../../assets/branding/cockpit/provenance/cockpit-dark-theme.ts) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Retired historical upstream/host override, explicitly not compiled or staged; preserve attribution separately and omit implementation from ideal target. |
-| [assets/branding/cockpit/provenance/patternfly/_fonts.scss](../../../../assets/branding/cockpit/provenance/patternfly/_fonts.scss) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Retired historical upstream/host override, explicitly not compiled or staged; preserve attribution separately and omit implementation from ideal target. |
-| [assets/branding/cockpit/provenance/patternfly/patternfly-6-cockpit.scss](../../../../assets/branding/cockpit/provenance/patternfly/patternfly-6-cockpit.scss) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Retired historical upstream/host override, explicitly not compiled or staged; preserve attribution separately and omit implementation from ideal target. |
-| [assets/branding/host/os-release](../../../../assets/branding/host/os-release) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Retired historical upstream/host override, explicitly not compiled or staged; preserve attribution separately and omit implementation from ideal target. |
-| [docs/design/spaces/index.html](../../../design/spaces/index.html) | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | Superseded 8fe3468 interactive mockup; README:64-70 excludes it from current workflow. Historical source is not a target implementation. |
-| [docs/design/spaces/preview.css](../../../design/spaces/preview.css) | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | Superseded 8fe3468 interactive mockup; README:64-70 excludes it from current workflow. Historical source is not a target implementation. |
-| [docs/design/spaces/preview.ts](../../../design/spaces/preview.ts) | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | Superseded 8fe3468 interactive mockup; README:64-70 excludes it from current workflow. Historical source is not a target implementation. |
-| [docs/design/spaces/review.ts](../../../design/spaces/review.ts) | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | Superseded 8fe3468 interactive mockup; README:64-70 excludes it from current workflow. Historical source is not a target implementation. |
-| [docs/design/spaces/tsconfig.json](../../../design/spaces/tsconfig.json) | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | Superseded 8fe3468 interactive mockup; README:64-70 excludes it from current workflow. Historical source is not a target implementation. |
-| [factory-os/Containerfile](../../../../factory-os/Containerfile) | Historical; no active owner | Unselected soda-agent 1000 /workspace recipe; current factory executes fixed coder/reviewer accounts in persistent Projects. Exact delivered six-image inventory and recipe exports omit this path; no committed current caller found. Retired recipe accounted outside active slices. |
-| [rust/soda-host/GMUX_PATCHES.md](../../../../rust/soda-host/GMUX_PATCHES.md) — mixed file | [H01](../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | Lines 3-4 and binary/wiring instructions describe an unwired skeleton/no binary, but current src/lib.rs exports gmux modules, src/main.rs exists and dbackend.rs implements ExecBackend. Route/admission contract notes remain historical evidence; obsolete guidance is not current cutover authority. See its [interval map](maps/host-service-admission.md#coverage-eae04619505c). |
-| [rust/soda-host/tests/gmux_smoke.rs](../../../../rust/soda-host/tests/gmux_smoke.rs) — mixed file | [F07](../slices/factory-coordination.md#f07-assignment-and-dispatch), [F08](../slices/factory-coordination.md#f08-run-lifecycle-and-intervention), [F09](../slices/factory-coordination.md#f09-publication-progression), [F11](../slices/factory-coordination.md#f11-candidate-verification-assessment), [H01](../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime), [I02](../slices/identity-brokering.md#i02-encrypted-credential-custody), [I04](../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing), [I05](../slices/identity-brokering.md#i05-native-binding-and-private-delivery), [I09](../slices/identity-brokering.md#i09-provider-execution-integration), [N03](../slices/networking.md#n03-host-tailnet-control), [P01](../slices/projects.md#p01-repository-association-and-creation), [P02](../slices/projects.md#p02-profile-and-runtime-readiness), [P03](../slices/projects.md#p03-human-membership-and-accounts), [P04](../slices/projects.md#p04-development-ssh-access), [P05](../slices/projects.md#p05-project-startstop), [P07](../slices/projects.md#p07-checkout-allocation-and-preparation), [P12](../slices/projects.md#p12-maintenance-holds), [S05](../slices/spaces-and-terminals.md#s05-interactive-attachment), [S06](../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | The preamble says modules are not wired into lib.rs; committed lib.rs now exports them and dbackend calls them. Tests still compile source modules explicitly and assert routes/protocol/native fake behavior; the stale comment does not make the test obsolete. See its [interval map](maps/host-service-admission.md#coverage-401a73ec277c). |
-| [rust/soda-host/tests/pops_oracle.rs](../../../../rust/soda-host/tests/pops_oracle.rs) — mixed file | [P03](../slices/projects.md#p03-human-membership-and-accounts), [P04](../slices/projects.md#p04-development-ssh-access), [P07](../slices/projects.md#p07-checkout-allocation-and-preparation), [P12](../slices/projects.md#p12-maintenance-holds) | The preamble says modules are not wired into lib.rs; committed lib.rs now exports them and dbackend calls them. Tests still compile source modules explicitly and assert routes/protocol/native fake behavior; the stale comment does not make the test obsolete. See its [interval map](maps/host-projects.md#coverage-71b62fe672bf). |
-| [rust/soda-release-deliver/src/lib.rs](../../../../rust/soda-release-deliver/src/lib.rs) — mixed file | [D05](../slices/release-and-installation.md#d05-artifact-verification), [D07](../slices/release-and-installation.md#d07-release-admission-and-preparation), [D09](../slices/release-and-installation.md#d09-publication-and-effect-observation), [D10](../slices/release-and-installation.md#d10-verified-distribution-consumption), [D11](../slices/release-and-installation.md#d11-host-installation-and-payload-application), [H03](../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | The header still describes Go as owner of record for this port. Current native Rust release-tools pipeline calls this crate; historical port prose must not be mistaken for a current requirement to retain predecessor Go execution. See its [interval map](maps/soda-release-deliver-implementation.md#coverage-4fb86a3dd4f1). |
-| [tests/installed/host.sh](../../../../tests/installed/host.sh) — mixed file | [D06](../slices/release-and-installation.md#d06-installed-qualification), [O04](../slices/operator-administration.md#o04-native-host-administration-and-updates), [H01](../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime), [D03](../slices/release-and-installation.md#d03-candidate-production), [N01](../slices/networking.md#n01-private-origins-tls-and-activation) | Lines 39–42 require custom soda-tailscale files, conflicting with tests/installed/operator.sh:10–12 and docs/development/cockpit.md:3–4 stock-Cockpit contract. Remaining native host driver stays active. Contradictory assertions, not competing live runtime owners. See its [interval map](maps/tests-installed.md#coverage-ad5b5504b727). |
+The older tree has 713 paths absent from the current source. The normalized
+predecessor ledger distinguishes 547 Git-recognized moves,
+explicit package relocations/folds/splits, library replacements and positive
+retirements. Move evidence establishes a path successor, not identical content or
+source validity. Current responsibilities belong to current defining paths.
 
-### Generated source, data, outputs and other assets
-
-The file ledger labels generated source, fixture data, metadata and derived exports separately. The copied Rust schema and captured oracle vectors remain consumed code/test inputs; their generated origin does not make them dead. Approved artwork originals, canonical SVGs, font inputs, licenses and native templates remain authored/vendored assets or presentation inputs. Manifests and dependency locks record input identity. Ignored Cargo/Bun/Go outputs, generated frontend bundles, staged images, `.artifacts/` evidence and local caches are outside the tracked source inventory; they are build/evidence artifacts, not candidates for retained source modules.
-
-| Tracked generated input or output | Producer/consumer responsibility | Provenance |
-| --- | --- | --- |
-| [Cargo.lock](../../../../Cargo.lock) | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | Tool-maintained resolved dependency/integrity metadata, distinct from authored runtime source. |
-| [assets/branding/forgejo/apple-touch-icon.png](../../../../assets/branding/forgejo/apple-touch-icon.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/backgrounds/subway-desktop-day.webp](../../../../assets/branding/forgejo/backgrounds/subway-desktop-day.webp) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/backgrounds/subway-desktop-night.webp](../../../../assets/branding/forgejo/backgrounds/subway-desktop-night.webp) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/backgrounds/subway-mobile-day.webp](../../../../assets/branding/forgejo/backgrounds/subway-mobile-day.webp) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/backgrounds/subway-mobile-night.webp](../../../../assets/branding/forgejo/backgrounds/subway-mobile-night.webp) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/backgrounds/subway-tablet-day.webp](../../../../assets/branding/forgejo/backgrounds/subway-tablet-day.webp) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/backgrounds/subway-tablet-night.webp](../../../../assets/branding/forgejo/backgrounds/subway-tablet-night.webp) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/favicon-16.png](../../../../assets/branding/forgejo/favicon-16.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/favicon.png](../../../../assets/branding/forgejo/favicon.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/login-station/approaching-train.webp](../../../../assets/branding/forgejo/login-station/approaching-train.webp) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/forgejo/logo.png](../../../../assets/branding/forgejo/logo.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-logo-black.png](../../../../assets/branding/installer/soda-logo-black.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-logo-horizontal-dark.png](../../../../assets/branding/installer/soda-logo-horizontal-dark.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-logo-horizontal.png](../../../../assets/branding/installer/soda-logo-horizontal.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-logo-navy.png](../../../../assets/branding/installer/soda-logo-navy.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-logo-white.png](../../../../assets/branding/installer/soda-logo-white.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-symbol-black.png](../../../../assets/branding/installer/soda-symbol-black.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-symbol-navy.png](../../../../assets/branding/installer/soda-symbol-navy.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-symbol-white.png](../../../../assets/branding/installer/soda-symbol-white.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [assets/branding/installer/soda-symbol.png](../../../../assets/branding/installer/soda-symbol.png) | [H05](../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | Tracked derived export; canonical source/generator is recorded by asset manifest, not a live code implementation. |
-| [bun.lock](../../../../bun.lock) | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | Tool-maintained resolved dependency/integrity metadata, distinct from authored runtime source. |
-| [go.sum](../../../../go.sum) | [H06](../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | Tool-maintained resolved dependency/integrity metadata, distinct from authored runtime source. |
-| [installer](../../../../installer) | Artifact; no active implementation owner | Tracked ELF x86_64 static Go binary with Go BuildID/debug sections, not authored source. No committed source caller found; active installer/candidate build owners are Rust. Historical artifact retention/removal disposition remains unknown; this is binary file-level accounting. |
-| [rust/soda-identity/src/schema.rs](../../../../rust/soda-identity/src/schema.rs) | [F01](../slices/factory-coordination.md#f01-repository-factory-policy), [F02](../slices/factory-coordination.md#f02-operator-execution-grants), [F03](../slices/factory-coordination.md#f03-capacity-reservations-and-accounting), [F04](../slices/factory-coordination.md#f04-connection-sponsorship), [F05](../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation), [F06](../slices/factory-coordination.md#f06-issue-intake-and-readiness), [F07](../slices/factory-coordination.md#f07-assignment-and-dispatch), [F08](../slices/factory-coordination.md#f08-run-lifecycle-and-intervention), [F09](../slices/factory-coordination.md#f09-publication-progression), [F11](../slices/factory-coordination.md#f11-candidate-verification-assessment), [F12](../slices/factory-coordination.md#f12-merge-eligibility-and-completion), [G01](../slices/forgejo-integration.md#g01-browser-authority-and-contributions), [G09](../slices/forgejo-integration.md#g09-local-profile-preferences), [H02](../slices/shared-supporting-slices.md#h02-storage-mechanics), [I02](../slices/identity-brokering.md#i02-encrypted-credential-custody), [I03](../slices/identity-brokering.md#i03-delegation-and-connection-availability), [I04](../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing), [I10](../slices/identity-brokering.md#i10-identity-audit-history), [N02](../slices/networking.md#n02-project-lan-access), [P01](../slices/projects.md#p01-repository-association-and-creation), [P02](../slices/projects.md#p02-profile-and-runtime-readiness), [P03](../slices/projects.md#p03-human-membership-and-accounts), [P04](../slices/projects.md#p04-development-ssh-access), [P05](../slices/projects.md#p05-project-startstop), [P07](../slices/projects.md#p07-checkout-allocation-and-preparation), [P08](../slices/projects.md#p08-preparation-requirements-acceptance), [P09](../slices/projects.md#p09-privileged-preparation-approval), [P10](../slices/projects.md#p10-shared-tools-and-packages), [P12](../slices/projects.md#p12-maintenance-holds), [S06](../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | Embedded generated compatibility copy names internal/store/schema.go as the source of truth; embedded drift test is structural source coverage, not native PostgreSQL execution. The users SQL lines mix native actor mirror id/login (G01) and local display-name preference name (G09); Project declaration mixes association/owner (P01), readiness/profile (P02) and LAN ip (N02). These are generated same-line schema references, not broker domain mutation ownership. Named generated SQL subunits on lines 11/13/149/151 share physical lines because the declaration/query is dense; symbols identify disjoint fields, not competing ownership of a field or duplicate production operations. |
-| [rust/soda-release-build/tests/data/go-fixture.oci](../../../../rust/soda-release-build/tests/data/go-fixture.oci) | [D05](../slices/release-and-installation.md#d05-artifact-verification) | Go-produced OCI archive/layout golden bytes consumed by tests/oracle.rs:56-156; generated retained test input, not candidate output or canonical image payload. |
-| [rust/soda-release-build/tests/data/go-layout/blobs/sha256/098b60ba449c4b81d38cca87e08b16ff83522b9edb36bdb36025d9d370a99295](../../../../rust/soda-release-build/tests/data/go-layout/blobs/sha256/098b60ba449c4b81d38cca87e08b16ff83522b9edb36bdb36025d9d370a99295) | [D05](../slices/release-and-installation.md#d05-artifact-verification) | Go-produced OCI archive/layout golden bytes consumed by tests/oracle.rs:56-156; generated retained test input, not candidate output or canonical image payload. |
-| [rust/soda-release-build/tests/data/go-layout/blobs/sha256/9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691](../../../../rust/soda-release-build/tests/data/go-layout/blobs/sha256/9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691) | [D05](../slices/release-and-installation.md#d05-artifact-verification) | Go-produced OCI archive/layout golden bytes consumed by tests/oracle.rs:56-156; generated retained test input, not candidate output or canonical image payload. |
-| [rust/soda-release-build/tests/data/go-layout/blobs/sha256/973a9bd7fe238b1604434f944e1ad4bff0629795321210dc11fcecf853ad3dce](../../../../rust/soda-release-build/tests/data/go-layout/blobs/sha256/973a9bd7fe238b1604434f944e1ad4bff0629795321210dc11fcecf853ad3dce) | [D05](../slices/release-and-installation.md#d05-artifact-verification) | Go-produced OCI archive/layout golden bytes consumed by tests/oracle.rs:56-156; generated retained test input, not candidate output or canonical image payload. |
-| [rust/soda-release-build/tests/data/go-layout/index.json](../../../../rust/soda-release-build/tests/data/go-layout/index.json) | [D05](../slices/release-and-installation.md#d05-artifact-verification) | Go-produced OCI archive/layout golden bytes consumed by tests/oracle.rs:56-156; generated retained test input, not candidate output or canonical image payload. |
-| [rust/soda-release-build/tests/data/go-layout/oci-layout](../../../../rust/soda-release-build/tests/data/go-layout/oci-layout) | [D05](../slices/release-and-installation.md#d05-artifact-verification) | Go-produced OCI archive/layout golden bytes consumed by tests/oracle.rs:56-156; generated retained test input, not candidate output or canonical image payload. |
-| [rust/soda-release-build/tests/oracle_vectors.rs](../../../../rust/soda-release-build/tests/oracle_vectors.rs) | [D03](../slices/release-and-installation.md#d03-candidate-production) | Go-generated captured byte vectors consumed by tests/oracle.rs; retained verification data rather than production source. |
-| [rust/soda-release-deliver/tests/goldens/deliver.json](../../../../rust/soda-release-deliver/tests/goldens/deliver.json) | [D07](../slices/release-and-installation.md#d07-release-admission-and-preparation) | Go-produced release/trust/channel/progression oracle data consumed by tests/oracle.rs; captures several protocol states, not live publication state. |
-| [rust/soda-stage-render/tests/fixtures/ext-host.bu](../../../../rust/soda-stage-render/tests/fixtures/ext-host.bu) | [D04](../slices/release-and-installation.md#d04-authenticated-installation-media) | Synthetic provisioning/branding source fixture or captured renderer golden consumed by tests/cli.rs; not canonical production asset or a deployed instance. |
-| [rust/soda-stage-render/tests/fixtures/ext-hostkey.bu](../../../../rust/soda-stage-render/tests/fixtures/ext-hostkey.bu) | [D04](../slices/release-and-installation.md#d04-authenticated-installation-media) | Synthetic provisioning/branding source fixture or captured renderer golden consumed by tests/cli.rs; not canonical production asset or a deployed instance. |
-| [rust/soda-stage-render/tests/fixtures/ext-product.bu](../../../../rust/soda-stage-render/tests/fixtures/ext-product.bu) | [D04](../slices/release-and-installation.md#d04-authenticated-installation-media) | Synthetic provisioning/branding source fixture or captured renderer golden consumed by tests/cli.rs; not canonical production asset or a deployed instance. |
-| [rust/soda-stage-render/tests/fixtures/min-host.bu](../../../../rust/soda-stage-render/tests/fixtures/min-host.bu) | [D04](../slices/release-and-installation.md#d04-authenticated-installation-media) | Synthetic provisioning/branding source fixture or captured renderer golden consumed by tests/cli.rs; not canonical production asset or a deployed instance. |
-| [soda-candidate](../../../../soda-candidate) | Artifact; no active implementation owner | Tracked ELF x86_64 static Go binary with Go BuildID/debug sections, not authored source. No committed source caller found; active installer/candidate build owners are Rust. Historical artifact retention/removal disposition remains unknown; this is binary file-level accounting. |
-
-### Unresolved ownership, lifecycle and review seams
-
-A shared file or a dependency on another slice is not itself overlapping authority. The interval maps separate responsibilities; where one function/state transition still mixes them, the seam remains explicit here. Assigning a candidate slice does not approve that implementation or settle the intended model. Unknown lifecycle and missing direct tests must be resolved with current callers, build/install selection and owner decisions before execution.
-
-| File | Unresolved observation |
+| Predecessor group | Current disposition and evidence |
 | --- | --- |
-| [.agents/plans/2026-09-16-remove-rpm-pinning.md](../../../../.agents/plans/2026-09-16-remove-rpm-pinning.md) | unknown lifecycle: Dated migration plan cites replaced Go/Python/pin-data subjects. Historical documentation; this plan does not establish current task or source authority. |
-| [frontend/spaces/soda-identity.ts](../../../../frontend/spaces/soda-identity.ts) | unclear: Shared selectedView composes delegation and closure controls; provider-neutral browser launch remains unresolved (current startCodex is explicit). |
-| [frontend/spaces/sodaspaces-api.ts](../../../../frontend/spaces/sodaspaces-api.ts) | unclear: Detail and Space DTOs aggregate member authority, readiness, factory and network fields; field validation must be reviewed with domain owners, not moved wholesale to generic parsing. |
-| [frontend/spaces/sodaspaces-environment-view.ts](../../../../frontend/spaces/sodaspaces-environment-view.ts) | unclear: renderEnvironment composes account Join, Create and runtime actions; presentation scaffolding is not a single authority owner. |
-| [frontend/spaces/sodaspaces-project.ts](../../../../frontend/spaces/sodaspaces-project.ts) | unclear: Cross-slice code coupling; mapped child branches/fields have separate owners. dispatchMutation/checkMutationResult select Create/Join/lifecycle/network/keys outcomes in one control path; P01/P03/P05/N05/P04 decision branches still interleave. Field declarations and read aggregation share the same component; this is a review seam, not approved consolidation. |
-| [frontend/spaces/sodaspaces-terminal.ts](../../../../frontend/spaces/sodaspaces-terminal.ts) | unclear: Attachment component also reserves Create and sends confirmed End; native session lifetime (S04), disposable locators (S03) and IO lifetime (S05) must remain separately reviewed. |
-| [frontend/spaces/sodaspaces-workspace.ts](../../../../frontend/spaces/sodaspaces-workspace.ts) | unclear: Cross-slice code coupling; mapped child branches/fields have separate owners. confirmedEnd updates inventory, layout, mounted slot and disposal together; openExisting/createTerminal couple locator arrangement with native lifecycle. Default component composition is S02, but those cross-slice transitions need joint ownership review. |
-| [frontend/tailnet/soda-tailnet-page.ts](../../../../frontend/tailnet/soda-tailnet-page.ts) | unclear: Cross-slice code coupling; mapped child branches/fields have separate owners. Shared confirmation/mutate/applyMutation path dispatches host actions and Project enrollment policy changes; authority and secret drafts must stay distinct in the intended model. |
-| [installer](../../../../installer) | unclear: Tracked generated Go predecessor lacks observed current source caller; active Rust installer owner does not settle historical artifact retention/removal. |
-| [internal/acceptance/command.go](../../../../internal/acceptance/command.go) | unknown lifecycle: Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Current caller/build graph distinguishes unreferenced helper definitions from active installed probes; intended retirement not established.; unclear: No production Go caller found outside this older harness (git grep acceptance.Worker/StartCommand/StartProcess/Execute/Remote/CreateEvidence). Existing installed-probe entrypoints remain live but currently run through installed.go exec.CommandContext/cmd.Run; do not retire the entire package. This narrow harness is a retirement candidate, not proven obsolete. |
-| [internal/acceptance/evidence.go](../../../../internal/acceptance/evidence.go) | unclear: PrivateFile at483-495 is called by installed.go privateFile; CreateEvidence and the evidence writer/finalization harness have only demonstrated test callers. Keep the mixed live helper versus unreferenced harness seam explicit. |
-| [internal/acceptance/process.go](../../../../internal/acceptance/process.go) | unknown lifecycle: Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Current caller/build graph distinguishes unreferenced helper definitions from active installed probes; intended retirement not established.; unclear: No production Go caller found outside this older harness (git grep acceptance.Worker/StartCommand/StartProcess/Execute/Remote/CreateEvidence). Existing installed-probe entrypoints remain live but currently run through installed.go exec.CommandContext/cmd.Run; do not retire the entire package. This narrow harness is a retirement candidate, not proven obsolete. |
-| [internal/acceptance/process_wait_linux.go](../../../../internal/acceptance/process_wait_linux.go) | unknown lifecycle: Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Current caller/build graph distinguishes unreferenced helper definitions from active installed probes; intended retirement not established.; unclear: No production Go caller found outside this older harness (git grep acceptance.Worker/StartCommand/StartProcess/Execute/Remote/CreateEvidence). Existing installed-probe entrypoints remain live but currently run through installed.go exec.CommandContext/cmd.Run; do not retire the entire package. This narrow harness is a retirement candidate, not proven obsolete. |
-| [internal/acceptance/process_wait_other.go](../../../../internal/acceptance/process_wait_other.go) | unknown lifecycle: Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Current caller/build graph distinguishes unreferenced helper definitions from active installed probes; intended retirement not established.; unclear: No production Go caller found outside this older harness (git grep acceptance.Worker/StartCommand/StartProcess/Execute/Remote/CreateEvidence). Existing installed-probe entrypoints remain live but currently run through installed.go exec.CommandContext/cmd.Run; do not retire the entire package. This narrow harness is a retirement candidate, not proven obsolete. |
-| [internal/acceptance/worker_linux.go](../../../../internal/acceptance/worker_linux.go) | unknown lifecycle: Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Current caller/build graph distinguishes unreferenced helper definitions from active installed probes; intended retirement not established.; unclear: No production Go caller found outside this older harness (git grep acceptance.Worker/StartCommand/StartProcess/Execute/Remote/CreateEvidence). Existing installed-probe entrypoints remain live but currently run through installed.go exec.CommandContext/cmd.Run; do not retire the entire package. This narrow harness is a retirement candidate, not proven obsolete. |
-| [internal/forgejo/client.go](../../../../internal/forgejo/client.go) | unclear: O02 bootstrap-token cleanup purpose is supported by client.go:110-115 and current Rust soda-setup main.rs:347/1145/1303. No current Go caller is demonstrated; retained Go-helper use or retirement is unknown. Bootstrap-token revocation itself remains a current Rust setup responsibility. |
-| [internal/forgejo/merge.go](../../../../internal/forgejo/merge.go) | unclear: matchMergeTarget combines G07 native target evidence integrity with F12 independent exact-head approval/changes-requested eligibility; partitions94-134/135-155/156-163 preserve those seams. matchMergeChecks shares G06 latest-status projection semantics with checks.go; common ownership does not itself justify a new abstraction. |
-| [internal/host/publish/source.go](../../../../internal/host/publish/source.go) | unknown lifecycle: Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Current caller/build graph distinguishes unreferenced helper definitions from active installed probes; intended retirement not established.; unclear: Source/BranchRevision/sourceRepository have no current Go call found (git grep BranchRevision and .Source); this bounded source-bundle path is a P07 input responsibility, but retained use/retirement is unknown. Unit tests elsewhere do not establish an active caller. |
-| [internal/store/identity.go](../../../../internal/store/identity.go) | unclear: IdentityConnection/IdentityGrant are read by current factory sponsorship admission. IdentitySaveConnection/IdentitySaveGrant have demonstrated test/compatibility/ST15 fixture callers only; native broker is the production mutation owner. Keep shared-schema fixture seeding separate from a second production credential/delegation owner; do not retire the metadata read surface. |
-| [internal/web/auth/session.go](../../../../internal/web/auth/session.go) | unclear: G09 preferences mutation is current source. Representative inspected auth extension test covers refusal of an unverified mutation and preserved name; dedicated successful preference persistence/reload coverage was not demonstrated by this file inventory. |
-| [rust/soda-host/src/pfactory.rs](../../../../rust/soda-host/src/pfactory.rs) | unclear: Run harness family currently doubles as broker provider_id (drive:2038-2043); only codex/muse pass valid_harness_family. New Muse routing regression at 4457 uses scripted terminal/broker and a Codex-shaped sample lease, so broader provider independence/native Muse success is not established.; unclear: Native filesystem receipts/tombstones (F08) coordinate the shared database run controller and broker execution fences. stop/finish orchestrators cross F08 and I06; ownership of each durable store is distinct, while end-to-end convergence needs the real callers/native proof rather than receipt unit tests. |
-| [rust/soda-identity/src/schema.rs](../../../../rust/soda-identity/src/schema.rs) | unclear: Duplication/source-of-truth seam; no competing authority demonstrated. This compatibility copy duplicates the full shared Go schema, not merely identity tables. Go internal/store/schema.go remains declared source of truth; drift test compares statements/query expectations. Generated copy does not give broker ownership of all Project/factory/user tables. |
-| [rust/soda-identity/src/store.rs](../../../../rust/soda-identity/src/store.rs) | unclear: Store::events:556-572 is a bounded owner/connection read helper with no Rust caller found. The Rust HTTP route table has no audit-read route. Immutable append is part of domain transactions; read exposure/retention policy is not inferred. |
-| [rust/soda-install/src/sshkey.rs](../../../../rust/soda-install/src/sshkey.rs) | unclear: This is a separate Go-shaped SSH parser for installer input/root operator enrollment; host ssh.rs governs Project developer keys. Shared parsing duplication exists, but these consumers have distinct authority and are not merged in the coverage map. |
-| [rust/soda-muse-maintain/src/main.rs](../../../../rust/soda-muse-maintain/src/main.rs) | unclear: Duplication/source-of-truth seam; no competing authority demonstrated. Host Config/installed Payload validation is duplicated here and in host/iconfig.rs and release metadata crates (load_config/decode_host_config/apply_release_images/validate_release_payload). They validate the same host runtime and immutable payload fields; mechanical/source-of-truth consolidation remains unresolved rather than assigning a new owner. |
-| [rust/soda-release-deliver/src/import.rs](../../../../rust/soda-release-deliver/src/import.rs) | unknown lifecycle: Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.; unclear: Public import_images/native_import library functions and embedded scripted-engine tests remain. No production caller found in committed Rust source; installed image import is separately wired through soda-image-import. This is a duplication/lifecycle question, not proven obsolete code. |
-| [scripts/check-native.sh](../../../../scripts/check-native.sh) | unclear: Lines 22–25 intentionally invoke retained artifact-local legacy verify CLI. Current Rust soda-artifacts excludes that surface; branch validity requires the old artifact's own executable/format. No current producer/caller establishes it as current candidate validation; retirement/legacy retention disposition remains explicit. |
-| [soda-candidate](../../../../soda-candidate) | unclear: Tracked generated Go predecessor lacks observed current source caller; active Rust candidate owner does not settle historical artifact retention/removal. |
+| Rust package moves and Project/helper/provider folds | Completed placement, current manifests/module registries and build consumers determine the successors; these are not new restructuring tasks. [Placement](../placement.md), [ownership](../package-ownership.md). |
+| SHA/curve, JSON/Base64, SSH and PostgreSQL/HTTP engines | Selected primitives transferred to current typed library callers. Retained authority, format profile, bounds and resource custody stay with application callers. [Adoption](../library-adoption.md). |
+| Go Forgejo Tailnet helper | L11's current Rust host binary/native units replace the old Go execution/test paths. Host and Project shipping inventories have separate consumers. [L11](../library-adoption.md#l11-url-ip-and-time-adapters). |
+| Orphan OCI fixtures and helper/selector predecessors | Positive L18-DEAD01/recorded retirement evidence distinguishes removal from transfer. No replacement utility/package is inferred. [L18](../library-adoption.md#l18-dead-machinery-removal). |
+| `internal/forgejo/repositories_test.go` | Deleted path with no established exact successor/retirement proof in this census; former repository-reader assertion attribution remains G03. This historical evidence question does not revive the test or block unrelated current work. |
 
-Cross-slice priorities for the intended-model review:
+### Bounded unresolved dispositions
 
-- Trace the multi-provider contract through enrollment, consent, custody, delegation, leases, execution and dispatch. Provider-specific adapters have their own slices; harness/provider-ID coupling and the browser's explicit Codex launch remain unresolved in the table above.
-- Review the shared Go schema and generated Rust copy by named fields, preserving their declared source of truth. Duplication in host/payload validators is a consolidation question; assigning a candidate slice does not approve another state owner or new machinery.
-- Follow publication, independent review, verification and merge progression through both Soda policy and native effect adapters. Current native negative tests seed existing merge rows directly, so they do not prove the new row-opening gate. Native primitive/fixture evidence does not establish the whole factory journey.
-- Keep actual consumers distinct from unreferenced predecessors: live Go installed probes and identity metadata reads, fixture-only identity writes, native PostgreSQL fixture drivers and the unused helper/importer questions all have explicit dispositions above.
+- O02: Go `Client.RevokeCurrentToken` retains its recorded lifecycle uncertainty;
+  current Rust setup does not by itself prove this separate helper's retirement.
+- S02/H06: README's entry/drawer and a retired source-path token need reconciliation
+  with the current page/panel/source model. Mixed current obligations remain mapped.
+- H05: unselected system/web icon and historical Anaconda kits have no demonstrated
+  current shipping consumer in the bounded census. Masters, approved visual references,
+  served exports, fonts and retired implementation inputs retain distinct roles.
+- D11/D01: tracked root `installer`/`soda-candidate` ELF bytes have no proved link to
+  the current source-built shipping outputs; execution or removal is not authorized.
 
-
-### Coverage navigation
-
-- The [implementation tasks](../implementation-tasks.md) map every catalog
-  slice to one primary packet; [parallel lanes](../implementation-lanes.md)
-  route shared files to one writer. These H06 scheduling additions are recorded
-  separately from this coverage snapshot in the documentation inventory.
-- [Tracked-file inventories](inventory/README.md) list each recorded path once.
-- [Responsibility maps](maps/README.md) retain the deeper resolution for mixed and oversized files.
-- [Slice catalog](../slices/README.md) describes the candidate review owners.
-
-The inventory accounts for the 122 maintained plan sections at their committed
-paths; the removed monolith has no current inventory row. Upkeep changes these
-existing documents without adding tracked files. Their own planning prose does
-not establish domain requirements or behavioral verification.
-
-The new [review baseline](../review-baseline.md), [review format](../review-format.md) and
-[assignments](../review-assignments.md) are uncommitted H06 planning additions
-recorded separately in the [documentation inventory](inventory/docs.md).
-They enter the desired tree immediately; the committed coverage counts stay at
-`0d8d3b8e` until their source baseline includes the new path.
+These dispositions are not a new correctness-finding queue. Existing slice-local
+questions, the [requirements questions](../workflow-requirements.md#requirement-questions-versus-evidence-gates),
+B03.C, L16.G, L10.N4, CFG01 and native factory capability gates retain their scopes.
+A passing inventory does not close a missing producer contract or stale assertion.
 
 ### What this coverage gate establishes
 
-The source inventory and mixed-responsibility accounting are complete for the recorded committed snapshot. Code validity, provider neutrality, intended authority/state/lifecycle models and final package consolidation remain unapproved and unverified. Review all 80 slices by first establishing their intended model from owner decisions and current contracts, then compare actual entrypoints, data, authority and lifecycle assumptions, follow their cross-slice seams, and assess the real tests. A Codex-specific adapter can be legitimate; Codex assumptions embedded in provider-neutral brokering, dispatch or UI need review against the multi-provider contract.
+Current path/responsibility accounting and its consequential independent challenge
+are complete at this source/document scope, including explicit unresolved duties.
+Source validity, complete behavioral workflow verification, exact future target
+allocation and native qualification remain their separate review dimensions.
+The prior [source audit](../reviews/README.md#completed-source-audit-coverage) is not
+advanced to the adoption source by this refresh. Parked R02/R03/R04 checkpoints and
+completed structural work remain distinguishable from correctness findings.
 
-After every merge, update this ledger and the affected interval maps together with the slice cards and proposed tree. Additions must have a slice or an explicit unresolved disposition; changes to shared state/functions must recheck all mapped slices. A zero missing-file count alone is insufficient if a new responsibility is hidden under a generic supporting slice.
+No application edits, tests, builds, provider/native operations, dependency changes
+or full desired-tree regeneration ran. All 12 pre-existing dirty guidance files
+and 39 dependency inputs remain byte-identical. Documentation mutations are the
+explicit authored input delta and do not silently change historical source pins.
+
+### Coverage navigation
+
+- [Current tracked inventories](inventory/README.md)
+- [Current responsibility maps](maps/README.md)
+- [Stable slice catalog](../slices/README.md)
+- [Baseline and historical review scope](../review-baseline.md)
+- [Existing tasks](../implementation-tasks.md) and [lane schedule](../implementation-lanes.md)

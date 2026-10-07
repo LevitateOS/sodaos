@@ -1,359 +1,149 @@
 # Host terminals
 
-Current target seam note (source/map responsibility selectors remain unchanged): request252–351/384–420/554–658, frame352–383/421–553/659–772, protocol40–251. Credential JSON helpers773–785 stay ONE existing identity_protocol.rs owner, not frame; RFC3339 separator786–787 travels identity_wire. Service1495–1507 and shared argv1531–1559 are one terminal/mod.rs owner; target excludes those shared definitions. See S04/S05 for actual source and independent defining-fit limits.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-Current private-test extraction at f7: shared fixtures2660–2754 exclude the next protocol #[test]2755; live_lease3939–3962 excludes identity_call_flows attribute3963; output pins4627–4651 exclude rand_id_shape attribute4652. Each attribute travels with its complete next case. Retain one FakeExec/ENV_LOCK/common fixture owner and the actual Service subject through bounded test-only imports. These current target cuts supersede coarse historical endpoints below without treating a defining-fit challenge as native execution evidence.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+<a id="coverage-e60c9c0aa51e"></a>
 
-R02 @HEAD `cd111721` (A00+A01): texec.rs moved whole to `terminal/mod.rs`; re-audit CLEARED vs audit blob (heading at `lib/host/`, hunk-offset shifts).
+## [lib/host/src/terminal/agent.rs](../../../../../lib/host/src/terminal/agent.rs)
 
-The current audit refines the catalog: texec private-terminal request admission
-and StreamTable are obsolete predecessor duties; current gmux admission and
-TerminalGate retain live ownership. [S05](../../reviews/S05.md) records the
-actual caller census and independent challenge. Catalog declaration spans
-remain historical; exact retirement uses the current source selectors there.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–138; current module/import/attribute shell; declaration EndIdentityHook; declaration Service; fields exec, codex_harness, codex_harness_sha256, codex_harness_version, muse_harness, muse_harness_sha256, muse_harness_version; declaration inspect_argv; declaration container_exists_argv; declaration agent_argv; declaration podman; declaration podman_owned; declaration project_container; declaration factory_project_container | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/agent.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-438ae1e01b75"></a>
+
+## [lib/host/src/terminal/broker.rs](../../../../../lib/host/src/terminal/broker.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–160; current module/import/attribute shell; declaration valid_identity_request; declaration IdentityBroker; declaration acquire; declaration register; declaration reconcile_lease; declaration rand_id; declaration rand_id_with; declaration entropy_tests; declaration id_generation_rejects_partial_entropy_output; declaration identity_launch; declaration IdentityRoute; declaration identity_route; declaration identity_action | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/broker.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-5a5895b7fc9a"></a>
+
+## [lib/host/src/terminal/core.rs](../../../../../lib/host/src/terminal/core.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–65; current module/import/attribute shell; declaration FRAME_LIMIT; declaration TERMINAL_LIMIT; declaration STREAM_LIMIT; declaration BROKER_RESPONSE_LIMIT; declaration CREDENTIAL_LIMIT; declaration ERR_DENIED; declaration ERR_STALE; declaration ERR_UNCERTAIN; declaration ERR_NOT_FOUND; declaration ERR_INVALID_IDENTITY_OPERATION; declaration ERR_IDENTITY_UNCONFIRMED; declaration IDENTITY_LAUNCH_PATH; declaration PROVIDER_CODEX; declaration PROVIDER_MUSE; declaration KIND_FACTORY; declaration KIND_TERMINAL; declaration SCOPE_MUSE_PROJECT; declaration err_denied; declaration err_stale; declaration err_uncertain; declaration valid_terminal_id; declaration now_unix | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/core.rs into its current native target.; 23 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b46ee877136d"></a>
+
+## [lib/host/src/terminal/identity.rs](../../../../../lib/host/src/terminal/identity.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–422; current module/import/attribute shell; declaration IdentityRequest; fields action, delivery, login, scope, cols, rows, source_hash, container, harness_sha256; declaration encode; declaration terminal_reservation; declaration terminal_binding; declaration terminal_lease; declaration terminal_preparation; declaration terminal_prepared; declaration identity_call; declaration prepare_identity; declaration identity_action; declaration identity; declaration managed_end; declaration verify_identity_harness; declaration identity_target; declaration identity_stop_target; declaration identity_stage; declaration identity_result | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/identity.rs into its current native target.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0c81e922a34d"></a>
+
+## [lib/host/src/terminal/inspect.rs](../../../../../lib/host/src/terminal/inspect.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–241; current module/import/attribute shell; declaration TERMINAL_INSPECT; declaration TerminalInspection; fields id, running, project, owner, privileged, userns, uid_map, gid_map; declaration Mappings; fields uid_map, gid_map; declaration deserialize; declaration MappingsVisitor; declaration Value; declaration expecting; declaration visit_map; declaration InspectionVisitor; declaration decode; declaration terminal_id_map; declaration terminal_isolation; declaration parse_go_int; declaration parse_go_uint; declaration terminal_target_ready; declaration exit_code_of | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/inspect.rs into its current native target.; 21 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-be827ee309d9"></a>
+
+## [lib/host/src/terminal/lease.rs](../../../../../lib/host/src/terminal/lease.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–591; current module/import/attribute shell; declaration Binding; fields child_id, uid, gid, scope, credential_root, invocation_id, kind, id, project, login, generation; declaration BindingWire; fields child_id, uid, gid, scope, credential_root, invocation_id, kind, id, project, login, generation; declaration deserialize; declaration V; declaration Value; declaration expecting; declaration visit_map; declaration parse_string_i64; declaration Lease; fields repository_id, provider_id, id, connection_id, generation, actor_id, project_id, execution_id, kind, role, deadline_raw, deadline, grant_id, grant_revision, binding; declaration LeaseWire; fields repository_id, provider_id, id, connection_id, generation, actor_id, project_id, execution_id, kind, role, deadline, grant_id, grant_revision, binding, repository_id_seen, actor_id_seen, deadline_seen; declaration binding_from_wire; declaration lease_from_wire; declaration validate; declaration encode_into; declaration encode; declaration decode; declaration Delivery; fields lease, credential; declaration DeliveryWire; fields lease, credential; declaration AcquireRequest; fields repository_id, provider_id, execution_id, actor_id, connection_id, project_id, kind, deadline_secs, deadline_nanos, role | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/lease.rs into its current native target.; 35 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-7d03172d524c"></a>
+<a id="coverage-d09d964505a5"></a>
 
 ## [lib/host/src/terminal/mod.rs](../../../../../lib/host/src/terminal/mod.rs)
 
-R02 re-audited vs `0d8d3b8e` audit blob: 4 insertion hunks (+2 mod decl @34, +2 imports @2292, +3 reap @2350, +153 tests @4836); all section rows zone-shifted including I-slice rows; close row covers reap lines; new reap tests pending as new-leaf rows.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–89; current module/import/attribute shell; declaration factory; declaration core; declaration text; declaration wire; declaration time; declaration lease; declaration inspect; declaration agent; declaration identity; declaration transfer; declaration native; declaration stream; declaration broker; declaration tests | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/mod.rs into its current native target.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1–41 | Human terminal scope/session and limits; declarations/fields: `FRAME_LIMIT`, `TERMINAL_LIMIT`, `STREAM_LIMIT`, `BROKER_RESPONSE_LIMIT`, `CREDENTIAL_LIMIT`, `ERR_DENIED`, `ERR_STALE`, `ERR_UNCERTAIN`, `ERR_NOT_FOUND`, `ERR_INVALID_IDENTITY_OPERATION`, `ERR_IDENTITY_UNCONFIRMED`, `IDENTITY_LAUNCH_PATH`, `PROVIDER_CODEX`, `PROVIDER_MUSE`, `KIND_FACTORY`, `KIND_TERMINAL`, `SCOPE_MUSE_PROJECT`, `err_denied`, `err_stale`, `err_uncertain`, `valid_terminal_id`, `now_unix`, `GO_CC`, `GO_CF`, `in_ranges`, `valid_terminal_name`, `terminal_dimensions` Plus `pub mod factory` root declaration (A00).|
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 42–43 | Human terminal scope/session and limits; declaration/member FRAME_LIMIT; declarations/fields: `FRAME_LIMIT` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 44–45 | Human terminal scope/session and limits; declaration/member TERMINAL_LIMIT; declarations/fields: `TERMINAL_LIMIT` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 46–47 | Human terminal scope/session and limits; declaration/member STREAM_LIMIT; declarations/fields: `STREAM_LIMIT` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 48–49 | Human terminal scope/session and limits; declaration/member BROKER_RESPONSE_LIMIT; declarations/fields: `BROKER_RESPONSE_LIMIT` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 50–54 | Human terminal scope/session and limits; declaration/member CREDENTIAL_LIMIT; declarations/fields: `CREDENTIAL_LIMIT` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 55–56 | Human terminal scope/session and limits; declaration/member ERR_DENIED; declarations/fields: `ERR_DENIED` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 57–58 | Human terminal scope/session and limits; declaration/member ERR_STALE; declarations/fields: `ERR_STALE` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 59–60 | Human terminal scope/session and limits; declaration/member ERR_UNCERTAIN; declarations/fields: `ERR_UNCERTAIN` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 61–63 | Human terminal scope/session and limits; declaration/member ERR_NOT_FOUND; declarations/fields: `ERR_NOT_FOUND` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 64 | Human terminal scope/session and limits; declaration/member ERR_INVALID_IDENTITY_OPERATION; declarations/fields: `ERR_INVALID_IDENTITY_OPERATION` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 65–66 | Human terminal scope/session and limits; declaration/member ERR_IDENTITY_UNCONFIRMED; declarations/fields: `ERR_IDENTITY_UNCONFIRMED` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 67–68 | Human terminal scope/session and limits; declaration/member IDENTITY_LAUNCH_PATH; declarations/fields: `IDENTITY_LAUNCH_PATH` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 69 | Human terminal scope/session and limits; declaration/member PROVIDER_CODEX; declarations/fields: `PROVIDER_CODEX` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 70 | Human terminal scope/session and limits; declaration/member PROVIDER_MUSE; declarations/fields: `PROVIDER_MUSE` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 71 | Human terminal scope/session and limits; declaration/member KIND_FACTORY; declarations/fields: `KIND_FACTORY` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 72–73 | Human terminal scope/session and limits; declaration/member KIND_TERMINAL; declarations/fields: `KIND_TERMINAL` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 74–75 | Human terminal scope/session and limits; declaration/member SCOPE_MUSE_PROJECT; declarations/fields: `SCOPE_MUSE_PROJECT` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 76–78 | Human terminal scope/session and limits; declaration/member err_denied; declarations/fields: `err_denied` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 79–81 | Human terminal scope/session and limits; declaration/member err_stale; declarations/fields: `err_stale` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 82–88 | Human terminal scope/session and limits; declaration/member err_uncertain; declarations/fields: `err_uncertain` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 89–93 | Human terminal scope/session and limits; declaration/member valid_terminal_id; declarations/fields: `valid_terminal_id` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 94–102 | Human terminal scope/session and limits; declaration/member now_unix; declarations/fields: `now_unix` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 103 | Human terminal scope/session and limits; declaration/member GO_CC; declarations/fields: `GO_CC` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 104–127 | Human terminal scope/session and limits; declaration/member GO_CF; declarations/fields: `GO_CF` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 128–134 | Human terminal scope/session and limits; declaration/member in_ranges; declarations/fields: `in_ranges` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 135–147 | Human terminal scope/session and limits; declaration/member valid_terminal_name; declarations/fields: `valid_terminal_name` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 148–151 | Human terminal scope/session and limits; declaration/member terminal_dimensions; declarations/fields: `terminal_dimensions` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 152–153 | Strict base64 wire helper; declarations/fields: `b64_value`, `strict_quantum`, `strict_b64_decode`, `contains_crlf` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 154–168 | Strict base64 wire helper; declaration/member b64_value; declarations/fields: `b64_value` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 169–239 | Strict base64 wire helper; declaration/member strict_quantum; declarations/fields: `strict_quantum` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 240–249 | Strict base64 wire helper; declaration/member strict_b64_decode; declarations/fields: `strict_b64_decode` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 250–253 | Strict base64 wire helper; declaration/member contains_crlf; declarations/fields: `contains_crlf` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 254–257 | Terminal start/metadata state contracts; declarations/fields: `TerminalRequest`, `TERMINAL_REQUEST_SPECS`, `TerminalState`, `TERMINAL_STATE_SPECS`, `TerminalFrame`, `TERMINAL_FRAME_SPECS`, `from_map`, `encode_into` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 258 | Terminal start/metadata state contracts; declaration/member TerminalRequest; declarations/fields: `TerminalRequest` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 259 | Terminal start/metadata state contracts; declaration/member TerminalRequest.action; declarations/fields: `TerminalRequest.action` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 260 | Terminal start/metadata state contracts; declaration/member TerminalRequest.id; declarations/fields: `TerminalRequest.id` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 261 | Terminal start/metadata state contracts; declaration/member TerminalRequest.project; declarations/fields: `TerminalRequest.project` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 262 | Terminal start/metadata state contracts; declaration/member TerminalRequest.login; declarations/fields: `TerminalRequest.login` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 263 | Terminal start/metadata state contracts; declaration/member TerminalRequest.identity; declarations/fields: `TerminalRequest.identity` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 264 | Terminal start/metadata state contracts; declaration/member TerminalRequest.cols; declarations/fields: `TerminalRequest.cols` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 265 | Terminal start/metadata state contracts; declaration/member TerminalRequest.rows; declarations/fields: `TerminalRequest.rows` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 266 | Terminal start/metadata state contracts; declaration/member TerminalRequest.expires; declarations/fields: `TerminalRequest.expires` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 267 | Terminal start/metadata state contracts; declaration/member TerminalRequest.name; declarations/fields: `TerminalRequest.name` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 268–270 | Terminal start/metadata state contracts; declaration/member TerminalRequest.scope; declarations/fields: `TerminalRequest.scope` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 271–315 | Terminal start/metadata state contracts; declaration/member TERMINAL_REQUEST_SPECS; declarations/fields: `TERMINAL_REQUEST_SPECS` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 316 | Terminal start/metadata state contracts; declaration/member TerminalState; declarations/fields: `TerminalState` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 317 | Terminal start/metadata state contracts; declaration/member TerminalState.id; declarations/fields: `TerminalState.id` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 318 | Terminal start/metadata state contracts; declaration/member TerminalState.name; declarations/fields: `TerminalState.name` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 319 | Terminal start/metadata state contracts; declaration/member TerminalState.created_at; declarations/fields: `TerminalState.created_at` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 320 | Terminal start/metadata state contracts; declaration/member TerminalState.ready; declarations/fields: `TerminalState.ready` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 321 | Terminal start/metadata state contracts; declaration/member TerminalState.attached; declarations/fields: `TerminalState.attached` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 322–324 | Terminal start/metadata state contracts; declaration/member TerminalState.state; declarations/fields: `TerminalState.state` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 325–353 | Terminal start/metadata state contracts; declaration/member TERMINAL_STATE_SPECS; declarations/fields: `TERMINAL_STATE_SPECS` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 354 | Terminal start/metadata state contracts; declaration/member TerminalFrame; declarations/fields: `TerminalFrame` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 355 | Terminal start/metadata state contracts; declaration/member TerminalFrame.frame_type; declarations/fields: `TerminalFrame.frame_type` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 356 | Terminal start/metadata state contracts; declaration/member TerminalFrame.data; declarations/fields: `TerminalFrame.data` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 357 | Terminal start/metadata state contracts; declaration/member TerminalFrame.cols; declarations/fields: `TerminalFrame.cols` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 358 | Terminal start/metadata state contracts; declaration/member TerminalFrame.rows; declarations/fields: `TerminalFrame.rows` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 359 | Terminal start/metadata state contracts; declaration/member TerminalFrame.reason; declarations/fields: `TerminalFrame.reason` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 360–362 | Terminal start/metadata state contracts; declaration/member TerminalFrame.terminals; declarations/fields: `TerminalFrame.terminals` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 363–386 | Terminal start/metadata state contracts; declaration/member TERMINAL_FRAME_SPECS; declarations/fields: `TERMINAL_FRAME_SPECS` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 387–397 | Terminal start/metadata state contracts; declaration/member from_map; declarations/fields: `from_map` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 398–401 | Terminal start/metadata state contracts; declaration/member encode_into; declarations/fields: `encode_into` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 402–413 | Interactive frame contracts and rendering; declarations/fields: `encode`, `find_field`, `decode_terminals`, `decode`, `encode_into` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 414–422, 549–557, 576–601 | Interactive frame contracts and rendering; declaration/member encode; declarations/fields: `encode` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 423–438 | Interactive frame contracts and rendering; declaration/member find_field; declarations/fields: `find_field` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 439–475 | Interactive frame contracts and rendering; declaration/member decode_terminals; declarations/fields: `decode_terminals` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 476–516, 558–575 | Interactive frame contracts and rendering; declaration/member decode; declarations/fields: `decode` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 517–548 | Interactive frame contracts and rendering; declaration/member encode_into; declarations/fields: `encode_into` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 602–603 | Terminal request scope/lifetime admission; declarations/fields: `valid_terminal_actor`, `valid_terminal_window`, `valid_terminal_scope`, `valid_list_request`, `valid_sized_terminal_action`, `valid_idle_terminal_action`, `valid_terminal_action`, `valid`, `valid_typed_input`, `valid_resize_input`, `valid_idle_input`, `input_valid` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 604–611 | Terminal request scope/lifetime admission; declaration/member valid_terminal_actor; declarations/fields: `valid_terminal_actor` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 612–615 | Terminal request scope/lifetime admission; declaration/member valid_terminal_window; declarations/fields: `valid_terminal_window` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 616–623 | Terminal request scope/lifetime admission; declaration/member valid_terminal_scope; declarations/fields: `valid_terminal_scope` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 624–627 | Terminal request scope/lifetime admission; declaration/member valid_list_request; declarations/fields: `valid_list_request` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 628–632 | Terminal request scope/lifetime admission; declaration/member valid_sized_terminal_action; declarations/fields: `valid_sized_terminal_action` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 633–636 | Terminal request scope/lifetime admission; declaration/member valid_idle_terminal_action; declarations/fields: `valid_idle_terminal_action` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 637–652 | Terminal request scope/lifetime admission; declaration/member valid_terminal_action; declarations/fields: `valid_terminal_action` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 653–660 | Terminal request scope/lifetime admission; declaration/member valid; declarations/fields: `valid` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 661–667 | Terminal request scope/lifetime admission; declaration/member valid_typed_input; declarations/fields: `valid_typed_input` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 668–671 | Terminal request scope/lifetime admission; declaration/member valid_resize_input; declarations/fields: `valid_resize_input` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 672–677 | Terminal request scope/lifetime admission; declaration/member valid_idle_input; declarations/fields: `valid_idle_input` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 678–688 | Terminal request scope/lifetime admission; declaration/member input_valid; declarations/fields: `input_valid` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 689–690 | Interactive input/output frame bounds; declarations/fields: `output_valid`, `valid_terminal_state_value`, `valid_terminal_item_flags`, `valid_terminal_item`, `valid_metadata_output`, `valid_output_data`, `valid_closed_reason`, `valid_closed_output` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 691–707 | Interactive input/output frame bounds; declaration/member output_valid; declarations/fields: `output_valid` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 708–711 | Interactive input/output frame bounds; declaration/member valid_terminal_state_value; declarations/fields: `valid_terminal_state_value` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 712–718 | Interactive input/output frame bounds; declaration/member valid_terminal_item_flags; declarations/fields: `valid_terminal_item_flags` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 719–730 | Interactive input/output frame bounds; declaration/member valid_terminal_item; declarations/fields: `valid_terminal_item` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 731–746 | Interactive input/output frame bounds; declaration/member valid_metadata_output; declarations/fields: `valid_metadata_output` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 747–758 | Interactive input/output frame bounds; declaration/member valid_output_data; declarations/fields: `valid_output_data` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 759–770 | Interactive input/output frame bounds; declaration/member valid_closed_reason; declarations/fields: `valid_closed_reason` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 771–778 | Interactive input/output frame bounds; declaration/member valid_closed_output; declarations/fields: `valid_closed_output` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 779–783 | Strict JSON credential wire shape; declarations/fields: `json_valid` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 784–789 | Strict JSON credential wire shape; declaration/member credential_valid; declarations/fields: `credential_valid` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 790–799 | Native precise deadline parsing; declarations/fields: `days_from_civil` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 800–809 | Native precise deadline parsing; declaration/member days_in_month; declarations/fields: `days_in_month` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 810–820 | Native precise deadline parsing; declaration/member parse_two; declarations/fields: `parse_two` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 821–905 | Native precise deadline parsing; declaration/member parse_rfc3339; declarations/fields: `parse_rfc3339` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 906 | Identity native binding contract; declarations/fields: `Binding` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 907 | Identity native binding contract; declaration/member Binding.child_id; declarations/fields: `Binding.child_id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 908 | Identity native binding contract; declaration/member Binding.uid; declarations/fields: `Binding.uid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 909 | Identity native binding contract; declaration/member Binding.gid; declarations/fields: `Binding.gid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 910 | Identity native binding contract; declaration/member Binding.scope; declarations/fields: `Binding.scope` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 911 | Identity native binding contract; declaration/member Binding.credential_root; declarations/fields: `Binding.credential_root` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 912 | Identity native binding contract; declaration/member Binding.invocation_id; declarations/fields: `Binding.invocation_id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 913 | Identity native binding contract; declaration/member Binding.kind; declarations/fields: `Binding.kind` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 914 | Identity native binding contract; declaration/member Binding.id; declarations/fields: `Binding.id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 915 | Identity native binding contract; declaration/member Binding.project; declarations/fields: `Binding.project` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 916 | Identity native binding contract; declaration/member Binding.login; declarations/fields: `Binding.login` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 917–919 | Identity native binding contract; declaration/member Binding.generation; declarations/fields: `Binding.generation` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 920–969 | Identity native binding contract; declaration/member BINDING_SPECS; declarations/fields: `BINDING_SPECS` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 970–985 | Go string integer parser; declarations/fields: `parse_string_i64` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 986 | Identity lease and expiration contract; declarations/fields: `Lease` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 987 | Identity lease and expiration contract; declaration/member Lease.repository_id; declarations/fields: `Lease.repository_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 988 | Identity lease and expiration contract; declaration/member Lease.provider_id; declarations/fields: `Lease.provider_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 989 | Identity lease and expiration contract; declaration/member Lease.id; declarations/fields: `Lease.id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 990 | Identity lease and expiration contract; declaration/member Lease.connection_id; declarations/fields: `Lease.connection_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 991 | Identity lease and expiration contract; declaration/member Lease.generation; declarations/fields: `Lease.generation` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 992 | Identity lease and expiration contract; declaration/member Lease.actor_id; declarations/fields: `Lease.actor_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 993 | Identity lease and expiration contract; declaration/member Lease.project_id; declarations/fields: `Lease.project_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 994 | Identity lease and expiration contract; declaration/member Lease.execution_id; declarations/fields: `Lease.execution_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 995 | Identity lease and expiration contract; declaration/member Lease.kind; declarations/fields: `Lease.kind` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 996 | Identity lease and expiration contract; declaration/member Lease.role; declarations/fields: `Lease.role` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 997 | Identity lease and expiration contract; declaration/member Lease.deadline_raw; declarations/fields: `Lease.deadline_raw` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 998 | Identity lease and expiration contract; declaration/member Lease.deadline; declarations/fields: `Lease.deadline` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 999 | Identity lease and expiration contract; declaration/member Lease.grant_id; declarations/fields: `Lease.grant_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1000 | Identity lease and expiration contract; declaration/member Lease.grant_revision; declarations/fields: `Lease.grant_revision` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1001–1003 | Identity lease and expiration contract; declaration/member Lease.binding; declarations/fields: `Lease.binding` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1004–1066 | Identity lease and expiration contract; declaration/member LEASE_SPECS; declarations/fields: `LEASE_SPECS` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1067–1082 | Identity lease and expiration contract; declaration/member binding_from_map; declarations/fields: `binding_from_map` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1083–1122 | Identity lease and expiration contract; declaration/member lease_from_map; declarations/fields: `lease_from_map` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1123–1135 | Binding validation and emission; declarations/fields: `validate` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1136–1173 | Binding validation and emission; declaration/member encode_into; declarations/fields: `encode_into` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1174–1182 | Binding validation and emission; declaration/member encode; declarations/fields: `encode` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1183–1187 | Lease decode and emission; declarations/fields: `decode_value` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1188–1239 | Lease decode and emission; declaration/member encode_into; declarations/fields: `encode_into` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1240–1248 | Lease decode and emission; declaration/member encode; declarations/fields: `encode` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1249 | Private credential delivery envelope; declarations/fields: `Delivery` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1250 | Private credential delivery envelope; declaration/member Delivery.lease; declarations/fields: `Delivery.lease` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1251–1253 | Private credential delivery envelope; declaration/member Delivery.credential; declarations/fields: `Delivery.credential` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1254–1271 | Private credential delivery envelope; declaration/member DELIVERY_SPECS; declarations/fields: `DELIVERY_SPECS` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1272–1276 | Private credential delivery envelope; declaration/member decode; declarations/fields: `decode` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1277–1287 | Private credential delivery envelope; declaration/member decode_value; declarations/fields: `decode_value` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1288–1298 | Private credential delivery envelope; declaration/member encode_into; declarations/fields: `encode_into` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1299–1308 | Private credential delivery envelope; declaration/member encode; declarations/fields: `encode` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1309 | Execution acquisition contract; declarations/fields: `AcquireRequest` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1310 | Execution acquisition contract; declaration/member AcquireRequest.repository_id; declarations/fields: `AcquireRequest.repository_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1311 | Execution acquisition contract; declaration/member AcquireRequest.provider_id; declarations/fields: `AcquireRequest.provider_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1312 | Execution acquisition contract; declaration/member AcquireRequest.execution_id; declarations/fields: `AcquireRequest.execution_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1313 | Execution acquisition contract; declaration/member AcquireRequest.actor_id; declarations/fields: `AcquireRequest.actor_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1314 | Execution acquisition contract; declaration/member AcquireRequest.connection_id; declarations/fields: `AcquireRequest.connection_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1315 | Execution acquisition contract; declaration/member AcquireRequest.project_id; declarations/fields: `AcquireRequest.project_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1316 | Execution acquisition contract; declaration/member AcquireRequest.kind; declarations/fields: `AcquireRequest.kind` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1317 | Execution acquisition contract; declaration/member AcquireRequest.deadline_secs; declarations/fields: `AcquireRequest.deadline_secs` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1318 | Execution acquisition contract; declaration/member AcquireRequest.deadline_nanos; declarations/fields: `AcquireRequest.deadline_nanos` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1319–1324 | Execution acquisition contract; declaration/member AcquireRequest.role; declarations/fields: `AcquireRequest.role` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1325–1328 | Execution acquisition contract; declaration/member TERMINAL_INSPECT; declarations/fields: `TERMINAL_INSPECT` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1329 | Human terminal native target/isolation observation; declarations/fields: `TerminalInspection` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1330 | Human terminal native target/isolation observation; declaration/member TerminalInspection.id; declarations/fields: `TerminalInspection.id` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1331 | Human terminal native target/isolation observation; declaration/member TerminalInspection.running; declarations/fields: `TerminalInspection.running` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1332 | Human terminal native target/isolation observation; declaration/member TerminalInspection.project; declarations/fields: `TerminalInspection.project` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1333 | Human terminal native target/isolation observation; declaration/member TerminalInspection.owner; declarations/fields: `TerminalInspection.owner` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1334 | Human terminal native target/isolation observation; declaration/member TerminalInspection.privileged; declarations/fields: `TerminalInspection.privileged` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1335 | Human terminal native target/isolation observation; declaration/member TerminalInspection.userns; declarations/fields: `TerminalInspection.userns` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1336 | Human terminal native target/isolation observation; declaration/member TerminalInspection.uid_map; declarations/fields: `TerminalInspection.uid_map` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1337–1339 | Human terminal native target/isolation observation; declaration/member TerminalInspection.gid_map; declarations/fields: `TerminalInspection.gid_map` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1340–1350 | Human terminal native target/isolation observation; declaration/member MAPPINGS_SPECS; declarations/fields: `MAPPINGS_SPECS` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1351–1387 | Human terminal native target/isolation observation; declaration/member INSPECTION_SPECS; declarations/fields: `INSPECTION_SPECS` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1388–1407 | Human terminal native target/isolation observation; declaration/member decode; declarations/fields: `decode` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1408–1424 | Human terminal native target/isolation observation; declaration/member terminal_id_map; declarations/fields: `terminal_id_map` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1425–1438 | Human terminal native target/isolation observation; declaration/member terminal_isolation; declarations/fields: `terminal_isolation` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1439–1444 | Human terminal native target/isolation observation; declaration/member parse_go_int; declarations/fields: `parse_go_int` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1445–1462 | Human terminal native target/isolation observation; declaration/member parse_go_uint; declarations/fields: `parse_go_uint` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1463–1479 | Human terminal native target/isolation observation; declaration/member terminal_target_ready; declarations/fields: `terminal_target_ready` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1480–1495 | Human terminal native target/isolation observation; declaration/member exit_code_of; declarations/fields: `exit_code_of` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1496–1499 | Human terminal native target/isolation observation; declaration/member EndIdentityHook; declarations/fields: `EndIdentityHook` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1500 | Terminal native Service and target execution; declarations/fields: `Service` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1501 | Terminal native Service and target execution; declaration/member Service.exec; declarations/fields: `Service.exec` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1502 | Terminal native Service and target execution; declaration/member Service.codex_harness; declarations/fields: `Service.codex_harness` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1503 | Terminal native Service and target execution; declaration/member Service.codex_harness_sha256; declarations/fields: `Service.codex_harness_sha256` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1504 | Terminal native Service and target execution; declaration/member Service.codex_harness_version; declarations/fields: `Service.codex_harness_version` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1505 | Terminal native Service and target execution; declaration/member Service.muse_harness; declarations/fields: `Service.muse_harness` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1506 | Terminal native Service and target execution; declaration/member Service.muse_harness_sha256; declarations/fields: `Service.muse_harness_sha256` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1507–1510 | Terminal native Service and target execution; declaration/member Service.muse_harness_version; declarations/fields: `Service.muse_harness_version` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1511–1521 | Terminal native Service and target execution; declaration/member inspect_argv; declarations/fields: `inspect_argv` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1522–1532 | Terminal native Service and target execution; declaration/member container_exists_argv; declarations/fields: `container_exists_argv` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1533–1545 | Terminal native Service and target execution; declaration/member agent_argv; declarations/fields: `agent_argv` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1546–1549 | Terminal native Service and target execution; declaration/member podman; declarations/fields: `podman` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1550–1561 | Terminal native Service and target execution; declaration/member podman_owned; declarations/fields: `podman_owned` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 1562–1585 | Terminal native Service and target execution; declaration/member project_container; declarations/fields: `project_container` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1586–1624 | Factory target integration; declarations/fields: `factory_project_container` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1625 | Project Codex subscription request and native helper integration; declarations/fields: `IdentityRequest` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1626 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.action; declarations/fields: `IdentityRequest.action` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1627 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.delivery; declarations/fields: `IdentityRequest.delivery` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1628 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.login; declarations/fields: `IdentityRequest.login` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1629 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.scope; declarations/fields: `IdentityRequest.scope` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1630 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.cols; declarations/fields: `IdentityRequest.cols` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1631 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.rows; declarations/fields: `IdentityRequest.rows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1632 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.source_hash; declarations/fields: `IdentityRequest.source_hash` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1633 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.container; declarations/fields: `IdentityRequest.container` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1634–1637 | Project Codex subscription request and native helper integration; declaration/member IdentityRequest.harness_sha256; declarations/fields: `IdentityRequest.harness_sha256` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1638–1675 | Project Codex subscription request and native helper integration; declaration/member encode; declarations/fields: `encode` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1676–1684 | Project Codex subscription request and native helper integration; declaration/member terminal_reservation; declarations/fields: `terminal_reservation` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1685–1698 | Project Codex subscription request and native helper integration; declaration/member terminal_binding; declarations/fields: `terminal_binding` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1699–1709 | Project Codex subscription request and native helper integration; declaration/member terminal_lease; declarations/fields: `terminal_lease` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1710–1724 | Project Codex subscription request and native helper integration; declaration/member terminal_preparation; declarations/fields: `terminal_preparation` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1725–1750 | Project Codex subscription request and native helper integration; declaration/member terminal_prepared; declarations/fields: `terminal_prepared` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1751–1770 | Project Codex subscription request and native helper integration; declaration/member identity_call; declarations/fields: `identity_call` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1771–1810 | Project Codex subscription request and native helper integration; declaration/member prepare_identity; declarations/fields: `prepare_identity` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1811–1831 | Project Codex subscription request and native helper integration; declaration/member identity_action; declarations/fields: `identity_action` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1832–1862 | Project Codex subscription request and native helper integration; declaration/member identity; declarations/fields: `identity` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1863–1906 | Managed credential completion/retirement; declarations/fields: `managed_end` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1907–1926 | Pinned harness verification/native target selection; declarations/fields: `verify_identity_harness` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1927–1947 | Pinned harness verification/native target selection; declaration/member identity_target; declarations/fields: `identity_target` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1948–1976 | Identity native stop target; declarations/fields: `identity_stop_target` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1977–1999 | Private identity stage; declarations/fields: `identity_stage` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2000–2032 | Confirmed identity execution result; declarations/fields: `identity_result` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2033–2044 | Native harness transfer and executable integration; declarations/fields: `tar_producer_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2045–2061 | Native harness transfer and executable integration; declaration/member tar_consumer_argv; declarations/fields: `tar_consumer_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2062–2090 | Native harness transfer and executable integration; declaration/member clean_path; declarations/fields: `clean_path` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2091–2115 | Native harness transfer and executable integration; declaration/member stream_identity_harness; declarations/fields: `stream_identity_harness` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2116–2125 | Managed terminal helper executable pin; declarations/fields: `agent_program_path` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2126–2155 | Managed terminal helper executable pin; declaration/member agent_program_hash; declarations/fields: `agent_program_hash` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2156–2188 | Native attach argv, framed IO and lifetime; declarations/fields: `native_argv` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2189–2203 | Native attach argv, framed IO and lifetime; declaration/member parse_output_line; declarations/fields: `parse_output_line` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2204 | Native attach argv, framed IO and lifetime; declaration/member NativeAttach; declarations/fields: `NativeAttach` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2205 | Native attach argv, framed IO and lifetime; declaration/member NativeAttach.child; declarations/fields: `NativeAttach.child` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2206 | Native attach argv, framed IO and lifetime; declaration/member NativeAttach.stdin; declarations/fields: `NativeAttach.stdin` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2207 | Native attach argv, framed IO and lifetime; declaration/member NativeAttach.reader; declarations/fields: `NativeAttach.reader` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2208–2212 | Native attach argv, framed IO and lifetime; declaration/member NativeAttach.closed; declarations/fields: `NativeAttach.closed` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2213–2264 | Native attach argv, framed IO and lifetime; declaration/member attach; declarations/fields: `attach` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2265–2295 | Native attach argv, framed IO and lifetime; declaration/member input_frame; declarations/fields: `input_frame` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2302–2337 | Native attach argv, framed IO and lifetime; declaration/member output_frame; declarations/fields: `output_frame` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2338–2366 | Native attach argv, framed IO and lifetime; declaration/member close; declarations/fields: `close` Plus forced-termination reap after kill (CODEX-H01-REAP-1).|
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2367–2374 | Native attach argv, framed IO and lifetime; declaration/member drop; declarations/fields: `drop` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2375–2390 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declarations/fields: `valid_private_terminal_request` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2391 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member StreamTable; declarations/fields: `StreamTable` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2392 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member StreamTable.streams; declarations/fields: `StreamTable.streams` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2393 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member StreamTable.closed; declarations/fields: `StreamTable.closed` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2394–2397 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member StreamTable.next; declarations/fields: `StreamTable.next` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2398–2406 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member new; declarations/fields: `new` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2407–2417 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member register; declarations/fields: `register` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2418–2422 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member unregister; declarations/fields: `unregister` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2423–2429 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member close; declarations/fields: `close`|
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2430–2433 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member len; declarations/fields: `len` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2434–2437 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member is_empty; declarations/fields: `is_empty` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2438–2443 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member is_closed; declarations/fields: `is_closed` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 2444–2452 | Definitions-only predecessor admission/registry; retire exact closure, keep live gmux owner; declaration/member default; declarations/fields: `default` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2453 | Browser-admitted execution request and provider launch integration; declarations/fields: `TerminalStart` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2454 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.connection_id; declarations/fields: `TerminalStart.connection_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2455 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.project_id; declarations/fields: `TerminalStart.project_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2456 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.actor_id; declarations/fields: `TerminalStart.actor_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2457 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.login; declarations/fields: `TerminalStart.login` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2458 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.scope; declarations/fields: `TerminalStart.scope` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2459 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.cols; declarations/fields: `TerminalStart.cols` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2460–2462 | Browser-admitted execution request and provider launch integration; declaration/member TerminalStart.rows; declarations/fields: `TerminalStart.rows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2463–2494 | Browser-admitted execution request and provider launch integration; declaration/member TERMINAL_START_SPECS; declarations/fields: `TERMINAL_START_SPECS` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2495–2517 | Browser-admitted execution request and provider launch integration; declaration/member decode; declarations/fields: `decode` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2518–2532 | Browser-admitted execution request and provider launch integration; declaration/member valid_identity_request; declarations/fields: `valid_identity_request` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 2533 | Broker acquisition seam; declarations/fields: `IdentityBroker` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 2534 | Broker acquisition seam; declaration/member acquire; declarations/fields: `acquire` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 2535–2540 | Native registration seam; declarations/fields: `register` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2541–2544 | Reconciliation seam; declarations/fields: `reconcile_lease` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2545–2569 | Execution id generation and orchestration; declarations/fields: `rand_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2570–2631 | Execution id generation and orchestration; declaration/member identity_launch; declarations/fields: `identity_launch` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2632–2640 | Provider-specific callback route selection; declarations/fields: `IdentityRoute` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2641–2661 | Provider-specific callback route selection; declaration/member identity_route; declarations/fields: `identity_route` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2662–2666 | Provider-specific callback route selection; declaration/member identity_action; declarations/fields: `identity_action` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2667–2671, 3101–3112, 3267–3289, 3564–3584, 4036–4084, 4293–4296, 4437–4454, 4510–4567, 4608–4619, 4660–4669 | Terminal and identity source test fixtures/assertions; declarations/fields: `tests`, `meta_state`, `request_encode_golden`, `id_map_matrix`, `identity_result_matrix`, `euid`, `preparing_lease`, `identity_start_flow`, `terminal_start_decode`, `rand_id_shape` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2672 | Terminal and identity source test fixtures/assertions; declaration/member PID; declarations/fields: `PID` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2673 | Terminal and identity source test fixtures/assertions; declaration/member TID; declarations/fields: `TID` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2674–2675 | Terminal and identity source test fixtures/assertions; declaration/member CID; declarations/fields: `CID` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2676 | Terminal and identity source test fixtures/assertions; declaration/member TMP_COUNTER; declarations/fields: `TMP_COUNTER` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2677–2678 | Terminal and identity source test fixtures/assertions; declaration/member ENV_LOCK; declarations/fields: `ENV_LOCK` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2679–2683 | Terminal and identity source test fixtures/assertions; declaration/member deadline; declarations/fields: `deadline` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2684–2690 | Terminal and identity source test fixtures/assertions; declaration/member test_tmp; declarations/fields: `test_tmp` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2691–2692 | Terminal and identity source test fixtures/assertions; declaration/member RecordedCall; declarations/fields: `RecordedCall` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2693 | Terminal and identity source test fixtures/assertions; declaration/member FakeExec; declarations/fields: `FakeExec` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2694 | Terminal and identity source test fixtures/assertions; declaration/member FakeExec.calls; declarations/fields: `FakeExec.calls` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2695–2698 | Terminal and identity source test fixtures/assertions; declaration/member FakeExec.script; declarations/fields: `FakeExec.script` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2699–2705 | Terminal and identity source test fixtures/assertions; declaration/member new; declarations/fields: `new` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2706–2709 | Terminal and identity source test fixtures/assertions; declaration/member calls; declarations/fields: `calls` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2710–2722 | Terminal and identity source test fixtures/assertions; declaration/member argvs; declarations/fields: `argvs` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2723–2742 | Terminal and identity source test fixtures/assertions; declaration/member run; declarations/fields: `run` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2743–2746 | Terminal and identity source test fixtures/assertions; declaration/member ok; declarations/fields: `ok` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2747–2762 | Terminal and identity source test fixtures/assertions; declaration/member inspect_json; declarations/fields: `inspect_json` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2763–2794 | Terminal and identity source test fixtures/assertions; declaration/member terminal_name_matrix; declarations/fields: `terminal_name_matrix` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2795–2806 | Terminal and identity source test fixtures/assertions; declaration/member id_predicates; declarations/fields: `id_predicates` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2807–2822 | Terminal and identity source test fixtures/assertions; declaration/member base_request; declarations/fields: `base_request` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2823–2947 | Terminal and identity source test fixtures/assertions; declaration/member request_valid_matrix; declarations/fields: `request_valid_matrix` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 2948–2967 | Terminal and identity source test fixtures/assertions; declaration/member strict_b64_vectors; declarations/fields: `strict_b64_vectors` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 2968–3030, 3184–3266 | Source assertion of Interactive attachment; declarations/fields: `frame_input_matrix`, `frame_encode_goldens` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 4568–4591 | Exclusive predecessor registry test; `stream_table_flows` retires with definitions-only StreamTable |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 3031–3100, 3113–3183, 4635–4659 | Current-source audit correction: human `TerminalFrame` output/metadata and native attachment pins (`frame_output_matrix`, `metadata_output_matrix`, `output_line_and_attach_pins`), with S04 metadata/lifecycle dependencies. These assertions do not exercise Factory output. A inspected the actual bodies and retained their ownership in S05; frozen catalog assignment remains historical. |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3290–3305 | Terminal and identity source test fixtures/assertions; declaration/member golden_binding; declarations/fields: `golden_binding` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3306–3326 | Terminal and identity source test fixtures/assertions; declaration/member golden_lease; declarations/fields: `golden_lease` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3327–3380 | Terminal and identity source test fixtures/assertions; declaration/member identity_encode_goldens; declarations/fields: `identity_encode_goldens` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3381–3457 | Terminal and identity source test fixtures/assertions; declaration/member strict_decode_matrix; declarations/fields: `strict_decode_matrix` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 3458–3483 | Source assertion of Encrypted credential custody; declarations/fields: `credential_valid_vectors` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 3484–3514 | Source assertion of Encoding and parsing; declarations/fields: `string_i64_vectors` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 3515–3563 | Source assertion of Encoding and parsing; declaration/member rfc3339_vectors; declarations/fields: `rfc3339_vectors` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3585–3598 | Terminal and identity source test fixtures/assertions; declaration/member inspection; declarations/fields: `inspection` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3599–3702 | Terminal and identity source test fixtures/assertions; declaration/member isolation_matrix; declarations/fields: `isolation_matrix` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3703–3715 | Terminal and identity source test fixtures/assertions; declaration/member exit_code_pins; declarations/fields: `exit_code_pins` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3716–3785 | Terminal and identity source test fixtures/assertions; declaration/member argv_vectors; declarations/fields: `argv_vectors` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3786–3804 | Terminal and identity source test fixtures/assertions; declaration/member clean_path_vectors; declarations/fields: `clean_path_vectors` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3805–3818 | Terminal and identity source test fixtures/assertions; declaration/member make_service; declarations/fields: `make_service` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3819–3878 | Terminal and identity source test fixtures/assertions; declaration/member project_container_flows; declarations/fields: `project_container_flows` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3879–3945 | Terminal and identity source test fixtures/assertions; declaration/member factory_project_container_flows; declarations/fields: `factory_project_container_flows` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3946–3970 | Terminal and identity source test fixtures/assertions; declaration/member live_lease; declarations/fields: `live_lease` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 3971–4011 | Terminal and identity source test fixtures/assertions; declaration/member identity_call_flows; declarations/fields: `identity_call_flows` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 4012–4035 | Source assertion of Execution admission and lease fencing; declarations/fields: `terminal_lease_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4085–4210, 4382–4408, 4709–4804 | Source assertion of Provider execution integration; declarations/fields: `identity_dispatch_matrix`, `verify_identity_harness_matrix`, `identity_launch_flows` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 4211–4292 | Source assertion of Completion, revocation and reconciliation; declarations/fields: `managed_end_matrix` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4297–4303 | Terminal and identity source test fixtures/assertions; declaration/member with_agent_env; declarations/fields: `with_agent_env` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4304–4370 | Terminal and identity source test fixtures/assertions; declaration/member agent_program_hash_matrix; declarations/fields: `agent_program_hash_matrix` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4371–4381 | Terminal and identity source test fixtures/assertions; declaration/member write_harness; declarations/fields: `write_harness` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4409–4436 | Source assertion of Provider execution integration; declaration/member stream_identity_harness_flows; declarations/fields: `stream_identity_harness_flows` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 4455–4509 | Source assertion of Checkout allocation and preparation; declarations/fields: `prepare_identity_flows` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / obsolete | 4593–4598 | Only predecessor private-terminal predicate assertions in `private_request_matrix` retire |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4599–4607 | Retained live identity-request/action assertions in mixed `private_request_matrix`; do not retire whole test |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4620–4634 | Terminal and identity source test fixtures/assertions; declaration/member zero_deadline_encode_pin; declarations/fields: `zero_deadline_encode_pin` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4670 | Terminal and identity source test fixtures/assertions; declaration/member FakeBroker; declarations/fields: `FakeBroker` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4671 | Terminal and identity source test fixtures/assertions; declaration/member FakeBroker.acquire_result; declarations/fields: `FakeBroker.acquire_result` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4672 | Terminal and identity source test fixtures/assertions; declaration/member FakeBroker.register_result; declarations/fields: `FakeBroker.register_result` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4673 | Terminal and identity source test fixtures/assertions; declaration/member FakeBroker.reconciled; declarations/fields: `FakeBroker.reconciled` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4674–4677 | Terminal and identity source test fixtures/assertions; declaration/member FakeBroker.acquires; declarations/fields: `FakeBroker.acquires` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4678–4681 | Terminal and identity source test fixtures/assertions; declaration/member acquire; declarations/fields: `acquire` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4682–4689 | Terminal and identity source test fixtures/assertions; declaration/member register; declarations/fields: `register` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4690–4695 | Terminal and identity source test fixtures/assertions; declaration/member reconcile_lease; declarations/fields: `reconcile_lease` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 4696–4708 | Terminal and identity source test fixtures/assertions; declaration/member launch_input; declarations/fields: `launch_input` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4805–4839 | Source assertion of Provider execution integration; declaration/member identity_route_matrix; declarations/fields: `identity_route_matrix` |
+<a id="coverage-0f360a8a7b8e"></a>
+
+## [lib/host/src/terminal/native.rs](../../../../../lib/host/src/terminal/native.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–417; current module/import/attribute shell; declaration clean_path; declaration is_clean_absolute_path; declaration stream_identity_harness; declaration agent_program_path; declaration agent_program_hash; declaration native_argv; declaration parse_output_line; declaration NativeAttach; fields child, stdin, reader, closed; declaration from_child_for_test; declaration attach; declaration input_frame; declaration take_reader; declaration output_frame; declaration close; declaration drop | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/native.rs into its current native target.; 16 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-5ad98e3a5ccf"></a>
+
+## [lib/host/src/terminal/stream.rs](../../../../../lib/host/src/terminal/stream.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–106; current module/import/attribute shell; declaration TerminalStart; fields connection_id, project_id, actor_id, login, scope, cols, rows; declaration deserialize; declaration StartVisitor; declaration Value; declaration expecting; declaration visit_map; declaration decode | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/stream.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e2a17f8d7597"></a>
+
+## [lib/host/src/terminal/tests.rs](../../../../../lib/host/src/terminal/tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–2293; current module/import/attribute shell; declaration PID; declaration TID; declaration CID; declaration TMP_COUNTER; declaration ENV_LOCK; declaration deadline; declaration test_tmp; declaration RecordedCall; declaration FakeExec; fields calls, script; declaration new; declaration calls; declaration argvs; declaration run; declaration ok; declaration inspect_json; declaration terminal_name_matrix; declaration id_predicates; declaration base_request; declaration request_valid_matrix; declaration strict_b64_vectors; declaration frame_input_matrix; declaration frame_output_matrix; declaration meta_state; declaration metadata_output_matrix; declaration frame_encode_goldens; declaration request_encode_golden; declaration golden_binding; declaration golden_lease; declaration identity_encode_goldens; declaration strict_decode_matrix; declaration credential_valid_vectors; declaration string_i64_vectors; declaration rfc3339_vectors; declaration id_map_matrix; declaration inspection; declaration isolation_matrix; declaration exit_code_pins; declaration argv_vectors; declaration native_path_components_and_clean_admission; declaration make_service; declaration project_container_flows; declaration factory_project_container_flows; declaration live_lease; declaration identity_call_flows; declaration terminal_lease_matrix; declaration identity_result_matrix; declaration identity_dispatch_matrix; declaration managed_end_matrix; declaration euid; declaration with_agent_env; declaration agent_program_hash_matrix; declaration write_harness; declaration verify_identity_harness_matrix; declaration stream_identity_harness_flows; declaration preparing_lease; declaration prepare_identity_flows; declaration identity_start_flow; declaration private_request_matrix; declaration terminal_start_decode; declaration zero_deadline_encode_pin; declaration output_line_and_attach_pins; declaration rand_id_shape; declaration FakeBroker; fields acquire_result, register_result, reconciled, acquires; declaration acquire; declaration register; declaration reconcile_lease; declaration launch_input; declaration identity_launch_flows; declaration identity_route_matrix; declaration piped_file; declaration take_reader_detaches_output; declaration quiet_output_never_blocks_input; declaration attach_with_child; declaration proc_stat; declaration assert_pid_reaped; declaration close_reaps_eof_exited_child; declaration close_reaps_killed_child | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/tests.rs into its current native target.; 78 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-9e5578752867"></a>
+
+## [lib/host/src/terminal/text.rs](../../../../../lib/host/src/terminal/text.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–70; current module/import/attribute shell; declaration GO_CC; declaration GO_CF; declaration in_ranges; declaration valid_terminal_name; declaration terminal_dimensions; declaration strict_b64_decode; declaration contains_crlf | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/text.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-810ccc2dff79"></a>
+
+## [lib/host/src/terminal/time.rs](../../../../../lib/host/src/terminal/time.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–4; current module/import/attribute shell; declaration parse_rfc3339 | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/time.rs into its current native target.; parse_rfc3339: implement the current interactive terminal attachment duty in time.rs. — current source lib/host/src/terminal/time.rs; Cargo target and callers; current source lib/host/src/terminal/time.rs; lines 2-4; module/caller wiring inspected |
+
+<a id="coverage-10c728506987"></a>
+
+## [lib/host/src/terminal/transfer.rs](../../../../../lib/host/src/terminal/transfer.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–33; current module/import/attribute shell; declaration tar_producer_argv; declaration tar_consumer_argv | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/transfer.rs into its current native target.; tar_producer_argv: implement the current interactive terminal attachment duty in transfer.rs.; tar_consumer_argv: implement the current interactive terminal attachment duty in transfer.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-22a4641d914f"></a>
+
+## [lib/host/src/terminal/wire.rs](../../../../../lib/host/src/terminal/wire.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–582; current module/import/attribute shell; declaration TerminalRequest; fields action, id, project, login, identity, cols, rows, expires, name, scope; declaration TerminalRequestWire; declaration deserialize; declaration V; declaration Value; declaration expecting; declaration visit_map; declaration TerminalState; fields id, name, created_at, ready, attached, state; declaration TerminalStateWire; declaration TerminalFrame; fields frame_type, data, cols, rows, reason, terminals; declaration TerminalFrameWire; declaration encode_into; declaration encode; declaration decode; declaration valid_terminal_actor; declaration valid_terminal_window; declaration valid_terminal_scope; declaration valid_list_request; declaration valid_sized_terminal_action; declaration valid_idle_terminal_action; declaration valid_terminal_action; declaration valid; declaration valid_typed_input; declaration valid_resize_input; declaration valid_idle_input; declaration input_valid; declaration output_valid; declaration valid_terminal_state_value; declaration valid_terminal_item_flags; declaration valid_terminal_item; declaration valid_metadata_output; declaration valid_output_data; declaration valid_closed_reason; declaration valid_closed_output; declaration json_valid; declaration credential_valid | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/wire.rs into its current native target.; 51 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |

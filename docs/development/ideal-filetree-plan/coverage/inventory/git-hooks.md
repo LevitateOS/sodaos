@@ -8,4 +8,4 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
-| [.githooks/pre-commit](../../../../../.githooks/pre-commit) | source | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/root-and-retired-definitions.md#coverage-87320095d7c4) |
+| [.githooks/pre-commit](../../../../../.githooks/pre-commit) | script | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Staged-path source/credential/style gates and no-Python check; repository commit consumer |

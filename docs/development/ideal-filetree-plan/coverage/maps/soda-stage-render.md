@@ -1,296 +1,219 @@
 # Soda stage render
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-R02 re-audit COMPLETE @HEAD: provisioning/stage/logo/cli splits re-mapped (18 files); C09 regression test rowed. All rows machine-verified against current bytes.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-d04d16b4f1e0"></a>
+<a id="coverage-7c05b7dc805e"></a>
 
 ## [tools/release-assets/src/render/mod.rs](../../../../../tools/release-assets/src/render/mod.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
+Current helpers and module consumers inspected
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Public module wiring is mapped separately; module exposure does not create a new process boundary.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15; renderer crate documentation and compatibility envelope | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Documents the three build-time render/stage binaries and their source-tree invocation contract. — tools/release-assets/src/render/mod.rs:1-15; Cargo binary entrypoints consume each module |
+| 16; provisioning renderer module export | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Exports the Butane/provisioning media renderer used to produce authenticated installation configuration. — tools/release-assets/src/render/mod.rs:16; consumer tools/release-assets/src/bin/render-provisioning.rs |
+| 17; staging renderer module export | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Exports staged host/image content generation used by candidate production. — tools/release-assets/src/render/mod.rs:17; consumer tools/release-assets/src/bin/stage.rs and candidate build pipeline |
+| 18; terminal logo renderer module export | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Exports the canonical terminal emblem renderer that generates branding output. — tools/release-assets/src/render/mod.rs:18; consumer tools/release-assets/src/bin/render-terminal-logo.rs |
+| 19–50; path imports and source root/file mode helpers | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Locates the source checkout from the branding payload manifest and applies explicit Unix file modes required by staging. — tools/release-assets/src/render/mod.rs:20-50; source_root checks frontend/forgejo/payload.json, chmod writes mode |
+| 51–88; long-form CLI flag tokenization helper; SHA-256 lowercase hexadecimal encoder and its tests module | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Splits `--long` and `--long=value` tokens for compatibility with the source argparse scripts.; Encodes SHA-256 bytes as lowercase hexadecimal for render/staging output. — tools/release-assets/src/render/mod.rs:52-73; consumed by render binary parsers; tools/release-assets/src/render/mod.rs:75-88; tests module is source assertion of helper behavior |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–14 | Staging renderer package wiring |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 15 | Provisioning render module wiring |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 16 | Existing outputs staging wiring; declarations/fields: `provisioning` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 17 | Canonical terminal emblem renderer wiring; declarations/fields: `stage` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 18–77 | Source root/private file mode utilities; declarations/fields: `terminal_logo`, `source_root`, `chmod`, `split_flag` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 78–115 | Go/Python flag splitting helpers and source vectors; declarations/fields: `sha256_hex`, `tests`, `flags_match_argparse_long_forms`, `sha256_matches_hashlib` |
-
-<a id="coverage-90df13df2cca"></a>
-
-<a id="rustsoda-stage-rendersrcprovisioningrs-1"></a>
-
-## [tools/release-assets/src/render/provisioning/mod.rs](../../../../../tools/release-assets/src/render/provisioning/mod.rs)
-
-Re-audit @HEAD: C09 consolidation + split: `provisioning.rs` is `provisioning/` with 5 files; rows re-mapped declaration-by-declaration to current bytes.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 1–10 | Public bootstrap plus private per-instance operator input renderer; declarations/fields: `tests`, `ProvKind`, `name`, `ProvError`, `ProvError.kind`, `ProvError.detail`, `new`, `value`, `io` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 12–22 | Public bootstrap plus private per-instance operator input renderer; declaration/member tests; declarations/fields: `tests` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 26–39 | Public bootstrap plus private per-instance operator input renderer; declaration/member ProvKind; declarations/fields: `ProvKind` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 42–57 | Public bootstrap plus private per-instance operator input renderer; declaration/member name; declarations/fields: `name` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 59–63 | Public bootstrap plus private per-instance operator input renderer; declaration/member ProvError; declarations/fields: `ProvError` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 61 | Public bootstrap plus private per-instance operator input renderer; declaration/member ProvError.kind; declarations/fields: `ProvError.kind` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 62 | Public bootstrap plus private per-instance operator input renderer; declaration/member ProvError.detail; declarations/fields: `ProvError.detail` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 66–71 | Public bootstrap plus private per-instance operator input renderer; declaration/member new; declarations/fields: `new` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 73–75 | Public bootstrap plus private per-instance operator input renderer; declaration/member value; declarations/fields: `value` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 77–86 | Public bootstrap plus private per-instance operator input renderer; declaration/member io; declarations/fields: `io` |
+<a id="coverage-abe4dadfc228"></a>
 
 ## [tools/release-assets/src/render/provisioning/document.rs](../../../../../tools/release-assets/src/render/provisioning/document.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 1–8 | Public bootstrap plus private per-instance operator input renderer; declarations/fields: `escape_python_into`, `indent_into`, `dump_python`, `emit_python`, `object_mut`, `get_mut`, `files_mut`, `not_a_list`, `push_file`, `clear_files`, `str_value`, `file_entry`, `public_config` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 15–40 | Public bootstrap plus private per-instance operator input renderer; declaration/member escape_python_into; declarations/fields: `escape_python_into` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 42–46 | Public bootstrap plus private per-instance operator input renderer; declaration/member indent_into; declarations/fields: `indent_into` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 52–56 | Public bootstrap plus private per-instance operator input renderer; declaration/member dump_python; declarations/fields: `dump_python` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 58–102 | Public bootstrap plus private per-instance operator input renderer; declaration/member emit_python; declarations/fields: `emit_python` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 104–109 | Public bootstrap plus private per-instance operator input renderer; declaration/member object_mut; declarations/fields: `object_mut` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 111–117 | Public bootstrap plus private per-instance operator input renderer; declaration/member get_mut; declarations/fields: `get_mut` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 122–139 | Public bootstrap plus private per-instance operator input renderer; declaration/member files_mut; declarations/fields: `files_mut` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 141–143 | Public bootstrap plus private per-instance operator input renderer; declaration/member not_a_list; declarations/fields: `not_a_list` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 145–153 | Public bootstrap plus private per-instance operator input renderer; declaration/member push_file; declarations/fields: `push_file` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 155–163 | Public bootstrap plus private per-instance operator input renderer; declaration/member clear_files; declarations/fields: `clear_files` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 165–167 | Public bootstrap plus private per-instance operator input renderer; declaration/member str_value; declarations/fields: `str_value` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 169–178 | Public bootstrap plus private per-instance operator input renderer; declaration/member file_entry; declarations/fields: `file_entry` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 182–201 | Public bootstrap plus private per-instance operator input renderer; declaration/member public_config; declarations/fields: `public_config` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–384; lines 19–26: enum Node; attached module comments and attributes; lines 27–33: enum RawChildren; lines 34–37: fn deserialize; lines 38–40: struct ChildrenVisitor; lines 41–41: type Value; lines 42–45: fn expecting; lines 46–56: fn visit_seq; lines 57–72: fn visit_map; lines 73–74: impl Node; lines 75–121: fn parse; lines 122–127: fn parse_document; lines 128–129: impl Serialize; lines 130–161: fn serialize; lines 162–162: struct PythonFormatter; lines 163–164: impl Default; lines 165–168: fn default; lines 169–170: impl Formatter; lines 171–190: fn write_string_fragment; lines 191–197: fn begin_array; lines 198–203: fn end_array; lines 204–209: fn begin_array_value; lines 210–215: fn end_array_value; lines 216–221: fn begin_object; lines 222–227: fn end_object; lines 228–233: fn begin_object_key; lines 234–239: fn end_object_key; lines 240–245: fn begin_object_value; lines 246–251: fn end_object_value; lines 252–262: fn write_char_escape; lines 263–264: fn write_unicode_escape; lines 265–275: const HEX; lines 276–285: dump_python and attached behavior; lines 286–292: object_mut and attached behavior; lines 293–304: get_mut and attached behavior; lines 305–322: files_mut and attached behavior; lines 323–326: not_a_list and attached behavior; lines 327–336: push_file and attached behavior; lines 337–346: clear_files and attached behavior; lines 347–350: str_value and attached behavior; lines 351–364: file_entry and attached behavior; lines 365–384: public_config and attached behavior | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Current enum Node and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 41 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-90df13df2cca"></a>
+<a id="rustsoda-stage-rendersrcprovisioningrs-1"></a>
+<a id="coverage-fb2d056df18b"></a>
+
+## [tools/release-assets/src/render/provisioning/mod.rs](../../../../../tools/release-assets/src/render/provisioning/mod.rs)
+
+Current coherent source duties matched to live consumer and prior semantic unit context
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–86; lines 1–8: mod document; attached module comments and attributes; lines 9–9: mod private_files; lines 10–12: mod render; lines 13–13: tests and attached behavior; lines 27–41: ProvKind and attached behavior; lines 42–59: name and attached behavior; lines 60–65: ProvError and attached behavior; lines 66–71: new and attached behavior; lines 72–75: value and attached behavior; lines 76–86: io and attached behavior | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Current mod document and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-8317f13a19e2"></a>
 
 ## [tools/release-assets/src/render/provisioning/private_files.rs](../../../../../tools/release-assets/src/render/provisioning/private_files.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 1–8 | Public bootstrap plus private per-instance operator input renderer; declarations/fields: `read_text`, `regular`, `is_label`, `is_appliance_hostname`, `is_fixture_hostname`, `absolute_lexical`, `derive_host_public`, `is_real_parent`, `write_exclusive` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 10–19 | Public bootstrap plus private per-instance operator input renderer; declaration/member read_text; declarations/fields: `read_text` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 23–39 | Public bootstrap plus private per-instance operator input renderer; declaration/member regular; declarations/fields: `regular` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 41–56 | Public bootstrap plus private per-instance operator input renderer; declaration/member is_label; declarations/fields: `is_label` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 60–63 | Public bootstrap plus private per-instance operator input renderer; declaration/member is_appliance_hostname; declarations/fields: `is_appliance_hostname` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 66–70 | Public bootstrap plus private per-instance operator input renderer; declaration/member is_fixture_hostname; declarations/fields: `is_fixture_hostname` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 74–81 | Public bootstrap plus private per-instance operator input renderer; declaration/member absolute_lexical; declarations/fields: `absolute_lexical` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 85–142 | Public bootstrap plus private per-instance operator input renderer; declaration/member derive_host_public; declarations/fields: `derive_host_public` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 148–160 | Public bootstrap plus private per-instance operator input renderer; declaration/member is_real_parent; declarations/fields: `is_real_parent` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 162–207 | Public bootstrap plus private per-instance operator input renderer; declaration/member write_exclusive; declarations/fields: `write_exclusive` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–319; lines 11–21: read_text and attached behavior; attached module comments and attributes; lines 22–48: fn read_open_text; lines 49–68: regular and attached behavior; lines 78–97: is_label and attached behavior; lines 98–103: is_appliance_hostname and attached behavior; lines 104–111: is_fixture_hostname and attached behavior; lines 112–122: absolute_lexical and attached behavior; lines 123–143: derive_host_public and attached behavior; lines 144–244: const PUBLIC_LIMIT; lines 245–259: fn set_nonblocking; lines 260–272: is_real_parent and attached behavior; lines 273–288: write_exclusive and attached behavior | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Public bootstrap plus private per-instance operator input renderer; declaration/member read_text Adjacent comments and attributes explain this same authored responsibility.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-c078f6dcbfb8"></a>
 
 ## [tools/release-assets/src/render/provisioning/render.rs](../../../../../tools/release-assets/src/render/provisioning/render.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 1–13 | Public bootstrap plus private per-instance operator input renderer; declarations/fields: `RenderInputs`, `RenderInputs.operator_key`, `RenderInputs.password_hash`, `RenderInputs.out`, `RenderInputs.hostname`, `RenderInputs.host_key`, `RenderInputs.bootstrap`, `RenderInputs.product_hostname`, `render` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 15–23 | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs; declarations/fields: `RenderInputs` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 16 | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs.operator_key; declarations/fields: `RenderInputs.operator_key` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 17 | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs.password_hash; declarations/fields: `RenderInputs.password_hash` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 18 | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs.out; declarations/fields: `RenderInputs.out` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 19 | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs.hostname; declarations/fields: `RenderInputs.hostname` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 20 | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs.host_key; declarations/fields: `RenderInputs.host_key` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 21 | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs.bootstrap; declarations/fields: `RenderInputs.bootstrap` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 22 | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs.product_hostname; declarations/fields: `RenderInputs.product_hostname` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 27–107 | Public bootstrap plus private per-instance operator input renderer; declaration/member render; declarations/fields: `render` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–105; lines 12–24: RenderInputs and attached behavior; attached module comments and attributes; lines 25–105: render and attached behavior | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Public bootstrap plus private per-instance operator input renderer; declaration/member RenderInputs Adjacent comments and attributes explain this same authored responsibility.; Public bootstrap plus private per-instance operator input renderer; declaration/member render — tools/release-assets/src/render/provisioning/render.rs:12-24; current named unit matched to maintained semantic map and release consumer; tools/release-assets/src/render/provisioning/render.rs:25-105; current named unit matched to maintained semantic map and release consumer |
+
+<a id="coverage-3669d4c2bc10"></a>
 
 ## [tools/release-assets/src/render/provisioning/tests.rs](../../../../../tools/release-assets/src/render/provisioning/tests.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 1–3 | Public bootstrap plus private per-instance operator input renderer; declarations/fields: `hostnames_follow_the_script_regexes`, `dump_keeps_number_literals_and_key_order`, `dump_matches_json_indent_two` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 5–28 | Source assertion of Authenticated installation media; declarations/fields: `hostnames_follow_the_script_regexes` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 30–40 | Public bootstrap plus private per-instance operator input renderer; declaration/member dump_matches_json_indent_two; declarations/fields: `dump_matches_json_indent_two` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 42–49 | Public bootstrap plus private per-instance operator input renderer; declaration/member dump_keeps_number_literals_and_key_order; declarations/fields: `dump_keeps_number_literals_and_key_order` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–149; lines 6–6: fn regular_input_reads_admitted_open_file_with_cap_and_private_policy; attached module comments and attributes; lines 52–76: fn hostnames_follow_the_script_regexes; lines 77–88: dump_matches_json_indent_two and attached behavior; lines 89–97: dump_keeps_number_literals_and_key_order and attached behavior; lines 98–103: fn dump_preserves_valid_exponent_outside_machine_float_range; lines 104–115: fn document_edits_use_last_exact_member_and_keep_duplicate_pairs_and_raw_numbers; lines 116–149: fn provisioning_dynamic_depth_limit_keeps_safe_error_classification | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Current fn regular_input_reads_admitted_open_file_with_cap_and_private_policy and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-## [tools/release-assets/src/render/stage/mod.rs](../../../../../tools/release-assets/src/render/stage/mod.rs)
-
-Re-audit @HEAD: C09 consolidation + split: `stage.rs` is `stage/` with 5 files; rows re-mapped declaration-by-declaration to current bytes.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–10 | Existing native build outputs staging admission/errors; declarations/fields: `tests`, `StageError`, `refusal`, `failure`, `check_contexts`, `run` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 12–23 | Staging source assertions; declarations/fields: `tests` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 28–31 | Existing native build outputs staging admission/errors; declaration/member StageError; declarations/fields: `StageError` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 34–36 | Existing native build outputs staging admission/errors; declaration/member refusal; declarations/fields: `refusal` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 38–41 | Existing native build outputs staging admission/errors; declaration/member failure; declarations/fields: `failure` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 46–63 | Bound existing source/build payload roots and staging operation; declaration/member check_contexts; declarations/fields: `check_contexts` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 66–261 | Bound existing source/build payload roots and staging operation; declaration/member run; declarations/fields: `run` |
+<a id="coverage-bb512ffa23de"></a>
 
 ## [tools/release-assets/src/render/stage/branding.rs](../../../../../tools/release-assets/src/render/stage/branding.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current body and actual staging consumer inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1 | Existing native build outputs staging admission/errors; declarations/fields: `favicon_bytes` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 3–24 | Native favicon byte container rendering; declarations/fields: `favicon_bytes` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–24; current block: canonical forgejo favicon png frames are encoded into the ico container used by staged branding | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Canonical Forgejo favicon PNG frames are encoded into the ICO container used by staged branding. — tools/release-assets/src/render/stage/branding.rs:[[1, 24]]; consumed by tools/release-assets/src/render/stage/mod.rs and stage command |
+
+<a id="coverage-cb8c81e41847"></a>
 
 ## [tools/release-assets/src/render/stage/files.rs](../../../../../tools/release-assets/src/render/stage/files.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current body and actual staging consumer inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–7 | Existing native build outputs staging admission/errors; declarations/fields: `check_platform`, `is_real_dir`, `copy`, `copy_tree`, `normalize_tree`, `mkdir_leaf`, `mkdir_fresh`, `read_text` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 12–17 | Existing native build outputs staging admission/errors; declaration/member check_platform; declarations/fields: `check_platform` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 19–27 | Fresh-directory protected copying and permissions; declarations/fields: `is_real_dir` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 29–64 | Fresh-directory protected copying and permissions; declaration/member copy; declarations/fields: `copy` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 69–95 | Fresh-directory protected copying and permissions; declaration/member copy_tree; declarations/fields: `copy_tree` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 100–117 | Fresh-directory protected copying and permissions; declaration/member normalize_tree; declarations/fields: `normalize_tree` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 121–124 | Fresh-directory protected copying and permissions; declaration/member mkdir_leaf; declarations/fields: `mkdir_leaf` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 128–136 | Fresh-directory protected copying and permissions; declaration/member mkdir_fresh; declarations/fields: `mkdir_fresh` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 138–141 | Fresh-directory protected copying and permissions; declaration/member read_text; declarations/fields: `read_text` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17; current block: build-context platform admission for staging | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Build-context platform admission for staging. — tools/release-assets/src/render/stage/files.rs:[[1, 17]]; consumed by tools/release-assets/src/render/stage/mod.rs and stage command |
+| 18–141; current block: fresh-directory copy, recursive tree normalization, and protected file-mode utilities used by staging | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Fresh-directory copy, recursive tree normalization, and protected file-mode utilities used by staging. — tools/release-assets/src/render/stage/files.rs:[[18, 141]]; consumed by tools/release-assets/src/render/stage/mod.rs and stage command |
+
+<a id="coverage-020d78224a6c"></a>
+
+## [tools/release-assets/src/render/stage/mod.rs](../../../../../tools/release-assets/src/render/stage/mod.rs)
+
+Current coherent source duties matched to live consumer and prior semantic unit context
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–261; lines 1–8: mod branding; attached module comments and attributes; lines 9–9: mod files; lines 10–12: mod payload; lines 13–13: mod tests; lines 28–33: StageError and attached behavior; lines 34–36: refusal and attached behavior; lines 37–45: failure and attached behavior; lines 46–65: check_contexts and attached behavior; lines 66–261: run and attached behavior | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current mod branding and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f9c661056f1c"></a>
 
 ## [tools/release-assets/src/render/stage/payload.rs](../../../../../tools/release-assets/src/render/stage/payload.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current body and actual staging consumer inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–9 | Existing native build outputs staging admission/errors; declarations/fields: `payload_entries`, `locked_terminal_assets`, `payload_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 11–37 | Declared native payload source mapping; declarations/fields: `payload_entries` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 39–78 | Locked browser terminal asset integrity pin admission; declarations/fields: `locked_terminal_assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 80–85 | Bound existing source/build payload roots and staging operation; declarations/fields: `payload_source` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–38, 165–170; payload manifest source lookup and source-root resolution | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Reads staged Forgejo payload entries and resolves source versus @build paths to concrete staging inputs. — Current payload_source/load payload code feeds the stage assembler. |
+| 39–164; locked terminal asset lock decoding | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Decodes lock-selected terminal asset paths and SHA-256 values for downstream pinned-byte admission. — Current lock deserialization and digest map construction consumed by payload staging. |
+
+<a id="coverage-e40feaacfc57"></a>
 
 ## [tools/release-assets/src/render/stage/tests.rs](../../../../../tools/release-assets/src/render/stage/tests.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current body and actual staging consumer inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1 | Existing native build outputs staging admission/errors; declarations/fields: `favicon_container_matches_struct_layout`, `payload_source_roots_build_tokens` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 3–21 | Source assertion of Branding, avatars and attribution; declarations/fields: `favicon_container_matches_struct_layout` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 23–35 | Source assertion of Candidate production; declarations/fields: `payload_source_roots_build_tokens` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–37, 58–69; current block: source assertions for payload manifest selection and staging source roots | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Source assertions for payload manifest selection and staging source roots. — tools/release-assets/src/render/stage/tests.rs:[[1, 37], [58, 70]]; consumed by tools/release-assets/src/render/stage/mod.rs and stage command |
+| 38–57; current block: source assertion that staged favicon bytes preserve the expected ico container layout | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Source assertion that staged favicon bytes preserve the expected ICO container layout. — tools/release-assets/src/render/stage/tests.rs:[[38, 57]]; consumed by tools/release-assets/src/render/stage/mod.rs and stage command |
 
-## [tools/release-assets/src/render/terminal_logo/mod.rs](../../../../../tools/release-assets/src/render/terminal_logo/mod.rs)
-
-Re-audit @HEAD: C09 consolidation + split: `terminal_logo.rs` is `terminal_logo/` with 4 files; rows re-mapped declaration-by-declaration to current bytes.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 1–12 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declarations/fields: `tests`, `render_svg`, `run` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 14–23 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member tests; declarations/fields: `tests` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 27–56 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member render_svg; declarations/fields: `render_svg` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 59–79 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member run; declarations/fields: `run` |
+<a id="coverage-79756d7c3d50"></a>
 
 ## [tools/release-assets/src/render/terminal_logo/geometry.rs](../../../../../tools/release-assets/src/render/terminal_logo/geometry.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 1 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declarations/fields: `Token`, `tokenize`, `operand`, `polygons`, `inside`, `render_layers` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 3–7 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member Token; declarations/fields: `Token` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 11–42 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member tokenize; declarations/fields: `tokenize` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 44–51 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member operand; declarations/fields: `operand` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 55–109 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member polygons; declarations/fields: `polygons` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 111–120 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member inside; declarations/fields: `inside` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 122–164 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member render_layers; declarations/fields: `render_layers` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–138; lines 1–67: polygons and attached behavior; lines 68–75: fn finite; lines 76–83: fn require_ring; lines 84–94: inside and attached behavior; lines 95–138: render_layers and attached behavior | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member polygons; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-9e2a88b24f24"></a>
+
+## [tools/release-assets/src/render/terminal_logo/mod.rs](../../../../../tools/release-assets/src/render/terminal_logo/mod.rs)
+
+Current coherent source duties matched to live consumer and prior semantic unit context
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–73; lines 1–3: mod geometry; attached module comments and attributes; lines 4–6: mod svg; lines 7–7: tests and attached behavior; lines 18–42: render_svg and attached behavior; lines 43–73: run and attached behavior | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Current mod geometry and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f3cec19cbd4a"></a>
 
 ## [tools/release-assets/src/render/terminal_logo/svg.rs](../../../../../tools/release-assets/src/render/terminal_logo/svg.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 1 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declarations/fields: `Attrs`, `Cursor`, `Cursor.bytes`, `Cursor.pos`, `new`, `eof`, `starts_with`, `consume`, `skip_ws`, `skip_comment`, `skip_pi`, `skip_prolog`, `parse_name`, `decode_entities`, `parse_attrs`, `skip_text_element`, `tag_boundary`, `parse_svg`, `attr` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 3 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member Attrs; declarations/fields: `Attrs` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 5–8 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member Cursor; declarations/fields: `Cursor` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 6 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member Cursor.bytes; declarations/fields: `Cursor.bytes` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 7 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member Cursor.pos; declarations/fields: `Cursor.pos` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 11–16 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member new; declarations/fields: `new` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 18–20 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member eof; declarations/fields: `eof` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 22–24 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member starts_with; declarations/fields: `starts_with` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 26–33 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member consume; declarations/fields: `consume` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 35–39 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member skip_ws; declarations/fields: `skip_ws` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 41–51 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member skip_comment; declarations/fields: `skip_comment` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 53–63 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member skip_pi; declarations/fields: `skip_pi` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 65–76 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member skip_prolog; declarations/fields: `skip_prolog` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 78–94 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member parse_name; declarations/fields: `parse_name` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 96–130 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member decode_entities; declarations/fields: `decode_entities` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 133–174 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member parse_attrs; declarations/fields: `parse_attrs` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 178–198 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member skip_text_element; declarations/fields: `skip_text_element` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 200–206 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member tag_boundary; declarations/fields: `tag_boundary` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 210–280 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member parse_svg; declarations/fields: `parse_svg` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 282–287 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member attr; declarations/fields: `attr` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–96; lines 1–3: Attrs and attached behavior; lines 4–5: const SVG_NAMESPACE; lines 6–6: const MAX_DOCUMENT_BYTES; lines 7–7: const MAX_DOCUMENT_NODES; lines 8–19: fn attributes; lines 20–25: fn is_svg_element; lines 26–41: fn only_text_or_comments; lines 42–89: parse_svg and attached behavior; lines 90–96: attr and attached behavior | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member Attrs; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-5b94cb4d3d7f"></a>
 
 ## [tools/release-assets/src/render/terminal_logo/tests.rs](../../../../../tools/release-assets/src/render/terminal_logo/tests.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 1 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declarations/fields: `document`, `tokenizer_matches_findall_shapes`, `polygon_gates_match_the_script`, `svg_gate_rejects_changed_syntax`, `tiny_emblem_renders_both_layers` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 3–7 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member document; declarations/fields: `document` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 9–27 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member tokenizer_matches_findall_shapes; declarations/fields: `tokenizer_matches_findall_shapes` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 29–59 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member polygon_gates_match_the_script; declarations/fields: `polygon_gates_match_the_script` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 61–90 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member svg_gate_rejects_changed_syntax; declarations/fields: `svg_gate_rejects_changed_syntax` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 92–108 | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member tiny_emblem_renders_both_layers; declarations/fields: `tiny_emblem_renders_both_layers` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–126; lines 2–9: document and attached behavior; attached module comments and attributes; lines 10–28: fn svg_path_parser_accepts_valid_numbers_and_expands_moveto_pairs; lines 29–48: fn path_geometry_requires_absolute_finite_closed_rings; lines 49–79: svg_gate_rejects_changed_syntax and attached behavior; lines 80–110: fn xml_gate_checks_resolved_namespaces_and_rejects_dtd_text_and_transforms; lines 111–126: tiny_emblem_renders_both_layers and attached behavior | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Canonical polygon emblem to terminal mark rendering and strict source shape gate; declaration/member document Adjacent comments and attributes explain this same authored responsibility.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-## [tools/release-assets/tests/render_staging.rs](../../../../../tools/release-assets/tests/render_staging.rs)
+<a id="coverage-e4edbcf809fe"></a>
 
-Re-audit @HEAD: C09 consolidation: `soda-stage-render/tests/cli.rs` split into `render_staging.rs` + `render_provisioning.rs` + `render_terminal_logo.rs` + `render_support`; rows re-mapped declaration-by-declaration to current bytes.
+## [tools/release-assets/src/render/tests.rs](../../../../../tools/release-assets/src/render/tests.rs)
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–10 | Synthetic-root native staging CLI fixtures and byte assertions; declarations/fields: `stage_help_and_usage`, `stage_refuses_bad_contexts_before_touching_the_tree`, `stage_reports_a_missing_checkout_root` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 14–72 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member stage_help_and_usage; declarations/fields: `stage_help_and_usage` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 74–154 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member stage_refuses_bad_contexts_before_touching_the_tree; declarations/fields: `stage_refuses_bad_contexts_before_touching_the_tree` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 156–176 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member stage_reports_a_missing_checkout_root; declarations/fields: `stage_reports_a_missing_checkout_root` |
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–23; lines 1–3: use super and attached body; lines 4–17: fn flags_match_argparse_long_forms and attached body; lines 18–23: fn sha256_matches_hashlib and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for fn flags_match_argparse_long_forms in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for fn sha256_matches_hashlib in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ee049481a41e"></a>
 
 ## [tools/release-assets/tests/render_provisioning.rs](../../../../../tools/release-assets/tests/render_provisioning.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current declaration selectors; prior map used only as owner candidate evidence; current Rust declaration/body intervals
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–16 | Synthetic-root native staging CLI fixtures and byte assertions; declarations/fields: `provisioning_inputs`, `fixture_root`, `provisioning_help_and_usage`, `provisioning_matches_the_baked_goldens`, `provisioning_host_key_never_enters_argv`, `provisioning_rejections_match_the_script` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 20–24 | Private-input provisioning render fixture setup/assertions; declarations/fields: `provisioning_inputs` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 26–30 | Private-input provisioning render fixture setup/assertions; declaration/member fixture_root; declarations/fields: `fixture_root` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 32–114 | Private-input provisioning render fixture setup/assertions; declaration/member provisioning_help_and_usage; declarations/fields: `provisioning_help_and_usage` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 116–160 | Private-input provisioning render fixture setup/assertions; declaration/member provisioning_matches_the_baked_goldens; declarations/fields: `provisioning_matches_the_baked_goldens` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 162–215 | Private-input provisioning render fixture setup/assertions; declaration/member provisioning_host_key_never_enters_argv; declarations/fields: `provisioning_host_key_never_enters_argv` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 217–402 | Private-input provisioning render fixture setup/assertions; declaration/member provisioning_rejections_match_the_script; declarations/fields: `provisioning_rejections_match_the_script` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–402; provisioning renderer test module and fixtures | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Tests provisioning help and usage, baked output goldens, host-key exclusion from argv, and rejection behavior against the provisioning renderer/script contract. — Current source inspected at tools/release-assets/tests/render_provisioning.rs; concrete renderer/build/test consumer is named in the selector and description. |
 
-## [tools/release-assets/tests/render_terminal_logo.rs](../../../../../tools/release-assets/tests/render_terminal_logo.rs)
+<a id="coverage-8c08675160c9"></a>
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+## [tools/release-assets/tests/render_staging.rs](../../../../../tools/release-assets/tests/render_staging.rs)
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–11 | Synthetic-root native staging CLI fixtures and byte assertions; declarations/fields: `logo_root`, `logo_help_and_usage`, `logo_renders_the_canonical_emblem_byte_for_byte`, `logo_gates_match_the_script` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 15–31 | Canonical emblem byte rendering and shape gate source tests; declarations/fields: `logo_root` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 33–47 | Canonical emblem byte rendering and shape gate source tests; declaration/member logo_help_and_usage; declarations/fields: `logo_help_and_usage` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 49–70 | Canonical emblem byte rendering and shape gate source tests; declaration/member logo_renders_the_canonical_emblem_byte_for_byte; declarations/fields: `logo_renders_the_canonical_emblem_byte_for_byte` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 72–109 | Canonical emblem byte rendering and shape gate source tests; declaration/member logo_gates_match_the_script; declarations/fields: `logo_gates_match_the_script` |
+Current coherent source duties matched to live consumer and prior semantic unit context
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–176; lines 1–6: mod render_support; attached module comments and attributes; lines 15–74: stage_help_and_usage and attached behavior; lines 75–156: stage_refuses_bad_contexts_before_touching_the_tree and attached behavior; lines 157–176: stage_reports_a_missing_checkout_root and attached behavior | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current mod render_support and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-3a7641dee59c"></a>
 
 ## [tools/release-assets/tests/render_support/mod.rs](../../../../../tools/release-assets/tests/render_support/mod.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–8 | Synthetic-root native staging CLI fixtures and byte assertions; declarations/fields: `COUNTER`, `TempDir`, `TempDir.path`, `new`, `sub`, `file`, `drop`, `fixtures`, `repo_root`, `copy_dir`, `stage_bin`, `provisioning_bin`, `logo_bin`, `run`, `run_env`, `mode_of` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 10 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member COUNTER; declarations/fields: `COUNTER` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 12–14 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member TempDir; declarations/fields: `TempDir` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 13 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member TempDir.path; declarations/fields: `TempDir.path` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 17–27 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member new; declarations/fields: `new` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 29–34 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member sub; declarations/fields: `sub` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 36–42 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member file; declarations/fields: `file` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 45–48 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member drop; declarations/fields: `drop` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 50–52 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member fixtures; declarations/fields: `fixtures` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 54–60 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member repo_root; declarations/fields: `repo_root` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 62–74 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member copy_dir; declarations/fields: `copy_dir` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 76–78 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member stage_bin; declarations/fields: `stage_bin` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 80–82 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member provisioning_bin; declarations/fields: `provisioning_bin` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 84–86 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member logo_bin; declarations/fields: `logo_bin` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 88–90 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member run; declarations/fields: `run` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 92–109 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member run_env; declarations/fields: `run_env` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 111–113 | Synthetic-root native staging CLI fixtures and byte assertions; declaration/member mode_of; declarations/fields: `mode_of` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–113; shared render-suite temporary roots, process launch/output capture, repository/fixture lookup, copy and mode helpers | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Reusable test harness consumed by release staging, provisioning, and terminal-logo suites: creates and cleans restricted temporary roots, locates suite binaries/fixtures, copies trees, runs subprocesses with environment, captures results, and reads file modes. It supplies harness mechanics; each suite owns its fixture content and domain assertions. — current source tools/release-assets/tests/render_support/mod.rs; imports at staging/provisioning/logo test modules inspected |
+
+<a id="coverage-1e74a9e55014"></a>
+
+## [tools/release-assets/tests/render_terminal_logo.rs](../../../../../tools/release-assets/tests/render_terminal_logo.rs)
+
+Current coherent source duties matched to live consumer and prior semantic unit context
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–109; test imports, shared renderer harness, and logo_root fixture; logo help, canonical output and stale-output tests; logo source admission gate tests | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Builds a temporary branding tree with the canonical SVG source for terminal-logo renderer tests.; Checks terminal logo command help and byte-identical canonical branding outputs, including stale output detection.; Renderer contract assertions pin refusal of altered emblem geometry, viewBox, layer colors, and fill rule before branding output is emitted. — Current named units/source consumers; retained normalized source evidence records each selector |

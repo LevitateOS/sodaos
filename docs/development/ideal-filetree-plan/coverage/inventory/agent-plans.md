@@ -8,4 +8,4 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
-| [.agents/plans/2026-09-16-remove-rpm-pinning.md](../../../../../.agents/plans/2026-09-16-remove-rpm-pinning.md) | documentation | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / obsolete | [current units](../maps/root-and-retired-definitions.md#coverage-e25a660ce02b) |
+| [.agents/plans/2026-09-16-remove-rpm-pinning.md](../../../../../.agents/plans/2026-09-16-remove-rpm-pinning.md) | documentation | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / obsolete | Historical removal plan names retired Go/Python/RPM-lock machinery; current release resolves upstream input and records it. No runtime consumer or ongoing compatibility duty |

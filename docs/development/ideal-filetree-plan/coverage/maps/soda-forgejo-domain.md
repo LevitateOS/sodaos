@@ -1,89 +1,119 @@
 # Soda forgejo domain
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-fd0c98989412"></a>
+
+## [cmd/soda-forgejo-domain/src/cli.rs](../../../../../cmd/soda-forgejo-domain/src/cli.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–65; declaration DESCRIPTION; declaration usage; declaration help_text; declaration parse_args | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | DESCRIPTION: implement the current Forgejo host administration duty in cli.rs.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-5863d40181c9"></a>
+
+## [cmd/soda-forgejo-domain/src/config.rs](../../../../../cmd/soda-forgejo-domain/src/config.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–270; current module/import/attribute shell; declaration IniFile; fields defaults, sections; declaration parse_ini; declaration interpolate; declaration interpolate_depth; declaration ini_get; declaration app_data_path; declaration marker_path | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Imports and module declarations wire cmd/soda-forgejo-domain/src/config.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-dce78a1d2ffa"></a>
+
+## [cmd/soda-forgejo-domain/src/domain.rs](../../../../../cmd/soda-forgejo-domain/src/domain.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–180; current module/import/attribute shell; declaration dispatch; declaration unit_active; declaration unit_masked; declaration container_present; declaration cmd_stop; declaration cmd_inhibit; declaration cmd_status; declaration cmd_lift; declaration cmd_start | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Imports and module declarations wire cmd/soda-forgejo-domain/src/domain.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-240e582db55f"></a>
+
+## [cmd/soda-forgejo-domain/src/main.rs](../../../../../cmd/soda-forgejo-domain/src/main.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–60; current module/import/attribute shell; declaration cli; declaration config; declaration domain; declaration system; declaration tests; declaration main | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Imports and module declarations wire cmd/soda-forgejo-domain/src/main.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-9a74ab06d8ec"></a>
+
+## [cmd/soda-forgejo-domain/src/system.rs](../../../../../cmd/soda-forgejo-domain/src/system.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–69; current module/import/attribute shell; declaration UNIT; declaration CONTAINER; declaration MARKER_NAME; declaration STOP_TIMEOUT; declaration Paths; fields env_file, app_ini, data_root; declaration production; declaration Sys; declaration run; declaration elapsed; declaration sleep; declaration RealSys; declaration ORIGIN | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Imports and module declarations wire cmd/soda-forgejo-domain/src/system.rs into its current native target.; 16 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0917c9e32b21"></a>
+
+## [cmd/soda-forgejo-domain/src/tests/cli.rs](../../../../../cmd/soda-forgejo-domain/src/tests/cli.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–28; current module/import/attribute shell; declaration cli_parsing_matches_argparse_verbs | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Imports and module declarations wire cmd/soda-forgejo-domain/src/tests/cli.rs into its current native target.; cli_parsing_matches_argparse_verbs: implement the current Forgejo host administration duty in cli.rs. — current source cmd/soda-forgejo-domain/src/tests/cli.rs; Cargo target and callers; current source cmd/soda-forgejo-domain/src/tests/cli.rs; lines 3-28; module/caller wiring inspected |
+
+<a id="coverage-8c008d5b9cea"></a>
+
+## [cmd/soda-forgejo-domain/src/tests/config.rs](../../../../../cmd/soda-forgejo-domain/src/tests/config.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–133; current module/import/attribute shell; declaration bare_app_name_status_reports_clear_error; declaration bare_app_name_start_has_no_crash; declaration valid_app_ini_still_resolves; declaration parsed_but_missing_app_data_path_reports_clear_error; declaration ini_shapes_match_configparser; declaration marker_mapping_rejects_outside_volume_and_symlinks | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Imports and module declarations wire cmd/soda-forgejo-domain/src/tests/config.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-2145f2d377f6"></a>
+
+## [cmd/soda-forgejo-domain/src/tests/domain.rs](../../../../../cmd/soda-forgejo-domain/src/tests/domain.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–161; current module/import/attribute shell; declaration stop_verifies_quiescence_before_returning; declaration stop_reports_survivors_after_timeout; declaration inhibit_requires_quiescence_then_masks_and_marks; declaration status_reads_all_four_signals; declaration lift_removes_marker_and_unmasks; declaration start_refuses_inhibited_and_masked; declaration lift_refuses_unknown_marker_before_unmask; declaration start_refuses_unknown_marker_before_start | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Imports and module declarations wire cmd/soda-forgejo-domain/src/tests/domain.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e70d1c663d76"></a>
+
+## [cmd/soda-forgejo-domain/src/tests/fixtures.rs](../../../../../cmd/soda-forgejo-domain/src/tests/fixtures.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–112; current module/import/attribute shell; declaration TEST_SEQ; declaration FakeSys; fields calls, active, enabled_out, podman_out, podman_code, start_code, now_values, sleeps; declaration new; declaration run; declaration elapsed; declaration sleep; declaration Fixture; fields temp, paths; declaration fixture; declaration valid_ini; declaration run_verb | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Imports and module declarations wire cmd/soda-forgejo-domain/src/tests/fixtures.rs into its current native target.; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-16cc065bc9ea"></a>
+
+## [cmd/soda-forgejo-domain/src/tests/mod.rs](../../../../../cmd/soda-forgejo-domain/src/tests/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–4; declaration cli; declaration config; declaration domain; declaration fixtures | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | cli: implement the current Forgejo host administration duty in mod.rs.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-91dc6070452d"></a>
-
 <a id="rustsoda-forgejo-domainsrcmainrs-1"></a>
 
-## [rust/soda-forgejo-domain/src/main.rs](../../../../../rust/soda-forgejo-domain/src/main.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 1–16 | Explicit root Forgejo quiescence/action CLI; declarations/fields: `geteuid`, `UNIT`, `CONTAINER`, `MARKER_NAME`, `STOP_TIMEOUT`, `DESCRIPTION`, `usage`, `help_text`, `main`, `parse_args`, `Paths`, `production`, `Sys`, `run`, `now`, `sleep`, `RealSys`, `dispatch`, `unit_active`, `unit_masked`, `container_present`, `IniFile` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 17–19 | Explicit root Forgejo quiescence/action CLI; declaration/member geteuid; declarations/fields: `geteuid` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 20 | Explicit root Forgejo quiescence/action CLI; declaration/member UNIT; declarations/fields: `UNIT` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 21–24 | Explicit root Forgejo quiescence/action CLI; declaration/member CONTAINER; declarations/fields: `CONTAINER` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 25 | Explicit root Forgejo quiescence/action CLI; declaration/member MARKER_NAME; declarations/fields: `MARKER_NAME` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 26–27 | Explicit root Forgejo quiescence/action CLI; declaration/member STOP_TIMEOUT; declarations/fields: `STOP_TIMEOUT` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 28–29 | Explicit root Forgejo quiescence/action CLI; declaration/member DESCRIPTION; declarations/fields: `DESCRIPTION` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 30–33 | Explicit root Forgejo quiescence/action CLI; declaration/member usage; declarations/fields: `usage` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 34–40 | Explicit root Forgejo quiescence/action CLI; declaration/member help_text; declarations/fields: `help_text` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 41–79 | Explicit root Forgejo quiescence/action CLI; declaration/member main; declarations/fields: `main` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 80–132 | Explicit root Forgejo quiescence/action CLI; declaration/member parse_args; declarations/fields: `parse_args` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 133 | Explicit root Forgejo quiescence/action CLI; declaration/member Paths; declarations/fields: `Paths` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 134 | Explicit root Forgejo quiescence/action CLI; declaration/member Paths.env_file; declarations/fields: `Paths.env_file` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 135 | Explicit root Forgejo quiescence/action CLI; declaration/member Paths.app_ini; declarations/fields: `Paths.app_ini` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 136–139 | Explicit root Forgejo quiescence/action CLI; declaration/member Paths.data_root; declarations/fields: `Paths.data_root` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 140–149 | Explicit root Forgejo quiescence/action CLI; declaration/member production; declarations/fields: `production` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 150 | Explicit root Forgejo quiescence/action CLI; declaration/member Sys; declarations/fields: `Sys` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 151, 159–175 | Explicit root Forgejo quiescence/action CLI; declaration/member run; declarations/fields: `run` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 152, 176–183 | Explicit root Forgejo quiescence/action CLI; declaration/member now; declarations/fields: `now` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 153–155, 184–188 | Explicit root Forgejo quiescence/action CLI; declaration/member sleep; declarations/fields: `sleep` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 156–158 | Explicit root Forgejo quiescence/action CLI; declaration/member RealSys; declarations/fields: `RealSys` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 189–204 | Explicit root Forgejo quiescence/action CLI; declaration/member dispatch; declarations/fields: `dispatch` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 205–208 | Explicit root Forgejo quiescence/action CLI; declaration/member unit_active; declarations/fields: `unit_active` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 209–214 | Explicit root Forgejo quiescence/action CLI; declaration/member unit_masked; declarations/fields: `unit_masked` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 215–236 | Explicit root Forgejo quiescence/action CLI; declaration/member container_present; declarations/fields: `container_present` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 237 | Explicit root Forgejo quiescence/action CLI; declaration/member IniFile; declarations/fields: `IniFile` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 238 | Explicit root Forgejo quiescence/action CLI; declaration/member IniFile.defaults; declarations/fields: `IniFile.defaults` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 239–241 | Explicit root Forgejo quiescence/action CLI; declaration/member IniFile.sections; declarations/fields: `IniFile.sections` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 242–329 | Bounded native INI and marker decoding; declarations/fields: `parse_ini` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 330–337 | Bounded native INI and marker decoding; declaration/member interpolate; declarations/fields: `interpolate` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 338–377 | Bounded native INI and marker decoding; declaration/member interpolate_depth; declarations/fields: `interpolate_depth` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 378–390 | Bounded native INI and marker decoding; declaration/member ini_get; declarations/fields: `ini_get` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 391–466 | Bounded native INI and marker decoding; declaration/member app_data_path; declarations/fields: `app_data_path` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 467–494 | Owned inhibition marker and quiescence/start/lift operations; declarations/fields: `marker_path` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 495–523 | Owned inhibition marker and quiescence/start/lift operations; declaration/member cmd_stop; declarations/fields: `cmd_stop` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 524–542 | Owned inhibition marker and quiescence/start/lift operations; declaration/member cmd_inhibit; declarations/fields: `cmd_inhibit` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 543–585 | Owned inhibition marker and quiescence/start/lift operations; declaration/member cmd_status; declarations/fields: `cmd_status` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 586–604 | Owned inhibition marker and quiescence/start/lift operations; declaration/member cmd_lift; declarations/fields: `cmd_lift` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 605–627 | Owned inhibition marker and quiescence/start/lift operations; declaration/member cmd_start; declarations/fields: `cmd_start` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 628–631 | Owned inhibition marker and quiescence/start/lift operations; declaration/member tests; declarations/fields: `tests` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 632–633 | Owned inhibition marker and quiescence/start/lift operations; declaration/member TEST_SEQ; declarations/fields: `TEST_SEQ` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 634 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys; declarations/fields: `FakeSys` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 635 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys.calls; declarations/fields: `FakeSys.calls` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 636 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys.active; declarations/fields: `FakeSys.active` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 637 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys.enabled_out; declarations/fields: `FakeSys.enabled_out` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 638 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys.podman_out; declarations/fields: `FakeSys.podman_out` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 639 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys.podman_code; declarations/fields: `FakeSys.podman_code` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 640 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys.start_code; declarations/fields: `FakeSys.start_code` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 641 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys.now_values; declarations/fields: `FakeSys.now_values` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 642–645 | Owned inhibition marker and quiescence/start/lift operations; declaration/member FakeSys.sleeps; declarations/fields: `FakeSys.sleeps` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 646–660 | Native administration source assertions; declarations/fields: `new` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 661–681 | Native administration source assertions; declaration/member run; declarations/fields: `run` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 682–689 | Native administration source assertions; declaration/member now; declarations/fields: `now` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 690–695 | Native administration source assertions; declaration/member sleep; declarations/fields: `sleep` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 696 | Native administration source assertions; declaration/member Fixture; declarations/fields: `Fixture` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 697 | Native administration source assertions; declaration/member Fixture.temp; declarations/fields: `Fixture.temp` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 698–700 | Native administration source assertions; declaration/member Fixture.paths; declarations/fields: `Fixture.paths` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 701–724 | Native administration source assertions; declaration/member fixture; declarations/fields: `fixture` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 725–728 | Native administration source assertions; declaration/member valid_ini; declarations/fields: `valid_ini` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 729–735 | Native administration source assertions; declaration/member run_verb; declarations/fields: `run_verb` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 736–748 | Native administration source assertions; declaration/member bare_app_name_status_reports_clear_error; declarations/fields: `bare_app_name_status_reports_clear_error` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 749–757 | Native administration source assertions; declaration/member bare_app_name_start_has_no_crash; declarations/fields: `bare_app_name_start_has_no_crash` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 758–772 | Native administration source assertions; declaration/member valid_app_ini_still_resolves; declarations/fields: `valid_app_ini_still_resolves` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 773–779 | Native administration source assertions; declaration/member parsed_but_missing_app_data_path_reports_clear_error; declarations/fields: `parsed_but_missing_app_data_path_reports_clear_error` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 780–843 | Native administration source assertions; declaration/member ini_shapes_match_configparser; declarations/fields: `ini_shapes_match_configparser` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 844–862 | Native administration source assertions; declaration/member marker_mapping_rejects_outside_volume_and_symlinks; declarations/fields: `marker_mapping_rejects_outside_volume_and_symlinks` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 863–878 | Native administration source assertions; declaration/member stop_verifies_quiescence_before_returning; declarations/fields: `stop_verifies_quiescence_before_returning` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 879–894 | Native administration source assertions; declaration/member stop_reports_survivors_after_timeout; declarations/fields: `stop_reports_survivors_after_timeout` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 895–925 | Native administration source assertions; declaration/member inhibit_requires_quiescence_then_masks_and_marks; declarations/fields: `inhibit_requires_quiescence_then_masks_and_marks` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 926–945 | Native administration source assertions; declaration/member status_reads_all_four_signals; declarations/fields: `status_reads_all_four_signals` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 946–965 | Native administration source assertions; declaration/member lift_removes_marker_and_unmasks; declarations/fields: `lift_removes_marker_and_unmasks` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 966–995 | Native administration source assertions; declaration/member start_refuses_inhibited_and_masked; declarations/fields: `start_refuses_inhibited_and_masked` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 996–1021 | Native administration source assertions; declaration/member cli_parsing_matches_argparse_verbs; declarations/fields: `cli_parsing_matches_argparse_verbs` |
-
+Former source `rust/soda-forgejo-domain/src/main.rs`; consult its pinned earlier Git source and the current coverage disposition.

@@ -1,621 +1,401 @@
 # Soda release deliver implementation
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-R02 @HEAD `d5012d10` (C08): all 11 headings verified byte-identical moves to `lib/soda-release-deliver/*`; intervals kept.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
-<a id="coverage-74bad50280a1"></a>
+<a id="coverage-cb1363ce762f"></a>
 
-<a id="rustsoda-release-deliversrcbuildxrs-1"></a>
+## [lib/soda-release-deliver/src/admission.rs](../../../../../lib/soda-release-deliver/src/admission.rs)
 
-## [lib/soda-release-deliver/src/buildx.rs](../../../../../lib/soda-release-deliver/src/buildx.rs)
+Inherited prior inventory row; current Rust declaration/body intervals
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–290; lines 1–3: use serde and attached body; lines 4–4: use std and attached body; lines 5–6: use sha2 and attached body; lines 7–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–11: use crate and attached body; lines 12–12: use crate and attached body; lines 13–13: use crate and attached body; lines 14–16: use crate and attached body; lines 17–21: const QUALIFICATION_SCOPE and attached body; lines 22–29: struct EvidenceCheck and attached body; lines 30–35: impl EvidenceCheck and attached body; lines 36–62: struct QualificationEvidence and attached body; lines 63–64: impl QualificationEvidence and attached body; lines 65–71: fn required_qualification_checks and attached body; lines 72–82: fn admit_release_identity and attached body; lines 83–88: fn sha256_hex and attached body; lines 89–95: fn decode_qualification_evidence and attached body; lines 96–113: fn admit_evidence_shape and attached body; lines 114–134: fn admit_evidence_check and attached body; lines 135–145: fn admit_evidence_checks and attached body; lines 146–159: fn load_admitted_candidate and attached body; lines 160–177: fn admit_evidence_candidate and attached body; lines 178–199: fn admit_evidence_media and attached body; lines 200–227: fn admit_qualification and attached body; lines 228–228: mod tests and attached body; lines 229–231: use super and attached body; lines 232–250: fn release_identity_rules and attached body; lines 251–290: fn evidence_shape_and_checks and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 30 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1–17 | Confined release files and native candidate metadata adapters; declarations/fields: `FORGEJO_COMPILER_IMAGE`, `FORGEJO_BUN_VERSION`, `FORGEJO_BUN_SHA256`, `FORGEJO_UPSTREAM_BASE`, `FORGEJO_COMPAT_TOKEN`, `Image`, `decode`, `emit`, `ForgejoToolchain`, `validate`, `valid_forgejo_apk_list`, `has_forgejo_native_build_tools`, `os_error`, `Root`, `open`, `fd`, `open_dir_fd`, `check_confined`, `c_string`, `fstatat_no_follow`, `fstat_fd`, `is_regular`, `open_confined_regular`, `read_layout_entry`, `read_at`, `hash_at`, `HashWriter`, `write`, `flush`, `clean_path`, `fresh_directory`, `private_destination`, `write_new`, `decode_build_json`, `read_json_at`, `unknown_field`, `decode_bytes_value`, `tests`, `toolchain_validation_matches_go`, `file_helpers_match_go_errors` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 18–19 | Confined release files and native candidate metadata adapters; declaration/member FORGEJO_COMPILER_IMAGE; declarations/fields: `FORGEJO_COMPILER_IMAGE` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 20 | Confined release files and native candidate metadata adapters; declaration/member FORGEJO_BUN_VERSION; declarations/fields: `FORGEJO_BUN_VERSION` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 21–22 | Confined release files and native candidate metadata adapters; declaration/member FORGEJO_BUN_SHA256; declarations/fields: `FORGEJO_BUN_SHA256` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 23 | Confined release files and native candidate metadata adapters; declaration/member FORGEJO_UPSTREAM_BASE; declarations/fields: `FORGEJO_UPSTREAM_BASE` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 24–27 | Confined release files and native candidate metadata adapters; declaration/member FORGEJO_COMPAT_TOKEN; declarations/fields: `FORGEJO_COMPAT_TOKEN` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 28 | Confined release files and native candidate metadata adapters; declaration/member Image; declarations/fields: `Image` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 29 | Confined release files and native candidate metadata adapters; declaration/member Image.manifest; declarations/fields: `Image.manifest` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 30 | Confined release files and native candidate metadata adapters; declaration/member Image.config; declarations/fields: `Image.config` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 31 | Confined release files and native candidate metadata adapters; declaration/member Image.architecture; declarations/fields: `Image.architecture` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 32 | Confined release files and native candidate metadata adapters; declaration/member Image.revision; declarations/fields: `Image.revision` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 33 | Confined release files and native candidate metadata adapters; declaration/member Image.source; declarations/fields: `Image.source` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 34 | Confined release files and native candidate metadata adapters; declaration/member Image.base_name; declarations/fields: `Image.base_name` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 35–38 | Confined release files and native candidate metadata adapters; declaration/member Image.base_digest; declarations/fields: `Image.base_digest` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 39–56, 97–120 | Confined release files and native candidate metadata adapters; declaration/member decode; declarations/fields: `decode` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 57–78, 121–135 | Confined release files and native candidate metadata adapters; declaration/member emit; declarations/fields: `emit` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 79 | Confined release files and native candidate metadata adapters; declaration/member ForgejoToolchain; declarations/fields: `ForgejoToolchain` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 80 | Confined release files and native candidate metadata adapters; declaration/member ForgejoToolchain.compiler_image; declarations/fields: `ForgejoToolchain.compiler_image` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 81–84 | Confined release files and native candidate metadata adapters; declaration/member ForgejoToolchain.apk_packages; declarations/fields: `ForgejoToolchain.apk_packages` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 85–96 | Confined release files and native candidate metadata adapters; declaration/member validate; declarations/fields: `validate` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 136–154 | Confined release files and native candidate metadata adapters; declaration/member valid_forgejo_apk_list; declarations/fields: `valid_forgejo_apk_list` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 155–166 | Confined release files and native candidate metadata adapters; declaration/member has_forgejo_native_build_tools; declarations/fields: `has_forgejo_native_build_tools` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 167–171 | Confined release files and native candidate metadata adapters; declaration/member os_error; declarations/fields: `os_error` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 172 | Confined release files and native candidate metadata adapters; declaration/member Root; declarations/fields: `Root` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 173–176 | Confined release files and native candidate metadata adapters; declaration/member Root.fd; declarations/fields: `Root.fd` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 177–181 | Confined release files and native candidate metadata adapters; declaration/member open; declarations/fields: `open` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 182–186 | Confined release files and native candidate metadata adapters; declaration/member fd; declarations/fields: `fd` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 187–203 | Confined release files and native candidate metadata adapters; declaration/member open_dir_fd; declarations/fields: `open_dir_fd` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 204–223 | Confined release files and native candidate metadata adapters; declaration/member check_confined; declarations/fields: `check_confined` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 224–227 | Confined release files and native candidate metadata adapters; declaration/member c_string; declarations/fields: `c_string` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 228–237 | Confined release files and native candidate metadata adapters; declaration/member fstatat_no_follow; declarations/fields: `fstatat_no_follow` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 238–246 | Confined release files and native candidate metadata adapters; declaration/member fstat_fd; declarations/fields: `fstat_fd` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 247–251 | Confined release files and native candidate metadata adapters; declaration/member is_regular; declarations/fields: `is_regular` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 252–285 | Confined release files and native candidate metadata adapters; declaration/member open_confined_regular; declarations/fields: `open_confined_regular` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 286–323 | Confined release files and native candidate metadata adapters; declaration/member read_layout_entry; declarations/fields: `read_layout_entry` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 324–366 | Confined release files and native candidate metadata adapters; declaration/member read_at; declarations/fields: `read_at` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 367–374 | Confined release files and native candidate metadata adapters; declaration/member hash_at; declarations/fields: `hash_at` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 375–377 | Confined release files and native candidate metadata adapters; declaration/member HashWriter; declarations/fields: `HashWriter` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 378–381 | Confined release files and native candidate metadata adapters; declaration/member write; declarations/fields: `write` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 382–386 | Confined release files and native candidate metadata adapters; declaration/member flush; declarations/fields: `flush` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 387–402 | Confined release files and native candidate metadata adapters; declaration/member clean_path; declarations/fields: `clean_path` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 403–423 | Confined release files and native candidate metadata adapters; declaration/member fresh_directory; declarations/fields: `fresh_directory` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 424–445 | Confined release files and native candidate metadata adapters; declaration/member private_destination; declarations/fields: `private_destination` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 446–467 | Confined release files and native candidate metadata adapters; declaration/member write_new; declarations/fields: `write_new` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 468–476 | Confined release files and native candidate metadata adapters; declaration/member decode_build_json; declarations/fields: `decode_build_json` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 477–526 | Confined release files and native candidate metadata adapters; declaration/member read_json_at; declarations/fields: `read_json_at` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 527–530 | Confined release files and native candidate metadata adapters; declaration/member unknown_field; declarations/fields: `unknown_field` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 531–538 | Confined release files and native candidate metadata adapters; declaration/member decode_bytes_value; declarations/fields: `decode_bytes_value` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 539–542 | Confined release files and native candidate metadata adapters; declaration/member tests; declarations/fields: `tests` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 543–578 | Confined release files and native candidate metadata adapters; declaration/member toolchain_validation_matches_go; declarations/fields: `toolchain_validation_matches_go` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 579–595 | Confined release files and native candidate metadata adapters; declaration/member file_helpers_match_go_errors; declarations/fields: `file_helpers_match_go_errors` |
+<a id="coverage-1ce663b5b2fe"></a>
 
-<a id="coverage-452620fb57f9"></a>
+## [lib/soda-release-deliver/src/buildx/filesystem.rs](../../../../../lib/soda-release-deliver/src/buildx/filesystem.rs)
 
-<a id="rustsoda-release-deliversrcfetchrs-1"></a>
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
-## [lib/soda-release-deliver/src/fetch.rs](../../../../../lib/soda-release-deliver/src/fetch.rs)
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–370; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–4: use crate and attached body; lines 5–5: use sha2 and attached body; lines 6–7: use crate and attached body; lines 8–13: fn os_error and attached body; lines 14–16: struct Root and attached body; lines 17–18: impl Root and attached body; lines 19–22: fn open and attached body; lines 23–27: fn fd and attached body; lines 28–44: fn open_dir_fd and attached body; lines 45–64: fn check_confined and attached body; lines 65–68: fn c_string and attached body; lines 69–78: fn fstatat_no_follow and attached body; lines 79–87: fn fstat_fd and attached body; lines 88–93: fn is_regular and attached body; lines 94–127: fn open_confined_regular and attached body; lines 128–158: fn read_layout_entry and attached body; lines 159–165: use std and attached body; lines 166–196: fn read_at and attached body; lines 197–208: use std and attached body; lines 209–215: fn hash_at and attached body; lines 216–217: struct HashWriter and attached body; lines 218–219: impl std and attached body; lines 220–223: fn write and attached body; lines 224–227: fn flush and attached body; lines 228–244: fn clean_path and attached body; lines 245–257: fn fresh_directory and attached body; lines 258–265: use std and attached body; lines 266–276: fn private_destination and attached body; lines 277–287: use std and attached body; lines 288–288: fn write_new and attached body; lines 289–295: use std and attached body; lines 296–309: use std and attached body; lines 310–327: fn decode_build_json and attached body; lines 328–358: fn read_json_at and attached body; lines 359–370: use std and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 37 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+<a id="coverage-c776df4ebf01"></a>
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1–18 | Signature-verified release consumption and monotonic highwater state; declarations/fields: `discover`, `init_state`, `StateLock`, `fmt`, `drop`, `lock_state`, `TEMP_COUNTER`, `create_temp`, `save_state`, `fetch_document`, `resolve_verification_architectures`, `check_verified_image_metadata`, `check_verified_image_manifest`, `verify_release_image_copy`, `build_expected_release_configs`, `verify_release_images`, `ReleaseIdentityTracker`, `check`, `verify_architecture_release`, `verify_releases`, `admit_fetch_request`, `complete_fetch`, `fetch`, `tests`, `private_dir`, `state_lock_serializes_and_saves` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 19–41 | Signature-verified release consumption and monotonic highwater state; declaration/member discover; declarations/fields: `discover` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 42–50 | Signature-verified release consumption and monotonic highwater state; declaration/member init_state; declarations/fields: `init_state` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 51–52 | Signature-verified release consumption and monotonic highwater state; declaration/member StateLock; declarations/fields: `StateLock` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 53–56 | Signature-verified release consumption and monotonic highwater state; declaration/member StateLock.file; declarations/fields: `StateLock.file` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 57–62 | Signature-verified release consumption and monotonic highwater state; declaration/member fmt; declarations/fields: `fmt` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 63–69 | Signature-verified release consumption and monotonic highwater state; declaration/member drop; declarations/fields: `drop` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 70–87 | Signature-verified release consumption and monotonic highwater state; declaration/member lock_state; declarations/fields: `lock_state` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 88–89 | Signature-verified release consumption and monotonic highwater state; declaration/member TEMP_COUNTER; declarations/fields: `TEMP_COUNTER` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 90–108 | Signature-verified release consumption and monotonic highwater state; declaration/member create_temp; declarations/fields: `create_temp` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 109–129 | Signature-verified release consumption and monotonic highwater state; declaration/member save_state; declarations/fields: `save_state` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 130–141 | Signature-verified release consumption and monotonic highwater state; declaration/member fetch_document; declarations/fields: `fetch_document` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 142–158 | Signature-verified release consumption and monotonic highwater state; declaration/member resolve_verification_architectures; declarations/fields: `resolve_verification_architectures` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 159–176 | Signature-verified release consumption and monotonic highwater state; declaration/member check_verified_image_metadata; declarations/fields: `check_verified_image_metadata` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 177–194 | Signature-verified release consumption and monotonic highwater state; declaration/member check_verified_image_manifest; declarations/fields: `check_verified_image_manifest` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 195–213 | Signature-verified release consumption and monotonic highwater state; declaration/member verify_release_image_copy; declarations/fields: `verify_release_image_copy` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 214–225 | Signature-verified release consumption and monotonic highwater state; declaration/member build_expected_release_configs; declarations/fields: `build_expected_release_configs` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 226–263 | Signature-verified release consumption and monotonic highwater state; declaration/member verify_release_images; declarations/fields: `verify_release_images` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 264 | Signature-verified release consumption and monotonic highwater state; declaration/member ReleaseIdentityTracker; declarations/fields: `ReleaseIdentityTracker` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 265 | Signature-verified release consumption and monotonic highwater state; declaration/member ReleaseIdentityTracker.release_id; declarations/fields: `ReleaseIdentityTracker.release_id` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 266 | Signature-verified release consumption and monotonic highwater state; declaration/member ReleaseIdentityTracker.serial; declarations/fields: `ReleaseIdentityTracker.serial` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 267–270 | Signature-verified release consumption and monotonic highwater state; declaration/member ReleaseIdentityTracker.class; declarations/fields: `ReleaseIdentityTracker.class` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 271–284 | Signature-verified release consumption and monotonic highwater state; declaration/member check; declarations/fields: `check` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 285–317 | Signature-verified release consumption and monotonic highwater state; declaration/member verify_architecture_release; declarations/fields: `verify_architecture_release` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 318–358 | Signature-verified release consumption and monotonic highwater state; declaration/member verify_releases; declarations/fields: `verify_releases` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 359–367 | Signature-verified release consumption and monotonic highwater state; declaration/member admit_fetch_request; declarations/fields: `admit_fetch_request` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 368–396 | Signature-verified release consumption and monotonic highwater state; declaration/member complete_fetch; declarations/fields: `complete_fetch` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 397–419 | Signature-verified release consumption and monotonic highwater state; declaration/member fetch; declarations/fields: `fetch` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 420–422 | Signature-verified release consumption and monotonic highwater state; declaration/member tests; declarations/fields: `tests` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 423–438 | Signature-verified release consumption and monotonic highwater state; declaration/member private_dir; declarations/fields: `private_dir` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 439–461 | Signature-verified release consumption and monotonic highwater state; declaration/member state_lock_serializes_and_saves; declarations/fields: `state_lock_serializes_and_saves` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 462–467 | Source assertion of Verified distribution consumption; declarations/fields: `fetch_request_admission` |
+## [lib/soda-release-deliver/src/buildx/mod.rs](../../../../../lib/soda-release-deliver/src/buildx/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–108; lines 1–7: use serde and attached body; lines 8–9: use crate and attached body; lines 10–11: use soda_build_tools and attached body; lines 12–13: mod filesystem and attached body; lines 14–18: use filesystem and attached body; lines 19–21: const FORGEJO_COMPILER_IMAGE and attached body; lines 22–22: const FORGEJO_BUN_VERSION and attached body; lines 23–24: const FORGEJO_BUN_SHA256 and attached body; lines 25–25: const FORGEJO_UPSTREAM_BASE and attached body; lines 26–30: const FORGEJO_COMPAT_TOKEN and attached body; lines 31–46: struct Image and attached body; lines 47–52: impl Image and attached body; lines 53–60: struct ForgejoToolchain and attached body; lines 61–62: impl ForgejoToolchain and attached body; lines 63–74: fn validate and attached body; lines 75–93: fn valid_forgejo_apk_list and attached body; lines 94–107: fn has_forgejo_native_build_tools and attached body; lines 108–108: mod tests and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-441468063b86"></a>
+
+## [lib/soda-release-deliver/src/buildx/tests.rs](../../../../../lib/soda-release-deliver/src/buildx/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–55; lines 1–3: use super and attached body; lines 4–39: fn toolchain_validation_matches_go and attached body; lines 40–55: fn file_helpers_match_go_errors and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for fn toolchain_validation_matches_go in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for fn file_helpers_match_go_errors in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a100fd477b8d"></a>
+
+## [lib/soda-release-deliver/src/check.rs](../../../../../lib/soda-release-deliver/src/check.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–39; lines 1–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–9: use crate and attached body; lines 10–31: fn check_candidate and attached body; lines 32–32: mod tests and attached body; lines 33–35: use super and attached body; lines 36–39: fn missing_candidate_dir_errors and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-d236306c7263"></a>
+
+## [lib/soda-release-deliver/src/content.rs](../../../../../lib/soda-release-deliver/src/content.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–69; lines 1–3: use std and attached body; lines 4–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–30: fn bind_image_revisions and attached body; lines 31–47: fn match_layout_identities and attached body; lines 48–59: fn verify_content and attached body; lines 60–60: mod tests and attached body; lines 61–63: use super and attached body; lines 64–69: fn content_path_rules and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0de803ef2a57"></a>
+
+## [lib/soda-release-deliver/src/document.rs](../../../../../lib/soda-release-deliver/src/document.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–391; lines 1–3: use serde and attached body; lines 4–4: use serde and attached body; lines 5–5: use serde_json and attached body; lines 6–6: use std and attached body; lines 7–7: use tar and attached body; lines 8–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–12: const MANIFEST_TYPE and attached body; lines 13–16: const LAYER_TYPE and attached body; lines 17–24: struct Descriptor and attached body; lines 25–31: fn emit_descriptor and attached body; lines 32–42: fn put_document_blob and attached body; lines 43–79: fn document_layer and attached body; lines 80–92: fn write_document_index and attached body; lines 93–121: fn write_document_blobs and attached body; lines 122–123: fn set_mode and attached body; lines 124–129: use std and attached body; lines 130–139: fn write_document and attached body; lines 140–140: fn marshal_go_pretty and attached body; lines 141–141: struct GoFormatter and attached body; lines 142–142: impl Formatter and attached body; lines 143–145: fn begin_array and attached body; lines 146–148: fn end_array and attached body; lines 149–155: fn begin_array_value and attached body; lines 156–158: fn end_array_value and attached body; lines 159–161: fn begin_object and attached body; lines 162–164: fn end_object and attached body; lines 165–171: fn begin_object_key and attached body; lines 172–174: fn begin_object_value and attached body; lines 175–177: fn end_object_value and attached body; lines 178–200: fn write_string_fragment and attached body; lines 201–220: fn write_char_escape and attached body; lines 221–231: fn read_file and attached body; lines 232–235: fn read_json and attached body; lines 236–254: fn decode_document_manifest and attached body; lines 255–264: struct OciManifestDoc and attached body; lines 265–276: fn read_document_blob and attached body; lines 277–291: fn read_document_record and attached body; lines 292–304: use std and attached body; lines 305–315: fn read_document and attached body; lines 316–316: mod tests and attached body; lines 317–317: use super and attached body; lines 318–318: use crate and attached body; lines 319–319: use std and attached body; lines 320–334: fn temp_dir and attached body; lines 335–362: fn document_round_trip_and_bounds and attached body; lines 363–391: fn document_layer_is_deterministic_ustar_at_block_boundaries and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 47 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-195bd684346c"></a>
+
+## [lib/soda-release-deliver/src/fetch/mod.rs](../../../../../lib/soda-release-deliver/src/fetch/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–114; lines 1–3: use serde and attached body; lines 4–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–11: mod state and attached body; lines 12–12: mod verification and attached body; lines 13–14: use state and attached body; lines 15–15: use verification and attached body; lines 16–39: fn discover and attached body; lines 40–47: fn init_state and attached body; lines 48–58: fn fetch_document and attached body; lines 59–68: fn admit_fetch_request and attached body; lines 69–91: fn complete_fetch and attached body; lines 92–113: fn fetch and attached body; lines 114–114: mod tests and attached body | [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6882fab32a6b"></a>
+
+## [lib/soda-release-deliver/src/fetch/state.rs](../../../../../lib/soda-release-deliver/src/fetch/state.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–75; lines 1–1: use std and attached body; lines 2–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–5: use serde and attached body; lines 6–10: struct StateLock and attached body; lines 11–12: impl std and attached body; lines 13–16: fn fmt and attached body; lines 17–18: impl Drop and attached body; lines 19–24: fn drop and attached body; lines 25–28: fn lock_state and attached body; lines 29–42: use std and attached body; lines 43–54: fn create_temp and attached body; lines 55–62: fn save_state and attached body; lines 63–75: use std and attached body | [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-655e47785659"></a>
+
+## [lib/soda-release-deliver/src/fetch/tests.rs](../../../../../lib/soda-release-deliver/src/fetch/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–46; lines 1–1: use super and attached body; lines 2–12: fn private_dir and attached body; lines 13–18: use std and attached body; lines 19–22: fn state_lock_serializes_and_saves and attached body; lines 23–41: use std and attached body; lines 42–46: fn fetch_request_admission and attached body | [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-797b62aba0dc"></a>
+
+## [lib/soda-release-deliver/src/fetch/verification.rs](../../../../../lib/soda-release-deliver/src/fetch/verification.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–344; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–4: use serde and attached body; lines 5–5: use serde and attached body; lines 6–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–11: use crate and attached body; lines 12–12: use crate and attached body; lines 13–14: use super and attached body; lines 15–27: fn decode_raw and attached body; lines 28–32: struct ImageMetadata and attached body; lines 33–33: fn deserialize and attached body; lines 34–35: struct V and attached body; lines 36–36: type Value and attached body; lines 37–39: fn expecting and attached body; lines 40–63: fn visit_map and attached body; lines 64–67: struct ImageManifest and attached body; lines 68–68: fn deserialize and attached body; lines 69–70: struct V and attached body; lines 71–71: type Value and attached body; lines 72–74: fn expecting and attached body; lines 75–93: fn visit_map and attached body; lines 94–97: struct ImageConfig and attached body; lines 98–98: fn deserialize and attached body; lines 99–100: struct V and attached body; lines 101–101: type Value and attached body; lines 102–104: fn expecting and attached body; lines 105–121: fn visit_map and attached body; lines 122–138: fn resolve_verification_architectures and attached body; lines 139–149: fn check_verified_image_metadata and attached body; lines 150–161: fn check_verified_image_manifest and attached body; lines 162–162: mod json_slot_tests and attached body; lines 163–165: use super and attached body; lines 166–186: fn fetch_metadata_uses_final_exact_values_before_typed_conversion and attached body; lines 187–205: fn verify_release_image_copy and attached body; lines 206–217: fn build_expected_release_configs and attached body; lines 218–256: fn verify_release_images and attached body; lines 257–261: struct ReleaseIdentityTracker and attached body; lines 262–263: impl ReleaseIdentityTracker and attached body; lines 264–277: fn check and attached body; lines 278–304: fn verify_architecture_release and attached body; lines 305–344: fn verify_releases and attached body | [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 44 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-fe28f76842f6"></a>
+<a id="coverage-2bd1953b7092"></a>
 
 ## [lib/soda-release-deliver/src/finalize.rs](../../../../../lib/soda-release-deliver/src/finalize.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1–157 | Protected finalization inputs and qualification admission; declarations/fields: `Config`, `decode`, `emit`, `admit_publication_inputs`, `admit_config`, `load_config`, `load_trust`, `load_signer`, `document_digest` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 158–194 | Native exact release digest signing; declarations/fields: `sign_digest`, `bind_channel_releases`, `channel_repository` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 195–228 | Release publication followed by channel publication; declarations/fields: `publish_channel_last` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 229–250 | Final observed publication receipt; declarations/fields: `write_final_receipt` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 251–261 | Prepare unchanged qualified metadata; declarations/fields: `prepare_and_sign` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 262–267 | Sign exact prepared digest |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 268–272 | Bind final immutable reference |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 273–286 | Explicit finalization admission and unchanged qualified inputs; declarations/fields: `finalize` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 287–293 | Optional authorized publication then final receipt |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 294–327 | Finalization config/refusal source assertions; declarations/fields: `tests`, `config_round_trip_and_admission` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–190, 274–364; lines 16–28: fn decode_raw; attached module comments and attributes; lines 29–32: struct IndexDocument; lines 59–62: struct ManifestDescriptor; lines 94–190: struct Config, impl Config, fn admit_publication_inputs, fn admit_config, fn load_config, fn load_trust, fn load_signer, fn document_digest; lines 274–296: fn prepare_and_sign; lines 297–318: fn finalize; lines 319–319: mod tests; lines 323–336: fn publication_index_uses_final_exact_values_before_typed_conversion; lines 337–364: fn config_round_trip_and_admission | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Current fn decode_raw and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 9 named units assigned here; remaining selectors preserve each duty — lib/soda-release-deliver/src/finalize.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 191–227; lines 191–227: fn sign_digest, fn bind_channel_releases, fn channel_repository | [D08](../../slices/release-and-installation.md#d08-signing-custody) | retained | Native exact release digest signing — lib/soda-release-deliver/src/finalize.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 228–273; lines 228–261: fn publish_channel_last; lines 262–273: fn write_final_receipt | [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) | retained | Release publication followed by channel publication; Final observed publication receipt — lib/soda-release-deliver/src/finalize.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
 
-<a id="coverage-9cca680cf321"></a>
+<a id="coverage-154077b76116"></a>
 
-<a id="rustsoda-release-deliversrcjsonxrs-1"></a>
+## [lib/soda-release-deliver/src/import.rs](../../../../../lib/soda-release-deliver/src/import.rs)
 
-## [lib/soda-release-deliver/src/jsonx.rs](../../../../../lib/soda-release-deliver/src/jsonx.rs)
+Inherited prior inventory row; current Rust declaration/body intervals
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–169; lines 1–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–8: use crate and attached body; lines 9–15: enum RunOutcome and attached body; lines 16–16: trait EngineRunner and attached body; lines 17–18: fn run and attached body; lines 19–55: fn import_missing_image and attached body; lines 56–63: fn import_images and attached body; lines 64–65: struct NativeEngine and attached body; lines 66–67: impl EngineRunner and attached body; lines 68–80: fn run and attached body; lines 81–85: fn native_import and attached body; lines 86–86: mod tests and attached body; lines 87–87: use super and attached body; lines 88–88: use std and attached body; lines 89–89: use std and attached body; lines 90–93: struct ScriptEngine and attached body; lines 94–95: impl EngineRunner and attached body; lines 96–103: fn run and attached body; lines 104–112: fn image and attached body; lines 113–169: fn import_exit_code_paths and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 21 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–13 | Strict Go-shaped release JSON parsing, binding and rendering; declarations/fields: `MAX_STRICT_BYTES`, `DecodeError`, `base64_encode`, `ALPHABET`, `base64_decode`, `reject_duplicates`, `Binder`, `new`, `find`, `optional`, `string`, `boolean`, `integer`, `object`, `array`, `bytes`, `raw`, `entries`, `finish`, `finish_name`, `Soft`, `field`, `parse_strict`, `parse_lenient`, `dedupe_last_wins`, `Emitter`, `indent`, `null`, `int`, `uint`, `begin_object`, `end_object`, `begin_array`, `item`, `end_array`, `Emit`, `emit`, `as_i64`, `as_u64`, `marshal`, `tests`, `base64_round_trip_matches_go_vectors`, `strict_decode_rejects_duplicates_and_unknowns` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 14–17 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member MAX_STRICT_BYTES; declarations/fields: `MAX_STRICT_BYTES` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 18–21 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member DecodeError; declarations/fields: `DecodeError` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 22 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member base64_encode; declarations/fields: `base64_encode` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 23–45 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member ALPHABET; declarations/fields: `ALPHABET` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 46–96 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member base64_decode; declarations/fields: `base64_decode` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 97–124 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member reject_duplicates; declarations/fields: `reject_duplicates` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 125 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Binder; declarations/fields: `Binder` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 126 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Binder.entries; declarations/fields: `Binder.entries` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 127–130 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Binder.seen; declarations/fields: `Binder.seen` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 131–140, 249–255, 359–362 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member new; declarations/fields: `new` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 141–154 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member find; declarations/fields: `find` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 155–161 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member optional; declarations/fields: `optional` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 162–169, 263–270, 390–393 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member string; declarations/fields: `string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 170–177, 278–285, 378–381 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member boolean; declarations/fields: `boolean` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 178–184, 271–277 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member integer; declarations/fields: `integer` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 185–191, 286–293 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member object; declarations/fields: `object` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 192–199, 294–301 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member array; declarations/fields: `array` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 200–208, 394–397 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member bytes; declarations/fields: `bytes` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 209–213 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member raw; declarations/fields: `raw` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 214–224, 302–309 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member entries; declarations/fields: `entries` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 225–230, 363–367 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member finish; declarations/fields: `finish` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 231–243 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member finish_name; declarations/fields: `finish_name` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 244 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Soft; declarations/fields: `Soft` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 245–248 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Soft.value; declarations/fields: `Soft.value` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 256–262, 407–415 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member field; declarations/fields: `field` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 310–322 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member parse_strict; declarations/fields: `parse_strict` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 323–329 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member parse_lenient; declarations/fields: `parse_lenient` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 330–352 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member dedupe_last_wins; declarations/fields: `dedupe_last_wins` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 353 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Emitter; declarations/fields: `Emitter` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 354 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Emitter.out; declarations/fields: `Emitter.out` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 355–358 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Emitter.level; declarations/fields: `Emitter.level` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 368–373 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member indent; declarations/fields: `indent` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 374–377 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member null; declarations/fields: `null` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 382–385 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member int; declarations/fields: `int` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 386–389 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member uint; declarations/fields: `uint` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 398–406 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member begin_object; declarations/fields: `begin_object` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 416–424 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member end_object; declarations/fields: `end_object` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 425–433 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member begin_array; declarations/fields: `begin_array` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 434–440 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member item; declarations/fields: `item` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 441–451 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member end_array; declarations/fields: `end_array` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 452 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member Emit; declarations/fields: `Emit` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 453–558 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member emit; declarations/fields: `emit` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 559–563 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member as_i64; declarations/fields: `as_i64` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 564–567 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member as_u64; declarations/fields: `as_u64` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 568–574 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member marshal; declarations/fields: `marshal` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 575–578 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member tests; declarations/fields: `tests` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 579–596 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member base64_round_trip_matches_go_vectors; declarations/fields: `base64_round_trip_matches_go_vectors` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 597–623 | Strict Go-shaped release JSON parsing, binding and rendering; declaration/member strict_decode_rejects_duplicates_and_unknowns; declarations/fields: `strict_decode_rejects_duplicates_and_unknowns` |
+<a id="coverage-d8e1c8d53cad"></a>
+
+## [lib/soda-release-deliver/src/json_serde.rs](../../../../../lib/soda-release-deliver/src/json_serde.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–229; lines 1–1: use serde and attached body; lines 2–2: use serde and attached body; lines 3–3: use std and attached body; lines 4–4: use std and attached body; lines 5–8: use crate and attached body; lines 9–9: struct DecodeError and attached body; lines 10–14: const MAX_STRICT_BYTES and attached body; lines 15–29: fn strict and attached body; lines 30–32: struct RootSeed and attached body; lines 33–33: type Value and attached body; lines 34–34: fn deserialize and attached body; lines 35–36: struct RootVisitor and attached body; lines 37–37: type Value and attached body; lines 38–40: fn expecting and attached body; lines 41–55: fn visit_map and attached body; lines 56–58: struct RawObject and attached body; lines 59–59: fn deserialize and attached body; lines 60–61: struct V and attached body; lines 62–62: type Value and attached body; lines 63–65: fn expecting and attached body; lines 66–76: fn visit_map and attached body; lines 77–79: struct RawArray and attached body; lines 80–80: fn deserialize and attached body; lines 81–82: struct V and attached body; lines 83–83: type Value and attached body; lines 84–86: fn expecting and attached body; lines 87–97: fn visit_seq and attached body; lines 98–129: fn check_raw_value and attached body; lines 130–137: fn null_default and attached body; lines 138–139: fn null_i64 and attached body; lines 140–148: use serde and attached body; lines 149–150: fn null_u64 and attached body; lines 151–166: use serde and attached body; lines 167–170: fn null_u64_map and attached body; lines 171–191: use serde and attached body; lines 192–201: fn parse_integer and attached body; lines 202–202: mod tests and attached body; lines 203–203: use super and attached body; lines 204–206: use serde and attached body; lines 207–211: struct RawDocument and attached body; lines 212–229: fn strict_raw_values_preserve_numbers_and_reject_duplicates_and_depth and attached body | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Shared bounded strict JSON decoding, duplicate-key/depth validation, null/default handling, and exact integer conversion used by candidate admission, signing, publication ledger, model, and OCI callers. — current shared adapter lib/soda-release-deliver/src/json_serde.rs; callers in native/policy.rs, native/sign.rs, publish/ledger.rs, model/*, oci/schema.rs; current source inspected |
 
 <a id="coverage-4fb86a3dd4f1"></a>
+<a id="coverage-54ee85a788cb"></a>
 
 ## [lib/soda-release-deliver/src/lib.rs](../../../../../lib/soda-release-deliver/src/lib.rs)
 
-Public module wiring is mapped separately; module exposure does not create a new process boundary.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1–3, 5–9, 33–89 | Release trust admission, signed metadata and distribution operations; declarations/fields: `Error`, `fmt`, `msg`, `refused`, `unavailable`, `at`, `hash_bytes`, `is_digest_ref`, `is_channel`, `now_unix` |
-| Historical; no active owner / obsolete | 4 | Superseded wiring/predecessor-owner narrative; current module/daemon/native release callers contradict it |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 10 | Module wiring: admission; Release admission and preparation; declarations/fields: `admission` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 11 | Module wiring: buildx; Release admission and preparation; declarations/fields: `buildx` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 12 | Module wiring: check; Artifact verification; declarations/fields: `check` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 13 | Module wiring: content; Artifact verification; declarations/fields: `content` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 14 | Module wiring: document; Release admission and preparation; declarations/fields: `document` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 15 | Module wiring: fetch; Verified distribution consumption; declarations/fields: `fetch` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 16 | Module wiring: finalize; Release admission and preparation; declarations/fields: `finalize` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 17 | Module wiring: import; Host installation and payload application; declarations/fields: `import` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 18 | Module wiring: jsonx; Encoding and parsing; declarations/fields: `jsonx` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 19 | Module wiring: model; Release admission and preparation; declarations/fields: `model` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 20 | Module wiring: native; Verified distribution consumption; declarations/fields: `native` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 21 | Module wiring: oci; Artifact verification; declarations/fields: `oci` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 22 | Module wiring: payload; Artifact verification; declarations/fields: `payload` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 23 | Module wiring: prepare; Release admission and preparation; declarations/fields: `prepare` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 24–32 | Module wiring: publish; Publication and effect observation; declarations/fields: `publish` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–11, 14, 16, 18–19, 23, 25–89; lines 9–10: mod admission; attached module comments and attributes; lines 11–11: mod buildx; lines 14–14: mod document; lines 16–16: mod finalize; lines 18–18: mod json_serde; lines 19–19: mod model; lines 23–23: mod prepare | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Module wiring: admission; Release admission and preparation Adjacent comments and attributes explain this same authored responsibility.; 7 named units assigned here; remaining selectors preserve each duty — lib/soda-release-deliver/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 12–13, 21–22; lines 12–12: mod check; lines 13–13: mod content; lines 21–21: mod oci; lines 22–22: mod payload | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Module wiring: check; Artifact verification; 4 named units assigned here; remaining selectors preserve each duty — lib/soda-release-deliver/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 15, 20; lines 15–15: mod fetch; lines 20–20: mod native | [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) | retained | Module wiring: fetch; Verified distribution consumption; Module wiring: native; Verified distribution consumption — lib/soda-release-deliver/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 17; lines 17–17: mod import | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Module wiring: import; Host installation and payload application — lib/soda-release-deliver/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 24; lines 24–24: mod publish | [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) | retained | Module wiring: publish; Publication and effect observation — lib/soda-release-deliver/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
 
-<a id="coverage-be197ef17c55"></a>
+<a id="coverage-13abbd18c3e0"></a>
 
-<a id="rustsoda-release-deliversrcmodelrs-1"></a>
+## [lib/soda-release-deliver/src/model/candidate.rs](../../../../../lib/soda-release-deliver/src/model/candidate.rs)
 
-## [lib/soda-release-deliver/src/model.rs](../../../../../lib/soda-release-deliver/src/model.rs)
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–191; lines 1–1: use serde and attached body; lines 2–2: use std and attached body; lines 3–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–15: use crate and attached body; lines 16–45: struct Candidate and attached body; lines 46–55: fn valid_candidate_host and attached body; lines 56–63: fn valid_candidate_provenance and attached body; lines 64–71: fn valid_candidate_source and attached body; lines 72–80: fn valid_candidate_build and attached body; lines 81–104: fn valid_candidate_content and attached body; lines 105–124: fn required_candidate_content and attached body; lines 125–155: fn path_clean and attached body; lines 156–163: fn valid_candidate_asset_name and attached body; lines 164–178: fn known_candidate_content_name and attached body; lines 179–180: impl Candidate and attached body; lines 181–191: fn validate and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1–23 | Release trust/admission and immutable role trust contracts; declarations/fields: `Trust`, `valid_trust_timing`, `valid_trust_envelope`, `parse_trust_public_key`, `decode_pem_public_key`, `read_der_length`, `parse_p256_spki`, `admit_trust_role_keys`, `validate`, `role`, `reference`, `decode`, `emit` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 24 | Release trust/admission and immutable role trust contracts; declaration/member Trust; declarations/fields: `Trust` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 25 | Release trust/admission and immutable role trust contracts; declaration/member Trust.format; declarations/fields: `Trust.format` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 26 | Release trust/admission and immutable role trust contracts; declaration/member Trust.prefix; declarations/fields: `Trust.prefix` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 27 | Release trust/admission and immutable role trust contracts; declaration/member Trust.epoch; declarations/fields: `Trust.epoch` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 28 | Release trust/admission and immutable role trust contracts; declaration/member Trust.keys; declarations/fields: `Trust.keys` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 29 | Release trust/admission and immutable role trust contracts; declaration/member Trust.not_before; declarations/fields: `Trust.not_before` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 30 | Release trust/admission and immutable role trust contracts; declaration/member Trust.max_age_seconds; declarations/fields: `Trust.max_age_seconds` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 31 | Release trust/admission and immutable role trust contracts; declaration/member Trust.clock_skew_seconds; declarations/fields: `Trust.clock_skew_seconds` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 32–34 | Release trust/admission and immutable role trust contracts; declaration/member Trust.minimum_sequence; declarations/fields: `Trust.minimum_sequence` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 35–42 | Release trust/admission and immutable role trust contracts; declaration/member valid_trust_timing; declarations/fields: `valid_trust_timing` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 43–53 | Release trust/admission and immutable role trust contracts; declaration/member valid_trust_envelope; declarations/fields: `valid_trust_envelope` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 54–59 | Release trust/admission and immutable role trust contracts; declaration/member parse_trust_public_key; declarations/fields: `parse_trust_public_key` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 60–76 | Release trust/admission and immutable role trust contracts; declaration/member decode_pem_public_key; declarations/fields: `decode_pem_public_key` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 77–94 | Release trust/admission and immutable role trust contracts; declaration/member read_der_length; declarations/fields: `read_der_length` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 95–151 | Release trust/admission and immutable role trust contracts; declaration/member parse_p256_spki; declarations/fields: `parse_p256_spki` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 152–166 | Release trust/admission and immutable role trust contracts; declaration/member admit_trust_role_keys; declarations/fields: `admit_trust_role_keys` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 167–182 | Release trust/admission and immutable role trust contracts; declaration/member validate; declarations/fields: `validate` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 183–196 | Release trust/admission and immutable role trust contracts; declaration/member role; declarations/fields: `role` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 197–205 | Release trust/admission and immutable role trust contracts; declaration/member reference; declarations/fields: `reference` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 206–257 | Release trust/admission and immutable role trust contracts; declaration/member decode; declarations/fields: `decode` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 258–299 | Release trust/admission and immutable role trust contracts; declaration/member emit; declarations/fields: `emit` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 300 | Candidate immutable artifact identity contract; declarations/fields: `Candidate` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 301 | Candidate immutable artifact identity contract; declaration/member Candidate.format; declarations/fields: `Candidate.format` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 302 | Candidate immutable artifact identity contract; declaration/member Candidate.host; declarations/fields: `Candidate.host` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 303 | Candidate immutable artifact identity contract; declaration/member Candidate.host_reference; declarations/fields: `Candidate.host_reference` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 304 | Candidate immutable artifact identity contract; declaration/member Candidate.host_archive_sha256; declarations/fields: `Candidate.host_archive_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 305 | Candidate immutable artifact identity contract; declaration/member Candidate.payload_sha256; declarations/fields: `Candidate.payload_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 306 | Candidate immutable artifact identity contract; declaration/member Candidate.migration; declarations/fields: `Candidate.migration` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 307 | Candidate immutable artifact identity contract; declaration/member Candidate.notes; declarations/fields: `Candidate.notes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 308 | Candidate immutable artifact identity contract; declaration/member Candidate.forgejo_revision; declarations/fields: `Candidate.forgejo_revision` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 309 | Candidate immutable artifact identity contract; declaration/member Candidate.forgejo_source_sha256; declarations/fields: `Candidate.forgejo_source_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 310 | Candidate immutable artifact identity contract; declaration/member Candidate.forgejo_toolchain; declarations/fields: `Candidate.forgejo_toolchain` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 311 | Candidate immutable artifact identity contract; declaration/member Candidate.architecture; declarations/fields: `Candidate.architecture` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 312–314 | Candidate immutable artifact identity contract; declaration/member Candidate.content_sha256; declarations/fields: `Candidate.content_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 315–324 | Candidate immutable artifact identity contract; declaration/member valid_candidate_host; declarations/fields: `valid_candidate_host` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 325–332 | Candidate immutable artifact identity contract; declaration/member valid_candidate_provenance; declarations/fields: `valid_candidate_provenance` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 333–340 | Candidate immutable artifact identity contract; declaration/member valid_candidate_source; declarations/fields: `valid_candidate_source` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 341–348 | Candidate immutable artifact identity contract; declaration/member valid_candidate_build; declarations/fields: `valid_candidate_build` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 349–373 | Candidate immutable artifact identity contract; declaration/member valid_candidate_content; declarations/fields: `valid_candidate_content` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 374–393 | Candidate immutable artifact identity contract; declaration/member required_candidate_content; declarations/fields: `required_candidate_content` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 394–424 | Candidate immutable artifact identity contract; declaration/member path_clean; declarations/fields: `path_clean` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 425–432 | Candidate immutable artifact identity contract; declaration/member valid_candidate_asset_name; declarations/fields: `valid_candidate_asset_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 433–448 | Candidate immutable artifact identity contract; declaration/member known_candidate_content_name; declarations/fields: `known_candidate_content_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 449–459 | Candidate immutable artifact identity contract; declaration/member validate; declarations/fields: `validate` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 460–495 | Candidate immutable artifact identity contract; declaration/member decode; declarations/fields: `decode` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 496–535 | Candidate immutable artifact identity contract; declaration/member emit; declarations/fields: `emit` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 536 | Authenticated installation media binding; declarations/fields: `MediaFile` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 537 | Authenticated installation media binding; declaration/member MediaFile.path; declarations/fields: `MediaFile.path` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 538 | Authenticated installation media binding; declaration/member MediaFile.sha256; declarations/fields: `MediaFile.sha256` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 539–542 | Authenticated installation media binding; declaration/member MediaFile.bytes; declarations/fields: `MediaFile.bytes` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 543 | Authenticated installation media binding; declaration/member MediaBinding; declarations/fields: `MediaBinding` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 544 | Authenticated installation media binding; declaration/member MediaBinding.revision; declarations/fields: `MediaBinding.revision` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 545 | Authenticated installation media binding; declaration/member MediaBinding.architecture; declarations/fields: `MediaBinding.architecture` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 546 | Authenticated installation media binding; declaration/member MediaBinding.host_manifest; declarations/fields: `MediaBinding.host_manifest` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 547 | Authenticated installation media binding; declaration/member MediaBinding.payload_sha256; declarations/fields: `MediaBinding.payload_sha256` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 548 | Authenticated installation media binding; declaration/member MediaBinding.rootfs_url; declarations/fields: `MediaBinding.rootfs_url` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 549 | Authenticated installation media binding; declaration/member MediaBinding.iso; declarations/fields: `MediaBinding.iso` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 550–552 | Authenticated installation media binding; declaration/member MediaBinding.rootfs; declarations/fields: `MediaBinding.rootfs` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 553–562 | Authenticated installation media binding; declaration/member decode_media_file; declarations/fields: `decode_media_file` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 563–585 | Authenticated installation media binding; declaration/member decode_lenient; declarations/fields: `decode_lenient` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 586–593 | Authenticated installation media binding; declaration/member valid_media_file; declarations/fields: `valid_media_file` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 594–599 | Authenticated installation media binding; declaration/member valid_media_url; declarations/fields: `valid_media_url` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 600–615 | Authenticated installation media binding; declaration/member valid_media_binding; declarations/fields: `valid_media_binding` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 616 | Qualified immutable final release document; declarations/fields: `Release` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 617 | Qualified immutable final release document; declaration/member Release.format; declarations/fields: `Release.format` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 618 | Qualified immutable final release document; declaration/member Release.serial; declarations/fields: `Release.serial` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 619 | Qualified immutable final release document; declaration/member Release.class; declarations/fields: `Release.class` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 620 | Qualified immutable final release document; declaration/member Release.payload; declarations/fields: `Release.payload` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 621 | Qualified immutable final release document; declaration/member Release.candidate; declarations/fields: `Release.candidate` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 622 | Qualified immutable final release document; declaration/member Release.media; declarations/fields: `Release.media` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 623 | Qualified immutable final release document; declaration/member Release.provenance; declarations/fields: `Release.provenance` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 624 | Qualified immutable final release document; declaration/member Release.qualification; declarations/fields: `Release.qualification` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 625 | Qualified immutable final release document; declaration/member Release.evidence; declarations/fields: `Release.evidence` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 626–628 | Qualified immutable final release document; declaration/member Release.notes; declarations/fields: `Release.notes` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 629–635 | Qualified immutable final release document; declaration/member valid_release_identity; declarations/fields: `valid_release_identity` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 636–642 | Qualified immutable final release document; declaration/member valid_release_notes_and_evidence; declarations/fields: `valid_release_notes_and_evidence` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 643–650 | Qualified immutable final release document; declaration/member decode_release_payloads; declarations/fields: `decode_release_payloads` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 651–661 | Qualified immutable final release document; declaration/member decode_release_media; declarations/fields: `decode_release_media` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 662–685 | Qualified immutable final release document; declaration/member valid_release_provenance; declarations/fields: `valid_release_provenance` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 686–699 | Qualified immutable final release document; declaration/member valid_release_evidence; declarations/fields: `valid_release_evidence` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 700–716 | Qualified immutable final release document; declaration/member validate; declarations/fields: `validate` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 717–728 | Qualified immutable final release document; declaration/member references; declarations/fields: `references` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 729–757 | Qualified immutable final release document; declaration/member decode; declarations/fields: `decode` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 758–798 | Qualified immutable final release document; declaration/member emit; declarations/fields: `emit` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 799 | Channel publication document; declarations/fields: `Channel` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 800 | Channel publication document; declaration/member Channel.format; declarations/fields: `Channel.format` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 801 | Channel publication document; declaration/member Channel.name; declarations/fields: `Channel.name` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 802 | Channel publication document; declaration/member Channel.sequence; declarations/fields: `Channel.sequence` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 803 | Channel publication document; declaration/member Channel.issued; declarations/fields: `Channel.issued` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 804 | Channel publication document; declaration/member Channel.expires; declarations/fields: `Channel.expires` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 805 | Channel publication document; declaration/member Channel.withdrawn; declarations/fields: `Channel.withdrawn` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 806–809 | Channel publication document; declaration/member Channel.releases; declarations/fields: `Channel.releases` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 810 | Seen releases/highwater rollback-fencing state; declarations/fields: `Seen` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 811 | Seen releases/highwater rollback-fencing state; declaration/member Seen.sequence; declarations/fields: `Seen.sequence` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 812 | Seen releases/highwater rollback-fencing state; declaration/member Seen.digest; declarations/fields: `Seen.digest` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 813–816 | Seen releases/highwater rollback-fencing state; declaration/member Seen.issued; declarations/fields: `Seen.issued` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 817 | Seen releases/highwater rollback-fencing state; declaration/member Highwater; declarations/fields: `Highwater` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 818 | Seen releases/highwater rollback-fencing state; declaration/member Highwater.format; declarations/fields: `Highwater.format` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 819 | Seen releases/highwater rollback-fencing state; declaration/member Highwater.trust_epoch; declarations/fields: `Highwater.trust_epoch` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 820 | Seen releases/highwater rollback-fencing state; declaration/member Highwater.checked_at; declarations/fields: `Highwater.checked_at` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 821 | Seen releases/highwater rollback-fencing state; declaration/member Highwater.channels; declarations/fields: `Highwater.channels` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 822 | Seen releases/highwater rollback-fencing state; declaration/member Highwater.serials; declarations/fields: `Highwater.serials` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 823–826 | Seen releases/highwater rollback-fencing state; declaration/member Highwater.releases; declarations/fields: `Highwater.releases` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 827–843, 876–888, 950–988 | Seen releases/highwater rollback-fencing state; declaration/member decode; declarations/fields: `decode` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 844–875, 889–901, 989–1021 | Seen releases/highwater rollback-fencing state; declaration/member emit; declarations/fields: `emit` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 902–908 | Seen releases/highwater rollback-fencing state; declaration/member empty_state; declarations/fields: `empty_state` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 909–912 | Seen releases/highwater rollback-fencing state; declaration/member valid_highwater_maps; declarations/fields: `valid_highwater_maps` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 913–925 | Seen releases/highwater rollback-fencing state; declaration/member valid_highwater_channels; declarations/fields: `valid_highwater_channels` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 926–939 | Seen releases/highwater rollback-fencing state; declaration/member valid_highwater_serials; declarations/fields: `valid_highwater_serials` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 940–949 | Seen releases/highwater rollback-fencing state; declaration/member validate; declarations/fields: `validate` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1022–1032 | Channel and release monotonic consumption admission; declarations/fields: `validate_release_reference` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1033–1048 | Channel and release monotonic consumption admission; declaration/member validate_channel_releases; declarations/fields: `validate_channel_releases` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1049–1066 | Channel and release monotonic consumption admission; declaration/member validate_channel_identity; declarations/fields: `validate_channel_identity` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1067–1084 | Channel and release monotonic consumption admission; declaration/member validate_channel_timing; declarations/fields: `validate_channel_timing` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1085–1095 | Channel and release monotonic consumption admission; declaration/member validate_channel_progression; declarations/fields: `validate_channel_progression` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1096–1125 | Channel and release monotonic consumption admission; declaration/member admit_channel; declarations/fields: `admit_channel` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1126–1132 | Channel and release monotonic consumption admission; declaration/member admit_channel_ref; declarations/fields: `admit_channel_ref` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1133–1149 | Channel and release monotonic consumption admission; declaration/member admit_release_digest; declarations/fields: `admit_release_digest` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1150–1179 | Channel and release monotonic consumption admission; declaration/member admit_release; declarations/fields: `admit_release` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1180 | Explicit signing permit; declarations/fields: `Permit` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1181 | Explicit signing permit; declaration/member Permit.format; declarations/fields: `Permit.format` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1182 | Explicit signing permit; declaration/member Permit.repository; declarations/fields: `Permit.repository` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1183 | Explicit signing permit; declaration/member Permit.digest; declarations/fields: `Permit.digest` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1184 | Explicit signing permit; declaration/member Permit.previous; declarations/fields: `Permit.previous` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1185–1188 | Explicit signing permit; declaration/member Permit.expires; declarations/fields: `Permit.expires` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1189–1200 | Explicit signing permit; declaration/member validate; declarations/fields: `validate` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1201–1215 | Explicit signing permit; declaration/member decode; declarations/fields: `decode` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1216–1232 | Explicit signing permit; declaration/member emit; declarations/fields: `emit` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1233–1235, 1281–1292 | Trust/admission source vectors; declarations/fields: `tests`, `path_clean_matches_go` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1236–1254 | Trust/admission source vectors; declaration/member full_content; declarations/fields: `full_content` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1255–1280 | Source assertion of Artifact verification; declarations/fields: `candidate_content_rules` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1293–1312 | Trust/admission source vectors; declaration/member trust_reference_shapes; declarations/fields: `trust_reference_shapes` |
+<a id="coverage-063b6641e62b"></a>
 
-<a id="coverage-fc774294f0d5"></a>
+## [lib/soda-release-deliver/src/model/channel.rs](../../../../../lib/soda-release-deliver/src/model/channel.rs)
 
-<a id="rustsoda-release-deliversrcnativers-1"></a>
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
-## [lib/soda-release-deliver/src/native.rs](../../../../../lib/soda-release-deliver/src/native.rs)
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–228; lines 1–1: use serde and attached body; lines 2–2: use std and attached body; lines 3–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–14: use super and attached body; lines 15–31: struct Channel and attached body; lines 32–45: fn nil_if_empty and attached body; lines 46–56: struct Seen and attached body; lines 57–70: struct Highwater and attached body; lines 71–72: impl Channel and attached body; lines 73–76: impl Seen and attached body; lines 77–82: fn empty_state and attached body; lines 83–86: fn valid_highwater_maps and attached body; lines 87–99: fn valid_highwater_channels and attached body; lines 100–112: fn valid_highwater_serials and attached body; lines 113–114: impl Highwater and attached body; lines 115–124: fn validate and attached body; lines 125–135: fn validate_release_reference and attached body; lines 136–151: fn validate_channel_releases and attached body; lines 152–169: fn validate_channel_identity and attached body; lines 170–187: fn validate_channel_timing and attached body; lines 188–199: fn validate_channel_progression and attached body; lines 200–228: fn admit_channel and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 23 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+<a id="coverage-9ebbc2fa6300"></a>
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 1–14 | Native external verifier/copier contract; declarations/fields: `TOOL_LOCK`, `Runner`, `run`, `Native` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 15–17 | Native external verifier/copier contract; declaration/member TOOL_LOCK; declarations/fields: `TOOL_LOCK` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 18 | Native external verifier/copier contract; declaration/member Runner; declarations/fields: `Runner` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 19–23, 29–48 | Native external verifier/copier contract; declaration/member run; declarations/fields: `run` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 24 | Native external verifier/copier contract; declaration/member Native; declarations/fields: `Native` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 25–28 | Native external verifier/copier contract; declaration/member Native.home; declarations/fields: `Native.home` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 49–70 | Pinned native tool identity/version validation; declarations/fields: `check_native` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 71–90 | Confined protected input file mechanics; declarations/fields: `owned_private_regular` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 91–101 | Confined protected input file mechanics; declaration/member private_file; declarations/fields: `private_file` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 102–106 | Confined protected input file mechanics; declaration/member write_json; declarations/fields: `write_json` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 107 | Native signature verification copy policy; declarations/fields: `Requirement` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 108 | Native signature verification copy policy; declaration/member Requirement.type_name; declarations/fields: `Requirement.type_name` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 109 | Native signature verification copy policy; declaration/member Requirement.key_datas; declarations/fields: `Requirement.key_datas` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 110–113 | Native signature verification copy policy; declaration/member Requirement.signed_identity; declarations/fields: `Requirement.signed_identity` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 114–139 | Native signature verification copy policy; declaration/member emit; declarations/fields: `emit` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 140–157 | Native signature verification copy policy; declaration/member requirement; declarations/fields: `requirement` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 158–184 | Native signature verification copy policy; declaration/member requirement_value; declarations/fields: `requirement_value` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 185–193 | Native signature verification copy policy; declaration/member policy_for_publish; declarations/fields: `policy_for_publish` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 194–197 | Native signature verification copy policy; declaration/member registry_config_for_publish; declarations/fields: `registry_config_for_publish` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 198–220 | Native signature verification copy policy; declaration/member policy_for; declarations/fields: `policy_for` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 221–245 | Native signature verification copy policy; declaration/member local_policy; declarations/fields: `local_policy` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 246–259 | Native signature verification copy policy; declaration/member soda_trust_repos; declarations/fields: `soda_trust_repos` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 260–266 | Native signature verification copy policy; declaration/member soda_override_exists; declarations/fields: `soda_override_exists` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 267–285 | Native signature verification copy policy; declaration/member apply_soda_trust; declarations/fields: `apply_soda_trust` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 286–329 | Native signature verification copy policy; declaration/member merge_policy; declarations/fields: `merge_policy` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 330–335 | Native signature verification copy policy; declaration/member write_registry_config; declarations/fields: `write_registry_config` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 336–370 | Native signature verification copy policy; declaration/member registry_config; declarations/fields: `registry_config` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 371–394 | Native verified source copy and observed digest validation; declarations/fields: `admit_verify_source` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 395–424 | Native verified source copy and observed digest validation; declaration/member verify_copy; declarations/fields: `verify_copy` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 425–434 | Native verified source copy and observed digest validation; declaration/member verify_copied_manifest; declarations/fields: `verify_copied_manifest` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 435 | Protected signer secret-file admission; declarations/fields: `SecretFiles` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 436 | Protected signer secret-file admission; declaration/member SecretFiles.key; declarations/fields: `SecretFiles.key` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 437–440 | Protected signer secret-file admission; declaration/member SecretFiles.passphrase; declarations/fields: `SecretFiles.passphrase` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 441–451 | Protected signer secret-file admission; declaration/member decode; declarations/fields: `decode` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 452–463 | Protected signer secret-file admission; declaration/member admit_sign_inputs; declarations/fields: `admit_sign_inputs` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 464–489 | Protected signer secret-file admission; declaration/member snapshot_sign_source; declarations/fields: `snapshot_sign_source` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 490–506 | Protected signer secret-file admission; declaration/member admit_signed_payload; declarations/fields: `admit_signed_payload` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 507–550 | Protected signer secret-file admission; declaration/member emit_signed_directory; declarations/fields: `emit_signed_directory` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 551–566 | Native detached signing operation; declarations/fields: `sign` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 567–569 | Native detached signing operation; declaration/member tests; declarations/fields: `tests` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 570 | Native detached signing operation; declaration/member MockRunner; declarations/fields: `MockRunner` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 571–574 | Native detached signing operation; declaration/member MockRunner.output; declarations/fields: `MockRunner.output` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 575–580 | Native detached signing operation; declaration/member run; declarations/fields: `run` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 581–595 | Native detached signing operation; declaration/member check_native_pins_version; declarations/fields: `check_native_pins_version` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 596–614 | Native detached signing operation; declaration/member private_file_rules; declarations/fields: `private_file_rules` |
+## [lib/soda-release-deliver/src/model/mod.rs](../../../../../lib/soda-release-deliver/src/model/mod.rs)
 
-<a id="coverage-a060f97fea2b"></a>
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
-<a id="rustsoda-release-deliversrcocirs-1"></a>
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–55; lines 1–3: use serde and attached body; lines 4–5: use crate and attached body; lines 6–7: mod trust and attached body; lines 8–8: use trust and attached body; lines 9–10: mod candidate and attached body; lines 11–11: use candidate and attached body; lines 12–12: use candidate and attached body; lines 13–14: mod release and attached body; lines 15–15: use release and attached body; lines 16–16: use release and attached body; lines 17–18: mod channel and attached body; lines 19–26: use channel and attached body; lines 27–38: struct Permit and attached body; lines 39–40: impl Permit and attached body; lines 41–54: fn validate and attached body; lines 55–55: mod tests and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 16 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-## [lib/soda-release-deliver/src/oci.rs](../../../../../lib/soda-release-deliver/src/oci.rs)
+<a id="coverage-91fcbd720161"></a>
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+## [lib/soda-release-deliver/src/model/release.rs](../../../../../lib/soda-release-deliver/src/model/release.rs)
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1–19 | OCI release/archive/layout identity and content validation; declarations/fields: `MANIFEST_TYPE`, `CONFIG_TYPE`, `INDEX_TYPE`, `LAYER_TAR`, `LAYER_GZIP`, `LAYER_ZSTD`, `OciLayout`, `Blob`, `Descriptor`, `OciManifest`, `LayerMember`, `decode_descriptor`, `read_oci_index`, `parse_oci_manifest`, `OciConfig`, `parse_oci_config`, `is_json`, `read_oci_blob`, `fetch_oci_blob`, `validate_oci_layers`, `validate_oci_rootfs`, `validate_oci_attribution`, `inspect_oci_config`, `inspect_oci_image`, `open_oci_archive`, `is_valid_oci_regular_entry`, `read_oci_archive_entries`, `inspect_archive_index`, `inspect_oci`, `requested_oci_paths`, `clean_layer_name`, `path_dir`, `path_base`, `path_join`, `whiteout_target`, `record_layer_deletion`, `record_ancestor_replacement`, `record_opaque_directory`, `record_layer_entry`, `scan_oci_layer`, `layer_archive_indexes`, `TeeHasher`, `read`, `drain`, `scan_archive_layer`, `resolve_oci_members`, `inspect_content_manifest`, `inspect_oci_content`, `scan_oci_archive_layers`, `validate_oci_layout_inputs`, `inspect_oci_layout`, `LayoutLoader`, `load`, `fetch`, `inspect_image`, `inspect_layout_images`, `tests`, `member_path_rules`, `non_archive_refused` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 20 | OCI release/archive/layout identity and content validation; declaration/member MANIFEST_TYPE; declarations/fields: `MANIFEST_TYPE` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 21 | OCI release/archive/layout identity and content validation; declaration/member CONFIG_TYPE; declarations/fields: `CONFIG_TYPE` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 22 | OCI release/archive/layout identity and content validation; declaration/member INDEX_TYPE; declarations/fields: `INDEX_TYPE` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 23 | OCI release/archive/layout identity and content validation; declaration/member LAYER_TAR; declarations/fields: `LAYER_TAR` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 24 | OCI release/archive/layout identity and content validation; declaration/member LAYER_GZIP; declarations/fields: `LAYER_GZIP` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 25–28 | OCI release/archive/layout identity and content validation; declaration/member LAYER_ZSTD; declarations/fields: `LAYER_ZSTD` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 29 | OCI release/archive/layout identity and content validation; declaration/member OciLayout; declarations/fields: `OciLayout` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 30 | OCI release/archive/layout identity and content validation; declaration/member OciLayout.images; declarations/fields: `OciLayout.images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 31 | OCI release/archive/layout identity and content validation; declaration/member OciLayout.files; declarations/fields: `OciLayout.files` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 32–35 | OCI release/archive/layout identity and content validation; declaration/member OciLayout.bytes; declarations/fields: `OciLayout.bytes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 36 | OCI release/archive/layout identity and content validation; declaration/member Blob; declarations/fields: `Blob` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 37 | OCI release/archive/layout identity and content validation; declaration/member Blob.hash; declarations/fields: `Blob.hash` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 38 | OCI release/archive/layout identity and content validation; declaration/member Blob.size; declarations/fields: `Blob.size` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 39–42 | OCI release/archive/layout identity and content validation; declaration/member Blob.data; declarations/fields: `Blob.data` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 43 | OCI release/archive/layout identity and content validation; declaration/member Descriptor; declarations/fields: `Descriptor` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 44 | OCI release/archive/layout identity and content validation; declaration/member Descriptor.digest; declarations/fields: `Descriptor.digest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 45 | OCI release/archive/layout identity and content validation; declaration/member Descriptor.size; declarations/fields: `Descriptor.size` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 46 | OCI release/archive/layout identity and content validation; declaration/member Descriptor.media_type; declarations/fields: `Descriptor.media_type` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 47 | OCI release/archive/layout identity and content validation; declaration/member Descriptor.urls; declarations/fields: `Descriptor.urls` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 48–51 | OCI release/archive/layout identity and content validation; declaration/member Descriptor.annotations; declarations/fields: `Descriptor.annotations` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 52 | OCI release/archive/layout identity and content validation; declaration/member OciManifest; declarations/fields: `OciManifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 53 | OCI release/archive/layout identity and content validation; declaration/member OciManifest.config; declarations/fields: `OciManifest.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 54–57 | OCI release/archive/layout identity and content validation; declaration/member OciManifest.layers; declarations/fields: `OciManifest.layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 58 | OCI release/archive/layout identity and content validation; declaration/member LayerMember; declarations/fields: `LayerMember` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 59 | OCI release/archive/layout identity and content validation; declaration/member LayerMember.hash; declarations/fields: `LayerMember.hash` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 60 | OCI release/archive/layout identity and content validation; declaration/member LayerMember.present; declarations/fields: `LayerMember.present` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 61–67 | OCI release/archive/layout identity and content validation; declaration/member LayerMember.blocked; declarations/fields: `LayerMember.blocked` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 68–100 | OCI release/archive/layout identity and content validation; declaration/member decode_descriptor; declarations/fields: `decode_descriptor` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 101–142 | OCI release/archive/layout identity and content validation; declaration/member read_oci_index; declarations/fields: `read_oci_index` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 143–174 | OCI release/archive/layout identity and content validation; declaration/member parse_oci_manifest; declarations/fields: `parse_oci_manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 175 | OCI release/archive/layout identity and content validation; declaration/member OciConfig; declarations/fields: `OciConfig` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 176 | OCI release/archive/layout identity and content validation; declaration/member OciConfig.os; declarations/fields: `OciConfig.os` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 177 | OCI release/archive/layout identity and content validation; declaration/member OciConfig.arch; declarations/fields: `OciConfig.arch` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 178 | OCI release/archive/layout identity and content validation; declaration/member OciConfig.rootfs_type; declarations/fields: `OciConfig.rootfs_type` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 179 | OCI release/archive/layout identity and content validation; declaration/member OciConfig.diff_ids; declarations/fields: `OciConfig.diff_ids` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 180–182 | OCI release/archive/layout identity and content validation; declaration/member OciConfig.labels; declarations/fields: `OciConfig.labels` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 183–239 | OCI release/archive/layout identity and content validation; declaration/member parse_oci_config; declarations/fields: `parse_oci_config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 240–243 | OCI release/archive/layout identity and content validation; declaration/member is_json; declarations/fields: `is_json` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 244–282 | OCI release/archive/layout identity and content validation; declaration/member read_oci_blob; declarations/fields: `read_oci_blob` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 283–301 | OCI release/archive/layout identity and content validation; declaration/member fetch_oci_blob; declarations/fields: `fetch_oci_blob` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 302–315 | OCI release/archive/layout identity and content validation; declaration/member validate_oci_layers; declarations/fields: `validate_oci_layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 316–331 | OCI release/archive/layout identity and content validation; declaration/member validate_oci_rootfs; declarations/fields: `validate_oci_rootfs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 332–366 | OCI release/archive/layout identity and content validation; declaration/member validate_oci_attribution; declarations/fields: `validate_oci_attribution` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 367–396 | OCI release/archive/layout identity and content validation; declaration/member inspect_oci_config; declarations/fields: `inspect_oci_config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 397–421 | OCI release/archive/layout identity and content validation; declaration/member inspect_oci_image; declarations/fields: `inspect_oci_image` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 422–439 | OCI release/archive/layout identity and content validation; declaration/member open_oci_archive; declarations/fields: `open_oci_archive` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 440–449 | OCI release/archive/layout identity and content validation; declaration/member is_valid_oci_regular_entry; declarations/fields: `is_valid_oci_regular_entry` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 450–505 | OCI release/archive/layout identity and content validation; declaration/member read_oci_archive_entries; declarations/fields: `read_oci_archive_entries` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 506–518 | OCI release/archive/layout identity and content validation; declaration/member inspect_archive_index; declarations/fields: `inspect_archive_index` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 519–528 | OCI release/archive/layout identity and content validation; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 529–549 | OCI release/archive/layout identity and content validation; declaration/member requested_oci_paths; declarations/fields: `requested_oci_paths` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 550–563 | OCI release/archive/layout identity and content validation; declaration/member clean_layer_name; declarations/fields: `clean_layer_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 564–570 | OCI release/archive/layout identity and content validation; declaration/member path_dir; declarations/fields: `path_dir` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 571–577 | OCI release/archive/layout identity and content validation; declaration/member path_base; declarations/fields: `path_base` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 578–585 | OCI release/archive/layout identity and content validation; declaration/member path_join; declarations/fields: `path_join` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 586–596 | OCI release/archive/layout identity and content validation; declaration/member whiteout_target; declarations/fields: `whiteout_target` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 597–614 | OCI release/archive/layout identity and content validation; declaration/member record_layer_deletion; declarations/fields: `record_layer_deletion` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 615–636 | OCI release/archive/layout identity and content validation; declaration/member record_ancestor_replacement; declarations/fields: `record_ancestor_replacement` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 637–654 | OCI release/archive/layout identity and content validation; declaration/member record_opaque_directory; declarations/fields: `record_opaque_directory` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 655–705 | OCI release/archive/layout identity and content validation; declaration/member record_layer_entry; declarations/fields: `record_layer_entry` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 706–745 | OCI release/archive/layout identity and content validation; declaration/member scan_oci_layer; declarations/fields: `scan_oci_layer` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 746–762 | OCI release/archive/layout identity and content validation; declaration/member layer_archive_indexes; declarations/fields: `layer_archive_indexes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 763 | OCI release/archive/layout identity and content validation; declaration/member TeeHasher; declarations/fields: `TeeHasher` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 764 | OCI release/archive/layout identity and content validation; declaration/member TeeHasher.inner; declarations/fields: `TeeHasher.inner` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 765–768 | OCI release/archive/layout identity and content validation; declaration/member TeeHasher.hasher; declarations/fields: `TeeHasher.hasher` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 769–775 | OCI release/archive/layout identity and content validation; declaration/member read; declarations/fields: `read` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 776–784 | OCI release/archive/layout identity and content validation; declaration/member drain; declarations/fields: `drain` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 785–822 | OCI release/archive/layout identity and content validation; declaration/member scan_archive_layer; declarations/fields: `scan_archive_layer` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 823–855 | OCI release/archive/layout identity and content validation; declaration/member resolve_oci_members; declarations/fields: `resolve_oci_members` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 856–872 | OCI release/archive/layout identity and content validation; declaration/member inspect_content_manifest; declarations/fields: `inspect_content_manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 873–890 | OCI release/archive/layout identity and content validation; declaration/member inspect_oci_content; declarations/fields: `inspect_oci_content` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 891–892 | OCI release/archive/layout identity and content validation; declaration/member LayerScan; declarations/fields: `LayerScan` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 893–928 | OCI release/archive/layout identity and content validation; declaration/member scan_oci_archive_layers; declarations/fields: `scan_oci_archive_layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 929–949 | OCI release/archive/layout identity and content validation; declaration/member validate_oci_layout_inputs; declarations/fields: `validate_oci_layout_inputs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 950–984 | OCI release/archive/layout identity and content validation; declaration/member inspect_oci_layout; declarations/fields: `inspect_oci_layout` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 985 | OCI release/archive/layout identity and content validation; declaration/member LayoutLoader; declarations/fields: `LayoutLoader` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 986 | OCI release/archive/layout identity and content validation; declaration/member LayoutLoader.root; declarations/fields: `LayoutLoader.root` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 987 | OCI release/archive/layout identity and content validation; declaration/member LayoutLoader.entries; declarations/fields: `LayoutLoader.entries` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 988–991 | OCI release/archive/layout identity and content validation; declaration/member LayoutLoader.json_bytes; declarations/fields: `LayoutLoader.json_bytes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 992–999 | OCI release/archive/layout identity and content validation; declaration/member load; declarations/fields: `load` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1000–1015 | OCI release/archive/layout identity and content validation; declaration/member fetch; declarations/fields: `fetch` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1016–1043 | OCI release/archive/layout identity and content validation; declaration/member inspect_image; declarations/fields: `inspect_image` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1044–1081 | OCI release/archive/layout identity and content validation; declaration/member inspect_layout_images; declarations/fields: `inspect_layout_images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1082–1085 | OCI release/archive/layout identity and content validation; declaration/member tests; declarations/fields: `tests` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1086–1099 | OCI release/archive/layout identity and content validation; declaration/member member_path_rules; declarations/fields: `member_path_rules` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1100–1109 | OCI release/archive/layout identity and content validation; declaration/member non_archive_refused; declarations/fields: `non_archive_refused` |
+Current cohesive body inspected; single defining duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–415; whole file: release and media binding data model, json decoding, provenance/evidence admission and release identity checks for delivery preparation | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Release and media binding data model, JSON decoding, provenance/evidence admission and release identity checks for delivery preparation. — lib/soda-release-deliver/src/model/release.rs; consumed by release preparation/finalization |
+
+<a id="coverage-e734d538a9aa"></a>
+
+## [lib/soda-release-deliver/src/model/tests.rs](../../../../../lib/soda-release-deliver/src/model/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–124; lines 1–1: use std and attached body; lines 2–3: use super and attached body; lines 4–23: fn full_content and attached body; lines 24–49: fn candidate_content_rules and attached body; lines 50–61: fn path_clean_matches_go and attached body; lines 62–82: fn trust_reference_shapes and attached body; lines 83–107: fn trust_key_admission_preserves_cross_role_separation and attached body; lines 108–124: fn producer_trust_fixture_keeps_its_raw_der_fingerprint and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7e6295e02021"></a>
+
+## [lib/soda-release-deliver/src/model/trust.rs](../../../../../lib/soda-release-deliver/src/model/trust.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–108; lines 1–1: use serde and attached body; lines 2–2: use std and attached body; lines 3–4: use crate and attached body; lines 5–12: use crate and attached body; lines 13–30: struct Trust and attached body; lines 31–38: fn valid_trust_timing and attached body; lines 39–49: fn valid_trust_envelope and attached body; lines 50–53: fn parse_trust_public_key and attached body; lines 54–67: fn admit_trust_role_keys and attached body; lines 68–69: impl Trust and attached body; lines 70–84: fn validate and attached body; lines 85–98: fn role and attached body; lines 99–108: fn reference and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-90df2ad9f827"></a>
+
+## [lib/soda-release-deliver/src/native/mod.rs](../../../../../lib/soda-release-deliver/src/native/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–217; lines 1–3: use std and attached body; lines 4–5: use serde and attached body; lines 6–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–14: const TOOL_LOCK and attached body; lines 15–19: struct ToolLock and attached body; lines 20–20: trait Runner and attached body; lines 21–25: fn run and attached body; lines 26–28: struct Native and attached body; lines 29–30: impl Runner and attached body; lines 31–50: fn run and attached body; lines 51–61: fn check_native and attached body; lines 62–82: fn owned_private_regular and attached body; lines 83–92: fn private_file and attached body; lines 93–97: fn write_json and attached body; lines 98–99: mod policy and attached body; lines 100–100: use policy and attached body; lines 101–101: use policy and attached body; lines 102–102: use policy and attached body; lines 103–127: fn admit_verify_source and attached body; lines 128–156: fn verify_copy and attached body; lines 157–164: fn verify_copied_manifest and attached body; lines 165–166: mod sign and attached body; lines 167–169: use sign and attached body; lines 170–170: mod tests and attached body; lines 171–171: use super and attached body; lines 172–175: struct MockRunner and attached body; lines 176–177: impl Runner and attached body; lines 178–183: fn run and attached body; lines 184–198: fn check_native_pins_version and attached body; lines 199–206: fn private_file_rules and attached body; lines 207–217: use std and attached body | [D08](../../slices/release-and-installation.md#d08-signing-custody) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 34 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-9f60c4c21b96"></a>
+
+## [lib/soda-release-deliver/src/native/policy.rs](../../../../../lib/soda-release-deliver/src/native/policy.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–348; lines 1–1: use super and attached body; lines 2–2: use crate and attached body; lines 3–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–5: use base64 and attached body; lines 6–6: use serde and attached body; lines 7–7: use serde and attached body; lines 8–8: use serde and attached body; lines 9–9: use std and attached body; lines 10–12: use std and attached body; lines 13–22: struct Requirement and attached body; lines 23–30: struct PolicyDocument and attached body; lines 31–37: enum ScopeValue and attached body; lines 38–45: enum PolicyValue and attached body; lines 46–48: struct PolicyPairs and attached body; lines 49–49: fn deserialize and attached body; lines 50–51: struct V and attached body; lines 52–52: type Value and attached body; lines 53–55: fn expecting and attached body; lines 56–66: fn visit_map and attached body; lines 67–69: struct PolicyItems and attached body; lines 70–70: fn deserialize and attached body; lines 71–72: struct V and attached body; lines 73–73: type Value and attached body; lines 74–76: fn expecting and attached body; lines 77–87: fn visit_seq and attached body; lines 88–89: impl PolicyValue and attached body; lines 90–121: fn from_raw and attached body; lines 122–128: fn is_null and attached body; lines 129–132: fn deserialize and attached body; lines 133–134: impl Serialize and attached body; lines 135–157: fn serialize and attached body; lines 158–164: fn simple_rule and attached body; lines 165–184: fn requirement and attached body; lines 185–193: fn policy_for_publish and attached body; lines 194–197: fn registry_config_for_publish and attached body; lines 198–213: fn policy_for and attached body; lines 214–226: fn local_policy and attached body; lines 227–240: fn soda_trust_repos and attached body; lines 241–247: fn soda_override_exists and attached body; lines 248–268: fn apply_soda_trust and attached body; lines 269–276: struct PolicyInput and attached body; lines 277–299: fn merge_policy and attached body; lines 300–312: struct MergedPolicy and attached body; lines 313–317: fn write_registry_config and attached body; lines 318–321: fn registry_config and attached body; lines 322–348: use std and attached body | [D08](../../slices/release-and-installation.md#d08-signing-custody) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 47 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6bd2b49fec62"></a>
+
+## [lib/soda-release-deliver/src/native/sign.rs](../../../../../lib/soda-release-deliver/src/native/sign.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–135; lines 1–1: use serde and attached body; lines 2–2: use std and attached body; lines 3–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–13: use super and attached body; lines 14–19: struct SecretFiles and attached body; lines 20–21: impl SecretFiles and attached body; lines 22–33: fn admit_sign_inputs and attached body; lines 34–59: fn snapshot_sign_source and attached body; lines 60–76: fn admit_signed_payload and attached body; lines 77–121: fn emit_signed_directory and attached body; lines 122–135: fn sign and attached body | [D08](../../slices/release-and-installation.md#d08-signing-custody) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-d146d1379967"></a>
+
+## [lib/soda-release-deliver/src/oci/archive.rs](../../../../../lib/soda-release-deliver/src/oci/archive.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–111; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–8: use super and attached body; lines 9–13: use super and attached body; lines 14–31: fn open_oci_archive and attached body; lines 32–41: fn is_valid_oci_regular_entry and attached body; lines 42–99: fn read_oci_archive_entries and attached body; lines 100–111: fn inspect_archive_index and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e14b7a71acd5"></a>
+
+## [lib/soda-release-deliver/src/oci/layers.rs](../../../../../lib/soda-release-deliver/src/oci/layers.rs)
+
+Current cohesive body inspected; single defining duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–582; whole file: oci layer byte reader: bounded decompression/tar scanning, whiteout and ancestor replacement handling, member content digests and layer budgets | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | OCI layer byte reader: bounded decompression/tar scanning, whiteout and ancestor replacement handling, member content digests and layer budgets. — lib/soda-release-deliver/src/oci/layers.rs; consumed by delivery artifact inspection and verification |
+
+<a id="coverage-b85f0a6ea5ed"></a>
+
+## [lib/soda-release-deliver/src/oci/mod.rs](../../../../../lib/soda-release-deliver/src/oci/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–320; lines 1–6: use std and attached body; lines 7–7: use std and attached body; lines 8–11: use crate and attached body; lines 12–12: use crate and attached body; lines 13–13: use crate and attached body; lines 14–15: const MANIFEST_TYPE and attached body; lines 16–16: const CONFIG_TYPE and attached body; lines 17–17: const INDEX_TYPE and attached body; lines 18–18: const LAYER_TAR and attached body; lines 19–19: const LAYER_GZIP and attached body; lines 20–23: const LAYER_ZSTD and attached body; lines 24–30: struct OciLayout and attached body; lines 31–35: struct Blob and attached body; lines 36–37: mod schema and attached body; lines 38–41: use schema and attached body; lines 42–43: mod archive and attached body; lines 44–46: use archive and attached body; lines 47–51: fn inspect_oci and attached body; lines 52–53: mod layers and attached body; lines 54–54: use layers and attached body; lines 55–59: use layers and attached body; lines 60–77: fn inspect_content_manifest and attached body; lines 78–87: fn inspect_oci_content and attached body; lines 88–94: use std and attached body; lines 95–96: type LayerScan and attached body; lines 97–138: fn scan_oci_archive_layers and attached body; lines 139–160: fn validate_oci_layout_inputs and attached body; lines 161–194: fn inspect_oci_layout and attached body; lines 195–200: struct LayoutLoader and attached body; lines 201–202: impl LayoutLoader and attached body; lines 203–209: fn load and attached body; lines 210–225: fn fetch and attached body; lines 226–253: fn inspect_image and attached body; lines 254–292: fn inspect_layout_images and attached body; lines 293–293: mod tests and attached body; lines 294–296: use super and attached body; lines 297–310: fn member_path_rules and attached body; lines 311–320: fn non_archive_refused and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 38 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-9d8a4a85817d"></a>
+
+## [lib/soda-release-deliver/src/oci/schema.rs](../../../../../lib/soda-release-deliver/src/oci/schema.rs)
+
+Current cohesive body inspected; single defining duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–598; whole file: oci index, manifest, config and descriptor decoding plus digest, media-type, layer and rootfs shape checks | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | OCI index, manifest, config and descriptor decoding plus digest, media-type, layer and rootfs shape checks. — lib/soda-release-deliver/src/oci/schema.rs; consumed by delivery OCI archive verifier |
 
 <a id="coverage-3cb1c1b2ee1f"></a>
-
 <a id="rustsoda-release-deliversrcpayloadrs-1"></a>
+<a id="coverage-f2e054fb68a8"></a>
 
 ## [lib/soda-release-deliver/src/payload.rs](../../../../../lib/soda-release-deliver/src/payload.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1–10 | Immutable payload identity and declared appliance image contracts; declarations/fields: `PATH`, `IMAGES_PATH`, `NAMES`, `Image`, `decode`, `emit`, `Payload`, `is_core_os_version`, `is_digest_ref`, `valid_identity`, `valid_base`, `valid_images`, `validate`, `decode_build`, `decode_opt_string`, `decode_opt_i64`, `decode_opt_u64`, `decode_opt_bool`, `decode_string_map`, `valid_repository_prefix`, `load`, `tests`, `repository_prefix_shapes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 11 | Immutable payload identity and declared appliance image contracts; declaration/member PATH; declarations/fields: `PATH` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 12–13 | Immutable payload identity and declared appliance image contracts; declaration/member IMAGES_PATH; declarations/fields: `IMAGES_PATH` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 14–23 | Immutable payload identity and declared appliance image contracts; declaration/member NAMES; declarations/fields: `NAMES` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 24 | Immutable payload identity and declared appliance image contracts; declaration/member Image; declarations/fields: `Image` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 25 | Immutable payload identity and declared appliance image contracts; declaration/member Image.reference; declarations/fields: `Image.reference` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 26 | Immutable payload identity and declared appliance image contracts; declaration/member Image.config; declarations/fields: `Image.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 27 | Immutable payload identity and declared appliance image contracts; declaration/member Image.manifest; declarations/fields: `Image.manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 28–31 | Immutable payload identity and declared appliance image contracts; declaration/member Image.archive_sha256; declarations/fields: `Image.archive_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 32–45, 168–208 | Immutable payload identity and declared appliance image contracts; declaration/member decode; declarations/fields: `decode` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 46–60, 264–310 | Immutable payload identity and declared appliance image contracts; declaration/member emit; declarations/fields: `emit` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 61 | Immutable payload identity and declared appliance image contracts; declaration/member Payload; declarations/fields: `Payload` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 62 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.format; declarations/fields: `Payload.format` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 63 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.id; declarations/fields: `Payload.id` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 64 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.revision; declarations/fields: `Payload.revision` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 65 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.architecture; declarations/fields: `Payload.architecture` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 66 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.core_os; declarations/fields: `Payload.core_os` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 67 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.base; declarations/fields: `Payload.base` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 68 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.repository_prefix; declarations/fields: `Payload.repository_prefix` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 69 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.schema; declarations/fields: `Payload.schema` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 70 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.presentation_sha256; declarations/fields: `Payload.presentation_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 71 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.host_packages_sha256; declarations/fields: `Payload.host_packages_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 72–74 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.images; declarations/fields: `Payload.images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 75–77 | Immutable payload identity and declared appliance image contracts; declaration/member Payload.upgrade_from; declarations/fields: `Payload.upgrade_from` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 78–87 | Immutable payload identity and declared appliance image contracts; declaration/member is_core_os_version; declarations/fields: `is_core_os_version` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 88–92 | Immutable payload identity and declared appliance image contracts; declaration/member is_digest_ref; declarations/fields: `is_digest_ref` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 93–102 | Immutable payload identity and declared appliance image contracts; declaration/member valid_identity; declarations/fields: `valid_identity` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 103–121 | Immutable payload identity and declared appliance image contracts; declaration/member valid_base; declarations/fields: `valid_base` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 122–147 | Immutable payload identity and declared appliance image contracts; declaration/member valid_images; declarations/fields: `valid_images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 148–167 | Immutable payload identity and declared appliance image contracts; declaration/member validate; declarations/fields: `validate` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 209–213 | Immutable payload identity and declared appliance image contracts; declaration/member decode_build; declarations/fields: `decode_build` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 214–219 | Immutable payload identity and declared appliance image contracts; declaration/member decode_opt_string; declarations/fields: `decode_opt_string` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 220–227 | Immutable payload identity and declared appliance image contracts; declaration/member decode_opt_i64; declarations/fields: `decode_opt_i64` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 228–235 | Immutable payload identity and declared appliance image contracts; declaration/member decode_opt_u64; declarations/fields: `decode_opt_u64` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 236–241 | Immutable payload identity and declared appliance image contracts; declaration/member decode_opt_bool; declarations/fields: `decode_opt_bool` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 242–263 | Immutable payload identity and declared appliance image contracts; declaration/member decode_string_map; declarations/fields: `decode_string_map` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 311–346 | Immutable payload identity and declared appliance image contracts; declaration/member valid_repository_prefix; declarations/fields: `valid_repository_prefix` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 347–367 | Immutable payload identity and declared appliance image contracts; declaration/member load; declarations/fields: `load` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 368–371 | Immutable payload identity and declared appliance image contracts; declaration/member tests; declarations/fields: `tests` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 372–387 | Immutable payload identity and declared appliance image contracts; declaration/member repository_prefix_shapes; declarations/fields: `repository_prefix_shapes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 388–406 | Source assertion of Artifact verification; declarations/fields: `payload_identity_errors_match_go` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–396; lines 10–11: PATH and attached behavior; attached module comments and attributes; lines 12–12: IMAGES_PATH and attached behavior; lines 13–24: NAMES and attached behavior; lines 32–42: fn decode_raw_default; lines 43–67: fn decode_images; lines 68–69: struct RawI64; lines 250–259: is_core_os_version and attached behavior; lines 260–263: is_digest_ref and attached behavior; lines 266–274: valid_identity and attached behavior; lines 275–293: valid_base and attached behavior; lines 294–319: valid_images and attached behavior; lines 320–343: validate and attached behavior; lines 344–379: valid_repository_prefix and attached behavior; lines 380–395: load and attached behavior; lines 396–396: tests and attached behavior | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Immutable payload identity and declared appliance image contracts; declaration/member PATH Adjacent comments and attributes explain this same authored responsibility.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0dec78b56389"></a>
+
+## [lib/soda-release-deliver/src/payload/tests.rs](../../../../../lib/soda-release-deliver/src/payload/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–67; lines 1–3: use super and attached body; lines 4–19: fn repository_prefix_shapes and attached body; lines 20–39: fn payload_identity_errors_match_go and attached body; lines 40–55: fn payload_raw_slots_keep_only_the_last_exact_value and attached body; lines 56–67: fn images_map_decodes_only_the_last_duplicate_entry and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-b84106523e8c"></a>
+<a id="coverage-41b08e368ee7"></a>
 
 ## [lib/soda-release-deliver/src/prepare.rs](../../../../../lib/soda-release-deliver/src/prepare.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1–90 | Qualified exact release input admission and immutable metadata preparation; declarations/fields: `Qualification`, `hash_release_provenance`, `read_media_binding`, `build_release_document`, `prepare` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 91–229 | Candidate artifact and image content verification; declarations/fields: `candidate_image_content`, `candidate_content_with_embedded_inventory`, `inspect_candidate_image`, `verify_candidate_image`, `candidate_image_inputs`, `verify_candidate_images` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 230–289 | Final immutable release tag/document binding; declarations/fields: `reference_for_document`, `immutable_tag`, `tests`, `document_references_and_tags`, `prepare_refuses_bad_trust_first` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–88, 229–288; lines 14–88: struct Qualification, fn hash_release_provenance, fn read_media_binding, fn build_release_document, fn prepare; attached module comments and attributes; lines 249–249: mod tests | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Qualified exact release input admission and immutable metadata preparation Adjacent comments and attributes explain this same authored responsibility.; Source-level oracle/test assertions for final immutable release tag/document binding — lib/soda-release-deliver/src/prepare.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 89–228; lines 89–228: fn candidate_image_content, fn candidate_content_with_embedded_inventory, fn inspect_candidate_image, fn verify_candidate_image, fn candidate_image_inputs, fn verify_candidate_images | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Candidate artifact and image content verification — lib/soda-release-deliver/src/prepare.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+
+<a id="coverage-39d3d2edaab1"></a>
+
+## [lib/soda-release-deliver/src/publish/channel.rs](../../../../../lib/soda-release-deliver/src/publish/channel.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–195; lines 1–1: use std and attached body; lines 2–3: use serde and attached body; lines 4–4: use serde and attached body; lines 5–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–12: use super and attached body; lines 13–25: fn decode_raw and attached body; lines 26–30: struct TagList and attached body; lines 31–31: fn deserialize and attached body; lines 32–33: struct V and attached body; lines 34–34: type Value and attached body; lines 35–37: fn expecting and attached body; lines 38–61: fn visit_map and attached body; lines 62–62: mod json_slot_tests and attached body; lines 63–65: use super and attached body; lines 66–78: fn tag_list_uses_final_exact_values_before_typed_conversion and attached body; lines 79–97: fn validate_channel_history and attached body; lines 98–115: fn admit_channel_offer and attached body; lines 116–129: fn channel_tag_exists and attached body; lines 130–155: fn verify_previous_channel and attached body; lines 156–179: fn promote_channel and attached body; lines 180–195: use std and attached body | [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 25 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-3145622fe22b"></a>
+
+## [lib/soda-release-deliver/src/publish/ledger.rs](../../../../../lib/soda-release-deliver/src/publish/ledger.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–62; lines 1–1: use serde and attached body; lines 2–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–10: use crate and attached body; lines 11–22: struct Ledger and attached body; lines 23–24: impl Ledger and attached body; lines 25–37: fn validate and attached body; lines 38–54: fn init_ledger and attached body; lines 55–62: fn valid_ledger_phase and attached body | [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b740f028d131"></a>
+
+## [lib/soda-release-deliver/src/publish/mod.rs](../../../../../lib/soda-release-deliver/src/publish/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–313; lines 1–3: use std and attached body; lines 4–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–11: use crate and attached body; lines 12–13: mod ledger and attached body; lines 14–14: use ledger and attached body; lines 15–47: fn upload and attached body; lines 48–50: fn policy_for_upload and attached body; lines 51–54: fn registry_config_for_upload and attached body; lines 55–79: fn observe_published and attached body; lines 80–98: fn admit_publish_ledger and attached body; lines 99–102: fn should_observe and attached body; lines 103–131: fn observe_only and attached body; lines 132–133: mod channel and attached body; lines 134–136: use channel and attached body; lines 137–169: fn admit_signed and attached body; lines 170–180: fn commit_immutable and attached body; lines 181–205: use std and attached body; lines 206–230: fn finalize_publication and attached body; lines 231–263: fn publish and attached body; lines 264–264: mod tests and attached body; lines 265–265: use super and attached body; lines 266–267: use super and attached body; lines 268–268: use crate and attached body; lines 269–277: fn trust and attached body; lines 278–300: fn ledger_phases and attached body; lines 301–313: fn channel_history_rules and attached body | [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 31 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
+
+<a id="coverage-74bad50280a1"></a>
+<a id="rustsoda-release-deliversrcbuildxrs-1"></a>
+
+Former source `lib/soda-release-deliver/src/buildx.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-452620fb57f9"></a>
+<a id="rustsoda-release-deliversrcfetchrs-1"></a>
+
+Former source `lib/soda-release-deliver/src/fetch.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-9cca680cf321"></a>
+<a id="rustsoda-release-deliversrcjsonxrs-1"></a>
+
+Former source `lib/soda-release-deliver/src/jsonx.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-be197ef17c55"></a>
+<a id="rustsoda-release-deliversrcmodelrs-1"></a>
+
+Former source `lib/soda-release-deliver/src/model.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-fc774294f0d5"></a>
+<a id="rustsoda-release-deliversrcnativers-1"></a>
+
+Former source `lib/soda-release-deliver/src/native.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-a060f97fea2b"></a>
+<a id="rustsoda-release-deliversrcocirs-1"></a>
+
+Former source `lib/soda-release-deliver/src/oci.rs`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-b4303a0369b0"></a>
-
 <a id="rustsoda-release-deliversrcpublishrs-1"></a>
 
-## [lib/soda-release-deliver/src/publish.rs](../../../../../lib/soda-release-deliver/src/publish.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 1–18, 521–533 | Publication ledger, uncertain effects, remote observation and channel promotion; declarations/fields: `Ledger`, `validate`, `decode`, `emit`, `init_ledger`, `valid_ledger_phase`, `upload`, `policy_for_upload`, `registry_config_for_upload`, `observe_published`, `admit_publish_ledger`, `should_observe`, `observe_only`, `validate_channel_history`, `admit_channel_offer`, `admit_signed`, `commit_immutable`, `channel_tag_exists`, `verify_previous_channel`, `promote_channel`, `finalize_publication`, `publish`, `tests`, `trust`, `channel_history_rules` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 19 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member Ledger; declarations/fields: `Ledger` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 20 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member Ledger.format; declarations/fields: `Ledger.format` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 21 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member Ledger.repository; declarations/fields: `Ledger.repository` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 22 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member Ledger.phase; declarations/fields: `Ledger.phase` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 23 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member Ledger.digest; declarations/fields: `Ledger.digest` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 24–27 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member Ledger.state; declarations/fields: `Ledger.state` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 28–38 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member validate; declarations/fields: `validate` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 39–59 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member decode; declarations/fields: `decode` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 60–76 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member emit; declarations/fields: `emit` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 77–94 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member init_ledger; declarations/fields: `init_ledger` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 95–102 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member valid_ledger_phase; declarations/fields: `valid_ledger_phase` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 103–134 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member upload; declarations/fields: `upload` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 135–138 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member policy_for_upload; declarations/fields: `policy_for_upload` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 139–142 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member registry_config_for_upload; declarations/fields: `registry_config_for_upload` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 143–167 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member observe_published; declarations/fields: `observe_published` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 168–186 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member admit_publish_ledger; declarations/fields: `admit_publish_ledger` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 187–190 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member should_observe; declarations/fields: `should_observe` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 191–219 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member observe_only; declarations/fields: `observe_only` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 220–237 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member validate_channel_history; declarations/fields: `validate_channel_history` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 238–257 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member admit_channel_offer; declarations/fields: `admit_channel_offer` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 258–291 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member admit_signed; declarations/fields: `admit_signed` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 292–325 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member commit_immutable; declarations/fields: `commit_immutable` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 326–355 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member channel_tag_exists; declarations/fields: `channel_tag_exists` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 356–386 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member verify_previous_channel; declarations/fields: `verify_previous_channel` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 387–428 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member promote_channel; declarations/fields: `promote_channel` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 429–453 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member finalize_publication; declarations/fields: `finalize_publication` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 454–486 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member publish; declarations/fields: `publish` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 487–489 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member tests; declarations/fields: `tests` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 490–497 | Publication ledger, uncertain effects, remote observation and channel promotion; declaration/member trust; declarations/fields: `trust` |
-| [D09](../../slices/release-and-installation.md#d09-publication-and-effect-observation) / active | 498–520 | Source assertion of Publication and effect observation; declarations/fields: `ledger_phases` |
-
+Former source `lib/soda-release-deliver/src/publish.rs`; consult its pinned earlier Git source and the current coverage disposition.

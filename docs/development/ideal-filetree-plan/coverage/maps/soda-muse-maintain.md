@@ -1,211 +1,283 @@
 # Soda muse maintain
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-dcae12a59b98"></a>
+
+## [cmd/soda-muse-maintain/src/archive.rs](../../../../../cmd/soda-muse-maintain/src/archive.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–188; current module/import/attribute shell; declaration feed_archive; declaration ExactPread; fields fd, name, offset, remaining; declaration read; declaration EmitWriter; fields emit, error; declaration write; declaration flush; declaration archive_error; declaration tool_header; declaration emit_archive; declaration archive_tests | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/archive.rs into its current native target.; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e141f4bb2460"></a>
+
+## [cmd/soda-muse-maintain/src/archive_tests.rs](../../../../../cmd/soda-muse-maintain/src/archive_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–194; current module/import/attribute shell; declaration ustar_header_metadata_is_explicit; declaration archive_is_deterministic_and_uses_declared_entries; declaration tool_replacement_preserves_other_files_and_refuses_symlinks; declaration streamed_stage_delivery; declaration wait_output_reports_status; declaration short_tool_file_ends_copy_with_eof | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/archive_tests.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-9aa2aaa855cf"></a>
+
+## [cmd/soda-muse-maintain/src/command.rs](../../../../../cmd/soda-muse-maintain/src/command.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–321; current module/import/attribute shell; declaration podman; declaration podman_streamed; declaration WriteHalfOnDrop; declaration drop; declaration FeederOwner; fields interrupt_fd, thread; declaration interrupt; declaration finish; declaration wait_output; declaration OUTPUT_LIMIT; declaration custody_tests; declaration child; declaration continuous_output_cannot_starve_deadline; declaration exited_child_with_inherited_pipe_is_failure; declaration silent_child_is_killed_at_absolute_deadline; declaration feeder_shutdown_interrupts_blocked_write_and_joins | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/command.rs into its current native target.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-795fa6e15310"></a>
+
+## [cmd/soda-muse-maintain/src/config.rs](../../../../../cmd/soda-muse-maintain/src/config.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–3, 21–35; current module/import/attribute shell; declaration load_config; declaration config_tests | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/config.rs into its current native target.; load_config: implement the current host installation and payload application duty in config.rs.; Exercise the named native behavior in config.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 4–20; declaration Config; fields muse_sha256, muse_version, muse_socket, identity_socket, codex_harness, codex_harness_sha256, codex_harness_version, tailnet_management, tailnet_image, image, network, subnet, bridge | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Config: implement the current configuration and safe filesystem primitives duty in config.rs. — current source cmd/soda-muse-maintain/src/config.rs; lines 4-20; module/caller wiring inspected |
+
+<a id="coverage-53b3244b9f45"></a>
+
+## [cmd/soda-muse-maintain/src/config_tests.rs](../../../../../cmd/soda-muse-maintain/src/config_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–120; current module/import/attribute shell; declaration go_quoted_vectors; declaration config_read_error_shapes; declaration host_config_decode_vectors; declaration runtime_config_validation_order | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/config_tests.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-242704bc518f"></a>
+
+## [cmd/soda-muse-maintain/src/config_validation.rs](../../../../../cmd/soda-muse-maintain/src/config_validation.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–102; current module/import/attribute shell; declaration validate_runtime_config; declaration valid_tailnet_config; declaration validate_muse_runtime; declaration validate_identity_runtime; declaration valid_harness_version; declaration valid_network_names; declaration valid_network_name; declaration valid_tailnet_image | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/config_validation.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-eea851854be2"></a>
+
+## [cmd/soda-muse-maintain/src/config_wire.rs](../../../../../cmd/soda-muse-maintain/src/config_wire.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–166; current module/import/attribute shell; declaration decode_host_config; declaration deserialize; declaration ConfigVisitor; declaration Value; declaration expecting; declaration visit_map; declaration visit_unit; declaration set_string; declaration set_bool; declaration HOST_FIELDS; declaration host_field_slot; declaration go_quoted; declaration is_go_nonprint | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/config_wire.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-476e3ce1f41b"></a>
+
+## [cmd/soda-muse-maintain/src/filesystem.rs](../../../../../cmd/soda-muse-maintain/src/filesystem.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–160; current module/import/attribute shell; declaration go_base; declaration go_dir; declaration path_error; declaration go_errno; declaration last_errno; declaration Tool; fields name, fd, size; declaration drop; declaration load_tools; declaration open_tool; declaration trusted_tool; declaration verify_native; declaration filesystem_tests | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/filesystem.rs into its current native target.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-98056e47cce4"></a>
+
+## [cmd/soda-muse-maintain/src/filesystem_tests.rs](../../../../../cmd/soda-muse-maintain/src/filesystem_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–124; current module/import/attribute shell; declaration sha256_known_answers; declaration native_errno_keeps_operation_and_path_context; declaration native_path_helpers_keep_fixed_tool_location; declaration tool_source_and_digest_admission | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/filesystem_tests.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0bb3ef5abfb1"></a>
+
+## [cmd/soda-muse-maintain/src/interface.rs](../../../../../cmd/soda-muse-maintain/src/interface.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–172; current module/import/attribute shell; declaration INTERFACE_SCRIPT; declaration prepare_interface; declaration FdGuard; declaration drop; declaration attach_interface; declaration syscall_open_tree; declaration restrict_interface_mount; declaration attach_project_mount; declaration interface_tests | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/interface.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7f975165dd39"></a>
+
+## [cmd/soda-muse-maintain/src/interface_admission.rs](../../../../../cmd/soda-muse-maintain/src/interface_admission.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–55; current module/import/attribute shell; declaration public_socket_directory; declaration validate_public_socket; declaration validate_interface_directory | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/interface_admission.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0f023d7a5011"></a>
+
+## [cmd/soda-muse-maintain/src/interface_tests.rs](../../../../../cmd/soda-muse-maintain/src/interface_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–56; current module/import/attribute shell; declaration public_interface_admission | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/interface_tests.rs into its current native target.; public_interface_admission: implement the current host installation and payload application duty in interface_tests.rs. — current source cmd/soda-muse-maintain/src/interface_tests.rs; Cargo target and callers; current source cmd/soda-muse-maintain/src/interface_tests.rs; lines 6-56; module/caller wiring inspected |
+
+<a id="coverage-07e542a2ef71"></a>
+
+## [cmd/soda-muse-maintain/src/main.rs](../../../../../cmd/soda-muse-maintain/src/main.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–5, 7–29; current module/import/attribute shell; declaration archive; declaration command; declaration config_validation; declaration config_wire; declaration filesystem; declaration interface; declaration interface_admission; declaration network; declaration options; declaration project; declaration release; declaration release_validation; declaration release_wire; declaration sha256; declaration stage; declaration test_support | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/main.rs into its current native target.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 6; declaration config | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | config: implement the current configuration and safe filesystem primitives duty in main.rs. — current source cmd/soda-muse-maintain/src/main.rs; lines 6-6; module/caller wiring inspected |
+| 30–32; declaration MUSE_VERSION; declaration RELEASE_PATH | [P10](../../slices/projects.md#p10-shared-tools-and-packages) | retained | MUSE_VERSION: implement the current Project shared tools duty in main.rs.; RELEASE_PATH: implement the current Project shared tools duty in main.rs. — current source cmd/soda-muse-maintain/src/main.rs; lines 30-30; module/caller wiring inspected; current source cmd/soda-muse-maintain/src/main.rs; lines 31-32; module/caller wiring inspected |
+| 33–74; declaration main; declaration run; declaration is_lower_hex; declaration maintain | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Compose the current main.rs command/module and its native consumers.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-db7ff0f1159b"></a>
+
+## [cmd/soda-muse-maintain/src/network.rs](../../../../../cmd/soda-muse-maintain/src/network.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–35; current module/import/attribute shell; declaration parse_prefix | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/network.rs into its current native target.; parse_prefix: implement the current host installation and payload application duty in network.rs. — current source cmd/soda-muse-maintain/src/network.rs; Cargo target and callers; current source cmd/soda-muse-maintain/src/network.rs; lines 5-35; module/caller wiring inspected |
+
+<a id="coverage-f65ed9ad49cd"></a>
+
+## [cmd/soda-muse-maintain/src/network_tests.rs](../../../../../cmd/soda-muse-maintain/src/network_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–37; current module/import/attribute shell; declaration prefix_grammar_family_and_bounds | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/network_tests.rs into its current native target.; prefix_grammar_family_and_bounds: implement the current host installation and payload application duty in network_tests.rs. — current source cmd/soda-muse-maintain/src/network_tests.rs; Cargo target and callers; current source cmd/soda-muse-maintain/src/network_tests.rs; lines 3-37; module/caller wiring inspected |
+
+<a id="coverage-e9a367d5dec7"></a>
+
+## [cmd/soda-muse-maintain/src/options.rs](../../../../../cmd/soda-muse-maintain/src/options.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–131; declaration Options; fields config, project, tools, bind_only; declaration default_tools; declaration parse; declaration print_usage; declaration usage_text; declaration flag_error; declaration parse_bool_flag; declaration valid_project_id; declaration options_tests | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Options: implement the current host installation and payload application duty in options.rs.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-03d910657770"></a>
+
+## [cmd/soda-muse-maintain/src/options_tests.rs](../../../../../cmd/soda-muse-maintain/src/options_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–75; current module/import/attribute shell; declaration args; declaration flag_parsing_vectors | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/options_tests.rs into its current native target.; args: implement the current host installation and payload application duty in options_tests.rs.; flag_parsing_vectors: implement the current host installation and payload application duty in options_tests.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a0ddbc725cb6"></a>
+
+## [cmd/soda-muse-maintain/src/project.rs](../../../../../cmd/soda-muse-maintain/src/project.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–166; current module/import/attribute shell; declaration INSPECT_FORMAT; declaration Observation; fields id, project, owner, pid, running; declaration inspect_project; declaration validate_observation; declaration decode_observation; declaration Field; declaration Pairs; declaration deserialize; declaration PairsVisitor; declaration Value; declaration expecting; declaration visit_map; declaration observation_slot; declaration KEYS; declaration wait_project; declaration confirm_project; declaration project_tests | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/project.rs into its current native target.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-de9d24148010"></a>
+
+## [cmd/soda-muse-maintain/src/project_tests.rs](../../../../../cmd/soda-muse-maintain/src/project_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–100; current module/import/attribute shell; declaration observation_decode_and_validate | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/project_tests.rs into its current native target.; observation_decode_and_validate: implement the current host installation and payload application duty in project_tests.rs. — current source cmd/soda-muse-maintain/src/project_tests.rs; Cargo target and callers; current source cmd/soda-muse-maintain/src/project_tests.rs; lines 5-100; module/caller wiring inspected |
+
+<a id="coverage-b2679ef268d8"></a>
+
+## [cmd/soda-muse-maintain/src/release.rs](../../../../../cmd/soda-muse-maintain/src/release.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–139; current module/import/attribute shell; declaration apply_release_images; declaration ReleasePayload; fields architecture, images; declaration ReleaseImage; fields reference, config, manifest, archive_sha256; declaration image_config; declaration load_release_payload; declaration Guard; declaration drop; declaration release_tests | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/release.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6d111180bd63"></a>
+
+## [cmd/soda-muse-maintain/src/release_tests.rs](../../../../../cmd/soda-muse-maintain/src/release_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–189; current module/import/attribute shell; declaration valid_release_json; declaration release_payload_accept_and_reject; declaration release_images_apply_and_conflict | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/release_tests.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7d7127cb58ef"></a>
+
+## [cmd/soda-muse-maintain/src/release_validation.rs](../../../../../cmd/soda-muse-maintain/src/release_validation.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–116; current module/import/attribute shell; declaration validate_release_payload; declaration NAMES; declaration is_hex_string; declaration is_digest; declaration valid_coreos_version; declaration valid_repository_prefix | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/release_validation.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-87732be3f5b9"></a>
+
+## [cmd/soda-muse-maintain/src/release_wire.rs](../../../../../cmd/soda-muse-maintain/src/release_wire.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–238; current module/import/attribute shell; declaration decode_release_payload; declaration PayloadDto; fields format, id, revision, architecture, coreos, base, repository_prefix, schema, presentation, host_packages, images, upgrade_from; declaration deserialize; declaration PayloadVisitor; declaration Value; declaration expecting; declaration visit_map; declaration Nullable; fields T; declaration NullableVisitor; fields T; declaration visit_none; declaration visit_unit; declaration visit_some; declaration Images; declaration ImagesVisitor; declaration ImageDto; declaration ImageVisitor; declaration PAYLOAD_FIELDS; declaration IMAGE_FIELDS; declaration slot; declaration payload_slot; declaration image_slot | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/release_wire.rs into its current native target.; 33 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-91f19be11588"></a>
+
+## [cmd/soda-muse-maintain/src/sha256.rs](../../../../../cmd/soda-muse-maintain/src/sha256.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–13; current module/import/attribute shell; declaration hex_encode; declaration HEX | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/sha256.rs into its current native target.; hex_encode: implement the current host installation and payload application duty in sha256.rs.; HEX: implement the current host installation and payload application duty in sha256.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-5bf33bf3b0bd"></a>
+
+## [cmd/soda-muse-maintain/src/stage.rs](../../../../../cmd/soda-muse-maintain/src/stage.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–87; current module/import/attribute shell; declaration BUS_SCRIPT; declaration DESTINATIONS; declaration INSTALL_SCRIPT; declaration ensure_system_bus; declaration stage_tools | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/stage.rs into its current native target.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f9b2a30636f3"></a>
+
+## [cmd/soda-muse-maintain/src/test_support.rs](../../../../../cmd/soda-muse-maintain/src/test_support.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–100; current module/import/attribute shell; declaration TEST_SEQ; declaration TestDir; declaration make; declaration path; declaration dir_str; declaration drop; declaration is_root; declaration PROJECT; declaration hex_string; declaration synthetic_feeds; declaration emit_synthetic; declaration run_install_script | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Imports and module declarations wire cmd/soda-muse-maintain/src/test_support.rs into its current native target.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-4d99badbce97"></a>
-
 <a id="rustsoda-muse-maintainsrcmainrs-1"></a>
 
-## [rust/soda-muse-maintain/src/main.rs](../../../../../rust/soda-muse-maintain/src/main.rs)
-
-Explicit tool/interface maintenance, including --bind-only from soda-project@.service. Native mount/tool maintenance is I09; shared system-bus installation is P10, and immutable payload validation duplication remains explicit. Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P10](../../slices/projects.md#p10-shared-tools-and-packages) / active | 1–10 | Native shared DBus system bus helper installation script; declarations/fields: `MUSE_VERSION`, `RELEASE_PATH`, `BUS_SCRIPT` |
-| [P10](../../slices/projects.md#p10-shared-tools-and-packages) / active | 11 | Native shared DBus system bus helper installation script; declaration/member MUSE_VERSION; declarations/fields: `MUSE_VERSION` |
-| [P10](../../slices/projects.md#p10-shared-tools-and-packages) / active | 12–15 | Native shared DBus system bus helper installation script; declaration/member RELEASE_PATH; declarations/fields: `RELEASE_PATH` |
-| [P10](../../slices/projects.md#p10-shared-tools-and-packages) / active | 16–20 | Native shared DBus system bus helper installation script; declaration/member BUS_SCRIPT; declarations/fields: `BUS_SCRIPT` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 21 | Public Muse executable/interface mount maintenance scripts; declarations/fields: `INTERFACE_SCRIPT`, `DESTINATIONS`, `INSTALL_SCRIPT`, `INSPECT_FORMAT` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 22–24 | Public Muse executable/interface mount maintenance scripts; declaration/member INTERFACE_SCRIPT; declarations/fields: `INTERFACE_SCRIPT` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 25–30 | Public Muse executable/interface mount maintenance scripts; declaration/member DESTINATIONS; declarations/fields: `DESTINATIONS` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 31–55 | Public Muse executable/interface mount maintenance scripts; declaration/member INSTALL_SCRIPT; declarations/fields: `INSTALL_SCRIPT` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 56–58 | Public Muse executable/interface mount maintenance scripts; declaration/member INSPECT_FORMAT; declarations/fields: `INSPECT_FORMAT` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 59 | Explicit maintenance and bind-only CLI; declarations/fields: `Options` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 60 | Explicit maintenance and bind-only CLI; declaration/member Options.config; declarations/fields: `Options.config` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 61 | Explicit maintenance and bind-only CLI; declaration/member Options.project; declarations/fields: `Options.project` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 62 | Explicit maintenance and bind-only CLI; declaration/member Options.tools; declarations/fields: `Options.tools` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 63–65 | Explicit maintenance and bind-only CLI; declaration/member Options.bind_only; declarations/fields: `Options.bind_only` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 66–72 | Explicit maintenance and bind-only CLI; declaration/member main; declarations/fields: `main` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 73–91 | Explicit maintenance and bind-only CLI; declaration/member run; declarations/fields: `run` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 92–95 | Explicit maintenance and bind-only CLI; declaration/member default_tools; declarations/fields: `default_tools` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 96–182 | Explicit maintenance and bind-only CLI; declaration/member parse; declarations/fields: `parse` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 183–186 | Explicit maintenance and bind-only CLI; declaration/member print_usage; declarations/fields: `print_usage` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 187–192 | Explicit maintenance and bind-only CLI; declaration/member usage_text; declarations/fields: `usage_text` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 193–198 | Explicit maintenance and bind-only CLI; declaration/member flag_error; declarations/fields: `flag_error` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 199–206 | Explicit maintenance and bind-only CLI; declaration/member parse_bool_flag; declarations/fields: `parse_bool_flag` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 207–211 | Explicit maintenance and bind-only CLI; declaration/member valid_project_id; declarations/fields: `valid_project_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 212–219 | Explicit maintenance and bind-only CLI; declaration/member is_lower_hex; declarations/fields: `is_lower_hex` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 220–256 | Go-shaped quoting and native path formatting; declarations/fields: `go_quoted` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 257–267 | Go-shaped quoting and native path formatting; declaration/member is_go_nonprint; declarations/fields: `is_go_nonprint` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 268–281 | Explicit native maintenance operation; declarations/fields: `maintain` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 282–313 | Lexical path helpers; declarations/fields: `go_clean` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 314–327 | Lexical path helpers; declaration/member go_base; declarations/fields: `go_base` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 328–338 | Lexical path helpers; declaration/member go_dir; declarations/fields: `go_dir` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 339 | Protected host config load and OS error rendering; declarations/fields: `Config` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 340 | Protected host config load and OS error rendering; declaration/member Config.muse_sha256; declarations/fields: `Config.muse_sha256` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 341 | Protected host config load and OS error rendering; declaration/member Config.muse_version; declarations/fields: `Config.muse_version` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 342 | Protected host config load and OS error rendering; declaration/member Config.muse_socket; declarations/fields: `Config.muse_socket` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 343 | Protected host config load and OS error rendering; declaration/member Config.identity_socket; declarations/fields: `Config.identity_socket` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 344 | Protected host config load and OS error rendering; declaration/member Config.codex_harness; declarations/fields: `Config.codex_harness` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 345 | Protected host config load and OS error rendering; declaration/member Config.codex_harness_sha256; declarations/fields: `Config.codex_harness_sha256` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 346 | Protected host config load and OS error rendering; declaration/member Config.codex_harness_version; declarations/fields: `Config.codex_harness_version` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 347 | Protected host config load and OS error rendering; declaration/member Config.tailnet_management; declarations/fields: `Config.tailnet_management` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 348 | Protected host config load and OS error rendering; declaration/member Config.tailnet_image; declarations/fields: `Config.tailnet_image` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 349 | Protected host config load and OS error rendering; declaration/member Config.image; declarations/fields: `Config.image` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 350 | Protected host config load and OS error rendering; declaration/member Config.network; declarations/fields: `Config.network` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 351 | Protected host config load and OS error rendering; declaration/member Config.subnet; declarations/fields: `Config.subnet` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 352–354 | Protected host config load and OS error rendering; declaration/member Config.bridge; declarations/fields: `Config.bridge` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 355–365 | Protected host config load and OS error rendering; declaration/member load_config; declarations/fields: `load_config` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 366–371 | Protected host config load and OS error rendering; declaration/member path_error; declarations/fields: `path_error` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 372–509 | Protected host config load and OS error rendering; declaration/member go_errno; declarations/fields: `go_errno` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 510–516 | Protected host config load and OS error rendering; declaration/member last_errno; declarations/fields: `last_errno` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 517–598 | Go-shaped known-field JSON parser; declarations/fields: `decode_host_config` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 599–603 | Go-shaped known-field JSON parser; declaration/member invalid_character; declarations/fields: `invalid_character` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 604–611 | Go-shaped known-field JSON parser; declaration/member decode_host_field; declarations/fields: `decode_host_field` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 612–670 | Go-shaped known-field JSON parser; declaration/member Value; declarations/fields: `Value` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 671–676 | Go-shaped known-field JSON parser; declaration/member type_error; declarations/fields: `type_error` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 677 | Go-shaped known-field JSON parser; declaration/member host_field_slot; declarations/fields: `host_field_slot` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 678–707 | Go-shaped known-field JSON parser; declaration/member KEYS; declarations/fields: `KEYS` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 708–725 | Go-shaped known-field JSON parser; declaration/member set_host_string; declarations/fields: `set_host_string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 726 | Go-shaped known-field JSON parser; declaration/member JsonParser; declarations/fields: `JsonParser` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 727 | Go-shaped known-field JSON parser; declaration/member JsonParser.bytes; declarations/fields: `JsonParser.bytes` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 728–731 | Go-shaped known-field JSON parser; declaration/member JsonParser.pos; declarations/fields: `JsonParser.pos` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 732–735 | Go-shaped known-field JSON parser; declaration/member new; declarations/fields: `new` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 736–739 | Go-shaped known-field JSON parser; declaration/member eof; declarations/fields: `eof` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 740–743 | Go-shaped known-field JSON parser; declaration/member peek; declarations/fields: `peek` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 744–755 | Go-shaped known-field JSON parser; declaration/member peek_char; declarations/fields: `peek_char` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 756–759 | Go-shaped known-field JSON parser; declaration/member bump; declarations/fields: `bump` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 760–765 | Go-shaped known-field JSON parser; declaration/member skip_ws; declarations/fields: `skip_ws` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 766–792 | Go-shaped known-field JSON parser; declaration/member value_kind; declarations/fields: `value_kind` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 793–875 | Go-shaped known-field JSON parser; declaration/member parse_string; declarations/fields: `parse_string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 876–903 | Go-shaped known-field JSON parser; declaration/member surrogate_tail; declarations/fields: `surrogate_tail` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 904–939 | Go-shaped known-field JSON parser; declaration/member parse_literal; declarations/fields: `parse_literal` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 940–981 | Go-shaped known-field JSON parser; declaration/member scan_number; declarations/fields: `scan_number` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 982–991 | Go-shaped known-field JSON parser; declaration/member numeric_error; declarations/fields: `numeric_error` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 992–1075 | Go-shaped known-field JSON parser; declaration/member skip_value; declarations/fields: `skip_value` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1076–1100 | Go-shaped known-field JSON parser; declaration/member decode_first_char; declarations/fields: `decode_first_char` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1101–1134 | Installed release image overlay; declarations/fields: `apply_release_images` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1135 | Installed release image overlay; declaration/member ReleasePayload; declarations/fields: `ReleasePayload` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1136 | Installed release image overlay; declaration/member ReleasePayload.architecture; declarations/fields: `ReleasePayload.architecture` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1137–1140 | Installed release image overlay; declaration/member ReleasePayload.images; declarations/fields: `ReleasePayload.images` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1141 | Installed release image overlay; declaration/member ReleaseImage; declarations/fields: `ReleaseImage` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1142 | Installed release image overlay; declaration/member ReleaseImage.reference; declarations/fields: `ReleaseImage.reference` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1143 | Installed release image overlay; declaration/member ReleaseImage.config; declarations/fields: `ReleaseImage.config` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1144 | Installed release image overlay; declaration/member ReleaseImage.manifest; declarations/fields: `ReleaseImage.manifest` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1145–1148 | Installed release image overlay; declaration/member ReleaseImage.archive_sha256; declarations/fields: `ReleaseImage.archive_sha256` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1149–1159 | Installed release image overlay; declaration/member image_config; declarations/fields: `image_config` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1160–1179 | Installed release image overlay; declaration/member load_release_payload; declarations/fields: `load_release_payload` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1180–1181 | Bounded installed payload file read; declarations/fields: `Guard` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1182–1230 | Bounded installed payload file read; declaration/member drop; declarations/fields: `drop` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1231–1335 | Installed release JSON binding; declarations/fields: `decode_release_payload` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1336 | Installed release JSON binding; declaration/member payload_slot; declarations/fields: `payload_slot` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1337–1366 | Installed release JSON binding; declaration/member KEYS; declarations/fields: `KEYS` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1367–1400 | Installed immutable release payload validation; declarations/fields: `validate_release_payload` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1401–1429 | Installed immutable release payload validation; declaration/member NAMES; declarations/fields: `NAMES` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1430–1434 | Installed immutable release payload validation; declaration/member is_hex_string; declarations/fields: `is_hex_string` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1435–1441 | Installed immutable release payload validation; declaration/member is_digest; declarations/fields: `is_digest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1442–1449 | Installed immutable release payload validation; declaration/member valid_coreos_version; declarations/fields: `valid_coreos_version` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1450–1481 | Installed immutable release payload validation; declaration/member valid_repository_prefix; declarations/fields: `valid_repository_prefix` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1482–1489 | Payload parser methods; declarations/fields: `parse_payload_string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1490–1518 | Payload parser methods; declaration/member parse_payload_int; declarations/fields: `parse_payload_int` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1519–1569 | Payload parser methods; declaration/member parse_payload_images; declarations/fields: `parse_payload_images` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1570–1639 | Payload parser methods; declaration/member parse_payload_image; declarations/fields: `parse_payload_image` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1640–1672 | Payload parser methods; declaration/member parse_payload_string_list; declarations/fields: `parse_payload_string_list` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1673 | Payload parser methods; declaration/member image_slot; declarations/fields: `image_slot` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1674–1689 | Payload parser methods; declaration/member KEYS; declarations/fields: `KEYS` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1690–1706 | Ordered runtime configuration admission; declarations/fields: `validate_runtime_config` |
-| [N06](../../slices/networking.md#n06-project-companion-lifecycle) / active | 1707–1712 | Companion configuration admission; declarations/fields: `valid_tailnet_config` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1713–1729 | Muse/Codex execution pin/socket validation; declarations/fields: `validate_muse_runtime` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1730–1747 | Muse/Codex execution pin/socket validation; declaration/member validate_identity_runtime; declarations/fields: `validate_identity_runtime` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1748–1761 | Muse/Codex execution pin/socket validation; declaration/member valid_harness_version; declarations/fields: `valid_harness_version` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 1762–1768 | Native Project network settings admission; declarations/fields: `valid_network_names` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 1769–1782 | Native Project network settings admission; declaration/member valid_network_name; declarations/fields: `valid_network_name` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 1783–1792 | Native Project network settings admission; declaration/member valid_tailnet_image; declarations/fields: `valid_tailnet_image` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1793–1827 | Go IP/prefix parser; declarations/fields: `parse_prefix` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1828–1847 | Go IP/prefix parser; declaration/member parse_addr; declarations/fields: `parse_addr` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1848–1885 | Go IP/prefix parser; declaration/member parse_ipv4_fields; declarations/fields: `parse_ipv4_fields` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1886–1891 | Go IP/prefix parser; declaration/member parse_ipv4; declarations/fields: `parse_ipv4` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1892–1993 | Go IP/prefix parser; declaration/member parse_ipv6; declarations/fields: `parse_ipv6` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1994 | Trusted public executable/tool source admission; declarations/fields: `Tool` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1995 | Trusted public executable/tool source admission; declaration/member Tool.name; declarations/fields: `Tool.name` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1996 | Trusted public executable/tool source admission; declaration/member Tool.fd; declarations/fields: `Tool.fd` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1997–2000 | Trusted public executable/tool source admission; declaration/member Tool.size; declarations/fields: `Tool.size` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2001–2007 | Trusted public executable/tool source admission; declaration/member drop; declarations/fields: `drop` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2008–2021 | Trusted public executable/tool source admission; declaration/member load_tools; declarations/fields: `load_tools` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2022–2059 | Trusted public executable/tool source admission; declaration/member open_tool; declarations/fields: `open_tool` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2060–2063 | Trusted public executable/tool source admission; declaration/member trusted_tool; declarations/fields: `trusted_tool` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2064–2095 | Trusted public executable/tool source admission; declaration/member verify_native; declarations/fields: `verify_native` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2096 | SHA-256 and digest helpers; declarations/fields: `hex_encode` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2097–2107 | SHA-256 and digest helpers; declaration/member HEX; declarations/fields: `HEX` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2108 | SHA-256 and digest helpers; declaration/member Sha256; declarations/fields: `Sha256` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2109 | SHA-256 and digest helpers; declaration/member Sha256.h; declarations/fields: `Sha256.h` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2110 | SHA-256 and digest helpers; declaration/member Sha256.buf; declarations/fields: `Sha256.buf` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2111 | SHA-256 and digest helpers; declaration/member Sha256.used; declarations/fields: `Sha256.used` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2112–2115 | SHA-256 and digest helpers; declaration/member Sha256.len; declarations/fields: `Sha256.len` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2116–2127 | SHA-256 and digest helpers; declaration/member new; declarations/fields: `new` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2128–2152 | SHA-256 and digest helpers; declaration/member update; declarations/fields: `update` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2153–2174 | SHA-256 and digest helpers; declaration/member finish; declarations/fields: `finish` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2175 | SHA-256 and digest helpers; declaration/member block; declarations/fields: `block` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2176–2238 | SHA-256 and digest helpers; declaration/member K; declarations/fields: `K` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2239 | Native Project readiness observation and identity confirmation; declarations/fields: `Observation` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2240 | Native Project readiness observation and identity confirmation; declaration/member Observation.id; declarations/fields: `Observation.id` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2241 | Native Project readiness observation and identity confirmation; declaration/member Observation.project; declarations/fields: `Observation.project` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2242 | Native Project readiness observation and identity confirmation; declaration/member Observation.owner; declarations/fields: `Observation.owner` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2243 | Native Project readiness observation and identity confirmation; declaration/member Observation.pid; declarations/fields: `Observation.pid` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2244–2246 | Native Project readiness observation and identity confirmation; declaration/member Observation.running; declarations/fields: `Observation.running` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2247–2264 | Native Project readiness observation and identity confirmation; declaration/member podman; declarations/fields: `podman` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2265–2301 | Native Project readiness observation and identity confirmation; declaration/member podman_streamed; declarations/fields: `podman_streamed` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2302–2346 | Native Project readiness observation and identity confirmation; declaration/member wait_output; declarations/fields: `wait_output` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2347–2356 | Native Project readiness observation and identity confirmation; declaration/member inspect_project; declarations/fields: `inspect_project` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2357–2371 | Native Project readiness observation and identity confirmation; declaration/member validate_observation; declarations/fields: `validate_observation` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2372–2379 | Native Project readiness observation and identity confirmation; declaration/member decode_observation; declarations/fields: `decode_observation` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2380–2487 | Native Project readiness observation and identity confirmation; declaration/member Field; declarations/fields: `Field` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2488 | Native Project readiness observation and identity confirmation; declaration/member observation_slot; declarations/fields: `observation_slot` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2489–2504 | Native Project readiness observation and identity confirmation; declaration/member KEYS; declarations/fields: `KEYS` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2505–2522 | Native Project readiness observation and identity confirmation; declaration/member wait_project; declarations/fields: `wait_project` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 2523–2532 | Native Project readiness observation and identity confirmation; declaration/member confirm_project; declarations/fields: `confirm_project` |
-| [P10](../../slices/projects.md#p10-shared-tools-and-packages) / active | 2533–2543 | Explicit Project native system-bus setup; declarations/fields: `ensure_system_bus` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2544–2577 | Public native tool installation/staging; declarations/fields: `stage_tools` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2578–2623 | Bounded native tar archive emission; declarations/fields: `feed_archive` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2624–2659 | Bounded native tar archive emission; declaration/member emit_archive; declarations/fields: `emit_archive` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2660–2683 | Bounded native tar archive emission; declaration/member tar_header; declarations/fields: `tar_header` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2684–2700 | Public execution interface mount materialization; declarations/fields: `prepare_interface` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2701–2703 | Public execution interface mount materialization; declaration/member FdGuard; declarations/fields: `FdGuard` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2704–2710 | Public execution interface mount materialization; declaration/member drop; declarations/fields: `drop` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2711–2735 | Public execution interface mount materialization; declaration/member attach_interface; declarations/fields: `attach_interface` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2736–2755 | Public execution interface mount materialization; declaration/member syscall_open_tree; declarations/fields: `syscall_open_tree` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2756–2781 | Public execution interface mount materialization; declaration/member restrict_interface_mount; declarations/fields: `restrict_interface_mount` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2782–2841 | Public execution interface mount materialization; declaration/member attach_project_mount; declarations/fields: `attach_project_mount` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2842–2862 | Public socket/interface directory admission; declarations/fields: `public_socket_directory` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2863–2876 | Public socket/interface directory admission; declaration/member validate_public_socket; declarations/fields: `validate_public_socket` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2877–2893 | Public socket/interface directory admission; declaration/member validate_interface_directory; declarations/fields: `validate_interface_directory` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2894–2899, 3045–3048, 3451–3454, 3896–3911 | Native maintenance source fixtures/assertions; declarations/fields: `tests`, `args`, `hex_string`, `synthetic_feeds` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2900–2901 | Native maintenance source fixtures/assertions; declaration/member TEST_SEQ; declarations/fields: `TEST_SEQ` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2902–2904 | Native maintenance source fixtures/assertions; declaration/member TestDir; declarations/fields: `TestDir` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2905–2917 | Native maintenance source fixtures/assertions; declaration/member make; declarations/fields: `make` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2918–2921 | Native maintenance source fixtures/assertions; declaration/member path; declarations/fields: `path` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2922–2927 | Native maintenance source fixtures/assertions; declaration/member dir_str; declarations/fields: `dir_str` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2928–2932 | Native maintenance source fixtures/assertions; declaration/member drop; declarations/fields: `drop` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2933–2937 | Native maintenance source fixtures/assertions; declaration/member is_root; declarations/fields: `is_root` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2938–2974, 3120–3245, 3872–3895 | Source assertion of Encoding and parsing; declarations/fields: `sha256_known_answers`, `host_config_decode_vectors`, `tar_header_layout_matches_ustar` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2975–2991 | Source assertion of Encoding and parsing; declaration/member go_quoted_vectors; declarations/fields: `go_quoted_vectors` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 2992–3003, 3616–3665 | Source assertion of Configuration and filesystem primitives; declarations/fields: `errno_table_spot_checks`, `runtime_config_validation_order` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 3004–3026 | Source assertion of Configuration and filesystem primitives; declaration/member config_read_error_shapes; declarations/fields: `config_read_error_shapes` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 3027–3044 | Source assertion of Configuration and filesystem primitives; declaration/member go_path_helpers; declarations/fields: `go_path_helpers` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3049–3051 | Native maintenance source fixtures/assertions; declaration/member PROJECT; declarations/fields: `PROJECT` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3052–3119 | Native maintenance source fixtures/assertions; declaration/member flag_parsing_vectors; declarations/fields: `flag_parsing_vectors` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 3246–3450 | Source assertion of Encoding and parsing; declaration/member prefix_parity_vectors; declarations/fields: `prefix_parity_vectors` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3455–3498 | Native maintenance source fixtures/assertions; declaration/member valid_release_json; declarations/fields: `valid_release_json` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 3499–3590 | Source assertion of Artifact verification; declarations/fields: `release_payload_accept_and_reject` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 3591–3615 | Source assertion of Host installation and payload application; declarations/fields: `release_images_apply_and_conflict` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 3666–3762 | Source assertion of Profile and runtime readiness; declarations/fields: `observation_decode_and_validate` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3763–3819, 3947–3989 | Source assertion of Provider execution integration; declarations/fields: `tool_source_and_digest_admission`, `tool_replacement_preserves_other_files_and_refuses_symlinks` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 3820–3871 | Source assertion of Private IPC and service lifetime; declarations/fields: `public_interface_admission` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3912–3927 | Native maintenance source fixtures/assertions; declaration/member emit_synthetic; declarations/fields: `emit_synthetic` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3928–3946 | Native maintenance source fixtures/assertions; declaration/member run_install_script; declarations/fields: `run_install_script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3990–4027 | Source assertion of Provider execution integration; declaration/member streamed_stage_delivery; declarations/fields: `streamed_stage_delivery` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4028–4051 | Source assertion of Provider execution integration; declaration/member wait_output_reports_status; declarations/fields: `wait_output_reports_status` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4052–4075 | Source assertion of Provider execution integration; declaration/member short_tool_file_ends_copy_with_eof; declarations/fields: `short_tool_file_ends_copy_with_eof` |
-
+Former source `rust/soda-muse-maintain/src/main.rs`; consult its pinned earlier Git source and the current coverage disposition.

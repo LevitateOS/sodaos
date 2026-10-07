@@ -1,519 +1,576 @@
 # Backend web api
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-e071a157de6e"></a>
+
+## [internal/web/api/access_keys.go](../../../../../internal/web/api/access_keys.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–133; file scaffold; accessKeyRevision; accessKeysEnvironment; authorizeAccessKeysMember; savedAccessKeyMaterial; validAccessKeyConfirmation; applyAccessKeyMutation; nativeAccessFingerprints; apiAccessKeys | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-02c4cfae64a5"></a>
 
 ## [internal/web/api/api.go](../../../../../internal/web/api/api.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Shared physical declarations/SQL rows/constructor lines have separate named-field units; this is coupled storage/projection, not competing decision ownership.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 1–18 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 19, 27, 36 | Record, DTO or interface contract API for Browser authority and contributions; declarations/fields: `API` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 20–21 | Configured service dependencies and restricted input references; declarations/fields: `API.Config`, `API.Store` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 22 | Authoritative native read client dependency; declarations/fields: `API.Forgejo` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 23 | Private host IPC dependency; declarations/fields: `API.Host` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 24 | Current native actor/session admission dependency; declarations/fields: `API.Auth` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 25 | Native identity metadata/admission client dependency; declarations/fields: `API.Identity` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 26 | Exclusive factory coordination dependency; declarations/fields: `API.Coordinator` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 28 | Human terminal registry mutex; declarations/fields: `API.terminalMu` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 29 | Bounded concurrent authorized inventory observations; declarations/fields: `API.SpacesSlots` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 30 | Bounded concurrent repository-choice observations; declarations/fields: `API.RepositorySlots` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 31–35 | Human terminal lifetime/cancellation registry; declarations/fields: `API.TerminalPeers`, `API.TerminalStopping`, `API.terminalClosed`, `API.terminalWG` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 37–42 | Tracked native terminal operation/stream lifetime and cancellation; declarations/fields: `TerminalPeer` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 43 | Record, DTO or interface contract TerminalPeer for Browser authority and contributions; declarations/fields: `TerminalPeer` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 44–46, 48–49 | New — Browser authority and contributions; declarations/fields: `New` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 47 | Repository lookup admission slot in shared constructor; declarations/fields: `API.RepositorySlots` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 47 | Spaces and repository lookup admission slots share constructor expression; declarations/fields: `API.SpacesSlots` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–19, 24, 27, 36, 43–46, 48–49; whole file; API; API.Auth; TerminalPeer; New | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 5 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 20–21; API.Config, API.Store | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Configured service dependencies and restricted input references; declarations/fields: `API.Config`, `API.Store` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 22; API.Forgejo | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Authoritative native read client dependency; declarations/fields: `API.Forgejo` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 23; API.Host | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Private host IPC dependency; declarations/fields: `API.Host` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 25; API.Identity | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Native identity metadata/admission client dependency; declarations/fields: `API.Identity` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 26; API.Coordinator | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Exclusive factory coordination dependency; declarations/fields: `API.Coordinator` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 28, 31–35, 37–42; API.terminalMu; API.TerminalPeers, API.TerminalStopping, API.terminalClosed, API.terminalWG; TerminalPeer | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Human terminal registry mutex; declarations/fields: `API.terminalMu`; Human terminal lifetime/cancellation registry; declarations/fields: `API.TerminalPeers`, `API.TerminalStopping`, `API.terminalClosed`, `API.terminalWG`; Tracked native terminal operation/stream lifetime and cancellation; declarations/fields: `TerminalPeer` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 29, 47; API.SpacesSlots | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Bounded concurrent authorized inventory observations; declarations/fields: `API.SpacesSlots`; Spaces and repository lookup admission slots share constructor expression; declarations/fields: `API.SpacesSlots` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 30, 47; API.RepositorySlots | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Bounded concurrent repository-choice observations; declarations/fields: `API.RepositorySlots`; Repository lookup admission slot in shared constructor; declarations/fields: `API.RepositorySlots` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-bfff581c5c93"></a>
+
+## [internal/web/api/dispatch_inputs.go](../../../../../internal/web/api/dispatch_inputs.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–27; file scaffold; DispatchSnapshotSource | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; Current declaration duty: DispatchSnapshotSource — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 28–90; ReadDispatchInputs | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: ReadDispatchInputs — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-bd8a28fe765f"></a>
+
+## [internal/web/api/dispatch_inputs_test.go](../../../../../internal/web/api/dispatch_inputs_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–32, 71–101; file scaffold; dispatchReaderFake; ReadNativeRevision; ReadSnapshot; TestDispatchSnapshotSourceMissingTipReadsEmpty; TestDispatchSnapshotSourceMapsTransportFailures | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 33–70; dispatchTestSnapshot; TestDispatchSnapshotSourceMapsInputs | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: dispatchTestSnapshot; Current declaration duty: TestDispatchSnapshotSourceMapsInputs — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-d5401ed1f9f4"></a>
 
 ## [internal/web/api/environment_authority.go](../../../../../internal/web/api/environment_authority.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 1–15 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 16–21 | Declared identifiers/bounds (declaration group) for Human membership and accounts; declarations/fields: `(declaration group)` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 22–27 | Record, DTO or interface contract repositoryAccess for Human membership and accounts; declarations/fields: `repositoryAccess` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 28–59 | Current native repository evidence projection; callers own product admission; declarations/fields: `API.visibleRepository`, `API.nativeVisibleRepository` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 60–63 | repositoryExecutionAllowed — Human membership and accounts; declarations/fields: `repositoryExecutionAllowed` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 64–71 | API.executionRepository — Human membership and accounts; declarations/fields: `API.executionRepository` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 72–81 | reportExecutionAuthorityError — Human membership and accounts; declarations/fields: `reportExecutionAuthorityError` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 82–92 | Project lifecycle/preparation administrator authority from current native repository; declarations/fields: `API.environmentAdministrator` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 93–100 | Record, DTO or interface contract environmentReader for Human membership and accounts; declarations/fields: `environmentReader` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 101–102 | Declared identifiers/bounds errEnvironmentReadStore for Human membership and accounts; declarations/fields: `errEnvironmentReadStore` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 103–132 | API.readEnvironmentAuthority — Human membership and accounts; declarations/fields: `API.readEnvironmentAuthority` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 133–141 | API.authorizeEnvironmentRead — Human membership and accounts; declarations/fields: `API.authorizeEnvironmentRead` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–27, 60–81, 93–141; whole file; (declaration group); repositoryAccess; repositoryExecutionAllowed; API.executionRepository; reportExecutionAuthorityError; environmentReader; errEnvironmentReadStore; API.readEnvironmentAuthority; API.authorizeEnvironmentRead | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 10 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 28–59; API.visibleRepository, API.nativeVisibleRepository | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current native repository evidence projection; callers own product admission; declarations/fields: `API.visibleRepository`, `API.nativeVisibleRepository` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 82–92; API.environmentAdministrator | [P05](../../slices/projects.md#p05-project-startstop) | retained | Project lifecycle/preparation administrator authority from current native repository; declarations/fields: `API.environmentAdministrator` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-fabe43ed74eb"></a>
+
+## [internal/web/api/environment_os.go](../../../../../internal/web/api/environment_os.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–51; file scaffold; rejectOSQuery; confirmOSSession; apiEnvironmentOS | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-e46927017b7b"></a>
 
 ## [internal/web/api/environments_api.go](../../../../../internal/web/api/environments_api.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Shared physical declarations/SQL rows/constructor lines have separate named-field units; this is coupled storage/projection, not competing decision ownership.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–13 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 14, 16–20 | Association/immutable selected creation profile DTO; declarations/fields: `EnvironmentView` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 15 | Immutable selected native creation profile in association DTO; declarations/fields: `EnvironmentView.Profile` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 21 | Confirmed native provisioning result; declarations/fields: `EnvironmentView.Provisioned` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 22–23, 34, 54–61, 70–99 | Bounded authorized association list presentation; declarations/fields: `EnvironmentView`, `EnvironmentDTO`, `listedEnvironments`, `API.apiEnvironments` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 24–30 | Record, DTO or interface contract repositoryContextView for Repository association and creation; declarations/fields: `repositoryContextView` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 31, 33 | Composite association DTO rendering retains native-ready source below; declarations/fields: `EnvironmentDTO` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 32 | Repository association selectors in EnvironmentDTO constructor; declarations/fields: `p.ID`, `p.Name`, `p.RepositoryID`, `p.Repository`, `p.OwnerID` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 32 | Immutable selected profile and confirmed readiness selectors in EnvironmentDTO constructor; declarations/fields: `p.Profile`, `p.Ready` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 35–39 | environmentListQuery — Repository association and creation; declarations/fields: `environmentListQuery` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 40–53 | parseEnvironmentsListQuery — Repository association and creation; declarations/fields: `parseEnvironmentsListQuery` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 62–69 | API.requireListedSession — Repository association and creation; declarations/fields: `API.requireListedSession` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 100–112 | API.loadEnvironment — Repository association and creation; declarations/fields: `API.loadEnvironment` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 113–126, 136–139, 151, 160–161 | Confirmed runtime profile/state observation; declarations/fields: `environmentProfileMismatch`, `observedEnvironment`, `API.apiEnvironment` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 127–131 | Load retained Project association; declarations/fields: `apiEnvironment` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 132–135 | Authorize own membership/current repository visibility; declarations/fields: `authorizeEnvironmentRead` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 140–147 | Complete retained creation reservation only from confirmed native evidence; declarations/fields: `reconcileProvisioning` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 148–150 | Fresh native session recheck before publishing detail; declarations/fields: `requireListedSession` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 152–153 | Membership/write permission and uncertainty fields; declarations/fields: `authority_unavailable`, `execution_allowed` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 154 | Composite association detail reference; embedded profile/readiness fields listed separately; declarations/fields: `EnvironmentView.ID`, `EnvironmentView.Name`, `EnvironmentView.RepositoryID`, `EnvironmentView.Repository`, `EnvironmentView.OwnerID` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 154 | Embedded immutable profile/confirmed provisioning readiness in association detail reference; declarations/fields: `EnvironmentView.Profile`, `EnvironmentView.Provisioned` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 155–156 | Observed native runtime and unavailability fields; declarations/fields: `observed`, `native_unavailable` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 157 | Own mapped human Linux login; declarations/fields: `login` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 158 | Current Project administrator authority projection in environment read model; declarations/fields: `environment_administrator` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 159 | Native observed LAN IP carried in compound runtime observation reference; declarations/fields: `observed.IP` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 159 | Association field selectors in compound detail constructor; declarations/fields: `EnvironmentDTO(p).ID`, `EnvironmentDTO(p).Name`, `EnvironmentDTO(p).RepositoryID`, `EnvironmentDTO(p).Repository`, `EnvironmentDTO(p).OwnerID` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 159 | Immutable profile/readiness/native runtime observation selectors in compound detail constructor; declarations/fields: `EnvironmentDTO(p).Profile`, `EnvironmentDTO(p).Provisioned`, `observed`, `nativeErr != nil` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 159 | Own membership/login/current administrator/write-authority selectors in compound detail constructor; declarations/fields: `reader.authorityUnavailable`, `reader.executionAllowed`, `reader.login`, `reader.administrator` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 162–197 | Bounded authorized human membership inventory; declarations/fields: `API.apiEnvironmentMembers` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 198–226 | Own development SSH connection observation; declarations/fields: `API.apiConnection` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14, 16–20, 24–33, 35–53, 62–69, 100–112, 127–131, 140–147, 154, 159; whole file; EnvironmentView; repositoryContextView; EnvironmentDTO; p.ID, p.Name, p.RepositoryID, p.Repository, p.OwnerID; environmentListQuery; parseEnvironmentsListQuery; API.requireListedSession; API.loadEnvironment; apiEnvironment; reconcileProvisioning; EnvironmentView.ID, EnvironmentView.Name, EnvironmentView.RepositoryID, EnvironmentView.Repository, EnvironmentView.OwnerID; EnvironmentDTO(p).ID, EnvironmentDTO(p).Name, EnvironmentDTO(p).RepositoryID, EnvironmentDTO(p).Repository, EnvironmentDTO(p).OwnerID | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 13 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 15, 21, 32, 113–126, 136–139, 151, 154–156, 159–161; EnvironmentView.Profile; EnvironmentView.Provisioned; p.Profile, p.Ready; environmentProfileMismatch, observedEnvironment, API.apiEnvironment; EnvironmentView.Profile, EnvironmentView.Provisioned; observed, native_unavailable; EnvironmentDTO(p).Profile, EnvironmentDTO(p).Provisioned, observed, nativeErr != nil | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Immutable selected native creation profile in association DTO; declarations/fields: `EnvironmentView.Profile`; 7 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 22–23, 34, 54–61, 70–99; EnvironmentView, EnvironmentDTO, listedEnvironments, API.apiEnvironments | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Bounded authorized association list presentation; declarations/fields: `EnvironmentView`, `EnvironmentDTO`, `listedEnvironments`, `API.apiEnvironments` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 132–135, 152–153, 157–159, 162–197; authorizeEnvironmentRead; authority_unavailable, execution_allowed; login; environment_administrator; reader.authorityUnavailable, reader.executionAllowed, reader.login, reader.administrator; API.apiEnvironmentMembers | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Authorize own membership/current repository visibility; declarations/fields: `authorizeEnvironmentRead`; 6 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 148–150; requireListedSession | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Fresh native session recheck before publishing detail; declarations/fields: `requireListedSession` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 159; observed.IP | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Native observed LAN IP carried in compound runtime observation reference; declarations/fields: `observed.IP` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 198–226; API.apiConnection | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Own development SSH connection observation; declarations/fields: `API.apiConnection` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-bcac6b63d5d6"></a>
 
 ## [internal/web/api/environments_create.go](../../../../../internal/web/api/environments_create.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–16 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 17–21 | Record, DTO or interface contract apiError for Repository association and creation; declarations/fields: `apiError` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 22–27 | Record, DTO or interface contract createEnvironmentInput for Repository association and creation; declarations/fields: `createEnvironmentInput` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 28–32 | Declared identifiers/bounds (declaration group) for Repository association and creation; declarations/fields: `(declaration group)` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 33–45 | parseCreateEnvironmentInput — Repository association and creation; declarations/fields: `parseCreateEnvironmentInput` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 46–61 | API.verifyRepositoryOwner — Repository association and creation; declarations/fields: `API.verifyRepositoryOwner` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 62–73 | API.lookupReservation — Repository association and creation; declarations/fields: `API.lookupReservation` |
-| [N05](../../slices/networking.md#n05-project-tailnet-selection) / active | 74–90, 186–204 | Explicit creation-time original Tailnet selection; declarations/fields: `API.checkTailnetPreflight`, `API.applyCreatedEnvironmentTailnet` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 91–113 | Installed runtime profile preflight before reservation; declarations/fields: `API.resolveNativeProfile`, `API.precheckProfileAndTailnet` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 114–120 | Fresh native session admission recheck; declarations/fields: `API.verifyCurrentSessionMatch` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 121–137 | API.reconfirmRepositoryAndSession — Repository association and creation; declarations/fields: `API.reconfirmRepositoryAndSession` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 138–163 | API.provisionAndSaveProject — Repository association and creation; declarations/fields: `API.provisionAndSaveProject` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 164–185 | API.reconcileCreate — Repository association and creation; declarations/fields: `API.reconcileCreate` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 205–266 | API.apiCreateEnvironment — Repository association and creation; declarations/fields: `API.apiCreateEnvironment` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–73, 121–185, 205–266; whole file; apiError; createEnvironmentInput; (declaration group); parseCreateEnvironmentInput; API.verifyRepositoryOwner; API.lookupReservation; API.reconfirmRepositoryAndSession; API.provisionAndSaveProject; API.reconcileCreate; API.apiCreateEnvironment | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 11 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 74–90, 186–204; API.checkTailnetPreflight, API.applyCreatedEnvironmentTailnet | [N05](../../slices/networking.md#n05-project-tailnet-selection) | retained | Explicit creation-time original Tailnet selection; declarations/fields: `API.checkTailnetPreflight`, `API.applyCreatedEnvironmentTailnet` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 91–113; API.resolveNativeProfile, API.precheckProfileAndTailnet | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Installed runtime profile preflight before reservation; declarations/fields: `API.resolveNativeProfile`, `API.precheckProfileAndTailnet` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 114–120; API.verifyCurrentSessionMatch | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Fresh native session admission recheck; declarations/fields: `API.verifyCurrentSessionMatch` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-6e18ba4f16af"></a>
 
 ## [internal/web/api/environments_join.go](../../../../../internal/web/api/environments_join.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 1–12 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 13–36 | Explicit own saved-or-none SSH key choice for new human account; declarations/fields: `validJoinSSHSelection`, `API.joinPublicKeys`, `errTooManyJoinKeys` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 37–49 | API.persistEnvironmentJoin — Human membership and accounts; declarations/fields: `API.persistEnvironmentJoin` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 50–55 | Declared identifiers/bounds (declaration group) for Human membership and accounts; declarations/fields: `(declaration group)` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 56–61 | API.writeJoinLogin — Human membership and accounts; declarations/fields: `API.writeJoinLogin` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 62–74 | API.reportJoinPersist — Human membership and accounts; declarations/fields: `API.reportJoinPersist` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 75–98 | API.admitNewJoin — Human membership and accounts; declarations/fields: `API.admitNewJoin` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 99–139 | API.apiJoinEnvironment — Human membership and accounts; declarations/fields: `API.apiJoinEnvironment` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 140–142 | API.currentJoinSession — Human membership and accounts; declarations/fields: `API.currentJoinSession` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 37–142; whole file; API.persistEnvironmentJoin; (declaration group); API.writeJoinLogin; API.reportJoinPersist; API.admitNewJoin; API.apiJoinEnvironment; API.currentJoinSession | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 8 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 13–36; validJoinSSHSelection, API.joinPublicKeys, errTooManyJoinKeys | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Explicit own saved-or-none SSH key choice for new human account; declarations/fields: `validJoinSSHSelection`, `API.joinPublicKeys`, `errTooManyJoinKeys` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-b7201369526a"></a>
+
+## [internal/web/api/environments_join_test.go](../../../../../internal/web/api/environments_join_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–23; file scaffold; TestJoinRejectsNonProjectLoginBeforeProvisioning | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestJoinRejectsNonProjectLoginBeforeProvisioning — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-6a3b63c40fb7"></a>
 
 ## [internal/web/api/environments_preparation.go](../../../../../internal/web/api/environments_preparation.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–16 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 17–30 | Record, DTO or interface contract preparationItemView for Checkout allocation and preparation; declarations/fields: `preparationItemView` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 31–39 | Record, DTO or interface contract environmentPreparationView for Checkout allocation and preparation; declarations/fields: `environmentPreparationView` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 40–49 | preparationItemDTO — Checkout allocation and preparation; declarations/fields: `preparationItemDTO` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 50–91 | API.apiPreparation — Checkout allocation and preparation; declarations/fields: `API.apiPreparation` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 92–103, 117–190 | Preparation maintenance hold synchronization/observation; declarations/fields: `API.preparationHoldState`, `preparationHoldRequest`, `API.apiPreparationHold`, `API.syncPreparationHold` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 104–116 | API.preparationItems — Checkout allocation and preparation; declarations/fields: `API.preparationItems` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 191–239 | Readiness summary in authorized Spaces row; declarations/fields: `spacePreparationRole`, `spacePreparationView`, `summarizeSpacePreparation`, `API.inspectSpacePreparation` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–91, 104–116; whole file; preparationItemView; environmentPreparationView; preparationItemDTO; API.apiPreparation; API.preparationItems | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 6 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 92–103, 117–190; API.preparationHoldState, preparationHoldRequest, API.apiPreparationHold, API.syncPreparationHold | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Preparation maintenance hold synchronization/observation; declarations/fields: `API.preparationHoldState`, `preparationHoldRequest`, `API.apiPreparationHold`, `API.syncPreparationHold` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 191–239; spacePreparationRole, spacePreparationView, summarizeSpacePreparation, API.inspectSpacePreparation | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Readiness summary in authorized Spaces row; declarations/fields: `spacePreparationRole`, `spacePreparationView`, `summarizeSpacePreparation`, `API.inspectSpacePreparation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-e3e1ee1f3d8c"></a>
+
+## [internal/web/api/extension.go](../../../../../internal/web/api/extension.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–102, 110–212, 232–254, 269–327, 379–400; file scaffold; Extension; boundExtensionResponse; extensionCleanRoute; extensionSessionRoute; extensionMeRoute; extensionDevelopmentKeyRoute; extensionQueryRoute; extensionProductRoute; extensionProductID; extensionRepositoryRoute; extensionEnvironmentRoute; extensionEnvironmentPreparationPath; extensionEnvironmentIdentityPath; extensionEnvironmentIdentityRoute; extensionIdentityRoute; extensionIdentityActionRoute; extensionIdentityConnectionsRoute; extensionIdentityEnrollmentsRoute; rewriteExtensionRequest | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; 20 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 103–109, 346–353, 359–378; extensionRoute; extensionTerminalStreamRoute; extensionTerminalRoute; extensionTerminalSessionRoute; terminalControlMethod | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Current declaration duty: extensionRoute; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 213–231; extensionFactoryRoute | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: extensionFactoryRoute — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 255–268, 328–345; extensionEnvironmentActionRoute; extensionSettingsRoute; extensionTailnetSettingsRoute | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Current declaration duty: extensionEnvironmentActionRoute; Current declaration duty: extensionSettingsRoute; Current declaration duty: extensionTailnetSettingsRoute — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 354–358; extensionFactoryOutputStreamRoute | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Current declaration duty: extensionFactoryOutputStreamRoute — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-54abe9eb2253"></a>
+
+## [internal/web/api/extension_native.go](../../../../../internal/web/api/extension_native.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–134, 142–178, 233–236; file scaffold; extensionAuthorityKey; requestExtensionAuthority; extensionProtected; extensionProductAuthority; logExtensionDenial; errorString; extensionGenerationCurrent; extensionProductActor; extensionProductMutation; extensionProductUser; extensionPageContribution; extensionAdminPageContribution; extensionWorkspacePanelContribution; extensionMutationOrigin; extensionSessionCurrent; extensionAuthorityCurrent; extensionActor | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; 18 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 135–141, 179–232; extensionProductContribution; registerExtensionProductRoutes | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Current declaration duty: extensionProductContribution; Current declaration duty: registerExtensionProductRoutes — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-e7cbee456996"></a>
-
 <a id="internalwebapiextension_terminalgo-1"></a>
 
 ## [internal/web/api/extension_terminal.go](../../../../../internal/web/api/extension_terminal.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 1–23 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 24–44, 62–77, 82–125, 201–204 | Live native actor/contribution admission for terminal calls; declarations/fields: `API.ExtensionHandler`, `extensionTerminalGeneration`, `extensionTerminalOrigin`, `nativeTerminalContribution`, `API.nativeTerminalActor`, `API.extensionTerminalAccount`, `sameNativeTerminalAuthority`, `nativeTerminalSessionActor` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 45–49 | privateTerminalStreamRoute — Interactive attachment; declarations/fields: `privateTerminalStreamRoute` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 50–56 | Record, DTO or interface contract extensionTerminalIdentity for Interactive attachment; declarations/fields: `extensionTerminalIdentity` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 57–61, 156–200, 205–284, 371–386 | Human terminal reserve/create/list/rename/end lifecycle; declarations/fields: `nativeTerminalScope`, `API.extensionTerminalOperation`, `API.extensionTerminalStates`, `extensionTerminalView`, `API.extensionReserveTerminal`, `API.extensionTerminalSession`, `extensionTerminalSessionMethod`, `API.extensionOpenHostTerminal` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 78–81, 126–137 | Current own account/repository admission prerequisite for terminal operation; declarations/fields: `nativeTerminalMember`, `nativeTerminalMembershipCurrent`, `API.extensionTerminalRepository` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 138–155 | API.extensionTerminalCurrent — Interactive attachment; declarations/fields: `API.extensionTerminalCurrent` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 285–295 | API.extensionTerminalStream — Interactive attachment; declarations/fields: `API.extensionTerminalStream` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 296–337 | API.extensionTerminalAttach — Interactive attachment; declarations/fields: `API.extensionTerminalAttach` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 338–352 | API.registerExtensionTerminalPeer — Interactive attachment; declarations/fields: `API.registerExtensionTerminalPeer` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 353–357 | validNativeTerminalHandshake — Interactive attachment; declarations/fields: `validNativeTerminalHandshake` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 358–370 | API.extensionClaimTerminal — Interactive attachment; declarations/fields: `API.extensionClaimTerminal` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 387–406 | API.pumpExtensionControls — Interactive attachment; declarations/fields: `API.pumpExtensionControls` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 407–411 | API.extensionTerminalHeartbeat — Interactive attachment; declarations/fields: `API.extensionTerminalHeartbeat` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–18, 40–44, 170–179; file scaffold; privateTerminalStreamRoute; extensionTerminalStream | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Current scaffold duty: file scaffold; Current declaration duty: privateTerminalStreamRoute; Current declaration duty: extensionTerminalStream — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 19–39; ExtensionHandler | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current declaration duty: ExtensionHandler — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 45–169; extensionTerminalOperation; extensionTerminalStates; extensionTerminalView; extensionReserveTerminal; extensionTerminalSession; extensionTerminalSessionMethod | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Current declaration duty: extensionTerminalOperation; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-bdaff5e13582"></a>
+
+## [internal/web/api/extension_terminal_authority.go](../../../../../internal/web/api/extension_terminal_authority.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–126; file scaffold; extensionTerminalIdentity; nativeTerminalScope; extensionTerminalGeneration; extensionTerminalOrigin; nativeTerminalContribution; nativeTerminalMember; nativeTerminalActor; extensionTerminalAccount; sameNativeTerminalAuthority; nativeTerminalMembershipCurrent; extensionTerminalRepository; extensionTerminalCurrent; nativeTerminalSessionActor | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Current scaffold duty: file scaffold; 14 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-30326f476fb7"></a>
+
+## [internal/web/api/extension_terminal_stream.go](../../../../../internal/web/api/extension_terminal_stream.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–129; file scaffold; extensionTerminalAttach; registerExtensionTerminalPeer; validNativeTerminalHandshake; extensionClaimTerminal; extensionOpenHostTerminal; pumpExtensionControls; extensionTerminalHeartbeat | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-5dac9632c419"></a>
 
 ## [internal/web/api/extension_test.go](../../../../../internal/web/api/extension_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 1–16 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 17–27 | Assertions TestExtensionResponseIsBounded: expected bounded response rejection, got %v; declarations/fields: `TestExtensionResponseIsBounded` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 28–49 | Assertions TestExtensionRejectsUnknownRouteAndUnverifiedActor: %s %s: got %d, want %d; declarations/fields: `TestExtensionRejectsUnknownRouteAndUnverifiedActor` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 50–70 | Assertions TestExtensionAuthorityDenialLogsCause: got %d, want 403; declarations/fields: `TestExtensionAuthorityDenialLogsCause` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 71–91 | Assertions TestExtensionProductAuthorityDenialLogsCause: bare request admitted; declarations/fields: `TestExtensionProductAuthorityDenialLogsCause` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 92–150 | Assertions TestExtensionProductRouteAllowlist: extensionRoute(%s %s) = %t, want %t; declarations/fields: `TestExtensionProductRouteAllowlist` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 151–170 | Assertions TestExtensionProductContributionScopes: extensionProductContribution(%q, %+v) = %t, want %t; declarations/fields: `TestExtensionProductContributionScopes` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 171–191, 214–238 | Native terminal WebSocket header/authority proxy admission assertions; declarations/fields: `TestNativeTerminalContributionScopes`, `TestExtensionTerminalUpgradeForwardsOnlyProtocolAndAuthority` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 192–213 | Assertions TestExtensionTransportDoesNotForwardBrowserCredentials: private service path = %q; declarations/fields: `TestExtensionTransportDoesNotForwardBrowserCredentials` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–170, 192–213; whole file; TestExtensionResponseIsBounded; TestExtensionRejectsUnknownRouteAndUnverifiedActor; TestExtensionAuthorityDenialLogsCause; TestExtensionProductAuthorityDenialLogsCause; TestExtensionProductRouteAllowlist; TestExtensionProductContributionScopes; TestExtensionTransportDoesNotForwardBrowserCredentials | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 8 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 171–191, 214–238; TestNativeTerminalContributionScopes, TestExtensionTerminalUpgradeForwardsOnlyProtocolAndAuthority | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Native terminal WebSocket header/authority proxy admission assertions; declarations/fields: `TestNativeTerminalContributionScopes`, `TestExtensionTerminalUpgradeForwardsOnlyProtocolAndAuthority` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-b018d5c05a94"></a>
 
 ## [internal/web/api/factory_assignments.go](../../../../../internal/web/api/factory_assignments.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–16 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 17–30 | Record, DTO or interface contract factoryAssignmentResult for Assignment and dispatch; declarations/fields: `factoryAssignmentResult` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 31–40 | Assignment reservation read model; declarations/fields: `factoryAssignmentReservation` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 41–62 | Assignment publication exact-link/effect read model; declarations/fields: `factoryAssignmentPublication` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 63–64, 67–93 | Record, DTO or interface contract factoryAssignmentView for Assignment and dispatch; declarations/fields: `factoryAssignmentView` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 65 | Assignment view projects independently owned reservation accounting; declarations/fields: `factoryAssignmentView.Reservation` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 66 | Assignment view projects independently owned publication progression; declarations/fields: `factoryAssignmentView.Publication` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 94–113, 136–140 | factoryAssignmentDTO — Assignment and dispatch; declarations/fields: `factoryAssignmentDTO` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 114–119 | Project assignment reservation accounting in composite assignment DTO; declarations/fields: `factoryAssignmentDTO` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 120–135 | Project exact publication link/effect/completion in composite assignment DTO; declarations/fields: `factoryAssignmentDTO` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 141–151 | currentIssueAssignment — Assignment and dispatch; declarations/fields: `currentIssueAssignment` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 152–187 | API.apiFactoryAssignment — Assignment and dispatch; declarations/fields: `API.apiFactoryAssignment` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–30, 63–64, 67–113, 136–187; whole file; factoryAssignmentResult; factoryAssignmentView; factoryAssignmentDTO; currentIssueAssignment; API.apiFactoryAssignment | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 6 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 31–40, 65, 114–119; factoryAssignmentReservation; factoryAssignmentView.Reservation; factoryAssignmentDTO | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Assignment reservation read model; declarations/fields: `factoryAssignmentReservation`; Assignment view projects independently owned reservation accounting; declarations/fields: `factoryAssignmentView.Reservation`; Project assignment reservation accounting in composite assignment DTO; declarations/fields: `factoryAssignmentDTO` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 41–62, 66, 120–135; factoryAssignmentPublication; factoryAssignmentView.Publication; factoryAssignmentDTO | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Assignment publication exact-link/effect read model; declarations/fields: `factoryAssignmentPublication`; Assignment view projects independently owned publication progression; declarations/fields: `factoryAssignmentView.Publication`; Project exact publication link/effect/completion in composite assignment DTO; declarations/fields: `factoryAssignmentDTO` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-d0227b7d5d72"></a>
 
 ## [internal/web/api/factory_assignments_test.go](../../../../../internal/web/api/factory_assignments_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–10 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 11–54 | Assertions TestFactoryAssignmentDTORendersInputsAndResult: view = %+v; declarations/fields: `TestFactoryAssignmentDTORendersInputsAndResult` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 55–66 | Assertions TestCurrentIssueAssignmentSelectsLatest: empty selection accepted; declarations/fields: `TestCurrentIssueAssignmentSelectsLatest` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 67–77 | Publication committed effect/completion visibility assertions; declarations/fields: `TestFactoryAssignmentDTOPreservesIncompletePublication` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–66; whole file; TestFactoryAssignmentDTORendersInputsAndResult; TestCurrentIssueAssignmentSelectsLatest | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Assertions TestFactoryAssignmentDTORendersInputsAndResult: view = %+v; declarations/fields: `TestFactoryAssignmentDTORendersInputsAndResult`; Assertions TestCurrentIssueAssignmentSelectsLatest: empty selection accepted; declarations/fields: `TestCurrentIssueAssignmentSelectsLatest` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 67–77; TestFactoryAssignmentDTOPreservesIncompletePublication | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Publication committed effect/completion visibility assertions; declarations/fields: `TestFactoryAssignmentDTOPreservesIncompletePublication` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-366bca9b9ecc"></a>
+
+## [internal/web/api/factory_intake.go](../../../../../internal/web/api/factory_intake.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–219; file scaffold; IntakeCoordinator; IntakeHandler; intakeHeader; intakeOutcome; ServeHTTP; verifyIntakeSignature; intakePermissions; intakeRepository; intakeSender; intakeIssue; intakeIssueEvent; intakeCommentEvent; parseIntakeHint | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 14 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-0ed9d77a0a9e"></a>
 
 ## [internal/web/api/factory_intake_test.go](../../../../../internal/web/api/factory_intake_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 1–18 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 19–26 | Fixture/protocol support stubIntakeCoordinator; declarations/fields: `stubIntakeCoordinator` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 27–32 | Fixture/protocol support stubIntakeCoordinator.ObserveIssueEvent; declarations/fields: `stubIntakeCoordinator.ObserveIssueEvent` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 33–38 | Fixture/protocol support signIntake; declarations/fields: `signIntake` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 39–47 | Fixture/protocol support intakeRequest; declarations/fields: `intakeRequest` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 48–76 | Assertions TestFactoryIntakeOpenedCarriesCreatorAuthority: opened intake refused:; declarations/fields: `TestFactoryIntakeOpenedCarriesCreatorAuthority` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 77–109 | Assertions TestFactoryIntakeHints: edited hint wrong:; declarations/fields: `TestFactoryIntakeHints` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 110–129 | Assertions TestFactoryIntakeRejectsForgedDeliveries: forged delivery assessed:; declarations/fields: `TestFactoryIntakeRejectsForgedDeliveries` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 130–179 | Assertions TestFactoryIntakeFailures: malformed hint accepted:; declarations/fields: `TestFactoryIntakeFailures` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 180–195 | Unwired evidence source refusal assertions; declarations/fields: `TestServiceReadinessSourceNilGuards` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–179; whole file; stubIntakeCoordinator; stubIntakeCoordinator.ObserveIssueEvent; signIntake; intakeRequest; TestFactoryIntakeOpenedCarriesCreatorAuthority; TestFactoryIntakeHints; TestFactoryIntakeRejectsForgedDeliveries; TestFactoryIntakeFailures | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 9 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 180–195; TestServiceReadinessSourceNilGuards | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Unwired evidence source refusal assertions; declarations/fields: `TestServiceReadinessSourceNilGuards` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-451d790c97ec"></a>
+
+## [internal/web/api/factory_issue_view.go](../../../../../internal/web/api/factory_issue_view.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–153; file scaffold; factoryIssueView; readinessView; checkResultView; checksView; checksViewDTO; mergeView; mergeViewDTO; apiFactoryIssue | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-04c2577d784a"></a>
+
+## [internal/web/api/factory_lifecycle.go](../../../../../internal/web/api/factory_lifecycle.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–264; file scaffold; lifecycleControlError; factoryActionsRequest; apiFactoryActions; factoryRunActionsRequest; factoryActionRun; apiFactoryRunActions; commandRepository; apiFactoryCommand | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-a081deaca2cc"></a>
+
+## [internal/web/api/factory_output.go](../../../../../internal/web/api/factory_output.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–21; file scaffold | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 22–349; privateFactoryOutputRoute; checkFactoryOutputHeaders; factoryViewerIdentity; factoryViewerAccount; factoryViewerCurrent; factoryOutputHandshake; readFactoryOutputHandshake; validFactoryOutputHandshake; factoryStatusFrame; factoryOutputFrame; factoryClosedFrame; factoryOutputStatus; writeFactoryFrame; refuseFactoryOutput; factoryOutputStream; factoryOutputAttach; factoryRejectViewerInput; pumpFactoryOutput; pumpFactorySlice; sameFactoryStatus; statusWithoutExit; closeFactorySlice; factoryOutputHeartbeat | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Current declaration duty: privateFactoryOutputRoute; 23 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-91eebb3b28d8"></a>
+
+## [internal/web/api/factory_output_test.go](../../../../../internal/web/api/factory_output_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–132; file scaffold; scriptedFactoryOutput; RoundTrip; factoryOutputTestPair; readFactoryTestFrame; factoryOutputTestBytes | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Test imports and module shell for factory output stream tests.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 133–217; TestFactoryOutputFrameFitsProxyWireLimit; TestPumpFactorySliceDrainsTerminalOutputBeforeEOF; TestPumpFactorySliceEndsEmptyTerminalRun | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Assert the maximum S06 output frame fits the proxy wire budget.; Assert S06 streams all terminal factory output slices before emitting EOF.; Assert S06 emits status and EOF for a terminal run with no output. — The assertion exercises factory output frame/pump behavior through the viewer protocol; it checks neither human terminal attachment nor F07 assignment/lifecycle authority. |
+
+<a id="coverage-13cbc1878eb4"></a>
+
+## [internal/web/api/factory_policy.go](../../../../../internal/web/api/factory_policy.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–139; file scaffold; factoryPolicyRequest; apiFactoryPolicy; factoryCapacityRequest; apiFactoryCapacity; factoryOperatorGrantRequest; apiFactoryOperatorGrant | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-e83d1593855f"></a>
 
 ## [internal/web/api/factory_readiness.go](../../../../../internal/web/api/factory_readiness.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 1–14 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 15, 19–20 | Record, DTO or interface contract ServiceReadinessSource for Issue intake and readiness; declarations/fields: `ServiceReadinessSource` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 16 | Acceptance evidence reader contract; declarations/fields: `ServiceReadinessSource.Evidence` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 17 | Exact dispatch input reader contract; declarations/fields: `ServiceReadinessSource.Dispatch` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 18 | Shared authoritative native observer; declarations/fields: `ServiceReadinessSource.Observer` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 21, 23, 25–28 | Declared identifiers/bounds (declaration group) for Issue intake and readiness; declarations/fields: `(declaration group)` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 22 | Compile-time acceptance evidence contract; declarations/fields: `control.AcceptanceSource` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 24 | Compile-time exact dispatch inputs contract; declarations/fields: `control.DispatchReads` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 29–30, 37–42 | NewServiceReadinessSource — Issue intake and readiness; declarations/fields: `NewServiceReadinessSource` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 31–33 | Wire exact selected native acceptance reader; declarations/fields: `AcceptanceSnapshotSource` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 34–36 | Wire exact accepted native dispatch reader; declarations/fields: `DispatchSnapshotSource` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 43–51 | Map bracketed native evidence for accepted requirement verification; declarations/fields: `ServiceReadinessSource.ReadAcceptanceEvidence` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 52–60 | Map exact current accepted-source prompt/branch inputs; declarations/fields: `ServiceReadinessSource.ReadDispatchInputs` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 61–73 | ServiceReadinessSource.ObserveNativeRevision — Issue intake and readiness; declarations/fields: `ServiceReadinessSource.ObserveNativeRevision` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 74–79 | ServiceReadinessSource.ListRepositoryIssues — Issue intake and readiness; declarations/fields: `ServiceReadinessSource.ListRepositoryIssues` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15, 19–21, 23, 25–30, 37–42, 61–79; whole file; ServiceReadinessSource; (declaration group); NewServiceReadinessSource; ServiceReadinessSource.ObserveNativeRevision; ServiceReadinessSource.ListRepositoryIssues | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 6 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 16, 22, 31–33, 43–51; ServiceReadinessSource.Evidence; control.AcceptanceSource; AcceptanceSnapshotSource; ServiceReadinessSource.ReadAcceptanceEvidence | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Acceptance evidence reader contract; declarations/fields: `ServiceReadinessSource.Evidence`; 4 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 17, 24, 34–36, 52–60; ServiceReadinessSource.Dispatch; control.DispatchReads; DispatchSnapshotSource; ServiceReadinessSource.ReadDispatchInputs | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Exact dispatch input reader contract; declarations/fields: `ServiceReadinessSource.Dispatch`; 4 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 18; ServiceReadinessSource.Observer | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Shared authoritative native observer; declarations/fields: `ServiceReadinessSource.Observer` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-619247c30ebc"></a>
-
 <a id="internalwebapifactory_settingsgo-1"></a>
 
 ## [internal/web/api/factory_settings.go](../../../../../internal/web/api/factory_settings.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 1–17 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 18–21 | factoryPrincipal — Repository factory policy; declarations/fields: `factoryPrincipal` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 22–38 | factoryCommandError — Repository factory policy; declarations/fields: `factoryCommandError` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 39–53 | API.factoryRepository — Repository factory policy; declarations/fields: `API.factoryRepository` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 54–75 | API.factoryOwner — Repository factory policy; declarations/fields: `API.factoryOwner` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 76–85, 307–341 | Configured operator-only capacity mutation; declarations/fields: `API.factoryOperator`, `factoryCapacityRequest`, `API.apiFactoryCapacity` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 86–93 | settingsCommandID — Repository factory policy; declarations/fields: `settingsCommandID` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 94–98 | Current issue dispatch queue summary; declarations/fields: `factoryQueueView` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 99, 108–110 | Record, DTO or interface contract factoryStatusView for Repository factory policy; declarations/fields: `factoryStatusView` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 100 | Composite status projects separate authority state; declarations/fields: `factoryStatusView.Policy` |
-| [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) / active | 101 | Composite status projects separate authority state; declarations/fields: `factoryStatusView.OperatorGrant` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 102 | Composite status projects separate authority state; declarations/fields: `factoryStatusView.Appliance` |
-| [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) / active | 103 | Composite status projects separate authority state; declarations/fields: `factoryStatusView.Sponsorships` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 104 | Composite status projects separate authority state; declarations/fields: `factoryStatusView.EnvironmentGrant` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 105 | Composite status projects separate authority state; declarations/fields: `factoryStatusView.Preparation` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 106–107 | Composite status projects separate authority state; declarations/fields: `factoryStatusView.Queue`, `factoryStatusView.Effective` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 111–112, 115–119, 195–231 | Preparation readiness/decision-reference read model; declarations/fields: `factoryPreparationView`, `API.factoryPreparationStatus` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 113 | Requirement acceptance reference in preparation status; declarations/fields: `factoryPreparationView.Requirements` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 114 | Administrator approval reference in preparation status; declarations/fields: `factoryPreparationView.Approval` |
-| [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) / active | 120–127, 423–499 | Connection-owner delegation/generation sponsorship admission; declarations/fields: `sponsorshipView`, `factorySponsorshipRequest`, `API.apiFactorySponsorship`, `API.checkSponsorshipBroker` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 128–144, 192–194 | API.apiFactoryStatus — Repository factory policy; declarations/fields: `API.apiFactoryStatus` |
-| [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) / active | 145–150 | Aggregate factory status branch projects operator execution grant; declarations/fields: `apiFactoryStatus` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 151–156 | Aggregate factory status branch projects appliance capacity; declarations/fields: `apiFactoryStatus` |
-| [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) / active | 157–164 | Aggregate factory status branch projects sponsorships and owner-only private allowance; declarations/fields: `apiFactoryStatus` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 165–170 | Aggregate factory status branch projects standing environment creation permission; declarations/fields: `apiFactoryStatus` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 171–175 | Aggregate factory status branch projects current preparation readiness; declarations/fields: `apiFactoryStatus` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 176–181 | Aggregate factory status branch projects effective composite dispatch admission; declarations/fields: `apiFactoryStatus` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 182–191 | Aggregate factory status branch projects current queued dispatch items; declarations/fields: `apiFactoryStatus` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 232–236 | Record, DTO or interface contract actorRefRequest for Repository factory policy; declarations/fields: `actorRefRequest` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 237–243 | actorRefRequest.resolve — Repository factory policy; declarations/fields: `actorRefRequest.resolve` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 244–259 | Record, DTO or interface contract factoryPolicyRequest for Repository factory policy; declarations/fields: `factoryPolicyRequest` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 260–306 | API.apiFactoryPolicy — Repository factory policy; declarations/fields: `API.apiFactoryPolicy` |
-| [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) / active | 342–373 | Operator repository execution permission route/DTO; declarations/fields: `factoryOperatorGrantRequest`, `API.apiFactoryOperatorGrant` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 374–422 | Current repository-owner standing environment grant mutation; declarations/fields: `factoryEnvironmentGrantRequest`, `API.apiFactoryEnvironmentGrant` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–16; file scaffold | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 17–74, 85–103; factoryPrincipal; factoryCommandError; factoryRepository; factoryOwner; settingsCommandID; actorRefRequest; resolve | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Current declaration duty: factoryPrincipal; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 75–84; factoryOperator | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current declaration duty: factoryOperator — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-0736ad08057a"></a>
+
+## [internal/web/api/factory_sponsorship.go](../../../../../internal/web/api/factory_sponsorship.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–182; file scaffold; sponsorshipView; factorySponsorshipRequest; apiFactorySponsorship; checkSponsorshipBroker; factoryEnvironmentGrantRequest; apiFactoryEnvironmentGrant | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-6104e8c3c023"></a>
+
+## [internal/web/api/factory_status.go](../../../../../internal/web/api/factory_status.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–140; file scaffold; factoryQueueView; factoryStatusView; factoryPreparationView; apiFactoryStatus; factoryPreparationStatus | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-e1f392b97869"></a>
+
+## [internal/web/api/factory_views.go](../../../../../internal/web/api/factory_views.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–147; file scaffold; factoryRunOutputExcerpt; factoryRunRecord; factoryRunRecordDTO; factoryRunBinding; factoryRunBindingDTO; factoryRunLive; factoryHostTerminal; factoryRunLiveDTO; factoryRunStatus; apiFactoryRun | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Wires the factory status viewer adapter and its source imports.; 11 named units assigned here; remaining selectors preserve each duty — Independent current-body review: factory_views.go:23-46 defines/maps viewer DTO fields; apiFactoryRun composes them at115-147 after the called authorization handler admits the read.; GET /api/factory/runs/{runID} in extension_native.go calls apiFactoryRun; it delegates current write-authority admission to factoryActionRun, then reads FactoryRunView and Host.FactoryInspect and renders the status projection. This is S06 presentation; Called authorization handlers, storage and host components retain their defining admission and lifecycle duties. |
+
+<a id="coverage-104efcde52d9"></a>
+
+## [internal/web/api/factory_views_test.go](../../../../../internal/web/api/factory_views_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–126; file scaffold; TestFactoryHostTerminalMapping; TestFactoryRunLiveExcerptIsBounded; TestFactoryRunBindingRendersDecimalIDs; TestFactoryOutputHandshakeBindsRunRepositoryAndGeneration; frameKeys; TestFactoryFramesUseFixedKeySets; TestSameFactoryStatusComparesExitByValue | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Test module shell for factory viewer projection and output protocol assertions.; Assert factory viewer status, handshake binding, or output frame presentation behavior. — Imports and package shell support only the factory viewer/status/handshake/frame tests in this file.; The named assertion calls factory view/handshake/frame helpers and checks the S06 factory viewer contract; it does not test assignment or run lifecycle mutation. |
 
 <a id="coverage-98a92690bd62"></a>
 
 ## [internal/web/api/identity.go](../../../../../internal/web/api/identity.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 1–14 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 15, 18–20, 27–28 | Record, DTO or interface contract IdentityClient for Enrollment and owner consent; declarations/fields: `IdentityClient` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 16–17 | Owned connections and delegated availability API contract; declarations/fields: `IdentityClient.Connections`, `IdentityClient.Available` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 21–23 | Delegation grant API contract; declarations/fields: `IdentityClient.Grants`, `IdentityClient.CreateGrant`, `IdentityClient.RevokeGrant` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 24 | Lease metadata API contract; declarations/fields: `IdentityClient.Leases` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 25–26 | Explicit connection/lease retirement API contract; declarations/fields: `IdentityClient.EndLease`, `IdentityClient.Revoke` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 29–61, 124–134 | Current native actor admission/error envelope shared by identity operations; declarations/fields: `identityError`, `API.identityAdmission`, `API.identityResult`, `API.identityMutation` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 62–72, 102–112, 149–155 | Owned connection/delegation metadata read or grant revocation; declarations/fields: `API.apiIdentityConnections`, `API.apiIdentityGrants`, `API.apiIdentityRevokeGrant` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 73–93 | API.apiIdentityStartEnrollment — Enrollment and owner consent; declarations/fields: `API.apiIdentityStartEnrollment` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 94–101 | API.apiIdentityEnrollment — Enrollment and owner consent; declarations/fields: `API.apiIdentityEnrollment` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 113–123 | Own lease/fence metadata inventory; declarations/fields: `API.apiIdentityLeases` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 135–141 | API.apiIdentityCancelEnrollment — Enrollment and owner consent; declarations/fields: `API.apiIdentityCancelEnrollment` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 142–148, 156–161 | Explicit credential/lease retirement; declarations/fields: `API.apiIdentityRevoke`, `API.apiIdentityEndLease` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15, 18–20, 27–28, 73–101, 135–141; whole file; IdentityClient; API.apiIdentityStartEnrollment; API.apiIdentityEnrollment; API.apiIdentityCancelEnrollment | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 5 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 16–17, 21–23, 62–72, 102–112, 149–155; IdentityClient.Connections, IdentityClient.Available; IdentityClient.Grants, IdentityClient.CreateGrant, IdentityClient.RevokeGrant; API.apiIdentityConnections, API.apiIdentityGrants, API.apiIdentityRevokeGrant | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Owned connections and delegated availability API contract; declarations/fields: `IdentityClient.Connections`, `IdentityClient.Available`; Delegation grant API contract; declarations/fields: `IdentityClient.Grants`, `IdentityClient.CreateGrant`, `IdentityClient.RevokeGrant`; Owned connection/delegation metadata read or grant revocation; declarations/fields: `API.apiIdentityConnections`, `API.apiIdentityGrants`, `API.apiIdentityRevokeGrant` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 24, 113–123; IdentityClient.Leases; API.apiIdentityLeases | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | Lease metadata API contract; declarations/fields: `IdentityClient.Leases`; Own lease/fence metadata inventory; declarations/fields: `API.apiIdentityLeases` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 25–26, 142–148, 156–161; IdentityClient.EndLease, IdentityClient.Revoke; API.apiIdentityRevoke, API.apiIdentityEndLease | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | Explicit connection/lease retirement API contract; declarations/fields: `IdentityClient.EndLease`, `IdentityClient.Revoke`; Explicit credential/lease retirement; declarations/fields: `API.apiIdentityRevoke`, `API.apiIdentityEndLease` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 29–61, 124–134; identityError, API.identityAdmission, API.identityResult, API.identityMutation | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current native actor admission/error envelope shared by identity operations; declarations/fields: `identityError`, `API.identityAdmission`, `API.identityResult`, `API.identityMutation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-02658d9b3176"></a>
+
+## [internal/web/api/identity_grants.go](../../../../../internal/web/api/identity_grants.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–88; file scaffold; identityProjectMember; identityNamedMember; apiIdentityCreateGrant; apiIdentityAvailable | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-829992f02825"></a>
+
+## [internal/web/api/identity_launch.go](../../../../../internal/web/api/identity_launch.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–55; file scaffold; apiIdentityLaunch; codexLaunchInput | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; Current declaration duty: apiIdentityLaunch; Current declaration duty: codexLaunchInput — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 56–66; identityLaunchInput | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Current declaration duty: identityLaunchInput — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-a21fcee1ae10"></a>
+
+## [internal/web/api/issue_acceptance_evidence.go](../../../../../internal/web/api/issue_acceptance_evidence.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–105; file scaffold; AcceptanceSnapshotSource; ReadAcceptanceEvidence; mapAcceptanceSnapshotError | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-aa4c2fa22d23"></a>
-
 <a id="internalwebapiissue_acceptancesgo-1"></a>
 
 ## [internal/web/api/issue_acceptances.go](../../../../../internal/web/api/issue_acceptances.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 1–21 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 22–31 | Record, DTO or interface contract AcceptanceSnapshotSource for Accepted requirements and invalidation; declarations/fields: `AcceptanceSnapshotSource` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 32–96 | AcceptanceSnapshotSource.ReadAcceptanceEvidence — Accepted requirements and invalidation; declarations/fields: `AcceptanceSnapshotSource.ReadAcceptanceEvidence` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 97–113 | mapAcceptanceSnapshotError — Accepted requirements and invalidation; declarations/fields: `mapAcceptanceSnapshotError` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 114–126 | API.factoryIssue — Accepted requirements and invalidation; declarations/fields: `API.factoryIssue` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 127–132 | Record, DTO or interface contract acceptanceSourceRequest for Accepted requirements and invalidation; declarations/fields: `acceptanceSourceRequest` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 133–141 | Record, DTO or interface contract acceptancePrerequisiteRequest for Accepted requirements and invalidation; declarations/fields: `acceptancePrerequisiteRequest` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 142–158 | Record, DTO or interface contract issueAcceptanceRequest for Accepted requirements and invalidation; declarations/fields: `issueAcceptanceRequest` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 159–190 | API.apiIssueAcceptances — Accepted requirements and invalidation; declarations/fields: `API.apiIssueAcceptances` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 191–225 | acceptanceDecision — Accepted requirements and invalidation; declarations/fields: `acceptanceDecision` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 226–238 | acceptanceSources — Accepted requirements and invalidation; declarations/fields: `acceptanceSources` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 239–246 | Record, DTO or interface contract issueWithdrawalRequest for Accepted requirements and invalidation; declarations/fields: `issueWithdrawalRequest` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 247–275 | API.apiIssueWithdrawal — Accepted requirements and invalidation; declarations/fields: `API.apiIssueWithdrawal` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 276, 278–279, 283–298, 372–384, 391–401, 414–419 | Current issue readiness composite read model; independent acceptance/check/merge state is separately owned; declarations/fields: `factoryIssueView`, `readinessView`, `API.apiFactoryIssue` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 277 | Current accepted requirement validity projection; declarations/fields: `factoryIssueView.Status` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 280 | Durable readiness verdict projection; declarations/fields: `factoryIssueView.Readiness` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 281 | Exact-candidate verification assessment projection; declarations/fields: `factoryIssueView.Checks` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 282 | Merge eligibility/completion projection; declarations/fields: `factoryIssueView.Merge` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 299–342 | Recorded exact-candidate check verdict read model; declarations/fields: `checkResultView`, `checksView`, `checksViewDTO` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 343–371 | Recorded conditional merge/completion read model; declarations/fields: `mergeView`, `mergeViewDTO` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 385–390 | Read and publish current acceptance validity; declarations/fields: `Coordinator.AcceptanceStatus` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 402–407 | Read and project recorded exact-candidate check assessment; declarations/fields: `Store.CheckAssessment` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 408–413 | Read and project recorded conditional merge progression; declarations/fields: `Store.MergeForIssue` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 420–429 | acceptanceDecisionError — Accepted requirements and invalidation; declarations/fields: `acceptanceDecisionError` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 430–439 | acceptanceRefusalError — Accepted requirements and invalidation; declarations/fields: `acceptanceRefusalError` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 440–479 | acceptanceRefusalMessage — Accepted requirements and invalidation; declarations/fields: `acceptanceRefusalMessage` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15; file scaffold | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 16–240; factoryIssue; acceptanceSourceRequest; acceptancePrerequisiteRequest; issueAcceptanceRequest; apiIssueAcceptances; acceptanceDecision; acceptanceSources; issueWithdrawalRequest; apiIssueWithdrawal; acceptanceDecisionError; acceptanceRefusalError; acceptanceRefusalMessage | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current declaration duty: factoryIssue; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-906ea1eaceef"></a>
+
+## [internal/web/api/issue_acceptances_test.go](../../../../../internal/web/api/issue_acceptances_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–157; file scaffold; stubAcceptanceReader; ReadNativeRevision; ReadSnapshot; acceptanceWireSnapshot; idleAcceptanceObservation; TestAcceptanceSnapshotSourceBracketsSelection; TestAcceptanceSnapshotSourceSkipsUnselectedComments; TestAcceptanceSnapshotSourceMapsBracketFailures | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-9276e67551ee"></a>
 
 ## [internal/web/api/lifecycle.go](../../../../../internal/web/api/lifecycle.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 1–15 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 16–23 | API.loadLifecycleEnvironment — Project Start/Stop; declarations/fields: `API.loadLifecycleEnvironment` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 24–28 | Record, DTO or interface contract lifecycleRequest for Project Start/Stop; declarations/fields: `lifecycleRequest` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 29–40 | decodeLifecycleRequest — Project Start/Stop; declarations/fields: `decodeLifecycleRequest` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 41–61 | API.authorizeLifecycleOperator — Project Start/Stop; declarations/fields: `API.authorizeLifecycleOperator` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 62–69 | API.checkLifecycleSession — Project Start/Stop; declarations/fields: `API.checkLifecycleSession` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 70–94 | API.acquireLifecycleStop — Project Start/Stop; declarations/fields: `API.acquireLifecycleStop` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 95–121 | API.handleLifecycleMutation — Project Start/Stop; declarations/fields: `API.handleLifecycleMutation` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 122–162 | API.apiLifecycle — Project Start/Stop; declarations/fields: `API.apiLifecycle` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 163–169 | Record, DTO or interface contract lifecycleStopControlView for Project Start/Stop; declarations/fields: `lifecycleStopControlView` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 170–179 | Record, DTO or interface contract lifecycleStopView for Project Start/Stop; declarations/fields: `lifecycleStopView` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 180–207 | API.apiLifecycleStop — Project Start/Stop; declarations/fields: `API.apiLifecycleStop` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 208–228 | Project Stop synchronizes admission hold without owning hold policy; declarations/fields: `API.lifecycleStopHold` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 229–237 | Record, DTO or interface contract lifecycleStartView for Project Start/Stop; declarations/fields: `lifecycleStartView` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 238–271 | API.apiLifecycleStart — Project Start/Stop; declarations/fields: `API.apiLifecycleStart` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–207, 229–271; whole file; API.loadLifecycleEnvironment; lifecycleRequest; decodeLifecycleRequest; API.authorizeLifecycleOperator; API.checkLifecycleSession; API.acquireLifecycleStop; API.handleLifecycleMutation; API.apiLifecycle; lifecycleStopControlView; lifecycleStopView; API.apiLifecycleStop; lifecycleStartView; API.apiLifecycleStart | [P05](../../slices/projects.md#p05-project-startstop) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 14 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 208–228; API.lifecycleStopHold | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Project Stop synchronizes admission hold without owning hold policy; declarations/fields: `API.lifecycleStopHold` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-aba296f85b8d"></a>
+
+## [internal/web/api/operator.go](../../../../../internal/web/api/operator.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–39; file scaffold; errOperatorRequired; operatorAuthorization; authorizeOperator | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-01a96515da16"></a>
 
 ## [internal/web/api/preparation_decisions.go](../../../../../internal/web/api/preparation_decisions.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 1–12 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 13–56 | Exact requirement acceptance route/input; declarations/fields: `preparationAcceptanceRequest`, `API.apiPreparationAcceptances` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 57–67 | Record, DTO or interface contract preparationActionRequest for Privileged preparation approval; declarations/fields: `preparationActionRequest` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 68–79, 125–148 | Existing preparation/decision-reference observation; declarations/fields: `preparationInspectView`, `API.apiPreparationActionInspect` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 80–100 | API.apiPreparationActions — Privileged preparation approval; declarations/fields: `API.apiPreparationActions` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 101–124 | Preparation admission maintenance hold command; declarations/fields: `API.apiPreparationActionHold` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 149–171 | API.apiPreparationActionApprove — Privileged preparation approval; declarations/fields: `API.apiPreparationActionApprove` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 57–67, 80–100, 149–171; whole file; preparationActionRequest; API.apiPreparationActions; API.apiPreparationActionApprove | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 4 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 13–56; preparationAcceptanceRequest, API.apiPreparationAcceptances | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Exact requirement acceptance route/input; declarations/fields: `preparationAcceptanceRequest`, `API.apiPreparationAcceptances` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 68–79, 125–148; preparationInspectView, API.apiPreparationActionInspect | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Existing preparation/decision-reference observation; declarations/fields: `preparationInspectView`, `API.apiPreparationActionInspect` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 101–124; API.apiPreparationActionHold | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Preparation admission maintenance hold command; declarations/fields: `API.apiPreparationActionHold` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-97b2e061ed54"></a>
+
+## [internal/web/api/project_profiles.go](../../../../../internal/web/api/project_profiles.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–43; file scaffold; apiProjectProfiles | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current scaffold duty: file scaffold; Current declaration duty: apiProjectProfiles — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-a38203d6ba5a"></a>
 
 ## [internal/web/api/provisioning.go](../../../../../internal/web/api/provisioning.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–22 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 23–26, 33–41 | Declared identifiers/bounds (declaration group) for Repository association and creation; declarations/fields: `(declaration group)` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 27–32 | Native Stop/Start bounded operation deadlines; declarations/fields: `stopOperationTimeout`, `startOperationTimeout` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 42–49 | operationContext — Repository association and creation; declarations/fields: `operationContext` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 50–57 | provisioningConfirmed — Repository association and creation; declarations/fields: `provisioningConfirmed` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 58–69 | API.reconcileProvisioning — Repository association and creation; declarations/fields: `API.reconcileProvisioning` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–26, 33–69; whole file; (declaration group); operationContext; provisioningConfirmed; API.reconcileProvisioning | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 5 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 27–32; stopOperationTimeout, startOperationTimeout | [P05](../../slices/projects.md#p05-project-startstop) | retained | Native Stop/Start bounded operation deadlines; declarations/fields: `stopOperationTimeout`, `startOperationTimeout` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-2fd68a992172"></a>
+
+## [internal/web/api/repositories.go](../../../../../internal/web/api/repositories.go)
+
+Current declarations split at native authority/search admission, Project reservation association, and readiness field boundaries; callers and store/native adapter behavior inspected.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–23, 34–68, 77–82, 86–133, 139–147; package/import scaffold and native API dependencies; repositoryChoice native identity fields ID, Owner, Name; isValidSearchTerm and native repository query parsing/field allowlist; collectNativeRepositoryChoices native response identity and owner checks; append completed native repository choices; repository choice error mapping: native/provider branch; handleRepositorySessionFailure native context freshness and search timeout; apiRepositories human-owner discovery note, verified extension authority gate and handler handoff; apiNativeRepositories query admission and repository search slot; apiNativeRepositories owned-repository native search and page bounds; apiNativeRepositories verified context recheck before publishing results; response Items and NextCursor native search envelope | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Wires this endpoint to verified extension authority, native Forgejo repository search and the Project store lookup.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 24–28, 31–33, 69–76, 83–85, 134–138; repositoryChoice CanCreate and Project reservation fields; repositoryProject ID; errStoreReservation storage lookup failure sentinel; collectNativeRepositoryChoices Project reservation lookup and Create eligibility; repositoryProject.ID projection from store association; repository choice error mapping: reservation failure branch; apiNativeRepositories Project association join and reservation error dispatch | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Represents whether the native repository has no stored Project association and, if reserved, the associated Project identity.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 29–30, 76; repositoryProject Provisioned; repositoryProject.Provisioned projection from project.Ready | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Carries the saved Project readiness state; it is not the repository reservation/Create eligibility bit.; Projects the current saved readiness flag for the already-associated Project into its distinct readiness field. — current source internal/web/api/repositories.go:29-30; project.Ready is copied into response field at line 76; current source internal/web/api/repositories.go:76; project.Ready is distinct from CanCreate and reservation existence |
 
 <a id="coverage-1b43436f7ee8"></a>
-
 <a id="internalwebapispacesgo-1"></a>
 
 ## [internal/web/api/spaces.go](../../../../../internal/web/api/spaces.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 1–18 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 19, 33–37 | Record, DTO or interface contract SpaceView for Authorized inventory; declarations/fields: `SpaceView` |
-| [N05](../../slices/networking.md#n05-project-tailnet-selection) / active | 20 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.TailnetState` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 21 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.Environment` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 22–23, 25 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.Login`, `SpaceView.ExecutionAllowed`, `SpaceView.AuthorityUnavailable` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 24 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.Administrator` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 26–27 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.NativeUnavailable`, `SpaceView.Observed` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 28 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.Terminals` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 29 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.Preparation` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 30 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.FactoryAuthority` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 31 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.FactoryControl` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 32 | Spaces row projects independent source-of-truth state; declarations/fields: `SpaceView.FactoryRuns` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 38–49, 186–222 | Recorded factory run activity read model and completeness bounds; declarations/fields: `SpaceFactoryRun`, `inspectSpaceFactoryRuns` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 50–55, 223–237 | Composite effective factory dispatch authority projection; declarations/fields: `spaceAuthorityView`, `API.inspectSpaceAuthority` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 56–63 | Record, DTO or interface contract SpacesView for Authorized inventory; declarations/fields: `SpacesView` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 64–68 | Record, DTO or interface contract SpacesActor for Authorized inventory; declarations/fields: `SpacesActor` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 69–77 | Current own membership/native repository authority before row disclosure; declarations/fields: `API.resolveSpaceAuthority` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 78–90 | Observe native runtime/readiness against immutable creation profile; declarations/fields: `API.inspectSpaceNative` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 91–117 | Observe own human terminal lifecycle metadata under current membership/native authority; declarations/fields: `API.inspectSpaceTerminals` |
-| [N05](../../slices/networking.md#n05-project-tailnet-selection) / active | 118–135 | Observe own original Project network selection without projecting peer secrets; declarations/fields: `API.inspectSpaceTailnet` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 136–156, 164–165, 178–185 | API.inspectSpaceRow — Authorized inventory; declarations/fields: `API.inspectSpaceRow` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 157 | Project association projection in Spaces row; declarations/fields: `inspectSpaceRow`, `EnvironmentDTO` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 158–159 | Current own human account/write-authority projection; declarations/fields: `inspectSpaceRow` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 160 | Current Project administrator projection; declarations/fields: `inspectSpaceRow` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 161 | Membership/native authority uncertainty projection; declarations/fields: `inspectSpaceRow` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 162 | Human terminal metadata collection initialization; declarations/fields: `inspectSpaceRow` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 163 | Factory recorded activity collection initialization; declarations/fields: `inspectSpaceRow` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 166–168 | Observe runtime state against selected creation profile; declarations/fields: `inspectSpaceNative` |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 169–171 | Read current own terminal metadata with global bound; declarations/fields: `inspectSpaceTerminals` |
-| [N05](../../slices/networking.md#n05-project-tailnet-selection) / active | 172 | Read Project network selection; declarations/fields: `inspectSpaceTailnet` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 173–174 | Read durable role checkout preparation readiness; declarations/fields: `inspectSpacePreparation` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 175 | Read effective dispatch admission; declarations/fields: `inspectSpaceAuthority` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 176 | Read intervention/withdrawal/unsettled run state; declarations/fields: `inspectSpaceControl` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 177 | Project recorded run activity while preserving incompleteness; declarations/fields: `inspectSpaceFactoryRuns` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 238–272 | Current intervention/withdrawal/unsettled run read model; declarations/fields: `spaceControlView`, `API.inspectSpaceControl` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 273–283 | appendSpaceRow — Authorized inventory; declarations/fields: `appendSpaceRow` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 284–342 | API.inspectSpaces — Authorized inventory; declarations/fields: `API.inspectSpaces` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 343–360 | API.verifySpacesSession — Authorized inventory; declarations/fields: `API.verifySpacesSession` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 361–390 | API.apiSpaces — Authorized inventory; declarations/fields: `API.apiSpaces` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 391–404 | parseSpacesCursor — Authorized inventory; declarations/fields: `parseSpacesCursor` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–176; file scaffold; SpaceView; SpacesView; SpacesActor; appendSpaceRow; inspectSpaces; verifySpacesSession; apiSpaces; parseSpacesCursor | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-334651498050"></a>
+
+## [internal/web/api/spaces_authority.go](../../../../../internal/web/api/spaces_authority.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–51; file scaffold; spaceAuthorityView; resolveSpaceAuthority; inspectSpaceAuthority; spaceControlView | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 52–78; inspectSpaceControl | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: inspectSpaceControl — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-dc3c9248f0e9"></a>
+
+## [internal/web/api/spaces_inspection.go](../../../../../internal/web/api/spaces_inspection.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17, 27–39; file scaffold; inspectSpaceNative | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Current scaffold duty: file scaffold; Current declaration duty: inspectSpaceNative — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 18–26, 85–170; SpaceFactoryRun; inspectSpaceRow; inspectSpaceFactoryRuns | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: SpaceFactoryRun; Current declaration duty: inspectSpaceRow; Current declaration duty: inspectSpaceFactoryRuns — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 40–66; inspectSpaceTerminals | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Current declaration duty: inspectSpaceTerminals — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 67–84; inspectSpaceTailnet | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Current declaration duty: inspectSpaceTailnet — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-4626544a8429"></a>
+
+## [internal/web/api/spaces_inventory.go](../../../../../internal/web/api/spaces_inventory.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–19, 116–119, 141–143; file scaffold; spacesRunCap; runsKnown | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Current scaffold duty: file scaffold; Current declaration duty: spacesRunCap; Current declaration duty: runsKnown — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 20–115, 120–140; spacesInventory; spacesAssociationPage; spacesRunPage; loadSpacesInventory; mergeSpacesRuns; spacesRunUsage; newSpacesRunUsage; factoryComplete | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: spacesInventory; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-69a9d21426ed"></a>
 
 ## [internal/web/api/tailnet.go](../../../../../internal/web/api/tailnet.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 1–12 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 13–21 | tailnetQuery — Host Tailnet control; declarations/fields: `tailnetQuery` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 22–29 | API.tailnetSession — Host Tailnet control; declarations/fields: `API.tailnetSession` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 30–44 | tailnetError — Host Tailnet control; declarations/fields: `tailnetError` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 45–59 | API.apiTailnetSettings — Host Tailnet control; declarations/fields: `API.apiTailnetSettings` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 60–85 | API.apiTailnetHost — Host Tailnet control; declarations/fields: `API.apiTailnetHost` |
-| [N04](../../slices/networking.md#n04-project-enrollment-policy) / active | 86–113 | Operator Project enrollment policy mutation; declarations/fields: `API.apiTailnetEnrollment` |
-| [N05](../../slices/networking.md#n05-project-tailnet-selection) / active | 114–246 | Own Project original network selection and authorized observation; declarations/fields: `API.apiTailnetOptions`, `API.authorizeProjectTailnet`, `parseProjectTailnetMutation`, `API.admitProjectTailnetDispatch`, `API.confirmProjectTailnetDispatch`, `API.admitProjectTailnetRequest`, `API.apiProjectTailnet` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–85; whole file; tailnetQuery; API.tailnetSession; tailnetError; API.apiTailnetSettings; API.apiTailnetHost | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 6 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 86–113; API.apiTailnetEnrollment | [N04](../../slices/networking.md#n04-project-enrollment-policy) | retained | Operator Project enrollment policy mutation; declarations/fields: `API.apiTailnetEnrollment` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 114–246; API.apiTailnetOptions, API.authorizeProjectTailnet, parseProjectTailnetMutation, API.admitProjectTailnetDispatch, API.confirmProjectTailnetDispatch, API.admitProjectTailnetRequest, API.apiProjectTailnet | [N05](../../slices/networking.md#n05-project-tailnet-selection) | retained | Own Project original network selection and authorized observation; declarations/fields: `API.apiTailnetOptions`, `API.authorizeProjectTailnet`, `parseProjectTailnetMutation`, `API.admitProjectTailnetDispatch`, `API.confirmProjectTailnetDispatch`, `API.admitProjectTailnetRequest`, `API.apiProjectTailnet` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-9a59f58be692"></a>
 
 ## [internal/web/api/terminal_registry.go](../../../../../internal/web/api/terminal_registry.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 1–23 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / active | 24–49, 54–98, 213–241 | Human terminal identity/metadata and view-bound lifecycle tracking; declarations/fields: `TerminalID`, `newTerminalID`, `TerminalCreationScope`, `TerminalView`, `terminalDTO`, `reservedTerminal`, `terminalMetadata`, `terminalSessionMutation`, `parseTerminalSessionAction`, `validTerminalSessionMutation`, `API.CloseTerminals`, `API.dropTerminalPeer`, `API.unregisterTerminalPeer`, `peerIDInUse` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 50–53 | validTerminalGeometry — Interactive attachment; declarations/fields: `validTerminalGeometry` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 99–104 | validTerminalOrigin — Interactive attachment; declarations/fields: `validTerminalOrigin` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 105–118 | validSecFetchHeaders — Interactive attachment; declarations/fields: `validSecFetchHeaders` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 119–132 | checkTerminalRequestHeaders — Interactive attachment; declarations/fields: `checkTerminalRequestHeaders` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 133–142 | Record, DTO or interface contract terminalHandshake for Interactive attachment; declarations/fields: `terminalHandshake` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 143–156 | readTerminalHandshake — Interactive attachment; declarations/fields: `readTerminalHandshake` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 157–160 | validHandshakeDimensions — Interactive attachment; declarations/fields: `validHandshakeDimensions` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 161–167 | validHandshakeAction — Interactive attachment; declarations/fields: `validHandshakeAction` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 168–172 | validHandshakeRepository — Interactive attachment; declarations/fields: `validHandshakeRepository` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 173–176 | refuseTerminal — Interactive attachment; declarations/fields: `refuseTerminal` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 177–195 | pumpTerminalInput — Interactive attachment; declarations/fields: `pumpTerminalInput` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 196–212 | pumpNativeToExtension — Interactive attachment; declarations/fields: `pumpNativeToExtension` |
-
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–23, 50–53, 99–212; whole file; validTerminalGeometry; validTerminalOrigin; validSecFetchHeaders; checkTerminalRequestHeaders; terminalHandshake; readTerminalHandshake; validHandshakeDimensions; validHandshakeAction; validHandshakeRepository; refuseTerminal; pumpTerminalInput; pumpNativeToExtension | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 13 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 24–49, 54–98, 213–241; TerminalID, newTerminalID, TerminalCreationScope, TerminalView, terminalDTO, reservedTerminal, terminalMetadata, terminalSessionMutation, parseTerminalSessionAction, validTerminalSessionMutation, API.CloseTerminals, API.dropTerminalPeer | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Human terminal identity/metadata and view-bound lifecycle tracking; declarations/fields: `TerminalID`, `newTerminalID`, `TerminalCreationScope`, `TerminalView`, `terminalDTO`, `reservedTerminal`, `terminalMetadata`, `terminalSessionMutation`, `parseTerminalSessionAction`, `validTerminalSessionMutation`, `API.CloseTerminals`, `API.dropTerminalPeer`, `API.unregisterTerminalPeer`, `peerIDInUse` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |

@@ -1,53 +1,50 @@
 # Soda release image verification
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-R02 @HEAD `d5012d10` (C08): oracle.rs verified byte-identical move; intervals kept.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-16cef9a7838a"></a>
-
 <a id="rustsoda-release-imagetestsoraclers-1"></a>
+<a id="coverage-587a4579ef3d"></a>
 
 ## [lib/soda-release-image/tests/oracle.rs](../../../../../lib/soda-release-image/tests/oracle.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–10, 116–185, 219–236, 292–324, 393–418, 649–684 | Complete native candidate image assembly and authenticated live media; declarations/fields: `b64`, `check_ok`, `check_err`, `oracle_local_quadlet`, `oracle_package_inputs`, `oracle_rpm_inventory`, `oracle_extension_asset_names`, `oracle_candidate_live_config` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 11–14 | Complete native candidate image assembly and authenticated live media; declaration/member b64; declarations/fields: `b64` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 15–18 | Complete native candidate image assembly and authenticated live media; declaration/member check_ok; declarations/fields: `check_ok` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 19–23 | Complete native candidate image assembly and authenticated live media; declaration/member check_err; declarations/fields: `check_err` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 24–115, 186–218, 237–291, 325–392 | Source assertion of Authenticated installation media; declarations/fields: `oracle_media_base_url`, `oracle_live_ignition`, `oracle_media_compression`, `oracle_media_log_events` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 419–442 | Complete native candidate image assembly and authenticated live media; declaration/member oracle_qualify_reason; declarations/fields: `oracle_qualify_reason` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 443–444 | Complete native candidate image assembly and authenticated live media; declaration/member Stub; declarations/fields: `Stub` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 445–447 | Complete native candidate image assembly and authenticated live media; declaration/member source; declarations/fields: `source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 448–450 | Complete native candidate image assembly and authenticated live media; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 451–453 | Complete native candidate image assembly and authenticated live media; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 454–456 | Complete native candidate image assembly and authenticated live media; declaration/member native; declarations/fields: `native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 457–459 | Complete native candidate image assembly and authenticated live media; declaration/member out; declarations/fields: `out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 460–462 | Complete native candidate image assembly and authenticated live media; declaration/member arch; declarations/fields: `arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 463–465 | Complete native candidate image assembly and authenticated live media; declaration/member revision; declarations/fields: `revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 466–468 | Complete native candidate image assembly and authenticated live media; declaration/member live_inputs; declarations/fields: `live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 469–476 | Complete native candidate image assembly and authenticated live media; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 477–484 | Complete native candidate image assembly and authenticated live media; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 485–487 | Complete native candidate image assembly and authenticated live media; declaration/member next; declarations/fields: `next` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 488–490 | Complete native candidate image assembly and authenticated live media; declaration/member resolve_inputs; declarations/fields: `resolve_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 491–493 | Complete native candidate image assembly and authenticated live media; declaration/member dependencies; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 494–496 | Complete native candidate image assembly and authenticated live media; declaration/member compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 497–504 | Complete native candidate image assembly and authenticated live media; declaration/member compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 505–507 | Complete native candidate image assembly and authenticated live media; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 508–510 | Complete native candidate image assembly and authenticated live media; declaration/member assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 511–519 | Complete native candidate image assembly and authenticated live media; declaration/member images; declarations/fields: `images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 520–527 | Complete native candidate image assembly and authenticated live media; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 528–535 | Complete native candidate image assembly and authenticated live media; declaration/member verify_content; declarations/fields: `verify_content` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 536–538 | Complete native candidate image assembly and authenticated live media; declaration/member resolve_core_os; declarations/fields: `resolve_core_os` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 539–544 | Complete native candidate image assembly and authenticated live media; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 545–547 | Complete native candidate image assembly and authenticated live media; declaration/member check_native; declarations/fields: `check_native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 548–559 | Complete native candidate image assembly and authenticated live media; declaration/member sign_media; declarations/fields: `sign_media` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 560–569 | Complete native candidate image assembly and authenticated live media; declaration/member verify_copy; declarations/fields: `verify_copy` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 570–579 | Complete native candidate image assembly and authenticated live media; declaration/member write_document; declarations/fields: `write_document` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 580–612 | Complete native candidate image assembly and authenticated live media; declaration/member oracle_stage_layout; declarations/fields: `oracle_stage_layout` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 613–648 | Source assertion of Artifact verification; declarations/fields: `oracle_rootfs_chunks` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–27; lines 9–12: b64 and attached behavior; attached module comments and attributes; lines 13–16: check_ok and attached behavior; lines 17–22: check_err and attached behavior; lines 23–24: mod host; lines 25–26: mod media; lines 27–27: mod staging | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Complete native candidate image assembly and authenticated live media; declaration/member b64 Adjacent comments and attributes explain this same authored responsibility.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
+<a id="coverage-6c5b8d4c3deb"></a>
+
+## [lib/soda-release-image/tests/oracle/host.rs](../../../../../lib/soda-release-image/tests/oracle/host.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–193; lines 1–3: use super and attached body; lines 4–73: fn oracle_local_quadlet and attached body; lines 74–74: fn oracle_live_ignition and attached body; lines 75–75: use flate2 and attached body; lines 76–76: use flate2 and attached body; lines 77–106: use std and attached body; lines 107–124: fn oracle_package_inputs and attached body; lines 125–157: fn oracle_rpm_inventory and attached body; lines 158–193: fn oracle_candidate_live_config and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-92e513159821"></a>
+
+## [lib/soda-release-image/tests/oracle/media.rs](../../../../../lib/soda-release-image/tests/oracle/media.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–256; lines 1–1: use super and attached body; lines 2–4: use soda_release_image and attached body; lines 5–96: fn oracle_media_base_url and attached body; lines 97–154: fn oracle_media_compression and attached body; lines 155–222: fn oracle_media_log_events and attached body; lines 223–256: fn oracle_rootfs_chunks and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-c26997a18b5a"></a>
+
+## [lib/soda-release-image/tests/oracle/staging.rs](../../../../../lib/soda-release-image/tests/oracle/staging.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–221; lines 1–3: use super and attached body; lines 4–29: fn oracle_extension_asset_names and attached body; lines 30–52: fn oracle_qualify_reason and attached body; lines 53–54: struct Stub and attached body; lines 55–55: impl soda_release_image and attached body; lines 56–58: fn source and attached body; lines 59–61: fn forgejo_source and attached body; lines 62–64: fn forgejo_revision and attached body; lines 65–67: fn native and attached body; lines 68–70: fn out and attached body; lines 71–73: fn arch and attached body; lines 74–76: fn revision and attached body; lines 77–79: fn live_inputs and attached body; lines 80–87: fn execute and attached body; lines 88–95: fn capture and attached body; lines 96–98: fn next and attached body; lines 99–101: fn resolve_inputs and attached body; lines 102–104: fn dependencies and attached body; lines 105–107: fn compile and attached body; lines 108–115: fn compile_rust and attached body; lines 116–118: fn stage_fork_binary and attached body; lines 119–121: fn assets and attached body; lines 122–130: fn images and attached body; lines 131–138: fn inspect_oci and attached body; lines 139–146: fn verify_content and attached body; lines 147–149: fn resolve_core_os and attached body; lines 150–155: fn read_live_inputs and attached body; lines 156–158: fn check_native and attached body; lines 159–170: fn sign_media and attached body; lines 171–180: fn verify_copy and attached body; lines 181–190: fn write_document and attached body; lines 191–221: fn oracle_stage_layout and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 32 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |

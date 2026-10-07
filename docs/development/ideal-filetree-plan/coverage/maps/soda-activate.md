@@ -1,95 +1,129 @@
 # Soda activate
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-24fa2a3f9ddf"></a>
+
+## [cmd/soda-activate/src/activation.rs](../../../../../cmd/soda-activate/src/activation.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–410; current module/import/attribute shell; declaration Dashboard; fields operator_id, forgejo_url, forgejo_internal_url, listen, grant_key_file, host_socket, identity_socket, has_public_url; declaration DashboardRoot; declaration deserialize; declaration RootVisitor; declaration Value; declaration expecting; declaration visit_map; declaration visit_seq; declaration visit_bool; declaration visit_i64; declaration visit_u64; declaration visit_f64; declaration visit_str; declaration visit_string; declaration visit_unit; declaration string_or_empty; declaration activate; declaration is_symlink; declaration run_checked | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/activation.rs into its current native target.; 20 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-8df5ebf145e4"></a>
+
+## [cmd/soda-activate/src/cli.rs](../../../../../cmd/soda-activate/src/cli.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–113; declaration CliArgs; fields bind_ip, certificate, private_key, local_tls; declaration parse_args | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | CliArgs: implement the current private origins, TLS, and activation duty in cli.rs.; parse_args: implement the current private origins, TLS, and activation duty in cli.rs. — current source cmd/soda-activate/src/cli.rs; lines 1-10; module/caller wiring inspected; current source cmd/soda-activate/src/cli.rs; lines 11-113; module/caller wiring inspected |
+
+<a id="coverage-3dca059c795a"></a>
+
+## [cmd/soda-activate/src/forgejo_env.rs](../../../../../cmd/soda-activate/src/forgejo_env.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–103; current module/import/attribute shell; declaration rewrite_forgejo_env | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/forgejo_env.rs into its current native target.; rewrite_forgejo_env: implement the current private origins, TLS, and activation duty in forgejo_env.rs. — current source cmd/soda-activate/src/forgejo_env.rs; Cargo target and callers; current source cmd/soda-activate/src/forgejo_env.rs; lines 8-103; module/caller wiring inspected |
+
+<a id="coverage-f9e3327fb2fc"></a>
+
+## [cmd/soda-activate/src/main.rs](../../../../../cmd/soda-activate/src/main.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–62; current module/import/attribute shell; declaration activation; declaration cli; declaration forgejo_env; declaration origin; declaration system; declaration tests; declaration USAGE; declaration help_text; declaration main | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/main.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a9606b2e4b4e"></a>
+
+## [cmd/soda-activate/src/origin.rs](../../../../../cmd/soda-activate/src/origin.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–239; current module/import/attribute shell; declaration v4_in_net; declaration v4_is_private; declaration NETS; declaration v4_is_global; declaration v6_in_net; declaration v6_is_private; declaration EXCEPTIONS; declaration activate_rejects_ip; declaration OriginParts; fields hostname, port, port_present; declaration split_origin; declaration check_browser_origin; declaration origin_host_port; declaration raw_authority; declaration host_to_string; declaration valid_percent_escapes | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/origin.rs into its current native target.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-2b3cd99821b0"></a>
+
+## [cmd/soda-activate/src/system.rs](../../../../../cmd/soda-activate/src/system.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–117; current module/import/attribute shell; declaration Paths; fields root, var_lib, containers_systemd; declaration production; declaration ActivateError; declaration usage; declaration runtime; declaration Sys; declaration euid; declaration lookup_user; declaration chown; declaration run; declaration elapsed; declaration sleep; declaration RealSys; declaration MAX_NSS_BYTES; declaration ORIGIN | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/system.rs into its current native target.; 22 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a6150f59078f"></a>
+
+## [cmd/soda-activate/src/tests/activation.rs](../../../../../cmd/soda-activate/src/tests/activation.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–311; current module/import/attribute shell; declaration first_activation_derives_provider_from_forgejo_origin; declaration tls_mode_rejects_missing_or_mixed_inputs_before_effects; declaration empty_identity_socket_uses_standard_admin_socket; declaration reports_units_that_never_become_active; declaration operator_identity_encodings; declaration dashboard_duplicate_fields_are_last_wins_and_unknown_fields_are_ignored; declaration public_url_null_is_present_and_trailing_values_are_rejected_before_mutation; declaration refuses_without_root_before_effects | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/tests/activation.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-83cb6f3d7b0f"></a>
+
+## [cmd/soda-activate/src/tests/cli.rs](../../../../../cmd/soda-activate/src/tests/cli.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–33; current module/import/attribute shell; declaration cli_parsing_matches_argparse | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/tests/cli.rs into its current native target.; cli_parsing_matches_argparse: implement the current private origins, TLS, and activation duty in cli.rs. — current source cmd/soda-activate/src/tests/cli.rs; Cargo target and callers; current source cmd/soda-activate/src/tests/cli.rs; lines 3-33; module/caller wiring inspected |
+
+<a id="coverage-76255fa46cd1"></a>
+
+## [cmd/soda-activate/src/tests/fixtures.rs](../../../../../cmd/soda-activate/src/tests/fixtures.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–135; current module/import/attribute shell; declaration TEST_SEQ; declaration FakeSys; fields euid, user, calls, chowns, probe_code, now_values, sleeps; declaration new; declaration euid; declaration lookup_user; declaration chown; declaration run; declaration elapsed; declaration sleep; declaration Fixture; fields temp, paths; declaration fixture; declaration dashboard; declaration cli; declaration env_map | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/tests/fixtures.rs into its current native target.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-153f31c510a3"></a>
+
+## [cmd/soda-activate/src/tests/mod.rs](../../../../../cmd/soda-activate/src/tests/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–4; declaration activation; declaration cli; declaration fixtures; declaration origin | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | activation: implement the current private origins, TLS, and activation duty in mod.rs.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7ca2c5817666"></a>
+
+## [cmd/soda-activate/src/tests/origin.rs](../../../../../cmd/soda-activate/src/tests/origin.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–107; current module/import/attribute shell; declaration ip_classifier_matches_cpython_oracle; declaration browser_origin_checks_match_activate_rules; declaration origin_port_presence_and_ipv6_host_are_retained | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Imports and module declarations wire cmd/soda-activate/src/tests/origin.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-e5789a937347"></a>
-
 <a id="rustsoda-activatesrcmainrs-1"></a>
 
-## [rust/soda-activate/src/main.rs](../../../../../rust/soda-activate/src/main.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1–13 | Native private origin, TLS and appliance activation; declarations/fields: `geteuid`, `chown`, `getpwnam`, `Passwd`, `USAGE`, `help_text`, `main`, `CliArgs`, `parse_args`, `Paths`, `production`, `ActivateError`, `usage`, `runtime`, `Sys`, `euid`, `lookup_user`, `run`, `now`, `sleep`, `RealSys`, `v4_in_net`, `v4_is_private`, `NETS`, `v4_is_global`, `v6_in_net`, `v6_is_private`, `EXCEPTIONS`, `activate_rejects_ip`, `OriginParts`, `split_origin`, `check_browser_origin`, `origin_host_port`, `activate`, `is_symlink`, `run_checked`, `rewrite_forgejo_env`, `tests`, `TEST_SEQ`, `FakeSys`, `new`, `Fixture`, `fixture`, `dashboard`, `cli`, `env_map`, `first_activation_derives_provider_from_forgejo_origin`, `tls_mode_rejects_missing_or_mixed_inputs_before_effects`, `empty_identity_socket_uses_standard_admin_socket`, `reports_units_that_never_become_active`, `ip_classifier_matches_cpython_oracle`, `browser_origin_checks_match_activate_rules`, `operator_identity_encodings`, `cli_parsing_matches_argparse`, `refuses_without_root_before_effects` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 14 | Native private origin, TLS and appliance activation; declaration/member geteuid; declarations/fields: `geteuid` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 15, 225, 249–261, 928–931 | Native private origin, TLS and appliance activation; declaration/member chown; declarations/fields: `chown` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 16–19 | Native private origin, TLS and appliance activation; declaration/member getpwnam; declarations/fields: `getpwnam` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 20 | Native private origin, TLS and appliance activation; declaration/member Passwd; declarations/fields: `Passwd` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 21 | Native private origin, TLS and appliance activation; declaration/member Passwd.pw_name; declarations/fields: `Passwd.pw_name` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 22 | Native private origin, TLS and appliance activation; declaration/member Passwd.pw_passwd; declarations/fields: `Passwd.pw_passwd` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 23 | Native private origin, TLS and appliance activation; declaration/member Passwd.pw_uid; declarations/fields: `Passwd.pw_uid` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 24–26 | Native private origin, TLS and appliance activation; declaration/member Passwd.pw_gid; declarations/fields: `Passwd.pw_gid` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 27–28 | Native private origin, TLS and appliance activation; declaration/member USAGE; declarations/fields: `USAGE` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 29–34 | Native private origin, TLS and appliance activation; declaration/member help_text; declarations/fields: `help_text` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 35–74 | Native private origin, TLS and appliance activation; declaration/member main; declarations/fields: `main` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 75 | Native private origin, TLS and appliance activation; declaration/member CliArgs; declarations/fields: `CliArgs` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 76 | Native private origin, TLS and appliance activation; declaration/member CliArgs.bind_ip; declarations/fields: `CliArgs.bind_ip` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 77 | Native private origin, TLS and appliance activation; declaration/member CliArgs.certificate; declarations/fields: `CliArgs.certificate` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 78 | Native private origin, TLS and appliance activation; declaration/member CliArgs.private_key; declarations/fields: `CliArgs.private_key` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 79–83 | Native private origin, TLS and appliance activation; declaration/member CliArgs.local_tls; declarations/fields: `CliArgs.local_tls` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 84–187 | Native private origin, TLS and appliance activation; declaration/member parse_args; declarations/fields: `parse_args` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 188 | Native private origin, TLS and appliance activation; declaration/member Paths; declarations/fields: `Paths` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 189 | Native private origin, TLS and appliance activation; declaration/member Paths.root; declarations/fields: `Paths.root` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 190 | Native private origin, TLS and appliance activation; declaration/member Paths.var_lib; declarations/fields: `Paths.var_lib` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 191–194 | Native private origin, TLS and appliance activation; declaration/member Paths.containers_systemd; declarations/fields: `Paths.containers_systemd` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 195–204 | Native private origin, TLS and appliance activation; declaration/member production; declarations/fields: `production` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 205–211 | Native private origin, TLS and appliance activation; declaration/member ActivateError; declarations/fields: `ActivateError` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 212–215 | Native private origin, TLS and appliance activation; declaration/member usage; declarations/fields: `usage` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 216–221 | Native private origin, TLS and appliance activation; declaration/member runtime; declarations/fields: `runtime` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 222 | Native private origin, TLS and appliance activation; declaration/member Sys; declarations/fields: `Sys` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 223, 234–237, 920–922 | Native private origin, TLS and appliance activation; declaration/member euid; declarations/fields: `euid` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 224, 238–248, 923–927 | Native private origin, TLS and appliance activation; declaration/member lookup_user; declarations/fields: `lookup_user` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 226, 262–268, 932–939 | Native private origin, TLS and appliance activation; declaration/member run; declarations/fields: `run` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 227, 269–276, 940–946 | Native private origin, TLS and appliance activation; declaration/member now; declarations/fields: `now` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 228–230, 277–288, 947–952 | Native private origin, TLS and appliance activation; declaration/member sleep; declarations/fields: `sleep` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 231–233 | Native private origin, TLS and appliance activation; declaration/member RealSys; declarations/fields: `RealSys` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 289–295 | Native private origin, TLS and appliance activation; declaration/member v4_in_net; declarations/fields: `v4_in_net` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 296 | Native private origin, TLS and appliance activation; declaration/member v4_is_private; declarations/fields: `v4_is_private` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 297–319, 332–344 | Native private origin, TLS and appliance activation; declaration/member NETS; declarations/fields: `NETS` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 320–323 | Native private origin, TLS and appliance activation; declaration/member v4_is_global; declarations/fields: `v4_is_global` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 324–330 | Native private origin, TLS and appliance activation; declaration/member v6_in_net; declarations/fields: `v6_in_net` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 331 | Native private origin, TLS and appliance activation; declaration/member v6_is_private; declarations/fields: `v6_is_private` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 345–359 | Native private origin, TLS and appliance activation; declaration/member EXCEPTIONS; declarations/fields: `EXCEPTIONS` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 360–386 | Native private origin, TLS and appliance activation; declaration/member activate_rejects_ip; declarations/fields: `activate_rejects_ip` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 387 | Native private origin, TLS and appliance activation; declaration/member OriginParts; declarations/fields: `OriginParts` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 388 | Native private origin, TLS and appliance activation; declaration/member OriginParts.hostname; declarations/fields: `OriginParts.hostname` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 389 | Native private origin, TLS and appliance activation; declaration/member OriginParts.port; declarations/fields: `OriginParts.port` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 390–392 | Native private origin, TLS and appliance activation; declaration/member OriginParts.port_present; declarations/fields: `OriginParts.port_present` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 393–433 | Native private origin, TLS and appliance activation; declaration/member split_origin; declarations/fields: `split_origin` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 434–473 | Native private origin, TLS and appliance activation; declaration/member check_browser_origin; declarations/fields: `check_browser_origin` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 474–514 | Native private origin, TLS and appliance activation; declaration/member origin_host_port; declarations/fields: `origin_host_port` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 515–777 | Native private origin, TLS and appliance activation; declaration/member activate; declarations/fields: `activate` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 778–783 | Native private origin, TLS and appliance activation; declaration/member is_symlink; declarations/fields: `is_symlink` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 784–793 | Native private origin, TLS and appliance activation; declaration/member run_checked; declarations/fields: `run_checked` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 794–887 | Native private origin, TLS and appliance activation; declaration/member rewrite_forgejo_env; declarations/fields: `rewrite_forgejo_env` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 888–892 | Native private origin, TLS and appliance activation; declaration/member tests; declarations/fields: `tests` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 893–894 | Native private origin, TLS and appliance activation; declaration/member TEST_SEQ; declarations/fields: `TEST_SEQ` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 895 | Native private origin, TLS and appliance activation; declaration/member FakeSys; declarations/fields: `FakeSys` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 896 | Native private origin, TLS and appliance activation; declaration/member FakeSys.euid; declarations/fields: `FakeSys.euid` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 897 | Native private origin, TLS and appliance activation; declaration/member FakeSys.user; declarations/fields: `FakeSys.user` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 898 | Native private origin, TLS and appliance activation; declaration/member FakeSys.calls; declarations/fields: `FakeSys.calls` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 899 | Native private origin, TLS and appliance activation; declaration/member FakeSys.chowns; declarations/fields: `FakeSys.chowns` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 900 | Native private origin, TLS and appliance activation; declaration/member FakeSys.probe_code; declarations/fields: `FakeSys.probe_code` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 901 | Native private origin, TLS and appliance activation; declaration/member FakeSys.now_values; declarations/fields: `FakeSys.now_values` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 902–905 | Native private origin, TLS and appliance activation; declaration/member FakeSys.sleeps; declarations/fields: `FakeSys.sleeps` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 906–919 | Native private origin, TLS and appliance activation; declaration/member new; declarations/fields: `new` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 953 | Native private origin, TLS and appliance activation; declaration/member Fixture; declarations/fields: `Fixture` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 954 | Native private origin, TLS and appliance activation; declaration/member Fixture.temp; declarations/fields: `Fixture.temp` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 955–957 | Native private origin, TLS and appliance activation; declaration/member Fixture.paths; declarations/fields: `Fixture.paths` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 958–979 | Native private origin, TLS and appliance activation; declaration/member fixture; declarations/fields: `fixture` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 980–985 | Native private origin, TLS and appliance activation; declaration/member dashboard; declarations/fields: `dashboard` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 986–1007 | Native private origin, TLS and appliance activation; declaration/member cli; declarations/fields: `cli` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1008–1019 | Native private origin, TLS and appliance activation; declaration/member env_map; declarations/fields: `env_map` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1020–1116 | Native private origin, TLS and appliance activation; declaration/member first_activation_derives_provider_from_forgejo_origin; declarations/fields: `first_activation_derives_provider_from_forgejo_origin` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1117–1143 | Native private origin, TLS and appliance activation; declaration/member tls_mode_rejects_missing_or_mixed_inputs_before_effects; declarations/fields: `tls_mode_rejects_missing_or_mixed_inputs_before_effects` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1144–1169 | Native private origin, TLS and appliance activation; declaration/member empty_identity_socket_uses_standard_admin_socket; declarations/fields: `empty_identity_socket_uses_standard_admin_socket` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1170–1193 | Native private origin, TLS and appliance activation; declaration/member reports_units_that_never_become_active; declarations/fields: `reports_units_that_never_become_active` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1194–1246 | Native private origin, TLS and appliance activation; declaration/member ip_classifier_matches_cpython_oracle; declarations/fields: `ip_classifier_matches_cpython_oracle` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1247–1275 | Native private origin, TLS and appliance activation; declaration/member browser_origin_checks_match_activate_rules; declarations/fields: `browser_origin_checks_match_activate_rules` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1276–1322 | Native private origin, TLS and appliance activation; declaration/member operator_identity_encodings; declarations/fields: `operator_identity_encodings` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1323–1354 | Native private origin, TLS and appliance activation; declaration/member cli_parsing_matches_argparse; declarations/fields: `cli_parsing_matches_argparse` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 1355–1374 | Native private origin, TLS and appliance activation; declaration/member refuses_without_root_before_effects; declarations/fields: `refuses_without_root_before_effects` |
-
+Former source `rust/soda-activate/src/main.rs`; consult its pinned earlier Git source and the current coverage disposition.

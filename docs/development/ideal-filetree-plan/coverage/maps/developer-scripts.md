@@ -1,257 +1,599 @@
 # Developer scripts
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-3dcf4de704f5"></a>
 
 ## [scripts/build-soda-extension.ts](../../../../../scripts/build-soda-extension.ts)
 
+Changed current body; prior ownership not reused as exact selectors
 
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–25 | Native extension entry/style graph and source path declarations; declarations/fields: `entries`, `styles`, `source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 26–48 | Assert style use and extension manifest entry closure; declarations/fields: `checkStylesUsedByEntries`, `checkManifestEntries` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 49–104 | Compile native extension split script graph and bundled stylesheet graph; declarations/fields: `buildScripts`, `buildStyles` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 105–123 | Copy and verify already-acquired locked terminal renderer files; declarations/fields: `copyLockedTerminal` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 124–138 | Stage exact native extension icon/Lit/font notices; declarations/fields: `copyNotices` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 139–182 | Inventory complete native browser payload and expose build command; declarations/fields: `filesUnder`, `buildSodaExtensionAssets` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–123, 139–182; native extension asset build and inventory | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Check source entry/style graph against the extension manifest, bundle browser JS/CSS, copy lock-hash-verified terminal assets, and enumerate generated browser payload files. — Current source inspected at scripts/build-soda-extension.ts; concrete renderer/build/test consumer is named in the selector and description. |
+| 124–138; copyNotices | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Copy font and Lit notices for the staged branding/font/browser payload. — Current source inspected at scripts/build-soda-extension.ts; concrete renderer/build/test consumer is named in the selector and description. |
 
 <a id="coverage-e6723e4eae8c"></a>
 
 ## [scripts/check-forgejo-branding.ts](../../../../../scripts/check-forgejo-branding.ts)
 
+Exact byte-identical prior detailed map units
 
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 1–43, 63, 74, 84, 110 | Declarations/fixtures and integration for Observe native Forgejo contrast, controls, focus and image presentation |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 44–62 | contrast — Observe native Forgejo contrast, controls, focus and image presentation; declarations/fields: `contrast` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 64–73 | colors — Observe native Forgejo contrast, controls, focus and image presentation; declarations/fields: `colors` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 75–83 | visit — Observe native Forgejo contrast, controls, focus and image presentation; declarations/fields: `visit` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 85–109 | checkButtons — Observe native Forgejo contrast, controls, focus and image presentation; declarations/fields: `checkButtons` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 111–123 | checkFocusAndImages — Observe native Forgejo contrast, controls, focus and image presentation; declarations/fields: `checkFocusAndImages` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 124–185 | Observe native Forgejo contrast, controls, focus and image presentation |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–43, 63, 74, 84–185; prior detailed responsibility interval | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) | retained | Declarations/fixtures and integration for Observe native Forgejo contrast, controls, focus and image presentation; 4 named units assigned here; remaining selectors preserve each duty — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/check-forgejo-branding.ts; manifest identical_prior confirms byte identity |
+| 44–62, 64–73; prior detailed responsibility interval | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | contrast — Observe native Forgejo contrast, controls, focus and image presentation; declarations/fields: `contrast`; colors — Observe native Forgejo contrast, controls, focus and image presentation; declarations/fields: `colors` — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/check-forgejo-branding.ts; manifest identical_prior confirms byte identity |
+| 75–83; prior detailed responsibility interval | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | visit — Observe native Forgejo contrast, controls, focus and image presentation; declarations/fields: `visit` — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/check-forgejo-branding.ts; manifest identical_prior confirms byte identity |
 
 <a id="coverage-fd92209a2c50"></a>
 
 ## [scripts/check-native.sh](../../../../../scripts/check-native.sh)
 
+Exact byte-identical prior detailed map units
 
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 1–15 | Require matching native substrate, pinned tools and clean exact revision before qualification; declarations/fields: `revision`, `GOTOOLCHAIN` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 16–21 | Require candidate artifact identities and choose artifact-local verifier path; declarations/fields: `candidate`, `artifacts`, `verifier` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 22–25 | Legacy sealed-stage verifier branch invokes its artifact-local verify command; declarations/fields: `verifier` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 26–31 | Bind both checkouts and invoke current Rust soda-candidate-check over candidate archives; declarations/fields: `forgejo_revision`, `soda-candidate-check` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 32–34 | Run source suite and guard unchanged revision; explicitly distinguish installed qualification; declarations/fields: `check:source`, `revision` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15, 32–34; prior detailed responsibility interval | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Require matching native substrate, pinned tools and clean exact revision before qualification; declarations/fields: `revision`, `GOTOOLCHAIN`; Run source suite and guard unchanged revision; explicitly distinguish installed qualification; declarations/fields: `check:source`, `revision` — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/check-native.sh; manifest identical_prior confirms byte identity |
+| 16–31; prior detailed responsibility interval | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Require candidate artifact identities and choose artifact-local verifier path; declarations/fields: `candidate`, `artifacts`, `verifier`; Legacy sealed-stage verifier branch invokes its artifact-local verify command; declarations/fields: `verifier`; Bind both checkouts and invoke current Rust soda-candidate-check over candidate archives; declarations/fields: `forgejo_revision`, `soda-candidate-check` — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/check-native.sh; manifest identical_prior confirms byte identity |
 
 <a id="coverage-439506db437a"></a>
 
 ## [scripts/console_welcome_test.go](../../../../../scripts/console_welcome_test.go)
 
-Source/assertion inspection only; no suite or native scenario executed.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 1–12, 47, 71, 96, 117, 136, 144 | Declarations/fixtures and integration for Console guidance and quiet installed welcome-hook contracts |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 13–46 | Test harness consoleFixture — Console guidance and quiet installed welcome-hook contracts; declarations/fields: `consoleFixture` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 48–70 | Assert Console Uses Configured Origins And Native Uplinks; declarations/fields: `TestConsoleUsesConfiguredOriginsAndNativeUplinks` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 72–95 | Assert Console Uses Configured Dashboard Port; declarations/fields: `TestConsoleUsesConfiguredDashboardPort` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 97–116 | Assert Console Shows Forgejo Installer Before Setup; declarations/fields: `TestConsoleShowsForgejoInstallerBeforeSetup` |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 118–135 | Assert Console Does Not Render Non Operator Or Unsafe Origins; declarations/fields: `TestConsoleDoesNotRenderNonOperatorOrUnsafeOrigins` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 137–143 | Assert Console Hook Keeps Noninteractive SSHQuiet; declarations/fields: `TestConsoleHookKeepsNoninteractiveSSHQuiet` |
-| [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / active | 145–165 | Assert Console Welcome Install Wiring; declarations/fields: `TestConsoleWelcomeInstallWiring` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–47; file scaffold; consoleFixture | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: consoleFixture — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 48–96, 118–136; TestConsoleUsesConfiguredOriginsAndNativeUplinks; TestConsoleUsesConfiguredDashboardPort; TestConsoleDoesNotRenderNonOperatorOrUnsafeOrigins | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Current declaration duty: TestConsoleUsesConfiguredOriginsAndNativeUplinks; Current declaration duty: TestConsoleUsesConfiguredDashboardPort; Current declaration duty: TestConsoleDoesNotRenderNonOperatorOrUnsafeOrigins — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 97–117, 137–165; TestConsoleShowsForgejoInstallerBeforeSetup; TestConsoleHookKeepsNoninteractiveSSHQuiet; TestConsoleWelcomeInstallWiring | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Current declaration duty: TestConsoleShowsForgejoInstallerBeforeSetup; Current declaration duty: TestConsoleHookKeepsNoninteractiveSSHQuiet; Current declaration duty: TestConsoleWelcomeInstallWiring — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-b79767bad4b6"></a>
 
 ## [scripts/fixtures/portcontracts/cli_surface.json](../../../../../scripts/fixtures/portcontracts/cli_surface.json)
 
-Tracked canonical assertion/reference data with current test consumers; no generator provenance assumed.Historical Go source strings remain active oracle inputs through portedSourcePin's current Rust mapping, not active Go runtime owners.
+Exact byte-identical prior detailed map units
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1–16 | Frozen factory operator lifecycle/status CLI bytes |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 17–32 | Frozen identity-compose CLI surface bytes |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 33–41 | Frozen image-import CLI refusal bytes |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 42–50 | Frozen native host Tailnet CLI surface bytes |
-| [N07](../../slices/networking.md#n07-git-endpoint-advertisement) / active | 51–58 | Frozen Git endpoint advertisement helper CLI bytes |
-| [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) / active | 59–68 | Frozen operator bootstrap CLI refusal bytes |
-| [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / active | 69–75 | Frozen private-origin/setup flags checked through current Rust source adapter |
-| [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) / active | 76–77 | Frozen operator-token/bootstrap configuration flags |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 78–82 | Frozen first-boot database provisioning/config flag closure |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–16; prior detailed responsibility interval | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Frozen factory operator lifecycle/status CLI bytes — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/fixtures/portcontracts/cli_surface.json; manifest identical_prior confirms byte identity |
+| 17–32; prior detailed responsibility interval | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Frozen identity-compose CLI surface bytes — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/fixtures/portcontracts/cli_surface.json; manifest identical_prior confirms byte identity |
+| 33–41; prior detailed responsibility interval | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Frozen image-import CLI refusal bytes — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/fixtures/portcontracts/cli_surface.json; manifest identical_prior confirms byte identity |
+| 42–50; prior detailed responsibility interval | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Frozen native host Tailnet CLI surface bytes — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/fixtures/portcontracts/cli_surface.json; manifest identical_prior confirms byte identity |
+| 51–58; prior detailed responsibility interval | [N07](../../slices/networking.md#n07-git-endpoint-advertisement) | retained | Frozen Git endpoint advertisement helper CLI bytes — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/fixtures/portcontracts/cli_surface.json; manifest identical_prior confirms byte identity |
+| 59–68, 76–77; prior detailed responsibility interval | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | retained | Frozen operator bootstrap CLI refusal bytes; Frozen operator-token/bootstrap configuration flags — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/fixtures/portcontracts/cli_surface.json; manifest identical_prior confirms byte identity |
+| 69–75; prior detailed responsibility interval | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) | retained | Frozen private-origin/setup flags checked through current Rust source adapter — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/fixtures/portcontracts/cli_surface.json; manifest identical_prior confirms byte identity |
+| 78–82; prior detailed responsibility interval | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) | retained | Frozen first-boot database provisioning/config flag closure — docs/development/ideal-filetree-plan/coverage/maps/developer-scripts.md#scripts/fixtures/portcontracts/cli_surface.json; manifest identical_prior confirms byte identity |
 
 <a id="coverage-b23dac91d26d"></a>
 
 ## [scripts/fixtures/portcontracts/systemd_wiring.json](../../../../../scripts/fixtures/portcontracts/systemd_wiring.json)
 
-Tracked canonical assertion/reference data with current test consumers; no generator provenance assumed.
+Changed current body; prior ownership not reused as exact selectors
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–5 | Frozen staged project-init executable path |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 6–18 | Frozen host socket/service credential and startup contracts |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 19–40 | Frozen identity private IPC socket/service access contracts |
-| [N06](../../slices/networking.md#n06-project-companion-lifecycle) / active | 41–47 | Frozen native Project Tailnet companion units |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 48–53 | Frozen Muse provider runtime binding/maintenance unit paths |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 54–61 | Frozen PG provisioning unit executable/secret wiring |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–5; installed project-init path contract | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Frozen expected installed executable path for project-init; checked by systemd port-contract tests. — Static checked-in JSON fixture; consumer scripts/system_formats_test.go decodes this fixture. |
+| 6–40; host socket/service credential and startup contracts; identity private IPC socket/service access contracts | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Fixture asserts host daemon socket/service startup and credential wiring.; Fixture asserts identity socket/service path and access contracts. — Static fixture consumed by systemd_wiring contract test in scripts/system_formats_test.go. |
+| 41–47; native Project Tailnet companion unit contract | [N06](../../slices/networking.md#n06-project-companion-lifecycle) | retained | Fixture asserts Tailnet companion unit wiring for the native Project service. — Static fixture consumed by systemd_wiring contract test in scripts/system_formats_test.go. |
+| 48–53; Muse provider runtime binding/maintenance unit paths | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Fixture asserts provider runtime unit path and maintenance binding. — Static fixture consumed by systemd_wiring contract test in scripts/system_formats_test.go. |
+| 54–61; PostgreSQL provisioning executable and secret wiring | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) | retained | Fixture asserts PG provisioning service executable and secret path wiring. — Static fixture consumed by systemd_wiring contract test in scripts/system_formats_test.go. |
+
+<a id="coverage-74588ab35864"></a>
+
+## [scripts/forgejo_account_details_test.go](../../../../../scripts/forgejo_account_details_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–248; file scaffold; forgejoAccountDetailFixture; forgejoAccountDetailFixtures; TestForgejoAccountDetailOverridesRetainUpstreamAttribution; TestForgejoOAuthApplicationListKeepsNativeFormsAndActions; TestForgejoAccountDetailsPreserveNativeSecurityAndActions; forgejoAccountDisabledFeatures; Contains; TestForgejoAccountKeysKeepNativeCapabilityGates; TestForgejoAccountSecurityKeepsRequiredTwoFactorBoundary; TestForgejoAccountDetailsCSSIsScoped; readForgejoAccountDetailTemplate | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-65d87d7782c0"></a>
+
+## [scripts/forgejo_account_settings_test.go](../../../../../scripts/forgejo_account_settings_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–254; file scaffold; TestForgejoPersonalSettingsNavigationGates; TestForgejoAccountSettingsLayoutComposesNativeSeams; forgejoCleanupFixtureType; Name; TestForgejoPersonalAdaptersKeepNativeRootContext; TestForgejoPersonalActionsUseScopedEmptyStatesAndWarning; forgejoSettingsFixtureLocale; Tr; TestForgejoPersonalProviderSectionAbsentWithoutProviders; TestForgejoOAuthHeadingScopedByCallerNotNativeSettingsFlag; forgejoSettingsFixtureStrings; Join; TestForgejoOAuthEditorPreservesOtherCallers; TrSize; TestForgejoAvatarSourceChoices | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 16 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-d9dd24828acb"></a>
+
+## [scripts/forgejo_admin_details_test.go](../../../../../scripts/forgejo_admin_details_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–264; file scaffold; TestForgejoAdminDetailsOverridesMatchStock1509; TestForgejoAdminAuthEditParityRejectsMutatedLeaf; TestForgejoAdminDetailsKeepNativeActionsAndBranches; TestForgejoAdminDetailsCSSIsScopedAndResponsive | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-8a72114fd120"></a>
+
+## [scripts/forgejo_admin_monitoring_test.go](../../../../../scripts/forgejo_admin_monitoring_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–111; file scaffold; TestForgejoAdminMonitoringStockParityAndParse; forgejoMonitoringLocale; Tr; forgejoMonitoringContext; forgejoMonitoringFunctions; TestForgejoAdminMonitoringPreservesNativeWarningsAndEmptyNotice | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-3297f4dac301"></a>
+
+## [scripts/forgejo_admin_org_test.go](../../../../../scripts/forgejo_admin_org_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–186; file scaffold; TestForgejoAdminOrganizationOverridesRetain1509Source; TestForgejoAdminOrganizationCompositionBoundaries; TestForgejoAdminOrganizationStylesStayFamilyScoped; TestForgejoSettingsComponentKeepsNativeBoundaries | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-ae95041f54bb"></a>
+
+## [scripts/forgejo_auth_test.go](../../../../../scripts/forgejo_auth_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–69; file scaffold; TestForgejoSecondaryAuthPagesOnlyAddPresentationRoot; TestForgejoSecondaryAuthStylesRemainPageScoped | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoSecondaryAuthPagesOnlyAddPresentationRoot; Current declaration duty: TestForgejoSecondaryAuthStylesRemainPageScoped — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-a626fb9865cc"></a>
+
+## [scripts/forgejo_cargo_test.go](../../../../../scripts/forgejo_cargo_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–77; file scaffold; forgejoCargoLocale; Lang; forgejoCargoStrings; Split; Tr; forgejoCargoContext; TestForgejoCargoComposesNativeIndexBranches | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-317949102f9e"></a>
+
+## [scripts/forgejo_code_search_test.go](../../../../../scripts/forgejo_code_search_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–33; file scaffold; TestForgejoCodeSearchStylesHaveOneScopedOwner | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoCodeSearchStylesHaveOneScopedOwner — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-9aec2f464928"></a>
-
 <a id="scriptsforgejo_components_testgo-1"></a>
 
 ## [scripts/forgejo_components_test.go](../../../../../scripts/forgejo_components_test.go)
 
-Source/assertion inspection only; no suite or native scenario executed.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 1–17, 21, 28–32, 47, 115, 175, 203, 265, 346, 420, 472, 547, 626, 661, 671–673, 681 | Declarations/fixtures and integration for Native Forgejo components template/control contracts |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 18–20 | Tr — Native Forgejo components template/control contracts; declarations/fields: `Tr` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 22–27 | TrN — Native Forgejo components template/control contracts; declarations/fields: `TrN` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 33–46 | forgejoTemplateDict — Native Forgejo components template/control contracts; declarations/fields: `forgejoTemplateDict` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 48–114 | Assert Forgejo Page Intro Composition; declarations/fields: `TestForgejoPageIntroComposition` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 116–174 | Assert Forgejo Empty Content Composition; declarations/fields: `TestForgejoEmptyContentComposition` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 176–202 | Assert Forgejo Explore Navbar Delegates Native Policy And Overflow; declarations/fields: `TestForgejoExploreNavbarDelegatesNativePolicyAndOverflow` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 204–264 | Assert Forgejo Explore Pages Compose Native Controls With Original Context; declarations/fields: `TestForgejoExplorePagesComposeNativeControlsWithOriginalContext` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 266–345 | Assert Forgejo Explore Empty Owns Only Visible Actions; declarations/fields: `TestForgejoExploreEmptyOwnsOnlyVisibleActions` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 347–419 | Assert Forgejo Theme Toggle Is Singleton At Each Placement; declarations/fields: `TestForgejoThemeToggleIsSingletonAtEachPlacement` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 421–471 | Assert Forgejo Header Loads Guest Theme Script Only For Toggle Routes; declarations/fields: `TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 473–546 | Assert Forgejo Repository Creation Keeps Native Permission Branches; declarations/fields: `TestForgejoRepositoryCreationKeepsNativePermissionBranches` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 548–625 | Assert Forgejo Pages Compose Shared Presentation With Native Boundaries; declarations/fields: `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 627–660 | Assert Forgejo Native Form Adapter Selects Main Forms Only; declarations/fields: `TestForgejoNativeFormAdapterSelectsMainFormsOnly` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 662–670 | readForgejoTemplate — Native Forgejo components template/control contracts; declarations/fields: `readForgejoTemplate` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 674–680 | templateCalls — Native Forgejo components template/control contracts; declarations/fields: `templateCalls` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 682–691 | requireForgejoTemplateCalls — Native Forgejo components template/control contracts; declarations/fields: `requireForgejoTemplateCalls` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–9; file scaffold | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 10–386; TestForgejoPageIntroComposition; TestForgejoEmptyContentComposition; TestForgejoExploreNavbarDelegatesNativePolicyAndOverflow; TestForgejoExplorePagesComposeNativeControlsWithOriginalContext; TestForgejoExploreEmptyOwnsOnlyVisibleActions; TestForgejoPagesComposeSharedPresentationWithNativeBoundaries | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) | retained | Current declaration duty: TestForgejoPageIntroComposition; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-32be88b4ac62"></a>
+
+## [scripts/forgejo_federated_auth_test.go](../../../../../scripts/forgejo_federated_auth_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–313; file scaffold; forgejo1509FederatedTemplateHashes; forgejoFederatedPresentationEdits; TestForgejoFederatedAuthOverridesMatchStock1509ApartFromPresentation; TestForgejoFederatedAuthPreservesNativeSecurityAndDelegation; TestForgejoFederatedAuthOverridesParseWithNativeSeams; TestForgejoFederatedAuthGuestToggleFollowsNativeRouteFlags; TestForgejoFederatedAuthNativeAccountLinkBranches; TestForgejoFederatedAuthGrantErrorKeepsRepositoryHeaderBranch; TestForgejoFederatedAuthCSSIsScopedAndAttributed; readForgejoFederatedTemplate | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 11 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-59e7d59502f0"></a>
+
+## [scripts/forgejo_form_components_test.go](../../../../../scripts/forgejo_form_components_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–120; file scaffold; TestForgejoRepositoryCreationKeepsNativePermissionBranches; TestForgejoNativeFormAdapterSelectsMainFormsOnly | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoRepositoryCreationKeepsNativePermissionBranches; Current declaration duty: TestForgejoNativeFormAdapterSelectsMainFormsOnly — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-a15e5235cd87"></a>
+
+## [scripts/forgejo_form_layout_test.go](../../../../../scripts/forgejo_form_layout_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–85; file scaffold; readForgejoTemplateForUpstreamParity; reverseFormPresentationDeltas; stripSodaPClasses; expandAuthLeafInvocations; expandAuthLeafInvocationsWithReader; reconstructAuthLeaf | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-8774427c828a"></a>
+
+## [scripts/forgejo_home_redesign_test.go](../../../../../scripts/forgejo_home_redesign_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–96; file scaffold; writeHomePreviews; previewUnwritable; TestForgejoHomeRedesign | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-52ec8e64c7bf"></a>
+
+## [scripts/forgejo_insights_test.go](../../../../../scripts/forgejo_insights_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–231; file scaffold; TestForgejoInsightsOverridesMatchStock1509; forgejoInsightsPermission; CanRead; TestForgejoActivityDelegatesNativeInsightBranches; forgejoGraphRef; TestForgejoGraphPreservesNativeModesRefsAndContent; TestForgejoInsightsCSSIsPageScoped | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-3abc7a522e59"></a>
 
 ## [scripts/forgejo_migrate_test.go](../../../../../scripts/forgejo_migrate_test.go)
 
-Source/assertion inspection only; no suite or native scenario executed.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [O03](../../slices/operator-administration.md#o03-existing-install-credential-maintenance) / active | 1–22, 46–48, 87, 95 | Declarations/fixtures and integration for Existing Forgejo database-secret configuration migration |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 23–45 | Test harness forgejoMigrateBinary — Existing Forgejo database-secret configuration migration; declarations/fields: `forgejoMigrateBinary` |
-| [O03](../../slices/operator-administration.md#o03-existing-install-credential-maintenance) / active | 49–86 | Assert Forgejo Migrate Scrubs Database Passwd Only; declarations/fields: `TestForgejoMigrateScrubsDatabasePasswdOnly` |
-| [O03](../../slices/operator-administration.md#o03-existing-install-credential-maintenance) / active | 88–94 | Assert Forgejo Migrate Skips Missing Config; declarations/fields: `TestForgejoMigrateSkipsMissingConfig` |
-| [O03](../../slices/operator-administration.md#o03-existing-install-credential-maintenance) / active | 96–122 | Assert Forgejo Migrate Unit Wiring; declarations/fields: `TestForgejoMigrateUnitWiring` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–48; file scaffold; forgejoMigrateBinary | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: forgejoMigrateBinary — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 49–122; TestForgejoMigrateScrubsDatabasePasswdOnly; TestForgejoMigrateSkipsMissingConfig; TestForgejoMigrateUnitWiring | [O03](../../slices/operator-administration.md#o03-existing-install-credential-maintenance) | retained | Current declaration duty: TestForgejoMigrateScrubsDatabasePasswdOnly; Current declaration duty: TestForgejoMigrateSkipsMissingConfig; Current declaration duty: TestForgejoMigrateUnitWiring — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-262aa15c24db"></a>
+
+## [scripts/forgejo_native_pages_test.go](../../../../../scripts/forgejo_native_pages_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–116; file scaffold; dashboardFixtureUser; ShortName; renderForgejoDashboard; TestForgejoDashboardKeepsNativeContent; renderForgejoAdminDashboard; TestForgejoAdminDashboardKeepsNativeOperations | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-cbe3cc0e0143"></a>
+
+## [scripts/forgejo_notification_preview_test.go](../../../../../scripts/forgejo_notification_preview_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–131; file scaffold; previewRequestContext; FormBool; previewTemplateContext; previewDates; TimeSince; previewNotification; Link; TestForgejoNotificationPreviewRendering; TestForgejoNotificationPreviewSignedInHook | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-90389805883c"></a>
+
+## [scripts/forgejo_onboarding_test.go](../../../../../scripts/forgejo_onboarding_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–258; file scaffold; TestForgejoOnboardingPreservesNativeRoutesAndFields; TestForgejoOnboardingMigrationProvidersUseSharedFormLayout; TestForgejoOnboardingMigratingPreservesNativeRuntimeHooks; migrationChooserService; String; TestForgejoMigrationChooserRendersOnlyAvailableSourcesAndPreservesContext; entryNames; readForgejoAssetFile | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-332bba8daad1"></a>
+
+## [scripts/forgejo_org_details_test.go](../../../../../scripts/forgejo_org_details_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–64; file scaffold; TestForgejoOrgDetailsSourceParityAndParse | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoOrgDetailsSourceParityAndParse — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-461abefdaaac"></a>
+
+## [scripts/forgejo_org_home_test.go](../../../../../scripts/forgejo_org_home_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–63; file scaffold; TestForgejoOrganizationHomeSourceParity; TestForgejoOrganizationHomeNativeCreationAndVisibility | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoOrganizationHomeSourceParity; Current declaration duty: TestForgejoOrganizationHomeNativeCreationAndVisibility — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-2a9c9779444c"></a>
+
+## [scripts/forgejo_org_projects_test.go](../../../../../scripts/forgejo_org_projects_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–32; file scaffold; TestForgejoOrgProjectsPreserveNativeContextsAndProjectPartials | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoOrgProjectsPreserveNativeContextsAndProjectPartials — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-44a7026dfa67"></a>
+
+## [scripts/forgejo_owner_code_test.go](../../../../../scripts/forgejo_owner_code_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–57; file scaffold; TestForgejoOwnerCodePreservesNativeSearchContext | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoOwnerCodePreservesNativeSearchContext — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-a3b972a9c9a7"></a>
+
+## [scripts/forgejo_packages_test.go](../../../../../scripts/forgejo_packages_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–240; file scaffold; TestForgejoCodeSearchKeepsNativeSearchContext; TestForgejoPackagesOwnerPagesRetainOrganizationAndUserBranches; TestForgejoPackagesNativeActionsAndProtocolPartialsRemain; TestForgejoPackagesStylesStayScoped; TestForgejoPackagesCleanupRulesKeepNativeActionsAndData | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-2107d34ed930"></a>
+
+## [scripts/forgejo_presentation_test.go](../../../../../scripts/forgejo_presentation_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–190; file scaffold; TestForgejoPresentationGallery | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoPresentationGallery — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-fa74dd9f7ba4"></a>
+
+## [scripts/forgejo_profiles_test.go](../../../../../scripts/forgejo_profiles_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–189; file scaffold; forgejoProfilesLocale; Tr; forgejoProfilesContext; TestForgejoProfilesKeepNativePageWorkflows; TestForgejoProfilesComposeNativeBranchesWithOriginalContext; TestForgejoProfilesHeaderComposesNativeRoutes; TestForgejoSharedProfileCardCallersOptInExplicitly; TestForgejoProfilesStylesStayInsideProfileRoot | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-54d03e5651d9"></a>
+
+## [scripts/forgejo_project_board_test.go](../../../../../scripts/forgejo_project_board_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–48; file scaffold; TestForgejoProjectBoardKeepsNativeBehaviorHooks; TestForgejoProjectBoardStylesDoNotOwnDragState | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoProjectBoardKeepsNativeBehaviorHooks; Current declaration duty: TestForgejoProjectBoardStylesDoNotOwnDragState — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-0c77efe96439"></a>
+
+## [scripts/forgejo_repository_code_test.go](../../../../../scripts/forgejo_repository_code_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–186; file scaffold; forgejoCSSImport; inlineForgejoCSSImports; TestForgejoCodeAndWorkflowOverridesKeepNativeBodies; TestForgejoCodeEditorsKeepExplicitFormAndNativeRoot; TestForgejoCodeAndWorkflowStylesUsePositiveFamilyMarkers | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-1aa2d000b613"></a>
+
+## [scripts/forgejo_repository_content_test.go](../../../../../scripts/forgejo_repository_content_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–136; file scaffold; TestForgejoRepositoryContentOverridesRetain1509Source; TestForgejoRepositoryContentKeepsNativeGatesAndPartials; TestForgejoWikiSearchFragmentRetains1509Structure; TestForgejoReleaseTagHeaderRetainsNativePolicy; TestForgejoRepositoryContentStylesStayScoped | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-57e51435f7a2"></a>
+
+## [scripts/forgejo_repository_general_settings_test.go](../../../../../scripts/forgejo_repository_general_settings_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–143; file scaffold; readForgejoTemplateClosure; TestForgejoRepositoryGeneralSettingsUseOpenSections; TestForgejoRepositoryUnitsRetainNativeControlContracts | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-c2383f874299"></a>
+
+## [scripts/forgejo_repository_issues_test.go](../../../../../scripts/forgejo_repository_issues_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–131; file scaffold; TestForgejoRepositoryIssuePagesKeepNativeWorkflows; TestForgejoPullFragmentsKeepNativeHooks; TestForgejoRepositoryIssueStylesStayScoped | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-dba35a061750"></a>
+
+## [scripts/forgejo_repository_settings_collections_test.go](../../../../../scripts/forgejo_repository_settings_collections_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–142; file scaffold; readRepositorySettingsCollectionTemplate; TestForgejoRepositorySettingsCollectionsUseOpenSettingsComposition; TestForgejoRepositorySettingsCollectionsRetainNativeInteractionContracts; TestForgejoRepositorySettingsCollectionsUseSharedEmptyAndNoticeRoles | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-909cc8d5aabf"></a>
+
+## [scripts/forgejo_repository_settings_details_test.go](../../../../../scripts/forgejo_repository_settings_details_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–147; file scaffold; TestForgejoRepositorySettingsLeavesUseSharedShell; TestForgejoWebhookPartialsRetain1509Source; TestForgejoRepositorySettingsDetailStylesStayScoped; TestForgejoSharedRunnerStylesStayWithSharedPartial; TestForgejoSharedRunnerDetailsRetain1509Source | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-9de5e138dc80"></a>
+
+## [scripts/forgejo_repository_settings_navigation_test.go](../../../../../scripts/forgejo_repository_settings_navigation_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–90; file scaffold; forgejoSettingsRepository; UnitEnabled; forgejoSettingsPermission; CanRead; TestForgejoRepositorySettingsNavigationMatchesNativeGates | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-1bb567d3aadb"></a>
+
+## [scripts/forgejo_repository_test.go](../../../../../scripts/forgejo_repository_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–87; file scaffold; TestForgejoRepositoryHeaderKeepsNativeAuthority; TestForgejoRepositorySettingsUseSharedLayout; TestForgejoRepositoryStylesStayScopedToNativePages | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-48ddfc5c3faa"></a>
+
+## [scripts/forgejo_setup_test.go](../../../../../scripts/forgejo_setup_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–290; file scaffold; forgejoSetupLocale; Tr; TrString; forgejoSetupContext; TestForgejoSetupOverridesMatchStock1509; TestForgejoSetupKeepsNativeFieldAndHookContract; TestForgejoSetupRendersNativeConditionalBranches; TestForgejoPostInstallKeepsNativeRedirectFallback; TestForgejoSetupStylesStayPageScoped | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-b5780c3969df"></a>
+
+## [scripts/forgejo_shared_projects_test.go](../../../../../scripts/forgejo_shared_projects_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–129; file scaffold; forgejoSharedProjectsLocale; Tr; PrettyNumber; forgejoSharedProjectsContext; TestForgejoSharedProjectsPreserveNativeOwnershipAndForms; TestForgejoSharedProjectsHaveOneStyleOwner; TestForgejoSharedProjectsFormExecutesNewAndEditBranches | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-b129cf70d90b"></a>
+
+## [scripts/forgejo_soda_settings_test.go](../../../../../scripts/forgejo_soda_settings_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–51; file scaffold; TestSodaNavigationComesFromForgejoExtensionManifest | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestSodaNavigationComesFromForgejoExtensionManifest — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-941a3631a08d"></a>
+
+## [scripts/forgejo_status_test.go](../../../../../scripts/forgejo_status_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–95; file scaffold; TestForgejoStatusWrappersPreserveNativeDiagnostics; TestForgejoStatus404RendersDefaultAndEscapedCustomPrompt; TestForgejoStatus500RetainsUpstreamPanicFallback | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-5019511e4210"></a>
+
+## [scripts/forgejo_template_fixture_test.go](../../../../../scripts/forgejo_template_fixture_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–75; file scaffold; forgejoTemplateLocale; Tr; TrN; forgejoTemplateContext; forgejoTemplateDict; readForgejoTemplate; forgejoTemplateCallPattern; templateCalls; requireForgejoTemplateCalls | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-8c66b485b217"></a>
+
+## [scripts/forgejo_theme_components_test.go](../../../../../scripts/forgejo_theme_components_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–135; file scaffold; TestForgejoThemeToggleIsSingletonAtEachPlacement; TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoThemeToggleIsSingletonAtEachPlacement; Current declaration duty: TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-d983c2bc981e"></a>
 
 ## [scripts/pg_backup_test.go](../../../../../scripts/pg_backup_test.go)
 
-Source/assertion inspection only; no suite or native scenario executed. Native integration driver compiles shipped Rust commands and uses disposable pinned Postgres fixture conditional on native prerequisites. Source coverage only; no successful backup/restore execution claim.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [O05](../../slices/operator-administration.md#o05-database-backup-and-retention) / active | 1–22 | Backup/restore fixture declarations and command constants; declarations/fields: `TestPostgresBackupRoundTrip` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 23–108 | Compile Rust maintenance commands, start disposable native PG fixture, execute bounded SQL observations; declarations/fields: `pgMaintenanceBinary`, `pgFixtureStart`, `pgExec`, `pgQuery` |
-| [O05](../../slices/operator-administration.md#o05-database-backup-and-retention) / active | 109–119 | Seed real two-database state for round-trip assertions; declarations/fields: `TestPostgresBackupRoundTrip` |
-| [O05](../../slices/operator-administration.md#o05-database-backup-and-retention) / active | 120–174 | Assert complete private role/database dumps and secret-free bounded backup progress; declarations/fields: `TestPostgresBackupRoundTrip` |
-| [O06](../../slices/operator-administration.md#o06-database-restore) / active | 175–190 | Destroy fixture tables then invoke shipped restore --yes and verify exact recovered rows; declarations/fields: `TestPostgresBackupRoundTrip` |
-| [O05](../../slices/operator-administration.md#o05-database-backup-and-retention) / active | 191–208 | Assert retention keeps newest complete backups and preserves progress files; declarations/fields: `TestPostgresBackupRoundTrip` |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 209–258 | Assert bare-cluster initialization, role/database idempotency, quoted passwords and missing-secret refusal; declarations/fields: `TestPostgresBackupRoundTrip` |
-| [O06](../../slices/operator-administration.md#o06-database-restore) / active | 259–264 | Assert restore refuses without explicit --yes; declarations/fields: `TestPostgresBackupRoundTrip` |
-| [O05](../../slices/operator-administration.md#o05-database-backup-and-retention) / active | 265–274 | Assert invalid zero retention refuses backup; declarations/fields: `TestPostgresBackupRoundTrip` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–22, 109–174, 191–208, 265–274; TestPostgresBackupRoundTrip | [O05](../../slices/operator-administration.md#o05-database-backup-and-retention) | retained | Backup/restore fixture declarations and command constants; declarations/fields: `TestPostgresBackupRoundTrip`; 5 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 23–108; pgMaintenanceBinary, pgFixtureStart, pgExec, pgQuery | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Compile Rust maintenance commands, start disposable native PG fixture, execute bounded SQL observations; declarations/fields: `pgMaintenanceBinary`, `pgFixtureStart`, `pgExec`, `pgQuery` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 175–190, 259–264; TestPostgresBackupRoundTrip | [O06](../../slices/operator-administration.md#o06-database-restore) | retained | Destroy fixture tables then invoke shipped restore --yes and verify exact recovered rows; declarations/fields: `TestPostgresBackupRoundTrip`; Assert restore refuses without explicit --yes; declarations/fields: `TestPostgresBackupRoundTrip` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 209–258; TestPostgresBackupRoundTrip | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) | retained | Assert bare-cluster initialization, role/database idempotency, quoted passwords and missing-secret refusal; declarations/fields: `TestPostgresBackupRoundTrip` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-11c762b0da49"></a>
 
 ## [scripts/pg_runtime_test.go](../../../../../scripts/pg_runtime_test.go)
 
-Source/assertion inspection only; no suite or native scenario executed.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 1–12 | Postgres source topology test declarations |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 13–29 | Read shipping source and assert literal wiring; declarations/fields: `readRuntimeFile`, `requireContains` |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 30–59 | Assert PG service data/role secret ownership and provisioning dependency; declarations/fields: `TestPostgresUnitTopology` |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 60–77 | Assert Forgejo Postgres startup/secret wiring; declarations/fields: `TestForgejoUnitPostgresWiring` |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 78–94 | Assert installed first-boot provisioning service and staged command; declarations/fields: `TestPostgresProvisionUnitWiring` |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 95–102 | Assert dashboard native database/secret wiring; declarations/fields: `TestDashboardUnitDatabaseWiring` |
-| [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / active | 103–124 | Assert role initialization before native database consumers; declarations/fields: `TestPostgresBackupScheduleAndStaging` |
-| [O05](../../slices/operator-administration.md#o05-database-backup-and-retention) / active | 125–152 | Assert root private backup schedule, native timer and retention/temp ownership; declarations/fields: `TestPostgresBackupScheduleAndStaging` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 153–185 | Assert compiled PG provision/backup/restore payload staging and obsolete shell omission; declarations/fields: `TestPostgresBackupScheduleAndStaging` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 186–202 | Assert disposable native PG fixture uses same pinned database image as product; declarations/fields: `TestFixtureMatchesProductImage` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–30, 187–202; file scaffold; readRuntimeFile; requireContains; TestFixtureMatchesProductImage | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 31–103; TestPostgresUnitTopology; TestForgejoUnitPostgresWiring; TestPostgresProvisionUnitWiring; TestDashboardUnitDatabaseWiring | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) | retained | Current declaration duty: TestPostgresUnitTopology; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 104–186; TestPostgresBackupScheduleAndStaging | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current declaration duty: TestPostgresBackupScheduleAndStaging — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-b4808466efce"></a>
 
 ## [scripts/preview-spaces.ts](../../../../../scripts/preview-spaces.ts)
 
-Synthetic test/preview behavior only. Domain mapping identifies represented responsibilities, without claiming an active product service.
+Changed current body; prior ownership not reused as exact selectors
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 1–28 | Declare restricted local preview server/scenario options; declarations/fields: `startSpacesPreview`, `Fault`, `Review`, `SocketData`, `json` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 29–66 | Compile development client and create/reset disposable synthetic workspace models; declarations/fields: `buildClient`, `reset` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 67–93 | Simulate bounded fixture terminal output and selected shell command replies; declarations/fields: `startSpacesPreview` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 94–192 | Serve constrained loopback fixture assets and delegate synthetic product API to shared model; declarations/fields: `fetch` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 193–205 | Simulate native extension generation renewal for browser authority tests; declarations/fields: `fetch` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 206–264 | Simulate terminal socket attachment/input/close/error lifecycle; declarations/fields: `websocket` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 265–314 | Return restricted preview control facade and development CLI lifetime; declarations/fields: `startSpacesPreview` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–314; Spaces preview developer command | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Developer preview harness that starts and tears down a local Spaces preview; it consumes the built app and is not installed product behavior. — Current source inspected at scripts/preview-spaces.ts; concrete renderer/build/test consumer is named in the selector and description. |
+
+<a id="coverage-1c32651191ee"></a>
+
+## [scripts/render_forgejo_branding_test.go](../../../../../scripts/render_forgejo_branding_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–51; file scaffold; TestForgejoBrandingPNGPlacements; TestForgejoBrandingRendererRejectsUnknownArguments | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoBrandingPNGPlacements; Current declaration duty: TestForgejoBrandingRendererRejectsUnknownArguments — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-8c633e7cc6b5"></a>
+
+## [scripts/render_forgejo_native_test.go](../../../../../scripts/render_forgejo_native_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–18; file scaffold; TestForgejoBrandingMatchesSVGMaster | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestForgejoBrandingMatchesSVGMaster — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-daa5e4e83890"></a>
 
 ## [scripts/screenshot.ts](../../../../../scripts/screenshot.ts)
 
+Changed current body; prior ownership not reused as exact selectors
 
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 1–37, 65–66, 100 | Declarations/fixtures and integration for Authorized browser screenshot capture and source-matching review checks |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 38–64 | Set reviewed native theme and wait finite visual transitions for exact presentation captures; declarations/fields: `setCaptureTheme` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 67–99 | Capture restricted local Spaces component fixture to private selected output directory; declarations/fields: `captureSpacesComponent` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 101–249 | Parse restricted capture/login options and open test browser/profile/output lifetime; declarations/fields: `main` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 250–277 | Verify native presentation revision/cache registry and exact delivered stylesheet bytes before capture; declarations/fields: `main` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 278–340 | Apply selected review theme/local CSS and capture bounded screenshots/landmarks; retire browser lifetime; declarations/fields: `main` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 341–346 | Authorized browser screenshot capture and source-matching review checks |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–346; screenshot capture developer command | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Developer screenshot harness that opens the local preview, captures requested views, and manages browser/output lifecycle; consumer is the visual review workflow. — Current source inspected at scripts/screenshot.ts; concrete renderer/build/test consumer is named in the selector and description. |
 
 <a id="coverage-8b6923c976fa"></a>
 
 ## [scripts/sodaspaces_templates_test.go](../../../../../scripts/sodaspaces_templates_test.go)
 
-Source/assertion inspection only; no suite or native scenario executed. Native service diagnostic configuration belongs to existing O04 host/service administration: appliance/config/forgejo.env:15–19 selects native console diagnostics and a bounded query-free access template. Test renders a synthetic request only; native journal visibility/retention and installed operation remain unverified and unspecified here.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 1–12, 57, 89 | Declarations/fixtures and integration for Native footer contributions and request-log redaction assertions |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 13–56 | Assert Forgejo Footer Keeps Live Features; declarations/fields: `TestForgejoFooterKeepsLiveFeatures` |
-| [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / active | 58–88 | Assert native Forgejo console diagnostic configuration excludes query/referrer data and emits only method, escaped path and status; declarations/fields: `TestSodaspacesRequestLoggingOmitsQueries` |
-| [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) / active | 90–105 | Assert Forgejo Footer Uses Prefixed Native Assets; declarations/fields: `TestForgejoFooterUsesPrefixedNativeAssets` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12; file scaffold | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 13–57, 90–105; TestForgejoFooterKeepsLiveFeatures; TestForgejoFooterUsesPrefixedNativeAssets | [G08](../../slices/forgejo-integration.md#g08-native-forgejo-presentation) | retained | Current declaration duty: TestForgejoFooterKeepsLiveFeatures; Current declaration duty: TestForgejoFooterUsesPrefixedNativeAssets — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 58–89; TestSodaspacesRequestLoggingOmitsQueries | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) | retained | Current declaration duty: TestSodaspacesRequestLoggingOmitsQueries — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-6da9e7c7704f"></a>
 
 ## [scripts/system_formats_test.go](../../../../../scripts/system_formats_test.go)
 
-Source/assertion inspection only; no suite or native scenario executed. Historical Go source strings remain active oracle inputs through portedSourcePin's current Rust mapping, not active Go runtime owners.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1–24, 41–50, 103, 114, 160–164, 180 | Declarations/fixtures and integration for Shared config vectors, installed service wiring and port CLI fixture adapter |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 25–40 | Test harness buildGoPortBinary — Shared config vectors, installed service wiring and port CLI fixture adapter; declarations/fields: `buildGoPortBinary` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 51–102 | Assert Dashboard Config Vectors; declarations/fields: `TestDashboardConfigVectors` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 104–113 | Assert Dashboard Config Limits; declarations/fields: `TestDashboardConfigLimits` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 115–159 | Assert Systemd Wiring; declarations/fields: `TestSystemdWiring` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 165–179 | Test harness portedSourcePin — Shared config vectors, installed service wiring and port CLI fixture adapter; declarations/fields: `portedSourcePin` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 181–263 | Assert CLISurface; declarations/fields: `TestCLISurface` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–50, 165–267; file scaffold; buildGoPortBinary; configVector; portedSourcePin; TestCLISurface | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 51–114; TestDashboardConfigVectors; TestDashboardConfigLimits | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Current declaration duty: TestDashboardConfigVectors; Current declaration duty: TestDashboardConfigLimits — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 115–164; TestSystemdWiring | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Current declaration duty: TestSystemdWiring — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-c3c155cde21c"></a>
+
+## [scripts/terminal_branding_test.go](../../../../../scripts/terminal_branding_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–52; file scaffold; TestTerminalBrandingMatchesCanonicalSymbol; TestFastfetchRendersTerminalBranding | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestTerminalBrandingMatchesCanonicalSymbol; Current declaration duty: TestFastfetchRendersTerminalBranding — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-aba474b526fe"></a>
 
 ## [scripts/wire_contracts_test.go](../../../../../scripts/wire_contracts_test.go)
 
-Source/assertion inspection only; no suite or native scenario executed.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–23, 34–49, 77, 105–131, 151–155, 182, 201 | Declarations/fixtures and integration for Strict JSON and factory command transport byte contracts |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 24–33 | Test harness portContractFixture — Strict JSON and factory command transport byte contracts; declarations/fields: `portContractFixture` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 50–76 | Assert Strictjson Wire Vectors; declarations/fields: `TestStrictjsonWireVectors` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 78–104 | Assert Strictjson Wire Limits; declarations/fields: `TestStrictjsonWireLimits` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 132–150 | Test harness buildRustPortBinary — Strict JSON and factory command transport byte contracts; declarations/fields: `buildRustPortBinary` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 156–181 | Test harness wireStubServer — Strict JSON and factory command transport byte contracts; declarations/fields: `wireStubServer` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 183–200 | Test harness runPortBinary — Strict JSON and factory command transport byte contracts; declarations/fields: `runPortBinary` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 202–293 | Assert Operator Wire Bytes; declarations/fields: `TestOperatorWireBytes` |
-
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–49, 106–209; file scaffold; portContractFixture; vectorEnvelope; strictVector; operatorWire; buildRustPortBinary; buildRustPortBinaryAs; capturedRequest; wireStubServer; runPortBinary | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 50–105; TestStrictjsonWireVectors; TestStrictjsonWireLimits | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Current declaration duty: TestStrictjsonWireVectors; Current declaration duty: TestStrictjsonWireLimits — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 210–301; TestOperatorWireBytes | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current declaration duty: TestOperatorWireBytes — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |

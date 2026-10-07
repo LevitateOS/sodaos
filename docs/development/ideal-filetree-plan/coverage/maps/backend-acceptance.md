@@ -1,167 +1,291 @@
 # Backend acceptance
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-7d60accc4a2d"></a>
+
+## [internal/acceptance/command.go](../../../../../internal/acceptance/command.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–244; file scaffold; Command; Result; validCommandLabel; commandEvidenceWriters; closeCommandWriters; waitCommandProcess; processStillOwned; commandCaptures; Close; closeWritersWhenDone; pipeFailureAfterSuccess; commandExitOutcome; redactCommandResult; Execute; nopCloser; Quote; Remote; validSSHPort; validSSHUser; validSSHHost; regularUnwritableFile; trustedKnownHosts; Args; WaitReady | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 27 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-20cae505bccf"></a>
+
+## [internal/acceptance/developer_access.go](../../../../../internal/acceptance/developer_access.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–310; file scaffold; developerAccessSources; developerAccessFiles; developerAccessDigest; DeveloperAccessUsage; ptyProbeInput; identityProbeCommand; accessRequest; accessRequestUser; accessBrowser; accessUserResult; accessResults; requestString; checkRequestKeys; decodeAccessRequest; requestStrings; parseAccessSubnet; prefixBroadcast; loadAccessRequest; RunDeveloperAccess; runDeveloperAccess | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 21 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-2e7553387d99"></a>
+
+## [internal/acceptance/developer_access_journey_test.go](../../../../../internal/acceptance/developer_access_journey_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–142; file scaffold; stubAccessTransport; TestRunDeveloperAccessEndToEnd | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; Current declaration duty: stubAccessTransport; Current declaration duty: TestRunDeveloperAccessEndToEnd — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-559d5ea5aec1"></a>
+
+## [internal/acceptance/developer_access_request_test.go](../../../../../internal/acceptance/developer_access_request_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–112; file scaffold; writeAccessRequest; writeAccessSupport; TestLoadAccessRequest | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-c55eb44e0b18"></a>
+
+## [internal/acceptance/developer_access_session.go](../../../../../internal/acceptance/developer_access_session.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–260; file scaffold; setupDeveloperOutput; accessChecked; fetchAccessFingerprint; writeAccessPayload; accessSSHOptions; checkAccessConnection; parseAccessMemberIP; checkAccessIdentity; parseAccessUID; splitAccessSign; stripAccessUnderscores; parseAccessDigits; checkAccessUIDMap; checkAccessPTY; checkAccessSession | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 16 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-f470fa6573df"></a>
-
 <a id="internalacceptancedeveloper_access_testgo-1"></a>
 
 ## [internal/acceptance/developer_access_test.go](../../../../../internal/acceptance/developer_access_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 1–13 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 14–15 | Fixture/protocol support testFingerprint; declarations/fields: `testFingerprint` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 16–17 | Fixture/protocol support testHostKey; declarations/fields: `testHostKey` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 18–43 | Assertions TestParseAccessSubnet: broadcast = %s; declarations/fields: `TestParseAccessSubnet` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 44–57 | Fixture/protocol support writeTestKey; declarations/fields: `writeTestKey` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 58–109 | Assertions TestValidateAccessUser: valid user rejected: %+v %v; declarations/fields: `TestValidateAccessUser` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 110–125 | Assertions TestQuoteAccessPath: plain quote = %q %v; declarations/fields: `TestQuoteAccessPath` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 126–139 | Assertions TestParseAccessUID: uid %q = %d %v; declarations/fields: `TestParseAccessUID` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 140–163 | Assertions TestAccessSSHOptions: options differ:\n%q; declarations/fields: `TestAccessSSHOptions` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 164–173 | Fixture/protocol support accessFixture; declarations/fields: `accessFixture` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 174–180 | Fixture/protocol support preserveUmask; declarations/fields: `preserveUmask` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 181–213 | Assertions TestRunDeveloperAccessValidation: bad request accepted; declarations/fields: `TestRunDeveloperAccessValidation` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 214–239 | Fixture/protocol support writeAccessRequest; declarations/fields: `writeAccessRequest` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 240–275 | Fixture/protocol support writeAccessSupport; declarations/fields: `writeAccessSupport` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 276–318 | Assertions TestLoadAccessRequest: valid request rejected: %v; declarations/fields: `TestLoadAccessRequest` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 319–367 | Fixture/protocol support stubAccessTransport; declarations/fields: `stubAccessTransport` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 368–447 | Assertions TestRunDeveloperAccessEndToEnd: end-to-end access failed: %v; declarations/fields: `TestRunDeveloperAccessEndToEnd` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–212; file scaffold; testFingerprint; testHostKey; TestParseAccessSubnet; writeTestKey; TestValidateAccessUser; TestQuoteAccessPath; TestParseAccessUID; TestAccessSSHOptions; accessFixture; preserveUmask; TestRunDeveloperAccessValidation | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-8d7e6bf76e56"></a>
+
+## [internal/acceptance/developer_access_transfer.go](../../../../../internal/acceptance/developer_access_transfer.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–172; file scaffold; checkAccessSudo; quoteAccessPath; checkAccessTransfer; checkAccessSFTP; probeAccessUser; checkCrossUserDenial; runAccessChecks; writeAccessResults | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-0136753b3309"></a>
+
+## [internal/acceptance/developer_access_users.go](../../../../../internal/acceptance/developer_access_users.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–169; file scaffold; validateAccessIDs; loadAccessBrowser; loadAccessHostKey; validateAccessUser; checkAccessUserKeys; checkAccessUserLogin; checkAccessUserAdmin; validateAccessUsers | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-a8e5246b36b5"></a>
-
 <a id="internalacceptanceevidencego-1"></a>
 
 ## [internal/acceptance/evidence.go](../../../../../internal/acceptance/evidence.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 1–24 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 25–29 | Record, DTO or interface contract Evidence for Installed qualification; declarations/fields: `Evidence` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 30–61 | CreateEvidence — Installed qualification; declarations/fields: `CreateEvidence` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 62 | Evidence.Close — Installed qualification; declarations/fields: `Evidence.Close` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 63 | Evidence.Path — Installed qualification; declarations/fields: `Evidence.Path` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 64–71 | Evidence.Writer — Installed qualification; declarations/fields: `Evidence.Writer` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 72–75 | validEvidenceName — Installed qualification; declarations/fields: `validEvidenceName` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 76–89 | Evidence.mkdirEvidenceParent — Installed qualification; declarations/fields: `Evidence.mkdirEvidenceParent` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 90–103 | Evidence.ensureEvidenceParents — Installed qualification; declarations/fields: `Evidence.ensureEvidenceParents` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 104–117 | Evidence.open — Installed qualification; declarations/fields: `Evidence.open` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 118–128 | Evidence.Write — Installed qualification; declarations/fields: `Evidence.Write` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 129–158 | Evidence.scrubJSON — Installed qualification; declarations/fields: `Evidence.scrubJSON` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 159–187 | Evidence.encodeScrubbedJSON — Installed qualification; declarations/fields: `Evidence.encodeScrubbedJSON` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 188–206 | Evidence.WriteJSON — Installed qualification; declarations/fields: `Evidence.WriteJSON` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 207–218 | Record, DTO or interface contract Observation for Installed qualification; declarations/fields: `Observation` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 219–245 | hashAt — Installed qualification; declarations/fields: `hashAt` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 246–269 | Evidence.Hashes — Installed qualification; declarations/fields: `Evidence.Hashes` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 270–279 | Evidence.PublishObservation — Installed qualification; declarations/fields: `Evidence.PublishObservation` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 280–289 | longestSecret — Installed qualification; declarations/fields: `longestSecret` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 290–298 | secretOverlapsBlock — Installed qualification; declarations/fields: `secretOverlapsBlock` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 299–305 | retainSecretOverlap — Installed qualification; declarations/fields: `retainSecretOverlap` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 306–325 | scanEvidenceBytes — Installed qualification; declarations/fields: `scanEvidenceBytes` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 326–341 | Evidence.scanRegularEvidence — Installed qualification; declarations/fields: `Evidence.scanRegularEvidence` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 342–355 | Evidence.scanEvidencePath — Installed qualification; declarations/fields: `Evidence.scanEvidencePath` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 356–359 | Evidence.CheckSecrets — Installed qualification; declarations/fields: `Evidence.CheckSecrets` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 360–364 | Record, DTO or interface contract safeError for Installed qualification; declarations/fields: `safeError` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 365 | safeError.Error — Installed qualification; declarations/fields: `safeError.Error` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 366 | safeError.Unwrap — Installed qualification; declarations/fields: `safeError.Unwrap` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 367–373 | Evidence.RedactString — Installed qualification; declarations/fields: `Evidence.RedactString` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 374–375 | Declared identifiers/bounds urlPattern for Installed qualification; declarations/fields: `urlPattern` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 376–389 | redactURLs — Installed qualification; declarations/fields: `redactURLs` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 390–398 | Evidence.RedactError — Installed qualification; declarations/fields: `Evidence.RedactError` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 399–408 | Record, DTO or interface contract redactingWriter for Installed qualification; declarations/fields: `redactingWriter` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 409–410 | Declared identifiers/bounds evidenceLimit for Installed qualification; declarations/fields: `evidenceLimit` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 411–427 | redactingWriter.Write — Installed qualification; declarations/fields: `redactingWriter.Write` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 428–437 | matchingSecretLen — Installed qualification; declarations/fields: `matchingSecretLen` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 438–452 | redactPendingSecrets — Installed qualification; declarations/fields: `redactPendingSecrets` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 453–459 | urlRedactionEnd — Installed qualification; declarations/fields: `urlRedactionEnd` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 460–473 | redactingWriter.flush — Installed qualification; declarations/fields: `redactingWriter.flush` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 474–482 | redactingWriter.Close — Installed qualification; declarations/fields: `redactingWriter.Close` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 483–495 | PrivateFile — Installed qualification; declarations/fields: `PrivateFile` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–495; whole file; Evidence; CreateEvidence; Evidence.Close; Evidence.Path; Evidence.Writer; validEvidenceName; Evidence.mkdirEvidenceParent; Evidence.ensureEvidenceParents; Evidence.open; Evidence.Write; Evidence.scrubJSON; Evidence.encodeScrubbedJSON; Evidence.WriteJSON; Observation; hashAt; Evidence.Hashes; Evidence.PublishObservation; longestSecret; secretOverlapsBlock; retainSecretOverlap; scanEvidenceBytes; Evidence.scanRegularEvidence; Evidence.scanEvidencePath; Evidence.CheckSecrets; safeError; safeError.Error; safeError.Unwrap; Evidence.RedactString; urlPattern; redactURLs; Evidence.RedactError; redactingWriter; evidenceLimit; redactingWriter.Write; matchingSecretLen; redactPendingSecrets; urlRedactionEnd; redactingWriter.flush; redactingWriter.Close; PrivateFile | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 41 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-2b8ba6d19ae5"></a>
+
+## [internal/acceptance/evidence_finalize_test.go](../../../../../internal/acceptance/evidence_finalize_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–129; file scaffold; TestStructuredEvidenceEscapesAndNumericIdentity; TestEscapedCredentialsInRawSplitWrites; TestFinalizationDoesNotPublishFailedOrOccupiedAttempts; TestEvidenceScansRetainOpenDirectoryAfterRename | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-ed93c2fafab9"></a>
+
+## [internal/acceptance/evidence_test.go](../../../../../internal/acceptance/evidence_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–139; file scaffold; fixtureEvidence; TestEvidenceSplitSecretsAndRedirectQueries; TestEvidenceExclusiveAndConfined; TestRedactedErrorRetainsIdentity; TestCommandAndEvidenceFailuresAreSeparate; TestCancelledCommandIsNotDenialOrSuccess; TestEvidenceOutputBound | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-ae5d28e85777"></a>
+
+## [internal/acceptance/installed.go](../../../../../internal/acceptance/installed.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–191; file scaffold; probeFailure; Error; Unwrap; fail; failParen; failDetail; privateFile; privateDir; RestrictUmask; ownedByCaller; runOutcome; runBounded; runBoundedEnv; runBoundedDirEnv; uuidHex; machineArch | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 17 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-f0c2fb4d73b2"></a>
 
 ## [internal/acceptance/lifecycle_state.go](../../../../../internal/acceptance/lifecycle_state.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 1–27 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 28–31 | Declared identifiers/bounds LifecycleStateUsage for Installed qualification; declarations/fields: `LifecycleStateUsage` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 32–35 | Declared identifiers/bounds hostSodaTables for Installed qualification; declarations/fields: `hostSodaTables` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 36–41 | shQuote — Installed qualification; declarations/fields: `shQuote` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 42–43 | Record, DTO or interface contract snapReportError for Installed qualification; declarations/fields: `snapReportError` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 44–46 | snapReportError.Error — Installed qualification; declarations/fields: `snapReportError.Error` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 47–65 | lifecycleRun — Installed qualification; declarations/fields: `lifecycleRun` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 66–81 | repoRoot — Installed qualification; declarations/fields: `repoRoot` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 82–88 | Record, DTO or interface contract snapshotEntry for Installed qualification; declarations/fields: `snapshotEntry` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 89–95 | Record, DTO or interface contract snapshotInputs for Installed qualification; declarations/fields: `snapshotInputs` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 96–127 | loadSnapshotInputs — Installed qualification; declarations/fields: `loadSnapshotInputs` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 128–159 | snapshotEntries — Installed qualification; declarations/fields: `snapshotEntries` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 160–183 | queryHostSoda — Installed qualification; declarations/fields: `queryHostSoda` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 184–216 | dumpHostSoda — Installed qualification; declarations/fields: `dumpHostSoda` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 217–261 | dumpHostTable — Installed qualification; declarations/fields: `dumpHostTable` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 262–276 | snapshotProject — Installed qualification; declarations/fields: `snapshotProject` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 277–297 | observeProjectEndpoint — Installed qualification; declarations/fields: `observeProjectEndpoint` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 298–303 | Declared identifiers/bounds remoteSnapshotWrapper for Installed qualification; declarations/fields: `remoteSnapshotWrapper` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 304–312 | remotePayload — Installed qualification; declarations/fields: `remotePayload` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 313–337 | execProjectSnapshot — Installed qualification; declarations/fields: `execProjectSnapshot` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 338–340 | Declared identifiers/bounds projectSubnet for Installed qualification; declarations/fields: `projectSubnet` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 341–359 | projectSnapshotIP — Installed qualification; declarations/fields: `projectSnapshotIP` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 360–365 | asStateMap — Installed qualification; declarations/fields: `asStateMap` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 366–387 | writeSnapshot — Installed qualification; declarations/fields: `writeSnapshot` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 388–396 | runSnapshot — Installed qualification; declarations/fields: `runSnapshot` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 397–433 | runSnapshotAt — Installed qualification; declarations/fields: `runSnapshotAt` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 434–460 | runCompare — Installed qualification; declarations/fields: `runCompare` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 461–465 | validSnapshotLabel — Installed qualification; declarations/fields: `validSnapshotLabel` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 466–477 | RunLifecycleState — Installed qualification; declarations/fields: `RunLifecycleState` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 478–501 | runLifecycleState — Installed qualification; declarations/fields: `runLifecycleState` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–501; whole file; LifecycleStateUsage; hostSodaTables; shQuote; snapReportError; snapReportError.Error; lifecycleRun; repoRoot; snapshotEntry; snapshotInputs; loadSnapshotInputs; snapshotEntries; queryHostSoda; dumpHostSoda; dumpHostTable; snapshotProject; observeProjectEndpoint; remoteSnapshotWrapper; remotePayload; execProjectSnapshot; projectSubnet; projectSnapshotIP; asStateMap; writeSnapshot; runSnapshot; runSnapshotAt; runCompare; validSnapshotLabel; RunLifecycleState; runLifecycleState | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 30 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-045e205e27ac"></a>
+
+## [internal/acceptance/lifecycle_state_test.go](../../../../../internal/acceptance/lifecycle_state_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–351; file scaffold; lifecycleFixture; TestRunLifecycleCompare; TestSnapshotEntries; TestProjectSnapshotIP; TestWriteSnapshot; TestLifecycleRun; stubDashboardDB; stubTestVM; TestRunSnapshotAt; TestDumpHostSoda; TestRemotePayloadMissing; TestShQuote; TestExecProjectSnapshotRejectsBadIP; TestRunLifecycleValidation; TestRepoRoot | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 16 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-cbb9678ab472"></a>
-
 <a id="internalacceptancepersonal_gitgo-1"></a>
 
 ## [internal/acceptance/personal_git.go](../../../../../internal/acceptance/personal_git.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 1–27 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 28–37 | Declared identifiers/bounds PersonalGitUsage for Installed qualification; declarations/fields: `PersonalGitUsage` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 38–77 | Declared identifiers/bounds gitRemoteTemplate for Installed qualification; declarations/fields: `gitRemoteTemplate` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 78–85 | Declared identifiers/bounds gitFetchProbe for Installed qualification; declarations/fields: `gitFetchProbe` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 86–91 | Record, DTO or interface contract gitTarget for Installed qualification; declarations/fields: `gitTarget` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 92–107 | loadGitTarget — Installed qualification; declarations/fields: `loadGitTarget` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 108–128 | parseGitTarget — Installed qualification; declarations/fields: `parseGitTarget` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 129–135 | Record, DTO or interface contract gitProbe for Installed qualification; declarations/fields: `gitProbe` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 136–150 | gitProbe.gitSSHBase — Installed qualification; declarations/fields: `gitProbe.gitSSHBase` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 151–163 | gitChecked — Installed qualification; declarations/fields: `gitChecked` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 164–174 | tokenPassphrase — Installed qualification; declarations/fields: `tokenPassphrase` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 175–185 | gitRemoteProgram — Installed qualification; declarations/fields: `gitRemoteProgram` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 186–203 | preparePassfile — Installed qualification; declarations/fields: `preparePassfile` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 204–222 | loadPassphrase — Installed qualification; declarations/fields: `loadPassphrase` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 223–247 | gitProbe.gitKeyUser — Installed qualification; declarations/fields: `gitProbe.gitKeyUser` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 248–264 | gitProbe.fetchExportedKey — Installed qualification; declarations/fields: `gitProbe.fetchExportedKey` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 265–276 | checkUnlockedKey — Installed qualification; declarations/fields: `checkUnlockedKey` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 277–291 | validateGitURL — Installed qualification; declarations/fields: `validateGitURL` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 292–303 | checkGitEndpoint — Installed qualification; declarations/fields: `checkGitEndpoint` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 304–317 | checkGitUser — Installed qualification; declarations/fields: `checkGitUser` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 318–325 | checkGitPath — Installed qualification; declarations/fields: `checkGitPath` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 326–348 | exerciseCommand — Installed qualification; declarations/fields: `exerciseCommand` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 349–363 | extractCommit — Installed qualification; declarations/fields: `extractCommit` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 364–371 | Record, DTO or interface contract gitOutcome for Installed qualification; declarations/fields: `gitOutcome` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 372–390 | gitProbe.loadExerciseRepo — Installed qualification; declarations/fields: `gitProbe.loadExerciseRepo` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 391–414 | gitProbe.exerciseUser — Installed qualification; declarations/fields: `gitProbe.exerciseUser` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 415–423 | writeGitOutcomes — Installed qualification; declarations/fields: `writeGitOutcomes` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 424–435 | gitProbe.phaseKey — Installed qualification; declarations/fields: `gitProbe.phaseKey` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 436–452 | gitProbe.phaseExercise — Installed qualification; declarations/fields: `gitProbe.phaseExercise` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 453–460 | gitPhase — Installed qualification; declarations/fields: `gitPhase` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 461–467 | RunPersonalGit — Installed qualification; declarations/fields: `RunPersonalGit` |
-| [D06](../../slices/release-and-installation.md#d06-installed-qualification) / active | 468–497 | runPersonalGit — Installed qualification; declarations/fields: `runPersonalGit` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–497; whole file; PersonalGitUsage; gitRemoteTemplate; gitFetchProbe; gitTarget; loadGitTarget; parseGitTarget; gitProbe; gitProbe.gitSSHBase; gitChecked; tokenPassphrase; gitRemoteProgram; preparePassfile; loadPassphrase; gitProbe.gitKeyUser; gitProbe.fetchExportedKey; checkUnlockedKey; validateGitURL; checkGitEndpoint; checkGitUser; checkGitPath; exerciseCommand; extractCommit; gitOutcome; gitProbe.loadExerciseRepo; gitProbe.exerciseUser; writeGitOutcomes; gitProbe.phaseKey; gitProbe.phaseExercise; gitPhase; RunPersonalGit; runPersonalGit | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 32 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
+<a id="coverage-6cb96c2321af"></a>
+
+## [internal/acceptance/personal_git_test.go](../../../../../internal/acceptance/personal_git_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–384; file scaffold; TestGitRemoteProgram; TestGitRemoteProgramExecutesPrepareThenUnlock; TestTokenPassphrase; TestLoadGitTarget; TestValidateGitURL; TestExtractCommit; TestGitOutcomesOrder; stubGitSSH; gitFixture; TestRunPersonalGitPrepareUnlock; TestRunPersonalGitExercise; TestRunPersonalGitValidation | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 13 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-320733319b4d"></a>
+
+## [internal/acceptance/process.go](../../../../../internal/acceptance/process.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–124; file scaffold; Process; StartProcess; StartCommand; Wait; Done; signal; Stop | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-d974aa3beb79"></a>
+
+## [internal/acceptance/process_linux_test.go](../../../../../internal/acceptance/process_linux_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–120; file scaffold; TestOwnedChildFixture; TestOwnedLeaderExitAndCancellationStopResistantDescendant | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestOwnedChildFixture; Current declaration duty: TestOwnedLeaderExitAndCancellationStopResistantDescendant — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-1fa1ffb83e8f"></a>
+
+## [internal/acceptance/process_wait_linux.go](../../../../../internal/acceptance/process_wait_linux.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–32; file scaffold; reapOwnedChildren; ownedGroupsSupported; waitOwnedExit | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-b095d6601b7f"></a>
+
+## [internal/acceptance/process_wait_other.go](../../../../../internal/acceptance/process_wait_other.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–13; file scaffold; ownedGroupsSupported; waitOwnedExit; reapOwnedChildren | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-83cabeee5635"></a>
+
+## [internal/acceptance/service_https.go](../../../../../internal/acceptance/service_https.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–154; file scaffold; ServiceHTTPSUsage; UsageError; Error; HTTPSOrigin; checkHTTPSPort; plainHTTPSOrigin; trustedCAFile; httpsClient; CheckServiceHTTPS; RunServiceHTTPS | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 11 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-86089390dd81"></a>
+
+## [internal/acceptance/service_https_test.go](../../../../../internal/acceptance/service_https_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–172; file scaffold; TestHTTPSOrigin; writeCAFile; TestTrustedCAFile; pemCA; TestCheckServiceHTTPS; TestCheckServiceHTTPSAcceptsRedirectStatusWithoutFollowing; TestCheckServiceHTTPSRefusals; TestRunServiceHTTPS | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-4284e2e1b560"></a>
+
+## [internal/acceptance/worker_linux.go](../../../../../internal/acceptance/worker_linux.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–176; file scaffold; Worker; validWorkerIdentity; appendBindPaths; allowedWorkerEnvKey; appendWorkerEnv; arguments; trustedPathMode; TrustedExecutable; Run | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-6b94e1f1471e"></a>
+
+## [internal/acceptance/worker_linux_test.go](../../../../../internal/acceptance/worker_linux_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–43; file scaffold; TestWorkerUsesSeparateIdentityAndNativeServiceCustody; TestWorkerRefusesUntrustedExecutable | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestWorkerUsesSeparateIdentityAndNativeServiceCustody; Current declaration duty: TestWorkerRefusesUntrustedExecutable — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-9439df454f91"></a>
+
+## [internal/acceptance/workload_access.go](../../../../../internal/acceptance/workload_access.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–389; file scaffold; WorkloadAccessUsage; createProbeTableSQL; insertProbeSQL; selectProbeSQL; updateProbeSQL; accessTarget; loadAccessTarget; parseAccessTarget; accessProbe; accessRemote; clientPSQL; memberPSQLPrefix; setupAccessOutput; writePassfile; fetchAccessURL; provisionMemberCredentials; verifyClientWrites; verifyMemberReads; verifyHTTPBind; workloadAccessResults; finishAccessResults; RunWorkloadAccess; runWorkloadAccess; setupAccessProbe; runAccessDatabase | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 26 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-e999cd4597ee"></a>
+
+## [internal/acceptance/workload_access_test.go](../../../../../internal/acceptance/workload_access_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–207; file scaffold; TestLoadAccessTarget; TestAccessSQL; stubAccessSSH; TestAccessRemote; TestClientPSQL; TestWritePassfile; TestAccessResultsOrder; TestRunWorkloadAccessValidation | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-6446d9d0380b"></a>
+
+## [internal/acceptance/workload_exec.go](../../../../../internal/acceptance/workload_exec.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–121; file scaffold; workloadExecProbe; WorkloadExecUsage; loadExecTarget; execBaseArgs; execDifferentUID; checkMemberDenied; RunWorkloadExec; runWorkloadExec | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-3d889ea1e95c"></a>
+
+## [internal/acceptance/workload_exec_test.go](../../../../../internal/acceptance/workload_exec_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–122; file scaffold; TestWorkloadExecProbeBytes; writeExecFixture; stubSSH; bobExitString; TestRunWorkloadExec; TestRunWorkloadExecRefusals | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |

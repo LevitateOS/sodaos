@@ -1,130 +1,168 @@
 # Factory control native fixtures
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-0ab37a6f56c4"></a>
+
+## [internal/factory/control/checks_native_fixture_test.go](../../../../../internal/factory/control/checks_native_fixture_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–101, 126–268; file scaffold; loadNativeST11; nativeCheckReceipt; nativeCheckAssessor; nativeCheckDB; nativeCheckPolicy; nativeCheckAdopted; nativeCheckPR; target; nativePostStatusOnce; nativePostStatus; nativeListedStatus; nativeListStatuses; nativeWaitStatusContext; nativeObserveChecks; nativeVerifyChecks; nativeEnsureWorkflow | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Current scaffold duty: file scaffold; 17 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 102–125; nativeCheckPublish | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current declaration duty: nativeCheckPublish — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-aeb3679360d4"></a>
+
+## [internal/factory/control/checks_native_stale_test.go](../../../../../internal/factory/control/checks_native_stale_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–10, 114–150; file scaffold; TestNativeCheckWorkflowSeed | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestNativeCheckWorkflowSeed — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 11–113; TestNativeCheckStaleHead; TestNativeCheckDefinitionsChanged; TestNativeCheckStaleBase; TestNativeCheckWorkflowPendingSnapshot | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current declaration duty: TestNativeCheckStaleHead; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-096ddbe19f25"></a>
+
+## [internal/factory/control/merge_native_completion_test.go](../../../../../internal/factory/control/merge_native_completion_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–96; file scaffold; TestNativeMergeFullPass; nativeMergeFullPassAttempt; TestNativeMergeDependantRunnable | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 97–173; nativeMergeDependantAttempt | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: nativeMergeDependantAttempt — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-c3c98c8a302d"></a>
+
+## [internal/factory/control/merge_native_effect_test.go](../../../../../internal/factory/control/merge_native_effect_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–393; file scaffold; TestNativeMergeCancelBeforeSubmit; TestNativeMergeCancelAfterCommit; dropOnceMerger; SubmitMerge; countMerger; lagOnceMerger; lag; LookupOp; TestNativeMergeLostReply; nativeMergeLostReplyAttempt; TestNativeMergeCommittedIncomplete; nativeMergeCommittedIncompleteAttempt; TestNativeMergeProtectionRefuses; nativeMergeProtectionAttempt | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 17 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-bf3e274a4e59"></a>
+
+## [internal/factory/control/merge_native_fixture_test.go](../../../../../internal/factory/control/merge_native_fixture_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–252; file scaffold; nativeST12Config; loadNativeST12; nativeMergeReceipt; nativeMergeDrain; nativeMergeIdle; nativeMergeStaleRefusal; nativeMergeBusyError; nativeMergeCall; nativeMergeSubmitReviewCommitted; nativeMergeSubmitMergeCommitted; nativeMergeSubmitRawCommitted | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-864e51425fd6"></a>
+
+## [internal/factory/control/merge_native_setup_test.go](../../../../../internal/factory/control/merge_native_setup_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–42, 105–196, 247–291; file scaffold; nativeMergeSetup; nativeMergeApprove; nativeMergeAssess; nativeMergeOpenRow; nativeMergeDrive; nativeMergeInsertEdge; nativeMergeGit; nativeMergeAdvanceBranch | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 43–104, 197–246; nativeMergeAssignment; nativeMergePublishDrive; nativeMergeSeedPublication | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: nativeMergeAssignment; Current declaration duty: nativeMergePublishDrive; Current declaration duty: nativeMergeSeedPublication — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-49510d085a32"></a>
+
+## [internal/factory/control/merge_native_stale_test.go](../../../../../internal/factory/control/merge_native_stale_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–177; file scaffold; TestNativeMergeStaleHead; TestNativeMergeStaleBase; TestNativeMergeWithdrawBeforeSubmit; TestNativeMergeAuthorityChanged; nativeMergeAuthorityAttempt | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-42fc52e73321"></a>
+
+## [internal/factory/control/publication_native_effect_test.go](../../../../../internal/factory/control/publication_native_effect_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14, 58–97; file scaffold; nativeLostReplies; SubmitPublish; PushBranch; SubmitPRCreate | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 15–57, 98–215; nativeUnexpectedRefs; TestNativePublishLostReplies; TestNativePublishWithdrawal; TestNativePublishBranchCommittedPRFailed | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: nativeUnexpectedRefs; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-8ffeedd75ed6"></a>
+
+## [internal/factory/control/publication_native_fixture_test.go](../../../../../internal/factory/control/publication_native_fixture_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–259, 343–357, 364–383; file scaffold; nativeST09Config; loadNativeST09; nativeMust; nativeSecret; nativeRepoURL; nativeAPI; nativeGit; nativeGitOK; nativeCandidate; nativeNewCandidate; nativeAppendCandidate; nativeTip; nativeHost; FactoryLaunch; FactoryStop; FactoryInspect; FactoryHarness; FactoryTakeover; FactoryExport; nativeBroker; GetExecution; CloseExecution; nativeFixture; nativeSeed; wire; nativeReceipt; observe; terminal | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 29 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 260–342, 358–363; assignment; drive; work | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: assignment; Current declaration duty: drive; Current declaration duty: work — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-b068616b36c2"></a>
 
 ## [internal/factory/control/st15_demo_accept_test.go](../../../../../internal/factory/control/st15_demo_accept_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result. Opt-in native/composed fixture may require explicit credentials, shared native services and retained evidence destinations; no current runtime/qualification claim.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 1–15 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 16–25 | Fixture/protocol support st15Fixture.readEvidence: ST15 evidence #%d: %v; declarations/fields: `st15Fixture.readEvidence` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 26–38 | Fixture/protocol support st15Fixture.admitDecision: ST15 admit #%s: %v; declarations/fields: `st15Fixture.admitDecision` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 39–124, 287–322 | Readiness and prerequisite semantics in composed demo; declarations/fields: `st15Fixture.observeControl`, `blockerCodes`, `requireBlocker`, `st15Fixture.seedIssues`, `st15Fixture.proveClosureNotOutcome` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 125–180 | Fixture/protocol support st15Fixture.admitPLeg: unaccepted P already runnable: %+v; declarations/fields: `st15Fixture.admitPLeg` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 181–241 | Fixture/protocol support st15Fixture.admitALeg: A edge to P not observed: %+v; declarations/fields: `st15Fixture.admitALeg` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 242–286 | Fixture/protocol support st15Fixture.admitBCLegs: B edge to A not observed: %+v; declarations/fields: `st15Fixture.admitBCLegs` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 323–356 | Dispatch authority and grant-withdrawal composed demo assertions; declarations/fields: `st15Fixture.proveGrantWithdrawal`, `st15Fixture.activateAuthority` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 357 | Fixture/protocol support _; declarations/fields: `_` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–38, 125–286, 357; whole file; st15Fixture.readEvidence; st15Fixture.admitDecision; st15Fixture.admitPLeg; st15Fixture.admitALeg; st15Fixture.admitBCLegs; _ | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 7 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 39–124, 287–322; st15Fixture.observeControl, blockerCodes, requireBlocker, st15Fixture.seedIssues, st15Fixture.proveClosureNotOutcome | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Readiness and prerequisite semantics in composed demo; declarations/fields: `st15Fixture.observeControl`, `blockerCodes`, `requireBlocker`, `st15Fixture.seedIssues`, `st15Fixture.proveClosureNotOutcome` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 323–356; st15Fixture.proveGrantWithdrawal, st15Fixture.activateAuthority | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Dispatch authority and grant-withdrawal composed demo assertions; declarations/fields: `st15Fixture.proveGrantWithdrawal`, `st15Fixture.activateAuthority` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-4074e0c7742b"></a>
-
 <a id="internalfactorycontrolst15_demo_journey_testgo-1"></a>
 
 ## [internal/factory/control/st15_demo_journey_test.go](../../../../../internal/factory/control/st15_demo_journey_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result. Opt-in native/composed fixture may require explicit credentials, shared native services and retained evidence destinations; no current runtime/qualification claim. 26d420f2 starts the control driver during reviewLeg2 and awaits its result during mergeAndDependants; this is fixture scheduling, while the cancellation assertion remains F08. The browser driver lives at the explicit .artifacts/st15-demo/spaces-check.ts path; this Go source read does not verify that driver's current contents or any browser timing/outcome.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) / active | 1–27 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) / active | 28–36 | Fixture/protocol support st15Fixture.providerGate; declarations/fields: `st15Fixture.providerGate` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 37–70, 100–143 | Assignment/dispatch composed demo phase; declarations/fields: `st15Fixture.runForIssue`, `st15Fixture.pollRunForIssue`, `st15Fixture.dispatchA` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 71–99 | Composed fixture launches the external Playwright driver with explicit watch/control mode, credential-file paths and retained receipt path; return browser-process error to caller instead of failing inside a goroutine; declarations/fields: `st15Fixture.runBrowser` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 144–186, 597–608 | Factory output/activity browser fixture phase; declarations/fields: `st15Fixture.stallForBrowserDiag`, `mustViewAttempt` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 187–195, 351–378, 609–713 | Composed verification orchestration/retained fixture evidence; scenario phase assertions remain domain-owned; declarations/fields: `tailLines`, `st15Fixture.requireContentStatus`, `st15Fixture.proveRetention`, `st15Fixture.writeFinalReceipt`, `TestST15ComposedDemo` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 196–240, 379–424 | Publication and correction composed demo phase; declarations/fields: `st15Fixture.publishA`, `st15Fixture.correctA` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 241–306 | Exact independent review checkout preparation fixture; declarations/fields: `st15Fixture.prepareReviewer` |
-| [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) / active | 307–328 | Fixture/protocol support st15Fixture.reviewLeg: ST15 review lacks its fenced report; declarations/fields: `st15Fixture.reviewLeg` |
-| [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) / active | 329–336 | Fixture/protocol support st15Fixture.reviewLeg1; declarations/fields: `st15Fixture.reviewLeg1` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 337–350, 459–484 | Exact-candidate verification composed demo phase; declarations/fields: `st15Fixture.ciFail`, `st15CheckLink`, `st15Fixture.ciPass` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 425–433 | Start the dependant-control browser fixture asynchronously before fresh review and later merge/dispatch, carrying its error on a buffered channel to reduce the scenario's late-attachment race; declarations/fields: `st15Fixture.reviewLeg2`, `st15Fixture.controlBrowser` |
-| [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) / active | 434–458 | Source scenario rejects stale head-1 review observation, prepares an independent reviewer for corrected head-2, and requires a fresh APPROVED event; declarations/fields: `st15Fixture.reviewLeg2` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 485–512 | Drive production MergePass asynchronously until the merge settles, preserving refusal/error reporting for the composed completion-cascade scenario; declarations/fields: `st15Fixture.mergeAndDependants` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 513–544 | Observe automatic dependant assignment/run pickup after merge completion, with no synthesized intake fallback; retain exact run-to-attempt association; declarations/fields: `st15Fixture.mergeAndDependants`, `st15Fixture.runForIssue`, `mustViewAttempt` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 545–553 | Await the previously started control browser's fixture verdict and return missing-channel or driver errors to the composed scenario; declarations/fields: `st15Fixture.mergeAndDependants`, `st15Fixture.controlBrowser` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 554–571 | Require completed merge outcome and retain the merged commit/publication linkage plus the completion-cascade trigger receipt; declarations/fields: `st15Fixture.mergeAndDependants` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 572–596 | After the external browser intervention, source scenario waits for the dependant assignment to finish and requires Cancelled outcome; retain run/assignment cancellation receipt; declarations/fields: `st15Fixture.mergeAndDependants` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–7; file scaffold | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 8–51; writeFinalReceipt; TestST15ComposedDemo | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current declaration duty: writeFinalReceipt; Current declaration duty: TestST15ComposedDemo — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-10c77ae3f1f1"></a>
-
 <a id="internalfactorycontrolst15_demo_native_testgo-1"></a>
 
 ## [internal/factory/control/st15_demo_native_test.go](../../../../../internal/factory/control/st15_demo_native_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result. Opt-in native/composed fixture may require explicit credentials, shared native services and retained evidence destinations; no current runtime/qualification claim. Includes both the a0ff27a9 root-user-manager fixture addition and 26d420f2 controlBrowser field. H06 units here identify concrete test host/container/build/process/evidence assembly; they do not assign production Project, identity, factory or installation decisions to development tooling. No installed linger requirement is inferred from the fixture comment. a0ff27a9 adds fixture-only user@0.service setup; its production comment is a review hypothesis, not an adopted contract or installed proof.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-The current fixture directs broker stdout/stderr to `soda-identity.log` in its existing scratch directory and closes the file after broker kill/wait during cleanup. This replaces the in-memory buffer; inspection establishes no runtime log contents, cleanup success or qualification.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 1–37 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 38–39 | Fixture/protocol support st15Image; declarations/fields: `st15Image` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 40–63 | Fixture/protocol support st15Config; declarations/fields: `st15Config` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 64–80 | Fixture/protocol support loadST15: ST15 fixture requires the full native/daemon/browser configuration; declarations/fields: `loadST15` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 81–90 | Fixture/protocol support st15ReceiptDir: ST15_RECEIPT_DIR must be an absolute retained directory; declarations/fields: `st15ReceiptDir` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 91–100 | Fixture/protocol support st15Receipt; declarations/fields: `st15Receipt` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 101–140, 146–148 | Fixture/protocol support st15Fixture; declarations/fields: `st15Fixture` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 141–145 | Fixture-only buffered browser error channel and comments coordinate early browser startup with dependant-stop phase; no durable product state; declarations/fields: `st15Fixture.controlBrowser` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 149–153 | Fixture/protocol support st15Check; declarations/fields: `st15Check` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 154–166 | Fixture/protocol support st15Fixture.check: ST15 %s: %v; declarations/fields: `st15Fixture.check` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 167–185 | Fixture/protocol support st15Podman: podman %s: %w: %s; declarations/fields: `st15Podman` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 186–198 | Fixture/protocol support st15Pexec; declarations/fields: `st15Pexec` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 199–210 | Fixture/protocol support st15Git: git %s: %w: %s; declarations/fields: `st15Git` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 211–215 | Fixture/protocol support st15SHA256; declarations/fields: `st15SHA256` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 216–225 | Fixture/protocol support st15RandHex; declarations/fields: `st15RandHex` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 226–246 | Fixture/protocol support st15RepoRoot: repository root not found; declarations/fields: `st15RepoRoot` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 247–262 | Fixture/protocol support st15BuildBroker: build soda-identity: %v\n%s; declarations/fields: `st15BuildBroker` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 263–278 | Fixture/protocol support st15BuildHost: build soda-host: %v\n%s; declarations/fields: `st15BuildHost` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 279–294 | Fixture/protocol support st15BuildFactoryRoles: build project-factory-roles: %v\n%s; declarations/fields: `st15BuildFactoryRoles` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 295–304 | Fixture/protocol support st15TmpfsRoot; declarations/fields: `st15TmpfsRoot` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 305–317 | Fixture/protocol support st15FakeCodex; declarations/fields: `st15FakeCodex` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 318–325 | Fixture/protocol support st15FakeMuse; declarations/fields: `st15FakeMuse` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 326–339 | Fixture/protocol support st15WaitSocket: broker socket %s never appeared; declarations/fields: `st15WaitSocket` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 340–491, 499–578, 599–624 | Fixture/protocol support st15Fixture.setupHostStack: fixture userns is %q, need private; declarations/fields: `st15Fixture.setupHostStack` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 492–498 | Fixture transiently starts root user@0.service before launching the production host daemon; the comment's installed linger claim is an unqualified hypothesis, not adopted installation policy or proof; declarations/fields: `st15Fixture.setupHostStack` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 625–637 | Fixture/protocol support st15Fixture.openFactoryStore; declarations/fields: `st15Fixture.openFactoryStore` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 579–598 | Broker process/file-log setup and cleanup; declarations/fields: `brokerCmd`, `brokerLogPath`, `brokerLog`, `t.Cleanup` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–30; file scaffold | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 31–215; st15Image; st15Config; loadST15; st15ReceiptDir; st15Receipt; st15Fixture; st15Check; check; st15Podman; st15Pexec; st15Git; st15SHA256; st15RandHex | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current declaration duty: st15Image; 13 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-00cb8f9b9b02"></a>
 
 ## [internal/factory/control/st15_demo_runs_test.go](../../../../../internal/factory/control/st15_demo_runs_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result. Opt-in native/composed fixture may require explicit credentials, shared native services and retained evidence destinations; no current runtime/qualification claim.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1–24 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 25–72, 180–197 | Assignment/launch fixture bookkeeping; declarations/fields: `st15Fixture.launchDirect`, `st15Fixture.settleDispatched` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 73–93 | Fixture/protocol support st15Fixture.stopRunSettled; declarations/fields: `st15Fixture.stopRunSettled` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 94–152 | Fixture/protocol support st15Fixture.settleDirect: ST15 run %s retired uncertain; declarations/fields: `st15Fixture.settleDirect` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 153–179 | Fixture/protocol support st15Fixture.stopSettled: ST15 run %s retired uncertain: %s; declarations/fields: `st15Fixture.stopSettled` |
-| [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) / active | 198–231 | Independent review execution/report fixture; declarations/fields: `st15Fixture.reviewPrompt`, `st15Fixture.submitReview` |
-| [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) / active | 232–243 | Explicit native fixture status publication; declarations/fields: `st15Fixture.seedCIStatus` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 244 | Fixture/protocol support _; declarations/fields: `_` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–24, 73–179, 244; whole file; st15Fixture.stopRunSettled; st15Fixture.settleDirect; st15Fixture.stopSettled; _ | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 5 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 25–72, 180–197; st15Fixture.launchDirect, st15Fixture.settleDispatched | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Assignment/launch fixture bookkeeping; declarations/fields: `st15Fixture.launchDirect`, `st15Fixture.settleDispatched` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 198–231; st15Fixture.reviewPrompt, st15Fixture.submitReview | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Independent review execution/report fixture; declarations/fields: `st15Fixture.reviewPrompt`, `st15Fixture.submitReview` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 232–243; st15Fixture.seedCIStatus | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Explicit native fixture status publication; declarations/fields: `st15Fixture.seedCIStatus` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-d50be1d675ed"></a>
-
 <a id="internalfactorycontrolst15_demo_seed_testgo-1"></a>
 
 ## [internal/factory/control/st15_demo_seed_test.go](../../../../../internal/factory/control/st15_demo_seed_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result. Opt-in native/composed fixture may require explicit credentials, shared native services and retained evidence destinations; no current runtime/qualification claim.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 1–27 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 28–36 | Fixture/protocol support st15Fixture.st09; declarations/fields: `st15Fixture.st09` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 37–41 | Fixture/protocol support st15Fixture.api; declarations/fields: `st15Fixture.api` |
-| [G04](../../slices/forgejo-integration.md#g04-candidate-publication-and-pr-creation) / active | 42–62, 128–168 | Publication source repository fixture; declarations/fields: `st15Fixture.git`, `st15Fixture.repoURL`, `st15Fixture.seedRepository` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 63–127 | Existing Project creation fixture; declarations/fields: `st15Fixture.setupProject` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 169–271 | Exact-source prepared role checkout fixture; declarations/fields: `st15Fixture.prepareRoles` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 272–322 | Retained human account/workspace isolation fixture; declarations/fields: `st15Fixture.seedHumanWork` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 323–360 | Fixture/protocol support st15Fixture.wireCoordinator; declarations/fields: `st15Fixture.wireCoordinator` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 361–409, 430–454 | Intake/issues/prerequisite fixture data; declarations/fields: `st15Fixture.postIntake`, `st15Issue`, `st15Fixture.createIssue`, `st15Fixture.commentIssue`, `st15Fixture.insertEdge`, `st15Fixture.issueOpenedHint`, `st15Fixture.commentHint` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 410–429 | Current native issue/comment read fixture; declarations/fields: `st15Fixture.readIssue`, `st15Fixture.readComment` |
-
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12; file scaffold | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 13–26; st09; api | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current declaration duty: st09; Current declaration duty: api — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 27–84; git; repoURL; seedRepository | [G04](../../slices/forgejo-integration.md#g04-candidate-publication-and-pr-creation) | retained | Current declaration duty: git; Current declaration duty: repoURL; Current declaration duty: seedRepository — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 85–113, 134–137; st15Issue; createIssue; commentIssue; insertEdge | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current declaration duty: st15Issue; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 114–133; readIssue; readComment | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current declaration duty: readIssue; Current declaration duty: readComment — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |

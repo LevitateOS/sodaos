@@ -1,194 +1,189 @@
 # Soda image import
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-2cbea9d84c63"></a>
+
+## [cmd/soda-image-import/src/context.rs](../../../../../cmd/soda-image-import/src/context.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–81; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–3: use std and attached body; lines 4–8: use super and attached body; lines 9–40: fn run and attached body; lines 41–47: fn admit and attached body; lines 48–53: static CANCELLED and attached body; lines 54–65: fn install_cancel_handlers and attached body; lines 66–69: struct ImportCtx and attached body; lines 70–71: impl ImportCtx and attached body; lines 72–81: fn check and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6eb3ec79c9bb"></a>
+
+## [cmd/soda-image-import/src/import.rs](../../../../../cmd/soda-image-import/src/import.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–171; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–3: use std and attached body; lines 4–4: use std and attached body; lines 5–5: use std and attached body; lines 6–9: use super and attached body; lines 10–32: fn bind_image_revisions and attached body; lines 33–52: fn match_layout_identities and attached body; lines 53–67: fn verify_content and attached body; lines 68–76: enum PodmanOutcome and attached body; lines 77–111: fn import_missing_image and attached body; lines 112–127: fn import_images and attached body; lines 128–160: fn run_podman and attached body; lines 161–171: fn native_import and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-de7ec15b18db"></a>
+
+## [cmd/soda-image-import/src/json.rs](../../../../../cmd/soda-image-import/src/json.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–34; lines 1–1: use serde and attached body; lines 2–2: use serde_json and attached body; lines 3–10: fn parse_json and attached body; lines 11–14: fn json_valid and attached body; lines 15–22: fn raw_string and attached body; lines 23–34: fn raw_int and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-d8de478c4f3b"></a>
+
+## [cmd/soda-image-import/src/main.rs](../../../../../cmd/soda-image-import/src/main.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–62; lines 1–11: use std and attached body; lines 12–12: use std and attached body; lines 13–13: use std and attached body; lines 14–14: use std and attached body; lines 15–15: use std and attached body; lines 16–17: mod context and attached body; lines 18–18: mod import and attached body; lines 19–19: mod json and attached body; lines 20–20: mod oci and attached body; lines 21–21: mod payload and attached body; lines 22–22: mod platform and attached body; lines 23–23: mod sha256 and attached body; lines 24–25: use context and attached body; lines 26–26: use import and attached body; lines 27–27: use json and attached body; lines 28–28: use oci and attached body; lines 29–29: use payload and attached body; lines 30–36: use platform and attached body; lines 37–37: fn geteuid and attached body; lines 38–39: fn signal and attached body; lines 40–41: const RELEASE_PATH and attached body; lines 42–42: const IMAGES_PATH and attached body; lines 43–44: const PODMAN and attached body; lines 45–45: const IMPORT_TIMEOUT and attached body; lines 46–46: const SIGINT and attached body; lines 47–47: const SIGTERM and attached body; lines 48–55: const NAMES and attached body; lines 56–61: fn main and attached body; lines 62–62: mod tests and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 29 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-28b8faa7be6f"></a>
+
+## [cmd/soda-image-import/src/oci/inspection.rs](../../../../../cmd/soda-image-import/src/oci/inspection.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–112; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–4: use super and attached body; lines 5–8: use super and attached body; lines 9–11: use super and attached body; lines 12–56: fn inspect_oci_image and attached body; lines 57–112: fn inspect_oci_layout and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a9104b89fdb8"></a>
+
+## [cmd/soda-image-import/src/oci/layout.rs](../../../../../cmd/soda-image-import/src/oci/layout.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–205; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–3: use std and attached body; lines 4–4: use std and attached body; lines 5–5: use std and attached body; lines 6–7: use crate and attached body; lines 8–8: use sha2 and attached body; lines 9–10: use super and attached body; lines 11–11: use super and attached body; lines 12–14: use super and attached body; lines 15–20: struct LayoutLoader and attached body; lines 21–22: impl LayoutLoader and attached body; lines 23–35: fn load and attached body; lines 36–52: fn fetch and attached body; lines 53–63: fn open_layout_root and attached body; lines 64–90: fn read_layout_blob and attached body; lines 91–137: fn read_blob_bytes and attached body; lines 138–153: fn validate_oci_layers and attached body; lines 154–172: fn validate_oci_rootfs and attached body; lines 173–205: fn validate_oci_attribution and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 20 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e9676646a8c8"></a>
+
+## [cmd/soda-image-import/src/oci/metadata.rs](../../../../../cmd/soda-image-import/src/oci/metadata.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–196; lines 1–1: use crate and attached body; lines 2–2: use serde and attached body; lines 3–3: use serde and attached body; lines 4–4: use serde_json and attached body; lines 5–8: use std and attached body; lines 9–18: struct OciImage and attached body; lines 19–26: struct OciDescriptor and attached body; lines 27–30: struct OciBlobData and attached body; lines 31–35: macro_rules! raw_record and attached body; lines 36–36: fn deserialize and attached body; lines 37–37: struct V and attached body; lines 38–38: fn expecting and attached body; lines 39–58: fn visit_map and attached body; lines 59–67: fn string_list and attached body; lines 68–79: fn string_map and attached body; lines 80–90: fn descriptor and attached body; lines 91–105: fn descriptors and attached body; lines 106–109: struct OciManifestData and attached body; lines 110–127: fn parse_oci_manifest and attached body; lines 128–134: struct OciConfigData and attached body; lines 135–167: fn parse_oci_config and attached body; lines 168–196: fn read_oci_index and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 22 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7bec728dcfe5"></a>
+
+## [cmd/soda-image-import/src/oci/mod.rs](../../../../../cmd/soda-image-import/src/oci/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–6; lines 1–1: mod inspection and attached body; lines 2–2: mod layout and attached body; lines 3–3: mod metadata and attached body; lines 4–5: use inspection and attached body; lines 6–6: use metadata and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for mod inspection in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for mod layout in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for mod metadata in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-da54f845ff4e"></a>
+
+## [cmd/soda-image-import/src/payload.rs](../../../../../cmd/soda-image-import/src/payload.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–330; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–3: use std and attached body; lines 4–4: use std and attached body; lines 5–5: use std and attached body; lines 6–7: use serde and attached body; lines 8–8: use serde and attached body; lines 9–9: use serde_json and attached body; lines 10–11: use super and attached body; lines 12–17: use super and attached body; lines 18–25: struct ImageBinding and attached body; lines 26–39: struct Payload and attached body; lines 40–47: struct ImageBindingWire and attached body; lines 48–48: fn deserialize and attached body; lines 49–50: struct V and attached body; lines 51–51: type Value and attached body; lines 52–54: fn expecting and attached body; lines 55–85: fn visit_map and attached body; lines 86–100: struct PayloadWire and attached body; lines 101–101: fn deserialize and attached body; lines 102–103: struct V and attached body; lines 104–104: type Value and attached body; lines 105–107: fn expecting and attached body; lines 108–176: fn visit_map and attached body; lines 177–186: fn decode_image_binding and attached body; lines 187–190: fn decode_images and attached body; lines 191–192: struct ImageMap and attached body; lines 193–193: fn deserialize and attached body; lines 194–195: struct V and attached body; lines 196–196: type Value and attached body; lines 197–199: fn expecting and attached body; lines 200–219: fn visit_map and attached body; lines 220–245: fn decode_payload and attached body; lines 246–247: impl Payload and attached body; lines 248–253: fn valid_identity and attached body; lines 254–265: fn valid_base and attached body; lines 266–288: fn valid_images and attached body; lines 289–302: fn validate and attached body; lines 303–309: fn load and attached body; lines 310–330: fn read_bounded_json and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 40 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b57c4b40ffd2"></a>
+
+## [cmd/soda-image-import/src/platform.rs](../../../../../cmd/soda-image-import/src/platform.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–84; lines 1–9: fn oci_architecture and attached body; lines 10–24: fn require_native and attached body; lines 25–28: fn is_lower_hex and attached body; lines 29–32: fn is_digest and attached body; lines 33–36: fn is_revision and attached body; lines 37–42: fn is_prefixed_digest and attached body; lines 43–54: fn is_coreos_version and attached body; lines 55–84: fn valid_repository_prefix and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for fn oci_architecture in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b5530597c99c"></a>
+
+## [cmd/soda-image-import/src/sha256.rs](../../../../../cmd/soda-image-import/src/sha256.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20; lines 1–4: use sha2 and attached body; lines 5–5: use sha2 and attached body; lines 6–7: fn hex_lower and attached body; lines 8–17: const HEX and attached body; lines 18–20: fn sha256_hex and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use sha2 in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a75d6d475d6d"></a>
+
+## [cmd/soda-image-import/src/tests/fixtures.rs](../../../../../cmd/soda-image-import/src/tests/fixtures.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–215; lines 1–1: use std and attached body; lines 2–3: use super and attached body; lines 4–4: use crate and attached body; lines 5–6: static TEST_SEQ and attached body; lines 7–17: fn test_root and attached body; lines 18–21: fn repeat and attached body; lines 22–30: fn test_ctx and attached body; lines 31–35: struct LayoutImage and attached body; lines 36–45: fn write_blob and attached body; lines 46–116: fn build_layout and attached body; lines 117–133: fn full_fixture and attached body; lines 134–167: fn test_payload and attached body; lines 168–215: fn payload_json_for and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use std in the current fixture-or-asset source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-047e09840043"></a>
+
+## [cmd/soda-image-import/src/tests/import.rs](../../../../../cmd/soda-image-import/src/tests/import.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–217; lines 1–1: use super and attached body; lines 2–4: use super and attached body; lines 5–62: fn content_imports_exact_local_references and attached body; lines 63–109: fn content_refuses_whole_layout_before_any_import and attached body; lines 110–170: fn native_failures_remain_unconfirmed_without_replay and attached body; lines 171–174: fn fake_podman and attached body; lines 175–180: use std and attached body; lines 181–217: fn runner_maps_exits_and_kills_on_deadline and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b5ff7f333c1c"></a>
+
+## [cmd/soda-image-import/src/tests/mod.rs](../../../../../cmd/soda-image-import/src/tests/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–5; lines 1–1: mod fixtures and attached body; lines 2–2: mod import and attached body; lines 3–3: mod oci and attached body; lines 4–4: mod payload and attached body; lines 5–5: mod primitives and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for mod fixtures in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-12ed5be34568"></a>
+
+## [cmd/soda-image-import/src/tests/oci.rs](../../../../../cmd/soda-image-import/src/tests/oci.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–162; lines 1–1: use super and attached body; lines 2–4: use super and attached body; lines 5–34: fn layout_preserves_identities_and_counts and attached body; lines 35–108: fn mutate_layout and attached body; lines 109–114: fn set_field and attached body; lines 115–122: fn set_annotation and attached body; lines 123–126: fn set_size and attached body; lines 127–134: fn set_urls and attached body; lines 135–140: fn set_media and attached body; lines 141–162: fn layout_refuses_substitution and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-3e9d649dc64d"></a>
+
+## [cmd/soda-image-import/src/tests/payload.rs](../../../../../cmd/soda-image-import/src/tests/payload.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–146; lines 1–1: use super and attached body; lines 2–2: use super and attached body; lines 3–8: fn decode and attached body; lines 9–60: fn payload_decode_is_strict_like_disallow_unknown_fields and attached body; lines 61–108: fn payload_validation_rejects_go_test_mutations and attached body; lines 109–146: fn payload_load_enforces_regular_bounded_input and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-1db0b51eeb96"></a>
+
+## [cmd/soda-image-import/src/tests/primitives.rs](../../../../../cmd/soda-image-import/src/tests/primitives.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–102; lines 1–1: use super and attached body; lines 2–2: use super and attached body; lines 3–3: use crate and attached body; lines 4–6: use sha2 and attached body; lines 7–14: fn admission_requires_root_and_no_arguments and attached body; lines 15–48: fn identifier_shapes_match_go_regexps and attached body; lines 49–84: fn sha256_matches_fips_vectors_streamed_and_oneshot and attached body; lines 85–93: fn native_platform_matches_go_checks and attached body; lines 94–102: fn json_validity_matches_single_value_rule and attached body | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-0d1bc1fb1f1d"></a>
-
 <a id="rustsoda-image-importsrcmainrs-1"></a>
 
-## [rust/soda-image-import/src/main.rs](../../../../../rust/soda-image-import/src/main.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1–24 | Installed root exact-image import and payload admission; declarations/fields: `geteuid`, `signal`, `RELEASE_PATH`, `IMAGES_PATH`, `PODMAN`, `IMPORT_TIMEOUT`, `SIGINT`, `SIGTERM`, `NAMES`, `main`, `run`, `admit`, `CANCELLED`, `on_cancel`, `install_cancel_handlers`, `ImportCtx`, `check`, `oci_architecture`, `require_native`, `is_lower_hex`, `is_digest`, `is_revision`, `is_prefixed_digest`, `is_coreos_version`, `valid_repository_prefix` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 25 | Installed root exact-image import and payload admission; declaration/member geteuid; declarations/fields: `geteuid` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 26–28 | Installed root exact-image import and payload admission; declaration/member signal; declarations/fields: `signal` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 29 | Installed root exact-image import and payload admission; declaration/member RELEASE_PATH; declarations/fields: `RELEASE_PATH` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 30 | Installed root exact-image import and payload admission; declaration/member IMAGES_PATH; declarations/fields: `IMAGES_PATH` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 31–32 | Installed root exact-image import and payload admission; declaration/member PODMAN; declarations/fields: `PODMAN` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 33 | Installed root exact-image import and payload admission; declaration/member IMPORT_TIMEOUT; declarations/fields: `IMPORT_TIMEOUT` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 34 | Installed root exact-image import and payload admission; declaration/member SIGINT; declarations/fields: `SIGINT` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 35 | Installed root exact-image import and payload admission; declaration/member SIGTERM; declarations/fields: `SIGTERM` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 36–44 | Installed root exact-image import and payload admission; declaration/member NAMES; declarations/fields: `NAMES` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 45–48 | Installed root exact-image import and payload admission; declaration/member main; declarations/fields: `main` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 49–80 | Installed root exact-image import and payload admission; declaration/member run; declarations/fields: `run` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 81–87 | Installed root exact-image import and payload admission; declaration/member admit; declarations/fields: `admit` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 88–89 | Installed root exact-image import and payload admission; declaration/member CANCELLED; declarations/fields: `CANCELLED` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 90–93 | Installed root exact-image import and payload admission; declaration/member on_cancel; declarations/fields: `on_cancel` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 94–104 | Installed root exact-image import and payload admission; declaration/member install_cancel_handlers; declarations/fields: `install_cancel_handlers` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 105 | Installed root exact-image import and payload admission; declaration/member ImportCtx; declarations/fields: `ImportCtx` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 106 | Installed root exact-image import and payload admission; declaration/member ImportCtx.deadline; declarations/fields: `ImportCtx.deadline` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 107–110 | Installed root exact-image import and payload admission; declaration/member ImportCtx.cancelled; declarations/fields: `ImportCtx.cancelled` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 111–123 | Installed root exact-image import and payload admission; declaration/member check; declarations/fields: `check` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 124–131 | Installed root exact-image import and payload admission; declaration/member oci_architecture; declarations/fields: `oci_architecture` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 132–146 | Installed root exact-image import and payload admission; declaration/member require_native; declarations/fields: `require_native` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 147–150 | Installed root exact-image import and payload admission; declaration/member is_lower_hex; declarations/fields: `is_lower_hex` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 151–154 | Installed root exact-image import and payload admission; declaration/member is_digest; declarations/fields: `is_digest` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 155–158 | Installed root exact-image import and payload admission; declaration/member is_revision; declarations/fields: `is_revision` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 159–163 | Installed root exact-image import and payload admission; declaration/member is_prefixed_digest; declarations/fields: `is_prefixed_digest` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 164–175 | Installed root exact-image import and payload admission; declaration/member is_coreos_version; declarations/fields: `is_coreos_version` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 176–194 | Installed root exact-image import and payload admission; declaration/member valid_repository_prefix; declarations/fields: `valid_repository_prefix` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 195–208 | Go-shaped strict payload/OCI JSON decoding; declarations/fields: `SHA_K`, `sha_compress`, `Sha256`, `new`, `update`, `finish`, `ZEROS`, `hex_lower`, `HEX`, `sha256_hex`, `obj_fields`, `lookup`, `as_int`, `Binder`, `get`, `string`, `int`, `string_list`, `object`, `t_field`, `t_string`, `t_int`, `t_string_list`, `t_string_map`, `json_valid`, `parse_json`, `ImageBinding`, `Payload`, `decode_image_binding`, `decode_payload`, `valid_identity`, `valid_base`, `valid_images`, `validate` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 209–219 | Go-shaped strict payload/OCI JSON decoding; declaration/member SHA_K; declarations/fields: `SHA_K` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 220–268 | Go-shaped strict payload/OCI JSON decoding; declaration/member sha_compress; declarations/fields: `sha_compress` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 269 | Go-shaped strict payload/OCI JSON decoding; declaration/member Sha256; declarations/fields: `Sha256` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 270 | Go-shaped strict payload/OCI JSON decoding; declaration/member Sha256.state; declarations/fields: `Sha256.state` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 271 | Go-shaped strict payload/OCI JSON decoding; declaration/member Sha256.buf; declarations/fields: `Sha256.buf` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 272 | Go-shaped strict payload/OCI JSON decoding; declaration/member Sha256.used; declarations/fields: `Sha256.used` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 273–276 | Go-shaped strict payload/OCI JSON decoding; declaration/member Sha256.total; declarations/fields: `Sha256.total` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 277–288, 379–388 | Go-shaped strict payload/OCI JSON decoding; declaration/member new; declarations/fields: `new` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 289–304 | Go-shaped strict payload/OCI JSON decoding; declaration/member update; declarations/fields: `update` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 305–309, 443–452 | Go-shaped strict payload/OCI JSON decoding; declaration/member finish; declarations/fields: `finish` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 310–321 | Go-shaped strict payload/OCI JSON decoding; declaration/member ZEROS; declarations/fields: `ZEROS` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 322 | Go-shaped strict payload/OCI JSON decoding; declaration/member hex_lower; declarations/fields: `hex_lower` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 323–332 | Go-shaped strict payload/OCI JSON decoding; declaration/member HEX; declarations/fields: `HEX` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 333–344 | Go-shaped strict payload/OCI JSON decoding; declaration/member sha256_hex; declarations/fields: `sha256_hex` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 345–351 | Go-shaped strict payload/OCI JSON decoding; declaration/member obj_fields; declarations/fields: `obj_fields` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 352–364 | Go-shaped strict payload/OCI JSON decoding; declaration/member lookup; declarations/fields: `lookup` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 365–372 | Go-shaped strict payload/OCI JSON decoding; declaration/member as_int; declarations/fields: `as_int` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 373 | Go-shaped strict payload/OCI JSON decoding; declaration/member Binder; declarations/fields: `Binder` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 374 | Go-shaped strict payload/OCI JSON decoding; declaration/member Binder.fields; declarations/fields: `Binder.fields` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 375–378 | Go-shaped strict payload/OCI JSON decoding; declaration/member Binder.seen; declarations/fields: `Binder.seen` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 389–401 | Go-shaped strict payload/OCI JSON decoding; declaration/member get; declarations/fields: `get` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 402–409 | Go-shaped strict payload/OCI JSON decoding; declaration/member string; declarations/fields: `string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 410–416 | Go-shaped strict payload/OCI JSON decoding; declaration/member int; declarations/fields: `int` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 417–434 | Go-shaped strict payload/OCI JSON decoding; declaration/member string_list; declarations/fields: `string_list` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 435–442 | Go-shaped strict payload/OCI JSON decoding; declaration/member object; declarations/fields: `object` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 453–456 | Go-shaped strict payload/OCI JSON decoding; declaration/member t_field; declarations/fields: `t_field` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 457–464 | Go-shaped strict payload/OCI JSON decoding; declaration/member t_string; declarations/fields: `t_string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 465–471 | Go-shaped strict payload/OCI JSON decoding; declaration/member t_int; declarations/fields: `t_int` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 472–489 | Go-shaped strict payload/OCI JSON decoding; declaration/member t_string_list; declarations/fields: `t_string_list` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 490–511 | Go-shaped strict payload/OCI JSON decoding; declaration/member t_string_map; declarations/fields: `t_string_map` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 512–518 | Go-shaped strict payload/OCI JSON decoding; declaration/member json_valid; declarations/fields: `json_valid` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 519–526 | Go-shaped strict payload/OCI JSON decoding; declaration/member parse_json; declarations/fields: `parse_json` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 527 | Go-shaped strict payload/OCI JSON decoding; declaration/member ImageBinding; declarations/fields: `ImageBinding` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 528 | Go-shaped strict payload/OCI JSON decoding; declaration/member ImageBinding.reference; declarations/fields: `ImageBinding.reference` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 529 | Go-shaped strict payload/OCI JSON decoding; declaration/member ImageBinding.config; declarations/fields: `ImageBinding.config` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 530 | Go-shaped strict payload/OCI JSON decoding; declaration/member ImageBinding.manifest; declarations/fields: `ImageBinding.manifest` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 531–534 | Go-shaped strict payload/OCI JSON decoding; declaration/member ImageBinding.archive_sha256; declarations/fields: `ImageBinding.archive_sha256` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 535 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload; declarations/fields: `Payload` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 536 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.format; declarations/fields: `Payload.format` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 537 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.id; declarations/fields: `Payload.id` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 538 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.revision; declarations/fields: `Payload.revision` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 539 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.architecture; declarations/fields: `Payload.architecture` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 540 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.coreos; declarations/fields: `Payload.coreos` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 541 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.base; declarations/fields: `Payload.base` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 542 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.repository_prefix; declarations/fields: `Payload.repository_prefix` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 543 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.schema; declarations/fields: `Payload.schema` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 544 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.presentation_sha256; declarations/fields: `Payload.presentation_sha256` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 545 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.host_packages_sha256; declarations/fields: `Payload.host_packages_sha256` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 546 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.images; declarations/fields: `Payload.images` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 547–549 | Go-shaped strict payload/OCI JSON decoding; declaration/member Payload.upgrade_from; declarations/fields: `Payload.upgrade_from` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 550–561 | Go-shaped strict payload/OCI JSON decoding; declaration/member decode_image_binding; declarations/fields: `decode_image_binding` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 562–594 | Go-shaped strict payload/OCI JSON decoding; declaration/member decode_payload; declarations/fields: `decode_payload` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 595–604 | Go-shaped strict payload/OCI JSON decoding; declaration/member valid_identity; declarations/fields: `valid_identity` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 605–617 | Go-shaped strict payload/OCI JSON decoding; declaration/member valid_base; declarations/fields: `valid_base` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 618–641 | Go-shaped strict payload/OCI JSON decoding; declaration/member valid_images; declarations/fields: `valid_images` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 642–651 | Go-shaped strict payload/OCI JSON decoding; declaration/member validate; declarations/fields: `validate` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 652–659 | Installed payload and OCI identity/content verification; declarations/fields: `load`, `read_bounded_json`, `OciImage`, `OciDescriptor`, `OciBlobData`, `decode_descriptor`, `decode_descriptor_list`, `OciManifestData`, `parse_oci_manifest`, `OciConfigData`, `parse_oci_config`, `read_oci_index`, `LayoutLoader`, `fetch`, `open_layout_root`, `read_layout_blob`, `read_blob_bytes`, `validate_oci_layers`, `validate_oci_rootfs`, `validate_oci_attribution`, `inspect_oci_image`, `inspect_oci_layout`, `bind_image_revisions`, `match_layout_identities` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 660–670, 857–870 | Installed payload and OCI identity/content verification; declaration/member load; declarations/fields: `load` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 671–697 | Installed payload and OCI identity/content verification; declaration/member read_bounded_json; declarations/fields: `read_bounded_json` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 698 | Installed payload and OCI identity/content verification; declaration/member OciImage; declarations/fields: `OciImage` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 699 | Installed payload and OCI identity/content verification; declaration/member OciImage.manifest; declarations/fields: `OciImage.manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 700 | Installed payload and OCI identity/content verification; declaration/member OciImage.config; declarations/fields: `OciImage.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 701 | Installed payload and OCI identity/content verification; declaration/member OciImage.architecture; declarations/fields: `OciImage.architecture` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 702 | Installed payload and OCI identity/content verification; declaration/member OciImage.revision; declarations/fields: `OciImage.revision` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 703 | Installed payload and OCI identity/content verification; declaration/member OciImage.source; declarations/fields: `OciImage.source` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 704 | Installed payload and OCI identity/content verification; declaration/member OciImage.base_name; declarations/fields: `OciImage.base_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 705–708 | Installed payload and OCI identity/content verification; declaration/member OciImage.base_digest; declarations/fields: `OciImage.base_digest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 709 | Installed payload and OCI identity/content verification; declaration/member OciDescriptor; declarations/fields: `OciDescriptor` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 710 | Installed payload and OCI identity/content verification; declaration/member OciDescriptor.digest; declarations/fields: `OciDescriptor.digest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 711 | Installed payload and OCI identity/content verification; declaration/member OciDescriptor.size; declarations/fields: `OciDescriptor.size` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 712 | Installed payload and OCI identity/content verification; declaration/member OciDescriptor.media_type; declarations/fields: `OciDescriptor.media_type` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 713 | Installed payload and OCI identity/content verification; declaration/member OciDescriptor.urls; declarations/fields: `OciDescriptor.urls` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 714–717 | Installed payload and OCI identity/content verification; declaration/member OciDescriptor.annotations; declarations/fields: `OciDescriptor.annotations` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 718 | Installed payload and OCI identity/content verification; declaration/member OciBlobData; declarations/fields: `OciBlobData` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 719–720 | Installed payload and OCI identity/content verification; declaration/member OciBlobData.size; declarations/fields: `OciBlobData.size` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 721–723 | Installed payload and OCI identity/content verification; declaration/member OciBlobData.data; declarations/fields: `OciBlobData.data` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 724–739 | Installed payload and OCI identity/content verification; declaration/member decode_descriptor; declarations/fields: `decode_descriptor` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 740–753 | Installed payload and OCI identity/content verification; declaration/member decode_descriptor_list; declarations/fields: `decode_descriptor_list` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 754 | Installed payload and OCI identity/content verification; declaration/member OciManifestData; declarations/fields: `OciManifestData` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 755 | Installed payload and OCI identity/content verification; declaration/member OciManifestData.config; declarations/fields: `OciManifestData.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 756–758 | Installed payload and OCI identity/content verification; declaration/member OciManifestData.layers; declarations/fields: `OciManifestData.layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 759–776 | Installed payload and OCI identity/content verification; declaration/member parse_oci_manifest; declarations/fields: `parse_oci_manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 777 | Installed payload and OCI identity/content verification; declaration/member OciConfigData; declarations/fields: `OciConfigData` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 778 | Installed payload and OCI identity/content verification; declaration/member OciConfigData.os; declarations/fields: `OciConfigData.os` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 779 | Installed payload and OCI identity/content verification; declaration/member OciConfigData.arch; declarations/fields: `OciConfigData.arch` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 780 | Installed payload and OCI identity/content verification; declaration/member OciConfigData.rootfs_type; declarations/fields: `OciConfigData.rootfs_type` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 781 | Installed payload and OCI identity/content verification; declaration/member OciConfigData.diff_ids; declarations/fields: `OciConfigData.diff_ids` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 782–784 | Installed payload and OCI identity/content verification; declaration/member OciConfigData.labels; declarations/fields: `OciConfigData.labels` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 785–818 | Installed payload and OCI identity/content verification; declaration/member parse_oci_config; declarations/fields: `parse_oci_config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 819–849 | Installed payload and OCI identity/content verification; declaration/member read_oci_index; declarations/fields: `read_oci_index` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 850 | Installed payload and OCI identity/content verification; declaration/member LayoutLoader; declarations/fields: `LayoutLoader` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 851 | Installed payload and OCI identity/content verification; declaration/member LayoutLoader.dir; declarations/fields: `LayoutLoader.dir` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 852 | Installed payload and OCI identity/content verification; declaration/member LayoutLoader.entries; declarations/fields: `LayoutLoader.entries` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 853–856 | Installed payload and OCI identity/content verification; declaration/member LayoutLoader.json_bytes; declarations/fields: `LayoutLoader.json_bytes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 871–887 | Installed payload and OCI identity/content verification; declaration/member fetch; declarations/fields: `fetch` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 888–897 | Installed payload and OCI identity/content verification; declaration/member open_layout_root; declarations/fields: `open_layout_root` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 898–925 | Installed payload and OCI identity/content verification; declaration/member read_layout_blob; declarations/fields: `read_layout_blob` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 926–972 | Installed payload and OCI identity/content verification; declaration/member read_blob_bytes; declarations/fields: `read_blob_bytes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 973–985 | Installed payload and OCI identity/content verification; declaration/member validate_oci_layers; declarations/fields: `validate_oci_layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 986–1001 | Installed payload and OCI identity/content verification; declaration/member validate_oci_rootfs; declarations/fields: `validate_oci_rootfs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1002–1034 | Installed payload and OCI identity/content verification; declaration/member validate_oci_attribution; declarations/fields: `validate_oci_attribution` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1035–1078 | Installed payload and OCI identity/content verification; declaration/member inspect_oci_image; declarations/fields: `inspect_oci_image` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1079–1137 | Installed payload and OCI identity/content verification; declaration/member inspect_oci_layout; declarations/fields: `inspect_oci_layout` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1138–1160 | Installed payload and OCI identity/content verification; declaration/member bind_image_revisions; declarations/fields: `bind_image_revisions` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1161–1179 | Installed payload and OCI identity/content verification; declaration/member match_layout_identities; declarations/fields: `match_layout_identities` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1180–1194 | Verify complete immutable image content before effects; declarations/fields: `verify_content` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1195–1203 | Verify complete immutable image content before effects; declaration/member PodmanOutcome; declarations/fields: `PodmanOutcome` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1204–1239 | Native Podman observe/import/re-observe only missing images; declarations/fields: `import_missing_image` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1240–1255 | Native Podman observe/import/re-observe only missing images; declaration/member import_images; declarations/fields: `import_images` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1256–1279 | Native Podman observe/import/re-observe only missing images; declaration/member run_podman; declarations/fields: `run_podman` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1280–1288 | Native payload import source assertions; declarations/fields: `native_import`, `tests`, `TEST_SEQ`, `test_root`, `repeat`, `test_ctx`, `LayoutImage`, `write_blob`, `build_layout`, `full_fixture`, `test_payload`, `payload_json_for`, `admission_requires_root_and_no_arguments`, `identifier_shapes_match_go_regexps`, `sha256_matches_fips_vectors_streamed_and_oneshot`, `native_platform_matches_go_checks`, `decode`, `payload_decode_is_strict_like_disallow_unknown_fields`, `payload_validation_rejects_go_test_mutations`, `payload_load_enforces_regular_bounded_input`, `layout_preserves_identities_and_counts`, `mutate_layout`, `render_json`, `render_string`, `set_field`, `set_annotation`, `set_size`, `set_urls`, `set_media`, `layout_refuses_substitution`, `content_imports_exact_local_references`, `content_refuses_whole_layout_before_any_import`, `native_failures_remain_unconfirmed_without_replay`, `fake_podman`, `runner_maps_exits_and_kills_on_deadline`, `json_validity_matches_single_value_rule` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1289–1300 | Native payload import source assertions; declaration/member native_import; declarations/fields: `native_import` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1301–1304 | Native payload import source assertions; declaration/member tests; declarations/fields: `tests` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1305–1306 | Native payload import source assertions; declaration/member TEST_SEQ; declarations/fields: `TEST_SEQ` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1307–1317 | Native payload import source assertions; declaration/member test_root; declarations/fields: `test_root` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1318–1321 | Native payload import source assertions; declaration/member repeat; declarations/fields: `repeat` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1322–1330 | Native payload import source assertions; declaration/member test_ctx; declarations/fields: `test_ctx` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1331 | Native payload import source assertions; declaration/member LayoutImage; declarations/fields: `LayoutImage` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1332 | Native payload import source assertions; declaration/member LayoutImage.config; declarations/fields: `LayoutImage.config` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1333–1335 | Native payload import source assertions; declaration/member LayoutImage.manifest; declarations/fields: `LayoutImage.manifest` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1336–1345 | Native payload import source assertions; declaration/member write_blob; declarations/fields: `write_blob` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1346–1417 | Native payload import source assertions; declaration/member build_layout; declarations/fields: `build_layout` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1418–1434 | Native payload import source assertions; declaration/member full_fixture; declarations/fields: `full_fixture` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1435–1467 | Native payload import source assertions; declaration/member test_payload; declarations/fields: `test_payload` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1468–1517 | Native payload import source assertions; declaration/member payload_json_for; declarations/fields: `payload_json_for` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1518–1525 | Native payload import source assertions; declaration/member admission_requires_root_and_no_arguments; declarations/fields: `admission_requires_root_and_no_arguments` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1526–1559 | Native payload import source assertions; declaration/member identifier_shapes_match_go_regexps; declarations/fields: `identifier_shapes_match_go_regexps` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1560–1595 | Native payload import source assertions; declaration/member sha256_matches_fips_vectors_streamed_and_oneshot; declarations/fields: `sha256_matches_fips_vectors_streamed_and_oneshot` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1596–1603 | Native payload import source assertions; declaration/member native_platform_matches_go_checks; declarations/fields: `native_platform_matches_go_checks` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1604–1608 | Native payload import source assertions; declaration/member decode; declarations/fields: `decode` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1609–1647 | Native payload import source assertions; declaration/member payload_decode_is_strict_like_disallow_unknown_fields; declarations/fields: `payload_decode_is_strict_like_disallow_unknown_fields` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1648–1695 | Native payload import source assertions; declaration/member payload_validation_rejects_go_test_mutations; declarations/fields: `payload_validation_rejects_go_test_mutations` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1696–1735 | Native payload import source assertions; declaration/member payload_load_enforces_regular_bounded_input; declarations/fields: `payload_load_enforces_regular_bounded_input` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1736–1766 | Native payload import source assertions; declaration/member layout_preserves_identities_and_counts; declarations/fields: `layout_preserves_identities_and_counts` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1767–1841 | Native payload import source assertions; declaration/member mutate_layout; declarations/fields: `mutate_layout` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1842–1862 | Native payload import source assertions; declaration/member render_json; declarations/fields: `render_json` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1863–1879 | Native payload import source assertions; declaration/member render_string; declarations/fields: `render_string` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1880–1891 | Native payload import source assertions; declaration/member set_field; declarations/fields: `set_field` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1892–1902 | Native payload import source assertions; declaration/member set_annotation; declarations/fields: `set_annotation` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1903–1906 | Native payload import source assertions; declaration/member set_size; declarations/fields: `set_size` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1907–1916 | Native payload import source assertions; declaration/member set_urls; declarations/fields: `set_urls` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1917–1921 | Native payload import source assertions; declaration/member set_media; declarations/fields: `set_media` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1922–1945 | Native payload import source assertions; declaration/member layout_refuses_substitution; declarations/fields: `layout_refuses_substitution` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 1946–2003 | Native payload import source assertions; declaration/member content_imports_exact_local_references; declarations/fields: `content_imports_exact_local_references` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 2004–2052 | Native payload import source assertions; declaration/member content_refuses_whole_layout_before_any_import; declarations/fields: `content_refuses_whole_layout_before_any_import` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 2053–2114 | Native payload import source assertions; declaration/member native_failures_remain_unconfirmed_without_replay; declarations/fields: `native_failures_remain_unconfirmed_without_replay` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 2115–2123 | Native payload import source assertions; declaration/member fake_podman; declarations/fields: `fake_podman` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 2124–2162 | Native payload import source assertions; declaration/member runner_maps_exits_and_kills_on_deadline; declarations/fields: `runner_maps_exits_and_kills_on_deadline` |
-| [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / active | 2163–2172 | Native payload import source assertions; declaration/member json_validity_matches_single_value_rule; declarations/fields: `json_validity_matches_single_value_rule` |
-
+Former source `rust/soda-image-import/src/main.rs`; consult its pinned earlier Git source and the current coverage disposition.

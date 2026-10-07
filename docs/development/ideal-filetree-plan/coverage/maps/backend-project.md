@@ -1,165 +1,233 @@
 # Backend project
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-92d8c9add75c"></a>
 
 ## [internal/project/factory.go](../../../../../internal/project/factory.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–15 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 16–47, 74–84 | Declared identifiers/bounds (declaration group) for Assignment and dispatch; declarations/fields: `(declaration group)` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 48–61, 167–192, 216–247 | Factory run lifecycle identity, state or native inspection/stop contract; declarations/fields: `ValidFactoryPhase`, `factoryRunID`, `ValidFactoryRunID`, `FactoryState`, `FactoryUnitName`, `FactoryInspect`, `FactoryInspect.Validate`, `FactoryStop`, `FactoryStop.Validate` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 62–66 | Declared identifiers/bounds harnessVersion for Assignment and dispatch; declarations/fields: `harnessVersion` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 67–69 | ValidHarnessVersion — Assignment and dispatch; declarations/fields: `ValidHarnessVersion` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 70–73 | ValidHarnessFamily — Assignment and dispatch; declarations/fields: `ValidHarnessFamily` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 85–99 | Record, DTO or interface contract FactoryRun for Assignment and dispatch; declarations/fields: `FactoryRun` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 100–135 | FactoryRun.Validate — Assignment and dispatch; declarations/fields: `FactoryRun.Validate` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 136–143 | FactoryPromptDigest — Assignment and dispatch; declarations/fields: `FactoryPromptDigest` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 144–149 | Record, DTO or interface contract FactoryLaunch for Assignment and dispatch; declarations/fields: `FactoryLaunch` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 150–166 | FactoryLaunch.Validate — Assignment and dispatch; declarations/fields: `FactoryLaunch.Validate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 193–205 | Assigned run checkout and input path derivation; declarations/fields: `FactoryRunPaths` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 206–215 | Native provider consumer identity for factory execution; declarations/fields: `FactoryCodexGuest` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–47, 62–166; whole file; (declaration group); harnessVersion; ValidHarnessVersion; ValidHarnessFamily; FactoryRun; FactoryRun.Validate; FactoryPromptDigest; FactoryLaunch; FactoryLaunch.Validate | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 10 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 48–61, 167–192, 216–247; ValidFactoryPhase, factoryRunID, ValidFactoryRunID, FactoryState, FactoryUnitName, FactoryInspect, FactoryInspect.Validate, FactoryStop, FactoryStop.Validate | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Factory run lifecycle identity, state or native inspection/stop contract; declarations/fields: `ValidFactoryPhase`, `factoryRunID`, `ValidFactoryRunID`, `FactoryState`, `FactoryUnitName`, `FactoryInspect`, `FactoryInspect.Validate`, `FactoryStop`, `FactoryStop.Validate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 193–205; FactoryRunPaths | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Assigned run checkout and input path derivation; declarations/fields: `FactoryRunPaths` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 206–215; FactoryCodexGuest | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Native provider consumer identity for factory execution; declarations/fields: `FactoryCodexGuest` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-25c9b65fc824"></a>
+
+## [internal/project/factory_candidate.go](../../../../../internal/project/factory_candidate.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–57; file scaffold; FactoryCandidate; Validate; FactoryCandidateInspect; FactoryCandidateState | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-49b6c4ca4634"></a>
+
+## [internal/project/factory_candidate_test.go](../../../../../internal/project/factory_candidate_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–27; file scaffold; TestFactoryCandidateRequiresFreshBoundedPreparation | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestFactoryCandidateRequiresFreshBoundedPreparation — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-d5bcb7f11505"></a>
+
+## [internal/project/factory_export.go](../../../../../internal/project/factory_export.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–58; file scaffold; MaxFactoryExportBundle; FactoryExport; Validate; FactoryExportState | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-8832390ea3b5"></a>
+
+## [internal/project/factory_export_test.go](../../../../../internal/project/factory_export_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–30; file scaffold; TestFactoryExportValidates | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestFactoryExportValidates — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-39acd1000d1c"></a>
+
+## [internal/project/factory_harness.go](../../../../../internal/project/factory_harness.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–33; file scaffold; FactoryHarnessPin; Validate | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: FactoryHarnessPin; Current declaration duty: Validate — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-7092c9c4be5f"></a>
+
+## [internal/project/factory_harness_test.go](../../../../../internal/project/factory_harness_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–34; file scaffold; TestFactoryHarnessPinValidate | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestFactoryHarnessPinValidate — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-d77de6717cbc"></a>
+
+## [internal/project/factory_output.go](../../../../../internal/project/factory_output.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–62; file scaffold; FactoryOutput; Validate; FactoryOutputState | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-a7bbc9546f76"></a>
+
+## [internal/project/factory_output_test.go](../../../../../internal/project/factory_output_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–24; file scaffold; TestFactoryOutputValidation | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestFactoryOutputValidation — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-57f958e846a3"></a>
 
 ## [internal/project/factory_test.go](../../../../../internal/project/factory_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–8 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 9–24 | Fixture/protocol support factoryRunFixture; declarations/fields: `factoryRunFixture` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 25–50 | Assertions TestFactoryRunValidation: invalid %s admitted; declarations/fields: `TestFactoryRunValidation` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 51–68 | Assertions TestFactoryLaunchBindsPromptDigest: changed prompt reused assignment digest; declarations/fields: `TestFactoryLaunchBindsPromptDigest` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 69–93 | Factory role checkout/run path assertions; declarations/fields: `TestFactoryRunPathsAreFixed` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 94–109 | Factory lifecycle protocol assertions; declarations/fields: `TestFactoryPhasesAndAddresses` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–68; whole file; factoryRunFixture; TestFactoryRunValidation; TestFactoryLaunchBindsPromptDigest | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 4 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 69–93; TestFactoryRunPathsAreFixed | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Factory role checkout/run path assertions; declarations/fields: `TestFactoryRunPathsAreFixed` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 94–109; TestFactoryPhasesAndAddresses | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Factory lifecycle protocol assertions; declarations/fields: `TestFactoryPhasesAndAddresses` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-775c7088065e"></a>
 
 ## [internal/project/grants.go](../../../../../internal/project/grants.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–13 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 14–22 | Record, DTO or interface contract EnvironmentGrant for Repository association and creation; declarations/fields: `EnvironmentGrant` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 23–37 | EnvironmentGrant.Validate — Repository association and creation; declarations/fields: `EnvironmentGrant.Validate` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 38–67 | Exact preparation requirement decisions; declarations/fields: `RequirementDecision`, `RequirementDecision.Validate`, `RequirementDecision.Ref` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 68–93 | Privileged preparation approval decisions; declarations/fields: `ApprovalDecision`, `ApprovalDecision.Validate`, `ApprovalDecision.Ref` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–37; whole file; EnvironmentGrant; EnvironmentGrant.Validate | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Record, DTO or interface contract EnvironmentGrant for Repository association and creation; declarations/fields: `EnvironmentGrant`; EnvironmentGrant.Validate — Repository association and creation; declarations/fields: `EnvironmentGrant.Validate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 38–67; RequirementDecision, RequirementDecision.Validate, RequirementDecision.Ref | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Exact preparation requirement decisions; declarations/fields: `RequirementDecision`, `RequirementDecision.Validate`, `RequirementDecision.Ref` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 68–93; ApprovalDecision, ApprovalDecision.Validate, ApprovalDecision.Ref | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Privileged preparation approval decisions; declarations/fields: `ApprovalDecision`, `ApprovalDecision.Validate`, `ApprovalDecision.Ref` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-b15c54c23df1"></a>
 
 ## [internal/project/grants_test.go](../../../../../internal/project/grants_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–7 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 8–14 | Fixture/protocol support grantTestProfile; declarations/fields: `grantTestProfile` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 15–35 | Assertions TestEnvironmentGrantValidation: %s: grant accepted; declarations/fields: `TestEnvironmentGrantValidation` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 36–54 | Preparation requirement shape assertions; declarations/fields: `TestRequirementDecisionValidation` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 55–73 | Privileged effect approval shape assertions; declarations/fields: `TestApprovalDecisionValidation` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–35; whole file; grantTestProfile; TestEnvironmentGrantValidation | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Fixture/protocol support grantTestProfile; declarations/fields: `grantTestProfile`; Assertions TestEnvironmentGrantValidation: %s: grant accepted; declarations/fields: `TestEnvironmentGrantValidation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 36–54; TestRequirementDecisionValidation | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Preparation requirement shape assertions; declarations/fields: `TestRequirementDecisionValidation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 55–73; TestApprovalDecisionValidation | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Privileged effect approval shape assertions; declarations/fields: `TestApprovalDecisionValidation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-16a64cb32054"></a>
 
 ## [internal/project/preparation.go](../../../../../internal/project/preparation.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–16 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 17–26 | Fixed coder/reviewer factory role identities; declarations/fields: `RoleCoder`, `RoleReviewer` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 27–76, 86–95 | Declared identifiers/bounds (declaration group) for Checkout allocation and preparation; declarations/fields: `(declaration group)` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 77–85 | ValidPreparePhase — Checkout allocation and preparation; declarations/fields: `ValidPreparePhase` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 96–98 | ValidPreparationID — Checkout allocation and preparation; declarations/fields: `ValidPreparationID` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 99–101 | ValidDecisionID — Checkout allocation and preparation; declarations/fields: `ValidDecisionID` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 102–104 | ValidDigest — Checkout allocation and preparation; declarations/fields: `ValidDigest` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 105–108 | ValidCommit — Checkout allocation and preparation; declarations/fields: `ValidCommit` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 109–113 | ValidApprovedName — Checkout allocation and preparation; declarations/fields: `ValidApprovedName` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 114–117 | ValidToolName — Checkout allocation and preparation; declarations/fields: `ValidToolName` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 118–134 | Preparation requirement acceptance protocol; declarations/fields: `RequirementAcceptance`, `RequirementAcceptance.Validate` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 135–150 | Approved exact setup/effect input protocol; declarations/fields: `AdminApproval`, `AdminApproval.Validate` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 151–168 | Standing Project lifecycle execution grant; declarations/fields: `LifecycleGrant`, `LifecycleGrant.Validate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 169–173, 176–177, 179–181 | Record, DTO or interface contract Preparation for Checkout allocation and preparation; declarations/fields: `Preparation` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 174 | Reference to independent exact requirement acceptance; declarations/fields: `Preparation.Requirements` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 175 | Reference to independent privileged effects approval; declarations/fields: `Preparation.Approval` |
-| [P10](../../slices/projects.md#p10-shared-tools-and-packages) / active | 178 | Prepared required tool references; declarations/fields: `Preparation.Tools` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 182–211 | Preparation.Validate — Checkout allocation and preparation; declarations/fields: `Preparation.Validate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 212–247, 269–285 | Bounded exact approved input materialization contract; separate P09 decision is prerequisite; declarations/fields: `ApprovedSetup`, `ApprovedSetup.Validate`, `SetupDigestOf` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 248–252 | Record, DTO or interface contract Prepare for Checkout allocation and preparation; declarations/fields: `Prepare` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 253–268 | Prepare.Validate — Checkout allocation and preparation; declarations/fields: `Prepare.Validate` |
-| [P10](../../slices/projects.md#p10-shared-tools-and-packages) / active | 286–292 | Prepared pinned tool identity projection; declarations/fields: `ResolvedTool` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 293–311 | Record, DTO or interface contract PrepareState for Checkout allocation and preparation; declarations/fields: `PrepareState` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 312–316 | Record, DTO or interface contract PrepareInspect for Checkout allocation and preparation; declarations/fields: `PrepareInspect` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 317–324 | PrepareInspect.Validate — Checkout allocation and preparation; declarations/fields: `PrepareInspect.Validate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 325–330 | Record, DTO or interface contract PrepareStop for Checkout allocation and preparation; declarations/fields: `PrepareStop` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 331–335, 345–359, 379–390 | Preparation admission hold state and command protocol; declarations/fields: `HoldState`, `PrepareHold`, `PrepareHold.Validate`, `MaintenanceHold`, `MaintenanceHold.Validate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 336–344 | PrepareStop.Validate — Checkout allocation and preparation; declarations/fields: `PrepareStop.Validate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 360–364 | Record, DTO or interface contract StoredPreparation for Checkout allocation and preparation; declarations/fields: `StoredPreparation` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 365–378 | StoredPreparation.Validate — Checkout allocation and preparation; declarations/fields: `StoredPreparation.Validate` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–16, 27–117, 169–173, 176–177, 179–285, 293–330, 336–344, 360–378; whole file; (declaration group); ValidPreparePhase; ValidPreparationID; ValidDecisionID; ValidDigest; ValidCommit; ValidApprovedName; ValidToolName; Preparation; Preparation.Validate; ApprovedSetup, ApprovedSetup.Validate, SetupDigestOf; Prepare; Prepare.Validate; PrepareState; PrepareInspect; PrepareInspect.Validate; PrepareStop; PrepareStop.Validate; StoredPreparation; StoredPreparation.Validate | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 21 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 17–26; RoleCoder, RoleReviewer | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | Fixed coder/reviewer factory role identities; declarations/fields: `RoleCoder`, `RoleReviewer` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 118–134, 174; RequirementAcceptance, RequirementAcceptance.Validate; Preparation.Requirements | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Preparation requirement acceptance protocol; declarations/fields: `RequirementAcceptance`, `RequirementAcceptance.Validate`; Reference to independent exact requirement acceptance; declarations/fields: `Preparation.Requirements` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 135–150, 175; AdminApproval, AdminApproval.Validate; Preparation.Approval | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Approved exact setup/effect input protocol; declarations/fields: `AdminApproval`, `AdminApproval.Validate`; Reference to independent privileged effects approval; declarations/fields: `Preparation.Approval` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 151–168; LifecycleGrant, LifecycleGrant.Validate | [P05](../../slices/projects.md#p05-project-startstop) | retained | Standing Project lifecycle execution grant; declarations/fields: `LifecycleGrant`, `LifecycleGrant.Validate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 178, 286–292; Preparation.Tools; ResolvedTool | [P10](../../slices/projects.md#p10-shared-tools-and-packages) | retained | Prepared required tool references; declarations/fields: `Preparation.Tools`; Prepared pinned tool identity projection; declarations/fields: `ResolvedTool` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 331–335, 345–359, 379–390; HoldState, PrepareHold, PrepareHold.Validate, MaintenanceHold, MaintenanceHold.Validate | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Preparation admission hold state and command protocol; declarations/fields: `HoldState`, `PrepareHold`, `PrepareHold.Validate`, `MaintenanceHold`, `MaintenanceHold.Validate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-19da41ea7b45"></a>
 
 ## [internal/project/preparation_test.go](../../../../../internal/project/preparation_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–7 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 8–16 | Fixture/protocol support (declaration group); declarations/fields: `(declaration group)` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 17–20 | Fixture/protocol support testAcceptance; declarations/fields: `testAcceptance` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 21–24 | Fixture/protocol support testApproval; declarations/fields: `testApproval` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 25–32 | Fixture/protocol support testPreparation; declarations/fields: `testPreparation` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 33–43 | Fixed role validation assertions; declarations/fields: `TestFactoryRolesAreFixed` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 44–62 | Assertions TestPreparationRequiresBothApprovals: valid preparation rejected: %v; declarations/fields: `TestPreparationRequiresBothApprovals` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 63–84 | Assertions TestPreparationRejectsUntrustedIdentities: case %d accepted; declarations/fields: `TestPreparationRejectsUntrustedIdentities` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 85–116 | Exact approved setup byte/path/materialization input assertions; declarations/fields: `TestApprovedSetupRequiresFixedEntrypoints` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 117–127 | Assertions TestPreparePhasesAreKnown: known phase rejected: %q; declarations/fields: `TestPreparePhasesAreKnown` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 128–137 | Lifecycle grant/hold assertions partitioned below; declarations/fields: `TestLifecycleGrantAndHoldValidate` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 138–147 | Maintenance hold shape assertions inside mixed lifecycle/hold test; declarations/fields: `TestLifecycleGrantAndHoldValidate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 148–157 | Assertions TestStoredPreparationBindsStateIdentity: valid record rejected: %v; declarations/fields: `TestStoredPreparationBindsStateIdentity` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–32, 44–127, 148–157; whole file; (declaration group); testAcceptance; testApproval; testPreparation; TestPreparationRequiresBothApprovals; TestPreparationRejectsUntrustedIdentities; TestApprovedSetupRequiresFixedEntrypoints; TestPreparePhasesAreKnown; TestStoredPreparationBindsStateIdentity | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 10 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 33–43; TestFactoryRolesAreFixed | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | Fixed role validation assertions; declarations/fields: `TestFactoryRolesAreFixed` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 128–137; TestLifecycleGrantAndHoldValidate | [P05](../../slices/projects.md#p05-project-startstop) | retained | Lifecycle grant/hold assertions partitioned below; declarations/fields: `TestLifecycleGrantAndHoldValidate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 138–147; TestLifecycleGrantAndHoldValidate | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Maintenance hold shape assertions inside mixed lifecycle/hold test; declarations/fields: `TestLifecycleGrantAndHoldValidate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-2e47833e185a"></a>
+
+## [internal/project/profile.go](../../../../../internal/project/profile.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–51; file scaffold; RockyHeadless; Profile; Validate; Decode | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-cf4f5504efe8"></a>
 
 ## [internal/project/project.go](../../../../../internal/project/project.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–12 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 13–14, 18–20 | Declared identifiers/bounds (declaration group) for Repository association and creation; declarations/fields: `(declaration group)` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 15 | Human Linux Project login shape; declarations/fields: `loginName` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 16–17 | Pinned native image/container identity shapes; declarations/fields: `imageID`, `containerID` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 21–23 | ValidID — Repository association and creation; declarations/fields: `ValidID` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 24–26 | Canonical human account login validation; declarations/fields: `ValidLogin` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 27–30 | Pinned runtime/image identity validation; declarations/fields: `ValidImageRef`, `ValidContainerID` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14, 18–23; whole file; (declaration group); ValidID | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Declared identifiers/bounds (declaration group) for Repository association and creation; declarations/fields: `(declaration group)`; ValidID — Repository association and creation; declarations/fields: `ValidID` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 15, 24–26; loginName; ValidLogin | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human Linux Project login shape; declarations/fields: `loginName`; Canonical human account login validation; declarations/fields: `ValidLogin` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 16–17, 27–30; imageID, containerID; ValidImageRef, ValidContainerID | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Pinned native image/container identity shapes; declarations/fields: `imageID`, `containerID`; Pinned runtime/image identity validation; declarations/fields: `ValidImageRef`, `ValidContainerID` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-69db73c3e604"></a>
+
+## [internal/project/project_test.go](../../../../../internal/project/project_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–89; file scaffold; validProfile; TestProfileValidation; TestCreateValidation; TestWireShapeFrozen; TestIdentityHelpers | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-7a4270c54f54"></a>
+
+## [internal/project/takeover.go](../../../../../internal/project/takeover.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–78; file scaffold; TakeoverDirName; FactoryTakeover; Validate; TakeoverDestination; TakeoverResult; TakeoverExcluded; TakeoverSource | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-166572481011"></a>
+
+## [internal/project/takeover_test.go](../../../../../internal/project/takeover_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–76; file scaffold; TestFactoryTakeoverValidates; TestTakeoverDestinationDerivesMemberPath; TestTakeoverResultBindsDestination; TestTakeoverExclusions; TestTakeoverSourcePinsFixedLayout | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-b58cd1f97f0b"></a>
 
 ## [internal/project/types.go](../../../../../internal/project/types.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–8 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 9–14 | Record, DTO or interface contract Create for Repository association and creation; declarations/fields: `Create` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 15–22 | Create.Validate — Repository association and creation; declarations/fields: `Create.Validate` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 23–26, 28–31 | Human membership/account creation contract; declarations/fields: `Account` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 27 | Explicit authorized-key input for new human account; declarations/fields: `Account.Keys` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 32–35, 37–40, 76–87 | Observed native runtime and Project OS DTO; declarations/fields: `Environment`, `OSRelease`, `OSObservation` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 36 | Observed native Project LAN IP field; declarations/fields: `Environment.IP` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 41–47, 60–75 | Own development SSH address/key contract; declarations/fields: `Connection`, `AccessKeys`, `AccessKeyState` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 48–59 | Project Start/Stop contract; declarations/fields: `Lifecycle`, `LifecycleState` |
-
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–22; whole file; Create; Create.Validate | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Record, DTO or interface contract Create for Repository association and creation; declarations/fields: `Create`; Create.Validate — Repository association and creation; declarations/fields: `Create.Validate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 23–26, 28–31; Account | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human membership/account creation contract; declarations/fields: `Account` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 27, 41–47, 60–75; Account.Keys; Connection, AccessKeys, AccessKeyState | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Explicit authorized-key input for new human account; declarations/fields: `Account.Keys`; Own development SSH address/key contract; declarations/fields: `Connection`, `AccessKeys`, `AccessKeyState` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 32–35, 37–40, 76–87; Environment, OSRelease, OSObservation | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Observed native runtime and Project OS DTO; declarations/fields: `Environment`, `OSRelease`, `OSObservation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 36; Environment.IP | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Observed native Project LAN IP field; declarations/fields: `Environment.IP` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 48–59; Lifecycle, LifecycleState | [P05](../../slices/projects.md#p05-project-startstop) | retained | Project Start/Stop contract; declarations/fields: `Lifecycle`, `LifecycleState` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |

@@ -1,255 +1,258 @@
 # Soda project factory roles
 
-Current target seam note: P07 records verified production/test boundaries approve368, validate132, sha154, record200, proc380, inspect481 and main fixture211. Current responsibility rows below remain source selectors; concern-specific successor modules preserve each assertion and one real private subject. Historical Python decomposition ranges are not executable Rust move instructions. Full assertion adequacy remains independently scoped.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-f0029f61a5aa"></a>
+<a id="coverage-2059e018b3d9"></a>
 
-## [rust/soda-project-factory-roles/src/account.rs](../../../../../rust/soda-project-factory-roles/src/account.rs)
+## [cmd/soda-project-terminal/src/factory_roles/accounts.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/accounts.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 1–13 | Locked fixed factory role account creation and native role metadata; declarations/fields: `NOLOGIN`, `SYSTEM_KEYDIR`, `Account`, `useradd_argv`, `run_check`, `bytes_to_string`, `system_account`, `member_groups`, `primary_group`, `test_account`, `role_record`, `check_home`, `ensure_checkouts`, `ensure_creds`, `key_path`, `refuse_keyfile`, `ensure_role_production`, `ensure_role_test`, `ensure_role`, `tests`, `mode`, `useradd_recipe_is_exact` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 14 | Locked fixed factory role account creation and native role metadata; declaration/member NOLOGIN; declarations/fields: `NOLOGIN` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 15–17 | Locked fixed factory role account creation and native role metadata; declaration/member SYSTEM_KEYDIR; declarations/fields: `SYSTEM_KEYDIR` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 18 | Locked fixed factory role account creation and native role metadata; declaration/member Account; declarations/fields: `Account` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 19 | Locked fixed factory role account creation and native role metadata; declaration/member Account.name; declarations/fields: `Account.name` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 20 | Locked fixed factory role account creation and native role metadata; declaration/member Account.dir; declarations/fields: `Account.dir` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 21 | Locked fixed factory role account creation and native role metadata; declaration/member Account.uid; declarations/fields: `Account.uid` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 22 | Locked fixed factory role account creation and native role metadata; declaration/member Account.gid; declarations/fields: `Account.gid` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 23–26 | Locked fixed factory role account creation and native role metadata; declaration/member Account.shell; declarations/fields: `Account.shell` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 27–42 | Locked fixed factory role account creation and native role metadata; declaration/member useradd_argv; declarations/fields: `useradd_argv` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 43–57 | Locked fixed factory role account creation and native role metadata; declaration/member run_check; declarations/fields: `run_check` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 58–63 | Locked fixed factory role account creation and native role metadata; declaration/member bytes_to_string; declarations/fields: `bytes_to_string` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 64–100 | Locked fixed factory role account creation and native role metadata; declaration/member system_account; declarations/fields: `system_account` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 101–127 | Locked fixed factory role account creation and native role metadata; declaration/member member_groups; declarations/fields: `member_groups` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 128–156 | Locked fixed factory role account creation and native role metadata; declaration/member primary_group; declarations/fields: `primary_group` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 157–191 | Locked fixed factory role account creation and native role metadata; declaration/member test_account; declarations/fields: `test_account` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 192–198 | Locked fixed factory role account creation and native role metadata; declaration/member role_record; declarations/fields: `role_record` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 199–207 | Locked fixed factory role account creation and native role metadata; declaration/member check_home; declarations/fields: `check_home` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 208–220 | Locked fixed factory role account creation and native role metadata; declaration/member ensure_checkouts; declarations/fields: `ensure_checkouts` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 221–227 | Locked fixed factory role account creation and native role metadata; declaration/member ensure_creds; declarations/fields: `ensure_creds` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 228–235 | Locked fixed factory role account creation and native role metadata; declaration/member key_path; declarations/fields: `key_path` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 236–244 | Locked fixed factory role account creation and native role metadata; declaration/member refuse_keyfile; declarations/fields: `refuse_keyfile` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 245–274 | Locked fixed factory role account creation and native role metadata; declaration/member ensure_role_production; declarations/fields: `ensure_role_production` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 275–293 | Locked fixed factory role account creation and native role metadata; declaration/member ensure_role_test; declarations/fields: `ensure_role_test` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 294–302 | Locked fixed factory role account creation and native role metadata; declaration/member ensure_role; declarations/fields: `ensure_role` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 303–307 | Locked fixed factory role account creation and native role metadata; declaration/member tests; declarations/fields: `tests` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 308–312 | Locked fixed factory role account creation and native role metadata; declaration/member mode; declarations/fields: `mode` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 313–331 | Locked fixed factory role account creation and native role metadata; declaration/member useradd_recipe_is_exact; declarations/fields: `useradd_recipe_is_exact` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 332–352 | Source assertion of Factory role accounts; declarations/fields: `ensure_provisions_locked_roles` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 353–374 | Source assertion of Factory role accounts; declaration/member ensure_refuses_interactive_accounts; declarations/fields: `ensure_refuses_interactive_accounts` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 375–404 | Source assertion of Factory role accounts; declaration/member ensure_refuses_external_keys_and_links; declarations/fields: `ensure_refuses_external_keys_and_links` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 405–414 | Source assertion of Factory role accounts; declaration/member ensure_refuses_bad_roles; declarations/fields: `ensure_refuses_bad_roles` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–13; current module/import/attribute shell | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/accounts.rs into its current native target. — current source cmd/soda-project-terminal/src/factory_roles/accounts.rs; Cargo target and callers |
+| 14–304; declaration NOLOGIN; declaration SYSTEM_KEYDIR; declaration Account; fields name, dir, uid, gid, shell; declaration useradd_argv; declaration run_check; declaration bytes_to_string; declaration system_account; declaration member_groups; declaration primary_group; declaration test_account; declaration role_record; declaration check_home; declaration ensure_checkouts; declaration ensure_creds; declaration key_path; declaration refuse_keyfile; declaration ensure_role_production; declaration ensure_role_test; declaration ensure_role; declaration tests | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | NOLOGIN: implement the current factory role accounts duty in accounts.rs.; 20 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-fba4211e4aab"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/accounts_tests.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/accounts_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–6; current module/import/attribute shell | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/accounts_tests.rs into its current native target. — current source cmd/soda-project-terminal/src/factory_roles/accounts_tests.rs; Cargo target and callers |
+| 7–112; declaration mode; declaration useradd_recipe_is_exact; declaration ensure_provisions_locked_roles; declaration ensure_refuses_interactive_accounts; declaration ensure_refuses_external_keys_and_links; declaration ensure_refuses_bad_roles | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | mode: exercise fixed non-login role account lookup, creation, group membership, and home custody.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-4a90aea52f4d"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/b64.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/b64.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–43; current module/import/attribute shell; declaration python_validate; declaration decode; declaration tests; declaration vectors | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/b64.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-12b41c06de77"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/emit.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/emit.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–190; current module/import/attribute shell; declaration obj; declaration str_value; declaration dumps_default; declaration json_equal; declaration unique_keys; declaration is_int_literal; declaration norm_int; declaration numbers_equal; declaration tests; declaration parse; declaration emit_matches_reference; declaration emit_state_files; declaration equality_matches_reference | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/emit.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-3bf014d79d52"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/error.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/error.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–56; current module/import/attribute shell; declaration FIXED_MESSAGE; declaration Error; declaration fail; declaration io; declaration io_msg; declaration classify; declaration from | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/error.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6be2561b7359"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/execution.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/execution.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–24, 95–98, 120–123, 198–204, 212–555, 881–883; current module/import/attribute shell; declaration KILL_LOG; declaration TERM_GRACE_MS; declaration KILL_GRACE_MS; declaration POLL_SLICE_MS; declaration log_failure_cleanup; declaration run_as_role; declaration run_preparation; declaration spawn_detached; declaration grandchild_body; declaration do_start; declaration tests | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/execution.rs into its current native target.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 25–94, 205–211; declaration child_environ; declaration parent_of; declaration exit_code; declaration wait_child; declaration to_cstring | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | Run the fixed Project role process with bounded environment, output, and status handling (child_environ).; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 99–119, 124–197, 556–880; declaration signal_child; declaration ReapOutcome; declaration reap_once; declaration reap_until; declaration terminate_child; declaration proc_state_group; declaration group_alive; declaration probe_group_quiet; declaration preparation_blocks_release; declaration leader_owned_by; declaration killpg; declaration signal_group; declaration retire_group; declaration do_stop; declaration any_running; declaration hold_revision; declaration do_hold; declaration do_release | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | signal_child: observe, stop, or reconcile a preparation process group and its hold/release state.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a58d3a28eb02"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/execution_tests.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/execution_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–19, 44–63, 293–348, 460–483, 737–752; current module/import/attribute shell; declaration parent_matrix; declaration write_proot_stat; declaration dead_pgid; declaration metadata_hardening_refuses_links_and_aliases; declaration own_child_pids; declaration proc_comm; declaration log_failure_cleanup_reports_unconfirmed_when_child_gone; declaration proc_startup | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/execution_tests.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 20–43; declaration child_environment_is_fixed_and_ordered | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | child_environment_is_fixed_and_ordered: exercise the current preparation process supervisor, fixed-role launch, or hold/stop lifecycle case. — current source cmd/soda-project-terminal/src/factory_roles/execution_tests.rs; lines 20-43; module/caller wiring inspected |
+| 64–292, 349–459, 484–736, 753–786; declaration proc_group_reads_pgrp_not_session; declaration signal_group_confirms_dead_groups; declaration hold_request; declaration release_request; declaration hold_bars_preparation_and_releases_by_revision; declaration stop_bars_unknown_identity_and_retires_known; declaration inspect_reports_phases_and_hold; declaration log_io_failure_reaps_child_and_reports_unconfirmed; declaration log_io_failure_terminates_silent_child_bounded; declaration terminate_child_never_signals_after_ownership_loss; declaration reap_until_distinguishes_reaped_alive_and_gone; declaration uncertain_stop_bars_hold_release; declaration release_probe_maps_native_states; declaration release_after_quiesced_preparation_succeeds; declaration stop_launch_error_with_live_foreign_group_is_uncertain | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | proc_group_reads_pgrp_not_session: exercise the current preparation process supervisor, fixed-role launch, or hold/stop lifecycle case.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-bda10213e476"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/inputs.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/inputs.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–19, 23–37, 131–189, 218–225, 314–464, 508–510; current module/import/attribute shell; declaration MAX_SOURCE_BUNDLE; declaration ReqFields; fields id, role, setup_digest, source_commit, credential; declaration git_clone_argv; declaration git_catfile_argv; declaration verify_bundle; declaration ApprovedInputs; fields fields, files, bundle; declaration checkout_cname; declaration mkdirat_exclusive; declaration openat_dir_no_follow; declaration CHECKOUT_STAGING; declaration publish_checkout; declaration write_snapshot; declaration tests | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/inputs.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 20–22, 38–66, 94–130, 226–286; declaration MAX_APPROVED_FILES; declaration MAX_APPROVED_FILE_SIZE; declaration MAX_APPROVED_TOTAL; declaration from_stored; declaration decode_files; declaration approve_inputs | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Bound the accepted setup/check file count.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 67–79; declaration do_ensure | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | Ensure the fixed non-login factory role accounts exist. — current source cmd/soda-project-terminal/src/factory_roles/inputs.rs; lines 67-79; module/caller wiring inspected |
+| 80–93; declaration collapse | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Apply last-wins duplicate-key handling to decoded JSON objects. — current source cmd/soda-project-terminal/src/factory_roles/inputs.rs; lines 80-93; module/caller wiring inspected |
+| 190–217, 465–507; declaration check_credential_file; declaration do_approve | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Bind an approved preparation to its role-private credential file.; Apply the privileged preparation approval and preserve its checkout custody boundary. — current source cmd/soda-project-terminal/src/factory_roles/inputs.rs; lines 190-217; module/caller wiring inspected; current source cmd/soda-project-terminal/src/factory_roles/inputs.rs; lines 465-507; module/caller wiring inspected |
+| 287–313; declaration open_dir_no_follow; declaration fchmod; declaration fchown | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Use descriptor-bound filesystem primitives for checkout custody (open_dir_no_follow).; Use descriptor-bound filesystem primitives for checkout custody (fchmod).; Use descriptor-bound filesystem primitives for checkout custody (fchown). — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-62ae59369601"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/inputs_tests.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/inputs_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–9, 317–765, 815–844; current module/import/attribute shell; declaration preexisting_checkout; declaration approve_refusal_preserves_preexisting_checkout; declaration approve_bundle_failure_preserves_preexisting_checkout; declaration claimed_checkout; declaration approve_refusal_preserves_checkout_planted_during_verification; declaration approve_refusal_preserves_dangling_checkout_symlink; declaration approve_refusal_preserves_checkout_path_file; declaration approve_credential_failure_removes_owned_checkout; declaration approve_refuses_when_checkout_parent_unwritable; declaration approve_failure_preserves_checkout_swapped_during_cleanup; declaration checkout_identity_primitives_refuse_and_preserve; declaration checkout_publication_refuses_without_replacement; declaration checkout_publication_across_filesystems_fails_explicitly; declaration failed_publication_leaves_no_final_receipt | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/inputs_tests.rs into its current native target.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 10–316; declaration mode; declaration git_recipes_are_exact; declaration ensure_reports_fixed_roles; declaration approve_writes_protected_snapshot_and_verifies_bundle; declaration approve_rejects_untrusted_inputs_before_effects; declaration Mutate; declaration approve_enforces_all_bounds; declaration approve_failure_removes_everything | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | mode: exercise accepted preparation field bounds, source/checkout custody, or privileged credential binding as named.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 766–814; declaration approve_binds_role_private_credentials | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | approve_binds_role_private_credentials: exercise accepted preparation field bounds, source/checkout custody, or privileged credential binding as named. — current source cmd/soda-project-terminal/src/factory_roles/inputs_tests.rs; lines 766-814; module/caller wiring inspected |
 
 <a id="coverage-3b6f93dd9410"></a>
+<a id="coverage-d3ef4dadb095"></a>
 
-## [rust/soda-project-factory-roles/src/fsx.rs](../../../../../rust/soda-project-factory-roles/src/fsx.rs)
+## [cmd/soda-project-terminal/src/factory_roles/layout.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/layout.rs)
 
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15, 151–158; current module/import/attribute shell; declaration prep_dir | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/layout.rs into its current native target.; prep_dir: implement the current Project preparation and checkout allocation duty in layout.rs. — current source cmd/soda-project-terminal/src/factory_roles/layout.rs; Cargo target and callers; current source cmd/soda-project-terminal/src/factory_roles/layout.rs; lines 151-158; module/caller wiring inspected |
+| 16–150; declaration lexists; declaration file_name; declaration mkdir_p; declaration chown; declaration chmod; declaration open_ro; declaration read_json; declaration write_new; declaration write_new_file; declaration owned_dir; declaration ensure_layout | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | lexists: implement the current configuration and safe filesystem primitives duty in layout.rs.; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 159–204; declaration Hold; fields active, revision; declaration hold_json; declaration hold_state; declaration refuse_barred | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Hold: implement the current Project maintenance holds duty in layout.rs.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1–125 | No-follow owned files and private parent primitives; declarations/fields: `lexists`, `file_name`, `mkdir_p`, `chown`, `chmod`, `open_ro`, `read_json`, `write_new`, `write_new_file`, `owned_dir` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 126–148 | Factory role layout materialization; declarations/fields: `ensure_layout` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 149–154 | Preparation record directory; declarations/fields: `prep_dir` |
+<a id="coverage-bbb0cfc6ed28"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/mod.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 15–19, 31–51, 53–105, 122–140, 144–145, 153–220; current module/import/attribute shell; declaration b64; declaration emit; declaration error; declaration fsx; declaration execution; declaration proc; declaration records; declaration sha; declaration testutil; declaration validate; declaration SETUP_ENTRY; declaration CHECK_ENTRY; declaration SHELL; declaration GIT; declaration LOG_CAP; declaration FACTORY_DEFAULT; declaration TestCtx; fields git; declaration Ctx; fields factory, preparations, credentials, hold, lock, test; declaration production; declaration test_at; declaration at; declaration from_env; declaration git; declaration read_stdin_capped; declaration main_inner; declaration run; dispatch_op signature and match shell; start operation arm; inspect operation arm | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/mod.rs into its current native target.; 30 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 13–14, 106–121, 141; declaration account; declaration priv_uid; declaration priv_gid; ensure operation arm | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | Wire the fixed role account module; account creation and custody belong to P06.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 20–30; declaration ops_approve; declaration ops_inspect; declaration ops_record | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Wire the shared helper dispatcher to ensure/approval input operations; operation handlers carry P06/P08/P09 responsibility.; Wire inspection, stop, and maintenance hold handlers; operation handlers carry P07/P12 responsibility.; Wire tool-evidence recording and preparation launch handlers; operation handlers carry P08/P07 responsibility. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 52, 143; declaration INPUT_CAP; record operation arm | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | INPUT_CAP: implement the current Project preparation requirement acceptance duty in mod.rs.; Route bounded tool and verification evidence for a preparation. — current source cmd/soda-project-terminal/src/factory_roles/mod.rs; lines 52-52; module/caller wiring inspected; current source cmd/soda-project-terminal/src/factory_roles/mod.rs: dispatch_op operation arms and submodule targets |
+| 142; approve operation arm | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Route the privileged approval request that applies accepted preparation inputs. — current source cmd/soda-project-terminal/src/factory_roles/mod.rs: dispatch_op operation arms and submodule targets |
+| 146–148; stop operation arm; hold/release operation arms | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Route preparation stop and process retirement.; Route maintenance hold creation and revision-bound release. — current source cmd/soda-project-terminal/src/factory_roles/mod.rs: dispatch_op operation arms and submodule targets |
+| 149–152; unknown operation arm and match close | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Return the fixed unsupported-operation wire error and close dispatch. — current source cmd/soda-project-terminal/src/factory_roles/mod.rs: dispatch_op operation arms and submodule targets |
+
+<a id="coverage-534c44049c23"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/records.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/records.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–21, 124–345; current module/import/attribute shell; declaration MAX_TOOLS; declaration MAX_TOOL_TEXT; declaration char_len; declaration Prestate; fields fields, tools; declaration start_prestate; declaration read_log; declaration started_pgid; declaration started_pid; declaration exit_is_zero; declaration phase_of; declaration do_inspect; declaration tests | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/records.rs into its current native target.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 22–123; declaration check_tool_entry; declaration check_verified; declaration do_record | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Validate one bounded tool/version evidence record.; Validate the preparation launcher evidence fields.; Persist immutable tool and verification evidence for the accepted preparation. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-dc1e8fd25ecd"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/records_tests.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/records_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–161; current module/import/attribute shell; declaration tool; declaration tool_entry_matrix; declaration verified_matrix; declaration record_reports_waiting_and_locks_evidence; declaration record_after_finish_is_refused; declaration prestate_bars_launch_blockers; declaration prestate_unknown_identity | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/records_tests.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-05c42acbf0c2"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/sha.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/sha.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–4, 17–31; current module/import/attribute shell; declaration approved_digest; declaration tests | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/sha.rs into its current native target.; approved_digest: implement the current Project preparation and checkout allocation duty in sha.rs.; Collect embedded tests for sha.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 5–16; declaration hex; declaration HEX | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | hex: implement the current wire decoding, encoding, and representation conversion duty in sha.rs.; HEX: implement the current wire decoding, encoding, and representation conversion duty in sha.rs. — current source cmd/soda-project-terminal/src/factory_roles/sha.rs; lines 5-5; module/caller wiring inspected; current source cmd/soda-project-terminal/src/factory_roles/sha.rs; lines 6-16; module/caller wiring inspected |
+
+<a id="coverage-82149808f59d"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/sha_tests.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/sha_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–33; current module/import/attribute shell; declaration hex_of; declaration nist_vectors | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/sha_tests.rs into its current native target.; hex_of: implement the current Project preparation and checkout allocation duty in sha_tests.rs.; nist_vectors: implement the current Project preparation and checkout allocation duty in sha_tests.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a445c358fe44"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/tests.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–86, 132–201; current module/import/attribute shell; declaration NEXT; declaration Scratch; fields root, factory; declaration fresh; declaration git_script; declaration ctx; declaration record_text; declaration drop; declaration PID; declaration PID2; declaration COMMIT; declaration b64_encode; declaration ALPHA; declaration fixture_files; declaration record_value; declaration op_value; declaration assert_fail; declaration b64_round_trip | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/tests.rs into its current native target.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 87–131; declaration approve_value; declaration approve_default | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | approve_value: implement the current Project preparation requirement acceptance duty in tests.rs.; approve_default: implement the current Project preparation requirement acceptance duty in tests.rs. — current source cmd/soda-project-terminal/src/factory_roles/tests.rs; lines 87-127; module/caller wiring inspected; current source cmd/soda-project-terminal/src/factory_roles/tests.rs; lines 128-131; module/caller wiring inspected |
+
+<a id="coverage-1e734e642cd1"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/validate.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/validate.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–134; current module/import/attribute shell; declaration ROLES; declaration is_lower_hex; declaration is_id; declaration is_role; declaration is_name; declaration is_digest; declaration is_commit; declaration check_id; declaration check_role; declaration check_role_str; declaration check_name_str; declaration check_digest; declaration check_commit; declaration key_set; declaration as_object; declaration as_int_text; declaration as_i64; declaration tests | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/validate.rs into its current native target.; 19 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0f99b3442164"></a>
+
+## [cmd/soda-project-terminal/src/factory_roles/validate_tests.rs](../../../../../cmd/soda-project-terminal/src/factory_roles/validate_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–21, 31–87; current module/import/attribute shell; declaration val; declaration id_matrix; declaration name_matrix; declaration digest_commit_matrix; declaration key_sets_collapse_duplicates; declaration int_text_matches_type_is_int | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/factory_roles/validate_tests.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 22–30; declaration role_matrix | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | role_matrix: implement the current factory role accounts duty in validate_tests.rs. — current source cmd/soda-project-terminal/src/factory_roles/validate_tests.rs; lines 22-30; module/caller wiring inspected |
+
+<a id="coverage-138af891676d"></a>
+<a id="coverage-ca824fa18e03"></a>
+
+## [cmd/soda-project-terminal/tests/factory_roles_oracle.rs](../../../../../cmd/soda-project-terminal/tests/factory_roles_oracle.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–210, 225–399, 420–468; current module/import/attribute shell; declaration NEXT; declaration PID; declaration PID2; declaration COMMIT; declaration FIXED_STDERR; declaration binary; declaration Scratch; fields root, factory, git, record; declaration fresh; declaration run; declaration ok; declaration refused; declaration drop; declaration b64_encode; declaration ALPHA; declaration canonical_digest; declaration approve_request; declaration record_request; declaration fixture_request; declaration field; declaration wait_for; declaration oracle_approve_record_inspect_exact_bytes; declaration oracle_start_runs_detached_to_ready; declaration oracle_setup_failure_skips_check; declaration oracle_output_truncates_at_cap; declaration oracle_running_stop_lifecycle; declaration Guard; declaration oracle_dead_supervisor_is_interrupted; declaration oracle_refusal_contract | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Imports and module declarations wire cmd/soda-project-terminal/tests/factory_roles_oracle.rs into its current native target.; 30 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 211–224; declaration oracle_ensure_exact_bytes | [P06](../../slices/projects.md#p06-factory-role-accounts) | retained | oracle_ensure_exact_bytes: source assertion of factory role accounts. — current source cmd/soda-project-terminal/tests/factory_roles_oracle.rs; lines 211-224; module/caller wiring inspected; exact byte-identical source map rust/soda-project-factory-roles/tests/oracle.rs; exact byte-identical prior map docs/development/ideal-filetree-plan/coverage/maps/soda-project-factory-roles.md at the same current line |
+| 400–419; declaration oracle_stop_hold_release_bytes | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | oracle_stop_hold_release_bytes: source assertion of maintenance holds. — current source cmd/soda-project-terminal/tests/factory_roles_oracle.rs; lines 400-419; module/caller wiring inspected; exact byte-identical source map rust/soda-project-factory-roles/tests/oracle.rs; exact byte-identical prior map docs/development/ideal-filetree-plan/coverage/maps/soda-project-factory-roles.md at the same current line |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-8d1e30c52682"></a>
 
-## [rust/soda-project-factory-roles/src/main.rs](../../../../../rust/soda-project-factory-roles/src/main.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–12 | Private native helper operation/module wiring |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 13 | Role account module wiring; declarations/fields: `account` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 14–15 | Byte/JSON module wiring; declarations/fields: `b64`, `emit` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 16–17 | Preparation helper module wiring; declarations/fields: `error`, `fsx` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 18–22 | Preparation operation wiring; declarations/fields: `ops_approve`, `ops_inspect`, `ops_record`, `proc`, `sha` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 23–39 | Request predicate wiring; declarations/fields: `validate`, `SETUP_ENTRY`, `CHECK_ENTRY`, `SHELL`, `GIT`, `LOG_CAP`, `INPUT_CAP`, `FACTORY_DEFAULT` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 40–112 | Explicit test/native filesystem context; declarations/fields: `TestCtx`, `Ctx`, `production`, `test_at`, `at`, `from_env`, `priv_uid`, `priv_gid`, `git` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 113–121 | Capped private stdin request transport; declarations/fields: `read_stdin_capped` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 122–123 | Native operation dispatch; declarations/fields: `dispatch_op` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 124 | Fixed role ensure operation |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 125–129 | Approved snapshot/record/start/inspect/stop operations |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 130–131 | Maintenance hold/release operations |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 132–211 | Unsupported operation refusal and private helper entrypoint; declarations/fields: `main_inner`, `run`, `main` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 212–387 | Preparation helper source fixtures; declarations/fields: `testutil`, `NEXT`, `Scratch`, `fresh`, `git_script`, `ctx`, `record_text`, `drop`, `PID`, `PID2`, `COMMIT`, `b64_encode`, `ALPHA`, `fixture_files`, `approve_value`, `approve_default`, `record_value`, `op_value`, `assert_fail` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 388–398 | Base64 fixture round-trip assertion; declarations/fields: `b64_round_trip` |
+Former source `rust/soda-project-factory-roles/src/main.rs`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-bf1ad14564e0"></a>
 
-## [rust/soda-project-factory-roles/src/ops_approve.rs](../../../../../rust/soda-project-factory-roles/src/ops_approve.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–16 | Exact approved-file request and protected input snapshot; declarations/fields: `MAX_APPROVED_FILES`, `MAX_APPROVED_FILE_SIZE`, `MAX_APPROVED_TOTAL`, `MAX_SOURCE_BUNDLE`, `ReqFields`, `to_json`, `from_stored` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 17 | Exact approved-file request and protected input snapshot; declaration/member MAX_APPROVED_FILES; declarations/fields: `MAX_APPROVED_FILES` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 18 | Exact approved-file request and protected input snapshot; declaration/member MAX_APPROVED_FILE_SIZE; declarations/fields: `MAX_APPROVED_FILE_SIZE` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 19 | Exact approved-file request and protected input snapshot; declaration/member MAX_APPROVED_TOTAL; declarations/fields: `MAX_APPROVED_TOTAL` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 20–23 | Exact approved-file request and protected input snapshot; declaration/member MAX_SOURCE_BUNDLE; declarations/fields: `MAX_SOURCE_BUNDLE` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 24 | Exact approved-file request and protected input snapshot; declaration/member ReqFields; declarations/fields: `ReqFields` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 25 | Exact approved-file request and protected input snapshot; declaration/member ReqFields.id; declarations/fields: `ReqFields.id` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 26 | Exact approved-file request and protected input snapshot; declaration/member ReqFields.role; declarations/fields: `ReqFields.role` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 27 | Exact approved-file request and protected input snapshot; declaration/member ReqFields.setup_digest; declarations/fields: `ReqFields.setup_digest` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 28 | Exact approved-file request and protected input snapshot; declaration/member ReqFields.source_commit; declarations/fields: `ReqFields.source_commit` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 29–32 | Exact approved-file request and protected input snapshot; declaration/member ReqFields.credential; declarations/fields: `ReqFields.credential` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 33–44 | Exact approved-file request and protected input snapshot; declaration/member to_json; declarations/fields: `to_json` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 45–73 | Exact approved-file request and protected input snapshot; declaration/member from_stored; declarations/fields: `from_stored` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 74–86 | Fixed factory-role ensure operation; declarations/fields: `do_ensure` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 87–100 | Fixed factory-role ensure operation; declaration/member collapse; declarations/fields: `collapse` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 101–137 | Bounded approved file-set base64 decode; declarations/fields: `decode_files` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 138–152 | Bounded approved file-set base64 decode; declaration/member git_clone_argv; declarations/fields: `git_clone_argv` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 153–161 | Bounded approved file-set base64 decode; declaration/member git_catfile_argv; declarations/fields: `git_catfile_argv` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 162–196 | Exact Git bundle/head preparation admission; declarations/fields: `verify_bundle` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 197–224 | Admit a role-private credential file using the role account, protected parent ownership, no-follow regular file, matching role UID and mode 0600; declarations/fields: `check_credential_file` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 225 | Materialize supplied approved setup snapshot; does not decide administrator approval; declarations/fields: `ApprovedInputs` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 226 | Materialize supplied approved setup snapshot; does not decide administrator approval; declaration/member ApprovedInputs.fields; declarations/fields: `ApprovedInputs.fields` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 227 | Materialize supplied approved setup snapshot; does not decide administrator approval; declaration/member ApprovedInputs.files; declarations/fields: `ApprovedInputs.files` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 228–232 | Materialize supplied approved setup snapshot; does not decide administrator approval; declaration/member ApprovedInputs.bundle; declarations/fields: `ApprovedInputs.bundle` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 233–293 | Materialize supplied approved setup snapshot; does not decide administrator approval; declaration/member approve_inputs; declarations/fields: `approve_inputs` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 294–328 | Materialize supplied approved setup snapshot; does not decide administrator approval; declaration/member write_snapshot; declarations/fields: `write_snapshot` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 329–368 | Materialize supplied approved setup snapshot; does not decide administrator approval; declaration/member do_approve; declarations/fields: `do_approve` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 369–376, 432–505 | Native snapshot/refusal fixture assertions; declarations/fields: `tests`, `approve_writes_protected_snapshot_and_verifies_bundle` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 377–381 | Native snapshot/refusal fixture assertions; declaration/member mode; declarations/fields: `mode` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 382–415 | Native snapshot/refusal fixture assertions; declaration/member git_recipes_are_exact; declarations/fields: `git_recipes_are_exact` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 416–431 | Source assertion of Factory role accounts; declarations/fields: `ensure_reports_fixed_roles` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 506–510 | Native snapshot/refusal fixture assertions; declaration/member approve_rejects_untrusted_inputs_before_effects; declarations/fields: `approve_rejects_untrusted_inputs_before_effects` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 511–582 | Native snapshot/refusal fixture assertions; declaration/member Mutate; declarations/fields: `Mutate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 583–659 | Native snapshot/refusal fixture assertions; declaration/member approve_enforces_all_bounds; declarations/fields: `approve_enforces_all_bounds` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 660–681 | Native snapshot/refusal fixture assertions; declaration/member approve_failure_removes_everything; declarations/fields: `approve_failure_removes_everything` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 682–725 | Native snapshot/refusal fixture assertions; declaration/member approve_binds_role_private_credentials; declarations/fields: `approve_binds_role_private_credentials` |
+Former source `rust/soda-project-factory-roles/src/ops_approve.rs`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-bbd6009d9c3a"></a>
 
-## [rust/soda-project-factory-roles/src/ops_inspect.rs](../../../../../rust/soda-project-factory-roles/src/ops_inspect.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 1–14 | Native maintenance hold marker/read/refusal; declarations/fields: `Hold`, `hold_json`, `hold_state`, `refuse_barred` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 15 | Native maintenance hold marker/read/refusal; declaration/member Hold; declarations/fields: `Hold` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 16 | Native maintenance hold marker/read/refusal; declaration/member Hold.active; declarations/fields: `Hold.active` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 17–19 | Native maintenance hold marker/read/refusal; declaration/member Hold.revision; declarations/fields: `Hold.revision` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 20–26 | Native maintenance hold marker/read/refusal; declaration/member hold_json; declarations/fields: `hold_json` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 27–50 | Native maintenance hold marker/read/refusal; declaration/member hold_state; declarations/fields: `hold_state` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 51–61 | Native maintenance hold marker/read/refusal; declaration/member refuse_barred; declarations/fields: `refuse_barred` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 62–80 | Preparation log/process identity and phase inspection; declarations/fields: `read_log` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 81–87 | Preparation log/process identity and phase inspection; declaration/member started_pgid; declarations/fields: `started_pgid` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 88–94 | Preparation log/process identity and phase inspection; declaration/member started_pid; declarations/fields: `started_pid` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 95–101 | Preparation log/process identity and phase inspection; declaration/member exit_is_zero; declarations/fields: `exit_is_zero` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 102–143 | Preparation log/process identity and phase inspection; declaration/member phase_of; declarations/fields: `phase_of` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 144–236 | Preparation log/process identity and phase inspection; declaration/member do_inspect; declarations/fields: `do_inspect` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 237–254 | Preparation log/process identity and phase inspection; declaration/member proc_state_group; declarations/fields: `proc_state_group` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 255–276 | Preparation log/process identity and phase inspection; declaration/member group_alive; declarations/fields: `group_alive` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 277–294 | Preparation log/process identity and phase inspection; declaration/member leader_owned_by; declarations/fields: `leader_owned_by` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 295–306 | Preparation log/process identity and phase inspection; declaration/member killpg; declarations/fields: `killpg` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 307–335 | Preparation log/process identity and phase inspection; declaration/member signal_group; declarations/fields: `signal_group` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 336–357 | Preparation log/process identity and phase inspection; declaration/member retire_group; declarations/fields: `retire_group` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 358–412 | Preparation log/process identity and phase inspection; declaration/member do_stop; declarations/fields: `do_stop` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 413–430 | Running preparation observation and hold revision/hold/release; declarations/fields: `any_running` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 431–437 | Running preparation observation and hold revision/hold/release; declaration/member hold_revision; declarations/fields: `hold_revision` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 438–461 | Running preparation observation and hold revision/hold/release; declaration/member do_hold; declarations/fields: `do_hold` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 462–481 | Running preparation observation and hold revision/hold/release; declaration/member do_release; declarations/fields: `do_release` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 482–487 | Running preparation observation and hold revision/hold/release; declaration/member tests; declarations/fields: `tests` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 488–495, 641–672, 738–771 | Preparation/hold source assertions; declarations/fields: `write_proot_stat`, `stop_bars_unknown_identity_and_retires_known`, `metadata_hardening_refuses_links_and_aliases` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 496–508 | Preparation/hold source assertions; declaration/member dead_pgid; declarations/fields: `dead_pgid` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 509–549 | Preparation/hold source assertions; declaration/member proc_group_reads_pgrp_not_session; declarations/fields: `proc_group_reads_pgrp_not_session` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 550–557 | Preparation/hold source assertions; declaration/member signal_group_confirms_dead_groups; declarations/fields: `signal_group_confirms_dead_groups` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 558–561 | Preparation/hold source assertions; declaration/member hold_request; declarations/fields: `hold_request` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 562–569 | Preparation/hold source assertions; declaration/member release_request; declarations/fields: `release_request` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 570–640, 673–737 | Source assertion of Maintenance holds; declarations/fields: `hold_bars_preparation_and_releases_by_revision`, `inspect_reports_phases_and_hold` |
+Former source `rust/soda-project-factory-roles/src/ops_inspect.rs`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-cbcfc57d4b50"></a>
 
-## [rust/soda-project-factory-roles/src/proc.rs](../../../../../rust/soda-project-factory-roles/src/proc.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 1–18 | Fixed native role account/environment authority; declarations/fields: `child_environ`, `parent_of`, `exit_code`, `wait_child`, `to_cstring` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 19–45 | Fixed native role account/environment authority; declaration/member child_environ; declarations/fields: `child_environ` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 46–60 | Fixed native role account/environment authority; declaration/member parent_of; declarations/fields: `parent_of` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 61–70 | Fixed native role account/environment authority; declaration/member exit_code; declarations/fields: `exit_code` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 71–85 | Fixed native role account/environment authority; declaration/member wait_child; declarations/fields: `wait_child` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 86–92 | Fixed native role account/environment authority; declaration/member to_cstring; declarations/fields: `to_cstring` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 93–212 | Preparation subprocess capture and fixed-role execution; declarations/fields: `run_as_role` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 213–294 | Native preparation launcher/supervisor lifetime; declarations/fields: `run_preparation` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 295–341 | Native preparation launcher/supervisor lifetime; declaration/member spawn_detached; declarations/fields: `spawn_detached` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 342–380 | Native preparation launcher/supervisor lifetime; declaration/member grandchild_body; declarations/fields: `grandchild_body` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 381–384 | Native preparation launcher/supervisor lifetime; declaration/member tests; declarations/fields: `tests` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 385–397 | Native preparation launcher/supervisor lifetime; declaration/member parent_matrix; declarations/fields: `parent_matrix` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 398–420 | Native preparation launcher/supervisor lifetime; declaration/member child_environment_is_fixed_and_ordered; declarations/fields: `child_environment_is_fixed_and_ordered` |
+Former source `rust/soda-project-factory-roles/src/proc.rs`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-f843e3e6b032"></a>
 
-## [rust/soda-project-factory-roles/src/sha.rs](../../../../../rust/soda-project-factory-roles/src/sha.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–141 | SHA-256 computation; declarations/fields: `K`, `Sha256`, `new`, `update`, `finish`, `default`, `compress`, `hex`, `HEX` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 142–191 | Canonical exact approved-input file-set digest; declarations/fields: `approved_digest`, `tests`, `hex_of`, `nist_vectors` |
+Former source `rust/soda-project-factory-roles/src/sha.rs`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-28bdb9bbdb55"></a>
 
-## [rust/soda-project-factory-roles/src/validate.rs](../../../../../rust/soda-project-factory-roles/src/validate.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–179, 191–220 | Fixed role, preparation id, path and bounded request predicates; declarations/fields: `ROLES`, `is_lower_hex`, `is_id`, `is_role`, `is_name`, `is_digest`, `is_commit`, `check_id`, `check_role`, `check_role_str`, `check_name_str`, `check_digest`, `check_commit`, `key_set`, `as_object`, `as_int_text`, `as_i64`, `tests`, `val`, `id_matrix`, `role_matrix`, `name_matrix`, `key_sets_collapse_duplicates`, `int_text_matches_type_is_int` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 180–190 | Source assertion of Encoding and parsing; declarations/fields: `digest_commit_matrix` |
-
-<a id="coverage-138af891676d"></a>
-
-## [rust/soda-project-factory-roles/tests/oracle.rs](../../../../../rust/soda-project-factory-roles/tests/oracle.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–10, 226–292, 421–442 | Project-local fixed factory roles and checkout preparation protocol; declarations/fields: `NEXT`, `PID`, `PID2`, `COMMIT`, `FIXED_STDERR`, `binary`, `Scratch`, `fresh`, `run`, `ok`, `refused`, `drop`, `b64_encode`, `ALPHA`, `canonical_digest`, `approve_request`, `record_request`, `fixture_request`, `field`, `wait_for`, `oracle_approve_record_inspect_exact_bytes`, `oracle_dead_supervisor_is_interrupted` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 11–12 | Project-local fixed factory roles and checkout preparation protocol; declaration/member NEXT; declarations/fields: `NEXT` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 13 | Project-local fixed factory roles and checkout preparation protocol; declaration/member PID; declarations/fields: `PID` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 14 | Project-local fixed factory roles and checkout preparation protocol; declaration/member PID2; declarations/fields: `PID2` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 15 | Project-local fixed factory roles and checkout preparation protocol; declaration/member COMMIT; declarations/fields: `COMMIT` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 16–18 | Project-local fixed factory roles and checkout preparation protocol; declaration/member FIXED_STDERR; declarations/fields: `FIXED_STDERR` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 19–35 | Project-local fixed factory roles and checkout preparation protocol; declaration/member binary; declarations/fields: `binary` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 36 | Project-local fixed factory roles and checkout preparation protocol; declaration/member Scratch; declarations/fields: `Scratch` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 37 | Project-local fixed factory roles and checkout preparation protocol; declaration/member Scratch.root; declarations/fields: `Scratch.root` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 38 | Project-local fixed factory roles and checkout preparation protocol; declaration/member Scratch.factory; declarations/fields: `Scratch.factory` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 39 | Project-local fixed factory roles and checkout preparation protocol; declaration/member Scratch.git; declarations/fields: `Scratch.git` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 40–43 | Project-local fixed factory roles and checkout preparation protocol; declaration/member Scratch.record; declarations/fields: `Scratch.record` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 44–66 | Project-local fixed factory roles and checkout preparation protocol; declaration/member fresh; declarations/fields: `fresh` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 67–89 | Project-local fixed factory roles and checkout preparation protocol; declaration/member run; declarations/fields: `run` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 90–96 | Project-local fixed factory roles and checkout preparation protocol; declaration/member ok; declarations/fields: `ok` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 97–105 | Project-local fixed factory roles and checkout preparation protocol; declaration/member refused; declarations/fields: `refused` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 106–110, 377–400 | Project-local fixed factory roles and checkout preparation protocol; declaration/member drop; declarations/fields: `drop` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 111 | Project-local fixed factory roles and checkout preparation protocol; declaration/member b64_encode; declarations/fields: `b64_encode` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 112–135 | Project-local fixed factory roles and checkout preparation protocol; declaration/member ALPHA; declarations/fields: `ALPHA` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 136–156 | Project-local fixed factory roles and checkout preparation protocol; declaration/member canonical_digest; declarations/fields: `canonical_digest` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 157–171 | Project-local fixed factory roles and checkout preparation protocol; declaration/member approve_request; declarations/fields: `approve_request` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 172–184 | Project-local fixed factory roles and checkout preparation protocol; declaration/member record_request; declarations/fields: `record_request` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 185–189 | Project-local fixed factory roles and checkout preparation protocol; declaration/member fixture_request; declarations/fields: `fixture_request` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 190–198 | Project-local fixed factory roles and checkout preparation protocol; declaration/member field; declarations/fields: `field` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 199–211 | Project-local fixed factory roles and checkout preparation protocol; declaration/member wait_for; declarations/fields: `wait_for` |
-| [P06](../../slices/projects.md#p06-factory-role-accounts) / active | 212–225 | Source assertion of Factory role accounts; declarations/fields: `oracle_ensure_exact_bytes` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 293–314 | Project-local fixed factory roles and checkout preparation protocol; declaration/member oracle_start_runs_detached_to_ready; declarations/fields: `oracle_start_runs_detached_to_ready` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 315–336 | Project-local fixed factory roles and checkout preparation protocol; declaration/member oracle_setup_failure_skips_check; declarations/fields: `oracle_setup_failure_skips_check` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 337–356 | Project-local fixed factory roles and checkout preparation protocol; declaration/member oracle_output_truncates_at_cap; declarations/fields: `oracle_output_truncates_at_cap` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 357–374 | Project-local fixed factory roles and checkout preparation protocol; declaration/member oracle_running_stop_lifecycle; declarations/fields: `oracle_running_stop_lifecycle` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 375–376 | Project-local fixed factory roles and checkout preparation protocol; declaration/member Guard; declarations/fields: `Guard` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 401–420 | Source assertion of Maintenance holds; declarations/fields: `oracle_stop_hold_release_bytes` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 443–468 | Project-local fixed factory roles and checkout preparation protocol; declaration/member oracle_refusal_contract; declarations/fields: `oracle_refusal_contract` |
+Former source `rust/soda-project-factory-roles/src/validate.rs`; consult its pinned earlier Git source and the current coverage disposition.

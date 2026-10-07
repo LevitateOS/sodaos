@@ -1,479 +1,387 @@
 # Host factory runs
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-8ab7a036a168"></a>
+
+## [lib/host/src/factory/artifacts.rs](../../../../../lib/host/src/factory/artifacts.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–111; current module/import/attribute shell; declaration output; declaration export | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/artifacts.rs into its current native target.; output: implement the current factory run lifecycle and intervention duty in artifacts.rs.; export: implement the current factory run lifecycle and intervention duty in artifacts.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-9b9f55cdd22f"></a>
+
+## [lib/host/src/factory/candidate.rs](../../../../../lib/host/src/factory/candidate.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15, 107–120; current module/import/attribute shell; declaration run_reason | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/candidate.rs into its current native target.; run_reason: implement the current factory run lifecycle and intervention duty in candidate.rs. — current source lib/host/src/factory/candidate.rs; Cargo target and callers; current source lib/host/src/factory/candidate.rs; lines 107-120; module/caller wiring inspected |
+| 16–106, 121–152; declaration inspect_candidate; declaration CANDIDATE_INSPECT_SCRIPT | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | inspect_candidate: implement the current candidate verification assessment duty in candidate.rs.; CANDIDATE_INSPECT_SCRIPT: implement the current candidate verification assessment duty in candidate.rs. — current source lib/host/src/factory/candidate.rs; lines 16-106; module/caller wiring inspected; current source lib/host/src/factory/candidate.rs; lines 121-152; module/caller wiring inspected |
+
+<a id="coverage-811394982f6b"></a>
+
+## [lib/host/src/factory/confirmation.rs](../../../../../lib/host/src/factory/confirmation.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20, 34–113, 131–146, 163–229; current module/import/attribute shell; declaration confirm_factory_inspect; declaration confirm_factory_harness; declaration confirm_factory_stop; declaration confirm_factory_output; declaration confirm_factory_export; declaration confirm_factory_takeover; declaration confirm_prepare; declaration confirm_inspect_preparation; declaration confirm_stop_preparation; declaration confirm_hold_preparation; declaration factory_not_found_status; declaration factory_output_status_error; declaration factory_export_status_error | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/confirmation.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 21–33; declaration confirm_factory_launch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | confirm_factory_launch: implement the current factory assignment and dispatch duty in confirmation.rs. — current source lib/host/src/factory/confirmation.rs; lines 21-33; module/caller wiring inspected |
+| 114–130, 147–162, 230–236; declaration confirm_factory_candidate_inspect; declaration confirm_prepare_candidate; declaration factory_candidate_status_error | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | confirm_factory_candidate_inspect: implement the current candidate verification assessment duty in confirmation.rs.; confirm_prepare_candidate: implement the current candidate verification assessment duty in confirmation.rs.; factory_candidate_status_error: implement the current candidate verification assessment duty in confirmation.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-21f1c77fdb69"></a>
+
+## [lib/host/src/factory/deadline.rs](../../../../../lib/host/src/factory/deadline.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–65; current module/import/attribute shell; declaration NANOS_PER_SEC; declaration parse_deadline; declaration system_nanos_now; declaration deadline_is_zero; declaration seconds_until; declaration drive_deadline; declaration min_instant; declaration cleanup_deadline; declaration live_deadline | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/deadline.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a5ebaf3fcf74"></a>
+
+## [lib/host/src/factory/finish.rs](../../../../../lib/host/src/factory/finish.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–99, 113–284; current module/import/attribute shell; declaration fail_run; declaration abandon_run; declaration refresh_stopped; declaration stop_failed_start; declaration stop_timed_out; declaration finish_run | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/finish.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 100–112; declaration launch_yielded | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | launch_yielded: implement the current factory assignment and dispatch duty in finish.rs. — current source lib/host/src/factory/finish.rs; lines 100-112; module/caller wiring inspected |
+
+<a id="coverage-a5ff812d1119"></a>
+
+## [lib/host/src/factory/identity.rs](../../../../../lib/host/src/factory/identity.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–322; current module/import/attribute shell; declaration Binding; fields child_id, uid, gid, scope, credential_root, invocation_id, kind, id, project, login, generation; declaration encode_into; declaration deserialize; declaration ObjectVisitor; declaration Value; declaration expecting; declaration visit_map; declaration Lease; fields repository_id, provider_id, id, connection_id, generation, actor_id, project_id, execution_id, kind, role, deadline, grant_id, grant_revision, binding; declaration with_binding; declaration LeaseVisitor; declaration AcquireRequest; fields provider_id, execution_id, actor_id, connection_id, project_id, kind, deadline, role | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/identity.rs into its current native target.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-c048055141bf"></a>
+
+## [lib/host/src/factory/inspect.rs](../../../../../lib/host/src/factory/inspect.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–163; current module/import/attribute shell; declaration inspect; declaration takeover; declaration tests; declaration inspect_matrix; declaration inspect_running_probes_liveness | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/inspect.rs into its current native target.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-cfbf25f6de38"></a>
+
+## [lib/host/src/factory/launch.rs](../../../../../lib/host/src/factory/launch.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–16, 55–209; current module/import/attribute shell; declaration drive; declaration consume_start; declaration update_receipt | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/launch.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 17–54; declaration launch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | launch: implement the current factory assignment and dispatch duty in launch.rs. — current source lib/host/src/factory/launch.rs; lines 17-54; module/caller wiring inspected |
+
+<a id="coverage-6010490fcf3d"></a>
+
+## [lib/host/src/factory/mod.rs](../../../../../lib/host/src/factory/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–34, 36–40, 42–230; current module/import/attribute shell; declaration artifacts; declaration confirmation; declaration deadline; declaration finish; declaration identity; declaration inspect; declaration receipt; declaration requests; declaration run; declaration state; declaration stop; declaration tests; declaration FactoryTerminal; declaration harness_family; declaration harness_version; declaration harness_sha256; declaration reserve; declaration start; declaration wait; declaration stop_unbound; declaration capture; declaration live; declaration output; declaration takeover_copy; declaration export_bundle; declaration FactoryBroker; declaration acquire; declaration register; declaration return_lease; declaration reconcile_lease; declaration execution_is_terminal; declaration close_execution; declaration Secret; declaration drop; declaration RunLock; fields _file; declaration Factory; fields exec, terminal, broker, state_dir; declaration open_factory; declaration harness_pin | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/mod.rs into its current native target.; 40 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 35; declaration candidate | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | candidate: implement the current candidate verification assessment duty in mod.rs. — current source lib/host/src/factory/mod.rs; lines 35-35; module/caller wiring inspected |
+| 41; declaration launch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | launch: implement the current factory assignment and dispatch duty in mod.rs. — current source lib/host/src/factory/mod.rs; lines 41-41; module/caller wiring inspected |
+
+<a id="coverage-4fdd7235902d"></a>
+
+## [lib/host/src/factory/receipt.rs](../../../../../lib/host/src/factory/receipt.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–435; current module/import/attribute shell; declaration FactoryReceipt; fields run, lease, binding, exit_code, generation, phase, started, delivered, credential_returned, output, retirement, reason; declaration validate; declaration lease_id; declaration encode; declaration deserialize; declaration ReceiptVisitor; declaration Value; declaration expecting; declaration visit_map; declaration receipt_terminal; declaration receipt_stop_owned; declaration truncate_output; declaration receipt_state; declaration receipt_path; declaration lock_path; declaration lock_run; declaration load_receipt; declaration store_receipt; declaration store_tombstone; declaration write_receipt_file | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/receipt.rs into its current native target.; 21 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ad4c4fbba447"></a>
+
+## [lib/host/src/factory/requests.rs](../../../../../lib/host/src/factory/requests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–278, 288–359, 370–384; current module/import/attribute shell; declaration FactoryInspect; fields project, id; declaration decode; declaration validate; declaration FactoryStop; fields project, id; declaration FactoryTakeover; fields project, id, member; declaration TakeoverResult; fields id, project, member, destination, reused; declaration encode; declaration FactoryOutput; fields project, id, offset, limit; declaration FactoryOutputState; fields exit_code, live, terminal, truncated, gap, id, project, phase, container, unit, invocation, total, offset, next, data, reason; declaration FactoryExport; fields project, id, role, preparation, candidate; declaration FactoryExportState; fields id, project, phase, container, candidate, bundle; declaration deserialize; declaration ObjectVisitor; declaration Value; declaration expecting; declaration visit_map | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/requests.rs into its current native target.; 31 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 279–287, 360–369; declaration FactoryCandidateInspect; fields project, id; declaration FactoryCandidateState; fields id, project, container, candidate, dirty | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | FactoryCandidateInspect: implement the current candidate verification assessment duty in requests.rs.; FactoryCandidateState: implement the current candidate verification assessment duty in requests.rs. — current source lib/host/src/factory/requests.rs; lines 279-287; module/caller wiring inspected; current source lib/host/src/factory/requests.rs; lines 360-369; module/caller wiring inspected |
+
+<a id="coverage-11d4c69c78e9"></a>
+
+## [lib/host/src/factory/run.rs](../../../../../lib/host/src/factory/run.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–305, 313–363, 366–426; current module/import/attribute shell; declaration FACTORY_STATE_ROOT; declaration FACTORY_HARNESS_CODEX; declaration FACTORY_HARNESS_MUSE; declaration valid_harness_family; declaration FACTORY_APPROVED; declaration FACTORY_RUNNING; declaration FACTORY_COMPLETED; declaration FACTORY_FAILED; declaration FACTORY_STOPPED; declaration FACTORY_UNCERTAIN; declaration MAX_FACTORY_PROMPT; declaration MAX_FACTORY_OUTPUT; declaration MAX_FACTORY_OUTPUT_READ; declaration MAX_FACTORY_OUTPUT_WINDOW; declaration MAX_FACTORY_OUTPUT_OFFSET; declaration MAX_FACTORY_EXPORT_BUNDLE; declaration IDENTITY_FACTORY; declaration EXECUTION_TERMINAL; declaration ERR_RUN_NOT_FOUND; declaration ERR_RUN_STALE; declaration FACTORY_CLEANUP_SECS; declaration FACTORY_LIVE_SECS; declaration FACTORY_DEADLINE_BOUND_NANOS; declaration valid_factory_phase; declaration valid_factory_run_id; declaration valid_harness_version; declaration factory_unit_name; declaration factory_run_paths; declaration takeover_destination; declaration takeover_source; declaration FactoryError; declaration message; declaration msg; declaration fmt; declaration FactoryRun; fields deadline, actor, id, project, role, preparation, harness, harness_vers, model, assignment, source_commit, connection; declaration validate; declaration encode_into; declaration deserialize; declaration ObjectVisitor; declaration Value; declaration expecting; declaration visit_map; declaration PromptBytes; declaration BytesVisitor; declaration visit_str; declaration visit_string; declaration visit_seq; declaration decode | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/run.rs into its current native target.; 57 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 306–312, 364–365; declaration FactoryLaunch; fields run, prompt, harness_sha256; declaration LaunchVisitor | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | FactoryLaunch: implement the current factory assignment and dispatch duty in run.rs.; LaunchVisitor: implement the current factory assignment and dispatch duty in run.rs. — current source lib/host/src/factory/run.rs; lines 306-312; module/caller wiring inspected; current source lib/host/src/factory/run.rs; lines 364-365; module/caller wiring inspected |
+
+<a id="coverage-3c4667b3e310"></a>
+
+## [lib/host/src/factory/state.rs](../../../../../lib/host/src/factory/state.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–140; current module/import/attribute shell; declaration OutputSlice; fields data, total, offset, truncated, gap; declaration FactoryState; fields exit_code, generation, uid, gid, credential_returned, live, delivered, id, project, role, phase, container, unit, invocation, login, lease_id, output, retirement, reason; declaration encode; declaration FactoryHarnessPin; fields harness, version, sha256, image; declaration validate | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/state.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-31beaee9d560"></a>
+
+## [lib/host/src/factory/stop.rs](../../../../../lib/host/src/factory/stop.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–212; current module/import/attribute shell; declaration stop; declaration reconcile_run_credential; declaration record_stop_outcome | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/stop.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-2c1d935b3acb"></a>
+
+## [lib/host/src/factory/tests/artifacts.rs](../../../../../lib/host/src/factory/tests/artifacts.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–379; current module/import/attribute shell; declaration takeover_success_and_refusals; declaration output_without_binding_reports_phase_only; declaration output_slice_reports_binding_and_cursors; declaration export_success_denied_and_bounds | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/artifacts.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-3cb19779a2b8"></a>
+
+## [lib/host/src/factory/tests/candidate.rs](../../../../../lib/host/src/factory/tests/candidate.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–7; current module/import/attribute shell | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/candidate.rs into its current native target. — current source lib/host/src/factory/tests/candidate.rs; Cargo target and callers |
+| 8–261; declaration candidate_script_pins_cutover_shape; declaration inspect_candidate_reports_clean_and_dirty; declaration inspect_candidate_incarnation_matrix_is_stale; declaration inspect_candidate_output_shapes | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | candidate_script_pins_cutover_shape: implement the current candidate verification assessment duty in candidate.rs.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-65fab656e0a9"></a>
+
+## [lib/host/src/factory/tests/common.rs](../../../../../lib/host/src/factory/tests/common.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–92, 101–363; current module/import/attribute shell; declaration TAG_COUNTER; declaration test_state_dir; declaration deadline; declaration civil_from_days; declaration deadline_text; declaration run_id; declaration project_id; declaration prep_id; declaration container_id; declaration sample_run; declaration sample_lease; declaration sample_binding; declaration TestFactory; declaration test_factory; declaration receipt_bytes; declaration fixed_run; declaration fixed_run_json; declaration fixed_binding; declaration fixed_binding_json; declaration fixed_lease; declaration fixed_lease_json; declaration dummy_factory; declaration wired_factory; declaration drive_to_start; declaration write_running; declaration wired_factory_exec; declaration preparation_target; declaration sample_state; declaration sample_preparation; declaration sample_prepare_state | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/common.rs into its current native target.; 31 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 93–100; declaration sample_launch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | sample_launch: implement the current factory assignment and dispatch duty in common.rs. — current source lib/host/src/factory/tests/common.rs; lines 93-100; module/caller wiring inspected |
+
+<a id="coverage-da4bbfe7f41a"></a>
+
+## [lib/host/src/factory/tests/confirmation.rs](../../../../../lib/host/src/factory/tests/confirmation.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–232; current module/import/attribute shell; declaration factory_facade_confirmations; declaration factory_status_mappings; declaration prepare_facade_confirmations | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/confirmation.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-eae9ace83203"></a>
+
+## [lib/host/src/factory/tests/finish.rs](../../../../../lib/host/src/factory/tests/finish.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–4, 89–169; current module/import/attribute shell; declaration launch_timed_out_stop_failure_is_uncertain; declaration launch_finish_maps_exit_codes; declaration launch_finish_uncertainty_matrix | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/finish.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 5–88; declaration launch_failed_start_retires_cleanly; declaration launch_failed_start_uncertainty_matrix; declaration launch_timed_out_wait_records_deadline | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | launch_failed_start_retires_cleanly: implement the current factory assignment and dispatch duty in finish.rs.; launch_failed_start_uncertainty_matrix: implement the current factory assignment and dispatch duty in finish.rs.; launch_timed_out_wait_records_deadline: implement the current factory assignment and dispatch duty in finish.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-16b47ecc683a"></a>
+
+## [lib/host/src/factory/tests/launch.rs](../../../../../lib/host/src/factory/tests/launch.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–7, 225–244; current module/import/attribute shell; declaration launch_on_tombstoned_id_returns_stop | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/launch.rs into its current native target.; launch_on_tombstoned_id_returns_stop: implement the current factory run lifecycle and intervention duty in launch.rs. — current source lib/host/src/factory/tests/launch.rs; Cargo target and callers; current source lib/host/src/factory/tests/launch.rs; lines 225-244; module/caller wiring inspected |
+| 8–99, 136–224; declaration launch_success_drives_to_completed; declaration launch_muse_harness_acquires_muse_provider; declaration launch_duplicate_returns_recorded_state; declaration launch_acquire_refusal_matrix; declaration launch_abandon_paths_record_refusals | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | launch_success_drives_to_completed: implement the current factory assignment and dispatch duty in launch.rs.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 100–135; declaration launch_prechecks_reject_before_any_seam | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | launch_prechecks_reject_before_any_seam: implement the current candidate verification assessment duty in launch.rs. — current source lib/host/src/factory/tests/launch.rs; lines 100-135; module/caller wiring inspected |
+
+<a id="coverage-96fb6a5e1ba7"></a>
+
+## [lib/host/src/factory/tests/mocks.rs](../../../../../lib/host/src/factory/tests/mocks.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–435; current module/import/attribute shell; declaration ExecCall; declaration FakeExec; fields calls, script; declaration new; declaration run; declaration TakeoverCall; declaration ExportCall; declaration FakeTerminal; fields version, sha256, reserve, start, wait, stop, stop_unbound, capture, live, output, takeover, export, reserve_calls, takeover_calls, export_calls, output_calls; declaration pop; declaration harness_family; declaration harness_version; declaration harness_sha256; declaration reserve; declaration start; declaration wait; declaration stop; declaration stop_unbound; declaration capture; declaration live; declaration output; declaration takeover_copy; declaration export_bundle; declaration FakeBroker; fields acquire, register, returns, terminal, close, acquire_calls, reconcile_calls, close_calls; declaration acquire; declaration register; declaration return_lease; declaration reconcile_lease; declaration execution_is_terminal; declaration close_execution; declaration script_success | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/mocks.rs into its current native target.; 53 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-8f32bab0f4db"></a>
+
+## [lib/host/src/factory/tests/mod.rs](../../../../../lib/host/src/factory/tests/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1, 4–6, 8–11; declaration artifacts; declaration common; declaration confirmation; declaration finish; declaration mocks; declaration receipt; declaration stop; declaration wire | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | artifacts: implement the current factory run lifecycle and intervention duty in mod.rs.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 2–3; declaration candidate | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | candidate: implement the current candidate verification assessment duty in mod.rs. — current source lib/host/src/factory/tests/mod.rs; lines 2-3; module/caller wiring inspected |
+| 7; declaration launch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | launch: implement the current factory assignment and dispatch duty in mod.rs. — current source lib/host/src/factory/tests/mod.rs; lines 7-7; module/caller wiring inspected |
+
+<a id="coverage-f9d429ff0e48"></a>
+
+## [lib/host/src/factory/tests/receipt.rs](../../../../../lib/host/src/factory/tests/receipt.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–238; current module/import/attribute shell; declaration signed_factory_numbers_preserve_negative_zero_and_nullable_exit_code; declaration receipt_bytes_match_go_marshal; declaration receipt_decode_matrix | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/receipt.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b96def31f310"></a>
+
+## [lib/host/src/factory/tests/stop.rs](../../../../../lib/host/src/factory/tests/stop.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–254; current module/import/attribute shell; declaration stop_req; declaration stop_before_start_writes_exact_tombstone; declaration stop_before_start_close_failure_retries; declaration stop_approved_run_uses_unbound_stop; declaration launch_path_respects_stop_owned_uncertain; declaration write_approved_with_lease; declaration stop_before_delivery_confirms_despite_native_failure; declaration stop_close_retries_before_uncertain; declaration stop_running_run_reconciles_custody; declaration stop_converges_when_launch_returned_first; declaration stop_uncertain_when_custody_unsettled; declaration stop_terminal_receipt_is_final | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/stop.rs into its current native target.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-85ce88d502c4"></a>
+
+## [lib/host/src/factory/tests/wire.rs](../../../../../lib/host/src/factory/tests/wire.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–320; current module/import/attribute shell; declaration validators_match_go; declaration run_and_launch_validation_pins_every_error; declaration deadline_parser_uses_strict_shared_wire_shape; declaration error_messages_are_exact; declaration open_factory_matrix; declaration harness_pin_shape_matches_go | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/factory/tests/wire.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-84ecb8a320b0"></a>
+
+## [lib/host/src/terminal/factory/artifacts.rs](../../../../../lib/host/src/terminal/factory/artifacts.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 15–277; current module/import/attribute shell; declaration MAX_FACTORY_EXPORT_BUNDLE; declaration TAKEOVER_DIR_NAME; declaration ERR_FACTORY_EXPORT_BOUNDS; declaration takeover_destination; declaration takeover_source; declaration FACTORY_EXPORT_SCRIPT; declaration takeover_steps; declaration export_argv; declaration factory_export_bundle; declaration factory_takeover_copy | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/artifacts.rs into its current native target.; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 13–14; declaration ERR_FACTORY_EXPORT_CANDIDATE | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | ERR_FACTORY_EXPORT_CANDIDATE: implement the current candidate verification assessment duty in artifacts.rs. — current source lib/host/src/terminal/factory/artifacts.rs; lines 13-14; module/caller wiring inspected |
+
+<a id="coverage-7b6ea0b2de37"></a>
+
+## [lib/host/src/terminal/factory/binding.rs](../../../../../lib/host/src/terminal/factory/binding.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17, 53–82; current module/import/attribute shell; declaration RunPathsFn; declaration factory_identity_operation | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/binding.rs into its current native target.; RunPathsFn: implement the current factory run lifecycle and intervention duty in binding.rs.; factory_identity_operation: implement the current factory run lifecycle and intervention duty in binding.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 18–52; declaration checked_binding_paths | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | checked_binding_paths: implement the current candidate verification assessment duty in binding.rs. — current source lib/host/src/terminal/factory/binding.rs; lines 18-52; module/caller wiring inspected |
+
+<a id="coverage-c6143b5c508d"></a>
+
+## [lib/host/src/terminal/factory/codex/tests.rs](../../../../../lib/host/src/terminal/factory/codex/tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–610; current module/import/attribute shell; declaration PID; declaration RID; declaration IID; declaration CID; declaration PREP; declaration ROLE; declaration COMMIT; declaration PIN; declaration TMP_COUNTER; declaration deadline; declaration test_tmp; declaration RecordedCall; declaration FakeExec; fields calls, script; declaration new; declaration calls; declaration run; declaration ok; declaration err; declaration make_service; declaration inspect_json; declaration factory_run; declaration run_dir; declaration factory_lease; declaration write_harness; declaration host_digest; declaration domain_predicates; declaration run_validate_pins; declaration path_vectors; declaration quote_vectors; declaration GOLDEN_SUPERVISOR; declaration GOLDEN_RETIRE; declaration script_goldens; declaration binding_matrix; declaration unit_show_vectors; declaration euid; declaration reserve_harness; declaration reserve_denial_pins | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/codex/tests.rs into its current native target.; 38 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-cf7870b517c2"></a>
+
+## [lib/host/src/terminal/factory/lifecycle.rs](../../../../../lib/host/src/terminal/factory/lifecycle.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–302; current module/import/attribute shell; declaration factory_retire; declaration factory_await_inactive; declaration factory_read_pid; declaration factory_container_exists; declaration factory_wait_result; declaration factory_attest_live; declaration factory_stop_confirmed; declaration factory_stop_unbound_confirmed; declaration factory_capture_valid; declaration factory_live_scoped | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/lifecycle.rs into its current native target.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-172cd0039f63"></a>
+
+## [lib/host/src/terminal/factory/native.rs](../../../../../lib/host/src/terminal/factory/native.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–273; current module/import/attribute shell; declaration factory_unit_name; declaration factory_unit_name_or_denied; declaration systemd_escape; declaration shell_quote; declaration factory_user_bus; declaration current_euid; declaration factory_systemctl_argv; declaration factory_systemd_run_argv; declaration reserve_run_argv; declaration harness_install_script; declaration stage_file_command; declaration FactoryUnitShow; fields active, invocation; declaration parse_factory_unit_show; declaration factory_role_id; declaration sleep_until; declaration run_env; declaration run_podman; declaration factory_systemctl; declaration factory_systemd_run; declaration factory_unit_state; declaration factory_active_invocation; declaration factory_role_ids; declaration factory_stage_file | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/native.rs into its current native target.; 24 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ff92ce8249d5"></a>
+
+## [lib/host/src/terminal/factory/output.rs](../../../../../lib/host/src/terminal/factory/output.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–30, 41–178; current module/import/attribute shell; declaration MAX_FACTORY_OUTPUT_READ; declaration MAX_FACTORY_OUTPUT_WINDOW; declaration MAX_FACTORY_OUTPUT_OFFSET; declaration FactoryCodexOutputSlice; fields data, total, offset, truncated, gap; declaration FactoryOutputSlice; declaration output_read_command; declaration factory_output_size; declaration factory_output_stdout; declaration factory_output_window | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/output.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 31–40; declaration check_output_range | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | check_output_range: implement the current candidate verification assessment duty in output.rs. — current source lib/host/src/terminal/factory/output.rs; lines 31-40; module/caller wiring inspected |
+
+<a id="coverage-11664b5943f3"></a>
+
+## [lib/host/src/terminal/factory/run.rs](../../../../../lib/host/src/terminal/factory/run.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–266; current module/import/attribute shell; declaration FACTORY_SCOPE_CODEX; declaration FACTORY_HARNESS_CODEX; declaration FACTORY_SCOPE_MUSE; declaration FACTORY_HARNESS_MUSE; declaration valid_harness_family; declaration ROLE_CODER; declaration ROLE_REVIEWER; declaration MAX_FACTORY_PROMPT; declaration valid_factory_role; declaration valid_preparation_id; declaration valid_digest; declaration valid_commit; declaration valid_factory_run_id; declaration valid_harness_version; declaration FactoryRun; fields deadline_raw, actor, id, project, role, preparation, harness, harness_vers, model, assignment, source_commit, connection; declaration FactoryRunWire; fields deadline, actor, id, project, role, preparation, harness, harness_version, model, assignment, source_commit, connection, deadline_seen; declaration deserialize; declaration V; declaration Value; declaration expecting; declaration visit_map; declaration validate; declaration decode | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/run.rs into its current native target.; 24 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-93157a0eb7c1"></a>
+
+## [lib/host/src/terminal/factory/tests/artifacts.rs](../../../../../lib/host/src/terminal/factory/tests/artifacts.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–197; current module/import/attribute shell; declaration export_flows; declaration takeover_flows | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/tests/artifacts.rs into its current native target.; export_flows: implement the current factory run lifecycle and intervention duty in artifacts.rs.; takeover_flows: implement the current factory run lifecycle and intervention duty in artifacts.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a5ee0fc58dff"></a>
+
+## [lib/host/src/terminal/factory/tests/mod.rs](../../../../../lib/host/src/terminal/factory/tests/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–4; declaration artifacts; declaration run | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | artifacts: implement the current factory run lifecycle and intervention duty in mod.rs.; run: implement the current factory run lifecycle and intervention duty in mod.rs. — current source lib/host/src/terminal/factory/tests/mod.rs; lines 1-2; module/caller wiring inspected; current source lib/host/src/terminal/factory/tests/mod.rs; lines 3-4; module/caller wiring inspected |
+
+<a id="coverage-c25786ca9afa"></a>
+
+## [lib/host/src/terminal/factory/tests/run.rs](../../../../../lib/host/src/terminal/factory/tests/run.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–836; current module/import/attribute shell; declaration reserve_success_argv_sequence; declaration reserve_stage_and_failure_paths; declaration reserve_unattested_unit_is_stopped; declaration start_flows; declaration wait_flows; declaration validate_flows; declaration stop_flows; declaration capture_and_finish_flows; declaration stop_unbound_flows; declaration live_matrix; declaration output_flows; declaration factory_identity_operation_matrix | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/tests/run.rs into its current native target.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-ec8078a0d212"></a>
 
-## [rust/soda-host/src/pfactory.rs](../../../../../rust/soda-host/src/pfactory.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count. 0d8d3b8e adds stop-owned uncertain receipt guards, bounded broker-close retries, pre-start/pre-delivery stop settlement and three scripted regressions in the existing F08/I06 lifecycle boundary; inspected source only. The earlier register-refusal diagnostic remains. No concurrent native execution was exercised.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–39 | Factory launch/run admission and fixed harness families; declarations/fields: `FACTORY_STATE_ROOT`, `FACTORY_HARNESS_CODEX`, `FACTORY_HARNESS_MUSE`, `valid_harness_family`, `FACTORY_APPROVED`, `FACTORY_RUNNING`, `FACTORY_COMPLETED`, `FACTORY_FAILED`, `FACTORY_STOPPED`, `FACTORY_UNCERTAIN`, `MAX_FACTORY_PROMPT`, `MAX_FACTORY_OUTPUT`, `MAX_FACTORY_OUTPUT_READ`, `MAX_FACTORY_OUTPUT_WINDOW`, `MAX_FACTORY_OUTPUT_OFFSET`, `MAX_FACTORY_EXPORT_BUNDLE`, `IDENTITY_FACTORY`, `EXECUTION_TERMINAL`, `ERR_RUN_NOT_FOUND`, `ERR_RUN_STALE`, `FACTORY_CLEANUP_SECS`, `FACTORY_LIVE_SECS`, `FACTORY_DEADLINE_BOUND_NANOS`, `valid_factory_phase`, `valid_factory_run_id`, `valid_harness_version`, `factory_unit_name`, `factory_run_paths` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 40–42 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_STATE_ROOT; declarations/fields: `FACTORY_STATE_ROOT` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 43–44 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_HARNESS_CODEX; declarations/fields: `FACTORY_HARNESS_CODEX` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 45–47 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_HARNESS_MUSE; declarations/fields: `FACTORY_HARNESS_MUSE` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 48–51 | Factory launch/run admission and fixed harness families; declaration/member valid_harness_family; declarations/fields: `valid_harness_family` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 52 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_APPROVED; declarations/fields: `FACTORY_APPROVED` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 53 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_RUNNING; declarations/fields: `FACTORY_RUNNING` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 54 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_COMPLETED; declarations/fields: `FACTORY_COMPLETED` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 55 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_FAILED; declarations/fields: `FACTORY_FAILED` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 56 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_STOPPED; declarations/fields: `FACTORY_STOPPED` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 57–58 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_UNCERTAIN; declarations/fields: `FACTORY_UNCERTAIN` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 59 | Factory launch/run admission and fixed harness families; declaration/member MAX_FACTORY_PROMPT; declarations/fields: `MAX_FACTORY_PROMPT` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 60 | Factory launch/run admission and fixed harness families; declaration/member MAX_FACTORY_OUTPUT; declarations/fields: `MAX_FACTORY_OUTPUT` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 61 | Factory launch/run admission and fixed harness families; declaration/member MAX_FACTORY_OUTPUT_READ; declarations/fields: `MAX_FACTORY_OUTPUT_READ` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 62 | Factory launch/run admission and fixed harness families; declaration/member MAX_FACTORY_OUTPUT_WINDOW; declarations/fields: `MAX_FACTORY_OUTPUT_WINDOW` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 63 | Factory launch/run admission and fixed harness families; declaration/member MAX_FACTORY_OUTPUT_OFFSET; declarations/fields: `MAX_FACTORY_OUTPUT_OFFSET` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 64–66 | Factory launch/run admission and fixed harness families; declaration/member MAX_FACTORY_EXPORT_BUNDLE; declarations/fields: `MAX_FACTORY_EXPORT_BUNDLE` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 67–68 | Factory launch/run admission and fixed harness families; declaration/member IDENTITY_FACTORY; declarations/fields: `IDENTITY_FACTORY` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 69–71 | Factory launch/run admission and fixed harness families; declaration/member EXECUTION_TERMINAL; declarations/fields: `EXECUTION_TERMINAL` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 72–73 | Factory launch/run admission and fixed harness families; declaration/member ERR_RUN_NOT_FOUND; declarations/fields: `ERR_RUN_NOT_FOUND` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 74–78 | Factory launch/run admission and fixed harness families; declaration/member ERR_RUN_STALE; declarations/fields: `ERR_RUN_STALE` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 79–80 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_CLEANUP_SECS; declarations/fields: `FACTORY_CLEANUP_SECS` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 81–82 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_LIVE_SECS; declarations/fields: `FACTORY_LIVE_SECS` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 83–84 | Factory launch/run admission and fixed harness families; declaration/member FACTORY_DEADLINE_BOUND_NANOS; declarations/fields: `FACTORY_DEADLINE_BOUND_NANOS` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 85–92 | Factory launch/run admission and fixed harness families; declaration/member valid_factory_phase; declarations/fields: `valid_factory_phase` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 93–100 | Factory launch/run admission and fixed harness families; declaration/member valid_factory_run_id; declarations/fields: `valid_factory_run_id` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 101–111 | Factory launch/run admission and fixed harness families; declaration/member valid_harness_version; declarations/fields: `valid_harness_version` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 112–120 | Factory launch/run admission and fixed harness families; declaration/member factory_unit_name; declarations/fields: `factory_unit_name` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 121–139 | Factory launch/run admission and fixed harness families; declaration/member factory_run_paths; declarations/fields: `factory_run_paths` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 140–147 | Human takeover source/destination admission; declarations/fields: `takeover_destination` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 148–154 | Human takeover source/destination admission; declaration/member takeover_source; declarations/fields: `takeover_source` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 155–160 | Native lifecycle errors; declarations/fields: `FactoryError`, `message`, `msg`, `fmt` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 161–174 | Native lifecycle errors; declaration/member FactoryError; declarations/fields: `FactoryError` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 175–188 | Native lifecycle errors; declaration/member message; declarations/fields: `message` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 189–194 | Native lifecycle errors; declaration/member msg; declarations/fields: `msg` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 195–201 | Native lifecycle errors; declaration/member fmt; declarations/fields: `fmt` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 202–203 | Precise deadline calendar encoding/parsing; declarations/fields: `NANOS_PER_SEC`, `is_leap_year`, `days_in_month`, `days_from_civil`, `two_digits`, `parse_deadline`, `system_nanos_now`, `deadline_is_zero` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 204–205 | Precise deadline calendar encoding/parsing; declaration/member NANOS_PER_SEC; declarations/fields: `NANOS_PER_SEC` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 206–209 | Precise deadline calendar encoding/parsing; declaration/member is_leap_year; declarations/fields: `is_leap_year` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 210–220 | Precise deadline calendar encoding/parsing; declaration/member days_in_month; declarations/fields: `days_in_month` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 221–230 | Precise deadline calendar encoding/parsing; declaration/member days_from_civil; declarations/fields: `days_from_civil` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 231–241 | Precise deadline calendar encoding/parsing; declaration/member two_digits; declarations/fields: `two_digits` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 242–311 | Precise deadline calendar encoding/parsing; declaration/member parse_deadline; declarations/fields: `parse_deadline` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 312–323 | Precise deadline calendar encoding/parsing; declaration/member system_nanos_now; declarations/fields: `system_nanos_now` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 324–332 | Precise deadline calendar encoding/parsing; declaration/member deadline_is_zero; declarations/fields: `deadline_is_zero` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 333–339 | Bounded orchestration/cleanup deadlines; declarations/fields: `seconds_until` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 340–348 | Bounded orchestration/cleanup deadlines; declaration/member drive_deadline; declarations/fields: `drive_deadline` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 349–356 | Bounded orchestration/cleanup deadlines; declaration/member min_instant; declarations/fields: `min_instant` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 357–360 | Bounded orchestration/cleanup deadlines; declaration/member cleanup_deadline; declarations/fields: `cleanup_deadline` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 361–364 | Bounded orchestration/cleanup deadlines; declaration/member live_deadline; declarations/fields: `live_deadline` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 365–370 | Immutable FactoryRun and launch request; declarations/fields: `FactoryRun`, `validate`, `encode_into`, `from_map`, `FACTORY_RUN_SPECS`, `FactoryLaunch`, `FACTORY_LAUNCH_SPECS`, `from_value` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 371 | Immutable FactoryRun and launch request; declaration/member FactoryRun; declarations/fields: `FactoryRun` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 372 | Immutable FactoryRun and launch request; declaration/member FactoryRun.deadline; declarations/fields: `FactoryRun.deadline` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 373 | Immutable FactoryRun and launch request; declaration/member FactoryRun.actor; declarations/fields: `FactoryRun.actor` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 374 | Immutable FactoryRun and launch request; declaration/member FactoryRun.id; declarations/fields: `FactoryRun.id` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 375 | Immutable FactoryRun and launch request; declaration/member FactoryRun.project; declarations/fields: `FactoryRun.project` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 376 | Immutable FactoryRun and launch request; declaration/member FactoryRun.role; declarations/fields: `FactoryRun.role` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 377 | Immutable FactoryRun and launch request; declaration/member FactoryRun.preparation; declarations/fields: `FactoryRun.preparation` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 378 | Immutable FactoryRun and launch request; declaration/member FactoryRun.harness; declarations/fields: `FactoryRun.harness` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 379 | Immutable FactoryRun and launch request; declaration/member FactoryRun.harness_vers; declarations/fields: `FactoryRun.harness_vers` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 380 | Immutable FactoryRun and launch request; declaration/member FactoryRun.model; declarations/fields: `FactoryRun.model` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 381 | Immutable FactoryRun and launch request; declaration/member FactoryRun.assignment; declarations/fields: `FactoryRun.assignment` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 382 | Immutable FactoryRun and launch request; declaration/member FactoryRun.source_commit; declarations/fields: `FactoryRun.source_commit` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 383–386 | Immutable FactoryRun and launch request; declaration/member FactoryRun.connection; declarations/fields: `FactoryRun.connection` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 387–427, 572–588 | Immutable FactoryRun and launch request; declaration/member validate; declarations/fields: `validate` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 428–457 | Immutable FactoryRun and launch request; declaration/member encode_into; declarations/fields: `encode_into` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 458–475, 562–571 | Immutable FactoryRun and launch request; declaration/member from_map; declarations/fields: `from_map` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 476–528 | Immutable FactoryRun and launch request; declaration/member FACTORY_RUN_SPECS; declarations/fields: `FACTORY_RUN_SPECS` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 529 | Immutable FactoryRun and launch request; declaration/member FactoryLaunch; declarations/fields: `FactoryLaunch` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 530 | Immutable FactoryRun and launch request; declaration/member FactoryLaunch.run; declarations/fields: `FactoryLaunch.run` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 531 | Immutable FactoryRun and launch request; declaration/member FactoryLaunch.prompt; declarations/fields: `FactoryLaunch.prompt` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 532–534 | Immutable FactoryRun and launch request; declaration/member FactoryLaunch.harness_sha256; declarations/fields: `FactoryLaunch.harness_sha256` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 535–555 | Immutable FactoryRun and launch request; declaration/member FACTORY_LAUNCH_SPECS; declarations/fields: `FACTORY_LAUNCH_SPECS` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 556–561 | Immutable FactoryRun and launch request; declaration/member from_value; declarations/fields: `from_value` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 589 | Exact native binding value; declarations/fields: `Binding` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 590 | Exact native binding value; declaration/member Binding.child_id; declarations/fields: `Binding.child_id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 591 | Exact native binding value; declaration/member Binding.uid; declarations/fields: `Binding.uid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 592 | Exact native binding value; declaration/member Binding.gid; declarations/fields: `Binding.gid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 593 | Exact native binding value; declaration/member Binding.scope; declarations/fields: `Binding.scope` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 594 | Exact native binding value; declaration/member Binding.credential_root; declarations/fields: `Binding.credential_root` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 595 | Exact native binding value; declaration/member Binding.invocation_id; declarations/fields: `Binding.invocation_id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 596 | Exact native binding value; declaration/member Binding.kind; declarations/fields: `Binding.kind` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 597 | Exact native binding value; declaration/member Binding.id; declarations/fields: `Binding.id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 598 | Exact native binding value; declaration/member Binding.project; declarations/fields: `Binding.project` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 599 | Exact native binding value; declaration/member Binding.login; declarations/fields: `Binding.login` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 600–603 | Exact native binding value; declaration/member Binding.generation; declarations/fields: `Binding.generation` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 604–641 | Exact native binding value; declaration/member encode_into; declarations/fields: `encode_into` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 642–658 | Exact native binding value; declaration/member from_map; declarations/fields: `from_map` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 659–707 | Exact native binding value; declaration/member BINDING_SPECS; declarations/fields: `BINDING_SPECS` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 708 | Execution lease value; declarations/fields: `Lease` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 709 | Execution lease value; declaration/member Lease.repository_id; declarations/fields: `Lease.repository_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 710 | Execution lease value; declaration/member Lease.provider_id; declarations/fields: `Lease.provider_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 711 | Execution lease value; declaration/member Lease.id; declarations/fields: `Lease.id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 712 | Execution lease value; declaration/member Lease.connection_id; declarations/fields: `Lease.connection_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 713 | Execution lease value; declaration/member Lease.generation; declarations/fields: `Lease.generation` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 714 | Execution lease value; declaration/member Lease.actor_id; declarations/fields: `Lease.actor_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 715 | Execution lease value; declaration/member Lease.project_id; declarations/fields: `Lease.project_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 716 | Execution lease value; declaration/member Lease.execution_id; declarations/fields: `Lease.execution_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 717 | Execution lease value; declaration/member Lease.kind; declarations/fields: `Lease.kind` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 718 | Execution lease value; declaration/member Lease.role; declarations/fields: `Lease.role` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 719 | Execution lease value; declaration/member Lease.deadline; declarations/fields: `Lease.deadline` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 720 | Execution lease value; declaration/member Lease.grant_id; declarations/fields: `Lease.grant_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 721 | Execution lease value; declaration/member Lease.grant_revision; declarations/fields: `Lease.grant_revision` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 722–725 | Execution lease value; declaration/member Lease.binding; declarations/fields: `Lease.binding` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 726–772 | Execution lease value; declaration/member encode_into; declarations/fields: `encode_into` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 773 | Execution lease value; declaration/member from_map; declarations/fields: `from_map` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 774–802 | Execution lease value; declaration/member ERR; declarations/fields: `ERR` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 803–809 | Execution lease value; declaration/member with_binding; declarations/fields: `with_binding` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 810–875 | Execution lease value; declaration/member LEASE_SPECS; declarations/fields: `LEASE_SPECS` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 876 | Provider-specific execution acquisition input; declarations/fields: `AcquireRequest` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 877 | Provider-specific execution acquisition input; declaration/member AcquireRequest.provider_id; declarations/fields: `AcquireRequest.provider_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 878 | Provider-specific execution acquisition input; declaration/member AcquireRequest.execution_id; declarations/fields: `AcquireRequest.execution_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 879 | Provider-specific execution acquisition input; declaration/member AcquireRequest.actor_id; declarations/fields: `AcquireRequest.actor_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 880 | Provider-specific execution acquisition input; declaration/member AcquireRequest.connection_id; declarations/fields: `AcquireRequest.connection_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 881 | Provider-specific execution acquisition input; declaration/member AcquireRequest.project_id; declarations/fields: `AcquireRequest.project_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 882 | Provider-specific execution acquisition input; declaration/member AcquireRequest.kind; declarations/fields: `AcquireRequest.kind` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 883 | Provider-specific execution acquisition input; declaration/member AcquireRequest.deadline; declarations/fields: `AcquireRequest.deadline` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 884–889 | Provider-specific execution acquisition input; declaration/member AcquireRequest.role; declarations/fields: `AcquireRequest.role` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 890 | Bounded output slice; declarations/fields: `OutputSlice` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 891 | Bounded output slice; declaration/member OutputSlice.data; declarations/fields: `OutputSlice.data` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 892 | Bounded output slice; declaration/member OutputSlice.total; declarations/fields: `OutputSlice.total` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 893 | Bounded output slice; declaration/member OutputSlice.offset; declarations/fields: `OutputSlice.offset` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 894 | Bounded output slice; declaration/member OutputSlice.truncated; declarations/fields: `OutputSlice.truncated` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 895–901 | Bounded output slice; declaration/member OutputSlice.gap; declarations/fields: `OutputSlice.gap` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 902 | Run receipt state projection; declarations/fields: `FactoryState` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 903 | Run receipt state projection; declaration/member FactoryState.exit_code; declarations/fields: `FactoryState.exit_code` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 904 | Run receipt state projection; declaration/member FactoryState.generation; declarations/fields: `FactoryState.generation` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 905 | Run receipt state projection; declaration/member FactoryState.uid; declarations/fields: `FactoryState.uid` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 906 | Run receipt state projection; declaration/member FactoryState.gid; declarations/fields: `FactoryState.gid` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 907 | Run receipt state projection; declaration/member FactoryState.credential_returned; declarations/fields: `FactoryState.credential_returned` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 908 | Run receipt state projection; declaration/member FactoryState.live; declarations/fields: `FactoryState.live` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 909 | Run receipt state projection; declaration/member FactoryState.delivered; declarations/fields: `FactoryState.delivered` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 910 | Run receipt state projection; declaration/member FactoryState.id; declarations/fields: `FactoryState.id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 911 | Run receipt state projection; declaration/member FactoryState.project; declarations/fields: `FactoryState.project` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 912 | Run receipt state projection; declaration/member FactoryState.role; declarations/fields: `FactoryState.role` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 913 | Run receipt state projection; declaration/member FactoryState.phase; declarations/fields: `FactoryState.phase` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 914 | Run receipt state projection; declaration/member FactoryState.container; declarations/fields: `FactoryState.container` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 915 | Run receipt state projection; declaration/member FactoryState.unit; declarations/fields: `FactoryState.unit` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 916 | Run receipt state projection; declaration/member FactoryState.invocation; declarations/fields: `FactoryState.invocation` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 917 | Run receipt state projection; declaration/member FactoryState.login; declarations/fields: `FactoryState.login` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 918 | Run receipt state projection; declaration/member FactoryState.lease_id; declarations/fields: `FactoryState.lease_id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 919 | Run receipt state projection; declaration/member FactoryState.output; declarations/fields: `FactoryState.output` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 920 | Run receipt state projection; declaration/member FactoryState.retirement; declarations/fields: `FactoryState.retirement` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 921–925 | Run receipt state projection; declaration/member FactoryState.reason; declarations/fields: `FactoryState.reason` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 926–987 | Run receipt state projection; declaration/member encode; declarations/fields: `encode` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 988 | Immutable provider harness pin; declarations/fields: `FactoryHarnessPin` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 989 | Immutable provider harness pin; declaration/member FactoryHarnessPin.harness; declarations/fields: `FactoryHarnessPin.harness` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 990 | Immutable provider harness pin; declaration/member FactoryHarnessPin.version; declarations/fields: `FactoryHarnessPin.version` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 991 | Immutable provider harness pin; declaration/member FactoryHarnessPin.sha256; declarations/fields: `FactoryHarnessPin.sha256` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 992–995 | Immutable provider harness pin; declaration/member FactoryHarnessPin.image; declarations/fields: `FactoryHarnessPin.image` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 996–1008 | Immutable provider harness pin; declaration/member validate; declarations/fields: `validate` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1009–1024 | Immutable provider harness pin; declaration/member encode; declarations/fields: `encode` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1025 | Run inspect/stop/takeover contracts; declarations/fields: `FactoryInspect` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1026 | Run inspect/stop/takeover contracts; declaration/member FactoryInspect.project; declarations/fields: `FactoryInspect.project` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1027–1029 | Run inspect/stop/takeover contracts; declaration/member FactoryInspect.id; declarations/fields: `FactoryInspect.id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1030–1042 | Run inspect/stop/takeover contracts; declaration/member FACTORY_ADDRESS_SPECS; declarations/fields: `FACTORY_ADDRESS_SPECS` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1043–1053, 1071–1080, 1115–1126 | Run inspect/stop/takeover contracts; declaration/member from_value; declarations/fields: `from_value` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1054–1063, 1081–1091, 1127–1139, 1149–1158 | Run inspect/stop/takeover contracts; declaration/member validate; declarations/fields: `validate` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1064 | Run inspect/stop/takeover contracts; declaration/member FactoryStop; declarations/fields: `FactoryStop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1065 | Run inspect/stop/takeover contracts; declaration/member FactoryStop.project; declarations/fields: `FactoryStop.project` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1066–1070 | Run inspect/stop/takeover contracts; declaration/member FactoryStop.id; declarations/fields: `FactoryStop.id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1092 | Run inspect/stop/takeover contracts; declaration/member FactoryTakeover; declarations/fields: `FactoryTakeover` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1093 | Run inspect/stop/takeover contracts; declaration/member FactoryTakeover.project; declarations/fields: `FactoryTakeover.project` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1094 | Run inspect/stop/takeover contracts; declaration/member FactoryTakeover.id; declarations/fields: `FactoryTakeover.id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1095–1097 | Run inspect/stop/takeover contracts; declaration/member FactoryTakeover.member; declarations/fields: `FactoryTakeover.member` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1098–1114 | Run inspect/stop/takeover contracts; declaration/member FACTORY_TAKEOVER_SPECS; declarations/fields: `FACTORY_TAKEOVER_SPECS` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1140 | Run inspect/stop/takeover contracts; declaration/member TakeoverResult; declarations/fields: `TakeoverResult` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1141 | Run inspect/stop/takeover contracts; declaration/member TakeoverResult.id; declarations/fields: `TakeoverResult.id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1142 | Run inspect/stop/takeover contracts; declaration/member TakeoverResult.project; declarations/fields: `TakeoverResult.project` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1143 | Run inspect/stop/takeover contracts; declaration/member TakeoverResult.member; declarations/fields: `TakeoverResult.member` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1144 | Run inspect/stop/takeover contracts; declaration/member TakeoverResult.destination; declarations/fields: `TakeoverResult.destination` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1145–1148 | Run inspect/stop/takeover contracts; declaration/member TakeoverResult.reused; declarations/fields: `TakeoverResult.reused` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1159–1176 | Run inspect/stop/takeover contracts; declaration/member encode; declarations/fields: `encode` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1177 | Bounded factory output request/state; declarations/fields: `FactoryOutput` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1178 | Bounded factory output request/state; declaration/member FactoryOutput.project; declarations/fields: `FactoryOutput.project` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1179 | Bounded factory output request/state; declaration/member FactoryOutput.id; declarations/fields: `FactoryOutput.id` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1180 | Bounded factory output request/state; declaration/member FactoryOutput.offset; declarations/fields: `FactoryOutput.offset` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1181–1183 | Bounded factory output request/state; declaration/member FactoryOutput.limit; declarations/fields: `FactoryOutput.limit` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1184–1205 | Bounded factory output request/state; declaration/member FACTORY_OUTPUT_SPECS; declarations/fields: `FACTORY_OUTPUT_SPECS` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1206–1218 | Bounded factory output request/state; declaration/member from_value; declarations/fields: `from_value` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1219–1234 | Bounded factory output request/state; declaration/member validate; declarations/fields: `validate` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1235 | Bounded factory output request/state; declaration/member FactoryOutputState; declarations/fields: `FactoryOutputState` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1236 | Bounded factory output request/state; declaration/member FactoryOutputState.exit_code; declarations/fields: `FactoryOutputState.exit_code` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1237 | Bounded factory output request/state; declaration/member FactoryOutputState.live; declarations/fields: `FactoryOutputState.live` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1238 | Bounded factory output request/state; declaration/member FactoryOutputState.terminal; declarations/fields: `FactoryOutputState.terminal` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1239 | Bounded factory output request/state; declaration/member FactoryOutputState.truncated; declarations/fields: `FactoryOutputState.truncated` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1240 | Bounded factory output request/state; declaration/member FactoryOutputState.gap; declarations/fields: `FactoryOutputState.gap` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1241 | Bounded factory output request/state; declaration/member FactoryOutputState.id; declarations/fields: `FactoryOutputState.id` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1242 | Bounded factory output request/state; declaration/member FactoryOutputState.project; declarations/fields: `FactoryOutputState.project` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1243 | Bounded factory output request/state; declaration/member FactoryOutputState.phase; declarations/fields: `FactoryOutputState.phase` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1244 | Bounded factory output request/state; declaration/member FactoryOutputState.container; declarations/fields: `FactoryOutputState.container` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1245 | Bounded factory output request/state; declaration/member FactoryOutputState.unit; declarations/fields: `FactoryOutputState.unit` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1246 | Bounded factory output request/state; declaration/member FactoryOutputState.invocation; declarations/fields: `FactoryOutputState.invocation` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1247 | Bounded factory output request/state; declaration/member FactoryOutputState.total; declarations/fields: `FactoryOutputState.total` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1248 | Bounded factory output request/state; declaration/member FactoryOutputState.offset; declarations/fields: `FactoryOutputState.offset` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1249 | Bounded factory output request/state; declaration/member FactoryOutputState.next; declarations/fields: `FactoryOutputState.next` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1250 | Bounded factory output request/state; declaration/member FactoryOutputState.data; declarations/fields: `FactoryOutputState.data` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1251–1254 | Bounded factory output request/state; declaration/member FactoryOutputState.reason; declarations/fields: `FactoryOutputState.reason` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1255–1301 | Bounded factory output request/state; declaration/member encode; declarations/fields: `encode` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1302 | Exact candidate export request/state; declarations/fields: `FactoryExport` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1303 | Exact candidate export request/state; declaration/member FactoryExport.project; declarations/fields: `FactoryExport.project` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1304 | Exact candidate export request/state; declaration/member FactoryExport.id; declarations/fields: `FactoryExport.id` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1305 | Exact candidate export request/state; declaration/member FactoryExport.role; declarations/fields: `FactoryExport.role` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1306 | Exact candidate export request/state; declaration/member FactoryExport.preparation; declarations/fields: `FactoryExport.preparation` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1307–1309 | Exact candidate export request/state; declaration/member FactoryExport.candidate; declarations/fields: `FactoryExport.candidate` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1310–1334 | Exact candidate export request/state; declaration/member FACTORY_EXPORT_SPECS; declarations/fields: `FACTORY_EXPORT_SPECS` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1335–1348 | Exact candidate export request/state; declaration/member from_value; declarations/fields: `from_value` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1349–1367 | Exact candidate export request/state; declaration/member validate; declarations/fields: `validate` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1368 | Exact candidate export request/state; declaration/member FactoryExportState; declarations/fields: `FactoryExportState` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1369 | Exact candidate export request/state; declaration/member FactoryExportState.id; declarations/fields: `FactoryExportState.id` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1370 | Exact candidate export request/state; declaration/member FactoryExportState.project; declarations/fields: `FactoryExportState.project` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1371 | Exact candidate export request/state; declaration/member FactoryExportState.phase; declarations/fields: `FactoryExportState.phase` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1372 | Exact candidate export request/state; declaration/member FactoryExportState.container; declarations/fields: `FactoryExportState.container` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1373 | Exact candidate export request/state; declaration/member FactoryExportState.candidate; declarations/fields: `FactoryExportState.candidate` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1374–1377 | Exact candidate export request/state; declaration/member FactoryExportState.bundle; declarations/fields: `FactoryExportState.bundle` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1378–1398 | Exact candidate export request/state; declaration/member encode; declarations/fields: `encode` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1399 | Native candidate verification observation contract; declarations/fields: `FactoryCandidateInspect` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1400 | Native candidate verification observation contract; declaration/member FactoryCandidateInspect.project; declarations/fields: `FactoryCandidateInspect.project` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1401–1405 | Native candidate verification observation contract; declaration/member FactoryCandidateInspect.id; declarations/fields: `FactoryCandidateInspect.id` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1406–1416 | Native candidate verification observation contract; declaration/member from_value; declarations/fields: `from_value` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1417–1426 | Native candidate verification observation contract; declaration/member validate; declarations/fields: `validate` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1427 | Native candidate verification observation contract; declaration/member FactoryCandidateState; declarations/fields: `FactoryCandidateState` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1428 | Native candidate verification observation contract; declaration/member FactoryCandidateState.id; declarations/fields: `FactoryCandidateState.id` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1429 | Native candidate verification observation contract; declaration/member FactoryCandidateState.project; declarations/fields: `FactoryCandidateState.project` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1430 | Native candidate verification observation contract; declaration/member FactoryCandidateState.container; declarations/fields: `FactoryCandidateState.container` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1431 | Native candidate verification observation contract; declaration/member FactoryCandidateState.candidate; declarations/fields: `FactoryCandidateState.candidate` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1432–1435 | Native candidate verification observation contract; declaration/member FactoryCandidateState.dirty; declarations/fields: `FactoryCandidateState.dirty` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 1436–1451 | Native candidate verification observation contract; declaration/member encode; declarations/fields: `encode` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1452–1455 | Native provider terminal execution seam; declarations/fields: `FactoryTerminal`, `harness_family`, `harness_version`, `harness_sha256`, `reserve`, `start` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1456 | Native provider terminal execution seam; declaration/member FactoryTerminal; declarations/fields: `FactoryTerminal` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1457 | Native provider terminal execution seam; declaration/member harness_family; declarations/fields: `harness_family` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1458 | Native provider terminal execution seam; declaration/member harness_version; declarations/fields: `harness_version` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1459 | Native provider terminal execution seam; declaration/member harness_sha256; declarations/fields: `harness_sha256` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1460–1467 | Native provider terminal execution seam; declaration/member reserve; declarations/fields: `reserve` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1468–1474 | Native provider terminal execution seam; declaration/member start; declarations/fields: `start` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1475 | Native run wait seam; declarations/fields: `wait` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1476 | Stop/capture seam; declarations/fields: `stop` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1477 | Stop/capture seam; declaration/member stop_unbound; declarations/fields: `stop_unbound` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1478 | Stop/capture seam; declaration/member capture; declarations/fields: `capture` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1479 | Native liveness seam; declarations/fields: `live` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 1480–1488 | Output seam; declarations/fields: `output` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1489–1498 | Human takeover copy seam; declarations/fields: `takeover_copy` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1499–1513 | Candidate export seam; declarations/fields: `export_bundle` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1514 | Broker acquire seam; declarations/fields: `FactoryBroker` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1515 | Broker acquire seam; declaration/member acquire; declarations/fields: `acquire` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1516–1521 | Broker native registration seam; declarations/fields: `register` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1522–1528 | Broker completion/reconciliation/close seams; declarations/fields: `return_lease` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1529 | Broker completion/reconciliation/close seams; declaration/member reconcile_lease; declarations/fields: `reconcile_lease` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1530–1535 | Broker completion/reconciliation/close seams; declaration/member execution_is_terminal; declarations/fields: `execution_is_terminal` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1536–1545 | Broker completion/reconciliation/close seams; declaration/member close_execution; declarations/fields: `close_execution` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1546–1548 | Transient private delivery credential zeroization; declarations/fields: `Secret` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1549–1556 | Transient private delivery credential zeroization; declaration/member drop; declarations/fields: `drop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1557–1559 | Durable native factory receipt and terminal phase projection; declarations/fields: `FactoryReceipt`, `validate`, `lease_id`, `encode`, `RECEIPT_SPECS`, `receipt_terminal`, `truncate_output`, `receipt_state` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1560 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt; declarations/fields: `FactoryReceipt` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1561 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.run; declarations/fields: `FactoryReceipt.run` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1562 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.lease; declarations/fields: `FactoryReceipt.lease` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1563 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.binding; declarations/fields: `FactoryReceipt.binding` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1564 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.exit_code; declarations/fields: `FactoryReceipt.exit_code` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1565 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.generation; declarations/fields: `FactoryReceipt.generation` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1566 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.phase; declarations/fields: `FactoryReceipt.phase` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1567 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.started; declarations/fields: `FactoryReceipt.started` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1568 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.delivered; declarations/fields: `FactoryReceipt.delivered` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1569 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.credential_returned; declarations/fields: `FactoryReceipt.credential_returned` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1570 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.output; declarations/fields: `FactoryReceipt.output` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1571 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.retirement; declarations/fields: `FactoryReceipt.retirement` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1572–1575 | Durable native factory receipt and terminal phase projection; declaration/member FactoryReceipt.reason; declarations/fields: `FactoryReceipt.reason` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1576–1599 | Durable native factory receipt and terminal phase projection; declaration/member validate; declarations/fields: `validate` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1600–1604 | Durable native factory receipt and terminal phase projection; declaration/member lease_id; declarations/fields: `lease_id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1605–1652 | Durable native factory receipt and terminal phase projection; declaration/member encode; declarations/fields: `encode` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1653–1715 | Durable native factory receipt and terminal phase projection; declaration/member RECEIPT_SPECS; declarations/fields: `RECEIPT_SPECS` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1716–1719 | Durable native factory receipt and terminal phase projection; declaration/member receipt_terminal; declarations/fields: `receipt_terminal` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1728–1739 | Durable native factory receipt and terminal phase projection; declaration/member truncate_output; declarations/fields: `truncate_output` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1740–1772 | Durable native factory receipt and terminal phase projection; declaration/member receipt_state; declarations/fields: `receipt_state` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1773 | Exclusive native run lock and receipt persistence; declarations/fields: `RunLock` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1774–1781 | Exclusive native run lock and receipt persistence; declaration/member RunLock._file; declarations/fields: `RunLock._file` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1782 | Exclusive native run lock and receipt persistence; declaration/member Factory; declarations/fields: `Factory` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1783 | Exclusive native run lock and receipt persistence; declaration/member Factory.exec; declarations/fields: `Factory.exec` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1784 | Exclusive native run lock and receipt persistence; declaration/member Factory.terminal; declarations/fields: `Factory.terminal` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1785 | Exclusive native run lock and receipt persistence; declaration/member Factory.broker; declarations/fields: `Factory.broker` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1786–1793 | Exclusive native run lock and receipt persistence; declaration/member Factory.state_dir; declarations/fields: `Factory.state_dir` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1794–1812 | Exclusive native run lock and receipt persistence; declaration/member open_factory; declarations/fields: `open_factory` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1813–1821 | Observed harness pin; declarations/fields: `harness_pin` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1822–1825 | Receipt file/lock and tombstone persistence; declarations/fields: `receipt_path` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1826–1831 | Receipt file/lock and tombstone persistence; declaration/member lock_path; declarations/fields: `lock_path` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1832–1874 | Receipt file/lock and tombstone persistence; declaration/member lock_run; declarations/fields: `lock_run` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1875–1932 | Receipt file/lock and tombstone persistence; declaration/member load_receipt; declarations/fields: `load_receipt` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1933–1939 | Receipt file/lock and tombstone persistence; declaration/member store_receipt; declarations/fields: `store_receipt` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1940–1943 | Receipt file/lock and tombstone persistence; declaration/member store_tombstone; declarations/fields: `store_tombstone` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1944–1991 | Receipt file/lock and tombstone persistence; declaration/member write_receipt_file; declarations/fields: `write_receipt_file` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1992–2029 | Exact native launch request admission; declarations/fields: `launch` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 2030–2040 | Launch orchestration deadline; declarations/fields: `drive` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 2041–2056 | Acquire provider from validated run harness family |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2057–2065 | Update native receipt and honor concurrent stop |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2066–2078 | Reserve native provider execution |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2079–2088 | Native binding receipt and concurrent stop |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 2089–2103 | Register native binding and receive private credential; register refusal diagnostic before native stop/lease cleanup |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2104–2112 | Consume start and honor stop tombstone |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2113–2124 | Start bound native harness with delivered credential |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2125–2139 | Persist delivered receipt and wait/complete outcome |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2140–2174 | Refusal/abandon/refresh/receipt transition and timeout handling; declarations/fields: `fail_run` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2175–2201 | Refusal/abandon/refresh/receipt transition and timeout handling; declaration/member abandon_run; declarations/fields: `abandon_run` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2202–2225 | Refusal/abandon/refresh/receipt transition and timeout handling; declaration/member refresh_stopped; declarations/fields: `refresh_stopped` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2226–2245 | Refusal/abandon/refresh/receipt transition and timeout handling; declaration/member consume_start; declarations/fields: `consume_start` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2246–2270 | Refusal/abandon/refresh/receipt transition and timeout handling; declaration/member update_receipt; declarations/fields: `update_receipt` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2271–2283 | Refusal/abandon/refresh/receipt transition and timeout handling; declaration/member launch_yielded; declarations/fields: `launch_yielded` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2284–2327 | Refusal/abandon/refresh/receipt transition and timeout handling; declaration/member stop_failed_start; declarations/fields: `stop_failed_start` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2328–2373 | Refusal/abandon/refresh/receipt transition and timeout handling; declaration/member stop_timed_out; declarations/fields: `stop_timed_out` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2374–2392 | Receipt completion observation; declarations/fields: `finish_run` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2393–2405 | Retire native boundary before final auth capture |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2406–2408 | Concurrent lifecycle stop takes precedence |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2409–2440 | Final auth capture, broker return and execution close |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2441–2458 | Persist completion/failed run receipt |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2459–2574 | Persist stop tombstone and drive exact run retirement, including bounded broker closure and pre-delivery settlement; declarations/fields: `stop` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2575–2620 | Run credential reconciliation; declarations/fields: `reconcile_run_credential` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2621–2644 | Run inspect and human takeover; declarations/fields: `inspect` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2645–2691 | Run inspect and human takeover; declaration/member takeover; declarations/fields: `takeover` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2692–2732 | Run inspect and human takeover; declaration/member record_stop_outcome; declarations/fields: `record_stop_outcome` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 2733–2785 | Bounded incarnation-fenced factory output; declarations/fields: `output` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 2786–2830 | Exact recorded candidate export; declarations/fields: `export` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 2831–2921 | Exact native candidate verification snapshot; declarations/fields: `inspect_candidate` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2922–2935 | Native failure reason projection; declarations/fields: `run_reason` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 2936–2976 | Native candidate immutable Git verification script; declarations/fields: `CANDIDATE_INSPECT_SCRIPT` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 2977–2989 | Launch confirmation; declarations/fields: `confirm_factory_launch` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 2990–2998 | Run inspection confirmation; declarations/fields: `confirm_factory_inspect` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2999–3007 | Harness pin confirmation; declarations/fields: `confirm_factory_harness` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3008–3023 | Stop confirmation; declarations/fields: `confirm_factory_stop` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 3024–3035 | Output confirmation; declarations/fields: `confirm_factory_output` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 3036–3053 | Export confirmation; declarations/fields: `confirm_factory_export` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3054–3069 | Takeover confirmation; declarations/fields: `confirm_factory_takeover` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 3070–3086 | Candidate observation confirmation; declarations/fields: `confirm_factory_candidate_inspect` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 3087–3102 | Native preparation result confirmations; declarations/fields: `confirm_prepare` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 3103–3118 | Native preparation result confirmations; declaration/member confirm_prepare_candidate; declarations/fields: `confirm_prepare_candidate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 3119–3134 | Native preparation result confirmations; declaration/member confirm_inspect_preparation; declarations/fields: `confirm_inspect_preparation` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 3135–3147 | Native preparation result confirmations; declaration/member confirm_stop_preparation; declarations/fields: `confirm_stop_preparation` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 3148–3156 | Maintenance hold confirmation; declarations/fields: `confirm_hold_preparation` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3157–3165 | Run status error mapping; declarations/fields: `factory_not_found_status` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 3166–3174 | Output stale status mapping; declarations/fields: `factory_output_status_error` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 3175–3185 | Export status mapping; declarations/fields: `factory_export_status_error` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 3186–3194 | Candidate status mapping; declarations/fields: `factory_candidate_status_error` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3195–3200, 4375–4393, 4473–4485, 4570–4611, 5014–5034, 5525–5543, 5806–5816 | Scripted native factory source fixtures/assertions; declarations/fields: `tests`, `wired_factory`, `launch_duplicate_returns_recorded_state`, `launch_abandon_paths_record_refusals`, `stop_converges_when_launch_returned_first`, `wired_factory_exec`, `sample_state` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3201–3202 | Scripted native factory source fixtures/assertions; declaration/member TAG_COUNTER; declarations/fields: `TAG_COUNTER` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3203–3214 | Scripted native factory source fixtures/assertions; declaration/member test_state_dir; declarations/fields: `test_state_dir` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3215–3219 | Scripted native factory source fixtures/assertions; declaration/member deadline; declarations/fields: `deadline` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3220–3233 | Scripted native factory source fixtures/assertions; declaration/member civil_from_days; declarations/fields: `civil_from_days` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3234–3249 | Scripted native factory source fixtures/assertions; declaration/member deadline_text; declarations/fields: `deadline_text` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3250–3253 | Scripted native factory source fixtures/assertions; declaration/member run_id; declarations/fields: `run_id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3254–3257 | Scripted native factory source fixtures/assertions; declaration/member project_id; declarations/fields: `project_id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3258–3261 | Scripted native factory source fixtures/assertions; declaration/member prep_id; declarations/fields: `prep_id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3262–3265 | Scripted native factory source fixtures/assertions; declaration/member container_id; declarations/fields: `container_id` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3266–3283 | Scripted native factory source fixtures/assertions; declaration/member sample_run; declarations/fields: `sample_run` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3284–3291 | Scripted native factory source fixtures/assertions; declaration/member sample_launch; declarations/fields: `sample_launch` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3292–3307 | Scripted native factory source fixtures/assertions; declaration/member sample_lease; declarations/fields: `sample_lease` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3308–3322 | Scripted native factory source fixtures/assertions; declaration/member sample_binding; declarations/fields: `sample_binding` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3323–3324 | Scripted native factory source fixtures/assertions; declaration/member ExecCall; declarations/fields: `ExecCall` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3325 | Scripted native factory source fixtures/assertions; declaration/member FakeExec; declarations/fields: `FakeExec` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3326 | Scripted native factory source fixtures/assertions; declaration/member FakeExec.calls; declarations/fields: `FakeExec.calls` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3327–3330 | Scripted native factory source fixtures/assertions; declaration/member FakeExec.script; declarations/fields: `FakeExec.script` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3331–3339, 3382–3402, 3523–3535 | Scripted native factory source fixtures/assertions; declaration/member new; declarations/fields: `new` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3340–3358, 3619–3630 | Scripted native factory source fixtures/assertions; declaration/member run; declarations/fields: `run` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3359 | Scripted native factory source fixtures/assertions; declaration/member TakeoverCall; declarations/fields: `TakeoverCall` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3360–3361 | Scripted native factory source fixtures/assertions; declaration/member ExportCall; declarations/fields: `ExportCall` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3362 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal; declarations/fields: `FakeTerminal` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3363 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.version; declarations/fields: `FakeTerminal.version` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3364 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.sha256; declarations/fields: `FakeTerminal.sha256` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3365 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.reserve; declarations/fields: `FakeTerminal.reserve` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3366 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.start; declarations/fields: `FakeTerminal.start` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3367 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.wait; declarations/fields: `FakeTerminal.wait` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3368 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.stop; declarations/fields: `FakeTerminal.stop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3369 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.stop_unbound; declarations/fields: `FakeTerminal.stop_unbound` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3370 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.capture; declarations/fields: `FakeTerminal.capture` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3371 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.live; declarations/fields: `FakeTerminal.live` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3372 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.output; declarations/fields: `FakeTerminal.output` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3373 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.takeover; declarations/fields: `FakeTerminal.takeover` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3374 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.export; declarations/fields: `FakeTerminal.export` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3375 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.reserve_calls; declarations/fields: `FakeTerminal.reserve_calls` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3376 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.takeover_calls; declarations/fields: `FakeTerminal.takeover_calls` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3377 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.export_calls; declarations/fields: `FakeTerminal.export_calls` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3378–3381 | Scripted native factory source fixtures/assertions; declaration/member FakeTerminal.output_calls; declarations/fields: `FakeTerminal.output_calls` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3403–3411, 3536–3544 | Scripted native factory source fixtures/assertions; declaration/member pop; declarations/fields: `pop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3412–3414, 3631–3633 | Scripted native factory source fixtures/assertions; declaration/member harness_family; declarations/fields: `harness_family` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3415–3417, 3634–3636 | Scripted native factory source fixtures/assertions; declaration/member harness_version; declarations/fields: `harness_version` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3418–3420, 3637–3639 | Scripted native factory source fixtures/assertions; declaration/member harness_sha256; declarations/fields: `harness_sha256` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3421–3433, 3640–3649 | Scripted native factory source fixtures/assertions; declaration/member reserve; declarations/fields: `reserve` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3434–3442, 3650–3658 | Scripted native factory source fixtures/assertions; declaration/member start; declarations/fields: `start` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3443–3445, 3659–3661 | Scripted native factory source fixtures/assertions; declaration/member wait; declarations/fields: `wait` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3446–3448, 3662–3664 | Scripted native factory source fixtures/assertions; declaration/member stop; declarations/fields: `stop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3449–3451, 3665–3667 | Scripted native factory source fixtures/assertions; declaration/member stop_unbound; declarations/fields: `stop_unbound` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3452–3454, 3668–3670 | Scripted native factory source fixtures/assertions; declaration/member capture; declarations/fields: `capture` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3455–3457, 3671–3673 | Scripted native factory source fixtures/assertions; declaration/member live; declarations/fields: `live` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3458–3470, 3674–3683 | Scripted native factory source fixtures/assertions; declaration/member output; declarations/fields: `output` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3471–3490, 3684–3695 | Scripted native factory source fixtures/assertions; declaration/member takeover_copy; declarations/fields: `takeover_copy` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3491–3510, 3696–3709 | Scripted native factory source fixtures/assertions; declaration/member export_bundle; declarations/fields: `export_bundle` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3511 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker; declarations/fields: `FakeBroker` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3512 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker.acquire; declarations/fields: `FakeBroker.acquire` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3513 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker.register; declarations/fields: `FakeBroker.register` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3514 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker.returns; declarations/fields: `FakeBroker.returns` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3515 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker.terminal; declarations/fields: `FakeBroker.terminal` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3516 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker.close; declarations/fields: `FakeBroker.close` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3517 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker.acquire_calls; declarations/fields: `FakeBroker.acquire_calls` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3518 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker.reconcile_calls; declarations/fields: `FakeBroker.reconcile_calls` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3519–3522 | Scripted native factory source fixtures/assertions; declaration/member FakeBroker.close_calls; declarations/fields: `FakeBroker.close_calls` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3545–3548, 3710–3712 | Scripted native factory source fixtures/assertions; declaration/member acquire; declarations/fields: `acquire` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3549–3556, 3713–3720 | Scripted native factory source fixtures/assertions; declaration/member register; declarations/fields: `register` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3557–3565, 3721–3729 | Scripted native factory source fixtures/assertions; declaration/member return_lease; declarations/fields: `return_lease` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3566–3568, 3730–3732 | Scripted native factory source fixtures/assertions; declaration/member reconcile_lease; declarations/fields: `reconcile_lease` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3569–3576, 3733–3740 | Scripted native factory source fixtures/assertions; declaration/member execution_is_terminal; declarations/fields: `execution_is_terminal` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3577–3591, 3741–3750 | Scripted native factory source fixtures/assertions; declaration/member close_execution; declarations/fields: `close_execution` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3592–3618 | Scripted native factory source fixtures/assertions; declaration/member script_success; declarations/fields: `script_success` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3751–3753 | Scripted native factory source fixtures/assertions; declaration/member TestFactory; declarations/fields: `TestFactory` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3754–3762 | Scripted native factory source fixtures/assertions; declaration/member test_factory; declarations/fields: `test_factory` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3763–3767 | Scripted native factory source fixtures/assertions; declaration/member receipt_bytes; declarations/fields: `receipt_bytes` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3768–3828 | Scripted native factory source fixtures/assertions; declaration/member validators_match_go; declarations/fields: `validators_match_go` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3829–3909 | Scripted native factory source fixtures/assertions; declaration/member run_and_launch_validation_pins_every_error; declarations/fields: `run_and_launch_validation_pins_every_error` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3910–3949 | Scripted native factory source fixtures/assertions; declaration/member deadline_parser_matches_go_shapes; declarations/fields: `deadline_parser_matches_go_shapes` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3950–3978 | Scripted native factory source fixtures/assertions; declaration/member error_messages_are_exact; declarations/fields: `error_messages_are_exact` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3979–3995 | Scripted native factory source fixtures/assertions; declaration/member fixed_run; declarations/fields: `fixed_run` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 3996–4006 | Scripted native factory source fixtures/assertions; declaration/member fixed_run_json; declarations/fields: `fixed_run_json` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4007–4021 | Scripted native factory source fixtures/assertions; declaration/member fixed_binding; declarations/fields: `fixed_binding` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4022–4030 | Scripted native factory source fixtures/assertions; declaration/member fixed_binding_json; declarations/fields: `fixed_binding_json` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4031–4046 | Scripted native factory source fixtures/assertions; declaration/member fixed_lease; declarations/fields: `fixed_lease` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4047–4054 | Scripted native factory source fixtures/assertions; declaration/member fixed_lease_json; declarations/fields: `fixed_lease_json` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4055–4065 | Scripted native factory source fixtures/assertions; declaration/member dummy_factory; declarations/fields: `dummy_factory` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4066–4150 | Scripted native factory source fixtures/assertions; declaration/member receipt_bytes_match_go_marshal; declarations/fields: `receipt_bytes_match_go_marshal` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4151–4276 | Scripted native factory source fixtures/assertions; declaration/member receipt_decode_matrix; declarations/fields: `receipt_decode_matrix` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4277–4348 | Scripted native factory source fixtures/assertions; declaration/member open_factory_matrix; declarations/fields: `open_factory_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4349–4374, 4457–4472 | Source assertion of Provider execution integration; declarations/fields: `harness_pin_shape_matches_go`, `launch_muse_harness_acquires_muse_provider` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4394–4456 | Scripted native factory source fixtures/assertions; declaration/member launch_success_drives_to_completed; declarations/fields: `launch_success_drives_to_completed` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4486–4521 | Scripted native factory source fixtures/assertions; declaration/member launch_prechecks_reject_before_any_seam; declarations/fields: `launch_prechecks_reject_before_any_seam` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 4522–4569 | Source assertion of Execution admission and lease fencing; declarations/fields: `launch_acquire_refusal_matrix` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4612–4625 | Scripted native factory source fixtures/assertions; declaration/member drive_to_start; declarations/fields: `drive_to_start` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4626–4648 | Scripted native factory source fixtures/assertions; declaration/member launch_failed_start_retires_cleanly; declarations/fields: `launch_failed_start_retires_cleanly` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4649–4689 | Scripted native factory source fixtures/assertions; declaration/member launch_failed_start_uncertainty_matrix; declarations/fields: `launch_failed_start_uncertainty_matrix` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4690–4709 | Scripted native factory source fixtures/assertions; declaration/member launch_timed_out_wait_records_deadline; declarations/fields: `launch_timed_out_wait_records_deadline` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4710–4730 | Scripted native factory source fixtures/assertions; declaration/member launch_timed_out_stop_failure_is_uncertain; declarations/fields: `launch_timed_out_stop_failure_is_uncertain` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4731–4753 | Scripted native factory source fixtures/assertions; declaration/member launch_finish_maps_exit_codes; declarations/fields: `launch_finish_maps_exit_codes` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4754–4791 | Scripted native factory source fixtures/assertions; declaration/member launch_finish_uncertainty_matrix; declarations/fields: `launch_finish_uncertainty_matrix` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4792–4811 | Scripted native factory source fixtures/assertions; declaration/member launch_on_tombstoned_id_returns_stop; declarations/fields: `launch_on_tombstoned_id_returns_stop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4812–4819 | Scripted native factory source fixtures/assertions; declaration/member stop_req; declarations/fields: `stop_req` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4820–4844 | Scripted native factory source fixtures/assertions; declaration/member stop_before_start_writes_exact_tombstone; declarations/fields: `stop_before_start_writes_exact_tombstone` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4845–4862 | Scripted native factory source fixtures/assertions; declaration/member stop_before_start_close_failure_retries; declarations/fields: `stop_before_start_close_failure_retries` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4863–4881 | Scripted native factory source fixtures/assertions; declaration/member stop_approved_run_uses_unbound_stop; declarations/fields: `stop_approved_run_uses_unbound_stop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4977–4998 | Scripted native factory source fixtures/assertions; declaration/member write_running; declarations/fields: `write_running` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 4999–5013 | Source assertion of Completion, revocation and reconciliation; declarations/fields: `stop_running_run_reconciles_custody` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5035–5056 | Scripted native factory source fixtures/assertions; declaration/member stop_uncertain_when_custody_unsettled; declarations/fields: `stop_uncertain_when_custody_unsettled` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5057–5081 | Scripted native factory source fixtures/assertions; declaration/member stop_terminal_receipt_is_final; declarations/fields: `stop_terminal_receipt_is_final` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5082–5131 | Scripted native factory source fixtures/assertions; declaration/member inspect_matrix; declarations/fields: `inspect_matrix` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5132–5151 | Scripted native factory source fixtures/assertions; declaration/member inspect_running_probes_liveness; declarations/fields: `inspect_running_probes_liveness` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5152–5265 | Source assertion of Run lifecycle and intervention; declarations/fields: `takeover_success_and_refusals` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 5266–5296 | Source assertion of Factory activity presentation; declarations/fields: `output_without_binding_reports_phase_only` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 5730–5805 | Candidate clean/dirty/invalid observation and native-error refusal through the real Factory.inspect_candidate with scripted seams; declarations/fields: `inspect_candidate_output_shapes`. Its preceding #[test] attribute stays with the case at the verified extraction seam. |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 5297–5391 | Source assertion of Factory activity presentation; declaration/member output_slice_reports_binding_and_cursors; declarations/fields: `output_slice_reports_binding_and_cursors` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 5392–5524 | Source assertion of Publication progression; declarations/fields: `export_success_denied_and_bounds` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5544–5551 | Scripted native factory source fixtures/assertions; declaration/member preparation_target; declarations/fields: `preparation_target` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 5552–5572 | Source assertion of Candidate verification assessment; declarations/fields: `candidate_script_pins_cutover_shape` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 5573–5653 | Source assertion of Candidate verification assessment; declaration/member inspect_candidate_reports_clean_and_dirty; declarations/fields: `inspect_candidate_reports_clean_and_dirty` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 5654–5729 | Source assertion of Candidate verification assessment; declaration/member inspect_candidate_incarnation_matrix_is_stale; declarations/fields: `inspect_candidate_incarnation_matrix_is_stale` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5817–5940 | Scripted native factory source fixtures/assertions; declaration/member factory_facade_confirmations; declarations/fields: `factory_facade_confirmations` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5941–5983 | Scripted native factory source fixtures/assertions; declaration/member factory_status_mappings; declarations/fields: `factory_status_mappings` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 5984–6009 | Scripted native factory source fixtures/assertions; declaration/member sample_preparation; declarations/fields: `sample_preparation` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 6010–6023 | Scripted native factory source fixtures/assertions; declaration/member sample_prepare_state; declarations/fields: `sample_prepare_state` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 6024–6081 | Source assertion of Checkout allocation and preparation; declarations/fields: `prepare_facade_confirmations` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1720–1727 | Stop-owned stopped/uncertain receipt guard; declarations/fields: `receipt_stop_owned` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4882–4920 | Scripted regression preserves the stop-owned uncertain outcome across abandon, failure and start gate; declarations/fields: `launch_path_respects_stop_owned_uncertain` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4921–4938 | Approved pre-start/pre-delivery receipt fixture with lease; declarations/fields: `write_approved_with_lease` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4939–4956 | Scripted confirmed broker fence settles pre-delivery stop despite absent native unit; declarations/fields: `stop_before_delivery_confirms_despite_native_failure` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 4957–4976 | Scripted transient broker-close failure succeeds on second attempt and confirms stop; declarations/fields: `stop_close_retries_before_uncertain` |
+Former source `rust/soda-host/src/pfactory.rs`; consult its pinned earlier Git source and the current coverage disposition.

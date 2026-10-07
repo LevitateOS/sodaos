@@ -7,76 +7,6 @@ One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
 
-<a id="coverage-e25a660ce02b"></a>
-
-## [.agents/plans/2026-09-16-remove-rpm-pinning.md](../../../../../.agents/plans/2026-09-16-remove-rpm-pinning.md)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–278; whole file | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | obsolete | Historical removal plan names retired Go/Python/RPM-lock machinery; current release resolves upstream input and records it. No runtime consumer or ongoing compatibility duty — docs/development/ideal-filetree-plan/coverage/inventory/agent-plans.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-2a6c4de4fd4d"></a>
-
-## [.containerignore](../../../../../.containerignore)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–16; whole file | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Container build-context admission; native-only artifact exceptions and denial of caches/private fixtures — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-87320095d7c4"></a>
-
-## [.githooks/pre-commit](../../../../../.githooks/pre-commit)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–123; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Staged-path source/credential/style gates and no-Python check; repository commit consumer — docs/development/ideal-filetree-plan/coverage/inventory/git-hooks.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-bc37d034bad5"></a>
-
-## [.gitignore](../../../../../.gitignore)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–12; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Untracked build/cache/private artifact disposition; repository developer tooling — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-ba6bdb5315b1"></a>
-
-## [.oxfmtrc.json](../../../../../.oxfmtrc.json)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–8; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Type/style/analyzer admission profile; package.json and scripts selected checks consume it — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-2113aef2ff3d"></a>
-
-## [.oxlintrc.json](../../../../../.oxlintrc.json)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–31; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Type/style/analyzer admission profile; package.json and scripts selected checks consume it — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-a54ff182c7e8"></a>
-
-## [AGENTS.md](../../../../../AGENTS.md)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–256; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Repository authorship, scope, preservation, permission, language and check guidance — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
 <a id="coverage-13ee4b2252c9"></a>
 
 ## [Cargo.lock](../../../../../Cargo.lock)
@@ -86,36 +16,6 @@ Current artifact role, concrete consumer/provenance and established contract own
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–2885; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Tool-maintained dependency identities; Cargo/Bun/Go consumers and preserved locked dependency resolution — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-2e9d962a0832"></a>
-
-## [Cargo.toml](../../../../../Cargo.toml)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–6; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Workspace/module/toolchain/dependency selector; native release compile and repository development consumers — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-c693279643b8"></a>
-
-## [LICENSE](../../../../../LICENSE)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–202; whole file | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Original-code and retained third-party artwork/font/dependency attribution/distribution scope — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-dfb14fbb9e7d"></a>
-
-## [NOTICE](../../../../../NOTICE)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–53; whole file | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Original-code and retained third-party artwork/font/dependency attribution/distribution scope — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
 
 <a id="coverage-b33563055168"></a>
 
@@ -141,65 +41,25 @@ Current artifact role, concrete consumer/provenance and established contract own
 | 51–54; LAN access/route obligations | [N02](../../slices/networking.md#n02-project-lan-access) | retained | LAN access/route obligations — Current source clauses/section; canonical workflow requirements at519b76bd |
 | 61; line61 rust/soda-factory source-path token | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | obsolete | Stale source path within otherwise retained navigation — Current source clauses/section; canonical workflow requirements at519b76bd |
 
-<a id="coverage-bfd0ef82a011"></a>
+<a id="coverage-b5e19b9328f3"></a>
 
-## [bun.lock](../../../../../bun.lock)
+## [internal/filelock/filelock.go](../../../../../internal/filelock/filelock.go)
 
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–384; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Tool-maintained dependency identities; Cargo/Bun/Go consumers and preserved locked dependency resolution — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-d20a1d3c8f2b"></a>
-
-## [bunfig.toml](../../../../../bunfig.toml)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–3; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Workspace/module/toolchain/dependency selector; native release compile and repository development consumers — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
+| 1–36; file scaffold; Acquire | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: Acquire — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
-<a id="coverage-7a882221a14c"></a>
+<a id="coverage-7a00c66ef34a"></a>
 
-## [factory-os/Containerfile](../../../../../factory-os/Containerfile)
+## [internal/filelock/filelock_test.go](../../../../../internal/filelock/filelock_test.go)
 
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–7; whole file | [P06](../../slices/projects.md#p06-factory-role-accounts) | obsolete | Unselected soda-agent disposable factory recipe; current six-image selector and non-login Project-role contract exclude this alternate implementation — docs/development/ideal-filetree-plan/coverage/inventory/factory-os.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-33ef32bf6c23"></a>
-
-## [go.mod](../../../../../go.mod)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–65; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Workspace/module/toolchain/dependency selector; native release compile and repository development consumers — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-3295df723452"></a>
-
-## [go.sum](../../../../../go.sum)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–192; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Tool-maintained dependency identities; Cargo/Bun/Go consumers and preserved locked dependency resolution — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
-<a id="coverage-9c0d294c05fc"></a>
-
-## [installer](../../../../../installer)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| whole artifact; whole file | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) | unresolved | Tracked legacy executable, not current source-built shipping selector. Original producer/remaining artifact retention is unresolved; do not execute it or infer safe deletion from shallow search — Tracked legacy ELF identity; current Cargo/native build selects source-built binaries. No proven producer/consumer link for these root bytes |
+| 1–78; file scaffold; openTestLock; TestCancelledWaitDoesNotAcquireOrRetainTheLock; TestSharedHoldersExcludeWriterUntilBothRelease; TestCancellationAndDescriptorErrors | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-7ae45ad102ea"></a>
 
@@ -214,63 +74,96 @@ Current artifact role, concrete consumer/provenance and established contract own
 | 26; lines 26-26: Opt-in installed asset evidence selector | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Opt-in installed asset evidence selector — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
 | 28; lines 28-28: scripts.build:forgejo cargo soda-fetch-terminal distribution producer | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | scripts.build:forgejo cargo soda-fetch-terminal distribution producer — Current file contents; canonical workflow-requirements at519b76bd and native build/consumer selectors |
 
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
+
+<a id="coverage-e25a660ce02b"></a>
+
+Former source `.agents/plans/2026-09-16-remove-rpm-pinning.md`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-2a6c4de4fd4d"></a>
+
+Former source `.containerignore`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-87320095d7c4"></a>
+
+Former source `.githooks/pre-commit`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-bc37d034bad5"></a>
+
+Former source `.gitignore`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-ba6bdb5315b1"></a>
+
+Former source `.oxfmtrc.json`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-2113aef2ff3d"></a>
+
+Former source `.oxlintrc.json`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-a54ff182c7e8"></a>
+
+Former source `AGENTS.md`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-2e9d962a0832"></a>
+
+Former source `Cargo.toml`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-c693279643b8"></a>
+
+Former source `LICENSE`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-dfb14fbb9e7d"></a>
+
+Former source `NOTICE`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-bfd0ef82a011"></a>
+
+Former source `bun.lock`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-d20a1d3c8f2b"></a>
+
+Former source `bunfig.toml`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-7a882221a14c"></a>
+
+Former source `factory-os/Containerfile`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-33ef32bf6c23"></a>
+
+Former source `go.mod`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-3295df723452"></a>
+
+Former source `go.sum`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-9c0d294c05fc"></a>
+
+Former source `installer`; consult its pinned earlier Git source and the current coverage disposition.
+
 <a id="coverage-2b1bde2cf3a8"></a>
 
-## [rust-toolchain.toml](../../../../../rust-toolchain.toml)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–2; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Workspace/module/toolchain/dependency selector; native release compile and repository development consumers — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
+Former source `rust-toolchain.toml`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-619e7e2459fb"></a>
 
-## [soda-candidate](../../../../../soda-candidate)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| whole artifact; whole file | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) | unresolved | Tracked legacy executable, not current source-built shipping selector. Original producer/remaining artifact retention is unresolved; do not execute it or infer safe deletion from shallow search — Tracked legacy ELF identity; current Cargo/native build selects source-built binaries. No proven producer/consumer link for these root bytes |
+Former source `soda-candidate`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-0b280a445be1"></a>
 
-## [tsconfig.base.json](../../../../../tsconfig.base.json)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–15; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Type/style/analyzer admission profile; package.json and scripts selected checks consume it — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
+Former source `tsconfig.base.json`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-7053a2fc9b8a"></a>
 
-## [tsconfig.browser.json](../../../../../tsconfig.browser.json)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–16; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Type/style/analyzer admission profile; package.json and scripts selected checks consume it — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
+Former source `tsconfig.browser.json`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-b55cdbef4907"></a>
 
-## [tsconfig.json](../../../../../tsconfig.json)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–23; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Type/style/analyzer admission profile; package.json and scripts selected checks consume it — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
+Former source `tsconfig.json`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-e05a8a3e3685"></a>
 
-## [tsconfig.tests.json](../../../../../tsconfig.tests.json)
-
-Current artifact role, concrete consumer/provenance and established contract owner inspected
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–20; whole file | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Type/style/analyzer admission profile; package.json and scripts selected checks consume it — docs/development/ideal-filetree-plan/coverage/inventory/root-files.md; Current source/README provenance and explicit native/browser/doc build consumer inspection |
-
+Former source `tsconfig.tests.json`; consult its pinned earlier Git source and the current coverage disposition.

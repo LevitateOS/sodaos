@@ -1,584 +1,518 @@
 # Soda release image implementation
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-R02 re-audit COMPLETE @HEAD: build.rs split re-mapped (build+compile+runner+tests+source, doubles in place); foreign/host/layout/media/model/payload/prepare/request/sys verified; CORR-C-001/C-004 + C09-paths tests rowed. GAP (pre-existing): build_media.rs/complete.rs never interval-mapped; leaf inventory covers them.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-0387b9fa196a"></a>
-
 <a id="rustsoda-release-imagesrcbuildrs-1"></a>
+<a id="coverage-702496be1cd8"></a>
 
 ## [lib/soda-release-image/src/build.rs](../../../../../lib/soda-release-image/src/build.rs)
 
-Re-audit @HEAD: pre-C08 `build.rs` (1447 lines) split into `build.rs` + `build_compile.rs` + `build_runner.rs` + `build_runner/tests.rs` + `build_source.rs`; rows re-mapped declaration-by-declaration to current bytes. Test-local `RunnerProduction`/`Stub` doubles re-mapped in place. `build_media.rs`/`complete.rs` content was never interval-mapped (pre-existing audit gap; leaf inventory covers them).
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–28 | Native candidate build runner/cancellation/logging; declarations/fields: `PINNED_GO_VERSION`, `ProductionInputs`, `ProductionInputs.source`, `ProductionInputs.forgejo_source`, `ProductionInputs.forgejo_revision`, `ProductionInputs.native`, `ProductionInputs.out`, `ProductionInputs.arch`, `ProductionInputs.revision`, `ProductionInputs.live_inputs`, `build`, `init_build_directories`, `extract_build_snapshot`, `setup_build_workspace`, `freeze_base_image_config`, `prepare_build_host_context`, `prepare_build_production`, `build_host_candidate`, `execute_build_production`, `finalize_build`, `run_build`, `run_build_inner`, `RunnerProduction`, `RunnerProduction.runner`, `RunnerProduction.inputs`, `source`, `forgejo_source`, `forgejo_revision`, `native`, `out`, `arch`, `revision`, `live_inputs`, `execute`, `capture`, `next`, `resolve_inputs`, `dependencies`, `compile`, `compile_rust`, `stage_fork_binary`, `assets`, `images`, `inspect_oci`, `verify_content`, `resolve_core_os`, `read_live_inputs`, `check_native`, `sign_media`, `verify_copy`, `write_document`, `build_host_candidate_with_progress`, `link_prepared_assets`, `tests`, `oracle_link_prepared_assets_runs_no_commands`, `Stub`, `Stub.source`, `Stub.native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 33 | Native candidate build runner/cancellation/logging; declaration/member PINNED_GO_VERSION; declarations/fields: `PINNED_GO_VERSION` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 36–46 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs; declarations/fields: `ProductionInputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 38 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.source; declarations/fields: `ProductionInputs.source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 39 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.forgejo_source; declarations/fields: `ProductionInputs.forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 40 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.forgejo_revision; declarations/fields: `ProductionInputs.forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 41 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.native; declarations/fields: `ProductionInputs.native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 42 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.out; declarations/fields: `ProductionInputs.out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 43 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.arch; declarations/fields: `ProductionInputs.arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 44 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.revision; declarations/fields: `ProductionInputs.revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 45 | Native candidate build runner/cancellation/logging; declaration/member ProductionInputs.live_inputs; declarations/fields: `ProductionInputs.live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 51–69 | Native candidate build runner/cancellation/logging; declaration/member build; declarations/fields: `build` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 71–76 | Fresh build workspace and native snapshot extraction; declarations/fields: `init_build_directories` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 78–109 | Fresh build workspace and native snapshot extraction; declaration/member extract_build_snapshot; declarations/fields: `extract_build_snapshot` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 111–131 | Fresh build workspace and native snapshot extraction; declaration/member setup_build_workspace; declarations/fields: `setup_build_workspace` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 133–203 | Frozen native base image identity acquisition; declarations/fields: `freeze_base_image_config` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 205–240 | Prepare/compile/stage shipping tools and candidate image; declarations/fields: `prepare_build_host_context` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 245–274 | Prepare/compile/stage shipping tools and candidate image; declaration/member prepare_build_production; declarations/fields: `prepare_build_production` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 280–339 | Prepare/compile/stage shipping tools and candidate image; declaration/member build_host_candidate; declarations/fields: `build_host_candidate` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 341–375 | Prepare/compile/stage shipping tools and candidate image; declaration/member execute_build_production; declarations/fields: `execute_build_production` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 377–393 | Prepare/compile/stage shipping tools and candidate image; declaration/member finalize_build; declarations/fields: `finalize_build` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 395–420 | Prepare/compile/stage shipping tools and candidate image; declaration/member run_build; declarations/fields: `run_build` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 422–626 | Prepare/compile/stage shipping tools and candidate image; declaration/member run_build_inner; declarations/fields: `run_build_inner` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 434–438 | Real native production operation adapter; declarations/fields: `RunnerProduction` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 435 | Real native production operation adapter; declaration/member RunnerProduction.runner; declarations/fields: `RunnerProduction.runner` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 436 | Real native production operation adapter; declaration/member RunnerProduction.inputs; declarations/fields: `RunnerProduction.inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 439–441 | Real native production operation adapter; declaration/member source; declarations/fields: `source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 442–444 | Real native production operation adapter; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 445–447 | Real native production operation adapter; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 448–450 | Real native production operation adapter; declaration/member native; declarations/fields: `native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 451–453 | Real native production operation adapter; declaration/member out; declarations/fields: `out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 454–456 | Real native production operation adapter; declaration/member arch; declarations/fields: `arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 457–459 | Real native production operation adapter; declaration/member revision; declarations/fields: `revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 460–462 | Real native production operation adapter; declaration/member live_inputs; declarations/fields: `live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 463–465 | Real native production operation adapter; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 466–468 | Real native production operation adapter; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 469–471 | Real native production operation adapter; declaration/member next; declarations/fields: `next` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 472–474 | Pinned live-input resolution adapter; declarations/fields: `resolve_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 475–477 | Native dependencies/compile/fork/assets/images adapter; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 478–480 | Native dependencies/compile/fork/assets/images adapter; declaration/member compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 481–483 | Native dependencies/compile/fork/assets/images adapter; declaration/member compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 484–486 | Native dependencies/compile/fork/assets/images adapter; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 487–489 | Native dependencies/compile/fork/assets/images adapter; declaration/member assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 490–492 | Native dependencies/compile/fork/assets/images adapter; declaration/member images; declarations/fields: `images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 493–495 | OCI/content verification adapter; declarations/fields: `inspect_oci` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 496 | OCI/content verification adapter; declaration/member verify_content; declarations/fields: `verify_content` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 503–505 | Pinned CoreOS/live inputs adapter; declarations/fields: `resolve_core_os` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 506–508 | Pinned CoreOS/live inputs adapter; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 509–511 | Native candidate check adapter; declarations/fields: `check_native` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 512 | Media signing adapter; declarations/fields: `sign_media` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 524 | Verified external copy adapter; declarations/fields: `verify_copy` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 534–626 | Immutable document output adapter; declarations/fields: `write_document` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 628–686 | Candidate/media orchestration and native build environment; declaration/member build_host_candidate_with_progress; declarations/fields: `build_host_candidate_with_progress` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 693–710 | Candidate/media orchestration and native build environment; declaration/member link_prepared_assets; declarations/fields: `link_prepared_assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 712–836 | Native build source fixtures/assertions; declarations/fields: `tests` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 716–717 | Native build source fixtures/assertions; declaration/member oracle_link_prepared_assets_runs_no_commands; declarations/fields: `oracle_link_prepared_assets_runs_no_commands` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 719–723 | Native build source fixtures/assertions; declaration/member Stub; declarations/fields: `Stub` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 720 | Native build source fixtures/assertions; declaration/member Stub.source; declarations/fields: `Stub.source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 721 | Native build source fixtures/assertions; declaration/member Stub.native; declarations/fields: `Stub.native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 724–726 | Native build source fixtures/assertions; declaration/member source; declarations/fields: `source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 727–729 | Native build source fixtures/assertions; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 730–732 | Native build source fixtures/assertions; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 733–735 | Native build source fixtures/assertions; declaration/member native; declarations/fields: `native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 736–738 | Native build source fixtures/assertions; declaration/member out; declarations/fields: `out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 739–741 | Native build source fixtures/assertions; declaration/member arch; declarations/fields: `arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 742–744 | Native build source fixtures/assertions; declaration/member revision; declarations/fields: `revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 745–747 | Native build source fixtures/assertions; declaration/member live_inputs; declarations/fields: `live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 748–750 | Native build source fixtures/assertions; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 751–753 | Native build source fixtures/assertions; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 754–756 | Native build source fixtures/assertions; declaration/member next; declarations/fields: `next` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 757–759 | Native build source fixtures/assertions; declaration/member resolve_inputs; declarations/fields: `resolve_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 760–762 | Native build source fixtures/assertions; declaration/member dependencies; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 763–765 | Native build source fixtures/assertions; declaration/member compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 766–768 | Native build source fixtures/assertions; declaration/member compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 769–771 | Native build source fixtures/assertions; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 772–774 | Native build source fixtures/assertions; declaration/member assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 775–777 | Native build source fixtures/assertions; declaration/member images; declarations/fields: `images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 778–780 | Native build source fixtures/assertions; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 781 | Native build source fixtures/assertions; declaration/member verify_content; declarations/fields: `verify_content` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 788–790 | Native build source fixtures/assertions; declaration/member resolve_core_os; declarations/fields: `resolve_core_os` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 791–793 | Native build source fixtures/assertions; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 794–796 | Native build source fixtures/assertions; declaration/member check_native; declarations/fields: `check_native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 797 | Native build source fixtures/assertions; declaration/member sign_media; declarations/fields: `sign_media` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 809 | Native build source fixtures/assertions; declaration/member verify_copy; declarations/fields: `verify_copy` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 819–836 | Native build source fixtures/assertions; declaration/member write_document; declarations/fields: `write_document` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–316, 324–326, 330–453; lines 31–34: PINNED_GO_VERSION and attached behavior; attached module comments and attributes; lines 35–48: ProductionInputs and attached behavior; lines 49–63: build and attached behavior; lines 71–103: extract_build_snapshot and attached behavior; lines 104–129: setup_build_workspace and attached behavior; lines 130–159: prepare_build_production and attached behavior; lines 160–196: execute_build_production and attached behavior; lines 197–214: finalize_build and attached behavior; lines 215–241: run_build and attached behavior; lines 242–254: run_build_inner and attached behavior; lines 259–259: impl Production; lines 260–262: source and attached behavior; lines 263–265: forgejo_source and attached behavior; lines 266–268: forgejo_revision and attached behavior; lines 269–271: native and attached behavior; lines 272–274: out and attached behavior; lines 275–277: arch and attached behavior; lines 278–280: revision and attached behavior; lines 281–283: live_inputs and attached behavior; lines 284–286: execute and attached behavior; lines 287–289: capture and attached behavior; lines 290–292: next and attached behavior; lines 293–295: resolve_inputs and attached behavior; lines 296–298: dependencies and attached behavior; lines 299–301: compile and attached behavior; lines 302–304: compile_rust and attached behavior; lines 305–307: stage_fork_binary and attached behavior; lines 308–310: assets and attached behavior; lines 311–313: images and attached behavior; lines 314–316: inspect_oci and attached behavior; lines 324–326: resolve_core_os and attached behavior; lines 330–332: check_native and attached behavior; lines 333–344: sign_media and attached behavior; lines 345–354: verify_copy and attached behavior; lines 355–453: write_document and attached behavior | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Native candidate build runner/cancellation/logging; declaration/member PINNED_GO_VERSION Adjacent comments and attributes explain this same authored responsibility.; 35 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 317–323; lines 317–323: verify_content and attached behavior | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | OCI/content verification adapter; declaration/member verify_content — lib/soda-release-image/src/build.rs:317-323; current named unit matched to maintained semantic map and release consumer |
+| 327–329; lines 327–329: read_live_inputs and attached behavior | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Pinned CoreOS/live inputs adapter; declaration/member read_live_inputs — lib/soda-release-image/src/build.rs:327-329; current named unit matched to maintained semantic map and release consumer |
+
+<a id="coverage-8143346f6f85"></a>
+
+## [lib/soda-release-image/src/build_candidate.rs](../../../../../lib/soda-release-image/src/build_candidate.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–77; lines 1–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–15: use crate and attached body; lines 16–77: fn build_host_candidate and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for fn build_host_candidate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-01d2f08990d5"></a>
 
 ## [lib/soda-release-image/src/build_compile.rs](../../../../../lib/soda-release-image/src/build_compile.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current module body and direct consumer inspected
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–8 | Native candidate build runner/cancellation/logging; declarations/fields: `compile_soda_commands`, `record_tool_files`, `RUST_TOOLS`, `compile_rust_tools`, `compile_shipping_tools`, `shipping_tools_use_rust_recipes_and_ship_remote_companion`, `soda_commands_follow_actual_go_rust_owners`, `cmd1_compile_skips_terminal_identity_and_tools_ship_it_once` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 10–51 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_soda_commands; declarations/fields: `compile_soda_commands` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 53–102 | Prepare/compile/stage shipping tools and candidate image; declaration/member record_tool_files; declarations/fields: `record_tool_files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 107–158 | Prepare/compile/stage shipping tools and candidate image; declaration/member RUST_TOOLS; declarations/fields: `RUST_TOOLS` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 160–167 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_rust_tools; declarations/fields: `compile_rust_tools` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 169–212 | Prepare/compile/stage shipping tools and candidate image; declaration/member compile_shipping_tools; declarations/fields: `compile_shipping_tools` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 335–385 | Prepare/compile/stage shipping tools and candidate image; declaration/member shipping_tools_use_rust_recipes_and_ship_remote_companion; declarations/fields: `shipping_tools_use_rust_recipes_and_ship_remote_companion` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 387–431 | Prepare/compile/stage shipping tools and candidate image; declaration/member soda_commands_follow_actual_go_rust_owners; declarations/fields: `soda_commands_follow_actual_go_rust_owners` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 433–490 | Prepare/compile/stage shipping tools and candidate image; declaration/member cmd1_compile_skips_terminal_identity_and_tools_ship_it_once; declarations/fields: `cmd1_compile_skips_terminal_identity_and_tools_ship_it_once` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–853; runtime command inventory and command discovery/compile selection; tool-files inventory JSON producer; Rust rootfs tool selector and compile adapter; shipping-tool inventory validation and compilation orchestration; embedded build-selector and tool-inventory tests | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Selects cmd runtime commands from the shipping inventory, validates Rust package/bin ownership, and compiles each Go or Rust command to rootfs/usr/libexec/soda; RUNTIME_COMMANDS preserves Rust binaries moved out of cmd/.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-4b62897f4b79"></a>
+
+## [lib/soda-release-image/src/build_context/mod.rs](../../../../../lib/soda-release-image/src/build_context/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–149; lines 1–5: use std and attached body; lines 6–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–11: use crate and attached body; lines 12–12: use crate and attached body; lines 13–13: use crate and attached body; lines 14–60: fn freeze_base_image_config and attached body; lines 61–85: fn freeze_image_config and attached body; lines 86–128: fn prepare_build_host_context and attached body; lines 129–148: fn link_prepared_assets and attached body; lines 149–149: mod tests and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-835711281ef2"></a>
+
+## [lib/soda-release-image/src/build_context/tests.rs](../../../../../lib/soda-release-image/src/build_context/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–146; lines 1–1: use super and attached body; lines 2–4: use std and attached body; lines 5–23: fn freezing_image_config_preserves_raw_duplicates_order_and_numeric_tokens and attached body; lines 24–25: fn oracle_link_prepared_assets_runs_no_commands and attached body; lines 26–29: struct Stub and attached body; lines 30–30: impl Production and attached body; lines 31–33: fn source and attached body; lines 34–36: fn forgejo_source and attached body; lines 37–39: fn forgejo_revision and attached body; lines 40–42: fn native and attached body; lines 43–45: fn out and attached body; lines 46–48: fn arch and attached body; lines 49–51: fn revision and attached body; lines 52–54: fn live_inputs and attached body; lines 55–57: fn execute and attached body; lines 58–60: fn capture and attached body; lines 61–63: fn next and attached body; lines 64–66: fn resolve_inputs and attached body; lines 67–69: fn dependencies and attached body; lines 70–72: fn compile and attached body; lines 73–75: fn compile_rust and attached body; lines 76–78: fn stage_fork_binary and attached body; lines 79–81: fn assets and attached body; lines 82–84: fn images and attached body; lines 85–87: fn inspect_oci and attached body; lines 88–94: fn verify_content and attached body; lines 95–97: fn resolve_core_os and attached body; lines 98–100: fn read_live_inputs and attached body; lines 101–103: fn check_native and attached body; lines 104–115: fn sign_media and attached body; lines 116–125: fn verify_copy and attached body; lines 126–146: fn write_document and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 32 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b4ab4b684b17"></a>
+
+## [lib/soda-release-image/src/build_media.rs](../../../../../lib/soda-release-image/src/build_media.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–314; lines 1–3: use std and attached body; lines 4–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–13: use crate and attached body; lines 14–20: struct MediaTools and attached body; lines 21–21: const BUTANE_IMAGE and attached body; lines 22–38: fn prepare_build_media and attached body; lines 39–54: fn finish_build_media and attached body; lines 55–108: fn verify_butane_image and attached body; lines 109–130: fn admit_media_tools and attached body; lines 131–180: fn prepare_media_inputs and attached body; lines 181–181: mod tests and attached body; lines 182–184: use super and attached body; lines 185–186: fn oracle_media_boundary_skips_without_target and attached body; lines 187–187: struct Stub and attached body; lines 188–188: impl Production and attached body; lines 189–191: fn source and attached body; lines 192–194: fn forgejo_source and attached body; lines 195–197: fn forgejo_revision and attached body; lines 198–200: fn native and attached body; lines 201–203: fn out and attached body; lines 204–206: fn arch and attached body; lines 207–209: fn revision and attached body; lines 210–212: fn live_inputs and attached body; lines 213–215: fn execute and attached body; lines 216–218: fn capture and attached body; lines 219–221: fn next and attached body; lines 222–224: fn resolve_inputs and attached body; lines 225–227: fn dependencies and attached body; lines 228–230: fn compile and attached body; lines 231–233: fn compile_rust and attached body; lines 234–236: fn stage_fork_binary and attached body; lines 237–239: fn assets and attached body; lines 240–246: fn images and attached body; lines 247–249: fn inspect_oci and attached body; lines 250–256: fn verify_content and attached body; lines 257–259: fn resolve_core_os and attached body; lines 260–262: fn read_live_inputs and attached body; lines 263–265: fn check_native and attached body; lines 266–277: fn sign_media and attached body; lines 278–287: fn verify_copy and attached body; lines 288–314: fn write_document and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 46 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e7e08b83c482"></a>
 
 ## [lib/soda-release-image/src/build_runner.rs](../../../../../lib/soda-release-image/src/build_runner.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–12 | Native candidate build runner/cancellation/logging; declarations/fields: `Cancel`, `Cancel.flag`, `new`, `cancel`, `is_cancelled`, `SharedFile`, `wrap`, `write`, `flush`, `Runner`, `Runner.cancel`, `Runner.log`, `execute`, `capture`, `open_log`, `reason`, `LogCloser`, `LogCloser.files`, `close`, `build_environment_pairs`, `resolve_build_tool`, `look_path`, `run_build_command`, `drain_pipe` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 15–18 | Native candidate build runner/cancellation/logging; declaration/member Cancel; declarations/fields: `Cancel` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 17 | Native candidate build runner/cancellation/logging; declaration/member Cancel.flag; declarations/fields: `Cancel.flag` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 21–23 | Native candidate build runner/cancellation/logging; declaration/member new; declarations/fields: `new` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 25–27 | Native candidate build runner/cancellation/logging; declaration/member cancel; declarations/fields: `cancel` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 29–32 | Native candidate build runner/cancellation/logging; declaration/member is_cancelled; declarations/fields: `is_cancelled` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 36–37 | Native candidate build runner/cancellation/logging; declaration/member SharedFile; declarations/fields: `SharedFile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 40–43 | Native candidate build runner/cancellation/logging; declaration/member wrap; declarations/fields: `wrap` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 46–48 | Native candidate build runner/cancellation/logging; declaration/member write; declarations/fields: `write` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 50–53 | Native candidate build runner/cancellation/logging; declaration/member flush; declarations/fields: `flush` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 57–61 | Native candidate build runner/cancellation/logging; declaration/member Runner; declarations/fields: `Runner` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 59 | Native candidate build runner/cancellation/logging; declaration/member Runner.cancel; declarations/fields: `Runner.cancel` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 60 | Native candidate build runner/cancellation/logging; declaration/member Runner.log; declarations/fields: `Runner.log` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 71–77 | Native candidate build runner/cancellation/logging; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 79–82 | Native candidate build runner/cancellation/logging; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 84–127 | Native candidate build runner/cancellation/logging; declaration/member open_log; declarations/fields: `open_log` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 129–132 | Native candidate build runner/cancellation/logging; declaration/member reason; declarations/fields: `reason` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 135–137 | Native candidate build runner/cancellation/logging; declaration/member LogCloser; declarations/fields: `LogCloser` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 136 | Native candidate build runner/cancellation/logging; declaration/member LogCloser.files; declarations/fields: `LogCloser.files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 140–147 | Native candidate build runner/cancellation/logging; declaration/member close; declarations/fields: `close` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 152–178 | Candidate/media orchestration and native build environment; declaration/member build_environment_pairs; declarations/fields: `build_environment_pairs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 184–191 | Candidate/media orchestration and native build environment; declaration/member resolve_build_tool; declarations/fields: `resolve_build_tool` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 193–205 | Candidate/media orchestration and native build environment; declaration/member look_path; declarations/fields: `look_path` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 207–279 | Candidate/media orchestration and native build environment; declaration/member run_build_command; declarations/fields: `run_build_command` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 281–291 | Candidate/media orchestration and native build environment; declaration/member drain_pipe; declarations/fields: `drain_pipe` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–374; lines 16–20: Cancel and attached behavior; attached module comments and attributes; lines 24–27: cancel and attached behavior; lines 28–36: is_cancelled and attached behavior; lines 37–39: SharedFile and attached behavior; lines 40–43: wrap and attached behavior; lines 44–45: impl Write; lines 46–48: write and attached behavior; lines 49–57: flush and attached behavior; lines 58–63: Runner and attached behavior; lines 70–77: execute and attached behavior; lines 78–82: capture and attached behavior; lines 83–89: open_log and attached behavior; lines 128–134: reason and attached behavior; lines 135–139: LogCloser and attached behavior; lines 140–151: close and attached behavior; lines 152–178: build_environment_pairs and attached behavior; lines 179–190: run_build_command and attached behavior; lines 191–215: fn run_build_command_with_budget; lines 216–216: const CAPTURE_LIMIT; lines 217–311: const DRAIN_GRACE; lines 312–316: fn bounded_operation_deadline; lines 317–318: struct ChildGuard; lines 321–321: type Target; lines 322–325: fn deref; lines 328–331: fn deref_mut; lines 332–333: impl Drop; lines 334–338: fn drop; lines 339–349: fn set_nonblocking; lines 350–354: enum PipeRead; lines 355–373: fn read_available; lines 374–374: mod tests | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Native candidate build runner/cancellation/logging; declaration/member Cancel Adjacent comments and attributes explain this same authored responsibility.; 31 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-87a991f781e1"></a>
 
 ## [lib/soda-release-image/src/build_runner/tests.rs](../../../../../lib/soda-release-image/src/build_runner/tests.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1 | Native candidate build runner/cancellation/logging; declarations/fields: `oracle_build_command_capture_environment_and_failure`, `run_build_command_drains_saturated_pipes`, `run_build_command_cancel_kills_and_reports` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 3–58 | Native build source fixtures/assertions; declaration/member oracle_build_command_capture_environment_and_failure; declarations/fields: `oracle_build_command_capture_environment_and_failure` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 60–80 | Native build source fixtures/assertions; declaration/member run_build_command_drains_saturated_pipes; declarations/fields: `run_build_command_drains_saturated_pipes` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 82–104 | Native build source fixtures/assertions; declaration/member run_build_command_cancel_kills_and_reports; declarations/fields: `run_build_command_cancel_kills_and_reports` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–238; lines 4–19: fn metadata_deadline_is_scoped_to_the_metadata_operation; attached module comments and attributes; lines 20–43: fn bounded_build_operation_expires_while_output_keeps_arriving; lines 44–100: oracle_build_command_capture_environment_and_failure and attached behavior; lines 101–122: run_build_command_drains_saturated_pipes and attached behavior; lines 123–146: run_build_command_cancel_kills_and_reports and attached behavior; lines 147–162: fn cloned_cancellation_reaches_a_running_command; lines 163–164: struct CancellingWriter; lines 167–170: fn write; lines 171–177: fn flush; lines 178–194: fn run_build_command_streams_before_child_exit; lines 195–210: fn run_build_command_bounds_capture; lines 211–228: fn descendant_pipe_drain_deadline_closes_owned_fds; lines 229–229: fn output_read_error_is_returned; lines 230–230: struct FailingReader; lines 232–238: fn read | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current fn metadata_deadline_is_scoped_to_the_metadata_operation and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7adbc5baf32b"></a>
 
 ## [lib/soda-release-image/src/build_source.rs](../../../../../lib/soda-release-image/src/build_source.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–9 | Native candidate build runner/cancellation/logging; declarations/fields: `verify_checkout_source`, `verify_committed_revision`, `verify_compiler`, `admit_build_output`, `admit_build_inputs` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 11–33 | Clean exact checkout and source/compiler/output admission; declarations/fields: `verify_checkout_source` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 35–71 | Clean exact checkout and source/compiler/output admission; declaration/member verify_committed_revision; declarations/fields: `verify_committed_revision` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 73–81 | Clean exact checkout and source/compiler/output admission; declaration/member verify_compiler; declarations/fields: `verify_compiler` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 83–99 | Clean exact checkout and source/compiler/output admission; declaration/member admit_build_output; declarations/fields: `admit_build_output` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 101–121 | Clean exact checkout and source/compiler/output admission; declaration/member admit_build_inputs; declarations/fields: `admit_build_inputs` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–121; verify_checkout_source and attached module contract | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) | retained | Validate that the controller-selected source is a canonical clean checkout; source admission belongs to the release build request boundary. — Current source inspected at lib/soda-release-image/src/build_source.rs; concrete renderer/build/test consumer is named in the selector and description. |
+
+<a id="coverage-88e9feae83ed"></a>
+
+## [lib/soda-release-image/src/complete.rs](../../../../../lib/soda-release-image/src/complete.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–288; lines 1–3: use std and attached body; lines 4–4: use std and attached body; lines 5–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–11: use crate and attached body; lines 12–12: use crate and attached body; lines 13–13: use crate and attached body; lines 14–42: fn stage_presentation and attached body; lines 43–52: fn validate_complete_payload and attached body; lines 53–76: fn write_complete_quadlets and attached body; lines 77–96: fn verify_public_branding_and_motd and attached body; lines 97–115: fn write_factory_defaults and attached body; lines 116–148: fn configure_complete_systemd and attached body; lines 149–155: fn bind_extension_install_image and attached body; lines 156–165: const PLACEHOLDER and attached body; lines 166–187: fn write_release_metadata_and_normalize and attached body; lines 188–195: use std and attached body; lines 196–219: fn complete and attached body; lines 220–220: mod tests and attached body; lines 221–223: use super and attached body; lines 224–234: fn oracle_complete_refuses_before_payload and attached body; lines 235–255: fn oracle_extension_binding_refuses_ambiguity and attached body; lines 256–288: fn quadlets_read_new_layout and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 26 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-45ac36eaf0bb"></a>
+
+## [lib/soda-release-image/src/compression.rs](../../../../../lib/soda-release-image/src/compression.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–148; lines 1–3: use std and attached body; lines 4–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–10: const DEFAULT_ROOTFS_OPTIONS and attached body; lines 11–11: const FAST_ROOTFS_OPTIONS and attached body; lines 12–16: const IMAGE_CONFIG_PATH and attached body; lines 17–17: struct ImageConfig and attached body; lines 18–19: impl ImageConfig and attached body; lines 20–22: fn parse and attached body; lines 23–26: fn to_compact_json and attached body; lines 27–30: fn to_pretty_json and attached body; lines 31–34: fn is_nonempty_object and attached body; lines 35–41: fn settings and attached body; lines 42–50: fn ordered_mut and attached body; lines 51–70: fn set_media_compression and attached body; lines 71–80: fn record_image_config and attached body; lines 81–89: fn rootfs_settings and attached body; lines 90–90: mod tests and attached body; lines 91–93: use super and attached body; lines 94–122: fn oracle_media_compression_admission_and_metadata and attached body; lines 123–148: fn settings_select_exact_then_first_folded_and_fast_updates_every_exact_pair and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 23 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-206d9eff3ea0"></a>
+
+## [lib/soda-release-image/src/error.rs](../../../../../lib/soda-release-image/src/error.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–35; lines 1–5: struct Error and attached body; lines 6–7: impl Error and attached body; lines 8–11: fn msg and attached body; lines 12–13: impl std and attached body; lines 14–17: fn fmt and attached body; lines 18–19: impl std and attached body; lines 20–21: impl From and attached body; lines 22–28: fn from and attached body; lines 29–35: fn join_close and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for struct Error in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-9d3f8dd26c13"></a>
+
+## [lib/soda-release-image/src/events.rs](../../../../../lib/soda-release-image/src/events.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–142; lines 1–3: use serde and attached body; lines 4–4: use std and attached body; lines 5–11: use crate and attached body; lines 12–20: struct MediaEventWriter and attached body; lines 21–29: fn new and attached body; lines 30–47: fn media_log_event and attached body; lines 48–57: fn append_line_byte and attached body; lines 58–67: fn finish_line and attached body; lines 68–79: fn consume and attached body; lines 80–96: struct EventRecord and attached body; lines 97–107: fn write_data and attached body; lines 108–111: fn write and attached body; lines 112–119: fn flush and attached body; lines 120–120: mod tests and attached body; lines 121–123: use super and attached body; lines 124–142: fn oracle_events_observe_bounded_public_windows and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 16 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-07ef85b82f0f"></a>
+
+## [lib/soda-release-image/src/extension.rs](../../../../../lib/soda-release-image/src/extension.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–91; lines 1–3: use std and attached body; lines 4–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–12: use crate and attached body; lines 13–23: fn stage_extension_assets and attached body; lines 24–35: fn extension_asset_inventory and attached body; lines 36–42: fn safe_extension_asset_name and attached body; lines 43–57: fn link_extension_asset and attached body; lines 58–58: mod tests and attached body; lines 59–61: use super and attached body; lines 62–91: fn oracle_asset_stage_keeps_recorded_output_and_refuses_unsafe and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7be2e731223b"></a>
+
+## [lib/soda-release-image/src/files.rs](../../../../../lib/soda-release-image/src/files.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–100; lines 1–4: use std and attached body; lines 5–5: use std and attached body; lines 6–6: use std and attached body; lines 7–8: use serde and attached body; lines 9–10: use crate and attached body; lines 11–11: use crate and attached body; lines 12–19: fn owned_write and attached body; lines 20–26: fn hash_bytes and attached body; lines 27–56: fn public_files and attached body; lines 57–64: struct MediaFile and attached body; lines 65–76: fn media_file and attached body; lines 77–77: mod tests and attached body; lines 78–80: use super and attached body; lines 81–100: fn oracle_public_files_enforce_modes and attached body | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-35029f5fe87a"></a>
 
 ## [lib/soda-release-image/src/foreign.rs](../../../../../lib/soda-release-image/src/foreign.rs)
 
+Current coherent source duties matched to live consumer and prior semantic unit context
 
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–47, 50–63, 104–111; lines 21–29: struct PackagingInputs; attached module comments and attributes; lines 50–51: fn dependencies; lines 52–53: fn compile; lines 54–55: fn compile_rust; lines 58–59: fn assets; lines 60–63: fn images | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current struct PackagingInputs and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 6 named units assigned here; remaining selectors preserve each duty — lib/soda-release-image/src/foreign.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 48–49, 73–77; lines 48–49: fn resolve_inputs; lines 73–74: fn resolve_core_os; lines 75–77: fn read_live_inputs | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Pinned input acquisition adapter: resolve_inputs; Pinned input acquisition adapter: resolve_core_os; Pinned input acquisition adapter: read_live_inputs — lib/soda-release-image/src/foreign.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 64–72, 78–79; lines 64–66: fn inspect_oci; lines 67–72: fn verify_content; lines 78–79: fn check_native | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Artifact verification adapter: inspect_oci; Artifact verification adapter: verify_content; Artifact verification adapter: check_native — lib/soda-release-image/src/foreign.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 80–90; lines 80–90: fn sign_media | [D08](../../slices/release-and-installation.md#d08-signing-custody) | retained | Signing custody adapter: sign_media — lib/soda-release-image/src/foreign.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 91–99; lines 91–99: fn verify_copy | [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) | retained | Verified distribution consumption adapter: verify_copy — lib/soda-release-image/src/foreign.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 100–103; lines 100–103: fn write_document | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Release admission and preparation adapter: write_document — lib/soda-release-image/src/foreign.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–37, 46–47, 94–101 | Complete native candidate image assembly and authenticated live media; declarations/fields: `Production`, `source`, `forgejo_source`, `forgejo_revision`, `native`, `out`, `arch`, `revision`, `live_inputs`, `execute`, `capture`, `next`, `stage_fork_binary`, `Progress`, `phase`, `end_phase`, `end`, `create_log`, `note_reason` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 38–39 | Pinned input acquisition adapter: resolve_inputs; declarations/fields: `resolve_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 40–41 | Candidate production adapter: dependencies; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 42–43 | Candidate production adapter: compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 44–45 | Candidate production adapter: compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 48–49 | Candidate production adapter: assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 50–53 | Candidate production adapter: images; declarations/fields: `images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 54–56 | Artifact verification adapter: inspect_oci; declarations/fields: `inspect_oci` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 57–62 | Artifact verification adapter: verify_content; declarations/fields: `verify_content` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 63–64 | Pinned input acquisition adapter: resolve_core_os; declarations/fields: `resolve_core_os` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 65–67 | Pinned input acquisition adapter: read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 68–69 | Artifact verification adapter: check_native; declarations/fields: `check_native` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 70–80 | Signing custody adapter: sign_media; declarations/fields: `sign_media` |
-| [D10](../../slices/release-and-installation.md#d10-verified-distribution-consumption) / active | 81–89 | Verified distribution consumption adapter: verify_copy; declarations/fields: `verify_copy` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 90–93 | Release admission and preparation adapter: write_document; declarations/fields: `write_document` |
+<a id="coverage-62ddbc3ba015"></a>
+
+## [lib/soda-release-image/src/forgejo.rs](../../../../../lib/soda-release-image/src/forgejo.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–173; lines 1–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–12: use crate and attached body; lines 13–48: fn extract_forgejo_snapshot and attached body; lines 49–49: mod tests and attached body; lines 50–52: use super and attached body; lines 53–54: fn oracle_forgejo_snapshot_refuses_bad_revision and attached body; lines 55–55: struct Stub and attached body; lines 56–56: impl Production and attached body; lines 57–59: fn source and attached body; lines 60–62: fn forgejo_source and attached body; lines 63–65: fn forgejo_revision and attached body; lines 66–68: fn native and attached body; lines 69–71: fn out and attached body; lines 72–74: fn arch and attached body; lines 75–77: fn revision and attached body; lines 78–80: fn live_inputs and attached body; lines 81–83: fn execute and attached body; lines 84–86: fn capture and attached body; lines 87–89: fn next and attached body; lines 90–92: fn resolve_inputs and attached body; lines 93–95: fn dependencies and attached body; lines 96–98: fn compile and attached body; lines 99–101: fn compile_rust and attached body; lines 102–104: fn stage_fork_binary and attached body; lines 105–107: fn assets and attached body; lines 108–114: fn images and attached body; lines 115–117: fn inspect_oci and attached body; lines 118–124: fn verify_content and attached body; lines 125–127: fn resolve_core_os and attached body; lines 128–130: fn read_live_inputs and attached body; lines 131–133: fn check_native and attached body; lines 134–145: fn sign_media and attached body; lines 146–155: fn verify_copy and attached body; lines 156–173: fn write_document and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 37 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-6ec9c0721258"></a>
+<a id="coverage-9c45c3c490a8"></a>
 
 ## [lib/soda-release-image/src/host.rs](../../../../../lib/soda-release-image/src/host.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–196 | Native host image architecture/package provenance; declarations/fields: `read_host_image_id`, `inspect_host_identity`, `observe_host_packages`, `record_host_packages`, `export_host_archive`, `build_host_image`, `SCOPE` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 197–268 | Immutable produced host image readback; declarations/fields: `verify_built_host`, `SCOPE`, `tests`, `oracle_host_image_id_shape` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–196, 250–268; lines 15–160: fn read_host_image_id, fn inspect_host_identity, fn observe_host_packages, fn record_host_packages, fn export_host_archive, fn build_host_image; attached module comments and attributes; build_host_image SCOPE passed to rootfs build | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Native host image architecture/package provenance Adjacent comments and attributes explain this same authored responsibility.; Selects the complete-local-payload scope used for host image assembly. — lib/soda-release-image/src/host.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source; Current build_host_image/verify_built_host call sites show the selector controls image assembly versus verification. |
+| 197–249; lines 197–209: fn verify_built_host; verify_built_host SCOPE passed to content identity inspection | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Immutable produced host image readback; Selects the complete-local-payload scope used when inspecting the assembled host image content. — lib/soda-release-image/src/host.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source; Current build_host_image/verify_built_host call sites show the selector controls image assembly versus verification. |
+
+<a id="coverage-d052e96d3c04"></a>
+
+## [lib/soda-release-image/src/ignition.rs](../../../../../lib/soda-release-image/src/ignition.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–357; lines 1–3: use std and attached body; lines 4–5: use base64 and attached body; lines 6–6: use flate2 and attached body; lines 7–7: use serde and attached body; lines 8–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–11: use crate and attached body; lines 12–13: const LIVE_IGNITION_LIMIT and attached body; lines 14–18: const LIVE_IGNITION_COMPRESSED_LIMIT and attached body; lines 19–35: fn verify_live_ignition and attached body; lines 36–94: fn live_ignition_bytes and attached body; lines 95–97: const CANDIDATE_INSTALLER_BINARY and attached body; lines 98–113: struct MediaIdentity and attached body; lines 114–115: impl MediaIdentity and attached body; lines 116–128: fn validate and attached body; lines 129–141: fn valid_content and attached body; lines 142–185: fn candidate_live_config and attached body; lines 186–189: struct InlineContents and attached body; lines 190–195: struct InlineFile and attached body; lines 196–200: struct MaskUnit and attached body; lines 201–207: struct ConsoleUnit and attached body; lines 208–212: enum Unit and attached body; lines 213–216: struct IgnitionVersion and attached body; lines 217–220: struct Storage and attached body; lines 221–224: struct Systemd and attached body; lines 225–240: struct IgnitionDocument and attached body; lines 241–296: const LIVE_DATA and attached body; lines 297–297: mod tests and attached body; lines 298–298: use super and attached body; lines 299–299: use flate2 and attached body; lines 300–300: use flate2 and attached body; lines 301–301: use std and attached body; lines 302–309: fn gzip_bytes and attached body; lines 310–337: fn oracle_live_ignition_readback_ignores_nulls and attached body; lines 338–338: fn live_ignition_equality_keeps_object_order_duplicates_and_number_tokens and attached body; lines 339–357: fn wrapped and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 36 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a9419e4b62dd"></a>
+
+## [lib/soda-release-image/src/inspect.rs](../../../../../lib/soda-release-image/src/inspect.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–231; lines 1–3: use std and attached body; lines 4–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–10: use crate and attached body; lines 11–11: type InspectRun and attached body; lines 12–33: fn inspect_complete_payload and attached body; lines 34–67: fn inspect_complete_content and attached body; lines 68–82: fn inspect_complete_quadlets and attached body; lines 83–101: use std and attached body; lines 102–123: fn inspect_complete_extension_unit and attached body; lines 124–145: fn inspect_complete_service_files and attached body; lines 146–147: fn inspect_complete_inventory and attached body; lines 148–161: const PATH and attached body; lines 162–201: fn inspect_complete and attached body; lines 202–202: mod tests and attached body; lines 203–205: use super and attached body; lines 206–231: fn oracle_quadlet_generator_binding_checks and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-eafc06048d6d"></a>
+
+## [lib/soda-release-image/src/jsonio.rs](../../../../../lib/soda-release-image/src/jsonio.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–308; lines 1–3: use serde and attached body; lines 4–4: use serde and attached body; lines 5–5: use serde_json and attached body; lines 6–9: use std and attached body; lines 10–12: struct OrderedMap and attached body; lines 13–19: fn default and attached body; lines 20–22: struct SortedPairs and attached body; lines 23–23: fn serialize and attached body; lines 24–35: use serde and attached body; lines 36–36: fn deserialize and attached body; lines 37–38: struct OrderedMapVisitor and attached body; lines 39–39: type Value and attached body; lines 40–42: fn expecting and attached body; lines 43–53: fn visit_map and attached body; lines 54–57: use crate and attached body; lines 58–63: fn parse and attached body; lines 64–82: fn decode_field and attached body; lines 83–85: macro_rules! case_record and attached body; lines 86–86: fn deserialize and attached body; lines 87–88: struct RecordVisitor and attached body; lines 89–89: type Value and attached body; lines 90–92: fn expecting and attached body; lines 93–117: fn visit_map and attached body; lines 118–119: use case_record and attached body; lines 120–123: struct GoFormatter and attached body; lines 124–125: impl Formatter and attached body; lines 126–147: fn write_string_fragment and attached body; lines 148–164: fn write_char_escape and attached body; lines 165–175: fn begin_array and attached body; lines 176–185: fn end_array and attached body; lines 186–197: fn begin_array_value and attached body; lines 198–207: fn end_array_value and attached body; lines 208–217: fn begin_object and attached body; lines 218–227: fn end_object and attached body; lines 228–239: fn begin_object_key and attached body; lines 240–249: fn begin_object_value and attached body; lines 250–260: fn end_object_value and attached body; lines 261–272: fn serialize and attached body; lines 273–276: fn to_compact and attached body; lines 277–281: fn to_indent and attached body; lines 282–290: fn format_float_go and attached body; lines 291–291: mod tests and attached body; lines 292–294: use super and attached body; lines 295–308: fn formatter_matches_go_indent_and_compact_escapes and attached body | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 44 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-9f6c9a85cf9b"></a>
+<a id="coverage-35865cdb81e1"></a>
 
 ## [lib/soda-release-image/src/layout.rs](../../../../../lib/soda-release-image/src/layout.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–75 | Native candidate shared OCI image layout assembly; declarations/fields: `valid_stage_layout`, `verify_archive_digests`, `copy_staged_archives`, `chmod_staged_files` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 76–110 | Verify generated layout immutable identities; declarations/fields: `stage_images`, `tests`, `oracle_layout_staging_refuses_before_copies` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–75, 97–110; lines 15–75: fn valid_stage_layout, fn verify_archive_digests, fn copy_staged_archives, fn chmod_staged_files; attached module comments and attributes | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Native candidate shared OCI image layout assembly Adjacent comments and attributes explain this same authored responsibility. — lib/soda-release-image/src/layout.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 76–96; lines 76–96: fn stage_images | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Verify generated layout immutable identities — lib/soda-release-image/src/layout.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+
+<a id="coverage-aaa9527d7af8"></a>
+
+## [lib/soda-release-image/src/lib.rs](../../../../../lib/soda-release-image/src/lib.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–51; lines 1–16: mod build and attached body; lines 17–17: mod build_candidate and attached body; lines 18–18: mod build_compile and attached body; lines 19–19: mod build_context and attached body; lines 20–20: mod build_media and attached body; lines 21–21: mod build_runner and attached body; lines 22–22: mod build_source and attached body; lines 23–23: mod complete and attached body; lines 24–24: mod compression and attached body; lines 25–25: mod error and attached body; lines 26–26: mod events and attached body; lines 27–27: mod extension and attached body; lines 28–28: mod files and attached body; lines 29–29: mod foreign and attached body; lines 30–30: mod forgejo and attached body; lines 31–31: mod host and attached body; lines 32–32: mod ignition and attached body; lines 33–33: mod inspect and attached body; lines 34–34: mod jsonio and attached body; lines 35–35: mod layout and attached body; lines 36–36: mod media and attached body; lines 37–37: mod media_assembler and attached body; lines 38–38: mod media_authentication and attached body; lines 39–39: mod media_container and attached body; lines 40–40: mod media_installer and attached body; lines 41–41: mod model and attached body; lines 42–42: mod ordered_json and attached body; lines 43–43: mod packages and attached body; lines 44–44: mod payload_stage and attached body; lines 45–45: mod prepare and attached body; lines 46–46: mod quadlet and attached body; lines 47–47: mod recall and attached body; lines 48–48: mod record and attached body; lines 49–49: mod request and attached body; lines 50–50: mod rootfs and attached body; lines 51–51: mod sys and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for mod build in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 36 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-6104704208c3"></a>
-
 <a id="rustsoda-release-imagesrcmediars-1"></a>
+<a id="coverage-7c5a1bea2b62"></a>
 
 ## [lib/soda-release-image/src/media.rs](../../../../../lib/soda-release-image/src/media.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–101, 148–229; lines 34–35: RunFn and attached behavior; attached module comments and attributes; lines 36–38: NativeFn and attached behavior; lines 39–54: MediaLock and attached behavior; lines 55–60: MediaAuthority and attached behavior; lines 61–71: parse and attached behavior; lines 72–101: Media and attached behavior; lines 148–163: fn admit_media_authority; lines 164–190: admit_media_candidate and attached behavior; lines 191–205: admit_media_compression and attached behavior; lines 206–229: admit_media_inputs and attached behavior | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Authenticated media sources, inputs and assembly output contract; declaration/member RunFn Adjacent comments and attributes explain this same authored responsibility.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 102–137; lines 102–137: fn media_base_url | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Pinned native media assembler/ISO input acquisition — lib/soda-release-image/src/media.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 138–147; lines 138–147: MediaInputs and attached behavior | [D08](../../slices/release-and-installation.md#d08-signing-custody) | retained | Native exact digest media signing; declaration/member MediaInputs — lib/soda-release-image/src/media.rs:138-147; current named unit matched to maintained semantic map and release consumer |
+| 230–350; lines 230–276: seal_media and attached behavior; lines 277–349: assemble_media and attached behavior; lines 350–350: tests and attached behavior | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Immutable emitted media readback verification; declaration/member seal_media; Immutable emitted media readback verification; declaration/member assemble_media; Immutable emitted media readback verification; declaration/member tests — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 1–19 | Authenticated media sources, inputs and assembly output contract; declarations/fields: `MediaLock`, `to_json`, `MediaAuthority`, `parse`, `Media` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 20–21 | Authenticated media sources, inputs and assembly output contract; declaration/member RunFn; declarations/fields: `RunFn` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 22–24 | Authenticated media sources, inputs and assembly output contract; declaration/member NativeFn; declarations/fields: `NativeFn` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 25 | Authenticated media sources, inputs and assembly output contract; declaration/member MediaLock; declarations/fields: `MediaLock` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 26 | Authenticated media sources, inputs and assembly output contract; declaration/member MediaLock.assembler; declarations/fields: `MediaLock.assembler` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 27 | Authenticated media sources, inputs and assembly output contract; declaration/member MediaLock.config; declarations/fields: `MediaLock.config` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 28 | Authenticated media sources, inputs and assembly output contract; declaration/member MediaLock.architecture; declarations/fields: `MediaLock.architecture` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 29–32 | Authenticated media sources, inputs and assembly output contract; declaration/member MediaLock.installer; declarations/fields: `MediaLock.installer` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 33–56, 95–144 | Authenticated media sources, inputs and assembly output contract; declaration/member to_json; declarations/fields: `to_json` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 57 | Authenticated media sources, inputs and assembly output contract; declaration/member MediaAuthority; declarations/fields: `MediaAuthority` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 58 | Authenticated media sources, inputs and assembly output contract; declaration/member MediaAuthority.trust; declarations/fields: `MediaAuthority.trust` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 59–62 | Authenticated media sources, inputs and assembly output contract; declaration/member MediaAuthority.keys; declarations/fields: `MediaAuthority.keys` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 63–76 | Authenticated media sources, inputs and assembly output contract; declaration/member parse; declarations/fields: `parse` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 77 | Authenticated media sources, inputs and assembly output contract; declaration/member Media; declarations/fields: `Media` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 78 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.scope; declarations/fields: `Media.scope` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 79 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.revision; declarations/fields: `Media.revision` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 80 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.architecture; declarations/fields: `Media.architecture` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 81 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.host_manifest; declarations/fields: `Media.host_manifest` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 82 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.payload_sha256; declarations/fields: `Media.payload_sha256` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 83 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.console_sha256; declarations/fields: `Media.console_sha256` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 84 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.assembler_import_commit; declarations/fields: `Media.assembler_import_commit` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 85 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.rootfs_url; declarations/fields: `Media.rootfs_url` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 86 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.iso; declarations/fields: `Media.iso` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 87 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.rootfs; declarations/fields: `Media.rootfs` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 88 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.tools; declarations/fields: `Media.tools` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 89 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.compression_mode; declarations/fields: `Media.compression_mode` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 90 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.rootfs_filesystem; declarations/fields: `Media.rootfs_filesystem` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 91–94 | Authenticated media sources, inputs and assembly output contract; declaration/member Media.rootfs_options; declarations/fields: `Media.rootfs_options` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 145–183 | Pinned native media assembler/ISO input acquisition; declarations/fields: `media_base_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 184 | Pinned native media assembler/ISO input acquisition; declaration/member ASSEMBLER_IMAGE; declarations/fields: `ASSEMBLER_IMAGE` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 185–186 | Pinned native media assembler/ISO input acquisition; declaration/member ASSEMBLER_CONFIG_BRANCH; declarations/fields: `ASSEMBLER_CONFIG_BRANCH` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 187–245 | Pinned native media assembler/ISO input acquisition; declaration/member fetch_assembler_config; declarations/fields: `fetch_assembler_config` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 246–266 | Pinned native media assembler/ISO input acquisition; declaration/member pin_assembler_build_args; declarations/fields: `pin_assembler_build_args` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 267–302 | Pinned native media assembler/ISO input acquisition; declaration/member verify_assembler_layers; declarations/fields: `verify_assembler_layers` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 303–329 | Pinned native media assembler/ISO input acquisition; declaration/member wrap_assembler_image; declarations/fields: `wrap_assembler_image` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 330–368 | Pinned native media assembler/ISO input acquisition; declaration/member PREFIX; declarations/fields: `PREFIX` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 369–384 | Pinned native media assembler/ISO input acquisition; declaration/member prepare_assembler; declarations/fields: `prepare_assembler` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 385–398 | Pinned native media assembler/ISO input acquisition; declaration/member builder_id; declarations/fields: `builder_id` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 399–439 | Native exact digest media signing; declarations/fields: `sign_media_input` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 440 | Native exact digest media signing; declaration/member MediaInputs; declarations/fields: `MediaInputs` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 441 | Native exact digest media signing; declaration/member MediaInputs.authority; declarations/fields: `MediaInputs.authority` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 442 | Native exact digest media signing; declaration/member MediaInputs.trust; declarations/fields: `MediaInputs.trust` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 443 | Native exact digest media signing; declaration/member MediaInputs.candidate; declarations/fields: `MediaInputs.candidate` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 444 | Native exact digest media signing; declaration/member MediaInputs.payload; declarations/fields: `MediaInputs.payload` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 445 | Native exact digest media signing; declaration/member MediaInputs.observed; declarations/fields: `MediaInputs.observed` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 446 | Native exact digest media signing; declaration/member MediaInputs.archive; declarations/fields: `MediaInputs.archive` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 447 | Native exact digest media signing; declaration/member MediaInputs.filesystem; declarations/fields: `MediaInputs.filesystem` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 448–450 | Native exact digest media signing; declaration/member MediaInputs.fsoptions; declarations/fields: `MediaInputs.fsoptions` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 451–466 | Bound authenticated media preparation/assembly; declarations/fields: `admit_media_authority` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 467–493 | Bound authenticated media preparation/assembly; declaration/member admit_media_candidate; declarations/fields: `admit_media_candidate` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 494–508 | Bound authenticated media preparation/assembly; declaration/member admit_media_compression; declarations/fields: `admit_media_compression` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 509–532 | Bound authenticated media preparation/assembly; declaration/member admit_media_inputs; declarations/fields: `admit_media_inputs` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 533–568 | Bound authenticated media preparation/assembly; declaration/member collect_media_inventory; declarations/fields: `collect_media_inventory` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 569–584 | Bound authenticated media preparation/assembly; declaration/member verify_media_inventory; declarations/fields: `verify_media_inventory` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 585–639 | Bound authenticated media preparation/assembly; declaration/member authenticate_packaging_inputs; declarations/fields: `authenticate_packaging_inputs` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 640–673 | Bound authenticated media preparation/assembly; declaration/member stop_packaging_container; declarations/fields: `stop_packaging_container` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 674–723 | Bound authenticated media preparation/assembly; declaration/member build_media_container; declarations/fields: `build_media_container` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 724–740 | Bound authenticated media preparation/assembly; declaration/member assemble_native_media; declarations/fields: `assemble_native_media` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 741 | Bound authenticated media preparation/assembly; declaration/member MediaMetaImage; declarations/fields: `MediaMetaImage` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 742 | Bound authenticated media preparation/assembly; declaration/member MediaMetaImage.path; declarations/fields: `MediaMetaImage.path` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 743 | Bound authenticated media preparation/assembly; declaration/member MediaMetaImage.sha256; declarations/fields: `MediaMetaImage.sha256` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 744–747 | Bound authenticated media preparation/assembly; declaration/member MediaMetaImage.size; declarations/fields: `MediaMetaImage.size` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 748 | Bound authenticated media preparation/assembly; declaration/member MediaMeta; declarations/fields: `MediaMeta` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 749 | Bound authenticated media preparation/assembly; declaration/member MediaMeta.ostree_commit; declarations/fields: `MediaMeta.ostree_commit` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 750–753 | Bound authenticated media preparation/assembly; declaration/member MediaMeta.images; declarations/fields: `MediaMeta.images` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 754–774 | Bound authenticated media preparation/assembly; declaration/member parse; declarations/fields: `parse` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 775–799 | Bound authenticated media preparation/assembly; declaration/member verify_meta_images; declarations/fields: `verify_meta_images` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 800–819 | Bound authenticated media preparation/assembly; declaration/member verify_build_meta; declarations/fields: `verify_build_meta` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 820–836 | Bound authenticated media preparation/assembly; declaration/member setup_media_rootfs; declarations/fields: `setup_media_rootfs` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 837–871 | Bound authenticated media preparation/assembly; declaration/member verify_customized_iso; declarations/fields: `verify_customized_iso` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 872–932 | Bound authenticated media preparation/assembly; declaration/member customize_installer_iso; declarations/fields: `customize_installer_iso` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 933–1002, 1181–1204 | Immutable emitted media readback verification; declarations/fields: `verify_media_readback`, `oracle_assembler_pin_requires_buildroot_selection` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1003–1035 | Immutable emitted media readback verification; declaration/member prepare_and_verify_media; declarations/fields: `prepare_and_verify_media` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1036–1082 | Immutable emitted media readback verification; declaration/member seal_media; declarations/fields: `seal_media` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1083–1154 | Immutable emitted media readback verification; declaration/member assemble_media; declarations/fields: `assemble_media` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1155–1158 | Immutable emitted media readback verification; declaration/member tests; declarations/fields: `tests` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 1159–1180 | Source assertion of Authenticated installation media; declarations/fields: `oracle_media_url_has_no_credentials_or_mutable_query` |
+<a id="coverage-b62ef7c4e563"></a>
+
+## [lib/soda-release-image/src/media/tests.rs](../../../../../lib/soda-release-image/src/media/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–54; lines 1–3: use super and attached body; lines 4–31: fn oracle_media_url_has_no_credentials_or_mutable_query and attached body; lines 32–54: fn oracle_assembler_pin_requires_buildroot_selection and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for fn oracle_media_url_has_no_credentials_or_mutable_query in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for fn oracle_assembler_pin_requires_buildroot_selection in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7bf6866f2c39"></a>
+
+## [lib/soda-release-image/src/media_assembler.rs](../../../../../lib/soda-release-image/src/media_assembler.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–227; lines 1–1: use std and attached body; lines 2–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–13: use crate and attached body; lines 14–14: const ASSEMBLER_IMAGE and attached body; lines 15–15: const ASSEMBLER_CONFIG_BRANCH and attached body; lines 16–74: fn fetch_assembler_config and attached body; lines 75–95: fn pin_assembler_build_args and attached body; lines 96–131: fn verify_assembler_layers and attached body; lines 132–159: fn wrap_assembler_image and attached body; lines 160–197: const PREFIX and attached body; lines 198–213: fn prepare_assembler and attached body; lines 214–227: fn builder_id and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-cc64c78b014e"></a>
+
+## [lib/soda-release-image/src/media_authentication.rs](../../../../../lib/soda-release-image/src/media_authentication.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–146; lines 1–1: use crate and attached body; lines 2–2: use std and attached body; lines 3–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–49: fn sign_media_input and attached body; lines 50–85: fn collect_media_inventory and attached body; lines 86–101: fn verify_media_inventory and attached body; lines 102–146: fn authenticate_packaging_inputs and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b2754ab52522"></a>
+
+## [lib/soda-release-image/src/media_container.rs](../../../../../lib/soda-release-image/src/media_container.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–193; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–43: fn stop_packaging_container and attached body; lines 44–93: fn build_media_container and attached body; lines 94–111: fn assemble_native_media and attached body; lines 112–118: struct MediaMetaImage and attached body; lines 119–124: struct MediaMeta and attached body; lines 125–139: struct MediaMetaWire and attached body; lines 140–141: impl MediaMeta and attached body; lines 142–149: fn parse and attached body; lines 150–174: fn verify_meta_images and attached body; lines 175–193: fn verify_build_meta and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-2803233c50af"></a>
+
+## [lib/soda-release-image/src/media_installer.rs](../../../../../lib/soda-release-image/src/media_installer.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–224; lines 1–1: use std and attached body; lines 2–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–25: fn setup_media_rootfs and attached body; lines 26–60: fn verify_customized_iso and attached body; lines 61–121: fn customize_installer_iso and attached body; lines 122–191: fn verify_media_readback and attached body; lines 192–224: fn prepare_and_verify_media and attached body | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-cc36266cdbdc"></a>
-
 <a id="rustsoda-release-imagesrcmodelrs-1"></a>
+<a id="coverage-f0e1bffd065b"></a>
 
 ## [lib/soda-release-image/src/model.rs](../../../../../lib/soda-release-image/src/model.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–11 | Exact source revision/digest and URL parsing helpers; declarations/fields: `DELIVER_PATH`, `DELIVER_IMAGES_PATH`, `NAMES`, `FORGEJO_COMPILER_IMAGE`, `SCHEMA_VERSION`, `SODA_SOURCE`, `is_revision`, `is_digest`, `oci_architecture`, `prefixed_digest`, `deliver_hash`, `is_dotted_numbers`, `is_coreos_release`, `valid_repository_prefix`, `UrlParts`, `parse_url`, `https_url`, `is_loopback_addr`, `parse_ipv4`, `parse_ipv6`, `parse_v6_side` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 12 | Exact source revision/digest and URL parsing helpers; declaration/member DELIVER_PATH; declarations/fields: `DELIVER_PATH` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 13–14 | Exact source revision/digest and URL parsing helpers; declaration/member DELIVER_IMAGES_PATH; declarations/fields: `DELIVER_IMAGES_PATH` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 15–22 | Exact source revision/digest and URL parsing helpers; declaration/member NAMES; declarations/fields: `NAMES` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 23–25 | Exact source revision/digest and URL parsing helpers; declaration/member FORGEJO_COMPILER_IMAGE; declarations/fields: `FORGEJO_COMPILER_IMAGE` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 26 | Exact source revision/digest and URL parsing helpers; declaration/member SCHEMA_VERSION; declarations/fields: `SCHEMA_VERSION` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 27–28 | Exact source revision/digest and URL parsing helpers; declaration/member SODA_SOURCE; declarations/fields: `SODA_SOURCE` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 29–32 | Exact source revision/digest and URL parsing helpers; declaration/member is_revision; declarations/fields: `is_revision` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 33–36 | Exact source revision/digest and URL parsing helpers; declaration/member is_digest; declarations/fields: `is_digest` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 37–41 | Exact source revision/digest and URL parsing helpers; declaration/member oci_architecture; declarations/fields: `oci_architecture` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 42–49 | Exact source revision/digest and URL parsing helpers; declaration/member prefixed_digest; declarations/fields: `prefixed_digest` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 50–53 | Exact source revision/digest and URL parsing helpers; declaration/member deliver_hash; declarations/fields: `deliver_hash` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 54–61 | Exact source revision/digest and URL parsing helpers; declaration/member is_dotted_numbers; declarations/fields: `is_dotted_numbers` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 62–65 | Exact source revision/digest and URL parsing helpers; declaration/member is_coreos_release; declarations/fields: `is_coreos_release` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 66–104 | Exact source revision/digest and URL parsing helpers; declaration/member valid_repository_prefix; declarations/fields: `valid_repository_prefix` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 105 | Exact source revision/digest and URL parsing helpers; declaration/member UrlParts; declarations/fields: `UrlParts` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 106 | Exact source revision/digest and URL parsing helpers; declaration/member UrlParts.scheme; declarations/fields: `UrlParts.scheme` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 107 | Exact source revision/digest and URL parsing helpers; declaration/member UrlParts.host; declarations/fields: `UrlParts.host` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 108 | Exact source revision/digest and URL parsing helpers; declaration/member UrlParts.hostname; declarations/fields: `UrlParts.hostname` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 109 | Exact source revision/digest and URL parsing helpers; declaration/member UrlParts.user; declarations/fields: `UrlParts.user` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 110 | Exact source revision/digest and URL parsing helpers; declaration/member UrlParts.raw_query; declarations/fields: `UrlParts.raw_query` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 111 | Exact source revision/digest and URL parsing helpers; declaration/member UrlParts.force_query; declarations/fields: `UrlParts.force_query` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 112–116 | Exact source revision/digest and URL parsing helpers; declaration/member UrlParts.fragment; declarations/fields: `UrlParts.fragment` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 117–187 | Exact source revision/digest and URL parsing helpers; declaration/member parse_url; declarations/fields: `parse_url` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 188–204 | Exact source revision/digest and URL parsing helpers; declaration/member https_url; declarations/fields: `https_url` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 205–214 | Exact source revision/digest and URL parsing helpers; declaration/member is_loopback_addr; declarations/fields: `is_loopback_addr` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 215–229 | Exact source revision/digest and URL parsing helpers; declaration/member parse_ipv4; declarations/fields: `parse_ipv4` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 230–266 | Exact source revision/digest and URL parsing helpers; declaration/member parse_ipv6; declarations/fields: `parse_ipv6` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 267–290 | Exact source revision/digest and URL parsing helpers; declaration/member parse_v6_side; declarations/fields: `parse_v6_side` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 291 | Immutable OCI image/payload identity contract; declarations/fields: `Image` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 292 | Immutable OCI image/payload identity contract; declaration/member Image.manifest; declarations/fields: `Image.manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 293 | Immutable OCI image/payload identity contract; declaration/member Image.config; declarations/fields: `Image.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 294 | Immutable OCI image/payload identity contract; declaration/member Image.architecture; declarations/fields: `Image.architecture` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 295 | Immutable OCI image/payload identity contract; declaration/member Image.revision; declarations/fields: `Image.revision` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 296 | Immutable OCI image/payload identity contract; declaration/member Image.source; declarations/fields: `Image.source` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 297 | Immutable OCI image/payload identity contract; declaration/member Image.base_name; declarations/fields: `Image.base_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 298–301 | Immutable OCI image/payload identity contract; declaration/member Image.base_digest; declarations/fields: `Image.base_digest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 302–325, 374–383, 420–466 | Immutable OCI image/payload identity contract; declaration/member parse; declarations/fields: `parse` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 326–354, 384–403, 475–530 | Immutable OCI image/payload identity contract; declaration/member to_json; declarations/fields: `to_json` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 355 | Immutable OCI image/payload identity contract; declaration/member ProducedImage; declarations/fields: `ProducedImage` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 356 | Immutable OCI image/payload identity contract; declaration/member ProducedImage.manifest; declarations/fields: `ProducedImage.manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 357 | Immutable OCI image/payload identity contract; declaration/member ProducedImage.config; declarations/fields: `ProducedImage.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 358–365 | Immutable OCI image/payload identity contract; declaration/member ProducedImage.archive_sha256; declarations/fields: `ProducedImage.archive_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 366 | Immutable OCI image/payload identity contract; declaration/member PayloadImage; declarations/fields: `PayloadImage` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 367 | Immutable OCI image/payload identity contract; declaration/member PayloadImage.reference; declarations/fields: `PayloadImage.reference` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 368 | Immutable OCI image/payload identity contract; declaration/member PayloadImage.config; declarations/fields: `PayloadImage.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 369 | Immutable OCI image/payload identity contract; declaration/member PayloadImage.manifest; declarations/fields: `PayloadImage.manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 370–373 | Immutable OCI image/payload identity contract; declaration/member PayloadImage.archive_sha256; declarations/fields: `PayloadImage.archive_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 404 | Immutable OCI image/payload identity contract; declaration/member Payload; declarations/fields: `Payload` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 405 | Immutable OCI image/payload identity contract; declaration/member Payload.format; declarations/fields: `Payload.format` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 406 | Immutable OCI image/payload identity contract; declaration/member Payload.id; declarations/fields: `Payload.id` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 407 | Immutable OCI image/payload identity contract; declaration/member Payload.revision; declarations/fields: `Payload.revision` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 408 | Immutable OCI image/payload identity contract; declaration/member Payload.architecture; declarations/fields: `Payload.architecture` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 409 | Immutable OCI image/payload identity contract; declaration/member Payload.core_os; declarations/fields: `Payload.core_os` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 410 | Immutable OCI image/payload identity contract; declaration/member Payload.base; declarations/fields: `Payload.base` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 411 | Immutable OCI image/payload identity contract; declaration/member Payload.repository_prefix; declarations/fields: `Payload.repository_prefix` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 412 | Immutable OCI image/payload identity contract; declaration/member Payload.schema; declarations/fields: `Payload.schema` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 413 | Immutable OCI image/payload identity contract; declaration/member Payload.presentation_sha256; declarations/fields: `Payload.presentation_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 414 | Immutable OCI image/payload identity contract; declaration/member Payload.host_packages_sha256; declarations/fields: `Payload.host_packages_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 415 | Immutable OCI image/payload identity contract; declaration/member Payload.images; declarations/fields: `Payload.images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 416–419 | Immutable OCI image/payload identity contract; declaration/member Payload.upgrade_from; declarations/fields: `Payload.upgrade_from` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 467–474 | Immutable OCI image/payload identity contract; declaration/member image; declarations/fields: `image` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 531–537 | Immutable OCI image/payload identity contract; declaration/member valid_identity; declarations/fields: `valid_identity` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 538–551 | Immutable OCI image/payload identity contract; declaration/member valid_base; declarations/fields: `valid_base` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 552–576 | Immutable OCI image/payload identity contract; declaration/member valid_images; declarations/fields: `valid_images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 577–595 | Immutable OCI image/payload identity contract; declaration/member validate; declarations/fields: `validate` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 596–608 | Immutable OCI image/payload identity contract; declaration/member load; declarations/fields: `load` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 609 | Native Forgejo toolchain provenance; declarations/fields: `ForgejoToolchain` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 610 | Native Forgejo toolchain provenance; declaration/member ForgejoToolchain.compiler_image; declarations/fields: `ForgejoToolchain.compiler_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 611–614 | Native Forgejo toolchain provenance; declaration/member ForgejoToolchain.apk_packages; declarations/fields: `ForgejoToolchain.apk_packages` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 615–629 | Native Forgejo toolchain provenance; declaration/member parse; declarations/fields: `parse` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 630–647 | Native Forgejo toolchain provenance; declaration/member to_json; declarations/fields: `to_json` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 648–660 | Native Forgejo toolchain provenance; declaration/member validate; declarations/fields: `validate` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 661–684 | Native Forgejo toolchain provenance; declaration/member valid_forgejo_apk_list; declarations/fields: `valid_forgejo_apk_list` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 685–695 | Native Forgejo toolchain provenance; declaration/member has_forgejo_native_build_tools; declarations/fields: `has_forgejo_native_build_tools` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 696 | Immutable candidate/content provenance validation; declarations/fields: `Candidate` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 697 | Immutable candidate/content provenance validation; declaration/member Candidate.format; declarations/fields: `Candidate.format` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 698 | Immutable candidate/content provenance validation; declaration/member Candidate.host; declarations/fields: `Candidate.host` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 699 | Immutable candidate/content provenance validation; declaration/member Candidate.host_reference; declarations/fields: `Candidate.host_reference` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 700 | Immutable candidate/content provenance validation; declaration/member Candidate.host_archive_sha256; declarations/fields: `Candidate.host_archive_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 701 | Immutable candidate/content provenance validation; declaration/member Candidate.payload_sha256; declarations/fields: `Candidate.payload_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 702 | Immutable candidate/content provenance validation; declaration/member Candidate.migration; declarations/fields: `Candidate.migration` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 703 | Immutable candidate/content provenance validation; declaration/member Candidate.notes; declarations/fields: `Candidate.notes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 704 | Immutable candidate/content provenance validation; declaration/member Candidate.forgejo_revision; declarations/fields: `Candidate.forgejo_revision` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 705 | Immutable candidate/content provenance validation; declaration/member Candidate.forgejo_source_sha256; declarations/fields: `Candidate.forgejo_source_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 706 | Immutable candidate/content provenance validation; declaration/member Candidate.forgejo_toolchain; declarations/fields: `Candidate.forgejo_toolchain` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 707 | Immutable candidate/content provenance validation; declaration/member Candidate.architecture; declarations/fields: `Candidate.architecture` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 708–711 | Immutable candidate/content provenance validation; declaration/member Candidate.content_sha256; declarations/fields: `Candidate.content_sha256` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 712–757 | Immutable candidate/content provenance validation; declaration/member parse; declarations/fields: `parse` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 758–811 | Immutable candidate/content provenance validation; declaration/member to_json; declarations/fields: `to_json` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 812–828 | Immutable candidate/content provenance validation; declaration/member validate; declarations/fields: `validate` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 829–842 | Immutable candidate/content provenance validation; declaration/member valid_candidate_host; declarations/fields: `valid_candidate_host` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 843–854 | Immutable candidate/content provenance validation; declaration/member valid_candidate_provenance; declarations/fields: `valid_candidate_provenance` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 855–865 | Immutable candidate/content provenance validation; declaration/member valid_candidate_source; declarations/fields: `valid_candidate_source` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 866–872 | Immutable candidate/content provenance validation; declaration/member valid_candidate_build; declarations/fields: `valid_candidate_build` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 873–884 | Immutable candidate/content provenance validation; declaration/member REQUIRED_CANDIDATE_CONTENT; declarations/fields: `REQUIRED_CANDIDATE_CONTENT` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 885–892 | Immutable candidate/content provenance validation; declaration/member content_get; declarations/fields: `content_get` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 893–922 | Immutable candidate/content provenance validation; declaration/member valid_candidate_content; declarations/fields: `valid_candidate_content` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 923–939 | Immutable candidate/content provenance validation; declaration/member valid_candidate_asset_name; declarations/fields: `valid_candidate_asset_name` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 940 | Role release trust and public-key admission; declarations/fields: `Trust` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 941 | Role release trust and public-key admission; declaration/member Trust.format; declarations/fields: `Trust.format` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 942 | Role release trust and public-key admission; declaration/member Trust.prefix; declarations/fields: `Trust.prefix` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 943 | Role release trust and public-key admission; declaration/member Trust.epoch; declarations/fields: `Trust.epoch` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 944 | Role release trust and public-key admission; declaration/member Trust.keys; declarations/fields: `Trust.keys` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 945 | Role release trust and public-key admission; declaration/member Trust.not_before; declarations/fields: `Trust.not_before` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 946 | Role release trust and public-key admission; declaration/member Trust.max_age_seconds; declarations/fields: `Trust.max_age_seconds` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 947 | Role release trust and public-key admission; declaration/member Trust.clock_skew_seconds; declarations/fields: `Trust.clock_skew_seconds` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 948–951 | Role release trust and public-key admission; declaration/member Trust.minimum_sequence; declarations/fields: `Trust.minimum_sequence` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 952–1012 | Role release trust and public-key admission; declaration/member parse; declarations/fields: `parse` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1013–1020 | Role release trust and public-key admission; declaration/member role_keys; declarations/fields: `role_keys` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1021–1028 | Role release trust and public-key admission; declaration/member minimum; declarations/fields: `minimum` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1029–1053 | Role release trust and public-key admission; declaration/member validate; declarations/fields: `validate` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1054–1071 | Role release trust and public-key admission; declaration/member admit_trust_role_keys; declarations/fields: `admit_trust_role_keys` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1072–1096 | Role release trust and public-key admission; declaration/member parse_trust_public_key; declarations/fields: `parse_trust_public_key` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1097–1117 | Role release trust and public-key admission; declaration/member read_der_length; declarations/fields: `read_der_length` |
-| [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) / active | 1118–1176 | Role release trust and public-key admission; declaration/member is_p256_spki; declarations/fields: `is_p256_spki` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1177 | Explicit media signing permit and protected secret paths; declarations/fields: `Permit` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1178 | Explicit media signing permit and protected secret paths; declaration/member Permit.format; declarations/fields: `Permit.format` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1179 | Explicit media signing permit and protected secret paths; declaration/member Permit.repository; declarations/fields: `Permit.repository` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1180 | Explicit media signing permit and protected secret paths; declaration/member Permit.digest; declarations/fields: `Permit.digest` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1181 | Explicit media signing permit and protected secret paths; declaration/member Permit.previous; declarations/fields: `Permit.previous` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1182–1185 | Explicit media signing permit and protected secret paths; declaration/member Permit.expires; declarations/fields: `Permit.expires` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1186–1209, 1229–1244 | Explicit media signing permit and protected secret paths; declaration/member to_json; declarations/fields: `to_json` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1210 | Explicit media signing permit and protected secret paths; declaration/member SecretFiles; declarations/fields: `SecretFiles` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1211 | Explicit media signing permit and protected secret paths; declaration/member SecretFiles.key; declarations/fields: `SecretFiles.key` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1212–1215 | Explicit media signing permit and protected secret paths; declaration/member SecretFiles.passphrase; declarations/fields: `SecretFiles.passphrase` |
-| [D08](../../slices/release-and-installation.md#d08-signing-custody) / active | 1216–1228 | Explicit media signing permit and protected secret paths; declaration/member parse; declarations/fields: `parse` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1245 | Pinned CoreOS/Tailnet live-input contracts and validators; declarations/fields: `CoreOSImage` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1246 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member CoreOSImage.url; declarations/fields: `CoreOSImage.url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1247 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member CoreOSImage.signature_url; declarations/fields: `CoreOSImage.signature_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1248 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member CoreOSImage.sha256; declarations/fields: `CoreOSImage.sha256` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1249–1252 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member CoreOSImage.uncompressed_sha256; declarations/fields: `CoreOSImage.uncompressed_sha256` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1253–1267, 1277–1299, 1313–1326, 1333–1348 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member parse; declarations/fields: `parse` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1268 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member ResolvedCoreOS; declarations/fields: `ResolvedCoreOS` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1269 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member ResolvedCoreOS.release; declarations/fields: `ResolvedCoreOS.release` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1270 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member ResolvedCoreOS.metadata_url; declarations/fields: `ResolvedCoreOS.metadata_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1271 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member ResolvedCoreOS.container; declarations/fields: `ResolvedCoreOS.container` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1272 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member ResolvedCoreOS.iso; declarations/fields: `ResolvedCoreOS.iso` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1273–1276 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member ResolvedCoreOS.qemu; declarations/fields: `ResolvedCoreOS.qemu` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1300–1305 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member container_ref; declarations/fields: `container_ref` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1306 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member TailnetInputs; declarations/fields: `TailnetInputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1307 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member TailnetInputs.version; declarations/fields: `TailnetInputs.version` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1308 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member TailnetInputs.sha256; declarations/fields: `TailnetInputs.sha256` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1309–1312 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member TailnetInputs.base; declarations/fields: `TailnetInputs.base` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1327 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member LiveInputs; declarations/fields: `LiveInputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1328 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member LiveInputs.core_os; declarations/fields: `LiveInputs.core_os` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1329–1332 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member LiveInputs.tailnet; declarations/fields: `LiveInputs.tailnet` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1349–1352 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member find_arch; declarations/fields: `find_arch` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1353–1382 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member valid_stream_images; declarations/fields: `valid_stream_images` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1383–1399 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member valid_tailnet_inputs; declarations/fields: `valid_tailnet_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1400–1422 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member valid_resolved_core_os; declarations/fields: `valid_resolved_core_os` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1423–1428 | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member valid_live_inputs; declarations/fields: `valid_live_inputs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1429–1432 | Candidate/input source vectors; declarations/fields: `tests` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1433–1443 | Candidate/input source vectors; declaration/member oracle_prefix_and_digest_shapes; declarations/fields: `oracle_prefix_and_digest_shapes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1444–1466 | Candidate/input source vectors; declaration/member oracle_url_parser_matches_go_probe; declarations/fields: `oracle_url_parser_matches_go_probe` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1467–1475 | Candidate/input source vectors; declaration/member oracle_payload_identity_validation; declarations/fields: `oracle_payload_identity_validation` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–9, 11–13, 15–112; lines 8–9: mod candidate; attached module comments and attributes; lines 11–11: mod live_inputs; lines 12–12: mod payload; lines 13–13: mod trust; lines 25–26: DELIVER_PATH and attached behavior; lines 27–28: DELIVER_IMAGES_PATH and attached behavior; lines 29–36: NAMES and attached behavior; lines 37–39: FORGEJO_COMPILER_IMAGE and attached behavior; lines 40–40: SCHEMA_VERSION and attached behavior; lines 41–41: SODA_SOURCE and attached behavior; lines 42–45: is_revision and attached behavior; lines 46–49: is_digest and attached behavior; lines 50–55: oci_architecture and attached behavior; lines 56–63: prefixed_digest and attached behavior; lines 64–66: deliver_hash and attached behavior; lines 67–74: is_dotted_numbers and attached behavior; lines 75–78: is_coreos_release and attached behavior; lines 79–112: valid_repository_prefix and attached behavior | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Current mod candidate and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 10, 113–123; lines 10–10: images and attached behavior; lines 113–122: content_get and attached behavior; lines 123–123: mod tests | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Immutable OCI image/payload identity contract; declaration/member Payload.images; Immutable candidate/content provenance validation; declaration/member content_get; Source-level oracle/test assertions for candidate/input source vectors — Current named units/source consumers; retained normalized source evidence records each selector |
+| 14; lines 14–14: url and attached behavior | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Pinned CoreOS/Tailnet live-input contracts and validators; declaration/member CoreOSImage.url — lib/soda-release-image/src/model.rs:14-14; current named unit matched to maintained semantic map and release consumer |
+
+<a id="coverage-7b95c5dad56b"></a>
+
+## [lib/soda-release-image/src/model/candidate.rs](../../../../../lib/soda-release-image/src/model/candidate.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–283; lines 1–1: use serde and attached body; lines 2–2: use serde and attached body; lines 3–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–17: use super and attached body; lines 18–23: struct ForgejoToolchain and attached body; lines 24–25: impl ForgejoToolchain and attached body; lines 26–28: fn parse and attached body; lines 29–48: fn validate and attached body; lines 49–77: struct CandidateWire and attached body; lines 78–101: fn valid_forgejo_apk_list and attached body; lines 102–113: fn has_forgejo_native_build_tools and attached body; lines 114–127: struct Candidate and attached body; lines 128–129: impl Serialize and attached body; lines 130–149: fn serialize and attached body; lines 150–151: impl Candidate and attached body; lines 152–168: fn parse and attached body; lines 169–185: fn validate and attached body; lines 186–199: fn valid_candidate_host and attached body; lines 200–211: fn valid_candidate_provenance and attached body; lines 212–222: fn valid_candidate_source and attached body; lines 223–229: fn valid_candidate_build and attached body; lines 230–241: const REQUIRED_CANDIDATE_CONTENT and attached body; lines 242–271: fn valid_candidate_content and attached body; lines 272–283: fn valid_candidate_asset_name and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 26 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a74d9fb161c6"></a>
+
+## [lib/soda-release-image/src/model/images.rs](../../../../../lib/soda-release-image/src/model/images.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–48; lines 1–1: use crate and attached body; lines 2–2: use crate and attached body; lines 3–9: use serde and attached body; lines 10–25: struct Image and attached body; lines 26–27: impl Image and attached body; lines 28–43: fn parse and attached body; lines 44–48: struct ProducedImage and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-25e0a610e831"></a>
+
+## [lib/soda-release-image/src/model/live_inputs.rs](../../../../../lib/soda-release-image/src/model/live_inputs.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–208; lines 1–1: use crate and attached body; lines 2–2: use crate and attached body; lines 3–3: use serde and attached body; lines 4–11: use super and attached body; lines 12–21: struct CoreOSImage and attached body; lines 22–23: impl CoreOSImage and attached body; lines 24–36: fn parse and attached body; lines 37–53: struct ResolvedCoreOSWire and attached body; lines 54–60: struct ResolvedCoreOS and attached body; lines 61–62: impl ResolvedCoreOS and attached body; lines 63–72: fn parse and attached body; lines 73–79: fn container_ref and attached body; lines 80–84: struct TailnetInputs and attached body; lines 85–86: impl TailnetInputs and attached body; lines 87–101: fn parse and attached body; lines 102–105: struct LiveInputs and attached body; lines 106–107: impl LiveInputs and attached body; lines 108–118: fn parse and attached body; lines 119–129: fn deserialize and attached body; lines 130–133: fn find_arch and attached body; lines 134–163: fn valid_stream_images and attached body; lines 164–180: fn valid_tailnet_inputs and attached body; lines 181–203: fn valid_resolved_core_os and attached body; lines 204–208: fn valid_live_inputs and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 24 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b7fa69413b37"></a>
+
+## [lib/soda-release-image/src/model/payload.rs](../../../../../lib/soda-release-image/src/model/payload.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–200; lines 1–1: use serde and attached body; lines 2–2: use serde and attached body; lines 3–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–17: use super and attached body; lines 18–36: struct PayloadImage and attached body; lines 37–67: struct PayloadWire and attached body; lines 68–81: struct Payload and attached body; lines 82–83: impl Serialize and attached body; lines 84–100: fn serialize and attached body; lines 101–102: impl Payload and attached body; lines 103–119: fn parse and attached body; lines 120–127: fn image and attached body; lines 128–134: fn valid_identity and attached body; lines 135–148: fn valid_base and attached body; lines 149–173: fn valid_images and attached body; lines 174–193: fn validate and attached body; lines 194–200: fn load and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 19 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-2a4a1d3cf5cb"></a>
+
+## [lib/soda-release-image/src/model/tests.rs](../../../../../lib/soda-release-image/src/model/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–120; lines 1–3: use super and attached body; lines 4–14: fn oracle_prefix_and_digest_shapes and attached body; lines 15–43: fn url_parser_preserves_metadata_policy_fields and attached body; lines 44–53: fn oracle_payload_identity_validation and attached body; lines 54–78: fn trust_key_admission_preserves_cross_role_separation and attached body; lines 79–96: fn producer_trust_fixture_keeps_its_raw_der_fingerprint and attached body; lines 97–108: fn image_model_uses_exact_then_first_folded_raw_member and attached body; lines 109–120: fn release_dtos_defer_nested_alias_conversion_and_keep_minus_zero and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-53bef357aa10"></a>
+
+## [lib/soda-release-image/src/model/trust.rs](../../../../../lib/soda-release-image/src/model/trust.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–154; lines 1–1: use crate and attached body; lines 2–2: use crate and attached body; lines 3–3: use crate and attached body; lines 4–11: use super and attached body; lines 12–23: struct Trust and attached body; lines 24–44: struct TrustWire and attached body; lines 45–46: impl Trust and attached body; lines 47–59: fn parse and attached body; lines 60–67: fn role_keys and attached body; lines 68–75: fn minimum and attached body; lines 76–100: fn validate and attached body; lines 101–117: fn admit_trust_role_keys and attached body; lines 118–127: fn parse_trust_public_key and attached body; lines 128–136: struct Permit and attached body; lines 137–140: struct SecretFiles and attached body; lines 141–142: impl SecretFiles and attached body; lines 143–154: fn parse and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-385919e62165"></a>
+
+## [lib/soda-release-image/src/model/url.rs](../../../../../lib/soda-release-image/src/model/url.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–103; lines 1–3: use url and attached body; lines 4–15: struct UrlParts and attached body; lines 16–52: fn parse_url and attached body; lines 53–74: fn valid_escapes and attached body; lines 75–88: fn https_url and attached body; lines 89–103: fn is_loopback_addr and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use url in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f2b5b6a6ca53"></a>
+
+## [lib/soda-release-image/src/ordered_json.rs](../../../../../lib/soda-release-image/src/ordered_json.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–240; lines 1–4: use serde and attached body; lines 5–5: use serde and attached body; lines 6–6: use serde and attached body; lines 7–7: use serde_json and attached body; lines 8–11: use crate and attached body; lines 12–19: enum OrderedValue and attached body; lines 20–21: impl OrderedValue and attached body; lines 22–25: fn parse and attached body; lines 26–34: fn from_raw and attached body; lines 35–38: struct ObjectVisitor and attached body; lines 39–39: type Value and attached body; lines 40–42: fn expecting and attached body; lines 43–68: fn visit_map and attached body; lines 69–72: struct ArrayVisitor and attached body; lines 73–73: type Value and attached body; lines 74–76: fn expecting and attached body; lines 77–113: fn visit_seq and attached body; lines 114–120: fn object and attached body; lines 121–127: fn object_mut and attached body; lines 128–137: fn set_all_exact and attached body; lines 138–145: fn last_exact and attached body; lines 146–158: fn first_exact_then_folded and attached body; lines 159–166: fn string_or_empty and attached body; lines 167–184: fn prune_null_members and attached body; lines 185–186: impl Serialize and attached body; lines 187–214: fn serialize and attached body; lines 215–215: mod depth_tests and attached body; lines 216–218: use super and attached body; lines 219–240: fn ordered_values_match_serde_container_depth_limit and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 29 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-d69d07417410"></a>
+
+## [lib/soda-release-image/src/packages.rs](../../../../../lib/soda-release-image/src/packages.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–192; lines 1–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–6: const TAILSCALE_REPO_URL and attached body; lines 7–11: const INSTALL_PREFIX and attached body; lines 12–59: fn package_inputs and attached body; lines 60–78: fn parse_install_packages and attached body; lines 79–92: fn is_package_name and attached body; lines 93–106: fn valid_rpm_inventory and attached body; lines 107–141: fn is_rpm_line and attached body; lines 142–142: mod tests and attached body; lines 143–145: use super and attached body; lines 146–174: fn oracle_package_input_failures and attached body; lines 175–192: fn oracle_rpm_inventory_shape and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-6170dd468d15"></a>
+<a id="coverage-2efb1cca3994"></a>
 
 ## [lib/soda-release-image/src/payload_stage.rs](../../../../../lib/soda-release-image/src/payload_stage.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; C09-paths regression tests rowed.
+Current module body and direct consumer inspected
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–113 | Native candidate payload/image metadata staging; declarations/fields: `link_candidate_commands`, `stage_candidate_forgejo`, `stage_extension_package`, `record_candidate_images` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 114–278 | Staged immutable candidate input/content inspection; declarations/fields: `inspect_candidate_forgejo`, `inspect_candidate_files`, `inspect_extension_assets`, `inspect_packaged_file`, `seal_candidate_payload` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 279–406 | Complete candidate metadata/content staging; declarations/fields: `complete_candidate`, `tests`, `oracle_record_candidate_images_binds_references`, `extension_package_reads_new_layout`, `cmd1_staging_links_resolve_without_terminal_identity` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–495; whole file: candidate payload file staging and content inventory construction; artifact verification helpers retain d05 duties where separately selected | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Candidate payload file staging and content inventory construction; artifact verification helpers retain D05 duties where separately selected. — lib/soda-release-image/src/payload_stage.rs:1-495; module purpose and current direct consumer inspected |
 
 <a id="coverage-c74a73ba4b6a"></a>
-
 <a id="rustsoda-release-imagesrcpreparers-1"></a>
+<a id="coverage-08d76b98c233"></a>
 
 ## [lib/soda-release-image/src/prepare.rs](../../../../../lib/soda-release-image/src/prepare.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–377; lines 20–26: Base and attached behavior; attached module comments and attributes; lines 27–40: image and attached behavior; lines 41–49: load_base and attached behavior; lines 50–57: load_base_from_file and attached behavior; lines 58–67: base_from_resolved and attached behavior; lines 68–74: PreparedWriter and attached behavior; lines 75–81: write and attached behavior; lines 82–97: copy_file and attached behavior; lines 98–113: write_base_files and attached behavior; lines 114–128: stage_symlinks_and_extras and attached behavior; lines 129–139: stage_rootfs_files and attached behavior; lines 140–148: write_build_record and attached behavior; lines 149–185: struct BuildRecord; lines 186–258: rootfs_file_map and attached behavior; lines 259–268: load_base_inputs and attached behavior; lines 269–279: load_base_inputs_resolved and attached behavior; lines 280–296: finish_base_inputs and attached behavior; lines 297–309: prepare and attached behavior; lines 310–321: prepare_resolved and attached behavior; lines 322–345: finish_prepare and attached behavior; lines 346–376: inventory and attached behavior; lines 377–377: tests and attached behavior | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Complete native candidate image assembly and authenticated live media; declaration/member Base Adjacent comments and attributes explain this same authored responsibility.; 22 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–19 | Complete native candidate image assembly and authenticated live media; declarations/fields: `Base`, `image`, `load_base`, `load_base_from_file`, `base_from_resolved`, `PreparedWriter`, `write`, `copy_file`, `write_base_files`, `stage_symlinks_and_extras`, `stage_rootfs_files`, `write_build_record`, `rootfs_file_map`, `load_base_inputs`, `load_base_inputs_resolved`, `finish_base_inputs`, `prepare`, `prepare_resolved`, `finish_prepare`, `inventory`, `tests`, `oracle_base_inputs_require_exact_revision`, `Stub`, `source`, `forgejo_source`, `forgejo_revision`, `native`, `out`, `arch`, `revision`, `live_inputs`, `execute`, `capture`, `next`, `resolve_inputs`, `dependencies`, `compile`, `compile_rust`, `stage_fork_binary`, `assets`, `images`, `inspect_oci`, `verify_content`, `resolve_core_os`, `read_live_inputs`, `check_native`, `sign_media`, `verify_copy`, `write_document` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 20 | Complete native candidate image assembly and authenticated live media; declaration/member Base; declarations/fields: `Base` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 21 | Complete native candidate image assembly and authenticated live media; declaration/member Base.release; declarations/fields: `Base.release` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 22 | Complete native candidate image assembly and authenticated live media; declaration/member Base.metadata_url; declarations/fields: `Base.metadata_url` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 23–26 | Complete native candidate image assembly and authenticated live media; declaration/member Base.images; declarations/fields: `Base.images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 27–40 | Complete native candidate image assembly and authenticated live media; declaration/member image; declarations/fields: `image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 41–49 | Complete native candidate image assembly and authenticated live media; declaration/member load_base; declarations/fields: `load_base` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 50–58 | Complete native candidate image assembly and authenticated live media; declaration/member load_base_from_file; declarations/fields: `load_base_from_file` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 59–68 | Complete native candidate image assembly and authenticated live media; declaration/member base_from_resolved; declarations/fields: `base_from_resolved` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 69 | Complete native candidate image assembly and authenticated live media; declaration/member PreparedWriter; declarations/fields: `PreparedWriter` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 70 | Complete native candidate image assembly and authenticated live media; declaration/member PreparedWriter.source; declarations/fields: `PreparedWriter.source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 71–74 | Complete native candidate image assembly and authenticated live media; declaration/member PreparedWriter.out; declarations/fields: `PreparedWriter.out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 75–82 | Complete native candidate image assembly and authenticated live media; declaration/member write; declarations/fields: `write` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 83–98 | Complete native candidate image assembly and authenticated live media; declaration/member copy_file; declarations/fields: `copy_file` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 99–114 | Complete native candidate image assembly and authenticated live media; declaration/member write_base_files; declarations/fields: `write_base_files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 115–129 | Complete native candidate image assembly and authenticated live media; declaration/member stage_symlinks_and_extras; declarations/fields: `stage_symlinks_and_extras` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 130–140 | Complete native candidate image assembly and authenticated live media; declaration/member stage_rootfs_files; declarations/fields: `stage_rootfs_files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 141–179 | Complete native candidate image assembly and authenticated live media; declaration/member write_build_record; declarations/fields: `write_build_record` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 180–252 | Complete native candidate image assembly and authenticated live media; declaration/member rootfs_file_map; declarations/fields: `rootfs_file_map` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 253–262 | Complete native candidate image assembly and authenticated live media; declaration/member load_base_inputs; declarations/fields: `load_base_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 263–273 | Complete native candidate image assembly and authenticated live media; declaration/member load_base_inputs_resolved; declarations/fields: `load_base_inputs_resolved` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 274–289 | Complete native candidate image assembly and authenticated live media; declaration/member finish_base_inputs; declarations/fields: `finish_base_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 290–302 | Complete native candidate image assembly and authenticated live media; declaration/member prepare; declarations/fields: `prepare` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 303–315 | Complete native candidate image assembly and authenticated live media; declaration/member prepare_resolved; declarations/fields: `prepare_resolved` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 316–338 | Complete native candidate image assembly and authenticated live media; declaration/member finish_prepare; declarations/fields: `finish_prepare` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 339–375 | Complete native candidate image assembly and authenticated live media; declaration/member inventory; declarations/fields: `inventory` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 376–379 | Complete native candidate image assembly and authenticated live media; declaration/member tests; declarations/fields: `tests` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 380–381 | Complete native candidate image assembly and authenticated live media; declaration/member oracle_base_inputs_require_exact_revision; declarations/fields: `oracle_base_inputs_require_exact_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 382–383 | Complete native candidate image assembly and authenticated live media; declaration/member Stub; declarations/fields: `Stub` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 384–386 | Complete native candidate image assembly and authenticated live media; declaration/member source; declarations/fields: `source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 387–389 | Complete native candidate image assembly and authenticated live media; declaration/member forgejo_source; declarations/fields: `forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 390–392 | Complete native candidate image assembly and authenticated live media; declaration/member forgejo_revision; declarations/fields: `forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 393–395 | Complete native candidate image assembly and authenticated live media; declaration/member native; declarations/fields: `native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 396–398 | Complete native candidate image assembly and authenticated live media; declaration/member out; declarations/fields: `out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 399–401 | Complete native candidate image assembly and authenticated live media; declaration/member arch; declarations/fields: `arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 402–404 | Complete native candidate image assembly and authenticated live media; declaration/member revision; declarations/fields: `revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 405–407 | Complete native candidate image assembly and authenticated live media; declaration/member live_inputs; declarations/fields: `live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 408–410 | Complete native candidate image assembly and authenticated live media; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 411–413 | Complete native candidate image assembly and authenticated live media; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 414–416 | Complete native candidate image assembly and authenticated live media; declaration/member next; declarations/fields: `next` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 417–419 | Complete native candidate image assembly and authenticated live media; declaration/member resolve_inputs; declarations/fields: `resolve_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 420–422 | Complete native candidate image assembly and authenticated live media; declaration/member dependencies; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 423–425 | Complete native candidate image assembly and authenticated live media; declaration/member compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 426–428 | Complete native candidate image assembly and authenticated live media; declaration/member compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 429–431 | Complete native candidate image assembly and authenticated live media; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 432–434 | Complete native candidate image assembly and authenticated live media; declaration/member assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 435–441 | Complete native candidate image assembly and authenticated live media; declaration/member images; declarations/fields: `images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 442–444 | Complete native candidate image assembly and authenticated live media; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 445–451 | Complete native candidate image assembly and authenticated live media; declaration/member verify_content; declarations/fields: `verify_content` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 452–454 | Complete native candidate image assembly and authenticated live media; declaration/member resolve_core_os; declarations/fields: `resolve_core_os` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 455–457 | Complete native candidate image assembly and authenticated live media; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 458–460 | Complete native candidate image assembly and authenticated live media; declaration/member check_native; declarations/fields: `check_native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 461–472 | Complete native candidate image assembly and authenticated live media; declaration/member sign_media; declarations/fields: `sign_media` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 473–482 | Complete native candidate image assembly and authenticated live media; declaration/member verify_copy; declarations/fields: `verify_copy` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 483–499 | Complete native candidate image assembly and authenticated live media; declaration/member write_document; declarations/fields: `write_document` |
+<a id="coverage-69c8eba2882c"></a>
+
+## [lib/soda-release-image/src/prepare/tests.rs](../../../../../lib/soda-release-image/src/prepare/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–125; lines 1–3: use super and attached body; lines 4–5: fn oracle_base_inputs_require_exact_revision and attached body; lines 6–6: struct Stub and attached body; lines 7–7: impl Production and attached body; lines 8–10: fn source and attached body; lines 11–13: fn forgejo_source and attached body; lines 14–16: fn forgejo_revision and attached body; lines 17–19: fn native and attached body; lines 20–22: fn out and attached body; lines 23–25: fn arch and attached body; lines 26–28: fn revision and attached body; lines 29–31: fn live_inputs and attached body; lines 32–34: fn execute and attached body; lines 35–37: fn capture and attached body; lines 38–40: fn next and attached body; lines 41–43: fn resolve_inputs and attached body; lines 44–46: fn dependencies and attached body; lines 47–49: fn compile and attached body; lines 50–52: fn compile_rust and attached body; lines 53–55: fn stage_fork_binary and attached body; lines 56–58: fn assets and attached body; lines 59–64: fn images and attached body; lines 65–67: fn inspect_oci and attached body; lines 68–74: fn verify_content and attached body; lines 75–77: fn resolve_core_os and attached body; lines 78–80: fn read_live_inputs and attached body; lines 81–83: fn check_native and attached body; lines 84–95: fn sign_media and attached body; lines 96–105: fn verify_copy and attached body; lines 106–125: fn write_document and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 30 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0ab8b93d3e88"></a>
+
+## [lib/soda-release-image/src/quadlet.rs](../../../../../lib/soda-release-image/src/quadlet.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–69; lines 1–3: use crate and attached body; lines 4–35: fn rewrite_quadlet_line and attached body; lines 36–52: fn local_quadlet and attached body; lines 53–53: mod tests and attached body; lines 54–56: use super and attached body; lines 57–69: fn oracle_quadlet_rewrite_and_refusals and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-2c97e43a26d7"></a>
+
+## [lib/soda-release-image/src/recall.rs](../../../../../lib/soda-release-image/src/recall.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–131; lines 1–9: use crate and attached body; lines 10–14: struct RecallLog and attached body; lines 15–16: impl RecallLog and attached body; lines 17–19: fn new and attached body; lines 20–32: fn write_bytes and attached body; lines 33–41: use std and attached body; lines 42–42: fn attach and attached body; lines 43–52: use std and attached body; lines 53–64: fn reason and attached body; lines 65–77: fn qualify_reason and attached body; lines 78–87: fn failure_reason and attached body; lines 88–90: fn is_tool_failure and attached body; lines 91–92: impl std and attached body; lines 93–95: fn write and attached body; lines 96–105: fn flush and attached body; lines 106–106: mod tests and attached body; lines 107–109: use super and attached body; lines 110–121: fn oracle_reason_skips_markers and attached body; lines 122–131: fn oracle_failure_reason_prefers_local_error_over_stale_ring and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 19 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-affcebd9c2d5"></a>
+
+## [lib/soda-release-image/src/record.rs](../../../../../lib/soda-release-image/src/record.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–267; lines 1–3: use std and attached body; lines 4–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–15: use crate and attached body; lines 16–101: fn candidate_content and attached body; lines 102–109: fn content_inventory_bytes and attached body; lines 110–125: fn write_content_inventory and attached body; lines 126–183: fn record_build_result and attached body; lines 184–207: fn record_candidate and attached body; lines 208–230: fn record_candidate_inputs and attached body; lines 231–249: fn verify_embedded_content_inventory and attached body; lines 250–250: mod tests and attached body; lines 251–253: use super and attached body; lines 254–267: fn oracle_candidate_inputs_require_exact_fork_revision and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-ad348e05d9a8"></a>
+<a id="coverage-8509ff884a2a"></a>
 
 ## [lib/soda-release-image/src/request.rs](../../../../../lib/soda-release-image/src/request.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 1–265 | Explicit builder target/source/output/media admission contract; declarations/fields: `Request`, `Result`, `to_json`, `validate_development_target`, `validate_media_inputs`, `validate_target`, `wants_media`, `purpose`, `requested_target`, `tests`, `oracle_development_target_admission` |
-| [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) / active | 266–286 | Source assertion of Authenticated installation media; declarations/fields: `oracle_result_omits_empty_media_fields` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–217; lines 10–118: struct Request, struct Result, impl Request, fn validate_development_target, fn validate_media_inputs, fn validate_target, fn wants_media, fn purpose, fn requested_target; attached module comments and attributes | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) | retained | Explicit builder target/source/output/media admission contract Adjacent comments and attributes explain this same authored responsibility. — lib/soda-release-image/src/request.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 218–238; lines 218–238: fn oracle_result_omits_empty_media_fields | [D04](../../slices/release-and-installation.md#d04-authenticated-installation-media) | retained | Source-level oracle/test assertions for source assertion of authenticated installation media — lib/soda-release-image/src/request.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+
+<a id="coverage-980f31af825d"></a>
+
+## [lib/soda-release-image/src/rootfs.rs](../../../../../lib/soda-release-image/src/rootfs.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–107; lines 1–3: use std and attached body; lines 4–4: use std and attached body; lines 5–6: use sha2 and attached body; lines 7–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–13: const CHUNK_LEN and attached body; lines 14–34: fn verify_rootfs_chunks and attached body; lines 35–66: fn match_rootfs_chunk and attached body; lines 67–67: mod tests and attached body; lines 68–70: use super and attached body; lines 71–107: fn oracle_rootfs_chunks_match_and_mismatch and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-3270fc4fae13"></a>
+<a id="coverage-fff6b3143c3a"></a>
 
 ## [lib/soda-release-image/src/sys.rs](../../../../../lib/soda-release-image/src/sys.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; CORR-C-001/C-004 command-discovery additions rowed.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1–220 | Builder confined filesystem/hash/process primitives; declarations/fields: `File`, `to_json`, `parse`, `clean_path`, `is_abs`, `join`, `dir_name`, `base_name`, `rel_path`, `to_slash`, `components`, `hash_file`, `hex_sha256`, `hex_bytes`, `fresh_directory`, `write_new`, `read_bounded` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 221–261 | Strict bounded JSON input; declarations/fields: `read_json_build`, `read_json_deliver`, `refused`, `private_file` |
-| [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / active | 262–273 | Matching native architecture/source admission; declarations/fields: `require_native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 274–462 | Native shipping command inventory; declarations/fields: `soda_commands`, `is_soda_command`, `mkdir_all`, `create_dir`, `walk`, `tests`, `oracle_clean_path_matches_go`, `oracle_hash_file_refuses_symlink`, `oracle_write_new_refuses_overwrite`, `is_rust_command`, `rust_command_follows_manifest_presence`, `cmd1_discovery_skips_folded_terminal_crate`, `require_native_accepts_matching_x86_64_linux` |
-
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–266, 289–301, 316–967; lines 29–32: fn is_false; attached module comments and attributes; lines 61–74: fn is_clean_path; lines 75–78: fn is_clean_abs; lines 237–242: fn read_json_build_text; lines 243–243: fn read_json_deliver_text; lines 260–261: fn read_limited; lines 289–289: mod json_tests; lines 293–301: fn file_mode_keeps_integer_token_and_minus_zero_policy; lines 323–329: struct CargoMetadata; lines 330–339: struct CargoPackageMetadata; lines 340–347: struct CargoTargetMetadata; lines 348–357: struct ShippingPackage; lines 358–362: struct ShippingInventory; lines 363–382: fn active_default_features; lines 383–449: fn parse_shipping_inventory; lines 450–451: impl ShippingInventory; lines 452–464: fn package_at; lines 465–483: fn require_bin; lines 484–499: fn contains_bin_at; lines 500–506: fn require_bin_at; lines 507–520: fn require_package_bin; lines 521–524: fn package_name_for_manifest; lines 525–530: fn has_bins_at; lines 531–536: fn package_name_at; lines 537–543: fn commands; lines 544–589: fn select_commands; lines 590–602: fn has_go_sources; lines 657–737: fn cargo_metadata_binds_opaque_ids_to_canonical_manifests_and_default_features; lines 738–787: fn actual_workspace_shipping_commands_preserve_the_selected_inventory; lines 788–794: fn bounded_read_caps_growth_and_keeps_open_inode; lines 821–848: fn deliver_text_rejects_links_fifos_and_cap_plus_one; lines 862–876: fn native_path_helpers_and_clean_admission; lines 915–946: fn inventory_rejects_duplicate_opaque_ids | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Current fn is_false and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 33 named units assigned here; remaining selectors preserve each duty — lib/soda-release-image/src/sys.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 267–288; lines 267–288: fn refused, fn private_file | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Strict bounded JSON input — lib/soda-release-image/src/sys.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 302–315; lines 302–315: fn require_native | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) | retained | Matching native architecture/source admission — lib/soda-release-image/src/sys.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |

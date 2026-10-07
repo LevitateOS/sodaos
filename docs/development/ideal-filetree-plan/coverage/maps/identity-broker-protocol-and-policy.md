@@ -1,634 +1,365 @@
 # Identity broker protocol and policy
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-R02 re-audit COMPLETE @HEAD: control split re-mapped (control+5 impl files), http split (4 files), wire split (7 files); lib/crypto/pg/strict/runtime/broker verified with span fixes. All rows machine-verified against current bytes.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
-<a id="coverage-3e4294f35465"></a>
-
-<a id="rustsoda-identitysrccontrolrs-1"></a>
-
-## [cmd/soda-identity/src/control.rs](../../../../../cmd/soda-identity/src/control.rs)
-
-Re-audit @HEAD: pre-A05/A06 `control.rs` split: core stays in `control.rs`, Controller impls moved to `acquisition.rs`/`enrollment.rs`/`grants.rs`/`registration.rs`/`retirement.rs`; rows re-mapped declaration-by-declaration to current bytes.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 1–7 | Enrollment provider/session interface; declarations/fields: `EnrollmentSession`, `snapshot`, `finish`, `close`, `Provider`, `start`, `Runtime`, `validate`, `stop`, `map_provider_error`, `CodexProvider`, `MuseProvider`, `CodexSession`, `MuseSession`, `EnrollmentEntry`, `EnrollmentEntry.owner`, `EnrollmentEntry.label`, `EnrollmentEntry.provider_id`, `EnrollmentEntry.session`, `EnrollmentEntry.result`, `State`, `State.store`, `State.providers`, `State.runtime`, `State.enrollments`, `Controller`, `Controller.state`, `new`, `lock`, `owned`, `connections`, `available`, `join_errors`, `new_id`, `fill_random`, `zeroize` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 9–13 | Enrollment provider/session interface; declaration/member EnrollmentSession; declarations/fields: `EnrollmentSession` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 10 | Enrollment provider/session interface; declaration/member snapshot; declarations/fields: `snapshot` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 10 | Codex enrollment adapter; declaration/member snapshot; declarations/fields: `snapshot` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 11 | Enrollment provider/session interface; declaration/member finish; declarations/fields: `finish` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 11 | Exact native runtime binding callback seam; declaration/member finish; declarations/fields: `finish` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 11 | Codex enrollment adapter; declaration/member finish; declarations/fields: `finish` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 12 | Enrollment provider/session interface; declaration/member close; declarations/fields: `close` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 12 | Codex enrollment adapter; declaration/member close; declarations/fields: `close` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 12, 16 | Muse enrollment adapter; declarations/fields: `close`, `start` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 12 | Muse enrollment adapter; declaration/member close; declarations/fields: `close` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 12 | Connection retirement and controller shutdown; declaration/member close; declarations/fields: `close` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 15–17 | Enrollment provider/session interface; declaration/member Provider; declarations/fields: `Provider` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 16 | Enrollment provider/session interface; declaration/member start; declarations/fields: `start` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 16 | Muse enrollment adapter; declaration/member start; declarations/fields: `start` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 19–23 | Exact native runtime binding callback seam; declarations/fields: `Runtime` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 20 | Exact native runtime binding callback seam; declaration/member validate; declarations/fields: `validate` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 21 | Exact native runtime binding callback seam; declaration/member stop; declarations/fields: `stop` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 25–34 | Controller errors and provider adaptation; declarations/fields: `map_provider_error` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 36 | Codex enrollment adapter; declarations/fields: `CodexProvider` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 37 | Codex enrollment adapter; declaration/member MuseProvider; declarations/fields: `MuseProvider` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 39 | Codex enrollment adapter; declaration/member CodexSession; declarations/fields: `CodexSession` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 40 | Codex enrollment adapter; declaration/member MuseSession; declarations/fields: `MuseSession` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 82–88 | Ephemeral pending enrollment state; declarations/fields: `EnrollmentEntry` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 83 | Ephemeral pending enrollment state; declaration/member EnrollmentEntry.owner; declarations/fields: `EnrollmentEntry.owner` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 84 | Ephemeral pending enrollment state; declaration/member EnrollmentEntry.label; declarations/fields: `EnrollmentEntry.label` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 85 | Ephemeral pending enrollment state; declaration/member EnrollmentEntry.provider_id; declarations/fields: `EnrollmentEntry.provider_id` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 86 | Ephemeral pending enrollment state; declaration/member EnrollmentEntry.session; declarations/fields: `EnrollmentEntry.session` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 87 | Ephemeral pending enrollment state; declaration/member EnrollmentEntry.result; declarations/fields: `EnrollmentEntry.result` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 90–95 | Ephemeral pending enrollment state; declaration/member State; declarations/fields: `State` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 91 | Ephemeral pending enrollment state; declaration/member State.store; declarations/fields: `State.store` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 92 | Ephemeral pending enrollment state; declaration/member State.providers; declarations/fields: `State.providers` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 93 | Ephemeral pending enrollment state; declaration/member State.runtime; declarations/fields: `State.runtime` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 94 | Ephemeral pending enrollment state; declaration/member State.enrollments; declarations/fields: `State.enrollments` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 97–99 | Broker construction and state mutex; declarations/fields: `Controller` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 98 | Broker construction and state mutex; declaration/member Controller.state; declarations/fields: `Controller.state` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 102 | Broker construction and state mutex; declaration/member new; declarations/fields: `new` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 125–127 | Broker construction and state mutex; declaration/member lock; declarations/fields: `lock` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 129–135 | Owner connection authority; declarations/fields: `owned` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 137–142 | Owned connections and available delegated metadata; declarations/fields: `connections` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 144–149 | Owned connections and available delegated metadata; declaration/member available; declarations/fields: `available` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 165–171 | Error adaptation and private id primitives; declarations/fields: `join_errors` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 173–177 | Error adaptation and private id primitives; declaration/member new_id; declarations/fields: `new_id` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 179–182 | Error adaptation and private id primitives; declaration/member fill_random; declarations/fields: `fill_random` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 184–188 | Error adaptation and private id primitives; declaration/member zeroize; declarations/fields: `zeroize` |
+<a id="coverage-475e779cff71"></a>
 
 ## [cmd/soda-identity/src/acquisition.rs](../../../../../cmd/soda-identity/src/acquisition.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 1–8 | Enrollment provider/session interface; declarations/fields: `leases`, `acquire`, `admit_execution`, `replay_acquisition`, `reserve_execution_lease`, `get_execution`, `close_execution`, `authorize_reservation` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 9–26 | Owner lease observation; declarations/fields: `leases` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 28–44 | Acquire/admit/replay/reserve exact execution fence; declarations/fields: `acquire` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 50 | Acquire/admit/replay/reserve exact execution fence; declaration/member admit_execution; declarations/fields: `admit_execution` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 70 | Acquire/admit/replay/reserve exact execution fence; declaration/member replay_acquisition; declarations/fields: `replay_acquisition` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 108–135 | Acquire/admit/replay/reserve exact execution fence; declaration/member reserve_execution_lease; declarations/fields: `reserve_execution_lease` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 139–145 | Execution fence read; declarations/fields: `get_execution` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 150–186 | Close exact execution; declarations/fields: `close_execution` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 188 | Delegated execution authorization; declarations/fields: `authorize_reservation` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–8, 70–107, 188–212; current module/import/attribute shell; declaration replay_acquisition; declaration authorize_reservation | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/acquisition.rs into its current native target.; replay_acquisition: implement the current identity enrollment and owner consent duty in acquisition.rs.; authorize_reservation: implement the current identity enrollment and owner consent duty in acquisition.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 9–69, 108–149; declaration leases; declaration acquire; declaration admit_execution; declaration reserve_execution_lease; declaration get_execution | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | leases: implement the current execution admission and lease fencing duty in acquisition.rs.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 150–187; declaration close_execution | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | close_execution: implement the current completion, revocation, and reconciliation duty in acquisition.rs. — current source cmd/soda-identity/src/acquisition.rs; lines 150-187; module/caller wiring inspected |
 
-## [cmd/soda-identity/src/enrollment.rs](../../../../../cmd/soda-identity/src/enrollment.rs)
+<a id="coverage-3e4294f35465"></a>
+<a id="rustsoda-identitysrccontrolrs-1"></a>
+<a id="coverage-17ec4969c422"></a>
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+## [cmd/soda-identity/src/control.rs](../../../../../cmd/soda-identity/src/control.rs)
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 1–5 | Enrollment provider/session interface; declarations/fields: `pending_enrollment`, `start_enrollment`, `enrollment`, `cancel_enrollment` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 6–15 | Pending enrollment bookkeeping; declarations/fields: `pending_enrollment` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 17 | Start/poll/cancel owner enrollment; declarations/fields: `start_enrollment` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 54–105 | Start/poll/cancel owner enrollment; declaration/member enrollment; declarations/fields: `enrollment` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 107–123 | Start/poll/cancel owner enrollment; declaration/member cancel_enrollment; declarations/fields: `cancel_enrollment` |
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-## [cmd/soda-identity/src/grants.rs](../../../../../cmd/soda-identity/src/grants.rs)
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–10, 15–21, 25–45, 55–57, 67–150, 165–203; current module/import/attribute shell; declaration EnrollmentSession; declaration snapshot; declaration Provider; declaration start; declaration Runtime; declaration validate; declaration stop; declaration map_provider_error; declaration CodexProvider; declaration MuseProvider; declaration CodexSession; declaration MuseSession; declaration EnrollmentEntry; fields owner, label, provider_id, session, result; declaration State; fields store, providers, runtime, enrollments; declaration Controller; fields state; declaration new; declaration lock; declaration owned; declaration connections; declaration available; declaration join_errors; declaration new_id; declaration new_id_with; declaration zeroize; declaration tests; declaration identity_id_fails_closed_after_partial_entropy_write | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/control.rs into its current native target.; 31 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 11–14, 22–24, 46–54, 58–66, 151–164; declaration finish; declaration close | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | finish: implement the current completion, revocation, and reconciliation duty in control.rs.; close: implement the current completion, revocation, and reconciliation duty in control.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 1–5 | Enrollment provider/session interface; declarations/fields: `grants`, `create_grant`, `revoke`, `revoke_grant` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 6–10 | Grant observation/creation; declarations/fields: `grants` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 12–29 | Grant observation/creation; declaration/member create_grant; declarations/fields: `create_grant` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 31–45 | Connection/grant revocation and live native retirement; declarations/fields: `revoke` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 47–65 | Connection/grant revocation and live native retirement; declaration/member revoke_grant; declarations/fields: `revoke_grant` |
-
-## [cmd/soda-identity/src/registration.rs](../../../../../cmd/soda-identity/src/registration.rs)
-
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 1–8 | Enrollment provider/session interface; declarations/fields: `register`, `registration_execution`, `observe_execution_binding`, `observe_terminal`, `release_execution_lease`, `registration`, `registration_authority`, `return_lease` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 9–25 | Exact binding registration and credential delivery; declarations/fields: `register` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 30–39 | Exact binding registration and credential delivery; declaration/member registration_execution; declarations/fields: `registration_execution` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 41–45 | Exact binding registration and credential delivery; declaration/member observe_execution_binding; declarations/fields: `observe_execution_binding` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 50–58 | Exact binding registration and credential delivery; declaration/member observe_terminal; declarations/fields: `observe_terminal` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 65–80 | Execution release and terminal observation; declarations/fields: `release_execution_lease` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 82 | Registration/binding authority attestation; declarations/fields: `registration` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 100–115 | Registration/binding authority attestation; declaration/member registration_authority; declarations/fields: `registration_authority` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 117–139 | Final credential return, uncertainty, retirement and reconcile; declarations/fields: `return_lease` |
-
-## [cmd/soda-identity/src/retirement.rs](../../../../../cmd/soda-identity/src/retirement.rs)
-
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 1–7 | Enrollment provider/session interface; declarations/fields: `uncertain`, `end`, `end_lease`, `finish_lease`, `reconcile_lease`, `reconcile`, `sweep`, `sweep_lease`, `reject`, `retire_connection` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 8–14 | Final credential return, uncertainty, retirement and reconcile; declaration/member uncertain; declarations/fields: `uncertain` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 16–30 | Final credential return, uncertainty, retirement and reconcile; declaration/member end; declarations/fields: `end` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 32–39 | Final credential return, uncertainty, retirement and reconcile; declaration/member end_lease; declarations/fields: `end_lease` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 41–67 | Final credential return, uncertainty, retirement and reconcile; declaration/member finish_lease; declarations/fields: `finish_lease` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 73–85 | Final credential return, uncertainty, retirement and reconcile; declaration/member reconcile_lease; declarations/fields: `reconcile_lease` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 87–97 | Periodic lease sweep and rejected-delivery retirement; declarations/fields: `reconcile` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 99–109 | Periodic lease sweep and rejected-delivery retirement; declaration/member sweep; declarations/fields: `sweep` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 111–120 | Periodic lease sweep and rejected-delivery retirement; declaration/member sweep_lease; declarations/fields: `sweep_lease` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 124–132 | Periodic lease sweep and rejected-delivery retirement; declaration/member reject; declarations/fields: `reject` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 134–146 | Connection retirement and controller shutdown; declarations/fields: `retire_connection` |
+<a id="coverage-386bd3f38897"></a>
 
 ## [cmd/soda-identity/src/crypto.rs](../../../../../cmd/soda-identity/src/crypto.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 1–83, 101–117 | Authenticated encryption and protected custody key handling; declarations/fields: `KEY_BINDING`, `GRANT_KEY_ERROR`, `GrantCipher`, `new`, `seal`, `open`, `nonce_size`, `fill_random`, `tests`, `rejects_short_keys`, `nist_vector`, `hex` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 84–100 | Source assertion of Native binding and private delivery; declarations/fields: `round_trip_with_binding` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–7; current module/import/attribute shell | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/crypto.rs into its current native target. — current source cmd/soda-identity/src/crypto.rs; Cargo target and callers |
+| 8–135; declaration KEY_BINDING; declaration GRANT_KEY_ERROR; declaration GrantCipher; fields cipher; declaration new; declaration seal; declaration seal_with_random; declaration open; declaration nonce_size; declaration tests; declaration rejects_short_keys; declaration round_trip_with_binding; declaration nist_vector; declaration seal_fails_closed_after_partial_entropy_write; declaration hex | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | KEY_BINDING: implement the current encrypted credential custody and cryptographic binding duty in crypto.rs.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-d877157ea310"></a>
+
+## [cmd/soda-identity/src/enrollment.rs](../../../../../cmd/soda-identity/src/enrollment.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–123; current module/import/attribute shell; declaration pending_enrollment; declaration start_enrollment; declaration enrollment; declaration cancel_enrollment | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/enrollment.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b79445f71583"></a>
+
+## [cmd/soda-identity/src/grants.rs](../../../../../cmd/soda-identity/src/grants.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–65; current module/import/attribute shell; declaration grants; declaration create_grant; declaration revoke; declaration revoke_grant | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/grants.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-72e250c9050e"></a>
-
 <a id="rustsoda-identitysrchttprs-1"></a>
+<a id="coverage-05773aac6313"></a>
 
 ## [cmd/soda-identity/src/http.rs](../../../../../cmd/soda-identity/src/http.rs)
 
-Re-audit @HEAD: pre-A05/A06 `http.rs` split into `http.rs` + `http_routes.rs` + `http_tests.rs` + `http_wire.rs`; rows re-mapped declaration-by-declaration to current bytes.
+Current source responsibilities were split by present listener/adapter, wire representation, or product dispatch unit; spans cover the full current file extent.
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–9 | Private Unix broker listener admission and bounds; declarations/fields: `Server`, `Server.controller`, `Server.runtime_allowed`, `Server.shutdown`, `Server.inflight`, `new`, `serve`, `handle_connection` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 10–15 | Private Unix broker listener admission and bounds; declaration/member Server; declarations/fields: `Server` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 11 | Private Unix broker listener admission and bounds; declaration/member Server.controller; declarations/fields: `Server.controller` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 12 | Private Unix broker listener admission and bounds; declaration/member Server.runtime_allowed; declarations/fields: `Server.runtime_allowed` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 13 | Private Unix broker listener admission and bounds; declaration/member Server.shutdown; declarations/fields: `Server.shutdown` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 14 | Private Unix broker listener admission and bounds; declaration/member Server.inflight; declarations/fields: `Server.inflight` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 18 | Private Unix broker listener admission and bounds; declaration/member new; declarations/fields: `new` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 32–78 | Private Unix broker listener admission and bounds; declaration/member serve; declarations/fields: `serve` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 80–87 | Private Unix broker listener admission and bounds; declaration/member handle_connection; declarations/fields: `handle_connection` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–308; HTTP module imports and listener/service shell lines 1-21; MAX_CONNECTIONS accepted-listener bound; MAX_BACKENDS and BODY_TIMEOUT request admission limits; Server data and constructor; Server::serve Unix listener and Tokio runtime; serve_runtime listener admission, in-flight tracking, and shutdown joins; InflightGuard and Drop request accounting; serve_connection Hyper HTTP/1 connection adapter; respond Hyper request framing, bounded body read, and dispatch handoff; wait_shutdown listener/task wait helper | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Wire Hyper HTTP/1, Tokio Unix listener, task lifecycle, HTTP router and Controller into the identity Unix-socket service.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-8b23aa8070a6"></a>
 
 ## [cmd/soda-identity/src/http_routes.rs](../../../../../cmd/soda-identity/src/http_routes.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+Current source responsibilities were split by present listener/adapter, wire representation, or product dispatch unit; spans cover the full current file extent.
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–11 | Private Unix broker listener admission and bounds; declarations/fields: `MAX_BODY`, `MAX_HEADER`, `HEADER_TIMEOUT`, `BODY_TIMEOUT`, `REQUEST_FIELDS`, `GRANT_FIELDS`, `ACQUIRE_FIELDS`, `BINDING_FIELDS`, `NESTED`, `dispatch`, `route`, `route_runtime` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 13 | Private Unix broker listener admission and bounds; declaration/member MAX_BODY; declarations/fields: `MAX_BODY` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 14 | Private Unix broker listener admission and bounds; declaration/member MAX_HEADER; declarations/fields: `MAX_HEADER` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 15 | Private Unix broker listener admission and bounds; declaration/member HEADER_TIMEOUT; declarations/fields: `HEADER_TIMEOUT` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 16 | Private Unix broker listener admission and bounds; declaration/member BODY_TIMEOUT; declarations/fields: `BODY_TIMEOUT` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 18–30 | Private Unix broker listener admission and bounds; declaration/member REQUEST_FIELDS; declarations/fields: `REQUEST_FIELDS` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 32–38 | Private Unix broker listener admission and bounds; declaration/member GRANT_FIELDS; declarations/fields: `GRANT_FIELDS` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 40–50 | Private Unix broker listener admission and bounds; declaration/member ACQUIRE_FIELDS; declarations/fields: `ACQUIRE_FIELDS` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 52–64 | Private Unix broker listener admission and bounds; declaration/member BINDING_FIELDS; declarations/fields: `BINDING_FIELDS` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 66–70 | Private Unix broker listener admission and bounds; declaration/member NESTED; declarations/fields: `NESTED` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 72–100 | Private request dispatch and runtime/admin admission; declarations/fields: `dispatch` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 104–162 | Administrative route dispatch envelope; declarations/fields: `route` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 164–217 | Runtime route envelope; declarations/fields: `route_runtime` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–18, 73–81, 86–110, 156–169, 216–218; HTTP router imports and module shell; MAX_BODY and HEADER_TIMEOUT HTTP admission limits; dispatch HTTP method/query/origin admission; dispatch handoff to product route selector; dispatch success and ErrorKind-to-HTTP response mapping; route boundary comment and signature; route runtime-listener gate and runtime selector handoff; route_runtime adapter signature; route_runtime unknown endpoint refusal | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Wire the Unix HTTP adapter to Controller, strict wire decoder, request and response adapters.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 19–72, 82–85; REQUEST_FIELDS, GRANT_FIELDS, ACQUIRE_FIELDS, BINDING_FIELDS, NESTED identity wire allowlists; dispatch strict request decode using wire allowlists | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Define accepted top-level and nested JSON identity request field shapes.; Decode the bounded JSON request into the identity wire Request representation. — strict::decode in dispatch consumes top-level and nested allowlists before Controller dispatch.; strict::decode consumes REQUEST_FIELDS and NESTED before product route selection. |
+| 111–114, 121–133; route /connections owner connection listing branch; route /enrollment/start and /enrollment/read branches; route /enrollment/cancel branch | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | List the owner’s existing identity connections.; Start an owner enrollment and retrieve its enrollment state.; Cancel an owner enrollment. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 115–117, 134–144; route /available delegated connection availability branch; route /grants and /grant/create branches | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Derive which owned or delegated connections are available to the requested Project.; List and create owner-controlled delegation grants. — Calls Controller.available(owner_id, project_id), whose control implementation delegates to the actor/Project scoped availability operation.; Calls Controller.grants and Controller.create_grant; missing grant input is denied. |
+| 118–120, 145–148, 152–155, 194–208, 212–215; route /revoke connection retirement branch; route /grant/revoke branch; route /lease/end branch; route_runtime /return credential return branch; route_runtime /reconcile-lease branch; route_runtime /execution/close branch | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | Revoke an owned identity connection and return no response body.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 149–151, 170–176, 209–211; route /leases listing branch; route_runtime /acquire execution admission branch; route_runtime /execution/get branch | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | List leases for the owner and connection.; Admit an execution request and produce its lease.; Retrieve execution admission state. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 177–193; route_runtime /register native binding and credential delivery branch; route_runtime /reject binding branch | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) | retained | Register an attested binding and serialize lease plus private credential delivery.; Reject a binding under the identity binding contract. — Calls Controller.register and encodes DeliveryWire.; Calls Controller.reject. |
+
+<a id="coverage-a1637e610af2"></a>
 
 ## [cmd/soda-identity/src/http_tests.rs](../../../../../cmd/soda-identity/src/http_tests.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1 | Private Unix broker listener admission and bounds; declarations/fields: `percent_paths_decode`, `error_bodies_match_go`, `success_envelope_matches_go` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 3–9 | Private percent-path and HTTP output source vectors; declaration/member percent_paths_decode; declarations/fields: `percent_paths_decode` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 11–18 | Private percent-path and HTTP output source vectors; declaration/member error_bodies_match_go; declarations/fields: `error_bodies_match_go` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 20–27 | Private percent-path and HTTP output source vectors; declaration/member success_envelope_matches_go; declarations/fields: `success_envelope_matches_go` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–3, 12–49; current module/import/attribute shell; declaration error_envelope_preserves_status_headers_and_lf; declaration success_envelope_preserves_cache_policy_and_lf | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Private HTTP adapter module/test wiring; codec syntax assertions retain H03.; Asserts error-response status, headers and final LF emitted by the private HTTP response adapter.; Asserts success-response cache policy and final LF emitted by the private HTTP response adapter. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 4–11; declaration percent_paths_decode | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | percent_paths_decode: implement the current wire decoding, encoding, and representation conversion duty in http_tests.rs. — current source cmd/soda-identity/src/http_tests.rs; lines 4-11; module/caller wiring inspected |
+
+<a id="coverage-5d0d8c064484"></a>
 
 ## [cmd/soda-identity/src/http_wire.rs](../../../../../cmd/soda-identity/src/http_wire.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–4 | Private Unix broker listener admission and bounds; declarations/fields: `Admission`, `HttpRequest`, `HttpRequest.method`, `HttpRequest.path`, `HttpRequest.query`, `HttpRequest.origin`, `read_request`, `percent_decode`, `success_response`, `error_response`, `tests` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 5–8 | Private Unix broker listener admission and bounds; declaration/member Admission; declarations/fields: `Admission` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 10–15 | Private Unix broker listener admission and bounds; declaration/member HttpRequest; declarations/fields: `HttpRequest` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 11 | Private Unix broker listener admission and bounds; declaration/member HttpRequest.method; declarations/fields: `HttpRequest.method` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 12 | Private Unix broker listener admission and bounds; declaration/member HttpRequest.path; declarations/fields: `HttpRequest.path` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 13 | Private Unix broker listener admission and bounds; declaration/member HttpRequest.query; declarations/fields: `HttpRequest.query` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 14 | Private Unix broker listener admission and bounds; declaration/member HttpRequest.origin; declarations/fields: `HttpRequest.origin` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 17–112 | Private Unix broker listener admission and bounds; declaration/member read_request; declarations/fields: `read_request` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 114–135 | Strict private path decoding; declarations/fields: `percent_decode` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 137–150, 152–169 | Unknown route denial and HTTP response envelope; declarations/fields: `success_response`, `error_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 137–150 | Unknown route denial and HTTP response envelope; declaration/member success_response; declarations/fields: `success_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 152–169 | Unknown route denial and HTTP response envelope; declaration/member error_response; declarations/fields: `error_response` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 171–173 | Private percent-path and HTTP output source vectors; declarations/fields: `tests` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17, 47–73; current module/import/attribute shell; declaration MAX_BODY; declaration MAX_HEADER; declaration HttpRequest; fields method, path, query, origin; declaration success_response; declaration error_response; declaration tests | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Private HTTP adapter module/test wiring; codec syntax assertions retain H03.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 18–46; declaration percent_decode; declaration valid_percent_escapes | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | percent_decode: implement the current wire decoding, encoding, and representation conversion duty in http_wire.rs.; Rejects malformed percent escapes as a path-decoding syntax contract. — current source cmd/soda-identity/src/http_wire.rs; lines 18-27; module/caller wiring inspected; Independent current-body/caller responsibility challenge: http_wire.rs:28-46; percent_decode uses it; http.rs:245 invokes the decoder |
+
+<a id="coverage-69d26a2117d8"></a>
 
 ## [cmd/soda-identity/src/lib.rs](../../../../../cmd/soda-identity/src/lib.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-Public module wiring is mapped separately; module exposure does not create a new process boundary.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–4 | Private identity broker service composition |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 5 | Module wiring: control; Execution admission and lease fencing; declarations/fields: `control` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 7 | Module wiring: crypto; Encrypted credential custody; declarations/fields: `crypto` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 8 | Module wiring: http; Private IPC and service lifetime; declarations/fields: `http` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 11 | Module wiring: pg; Storage mechanics; declarations/fields: `pg` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 14 | Module wiring: runtime; Native binding and private delivery; declarations/fields: `runtime` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 18 | Module wiring: schema; Storage mechanics; declarations/fields: `schema` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 19 | Module wiring: store; Storage mechanics; declarations/fields: `store` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 20 | Module wiring: strict; Encoding and parsing; declarations/fields: `strict` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 27 | Module wiring: wire; Encoding and parsing; declarations/fields: `wire` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–5, 8–9, 18–19; current module/import/attribute shell; declaration acquisition; declaration enrollment; declaration grants; declaration providers; declaration registration | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/lib.rs into its current native target.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 6; declaration control | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | control: implement the current execution admission and lease fencing duty in lib.rs. — current source cmd/soda-identity/src/lib.rs; lines 6-6; module/caller wiring inspected |
+| 7; declaration crypto | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | crypto: implement the current encrypted credential custody and cryptographic binding duty in lib.rs. — current source cmd/soda-identity/src/lib.rs; lines 7-7; module/caller wiring inspected |
+| 10; declaration http | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | http: implement the current Unix-socket service and process lifetime duty in lib.rs. — current source cmd/soda-identity/src/lib.rs; lines 10-10; module/caller wiring inspected |
+| 11–12, 30–36; declaration http_routes; declaration http_wire; declaration strict; declaration wire; declaration wire_errors; declaration wire_execution; declaration wire_grants; declaration wire_scalars; declaration wire_time | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | http_routes: implement the current wire decoding, encoding, and representation conversion duty in lib.rs.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 13–17, 22–29; declaration pg; declaration pg_dsn; declaration pg_query; declaration pg_tests; declaration schema; declaration store; declaration store_connections; declaration store_events; declaration store_executions; declaration store_grants; declaration store_leases; declaration store_schema | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | pg: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in lib.rs.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 20; declaration retirement | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | retirement: implement the current completion, revocation, and reconciliation duty in lib.rs. — current source cmd/soda-identity/src/lib.rs; lines 20-20; module/caller wiring inspected |
+| 21; declaration runtime | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) | retained | runtime: implement the current native binding and private delivery duty in lib.rs. — current source cmd/soda-identity/src/lib.rs; lines 21-21; module/caller wiring inspected |
 
 <a id="coverage-749b2e8df0a8"></a>
-
 <a id="rustsoda-identitysrcpgrs-1"></a>
+<a id="coverage-8d9410b54095"></a>
 
 ## [cmd/soda-identity/src/pg.rs](../../../../../cmd/soda-identity/src/pg.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–16 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declarations/fields: `IO_TIMEOUT`, `Dsn`, `parse`, `percent_decode`, `Stream`, `read`, `write_all`, `Row`, `text`, `integer`, `bytea`, `Client`, `connect`, `send`, `receive`, `authenticate`, `authenticate_scram`, `query`, `simple`, `command_count`, `error_response`, `tests`, `dsn_shapes_match_go`, `command_tags_count_rows` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 17–18 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member IO_TIMEOUT; declarations/fields: `IO_TIMEOUT` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 19 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Dsn; declarations/fields: `Dsn` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 20 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Dsn.user; declarations/fields: `Dsn.user` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 21 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Dsn.password; declarations/fields: `Dsn.password` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 22 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Dsn.host; declarations/fields: `Dsn.host` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 23 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Dsn.port; declarations/fields: `Dsn.port` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 24–27 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Dsn.database; declarations/fields: `Dsn.database` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 28–102 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member parse; declarations/fields: `parse` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 103–125 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member percent_decode; declarations/fields: `percent_decode` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 126–131 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Stream; declarations/fields: `Stream` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 132–138 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member read; declarations/fields: `read` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 139–146 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member write_all; declarations/fields: `write_all` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 147 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Row; declarations/fields: `Row` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 148 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Row.columns; declarations/fields: `Row.columns` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 149–152 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Row.fields; declarations/fields: `Row.fields` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 153–161 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member text; declarations/fields: `text` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 162–167 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member integer; declarations/fields: `integer` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 168–186 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member bytea; declarations/fields: `bytea` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 187 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Client; declarations/fields: `Client` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 188 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Client.stream; declarations/fields: `Client.stream` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 189–192 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member Client.buffer; declarations/fields: `Client.buffer` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 193–233 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member connect; declarations/fields: `connect` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 234–237 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member send; declarations/fields: `send` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 238–253 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member receive; declarations/fields: `receive` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 254–295 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member authenticate; declarations/fields: `authenticate` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 296–327 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member authenticate_scram; declarations/fields: `authenticate_scram` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 328–411 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member query; declarations/fields: `query` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 412–448 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member simple; declarations/fields: `simple` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 449–455 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member command_count; declarations/fields: `command_count` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 456–476 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member error_response; declarations/fields: `error_response` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 477–480 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member tests; declarations/fields: `tests` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 481–503 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member dsn_shapes_match_go; declarations/fields: `dsn_shapes_match_go` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 504–512 | PostgreSQL wire, SCRAM authentication, query and row mechanics; declaration/member command_tags_count_rows; declarations/fields: `command_tags_count_rows` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–5; current module/import/attribute shell | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/pg.rs into its current native target. — current source cmd/soda-identity/src/pg.rs; Cargo target and callers |
+| 6–25; declaration Connection; fields client, driver; declaration connect; declaration pg_error | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Connection: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in pg.rs.; connect: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in pg.rs.; pg_error: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in pg.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-80ecd53dca3e"></a>
+
+## [cmd/soda-identity/src/pg_dsn.rs](../../../../../cmd/soda-identity/src/pg_dsn.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–37; current module/import/attribute shell; declaration Dsn; declaration parse | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/pg_dsn.rs into its current native target.; Dsn: implement the current identity enrollment and owner consent duty in pg_dsn.rs.; parse: implement the current identity enrollment and owner consent duty in pg_dsn.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-adc2bf00b6bd"></a>
+
+## [cmd/soda-identity/src/pg_query.rs](../../../../../cmd/soda-identity/src/pg_query.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–49, 92–145; current module/import/attribute shell; declaration DRIVER_JOIN_BUDGET; declaration Outcome; declaration bounded; declaration Field; declaration field; declaration nullable_text; declaration text; declaration nullable_integer; declaration integer; declaration nullable_bytea; declaration bytea; declaration nullable_boolean; declaration boolean | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/pg_query.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 50–91; declaration Row; fields fields; declaration from_pg | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Row: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in pg_query.rs.; from_pg: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in pg_query.rs. — current source cmd/soda-identity/src/pg_query.rs; lines 50-55; module/caller wiring inspected; current source cmd/soda-identity/src/pg_query.rs; lines 56-91; module/caller wiring inspected |
+
+<a id="coverage-008763f67f4b"></a>
+
+## [cmd/soda-identity/src/pg_tests.rs](../../../../../cmd/soda-identity/src/pg_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–25; current module/import/attribute shell; declaration TEST_LOCK; declaration dsn_policy_keeps_uri_no_tls_and_socket_support | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/pg_tests.rs into its current native target.; TEST_LOCK: implement the current identity enrollment and owner consent duty in pg_tests.rs.; dsn_policy_keeps_uri_no_tls_and_socket_support: implement the current identity enrollment and owner consent duty in pg_tests.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 26–199; declaration integration_store; declaration integration_store_for_dsn; declaration store_authenticates_over_unix_and_loopback_tcp; declaration store_cancellation_discards_session_and_next_operation_reconnects; declaration swallowed_transaction_errors_cannot_commit_or_return_success; declaration typed_nullable_rows_and_transaction_guard_match_store_contract | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | integration_store: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in pg_tests.rs.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7a9f29a78915"></a>
+
+## [cmd/soda-identity/src/registration.rs](../../../../../cmd/soda-identity/src/registration.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–8, 50–64, 82–116; current module/import/attribute shell; declaration observe_terminal; declaration registration; declaration registration_authority | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/registration.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 9–49, 65–81, 117–139; declaration register; declaration registration_execution; declaration observe_execution_binding; declaration release_execution_lease; declaration return_lease | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | register: implement the current execution admission and lease fencing duty in registration.rs.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-aee4e5e339a8"></a>
+
+## [cmd/soda-identity/src/retirement.rs](../../../../../cmd/soda-identity/src/retirement.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–31, 124–133; current module/import/attribute shell; declaration uncertain; declaration end; declaration reject | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/retirement.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 32–40; declaration end_lease | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | end_lease: implement the current execution admission and lease fencing duty in retirement.rs. — current source cmd/soda-identity/src/retirement.rs; lines 32-40; module/caller wiring inspected |
+| 41–123; declaration finish_lease; declaration reconcile_lease; declaration reconcile; declaration sweep; declaration sweep_lease | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | finish_lease: implement the current completion, revocation, and reconciliation duty in retirement.rs.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 134–146; declaration retire_connection | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | retire_connection: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in retirement.rs. — current source cmd/soda-identity/src/retirement.rs; lines 134-146; module/caller wiring inspected |
 
 <a id="coverage-e6620e3beafc"></a>
+<a id="coverage-0276b9fb3e6c"></a>
 
 ## [cmd/soda-identity/src/runtime.rs](../../../../../cmd/soda-identity/src/runtime.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; one test span corrected. `read_chunked`/`read_line` retired by H01-F1 commit 859b8d4c (chunk decoder removed; `read_response` refuses chunked).
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–67 | Private host callback client and bounded transport; declarations/fields: `CALL_TIMEOUT`, `DEFAULT_LIMIT`, `FINISH_LIMIT`, `HostClient`, `new`, `call` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 68–75 | Exact native binding validation callback; declarations/fields: `validate` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 76–93 | Native stop and final credential capture callbacks; declarations/fields: `stop`, `finish` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 94–99 | Callback trait/response transport; declarations/fields: `default_limit` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 100–102 | Native validate trait binding; declarations/fields: `validate` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 103–110 | Native completion trait binding; declarations/fields: `stop`, `finish` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 111–183 | Bounded HTTP callback body/chunk parser; declarations/fields: `read_response` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 241–373, 383–390 | Host callback fixtures/assertions; declarations/fields: `tests`, `lease`, `stub`, `rand_suffix`, `delegates_both_kinds_to_host`, `finish_rejects_null_and_oversized_bodies`, `chunked_response_refused_without_decode` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 318–325 | Source assertion of Execution admission and lease fencing; declarations/fields: `refuses_unbound_lease_without_host_call` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–7, 276–286; current module/import/attribute shell; declaration legal_chunked_response_is_accepted_by_host_client | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/runtime.rs into its current native target.; legal_chunked_response_is_accepted_by_host_client: implement the current identity enrollment and owner consent duty in runtime.rs. — current source cmd/soda-identity/src/runtime.rs; Cargo target and callers; current source cmd/soda-identity/src/runtime.rs; lines 276-286; module/caller wiring inspected |
+| 8–67, 93–99; declaration CALL_TIMEOUT; declaration DEFAULT_LIMIT; declaration FINISH_LIMIT; declaration HostClient; fields socket; declaration new; declaration call; declaration default_limit | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | CALL_TIMEOUT: implement the current Unix-socket service and process lifetime duty in runtime.rs.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 68–75, 100–102, 111–257, 267–275; declaration validate; declaration tests; declaration lease; declaration stub; declaration rand_suffix; declaration delegates_both_kinds_to_host; declaration finish_rejects_null_and_oversized_bodies | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) | retained | validate: implement the current native binding and private delivery duty in runtime.rs.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 76–92, 103–110; declaration stop; declaration finish | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | stop: implement the current completion, revocation, and reconciliation duty in runtime.rs.; finish: implement the current completion, revocation, and reconciliation duty in runtime.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 258–266; declaration refuses_unbound_lease_without_host_call | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | refuses_unbound_lease_without_host_call: implement the current execution admission and lease fencing duty in runtime.rs. — current source cmd/soda-identity/src/runtime.rs; lines 258-266; module/caller wiring inspected |
 
 <a id="coverage-fac98c2013f2"></a>
-
 <a id="rustsoda-identitysrcstrictrs-1"></a>
+<a id="coverage-012423b63d27"></a>
 
 ## [cmd/soda-identity/src/strict.rs](../../../../../cmd/soda-identity/src/strict.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–6, 368–390 | Bounded strict JSON admission and null/unknown-field compatibility; declarations/fields: `MAX_DOCUMENT`, `decode`, `remap_case`, `check_known_fields`, `Scanner`, `new`, `skip_ws`, `peek`, `eat`, `string`, `skip_string`, `skip_scalar`, `check_unique_keys`, `check_value`, `tests`, `Envelope`, `FIELDS`, `decode_envelope`, `limits_match_go` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 7–8 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member MAX_DOCUMENT; declarations/fields: `MAX_DOCUMENT` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 9–35 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member decode; declarations/fields: `decode` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 36–64 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member remap_case; declarations/fields: `remap_case` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 65–86 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member check_known_fields; declarations/fields: `check_known_fields` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 87 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member Scanner; declarations/fields: `Scanner` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 88 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member Scanner.bytes; declarations/fields: `Scanner.bytes` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 89–92 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member Scanner.pos; declarations/fields: `Scanner.pos` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 93–99 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member new; declarations/fields: `new` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 100–107 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member skip_ws; declarations/fields: `skip_ws` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 108–112 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member peek; declarations/fields: `peek` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 113–125 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member eat; declarations/fields: `eat` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 126–199 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member string; declarations/fields: `string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 200–203 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member skip_string; declarations/fields: `skip_string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 204–217 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member skip_scalar; declarations/fields: `skip_scalar` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 218–248 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member check_unique_keys; declarations/fields: `check_unique_keys` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 249–315 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member check_value; declarations/fields: `check_value` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 316–320 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member tests; declarations/fields: `tests` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 321–322 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member Envelope; declarations/fields: `Envelope` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 323–324 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member Envelope.command_id; declarations/fields: `Envelope.command_id` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 325–326 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member Envelope.wire_type; declarations/fields: `Envelope.wire_type` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 327–329 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member Envelope.target; declarations/fields: `Envelope.target` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 330–331 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member FIELDS; declarations/fields: `FIELDS` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 332–336 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member decode_envelope; declarations/fields: `decode_envelope` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 337–367 | Source assertion of Encoding and parsing; declarations/fields: `strict_vectors_match_go` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 391–398 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member case_fold_matches_go_fallback; declarations/fields: `case_fold_matches_go_fallback` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 399–402 | Bounded strict JSON admission and null/unknown-field compatibility; declaration/member unicode_keys_compare_decoded; declarations/fields: `unicode_keys_compare_decoded` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–10, 91–198; current module/import/attribute shell; declaration UniqueSeed; fields depth, top; declaration Value; declaration deserialize; declaration UniqueVisitor; fields depth, top; declaration expecting; declaration visit_bool; declaration visit_i64; declaration visit_u64; declaration visit_f64; declaration visit_str; declaration visit_string; declaration visit_unit; declaration visit_none; declaration visit_seq; declaration visit_map | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/strict.rs into its current native target.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 11–90, 199–216; declaration MAX_DOCUMENT; declaration decode; declaration remap_case; declaration check_known_fields; declaration check_unique_keys; declaration strict_tests | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | MAX_DOCUMENT: implement the current wire decoding, encoding, and representation conversion duty in strict.rs.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-8d525f22e8b2"></a>
+
+## [cmd/soda-identity/src/strict_tests.rs](../../../../../cmd/soda-identity/src/strict_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–19, 59–94; current module/import/attribute shell; declaration Envelope; fields command_id, wire_type, target; declaration FIELDS; declaration limits_match_go; declaration case_fold_matches_go_fallback | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/strict_tests.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 20–58, 95–98; declaration decode_envelope; declaration strict_vectors_match_go; declaration unicode_keys_compare_decoded | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | decode_envelope: implement the current wire decoding, encoding, and representation conversion duty in strict_tests.rs.; strict_vectors_match_go: implement the current wire decoding, encoding, and representation conversion duty in strict_tests.rs.; unicode_keys_compare_decoded: implement the current wire decoding, encoding, and representation conversion duty in strict_tests.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-8cb18c62534a"></a>
-
 <a id="rustsoda-identitysrcwirers-1"></a>
+<a id="coverage-e65d2c87fcc0"></a>
 
 ## [cmd/soda-identity/src/wire.rs](../../../../../cmd/soda-identity/src/wire.rs)
 
-Re-audit @HEAD: pre-A05/A06 `wire.rs` split into `wire.rs` + 6 `wire_*` siblings; rows re-mapped declaration-by-declaration to current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–6 | Provider constants and exact Go timestamp/null/integer codecs; declarations/fields: `CODEX`, `MUSE`, `READY`, `REAUTH`, `REVOKED`, `FACTORY`, `TERMINAL`, `EXECUTION_PENDING`, `EXECUTION_LIVE`, `EXECUTION_TERMINAL`, `provider_valid`, `Request`, `Request.provider_id`, `Request.owner_id`, `Request.id`, `Request.label`, `Request.project_id`, `Request.kind`, `Request.execution_id`, `Request.grant`, `Request.acquire`, `Request.binding`, `Request.credential`, `DeliveryWire`, `DeliveryWire.lease`, `DeliveryWire.credential`, `tests` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 8 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member CODEX; declarations/fields: `CODEX` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 9 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member MUSE; declarations/fields: `MUSE` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 10 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member READY; declarations/fields: `READY` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 11 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member REAUTH; declarations/fields: `REAUTH` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 12 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member REVOKED; declarations/fields: `REVOKED` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 13 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member FACTORY; declarations/fields: `FACTORY` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 14 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member TERMINAL; declarations/fields: `TERMINAL` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 16 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member EXECUTION_PENDING; declarations/fields: `EXECUTION_PENDING` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 17 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member EXECUTION_LIVE; declarations/fields: `EXECUTION_LIVE` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 18 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member EXECUTION_TERMINAL; declarations/fields: `EXECUTION_TERMINAL` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 20–31 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member provider_valid; declarations/fields: `provider_valid` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 34–86 | Private administrative/runtime request envelope; declarations/fields: `Request` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 41 | Private administrative/runtime request envelope; declaration/member Request.provider_id; declarations/fields: `Request.provider_id` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 43 | Private administrative/runtime request envelope; declaration/member Request.owner_id; declarations/fields: `Request.owner_id` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 49 | Private administrative/runtime request envelope; declaration/member Request.id; declarations/fields: `Request.id` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 55 | Private administrative/runtime request envelope; declaration/member Request.label; declarations/fields: `Request.label` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 61 | Private administrative/runtime request envelope; declaration/member Request.project_id; declarations/fields: `Request.project_id` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 67 | Private administrative/runtime request envelope; declaration/member Request.kind; declarations/fields: `Request.kind` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 73 | Private administrative/runtime request envelope; declaration/member Request.execution_id; declarations/fields: `Request.execution_id` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 75 | Private administrative/runtime request envelope; declaration/member Request.grant; declarations/fields: `Request.grant` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 77 | Private administrative/runtime request envelope; declaration/member Request.acquire; declarations/fields: `Request.acquire` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 79 | Private administrative/runtime request envelope; declaration/member Request.binding; declarations/fields: `Request.binding` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 85 | Private administrative/runtime request envelope; declaration/member Request.credential; declarations/fields: `Request.credential` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 89–94 | Private credential delivery contract; declarations/fields: `DeliveryWire` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 91 | Private credential delivery contract; declaration/member DeliveryWire.lease; declarations/fields: `DeliveryWire.lease` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 93 | Private credential delivery contract; declaration/member DeliveryWire.credential; declarations/fields: `DeliveryWire.credential` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 96–98 | Wire/validation source vectors; declarations/fields: `tests` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–7, 34–88; current module/import/attribute shell; declaration Request; fields provider_id, owner_id, id, label, project_id, kind, execution_id, grant, acquire, binding, credential | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/wire.rs into its current native target.; Request: implement the current identity enrollment and owner consent duty in wire.rs. — current source cmd/soda-identity/src/wire.rs; Cargo target and callers; current source cmd/soda-identity/src/wire.rs; lines 34-88; module/caller wiring inspected |
+| 8–33, 89–98; declaration CODEX; declaration MUSE; declaration READY; declaration REAUTH; declaration REVOKED; declaration FACTORY; declaration TERMINAL; declaration EXECUTION_PENDING; declaration EXECUTION_LIVE; declaration EXECUTION_TERMINAL; declaration provider_valid; declaration DeliveryWire; fields lease, credential; declaration tests | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | CODEX: implement the current wire decoding, encoding, and representation conversion duty in wire.rs.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-91f231710f16"></a>
 
 ## [cmd/soda-identity/src/wire_errors.rs](../../../../../cmd/soda-identity/src/wire_errors.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1 | Provider constants and exact Go timestamp/null/integer codecs; declarations/fields: `ErrorKind`, `Error`, `Error.kind`, `Error.message`, `denied`, `busy`, `stale`, `uncertain`, `not_found`, `internal`, `kind`, `is_denied`, `is_not_found`, `fmt`, `from` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 3–11 | Private broker error forms; declarations/fields: `ErrorKind` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 13–17 | Private broker error forms; declaration/member Error; declarations/fields: `Error` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 15 | Private broker error forms; declaration/member Error.kind; declarations/fields: `Error.kind` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 16 | Private broker error forms; declaration/member Error.message; declarations/fields: `Error.message` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 20–25 | Private broker error forms; declaration/member denied; declarations/fields: `denied` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 26–31 | Private broker error forms; declaration/member busy; declarations/fields: `busy` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 32–37 | Private broker error forms; declaration/member stale; declarations/fields: `stale` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 38–43 | Private broker error forms; declaration/member uncertain; declarations/fields: `uncertain` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 44–49 | Private broker error forms; declaration/member not_found; declarations/fields: `not_found` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 50–55 | Private broker error forms; declaration/member internal; declarations/fields: `internal` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 56–58 | Private broker error forms; declaration/member kind; declarations/fields: `kind` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 59–61 | Private broker error forms; declaration/member is_denied; declarations/fields: `is_denied` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 62–65 | Private broker error forms; declaration/member is_not_found; declarations/fields: `is_not_found` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 68–71 | Private broker error forms; declaration/member fmt; declarations/fields: `fmt` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 76–79 | Private broker error forms; declaration/member from; declarations/fields: `from` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–85; current module/import/attribute shell; declaration ErrorKind; declaration Error; fields kind, message; declaration denied; declaration busy; declaration stale; declaration uncertain; declaration not_found; declaration internal; declaration kind; declaration is_denied; declaration is_not_found; declaration fmt; declaration from | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/wire_errors.rs into its current native target.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-1bebd650016a"></a>
 
 ## [cmd/soda-identity/src/wire_execution.rs](../../../../../cmd/soda-identity/src/wire_execution.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–5 | Provider constants and exact Go timestamp/null/integer codecs; declarations/fields: `Binding`, `Binding.child_id`, `Binding.uid`, `Binding.gid`, `Binding.scope`, `Binding.credential_root`, `Binding.invocation_id`, `Binding.kind`, `Binding.id`, `Binding.project`, `Binding.login`, `Binding.generation`, `Lease`, `Lease.repository_id`, `Lease.provider_id`, `Lease.id`, `Lease.connection_id`, `Lease.generation`, `Lease.actor_id`, `Lease.project_id`, `Lease.execution_id`, `Lease.kind`, `Lease.role`, `Lease.deadline`, `Lease.grant_id`, `Lease.grant_revision`, `Lease.binding`, `Execution`, `Execution.binding`, `Execution.kind`, `Execution.execution_id`, `Execution.digest`, `Execution.state`, `Execution.lease_id`, `Event`, `Event.id`, `Event.time`, `Event.action`, `Event.owner_id`, `Event.actor_id`, `Event.connection_id`, `Event.lease_id`, `Event.project_id`, `Event.grant_id`, `Event.execution_id`, `Event.kind`, `Event.generation` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 6–69 | Exact native binding contract; declarations/fields: `Binding` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 13 | Exact native binding contract; declaration/member Binding.child_id; declarations/fields: `Binding.child_id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 19 | Exact native binding contract; declaration/member Binding.uid; declarations/fields: `Binding.uid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 25 | Exact native binding contract; declaration/member Binding.gid; declarations/fields: `Binding.gid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 31 | Exact native binding contract; declaration/member Binding.scope; declarations/fields: `Binding.scope` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 37 | Exact native binding contract; declaration/member Binding.credential_root; declarations/fields: `Binding.credential_root` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 43 | Exact native binding contract; declaration/member Binding.invocation_id; declarations/fields: `Binding.invocation_id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 48 | Exact native binding contract; declaration/member Binding.kind; declarations/fields: `Binding.kind` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 53 | Exact native binding contract; declaration/member Binding.id; declarations/fields: `Binding.id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 58 | Exact native binding contract; declaration/member Binding.project; declarations/fields: `Binding.project` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 63 | Exact native binding contract; declaration/member Binding.login; declarations/fields: `Binding.login` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 68 | Exact native binding contract; declaration/member Binding.generation; declarations/fields: `Binding.generation` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 71–138 | Lease contract; declarations/fields: `Lease` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 78 | Lease contract; declaration/member Lease.repository_id; declarations/fields: `Lease.repository_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 83 | Lease contract; declaration/member Lease.provider_id; declarations/fields: `Lease.provider_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 88 | Lease contract; declaration/member Lease.id; declarations/fields: `Lease.id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 93 | Lease contract; declaration/member Lease.connection_id; declarations/fields: `Lease.connection_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 98 | Lease contract; declaration/member Lease.generation; declarations/fields: `Lease.generation` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 100 | Lease contract; declaration/member Lease.actor_id; declarations/fields: `Lease.actor_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 105 | Lease contract; declaration/member Lease.project_id; declarations/fields: `Lease.project_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 110 | Lease contract; declaration/member Lease.execution_id; declarations/fields: `Lease.execution_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 115 | Lease contract; declaration/member Lease.kind; declarations/fields: `Lease.kind` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 121 | Lease contract; declaration/member Lease.role; declarations/fields: `Lease.role` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 123 | Lease contract; declaration/member Lease.deadline; declarations/fields: `Lease.deadline` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 129 | Lease contract; declaration/member Lease.grant_id; declarations/fields: `Lease.grant_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 135 | Lease contract; declaration/member Lease.grant_revision; declarations/fields: `Lease.grant_revision` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 137 | Lease contract; declaration/member Lease.binding; declarations/fields: `Lease.binding` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 140–170 | Persistent execution fence contract; declarations/fields: `Execution` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 143 | Persistent execution fence contract; declaration/member Execution.binding; declarations/fields: `Execution.binding` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 148 | Persistent execution fence contract; declaration/member Execution.kind; declarations/fields: `Execution.kind` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 153 | Persistent execution fence contract; declaration/member Execution.execution_id; declarations/fields: `Execution.execution_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 158 | Persistent execution fence contract; declaration/member Execution.digest; declarations/fields: `Execution.digest` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 163 | Persistent execution fence contract; declaration/member Execution.state; declarations/fields: `Execution.state` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 169 | Persistent execution fence contract; declaration/member Execution.lease_id; declarations/fields: `Execution.lease_id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 172–227 | Credential-free identity event contract; declarations/fields: `Event` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 175 | Credential-free identity event contract; declaration/member Event.id; declarations/fields: `Event.id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 177 | Credential-free identity event contract; declaration/member Event.time; declarations/fields: `Event.time` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 182 | Credential-free identity event contract; declaration/member Event.action; declarations/fields: `Event.action` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 184 | Credential-free identity event contract; declaration/member Event.owner_id; declarations/fields: `Event.owner_id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 186 | Credential-free identity event contract; declaration/member Event.actor_id; declarations/fields: `Event.actor_id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 191 | Credential-free identity event contract; declaration/member Event.connection_id; declarations/fields: `Event.connection_id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 197 | Credential-free identity event contract; declaration/member Event.lease_id; declarations/fields: `Event.lease_id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 203 | Credential-free identity event contract; declaration/member Event.project_id; declarations/fields: `Event.project_id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 209 | Credential-free identity event contract; declaration/member Event.grant_id; declarations/fields: `Event.grant_id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 215 | Credential-free identity event contract; declaration/member Event.execution_id; declarations/fields: `Event.execution_id` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 221 | Credential-free identity event contract; declaration/member Event.kind; declarations/fields: `Event.kind` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 226 | Credential-free identity event contract; declaration/member Event.generation; declarations/fields: `Event.generation` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–70, 172–267; current module/import/attribute shell; declaration Binding; fields child_id, uid, gid, scope, credential_root, invocation_id, kind, id, project, login, generation; declaration Event; fields id, time, action, owner_id, actor_id, connection_id, lease_id, project_id, grant_id, execution_id, kind, generation; declaration validate | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/wire_execution.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 71–171; declaration Lease; fields repository_id, provider_id, id, connection_id, generation, actor_id, project_id, execution_id, kind, role, deadline, grant_id, grant_revision, binding; declaration Execution; fields binding, kind, execution_id, digest, state, lease_id | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | Lease: implement the current execution admission and lease fencing duty in wire_execution.rs.; Execution: implement the current execution admission and lease fencing duty in wire_execution.rs. — current source cmd/soda-identity/src/wire_execution.rs; lines 71-139; module/caller wiring inspected; current source cmd/soda-identity/src/wire_execution.rs; lines 140-171; module/caller wiring inspected |
 
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 230–241 | Native binding validation; declarations/fields: `validate` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 230–241 | Native binding validation; declaration/member validate; declarations/fields: `validate` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 245–266 | Exact execution fence validation; declarations/fields: `validate` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 245–266 | Exact execution fence validation; declaration/member validate; declarations/fields: `validate` |
+<a id="coverage-5b28468b9b2c"></a>
+
 ## [cmd/soda-identity/src/wire_grants.rs](../../../../../cmd/soda-identity/src/wire_grants.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–5 | Provider constants and exact Go timestamp/null/integer codecs; declarations/fields: `Grant`, `Grant.id`, `Grant.connection_id`, `Grant.user_id`, `Grant.project_id`, `Grant.revision`, `Grant.revoked`, `GrantRequest`, `GrantRequest.connection_id`, `GrantRequest.user_id`, `GrantRequest.project_id`, `GrantRequest.confirm_subscription`, `GrantRequest.confirm_credential_exposure`, `AcquireRequest`, `AcquireRequest.repository_id`, `AcquireRequest.provider_id`, `AcquireRequest.execution_id`, `AcquireRequest.actor_id`, `AcquireRequest.connection_id`, `AcquireRequest.project_id`, `AcquireRequest.kind`, `AcquireRequest.deadline`, `AcquireRequest.role`, `acquisition_digest` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 6–35 | Grant and delegated grant request contracts; declarations/fields: `Grant` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 12 | Grant and delegated grant request contracts; declaration/member Grant.id; declarations/fields: `Grant.id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 17 | Grant and delegated grant request contracts; declaration/member Grant.connection_id; declarations/fields: `Grant.connection_id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 19 | Grant and delegated grant request contracts; declaration/member Grant.user_id; declarations/fields: `Grant.user_id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 24 | Grant and delegated grant request contracts; declaration/member Grant.project_id; declarations/fields: `Grant.project_id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 29 | Grant and delegated grant request contracts; declaration/member Grant.revision; declarations/fields: `Grant.revision` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 34 | Grant and delegated grant request contracts; declaration/member Grant.revoked; declarations/fields: `Grant.revoked` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 37–61 | Grant and delegated grant request contracts; declaration/member GrantRequest; declarations/fields: `GrantRequest` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 43 | Grant and delegated grant request contracts; declaration/member GrantRequest.connection_id; declarations/fields: `GrantRequest.connection_id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 45 | Grant and delegated grant request contracts; declaration/member GrantRequest.user_id; declarations/fields: `GrantRequest.user_id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 50 | Grant and delegated grant request contracts; declaration/member GrantRequest.project_id; declarations/fields: `GrantRequest.project_id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 55 | Grant and delegated grant request contracts; declaration/member GrantRequest.confirm_subscription; declarations/fields: `GrantRequest.confirm_subscription` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 60 | Grant and delegated grant request contracts; declaration/member GrantRequest.confirm_credential_exposure; declarations/fields: `GrantRequest.confirm_credential_exposure` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 63–106 | Execution acquisition contract; declarations/fields: `AcquireRequest` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 70 | Execution acquisition contract; declaration/member AcquireRequest.repository_id; declarations/fields: `AcquireRequest.repository_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 75 | Execution acquisition contract; declaration/member AcquireRequest.provider_id; declarations/fields: `AcquireRequest.provider_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 80 | Execution acquisition contract; declaration/member AcquireRequest.execution_id; declarations/fields: `AcquireRequest.execution_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 82 | Execution acquisition contract; declaration/member AcquireRequest.actor_id; declarations/fields: `AcquireRequest.actor_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 87 | Execution acquisition contract; declaration/member AcquireRequest.connection_id; declarations/fields: `AcquireRequest.connection_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 92 | Execution acquisition contract; declaration/member AcquireRequest.project_id; declarations/fields: `AcquireRequest.project_id` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 97 | Execution acquisition contract; declaration/member AcquireRequest.kind; declarations/fields: `AcquireRequest.kind` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 99 | Execution acquisition contract; declaration/member AcquireRequest.deadline; declarations/fields: `AcquireRequest.deadline` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 105 | Execution acquisition contract; declaration/member AcquireRequest.role; declarations/fields: `AcquireRequest.role` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 140–153 | Digest/phase encoding helpers; declarations/fields: `acquisition_digest` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–62, 109–139; current module/import/attribute shell; declaration Grant; fields id, connection_id, user_id, project_id, revision, revoked; declaration GrantRequest; fields connection_id, user_id, project_id, confirm_subscription, confirm_credential_exposure; declaration validate | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/wire_grants.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 63–108; declaration AcquireRequest; fields repository_id, provider_id, execution_id, actor_id, connection_id, project_id, kind, deadline, role | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | AcquireRequest: implement the current execution admission and lease fencing duty in wire_grants.rs. — current source cmd/soda-identity/src/wire_grants.rs; lines 63-108; module/caller wiring inspected |
+| 140–153; declaration acquisition_digest | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | acquisition_digest: implement the current wire decoding, encoding, and representation conversion duty in wire_grants.rs. — current source cmd/soda-identity/src/wire_grants.rs; lines 140-153; module/caller wiring inspected |
 
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 109–119 | Grant delegation validation; declarations/fields: `validate` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 109–119 | Grant delegation validation; declaration/member validate; declarations/fields: `validate` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 123–135 | Acquisition admission validation; declarations/fields: `validate` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 123–135 | Acquisition admission validation; declaration/member validate; declarations/fields: `validate` |
+<a id="coverage-de94b64e2662"></a>
+
 ## [cmd/soda-identity/src/wire_scalars.rs](../../../../../cmd/soda-identity/src/wire_scalars.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–3 | Provider constants and exact Go timestamp/null/integer codecs; declarations/fields: `i64_string`, `i64_string_omitted`, `null_tolerant`, `string`, `boolean`, `integer`, `integer32`, `time`, `is_zero`, `base64_bytes`, `ALPHABET`, `encode`, `decode_value`, `decode`, `is_zero_i32`, `base64_bytes_option`, `serialize`, `deserialize` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 6–20 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member i64_string; declarations/fields: `i64_string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 9–11, 26–28, 128–130, 149–154 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member serialize; declarations/fields: `serialize` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 13–19, 30–32, 132–136, 156–161 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member deserialize; declarations/fields: `deserialize` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 23–33 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member i64_string_omitted; declarations/fields: `i64_string_omitted` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 38–60 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member null_tolerant; declarations/fields: `null_tolerant` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 41–43 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member string; declarations/fields: `string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 45–47 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member boolean; declarations/fields: `boolean` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 49–51 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member integer; declarations/fields: `integer` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 53–55 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member integer32; declarations/fields: `integer32` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 57–60 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member time; declarations/fields: `time` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 62–64 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member is_zero; declarations/fields: `is_zero` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 67–137 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member base64_bytes; declarations/fields: `base64_bytes` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 70 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member ALPHABET; declarations/fields: `ALPHABET` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 72–90 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member encode; declarations/fields: `encode` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 92–101 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member decode_value; declarations/fields: `decode_value` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 103–125 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member decode; declarations/fields: `decode` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 139–141 | Exact native binding contract; declaration/member is_zero_i32; declarations/fields: `is_zero_i32` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 146–162 | Private administrative/runtime request envelope; declaration/member base64_bytes_option; declarations/fields: `base64_bytes_option` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–5, 73–81, 113–122; current module/import/attribute shell; declaration go_std; declaration is_zero_i32; declaration base64_bytes_option | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/wire_scalars.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 6–72, 82–112, 123–136; declaration i64_string; declaration serialize; declaration deserialize; declaration i64_string_omitted; declaration null_tolerant; declaration string; declaration boolean; declaration integer; declaration integer32; declaration time; declaration is_zero; declaration base64_bytes; declaration encode; declaration decode | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | i64_string: implement the current wire decoding, encoding, and representation conversion duty in wire_scalars.rs.; 20 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e7c4dc6747ef"></a>
 
 ## [cmd/soda-identity/src/wire_tests.rs](../../../../../cmd/soda-identity/src/wire_tests.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1 | Provider constants and exact Go timestamp/null/integer codecs; declarations/fields: `go_time_vectors_round_trip`, `timestamps_reject_malformed_input`, `lease_wire_shape_matches_go`, `base64_matches_go_byte_form`, `null_scalars_match_go_noop`, `provider_ids_match_go`, `digest_matches_go_acquisition` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 3–21 | Source assertion of Encoding and parsing; declarations/fields: `go_time_vectors_round_trip` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 23–39 | Source assertion of Encoding and parsing; declaration/member timestamps_reject_malformed_input; declarations/fields: `timestamps_reject_malformed_input` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 41–66 | Source assertion of Execution admission and lease fencing; declarations/fields: `lease_wire_shape_matches_go` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 68–92 | Wire/validation source vectors; declarations/fields: `base64_matches_go_byte_form` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 94–113 | Wire/validation source vectors; declaration/member null_scalars_match_go_noop; declarations/fields: `null_scalars_match_go_noop` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 115–121 | Wire/validation source vectors; declaration/member provider_ids_match_go; declarations/fields: `provider_ids_match_go` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 123–145 | Wire/validation source vectors; declaration/member digest_matches_go_acquisition; declarations/fields: `digest_matches_go_acquisition` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–2, 62–95; current module/import/attribute shell; declaration unix_time_arithmetic_and_formatting_are_checked | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/wire_tests.rs into its current native target.; unix_time_arithmetic_and_formatting_are_checked: implement the current identity enrollment and owner consent duty in wire_tests.rs. — current source cmd/soda-identity/src/wire_tests.rs; Cargo target and callers; current source cmd/soda-identity/src/wire_tests.rs; lines 62-95; module/caller wiring inspected |
+| 3–61, 96–203; declaration go_time_vectors_round_trip; declaration timestamps_reject_malformed_input; declaration lease_wire_shape_matches_go; declaration base64_matches_go_byte_form; declaration null_scalars_match_go_noop; declaration provider_ids_match_go; declaration digest_matches_go_acquisition | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | go_time_vectors_round_trip: implement the current wire decoding, encoding, and representation conversion duty in wire_tests.rs.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6b49519dc9ab"></a>
 
 ## [cmd/soda-identity/src/wire_time.rs](../../../../../cmd/soda-identity/src/wire_time.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–2 | Provider constants and exact Go timestamp/null/integer codecs; declarations/fields: `UnixTime`, `UnixTime.sec`, `UnixTime.nanos`, `now`, `add_hours`, `as_system_time`, `is_leap`, `days_in_month`, `days_from_civil`, `civil_from_days`, `parse_rfc3339_nano`, `format_rfc3339_nano`, `serialize`, `deserialize` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 5–9 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member UnixTime; declarations/fields: `UnixTime` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 7 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member UnixTime.sec; declarations/fields: `UnixTime.sec` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 8 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member UnixTime.nanos; declarations/fields: `UnixTime.nanos` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 12–20 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member now; declarations/fields: `now` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 22–27 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member add_hours; declarations/fields: `add_hours` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 29–37 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member as_system_time; declarations/fields: `as_system_time` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 40–42 | Private administrative/runtime request envelope; declaration/member serialize; declarations/fields: `serialize` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 46–50 | Private administrative/runtime request envelope; declaration/member deserialize; declarations/fields: `deserialize` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 53–55 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member is_leap; declarations/fields: `is_leap` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 57–65 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member days_in_month; declarations/fields: `days_in_month` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 68–76 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member days_from_civil; declarations/fields: `days_from_civil` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 78–92 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member civil_from_days; declarations/fields: `civil_from_days` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 94–173 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member parse_rfc3339_nano; declarations/fields: `parse_rfc3339_nano` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 175–198 | Provider constants and exact Go timestamp/null/integer codecs; declaration/member format_rfc3339_nano; declarations/fields: `format_rfc3339_nano` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–3, 46–61; current module/import/attribute shell; declaration serialize; declaration deserialize | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/wire_time.rs into its current native target.; serialize: implement the current identity enrollment and owner consent duty in wire_time.rs.; deserialize: implement the current identity enrollment and owner consent duty in wire_time.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 4–45, 62–68; declaration UnixTime; fields sec, nanos; declaration now; declaration add_hours; declaration as_system_time; declaration parse_rfc3339_nano; declaration format_rfc3339_nano | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | UnixTime: implement the current wire decoding, encoding, and representation conversion duty in wire_time.rs.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-11786437dd58"></a>
 
 ## [cmd/soda-identity/tests/broker.rs](../../../../../cmd/soda-identity/tests/broker.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-Source-only integration suite gated on SODA_PG_HOST/PORT/SUPER_PASSWORD_FILE; tests skip without fixture. No execution or native provider success claimed. Compound lifecycle tests reference several distinct broker responsibilities. Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–13; current module/import/attribute shell; declaration common | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/tests/broker.rs into its current native target.; common: implement the current identity enrollment and owner consent duty in broker.rs. — current source cmd/soda-identity/tests/broker.rs; Cargo target and callers; current source cmd/soda-identity/tests/broker.rs; lines 3-13; module/caller wiring inspected |
+| 14–47; declaration store_round_trip | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | store_round_trip: implement the current encrypted credential custody and cryptographic binding duty in broker.rs. — current source cmd/soda-identity/tests/broker.rs; lines 14-47; module/caller wiring inspected |
+| 48–291; declaration muse_lease_returns_by_forget; declaration close_execution_fences_late_registration; declaration end_lease_fences_same_id_reacquire; declaration reconcile_unbound_preserves_recovery; declaration close_after_reconcile_is_idempotent; declaration revoke_retires_live_leases | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | muse_lease_returns_by_forget: implement the current completion, revocation, and reconciliation duty in broker.rs.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-0d8d3b8e adds an unbound reconcile/repeated-close regression using the real Controller/Store with stub provider/runtime and optional PostgreSQL. Assertions inspected only; no tests or native retirement performed.
+<a id="coverage-56faffb6cb45"></a>
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 1–10, 149–173, 583 | Ephemeral PostgreSQL broker lifecycle and Unix HTTP source integration tests; declarations/fields: `super_dsn`, `Ephemeral`, `create`, `store`, `drop`, `hex`, `fixture_key`, `subscription`, `connection`, `StubSession`, `snapshot`, `finish`, `close`, `StubProvider`, `start`, `StubRuntime`, `validate`, `stop`, `stub_provider`, `controller`, `binding`, `Guard` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 11–27 | Explicit ephemeral PostgreSQL developer test fixture; skip without configured fixture, no execution claim; declarations/fields: `super_dsn` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 28 | Explicit ephemeral PostgreSQL developer test fixture; skip without configured fixture, no execution claim; declaration/member Ephemeral; declarations/fields: `Ephemeral` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 29 | Explicit ephemeral PostgreSQL developer test fixture; skip without configured fixture, no execution claim; declaration/member Ephemeral.dsn; declarations/fields: `Ephemeral.dsn` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 30 | Explicit ephemeral PostgreSQL developer test fixture; skip without configured fixture, no execution claim; declaration/member Ephemeral.super_dsn; declarations/fields: `Ephemeral.super_dsn` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 31–34 | Explicit ephemeral PostgreSQL developer test fixture; skip without configured fixture, no execution claim; declaration/member Ephemeral.name; declarations/fields: `Ephemeral.name` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 35–54 | Explicit ephemeral PostgreSQL developer test fixture; skip without configured fixture, no execution claim; declaration/member create; declarations/fields: `create` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 55–60 | Explicit ephemeral PostgreSQL developer test fixture; skip without configured fixture, no execution claim; declaration/member store; declarations/fields: `store` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 61–69 | Explicit ephemeral PostgreSQL developer test fixture; skip without configured fixture, no execution claim; declaration/member drop; declarations/fields: `drop` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 70–73 | Synthetic encrypted-custody credential/connection fixtures; declarations/fields: `hex` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 74–77 | Synthetic encrypted-custody credential/connection fixtures; declaration/member fixture_key; declarations/fields: `fixture_key` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 78–81 | Synthetic encrypted-custody credential/connection fixtures; declaration/member subscription; declarations/fields: `subscription` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 82–94 | Synthetic encrypted-custody credential/connection fixtures; declaration/member connection; declarations/fields: `connection` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 95 | Stub enrollment session/provider fixtures; declarations/fields: `StubSession` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 96 | Stub enrollment session/provider fixtures; declaration/member StubSession.snapshot; declarations/fields: `StubSession.snapshot` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 97 | Stub enrollment session/provider fixtures; declaration/member StubSession.connection; declarations/fields: `StubSession.connection` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 98–101 | Stub enrollment session/provider fixtures; declaration/member StubSession.credential; declarations/fields: `StubSession.credential` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 102–104 | Stub enrollment session/provider fixtures; declaration/member snapshot; declarations/fields: `snapshot` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 105–107 | Stub enrollment session/provider fixtures; declaration/member finish; declarations/fields: `finish` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 108–112 | Stub enrollment session/provider fixtures; declaration/member close; declarations/fields: `close` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 113 | Stub enrollment session/provider fixtures; declaration/member StubProvider; declarations/fields: `StubProvider` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 114 | Stub enrollment session/provider fixtures; declaration/member StubProvider.enrollment; declarations/fields: `StubProvider.enrollment` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 115 | Stub enrollment session/provider fixtures; declaration/member StubProvider.connection; declarations/fields: `StubProvider.connection` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 116–119 | Stub enrollment session/provider fixtures; declaration/member StubProvider.credential; declarations/fields: `StubProvider.credential` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 120–128 | Stub enrollment session/provider fixtures; declaration/member start; declarations/fields: `start` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 129 | Stub exact native binding validation callback; declarations/fields: `StubRuntime` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 130 | Stub exact native binding validation callback; declaration/member StubRuntime.credential; declarations/fields: `StubRuntime.credential` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 131–134 | Stub exact native binding validation callback; declaration/member StubRuntime.calls; declarations/fields: `StubRuntime.calls` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 135–138 | Stub exact native binding validation callback; declaration/member validate; declarations/fields: `validate` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 139–142 | Stub native stop/final credential capture callbacks; declarations/fields: `stop` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 143–148 | Stub native stop/final credential capture callbacks; declaration/member finish; declarations/fields: `finish` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 174–187 | Ephemeral PostgreSQL broker lifecycle and Unix HTTP source integration tests; declaration/member controller; declarations/fields: `controller` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 188–204 | Exact native binding fixture; declarations/fields: `binding` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 205–217, 237–238 | Source assertion of Encrypted credential custody; declarations/fields: `store_round_trip` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 218–236 | Source assertions of owned/delegated available metadata, grant and email stripping; declarations/fields: `store.available`, `store.save_grant`, `store.revoke_grant` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 239–254, 304–305 | Source assertion of Enrollment and owner consent; declarations/fields: `enrollment_to_lease_lifecycle` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 255–288 | Exact execution acquisition and same-input lease replay assertions; declarations/fields: `broker.acquire` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 289–291 | Native registration/private credential delivery assertions through StubRuntime; declarations/fields: `broker.register` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 292–295 | Owner lease-listing binding stripping assertion; declarations/fields: `broker.leases` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 296–303 | Codex final return credential generation and terminal execution assertions; declarations/fields: `broker.return_lease`, `broker.get_execution` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 306–310, 357–358, 388, 549–550 | Source assertion of Completion, revocation and reconciliation; declarations/fields: `muse_lease_returns_by_forget`, `close_execution_fences_late_registration`, `revoke_retires_live_leases` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 311–326 | Synthetic Muse connection/provider fixture; enrollment explicitly excluded; declarations/fields: `Controller::new` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 327–343 | Muse exact execution acquisition fixture/assertion; declarations/fields: `broker.acquire` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 344–346 | Muse registration/private credential assertion through StubRuntime; declarations/fields: `broker.register` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 347–356 | Muse final return forgets lease, keeps immutable connection generation and closes execution; declarations/fields: `broker.return_lease` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 359–364 | Source assertion of Completion, revocation and reconciliation; declaration/member close_execution_fences_late_registration; declarations/fields: `close_execution_fences_late_registration` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 365–367 | Stub enrollment fixture used by terminal fence regression; declarations/fields: `broker.start_enrollment`, `broker.enrollment` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 368–383 | Exact execution acquisition before close regression; declarations/fields: `AcquireRequest`, `broker.acquire` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 384 | Close exact execution in terminal-fence regression; declarations/fields: `broker.close_execution` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 385 | Registration refuses terminal execution assertion; declarations/fields: `broker.register` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 386–387 | Acquisition refuses terminal execution assertion; declarations/fields: `broker.acquire` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 519–524 | Source assertion of Completion, revocation and reconciliation; declaration/member revoke_retires_live_leases; declarations/fields: `revoke_retires_live_leases` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 525–527 | Stub enrollment fixture used by revoke regression; declarations/fields: `broker.start_enrollment`, `broker.enrollment` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 528–544 | Acquire live lease before revoke regression; declarations/fields: `broker.acquire` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 545–548 | Connection revoke retires live leases assertion through StubRuntime; declarations/fields: `broker.revoke` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 551–582 | Source assertion of Private IPC and service lifetime; declarations/fields: `http_admission_matches_go` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 584–586 | Ephemeral PostgreSQL broker lifecycle and Unix HTTP source integration tests; declaration/member Guard.shutdown; declarations/fields: `Guard.shutdown` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 587–675 | Ephemeral PostgreSQL broker lifecycle and Unix HTTP source integration tests; declaration/member drop; declarations/fields: `drop` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 676–725 | Ephemeral PostgreSQL broker lifecycle and Unix HTTP source integration tests; declaration/member dead_listener_fails_fast; declarations/fields: `dead_listener_fails_fast` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 389–489, 516–518 | Repeated-close regression declaration, fixture setup and boundaries; declarations/fields: `close_after_reconcile_is_idempotent`, `end_lease_fences_same_id_reacquire`, `reconcile_unbound_preserves_recovery` |
-| [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) / active | 490–492 | Stub enrollment and connection for post-reconciliation closure; declarations/fields: `broker.start_enrollment`, `broker.enrollment` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 493–509 | Acquire exact unbound execution before reconciliation; declarations/fields: `AcquireRequest`, `broker.acquire` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 510–512, 514–515 | Reconcile unbound lease, close execution twice and assert terminal execution state; declarations/fields: `broker.reconcile_lease`, `broker.close_execution`, `broker.get_execution` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 513 | Registration returns an error after reconciliation and closure; this assertion does not distinguish a missing lease from the execution fence; declarations/fields: `broker.register` |
+## [cmd/soda-identity/tests/common/mod.rs](../../../../../cmd/soda-identity/tests/common/mod.rs)
 
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–113, 120–139, 153–162, 171–200, 207–260; current module/import/attribute shell; declaration ADMIN_OPERATION_BUDGET; declaration ADMIN_CLEANUP_BUDGET; declaration super_dsn; declaration Ephemeral; fields dsn, super_dsn, name; declaration admin_command; declaration create; declaration drop; declaration hex; declaration fixture_key; declaration subscription; declaration StubSession; fields snapshot, connection, credential; declaration snapshot; declaration StubProvider; fields enrollment, connection, credential; declaration start; declaration StubRuntime; fields credential, calls; declaration validate; declaration stop; declaration stub_provider; declaration controller; declaration binding | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/tests/common/mod.rs into its current native target.; 21 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 114–119, 140–152; declaration store; declaration connection | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | store: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in mod.rs.; connection: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in mod.rs. — current source cmd/soda-identity/tests/common/mod.rs; lines 114-119; module/caller wiring inspected; current source cmd/soda-identity/tests/common/mod.rs; lines 140-152; module/caller wiring inspected |
+| 163–170, 201–206; declaration finish; declaration close | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | finish: implement the current completion, revocation, and reconciliation duty in mod.rs.; close: implement the current completion, revocation, and reconciliation duty in mod.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-fd728676de4e"></a>
+
+## [cmd/soda-identity/tests/enrollment.rs](../../../../../cmd/soda-identity/tests/enrollment.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–7; current module/import/attribute shell; declaration common | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/tests/enrollment.rs into its current native target.; common: implement the current identity enrollment and owner consent duty in enrollment.rs. — current source cmd/soda-identity/tests/enrollment.rs; Cargo target and callers; current source cmd/soda-identity/tests/enrollment.rs; lines 3-7; module/caller wiring inspected |
+| 8–73; declaration enrollment_to_lease_lifecycle | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | enrollment_to_lease_lifecycle: implement the current execution admission and lease fencing duty in enrollment.rs. — current source cmd/soda-identity/tests/enrollment.rs; lines 8-73; module/caller wiring inspected |
+
+<a id="coverage-4d018cd89538"></a>
+
+## [cmd/soda-identity/tests/http.rs](../../../../../cmd/soda-identity/tests/http.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–8, 42–185, 198–207, 216–238, 278–379; current module/import/attribute shell; declaration common; declaration Guard; fields shutdown; declaration drop; declaration dead_listener_fails_fast; declaration BlockingProvider; fields entered, release, finished; declaration Session; declaration snapshot; declaration start; declaration EmptyRuntime; declaration validate; declaration stop; declaration ShutdownOnDrop | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/tests/http.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 9–41, 186–197; declaration http_admission_matches_go; declaration shutdown_joins_admitted_provider_work_without_blocking_http_runtime | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | http_admission_matches_go: implement the current wire decoding, encoding, and representation conversion duty in http.rs.; shutdown_joins_admitted_provider_work_without_blocking_http_runtime: implement the current wire decoding, encoding, and representation conversion duty in http.rs. — current source cmd/soda-identity/tests/http.rs; lines 9-41; module/caller wiring inspected; current source cmd/soda-identity/tests/http.rs; lines 186-197; module/caller wiring inspected |
+| 208–215, 239–277; declaration finish; declaration close | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | finish: implement the current completion, revocation, and reconciliation duty in http.rs.; close: implement the current completion, revocation, and reconciliation duty in http.rs. — Current named units/source consumers; retained normalized source evidence records each selector |

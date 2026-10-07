@@ -1,219 +1,297 @@
 # Host service admission
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-eae04619505c"></a>
+<a id="coverage-13e8650a494c"></a>
 
-## [rust/soda-host/GMUX_PATCHES.md](../../../../../rust/soda-host/GMUX_PATCHES.md)
+## [lib/host/GMUX_PATCHES.md](../../../../../lib/host/GMUX_PATCHES.md)
 
-Historical integrator checklist with partially superseded instructions; active current runtime is source-grounded in main.rs/dbackend.rs, not this narrative.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–2, 5–188 | Privileged host daemon composition, private native operations and listener lifetime; declarations/fields: `gmux_admission`, `gmux_backend`, `gmux_routes`, `gmux_server`, `DaemonBackend`, `main` |
-| Historical; no active owner / obsolete | 3–4 | Superseded wiring/predecessor-owner narrative; current module/daemon/native release callers contradict it |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–188; whole file lines 1-188 | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Host daemon integration patch/contract notes documenting the current backend-to-route seam. — current file lib/host/GMUX_PATCHES.md; tracked in assigned native-runtime input inventory |
+
+<a id="coverage-de1ed5cd138c"></a>
+
+## [lib/host/src/daemon/admission.rs](../../../../../lib/host/src/daemon/admission.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–273; current module/import/attribute shell; declaration BODY_LIMIT_DEFAULT; declaration BODY_LIMIT_LARGE; declaration BODY_LIMIT_IDENTITY; declaration NATIVE_CLEAN_PATHS; declaration ADMITTED_MUTATION_PATHS; declaration IDENTITY_ACTIONS; declaration TAILNET_ACTIONS; declaration TERMINAL_STREAM_CAP; declaration TERMINAL_REQUEST_LIMIT; declaration TERMINAL_FRAME_LIMIT; declaration RequestHead; fields method, path, has_query, escaped, origin_present, upgrade_websocket, ws_key, websocket_request; declaration post; declaration NativeRejection; fields status, message; declaration validate_native_request; declaration is_admitted_mutation_path; declaration body_limit_for; declaration valid_identity_request; declaration validate_tailnet_request; declaration valid_terminal_request; declaration AdmissionGate; fields held; declaration new; declaration acquire; declaration try_acquire; declaration AdmissionGuard; fields _guard; declaration TerminalGate; fields live; declaration try_register; declaration live; declaration TerminalSlot; fields live; declaration drop | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/daemon/admission.rs into its current native target.; 31 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-07743b7c23e0"></a>
+
+## [lib/host/src/daemon/http.rs](../../../../../lib/host/src/daemon/http.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–102; current module/import/attribute shell; declaration MAX_HEADER; declaration HEADER_TIMEOUT; declaration BODY_TIMEOUT; declaration request_head; declaration read_body; declaration percent_decode; declaration valid_percent_escapes | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/daemon/http.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-1285f0c9cc29"></a>
+
+## [lib/host/src/daemon/response.rs](../../../../../lib/host/src/daemon/response.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–50; current module/import/attribute shell; declaration HttpResponse; declaration response; declaration error_response; declaration not_found_response; declaration json_response; declaration tailnet_json_response; declaration tailnet_response | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/daemon/response.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f38bae4e0df3"></a>
+<a id="coverage-af898077b2d3"></a>
+
+## [lib/host/src/daemon/routes.rs](../../../../../lib/host/src/daemon/routes.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–173; current module/import/attribute shell; declaration DaemonConfig; fields image, tailnet_management, terminal_available, identity_available; declaration all_enabled; declaration RouteOutcome; fields response, session, slot; declaration into_response; declaration dispatch; declaration dispatch_native | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/daemon/routes.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 174–206; declaration dispatch_identity | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | dispatch_identity: implement the current provider execution integration duty in routes.rs. — current source lib/host/src/daemon/routes.rs; lines 174-206; module/caller wiring inspected |
+| 207–254; declaration dispatch_tailnet; declaration tailnet_unavailable | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | dispatch_tailnet: implement the current host Tailnet control duty in routes.rs.; tailnet_unavailable: implement the current host Tailnet control duty in routes.rs. — current source lib/host/src/daemon/routes.rs; lines 207-248; module/caller wiring inspected; current source lib/host/src/daemon/routes.rs; lines 249-254; module/caller wiring inspected |
+| 255–297; declaration dispatch_terminal | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | dispatch_terminal: implement the current interactive terminal attachment duty in routes.rs. — current source lib/host/src/daemon/routes.rs; lines 255-297; module/caller wiring inspected |
+
+<a id="coverage-0445c185179e"></a>
+
+## [lib/host/src/daemon/websocket.rs](../../../../../lib/host/src/daemon/websocket.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14; current module/import/attribute shell; declaration websocket_upgrade_response | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/daemon/websocket.rs into its current native target.; websocket_upgrade_response: implement the current Unix-socket service and process lifetime duty in websocket.rs. — current source lib/host/src/daemon/websocket.rs; Cargo target and callers; current source lib/host/src/daemon/websocket.rs; lines 9-14; module/caller wiring inspected |
+
+<a id="coverage-bb1fa657a288"></a>
+
+## [lib/host/src/domain/mod.rs](../../../../../lib/host/src/domain/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–169; current module/import/attribute shell; declaration account; declaration os; declaration profile; declaration tests; declaration ROCKY_HEADLESS; declaration GO_CC; declaration GO_CF; declaration in_ranges; declaration is_hex_lower; declaration valid_version; declaration valid_id; declaration valid_login; declaration valid_image_ref; declaration valid_container_id; declaration Environment; fields image, profile, id, ip, running; declaration encode_into; declaration encode; declaration Connection; fields environment, host_key, fingerprint | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/domain/mod.rs into its current native target.; 20 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-d0e261f49e80"></a>
+
+## [lib/host/src/domain/os.rs](../../../../../lib/host/src/domain/os.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–83; current module/import/attribute shell; declaration OsRelease; fields id, version, name; declaration encode_into; declaration OsObservation; fields environment, release, unavailable; declaration encode; declaration valid_os_id; declaration valid_os_version; declaration valid_os_release | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/domain/os.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f9b619b2cfa1"></a>
+
+## [lib/host/src/domain/profile.rs](../../../../../lib/host/src/domain/profile.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–203; current module/import/attribute shell; declaration Profile; fields id, distribution, version, interface, architecture, image, revision; declaration deserialize; declaration ProfileVisitor; declaration Value; declaration expecting; declaration visit_map; declaration validate; declaration decode; declaration encode_into; declaration encode; declaration decode_profile; declaration Create; fields profile, id, owner; declaration CreateVisitor | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/domain/profile.rs into its current native target.; 20 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-4a2153fc5316"></a>
+
+## [lib/host/src/domain/tests.rs](../../../../../lib/host/src/domain/tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–181; current module/import/attribute shell; declaration sample_profile; declaration validators_match_go_regexps; declaration profile_validation_matches; declaration profile_wire_round_trip; declaration create_decode_and_validate; declaration environment_omits_empty_like_go; declaration os_release_validation_matches_go; declaration account_dto_strict_shape; declaration signed_json_integer_fields_keep_negative_zero_and_reject_other_number_tokens; declaration access_keys_dto_strict_shape; declaration access_key_state_encodes_struct_order | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/domain/tests.rs into its current native target.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-7768dd1418a0"></a>
+<a id="coverage-b14091b1a833"></a>
 
 ## [lib/host/src/gmux_admission.rs](../../../../../lib/host/src/gmux_admission.rs)
 
-Scoped R02 reconciliation at `eaed66a9` (2026-10-07). B27's concern extraction
-is already integrated. The current facade contains only policy module wiring
-and exports (lines 1–16); the defining policy is
-[daemon/admission.rs](../../../../../lib/host/src/daemon/admission.rs).
-N11's duplicate daemon peer types/functions and two equivalence smoke tests are
-retired. HTTP keeps filesystem/systemd socket authorization. Active Muse
-credentials/pidfd ownership is defined separately by
-[muse/socket.rs](../../../../../lib/host/src/muse/socket.rs) and
-[MusePeer](../../../../../lib/host/src/muse/runtime_types.rs), exercised by
-`muse::tests::peer_attestation`. No peer-UID gate is added to HTTP. These are
-current locations/ranges and L18 retained-duty checks, not a fresh full-slice
-validity audit or installed qualification.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Defining file / current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | gmux_admission.rs 1–16 | Module `admission` and direct policy exports; no peer wrapper or DTO duplication |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | daemon/admission.rs 1–63 | BODY_LIMIT_DEFAULT/LARGE/IDENTITY, NATIVE_CLEAN_PATHS, ADMITTED_MUTATION_PATHS, IDENTITY_ACTIONS, TAILNET_ACTIONS |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | daemon/admission.rs 64–71 | TERMINAL_STREAM_CAP, TERMINAL_REQUEST_LIMIT, TERMINAL_FRAME_LIMIT |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | daemon/admission.rs 72–158 | RequestHead method/path/has_query/escaped/origin_present/upgrade_websocket/ws_key/websocket_request and post constructor; NativeRejection status/message; native validation, mutation-path and body-limit policy |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery), [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | daemon/admission.rs 159–164 | valid_identity_request shape/admission |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | daemon/admission.rs 165–177 | validate_tailnet_request action/shape/admission |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | daemon/admission.rs 178–182 | valid_terminal_request shape/admission |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | daemon/admission.rs 183–225 | AdmissionGate.held/new/acquire/try_acquire and AdmissionGuard._guard; mutex custody |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | daemon/admission.rs 226–273 | TerminalGate.live/new/try_register and TerminalSlot.live/drop; held slot lifetime |
-| H01/I05 duplicate / retired by N11 | daemon/peer.rs removed | PeerCred and raw-pidfd MusePeer duplicate, peer_cred, muse_peer, close_pidfd; meaningful attestation remains in the actual Muse owner |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–16; current module/import/attribute shell; declaration admission | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/gmux_admission.rs into its current native target.; admission: implement the current Unix-socket service and process lifetime duty in gmux_admission.rs. — current source lib/host/src/gmux_admission.rs; Cargo target and callers; current source lib/host/src/gmux_admission.rs; lines 6-16; module/caller wiring inspected |
 
 <a id="coverage-1c0dfc31b87c"></a>
+<a id="coverage-53e1884ced2a"></a>
 
-## [rust/soda-host/src/gmux_backend.rs](../../../../../rust/soda-host/src/gmux_backend.rs)
+## [lib/host/src/gmux_backend.rs](../../../../../lib/host/src/gmux_backend.rs)
 
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–67, 138–141; current module/import/attribute shell; declaration BackendError; declaration TerminalSession; fields id; declaration ExecBackend; declaration StubBackend | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/gmux_backend.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 68, 70–71, 142–144, 148–153; declaration profile; declaration inspect; declaration observe_os | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | profile: implement the current Project profile and readiness duty in gmux_backend.rs.; inspect: implement the current Project profile and readiness duty in gmux_backend.rs.; observe_os: implement the current Project profile and readiness duty in gmux_backend.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 69, 145–147; declaration create | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | create: implement the current Project repository association and creation duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 69-69; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 145-147; module/caller wiring inspected |
+| 72, 74, 154–156, 160–162; declaration connection; declaration access_keys | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | connection: implement the current Project SSH key access duty in gmux_backend.rs.; access_keys: implement the current Project SSH key access duty in gmux_backend.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 73, 157–159; declaration lifecycle | [P05](../../slices/projects.md#p05-project-startstop) | retained | lifecycle: implement the current Project lifecycle duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 73-73; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 157-159; module/caller wiring inspected |
+| 75–77, 163–165; declaration account | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | account: implement the current human Project membership and accounts duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 75-77; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 163-165; module/caller wiring inspected |
+| 78–81, 166–177; declaration prepare; declaration prepare_candidate; declaration inspect_preparation; declaration stop_preparation | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | prepare: implement the current Project preparation and checkout allocation duty in gmux_backend.rs.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 82–84, 178–180; declaration hold_preparation | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | hold_preparation: implement the current Project maintenance holds duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 82-84; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 178-180; module/caller wiring inspected |
+| 85, 181–183; declaration factory_launch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | factory_launch: implement the current factory assignment and dispatch duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 85-85; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 181-183; module/caller wiring inspected |
+| 86–88, 184–192; declaration factory_inspect; declaration factory_stop; declaration factory_takeover | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | factory_inspect: implement the current factory run lifecycle and intervention duty in gmux_backend.rs.; factory_stop: implement the current factory run lifecycle and intervention duty in gmux_backend.rs.; factory_takeover: implement the current factory run lifecycle and intervention duty in gmux_backend.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 89–92, 193–195; declaration factory_output | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | factory_output: implement the current factory activity presentation duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 89-92; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 193-195; module/caller wiring inspected |
+| 93, 98–111, 196–198, 205–210; declaration factory_harness; declaration identity_launch; declaration identity_action | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | factory_harness: implement the current provider execution integration duty in gmux_backend.rs.; identity_launch: implement the current provider execution integration duty in gmux_backend.rs.; identity_action: implement the current provider execution integration duty in gmux_backend.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 94, 199–201; declaration factory_export | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | factory_export: implement the current publication progression duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 94-94; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 199-201; module/caller wiring inspected |
+| 95–97, 202–204; declaration factory_candidate_inspect | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | factory_candidate_inspect: implement the current candidate verification assessment duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 95-97; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 202-204; module/caller wiring inspected |
+| 112–119, 211–213; declaration tailnet | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | tailnet: implement the current host Tailnet control duty in gmux_backend.rs. — current source lib/host/src/gmux_backend.rs; lines 112-119; module/caller wiring inspected; current source lib/host/src/gmux_backend.rs; lines 211-213; module/caller wiring inspected |
+| 120–137, 214–225; declaration terminal_accept; declaration pump_terminal | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | terminal_accept: implement the current interactive terminal attachment duty in gmux_backend.rs.; pump_terminal: implement the current interactive terminal attachment duty in gmux_backend.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–66, 137–139 | Privileged host daemon composition, private native operations and listener lifetime; declarations/fields: `BackendError`, `TerminalSession`, `ExecBackend`, `StubBackend` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 67, 140–142 | Profile and runtime readiness adapter: profile; declarations/fields: `profile` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 68, 143–145 | Repository association and creation adapter: create; declarations/fields: `create` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 69, 146–148 | Profile and runtime readiness adapter: inspect; declarations/fields: `inspect` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 70, 149–151 | Profile and runtime readiness adapter: observe_os; declarations/fields: `observe_os` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 71, 152–154 | Development SSH access adapter: connection; declarations/fields: `connection` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 72, 155–157 | Project Start/Stop adapter: lifecycle; declarations/fields: `lifecycle` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 73, 158–160 | Development SSH access adapter: access_keys; declarations/fields: `access_keys` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 74–76, 161–163 | Human membership and accounts adapter: account; declarations/fields: `account` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 77, 164–166 | Checkout allocation and preparation adapter: prepare; declarations/fields: `prepare` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 78, 167–169 | Checkout allocation and preparation adapter: prepare_candidate; declarations/fields: `prepare_candidate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 79, 170–172 | Checkout allocation and preparation adapter: inspect_preparation; declarations/fields: `inspect_preparation` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 80, 173–175 | Checkout allocation and preparation adapter: stop_preparation; declarations/fields: `stop_preparation` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 81–83, 176–178 | Maintenance holds adapter: hold_preparation; declarations/fields: `hold_preparation` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 84, 179–181 | Assignment and dispatch adapter: factory_launch; declarations/fields: `factory_launch` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 85, 182–184 | Run lifecycle and intervention adapter: factory_inspect; declarations/fields: `factory_inspect` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 86, 185–187 | Run lifecycle and intervention adapter: factory_stop; declarations/fields: `factory_stop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 87, 188–190 | Run lifecycle and intervention adapter: factory_takeover; declarations/fields: `factory_takeover` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 88–91, 191–193 | Factory activity presentation adapter: factory_output; declarations/fields: `factory_output` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 92, 194–196 | Provider execution integration adapter: factory_harness; declarations/fields: `factory_harness` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 93, 197–199 | Publication progression adapter: factory_export; declarations/fields: `factory_export` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 94–96, 200–202 | Candidate verification assessment adapter: factory_candidate_inspect; declarations/fields: `factory_candidate_inspect` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 97–102, 203–205 | Provider execution integration adapter: identity_launch; declarations/fields: `identity_launch` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 103–110, 206–208 | Provider execution integration adapter: identity_action; declarations/fields: `identity_action` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 111–118, 209–211 | Host Tailnet control adapter: tailnet; declarations/fields: `tailnet` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 119–122, 212–214 | Interactive attachment adapter: terminal_accept; declarations/fields: `terminal_accept` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 123–136, 215–222 | Interactive attachment adapter: pump_terminal; declarations/fields: `pump_terminal` |
+<a id="coverage-5a3b4fac473f"></a>
 
-<a id="coverage-f38bae4e0df3"></a>
+## [lib/host/src/gmux_routes.rs](../../../../../lib/host/src/gmux_routes.rs)
 
-## [rust/soda-host/src/gmux_routes.rs](../../../../../rust/soda-host/src/gmux_routes.rs)
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
- Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–66; current module/import/attribute shell; declaration response; declaration routes; declaration websocket; declaration ROUTE_TABLE | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/gmux_routes.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–25 | Private route table, availability config and response outcomes; declarations/fields: `ROUTE_TABLE`, `DaemonConfig`, `all_enabled`, `RouteOutcome`, `into_response`, `dispatch` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 26–67 | Private route table, availability config and response outcomes; declaration/member ROUTE_TABLE; declarations/fields: `ROUTE_TABLE` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 68–69 | Private route table, availability config and response outcomes; declaration/member DaemonConfig; declarations/fields: `DaemonConfig` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 70–71 | Private route table, availability config and response outcomes; declaration/member DaemonConfig.image; declarations/fields: `DaemonConfig.image` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 72–73 | Private route table, availability config and response outcomes; declaration/member DaemonConfig.tailnet_management; declarations/fields: `DaemonConfig.tailnet_management` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 74–76 | Private route table, availability config and response outcomes; declaration/member DaemonConfig.terminal_available; declarations/fields: `DaemonConfig.terminal_available` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 77–81 | Private route table, availability config and response outcomes; declaration/member DaemonConfig.identity_available; declarations/fields: `DaemonConfig.identity_available` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 82–96 | Private route table, availability config and response outcomes; declaration/member all_enabled; declarations/fields: `all_enabled` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 97–107 | Private route table, availability config and response outcomes; declaration/member RouteOutcome; declarations/fields: `RouteOutcome` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 108–122 | Private route table, availability config and response outcomes; declaration/member into_response; declarations/fields: `into_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 123–158 | Private route table, availability config and response outcomes; declaration/member dispatch; declarations/fields: `dispatch` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 159–181 | Shared native request admission and mutation gate; declarations/fields: `dispatch_native` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 182 | Profile dispatch |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 183 | Create dispatch |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 184–185 | Environment/OS dispatch |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 186 | SSH endpoint dispatch |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 187 | Project Start/Stop dispatch |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 188 | Developer key dispatch |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 189 | Human account dispatch |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 190–193 | Native preparation operation dispatch |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 194 | Maintenance hold dispatch |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 195 | Factory launch dispatch |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 196–198 | Run inspect/stop/takeover dispatch |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 199 | Factory output dispatch |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 200 | Native harness pin dispatch |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 201 | Candidate export dispatch |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 202 | Native candidate inspect dispatch |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 203–221 | Shared native response mapping |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 222–254 | Provider execution operation dispatch; declarations/fields: `dispatch_identity` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 255–296 | Tailnet host/policy/selection operation transport; declarations/fields: `dispatch_tailnet` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 297–302 | Tailnet host/policy/selection operation transport; declaration/member tailnet_unavailable; declarations/fields: `tailnet_unavailable` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 303–341 | Terminal upgrade, held stream slot and launch handoff; declarations/fields: `dispatch_terminal` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 342–361 | Private HTTP response envelope rendering; declarations/fields: `reason` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 362–374 | Private HTTP response envelope rendering; declaration/member error_response; declarations/fields: `error_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 375–379 | Private HTTP response envelope rendering; declaration/member not_found_response; declarations/fields: `not_found_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 380–392 | Private HTTP response envelope rendering; declaration/member json_response; declarations/fields: `json_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 393–404 | Private HTTP response envelope rendering; declaration/member tailnet_json_response; declarations/fields: `tailnet_json_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 405 | Private HTTP response envelope rendering; declaration/member tailnet_response; declarations/fields: `tailnet_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 406–416 | Private HTTP response envelope rendering; declaration/member NO_STORE; declarations/fields: `NO_STORE` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 417–425 | WebSocket upgrade/accept key format; declarations/fields: `find_header_end` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 426–436 | WebSocket upgrade/accept key format; declaration/member websocket_upgrade_response; declarations/fields: `websocket_upgrade_response` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 437 | WebSocket upgrade/accept key format; declaration/member websocket_accept_key; declarations/fields: `websocket_accept_key` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 438–443 | WebSocket upgrade/accept key format; declaration/member GUID; declarations/fields: `GUID` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 444–504 | WebSocket upgrade/accept key format; declaration/member sha1; declarations/fields: `sha1` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 505 | WebSocket upgrade/accept key format; declaration/member base64_encode; declarations/fields: `base64_encode` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 506–523 | WebSocket upgrade/accept key format; declaration/member ALPHABET; declarations/fields: `ALPHABET` |
+<a id="coverage-f015ec6c6d39"></a>
+
+## [lib/host/src/gmux_server.rs](../../../../../lib/host/src/gmux_server.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–348; current module/import/attribute shell; declaration http; declaration Server; fields backend, config, gate, terminal_gate, shutdown, inflight; declaration new; declaration shutdown; declaration inflight; declaration serve; declaration handle_connection; declaration Inflight; declaration drop; declaration PumpInflight; declaration wait_shutdown; declaration systemd_listener; declaration bind_listener | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/gmux_server.rs into its current native target.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6a5d4983a71e"></a>
+
+## [lib/host/src/iconfig/tests.rs](../../../../../lib/host/src/iconfig/tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–231; current module/import/attribute shell; declaration GOLDENS; declaration PROJECT_IMAGE; declaration TAILNET_IMAGE; declaration golden; declaration golden_valid_configs; declaration golden_decode_errors; declaration golden_go_framing_parity; declaration golden_release_overlay; declaration golden_validators; declaration MUSE; declaration IDENTITY; declaration STAGED; declaration TAILNET; declaration NATIVE; declaration golden_validation_order; declaration crate_helpers_match_go_validators; declaration configured_muse_socket_requires_clean_absolute_spelling | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/iconfig/tests.rs into its current native target.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f3d098ee8060"></a>
+
+## [lib/host/src/json/mod.rs](../../../../../lib/host/src/json/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–318; current module/import/attribute shell; declaration number; declaration strict_tests; declaration MAXIMUM_REQUEST_BYTES; declaration Error; declaration fmt; declaration err; declaration SignedInteger; declaration from; declaration deserialize; declaration BytesField; declaration V; declaration Value; declaration expecting; declaration visit_str; declaration visit_string; declaration visit_unit; declaration visit_seq; declaration decode_strict_as; declaration Root; declaration visit_map; declaration UniqueSeed; declaration UniqueVisitor; declaration visit_bool; declaration visit_i64; declaration visit_u64; declaration visit_f64; declaration visit_borrowed_str; declaration visit_none; declaration decode_tolerant_as; declaration quote; declaration GoFormatter; declaration write_string_fragment | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/json/mod.rs into its current native target.; 47 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-de2b0af6125b"></a>
+
+## [lib/host/src/json/number.rs](../../../../../lib/host/src/json/number.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–10; current module/import/attribute shell; declaration parse_go_int64; declaration parse_go_uint32 | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/json/number.rs into its current native target.; parse_go_int64: implement the current Unix-socket service and process lifetime duty in number.rs.; parse_go_uint32: implement the current Unix-socket service and process lifetime duty in number.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-63ebbc17e0da"></a>
+
+## [lib/host/src/json/strict_tests.rs](../../../../../lib/host/src/json/strict_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–75; current module/import/attribute shell; declaration AnyObject; declaration strict_admission_rejects_decoded_duplicates_even_in_ignored_values; declaration strict_depth_matches_accepted_empty_container_boundary_and_scalar_leaf; declaration strict_typed_path_preserves_sorted_root_and_nested_source_alias_order; declaration strict_caps_utf8_and_go_string_emission; declaration signed_and_unsigned_number_adapters_keep_distinct_minus_zero_rules | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/json/strict_tests.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0efc6465765f"></a>
+
+## [lib/host/src/net.rs](../../../../../lib/host/src/net.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–96; current module/import/attribute shell; declaration parse_addr; declaration Prefix; fields addr, bits; declaration parse_prefix; declaration contains; declaration admit_ip; declaration tests; declaration admission_matches_go_cases | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/net.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-70bdbbe6110d"></a>
+
+## [lib/host/src/nist.rs](../../../../../lib/host/src/nist.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–162; current module/import/attribute shell; declaration Curve; fields name, coord_len; declaration P256; declaration P384; declaration P521; declaration decode_point; declaration tests; declaration unhex; declaration generator_points_parse_and_remain_uncompressed; declaration invalid_and_infinity_points_are_rejected | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/nist.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7607fa05d7e6"></a>
+
+## [lib/host/src/sha256.rs](../../../../../lib/host/src/sha256.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–45; current module/import/attribute shell; declaration hex_lower; declaration HEX; declaration digest; declaration tests; declaration fips_vectors | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/sha256.rs into its current native target.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-401a73ec277c"></a>
+<a id="coverage-49d209301d73"></a>
 
-## [rust/soda-host/tests/gmux_smoke.rs](../../../../../rust/soda-host/tests/gmux_smoke.rs)
+## [lib/host/tests/gmux_smoke.rs](../../../../../lib/host/tests/gmux_smoke.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–2, 5–7, 212–235, 430–477, 518–584, 703–729, 933–1030 | Privileged host daemon composition, private native operations and listener lifetime; declarations/fields: `gmux_admission`, `gmux_backend`, `gmux_routes`, `gmux_server`, `head`, `status_of`, `text_of`, `body_of`, `dispatch_stub`, `ScriptBackend`, `err`, `ok`, `replay`, `native_clean_paths_reject_query_and_escapes`, `route_table_has_every_go_route`, `native_error_mapping_matches_go`, `identity_errors_collapse_to_409_like_go`, `terminal_rejections_match_go` |
-| Historical; no active owner / obsolete | 3–4 | Superseded wiring/predecessor-owner narrative; current module/daemon/native release callers contradict it |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 8–9 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member gmux_admission; declarations/fields: `gmux_admission` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 10–11 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member gmux_backend; declarations/fields: `gmux_backend` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 12–13 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member gmux_routes; declarations/fields: `gmux_routes` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 14–32 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member gmux_server; declarations/fields: `gmux_server` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 33–38 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member head; declarations/fields: `head` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 39–44 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member status_of; declarations/fields: `status_of` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 45–48 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member text_of; declarations/fields: `text_of` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 49–56 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member body_of; declarations/fields: `body_of` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 57–74 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member dispatch_stub; declarations/fields: `dispatch_stub` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 75 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member ScriptBackend; declarations/fields: `ScriptBackend` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 76 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member ScriptBackend.result; declarations/fields: `ScriptBackend.result` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 77 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member ScriptBackend.session; declarations/fields: `ScriptBackend.session` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 78 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member ScriptBackend.seen_bodies; declarations/fields: `ScriptBackend.seen_bodies` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 79 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member ScriptBackend.seen_image; declarations/fields: `ScriptBackend.seen_image` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 80–83 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member ScriptBackend.pumped; declarations/fields: `ScriptBackend.pumped` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 84–93 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member err; declarations/fields: `err` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 94–103 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member ok; declarations/fields: `ok` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 104–110 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member replay; declarations/fields: `replay` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 111–113 | Profile and runtime readiness adapter: profile; declarations/fields: `profile` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 114–116 | Repository association and creation adapter: create; declarations/fields: `create` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 117–119 | Profile and runtime readiness adapter: inspect; declarations/fields: `inspect` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 120–122 | Profile and runtime readiness adapter: observe_os; declarations/fields: `observe_os` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 123–125 | Development SSH access adapter: connection; declarations/fields: `connection` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 126–128 | Project Start/Stop adapter: lifecycle; declarations/fields: `lifecycle` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 129–131 | Development SSH access adapter: access_keys; declarations/fields: `access_keys` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 132–134 | Human membership and accounts adapter: account; declarations/fields: `account` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 135–137 | Checkout allocation and preparation adapter: prepare; declarations/fields: `prepare` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 138–140 | Checkout allocation and preparation adapter: prepare_candidate; declarations/fields: `prepare_candidate` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 141–143 | Checkout allocation and preparation adapter: inspect_preparation; declarations/fields: `inspect_preparation` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 144–146 | Checkout allocation and preparation adapter: stop_preparation; declarations/fields: `stop_preparation` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 147–149 | Maintenance holds adapter: hold_preparation; declarations/fields: `hold_preparation` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 150–152 | Assignment and dispatch adapter: factory_launch; declarations/fields: `factory_launch` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 153–155 | Run lifecycle and intervention adapter: factory_inspect; declarations/fields: `factory_inspect` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 156–158 | Run lifecycle and intervention adapter: factory_stop; declarations/fields: `factory_stop` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 159–161 | Run lifecycle and intervention adapter: factory_takeover; declarations/fields: `factory_takeover` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 162–164 | Factory activity presentation adapter: factory_output; declarations/fields: `factory_output` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 165–168 | Provider execution integration adapter: factory_harness; declarations/fields: `factory_harness` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 169–171 | Publication progression adapter: factory_export; declarations/fields: `factory_export` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 172–174 | Candidate verification assessment adapter: factory_candidate_inspect; declarations/fields: `factory_candidate_inspect` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 175–177 | Provider execution integration adapter: identity_launch; declarations/fields: `identity_launch` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 178–184 | Provider execution integration adapter: identity_action; declarations/fields: `identity_action` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 185–191 | Host Tailnet control adapter: tailnet; declarations/fields: `tailnet` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 192–198 | Interactive attachment adapter: terminal_accept; declarations/fields: `terminal_accept` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 199–211 | Interactive attachment adapter: pump_terminal; declarations/fields: `pump_terminal` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 236–263 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member native_method_check_runs_after_clean_path_check; declarations/fields: `native_method_check_runs_after_clean_path_check` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 264–283 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member mutation_gate_covers_exactly_the_go_paths; declarations/fields: `mutation_gate_covers_exactly_the_go_paths` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 284–297 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member body_limits_match_go; declarations/fields: `body_limits_match_go` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 298–308 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member terminal_constants_match_go; declarations/fields: `terminal_constants_match_go` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 309–323 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member identity_validator_matches_go; declarations/fields: `identity_validator_matches_go` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 324–344 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member tailnet_validator_matches_go; declarations/fields: `tailnet_validator_matches_go` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 345–364 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member terminal_validator_matches_go; declarations/fields: `terminal_validator_matches_go` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 365–373 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member mutation_gate_serializes; declarations/fields: `mutation_gate_serializes` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 374–390 | Source assertion of Execution admission and lease fencing; declarations/fields: `mutation_gate_blocking_acquire_hands_off` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 391–406, 891–898 | Source assertion of Interactive attachment; declarations/fields: `terminal_gate_caps_and_releases`, `websocket_accept_key_matches_rfc6455_vector` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 407–417 | Source assertion of Encrypted credential custody; declarations/fields: `peer_credentials_attest_self` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 418–429 | Source assertion of Native binding and private delivery; declarations/fields: `muse_peer_carries_pidfd_pin` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 478–492 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member every_post_route_dispatches_through_the_stub; declarations/fields: `every_post_route_dispatches_through_the_stub` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 493–517 | Source assertion of Provider execution integration; declarations/fields: `bodies_and_harness_image_pass_through_verbatim` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 585–596 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member native_unknown_path_is_404_and_terminal_prefix_is_405; declarations/fields: `native_unknown_path_is_404_and_terminal_prefix_is_405` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 597–616 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member native_success_envelope_matches_go_encoder; declarations/fields: `native_success_envelope_matches_go_encoder` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 617–643 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member over_limit_bodies_fail_like_go_maxbytesreader; declarations/fields: `over_limit_bodies_fail_like_go_maxbytesreader` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 644–702 | Source assertion of Repository association and creation; declarations/fields: `create_and_mutations_take_the_gate_reads_do_not` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 730–780 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member identity_rejects_bad_shape_unknown_actions_and_missing_runtime; declarations/fields: `identity_rejects_bad_shape_unknown_actions_and_missing_runtime` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 781–828 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member tailnet_error_mapping_matches_go; declarations/fields: `tailnet_error_mapping_matches_go` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 829–882 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member tailnet_success_has_no_trailing_newline_and_disabled_is_503; declarations/fields: `tailnet_success_has_no_trailing_newline_and_disabled_is_503` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 883–890 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member terminal_head; declarations/fields: `terminal_head` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 899–932 | Actual daemon terminal upgrade/101 and concurrency-slot lifetime assertion; `terminal_upgrade_holds_slot_and_renders_101`. Current validity review corrected the earlier maintenance-hold keyword classification; A/root/C inspected the actual subject. |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1031–1040 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member stub_pump_reports_unimplemented; declarations/fields: `stub_pump_reports_unimplemented` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1041–1047 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member read_all; declarations/fields: `read_all` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1048–1103 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member server_serves_stub_routes_and_parser_rejections; declarations/fields: `server_serves_stub_routes_and_parser_rejections` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1104–1131 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member server_runs_terminal_upgrade_and_pump; declarations/fields: `server_runs_terminal_upgrade_and_pump` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1132–1138 | Privileged host daemon composition, private native operations and listener lifetime; declaration/member systemd_listener_refuses_without_activation; declarations/fields: `systemd_listener_refuses_without_activation` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–195, 315–476, 511–573, 599–733, 793–1407; current module/import/attribute shell; declaration head; declaration ResponseView; declaration status; declaration headers_and_body; declaration body_bytes; declaration header_value; declaration status_of; declaration text_of; declaration body_of; declaration dispatch_stub; declaration ScriptBackend; fields result, session, seen_bodies, seen_image, pumped, pumped_message, blocked_calls, hold_pump; declaration ReleaseBlockedCalls; declaration drop; declaration StopSmokeServer; declaration err; declaration ok; declaration replay; declaration native_clean_paths_reject_query_and_escapes; declaration native_method_check_runs_after_clean_path_check; declaration mutation_gate_covers_exactly_the_go_paths; declaration body_limits_match_go; declaration terminal_constants_match_go; declaration identity_validator_matches_go; declaration tailnet_validator_matches_go; declaration terminal_validator_matches_go; declaration mutation_gate_serializes; declaration route_table_has_every_go_route; declaration every_post_route_dispatches_through_the_stub; declaration native_error_mapping_matches_go; declaration native_unknown_path_is_404_and_terminal_prefix_is_405; declaration native_success_envelope_matches_go_encoder; declaration over_limit_bodies_fail_like_go_maxbytesreader; declaration identity_errors_collapse_to_409_like_go; declaration identity_rejects_bad_shape_unknown_actions_and_missing_runtime; declaration tailnet_error_mapping_matches_go; declaration tailnet_success_has_no_trailing_newline_and_disabled_is_503; declaration terminal_head; declaration terminal_upgrade_holds_slot_and_renders_101; declaration terminal_rejections_match_go; declaration stub_pump_reports_unimplemented; declaration read_all; declaration read_http_head; declaration socket_path; declaration server_serves_stub_routes_and_parser_rejections; declaration server_runs_terminal_upgrade_and_pump; declaration server_keeps_upgrade_inflight_until_pump_shutdown_join; declaration server_bounds_backend_work_and_joins_it_during_shutdown; declaration systemd_listener_refuses_without_activation | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/tests/gmux_smoke.rs into its current native target.; 58 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 196–198, 202–207; declaration profile; declaration inspect; declaration observe_os | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | profile: implement the current Project profile and readiness duty in gmux_smoke.rs.; inspect: implement the current Project profile and readiness duty in gmux_smoke.rs.; observe_os: implement the current Project profile and readiness duty in gmux_smoke.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 199–201, 734–792; declaration create; declaration create_and_mutations_take_the_gate_reads_do_not | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | create: implement the current Project repository association and creation duty in gmux_smoke.rs.; create_and_mutations_take_the_gate_reads_do_not: implement the current Project repository association and creation duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 199-201; module/caller wiring inspected; current source lib/host/tests/gmux_smoke.rs; lines 734-792; module/caller wiring inspected |
+| 208–210, 214–216; declaration connection; declaration access_keys | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | connection: implement the current Project SSH key access duty in gmux_smoke.rs.; access_keys: implement the current Project SSH key access duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 208-210; module/caller wiring inspected; current source lib/host/tests/gmux_smoke.rs; lines 214-216; module/caller wiring inspected |
+| 211–213; declaration lifecycle | [P05](../../slices/projects.md#p05-project-startstop) | retained | lifecycle: implement the current Project lifecycle duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 211-213; module/caller wiring inspected |
+| 217–219; declaration account | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | account: implement the current human Project membership and accounts duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 217-219; module/caller wiring inspected |
+| 220–231; declaration prepare; declaration prepare_candidate; declaration inspect_preparation; declaration stop_preparation | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | prepare: implement the current Project preparation and checkout allocation duty in gmux_smoke.rs.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 232–234; declaration hold_preparation | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | hold_preparation: implement the current Project maintenance holds duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 232-234; module/caller wiring inspected |
+| 235–237; declaration factory_launch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | factory_launch: implement the current factory assignment and dispatch duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 235-237; module/caller wiring inspected |
+| 238–246; declaration factory_inspect; declaration factory_stop; declaration factory_takeover | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | factory_inspect: implement the current factory run lifecycle and intervention duty in gmux_smoke.rs.; factory_stop: implement the current factory run lifecycle and intervention duty in gmux_smoke.rs.; factory_takeover: implement the current factory run lifecycle and intervention duty in gmux_smoke.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 247–249; declaration factory_output | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | factory_output: implement the current factory activity presentation duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 247-249; module/caller wiring inspected |
+| 250–253, 260–269, 574–598; declaration factory_harness; declaration identity_launch; declaration identity_action; declaration bodies_and_harness_image_pass_through_verbatim | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | factory_harness: implement the current provider execution integration duty in gmux_smoke.rs.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 254–256; declaration factory_export | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | factory_export: implement the current publication progression duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 254-256; module/caller wiring inspected |
+| 257–259; declaration factory_candidate_inspect | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | factory_candidate_inspect: implement the current candidate verification assessment duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 257-259; module/caller wiring inspected |
+| 270–276; declaration tailnet | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | tailnet: implement the current host Tailnet control duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 270-276; module/caller wiring inspected |
+| 277–314, 494–510; declaration terminal_accept; declaration pump_terminal; declaration terminal_gate_caps_and_releases | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | terminal_accept: implement the current interactive terminal attachment duty in gmux_smoke.rs.; pump_terminal: implement the current interactive terminal attachment duty in gmux_smoke.rs.; terminal_gate_caps_and_releases: implement the current interactive terminal attachment duty in gmux_smoke.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 477–493; declaration mutation_gate_blocking_acquire_hands_off | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | mutation_gate_blocking_acquire_hands_off: implement the current execution admission and lease fencing duty in gmux_smoke.rs. — current source lib/host/tests/gmux_smoke.rs; lines 477-493; module/caller wiring inspected |
+
+<a id="coverage-e05415c51742"></a>
+
+## [lib/host/tests/identity_transport/common.rs](../../../../../lib/host/tests/identity_transport/common.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–184; current module/import/attribute shell; declaration SOCK_COUNTER; declaration sock_path; declaration read_http_request; declaration find_crlf2; declaration FakeBroker; fields path, stop, handle, captured; declaration start; declaration request; declaration request_count; declaration drop; declaration json_reply; declaration error_reply; declaration deadline; declaration full_request; declaration LEASE_JSON; declaration full_binding; declaration DELIVERY_JSON; declaration sized_lease | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/tests/identity_transport/common.rs into its current native target.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b836be6ff4ae"></a>
+
+## [lib/host/tests/identity_transport/requests.rs](../../../../../lib/host/tests/identity_transport/requests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–254; current module/import/attribute shell; declaration acquire_body_matches_go_oracle; declaration acquire_omits_zero_repository_and_role; declaration register_full_binding_matches_go_oracle; declaration register_minimal_binding_matches_go_oracle; declaration reconcile_end_available_bodies_match_go_oracle; declaration return_execution_bodies_match_go_oracle; declaration execution_is_terminal_matches_factory; declaration deadline_format_matches_go_time_json; declaration html_escaping_matches_go_encoder | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/tests/identity_transport/requests.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-01ec285664e6"></a>
+
+## [lib/host/tests/identity_transport/responses.rs](../../../../../lib/host/tests/identity_transport/responses.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–254; current module/import/attribute shell; declaration error_codes_map_like_go; declaration substring_contract_holds; declaration response_limit_is_512kib; declaration LIMIT; declaration strict_response_decode; declaration deadline_and_transport_failures; declaration framing_edge_cases_match_go_transport | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/tests/identity_transport/responses.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |

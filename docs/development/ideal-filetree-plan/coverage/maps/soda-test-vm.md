@@ -1,132 +1,134 @@
 # Soda test vm
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-355ef73ed0f9"></a>
+
+## [tools/test-vm/src/main.rs](../../../../../tools/test-vm/src/main.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–129; lines 1–18: use std and attached body; lines 19–19: use std and attached body; lines 20–20: use std and attached body; lines 21–21: use std and attached body; lines 22–22: use std and attached body; lines 23–24: mod process and attached body; lines 25–25: mod start and attached body; lines 26–26: mod transport and attached body; lines 27–28: use self and attached body; lines 29–29: mod state and attached body; lines 30–31: const FAIL_PREFIX and attached body; lines 32–32: const QEMU_DEFAULT and attached body; lines 33–33: const SSH_PORT and attached body; lines 34–41: use libc and attached body; lines 42–46: enum Exit and attached body; lines 47–50: fn refuse and attached body; lines 51–63: fn status_code and attached body; lines 64–68: fn flush_stdout and attached body; lines 69–80: fn env_or and attached body; lines 81–92: fn current_pwd and attached body; lines 93–99: fn stripped and attached body; lines 100–103: fn stripped_string and attached body; lines 104–128: fn main and attached body; lines 129–129: mod tests and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 24 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ba4048fa343c"></a>
+
+## [tools/test-vm/src/process.rs](../../../../../tools/test-vm/src/process.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–179; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–3: use std and attached body; lines 4–4: use std and attached body; lines 5–5: use std and attached body; lines 6–6: use std and attached body; lines 7–7: use std and attached body; lines 8–8: use std and attached body; lines 9–10: use super and attached body; lines 11–14: fn os_error and attached body; lines 15–21: fn access and attached body; lines 22–25: fn is_file and attached body; lines 26–31: enum Captured and attached body; lines 32–56: fn capture and attached body; lines 57–57: fn capture_stdout and attached body; lines 58–58: const CAP and attached body; lines 59–123: const PIPE_GRACE and attached body; lines 124–148: fn run and attached body; lines 149–163: fn exec_replace and attached body; lines 164–164: mod capture_tests and attached body; lines 165–167: use super and attached body; lines 168–172: fn infinite_output_fails_at_capture_bound and attached body; lines 173–179: fn descendant_pipe_is_a_capture_failure and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 23 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-83bf10015223"></a>
+
+## [tools/test-vm/src/start.rs](../../../../../tools/test-vm/src/start.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–95; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–4: use super and attached body; lines 5–5: use super and attached body; lines 6–9: use super and attached body; lines 10–95: fn action_start and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; Declaration block for fn action_start in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-d9f1ecd4382c"></a>
+
+## [tools/test-vm/src/state.rs](../../../../../tools/test-vm/src/state.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–93; lines 1–1: use std and attached body; lines 2–3: use super and attached body; lines 4–7: use super and attached body; lines 8–14: fn pid_display and attached body; lines 15–50: fn pid_alive and attached body; lines 51–62: fn vm_running and attached body; lines 63–69: fn vm_dir and attached body; lines 70–86: fn ssh_args and attached body; lines 87–93: fn uname_is and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-782d305657ec"></a>
+
+## [tools/test-vm/src/tests.rs](../../../../../tools/test-vm/src/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–54; lines 1–1: use super and attached body; lines 2–4: use super and attached body; lines 5–11: fn pid_display_keeps_spaces_drops_newlines and attached body; lines 12–27: fn pid_alive_matches_kill_zero_semantics and attached body; lines 28–49: fn ssh_args_pin_key_paths_and_options and attached body; lines 50–54: fn stripped_drops_all_trailing_newlines and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-82eadd5db227"></a>
+
+## [tools/test-vm/src/transport.rs](../../../../../tools/test-vm/src/transport.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–95; lines 1–1: use std and attached body; lines 2–3: use super and attached body; lines 4–4: use super and attached body; lines 5–5: use super and attached body; lines 6–6: use super and attached body; lines 7–27: fn action_status and attached body; lines 28–35: fn action_ssh and attached body; lines 36–58: fn action_tunnel and attached body; lines 59–71: fn action_console and attached body; lines 72–95: fn run_vm and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b3bce85fd039"></a>
+
+## [tools/test-vm/tests/cli.rs](../../../../../tools/test-vm/tests/cli.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–74; lines 1–8: use std and attached body; lines 9–10: mod start and attached body; lines 11–11: mod status and attached body; lines 12–13: mod support and attached body; lines 14–14: mod transport and attached body; lines 15–18: use self and attached body; lines 19–19: fn faccessat and attached body; lines 20–23: fn flock and attached body; lines 24–43: fn stale_pwd_falls_back_to_working_directory and attached body; lines 44–44: fn closed_stdout_dies_by_sigpipe_like_shell and attached body; lines 45–45: use std and attached body; lines 46–46: use std and attached body; lines 47–49: use std and attached body; lines 50–50: fn pipe and attached body; lines 51–74: fn close and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-c00d8671b1c0"></a>
+
+## [tools/test-vm/tests/start.rs](../../../../../tools/test-vm/tests/start.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–394; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–3: use std and attached body; lines 4–5: use super and attached body; lines 6–8: use super and attached body; lines 9–56: fn start_refuses_without_kvm_or_with_bad_qemu and attached body; lines 57–88: fn start_reports_missing_files_in_order and attached body; lines 89–91: struct HeldLock and attached body; lines 92–93: impl HeldLock and attached body; lines 94–100: fn new and attached body; lines 101–105: use std and attached body; lines 106–107: impl Drop and attached body; lines 108–108: fn drop and attached body; lines 109–116: use std and attached body; lines 117–153: fn start_refuses_held_lock_and_running_vm and attached body; lines 154–165: fn write_fake_qemu and attached body; lines 166–232: fn start_runs_qemu_with_exact_argv_and_releases_lock and attached body; lines 233–240: use std and attached body; lines 241–261: fn start_propagates_qemu_status_silently and attached body; lines 262–312: fn start_reports_qemu_killed_by_signal and attached body; lines 313–337: fn unreadable_pidfile_reports_and_aborts and attached body; lines 338–373: fn unreadable_pidfile_aborts_start_before_qemu and attached body; lines 374–394: fn missing_uname_keeps_native_error_and_refuses and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 23 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-bdf1af16dfde"></a>
+
+## [tools/test-vm/tests/status.rs](../../../../../tools/test-vm/tests/status.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–89; lines 1–1: use std and attached body; lines 2–5: use super and attached body; lines 6–14: fn unknown_action_prints_usage_and_exits_two and attached body; lines 15–25: fn empty_action_defaults_to_status and attached body; lines 26–46: fn status_reports_not_running_without_pidfile and attached body; lines 47–70: fn status_rejects_unparseable_pidfiles_silently and attached body; lines 71–89: fn status_reports_live_pid_and_keeps_spacing and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ec1e35636cb3"></a>
+
+## [tools/test-vm/tests/support/mod.rs](../../../../../tools/test-vm/tests/support/mod.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–73; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–3: use std and attached body; lines 4–4: use std and attached body; lines 5–5: use std and attached body; lines 6–6: use std and attached body; lines 7–8: use super and attached body; lines 9–10: static COUNTER and attached body; lines 11–12: fn kvm_accessible and attached body; lines 13–13: use std and attached body; lines 14–19: use std and attached body; lines 20–23: struct TempDir and attached body; lines 24–25: impl TempDir and attached body; lines 26–33: fn new and attached body; lines 34–35: impl Drop and attached body; lines 36–39: fn drop and attached body; lines 40–46: fn bin and attached body; lines 47–53: fn cmd and attached body; lines 54–62: fn write_fake and attached body; lines 63–71: fn vm_fixture and attached body; lines 72–73: const USAGE and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 21 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-cdd1ccce23cd"></a>
+
+## [tools/test-vm/tests/transport.rs](../../../../../tools/test-vm/tests/transport.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–166; lines 1–1: use std and attached body; lines 2–2: use std and attached body; lines 3–6: use super and attached body; lines 7–71: fn ssh_exec_failures_keep_native_errors_and_shell_statuses and attached body; lines 72–166: fn ssh_and_tunnels_exec_with_exact_argv and attached body | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Declaration block for use std in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-6c17b7a12499"></a>
-
 <a id="rustsoda-test-vmsrcmainrs-1"></a>
 
-## [rust/soda-test-vm/src/main.rs](../../../../../rust/soda-test-vm/src/main.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 1–27 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declarations/fields: `FAIL_PREFIX`, `QEMU_DEFAULT`, `SSH_PORT`, `faccessat`, `umask`, `sigaction`, `flock`, `kill`, `execvp`, `strerror`, `strsignal`, `AT_FDCWD`, `R_OK`, `W_OK`, `X_OK`, `LOCK_EX`, `LOCK_NB`, `SIGPIPE`, `SIG_DFL`, `Sigaction`, `Exit`, `refuse`, `status_code`, `flush_stdout`, `env_or`, `current_pwd`, `stripped`, `stripped_string`, `os_error`, `access`, `is_file`, `is_dir`, `path_hit`, `spawn_diag`, `exec_diag`, `Captured`, `capture`, `TYPED_QEMU_CMD`, `signal_name`, `signal_notice`, `run`, `exec_replace`, `pid_display`, `pid_alive`, `vm_running`, `vm_dir`, `ssh_args`, `uname_is`, `action_start`, `action_status`, `action_ssh`, `action_tunnel`, `action_console`, `run_vm`, `main`, `tests`, `pid_display_keeps_spaces_drops_newlines`, `pid_alive_matches_kill_zero_semantics`, `ssh_args_pin_key_paths_and_options`, `stripped_drops_all_trailing_newlines`, `signal_names_come_from_strsignal`, `spawn_diag_matrix_matches_bash`, `exec_diag_matrix_matches_bash` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 28 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member FAIL_PREFIX; declarations/fields: `FAIL_PREFIX` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 29 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member QEMU_DEFAULT; declarations/fields: `QEMU_DEFAULT` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 30–32 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member SSH_PORT; declarations/fields: `SSH_PORT` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 33 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member faccessat; declarations/fields: `faccessat` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 34 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member umask; declarations/fields: `umask` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 35 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member sigaction; declarations/fields: `sigaction` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 36 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member flock; declarations/fields: `flock` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 37 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member kill; declarations/fields: `kill` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 38 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member execvp; declarations/fields: `execvp` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 39 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member strerror; declarations/fields: `strerror` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 40–42 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member strsignal; declarations/fields: `strsignal` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 43 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member AT_FDCWD; declarations/fields: `AT_FDCWD` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 44 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member R_OK; declarations/fields: `R_OK` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 45 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member W_OK; declarations/fields: `W_OK` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 46 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member X_OK; declarations/fields: `X_OK` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 47 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member LOCK_EX; declarations/fields: `LOCK_EX` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 48 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member LOCK_NB; declarations/fields: `LOCK_NB` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 49 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member SIGPIPE; declarations/fields: `SIGPIPE` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 50–55 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member SIG_DFL; declarations/fields: `SIG_DFL` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 56 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member Sigaction; declarations/fields: `Sigaction` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 57 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member Sigaction.handler; declarations/fields: `Sigaction.handler` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 58 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member Sigaction.mask; declarations/fields: `Sigaction.mask` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 59 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member Sigaction.flags; declarations/fields: `Sigaction.flags` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 60–67 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member Sigaction.restorer; declarations/fields: `Sigaction.restorer` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 68–72 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member Exit; declarations/fields: `Exit` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 73–77 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member refuse; declarations/fields: `refuse` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 78–89 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member status_code; declarations/fields: `status_code` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 90–94 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member flush_stdout; declarations/fields: `flush_stdout` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 95–106 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member env_or; declarations/fields: `env_or` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 107–118 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member current_pwd; declarations/fields: `current_pwd` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 119–126 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member stripped; declarations/fields: `stripped` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 127–131 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member stripped_string; declarations/fields: `stripped_string` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 132–140 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member os_error; declarations/fields: `os_error` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 141–147 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member access; declarations/fields: `access` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 148–151 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member is_file; declarations/fields: `is_file` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 152–159 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member is_dir; declarations/fields: `is_dir` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 160–175 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member path_hit; declarations/fields: `path_hit` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 176–198 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member spawn_diag; declarations/fields: `spawn_diag` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 199–232 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member exec_diag; declarations/fields: `exec_diag` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 233–240 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member Captured; declarations/fields: `Captured` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 241–273 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member capture; declarations/fields: `capture` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 274–276 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member TYPED_QEMU_CMD; declarations/fields: `TYPED_QEMU_CMD` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 277–291 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member signal_name; declarations/fields: `signal_name` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 292–312 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member signal_notice; declarations/fields: `signal_notice` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 313–342 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member run; declarations/fields: `run` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 343–364 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member exec_replace; declarations/fields: `exec_replace` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 365–371 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member pid_display; declarations/fields: `pid_display` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 372–407 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member pid_alive; declarations/fields: `pid_alive` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 408–420 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member vm_running; declarations/fields: `vm_running` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 421–426 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member vm_dir; declarations/fields: `vm_dir` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 427–443 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member ssh_args; declarations/fields: `ssh_args` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 444–450 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member uname_is; declarations/fields: `uname_is` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 451–536 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member action_start; declarations/fields: `action_start` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 537–557 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member action_status; declarations/fields: `action_status` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 558–565 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member action_ssh; declarations/fields: `action_ssh` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 566–588 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member action_tunnel; declarations/fields: `action_tunnel` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 589–601 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member action_console; declarations/fields: `action_console` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 602–625 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member run_vm; declarations/fields: `run_vm` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 626–651 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member main; declarations/fields: `main` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 652–655 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member tests; declarations/fields: `tests` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 656–662 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member pid_display_keeps_spaces_drops_newlines; declarations/fields: `pid_display_keeps_spaces_drops_newlines` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 663–678 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member pid_alive_matches_kill_zero_semantics; declarations/fields: `pid_alive_matches_kill_zero_semantics` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 679–700 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member ssh_args_pin_key_paths_and_options; declarations/fields: `ssh_args_pin_key_paths_and_options` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 701–707 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member stripped_drops_all_trailing_newlines; declarations/fields: `stripped_drops_all_trailing_newlines` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 708–715 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member signal_names_come_from_strsignal; declarations/fields: `signal_names_come_from_strsignal` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 716–735 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member spawn_diag_matrix_matches_bash; declarations/fields: `spawn_diag_matrix_matches_bash` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 736–768 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member exec_diag_matrix_matches_bash; declarations/fields: `exec_diag_matrix_matches_bash` |
+Former source `rust/soda-test-vm/src/main.rs`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-31d4f7093d97"></a>
-
 <a id="rustsoda-test-vmtestsclirs-1"></a>
 
-## [rust/soda-test-vm/tests/cli.rs](../../../../../rust/soda-test-vm/tests/cli.rs)
-
-Fake QEMU/ssh/tail fixture tests; /dev/kvm-dependent branches may skip. No real VM qualification proof. Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 1–12 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declarations/fields: `COUNTER`, `faccessat`, `flock`, `kvm_accessible`, `TempDir`, `new`, `drop`, `bin`, `cmd`, `write_fake`, `vm_fixture`, `USAGE`, `unknown_action_prints_usage_and_exits_two`, `empty_action_defaults_to_status`, `status_reports_not_running_without_pidfile`, `status_rejects_unparseable_pidfiles_silently`, `status_reports_live_pid_and_keeps_spacing`, `start_refuses_without_kvm_or_with_bad_qemu`, `start_reports_missing_files_in_order`, `HeldLock`, `start_refuses_held_lock_and_running_vm`, `write_fake_qemu`, `start_runs_qemu_with_exact_argv_and_releases_lock`, `start_propagates_qemu_status_silently`, `start_reports_qemu_killed_by_signal`, `unreadable_pidfile_reports_and_aborts`, `unreadable_pidfile_aborts_start_before_qemu`, `missing_uname_reports_and_refuses`, `ssh_exec_failure_shapes_match_bash`, `ssh_and_tunnels_exec_with_exact_argv`, `stale_pwd_falls_back_to_working_directory`, `closed_stdout_dies_by_sigpipe_like_shell`, `pipe`, `close` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 13–15 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member COUNTER; declarations/fields: `COUNTER` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 16 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member faccessat; declarations/fields: `faccessat` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 17–19 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member flock; declarations/fields: `flock` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 20–28 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member kvm_accessible; declarations/fields: `kvm_accessible` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 29 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member TempDir; declarations/fields: `TempDir` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 30–33 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member TempDir.path; declarations/fields: `TempDir.path` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 34–43, 255–268 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member new; declarations/fields: `new` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 44–48, 269–277 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member drop; declarations/fields: `drop` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 49–54 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member bin; declarations/fields: `bin` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 55–62 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member cmd; declarations/fields: `cmd` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 63–70 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member write_fake; declarations/fields: `write_fake` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 71–80 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member vm_fixture; declarations/fields: `vm_fixture` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 81–83 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member USAGE; declarations/fields: `USAGE` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 84–92 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member unknown_action_prints_usage_and_exits_two; declarations/fields: `unknown_action_prints_usage_and_exits_two` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 93–103 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member empty_action_defaults_to_status; declarations/fields: `empty_action_defaults_to_status` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 104–124 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member status_reports_not_running_without_pidfile; declarations/fields: `status_reports_not_running_without_pidfile` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 125–148 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member status_rejects_unparseable_pidfiles_silently; declarations/fields: `status_rejects_unparseable_pidfiles_silently` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 149–169 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member status_reports_live_pid_and_keeps_spacing; declarations/fields: `status_reports_live_pid_and_keeps_spacing` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 170–217 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member start_refuses_without_kvm_or_with_bad_qemu; declarations/fields: `start_refuses_without_kvm_or_with_bad_qemu` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 218–249 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member start_reports_missing_files_in_order; declarations/fields: `start_reports_missing_files_in_order` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 250 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member HeldLock; declarations/fields: `HeldLock` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 251–254 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member HeldLock.file; declarations/fields: `HeldLock.file` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 278–314 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member start_refuses_held_lock_and_running_vm; declarations/fields: `start_refuses_held_lock_and_running_vm` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 315–326 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member write_fake_qemu; declarations/fields: `write_fake_qemu` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 327–401 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member start_runs_qemu_with_exact_argv_and_releases_lock; declarations/fields: `start_runs_qemu_with_exact_argv_and_releases_lock` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 402–422 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member start_propagates_qemu_status_silently; declarations/fields: `start_propagates_qemu_status_silently` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 423–486 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member start_reports_qemu_killed_by_signal; declarations/fields: `start_reports_qemu_killed_by_signal` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 487–511 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member unreadable_pidfile_reports_and_aborts; declarations/fields: `unreadable_pidfile_reports_and_aborts` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 512–547 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member unreadable_pidfile_aborts_start_before_qemu; declarations/fields: `unreadable_pidfile_aborts_start_before_qemu` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 548–567 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member missing_uname_reports_and_refuses; declarations/fields: `missing_uname_reports_and_refuses` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 568–629 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member ssh_exec_failure_shapes_match_bash; declarations/fields: `ssh_exec_failure_shapes_match_bash` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 630–726 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member ssh_and_tunnels_exec_with_exact_argv; declarations/fields: `ssh_and_tunnels_exec_with_exact_argv` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 727–746 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member stale_pwd_falls_back_to_working_directory; declarations/fields: `stale_pwd_falls_back_to_working_directory` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 747–752 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member closed_stdout_dies_by_sigpipe_like_shell; declarations/fields: `closed_stdout_dies_by_sigpipe_like_shell` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 753 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member pipe; declarations/fields: `pipe` |
-| [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / active | 754–777 | Isolated local developer QEMU VM controls with confined fixture lifecycle; declaration/member close; declarations/fields: `close` |
-
+Former source `rust/soda-test-vm/tests/cli.rs`; consult its pinned earlier Git source and the current coverage disposition.

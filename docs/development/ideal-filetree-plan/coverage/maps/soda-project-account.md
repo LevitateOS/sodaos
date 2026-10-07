@@ -1,109 +1,73 @@
 # Soda project account
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-7d631ec1ed65"></a>
+
+## [cmd/soda-project-terminal/src/account.rs](../../../../../cmd/soda-project-terminal/src/account.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–304; current module/import/attribute shell; declaration s_isreg; declaration Account; fields pw_name, pw_uid, pw_gid, pw_dir, pw_shell; declaration valid_login; declaration login_shell_ok; declaration marker_matches; declaration account_for; declaration lookup_passwd; declaration account_binding; declaration user_environment; declaration become_user; declaration tests; declaration sample; declaration login_matrix; declaration shell_matrix; declaration marker_matrix; declaration binding_and_env_exact; declaration account_for_refuses_unprivileged; declaration become_user_fails_unprivileged | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/account.rs into its current native target.; 19 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6644fd357fe6"></a>
+
+## [cmd/soda-project-terminal/src/bin/project-account.rs](../../../../../cmd/soda-project-terminal/src/bin/project-account.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–158; current module/import/attribute shell; declaration project_account; declaration REQUEST_LIMIT; declaration FAILURE_LINE; declaration read_request; declaration response_line; declaration config_from_env; declaration fail; declaration run; declaration main; declaration tests; declaration response_bytes_match_print_json_dumps; declaration failure_line_matches_sys_exit; declaration test_root_parses_env | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/bin/project-account.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e856ffffedda"></a>
+
+## [cmd/soda-project-terminal/src/project_account.rs](../../../../../cmd/soda-project-terminal/src/project_account.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–106, 174–195, 235–331, 360–526; current module/import/attribute shell; declaration Request; fields login, identity, admin, keys; declaration Response; fields login, identity; declaration RunCommand; declaration SyncFile; declaration Config; fields accounts, keys, passwd_file, expect_uid, expect_gid, require_root, fail_sync, run_command, sync_file; declaration production; declaration test_root; declaration valid_login; declaration RequestFields; declaration deserialize; declaration FieldsVisitor; declaration Value; declaration expecting; declaration visit_map; declaration run_command_inherit; declaration useradd_argv; declaration usermod_argv; declaration cstring; declaration open_nofollow; declaration ReadError; declaration owned_contents; declaration lock_exclusive_nb; declaration lexists; declaration system_home; declaration test_passwd_home; declaration lookup_home; declaration provision; declaration project_account_tests | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/project_account.rs into its current native target.; 29 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 23–31, 46–62, 107–173, 332–359; declaration is_py_space; declaration valid_key_head; declaration valid_key_body; declaration valid_key; declaration sync_one; declaration create_file; field Request.keys; field Config.keys | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | is_py_space: parse, preserve, or synchronize the saved Project SSH authorized-key data.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 196–234; declaration parse_request | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Decode the exact project-account helper request shape. — current source cmd/soda-project-terminal/src/project_account.rs; lines 196-234; module/caller wiring inspected |
+
+<a id="coverage-950e69227ce4"></a>
+
+## [cmd/soda-project-terminal/src/project_account_tests.rs](../../../../../cmd/soda-project-terminal/src/project_account_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–88, 159–306, 368–563; current module/import/attribute shell; declaration TEST_SEQ; declaration test_root; declaration request; declaration direct_config; declaration login_matrix; declaration key_length_counts_characters_not_bytes; declaration parse_doc; declaration request_shape_matrix; declaration request_scalar_matrix; declaration mode_of; declaration provisions_locked_home_marker_shared_empty_keyfile; declaration occupied_inputs_and_unassociated_users_refuse; declaration key_symlink_is_not_followed; declaration existing_account_binding_matrix; declaration lock_contention_refuses_before_effects; declaration fsync_order_holds_lock_and_orders_durably; declaration failed_sync_releases_lock_and_keeps_partial_files; declaration unsafe_directories_refuse; declaration unprivileged_production_gate | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Imports and module declarations wire cmd/soda-project-terminal/src/project_account_tests.rs into its current native target.; 20 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 89–158, 307–367; declaration key_oracle; declaration selected_keys_rerun_is_idempotent; declaration join_never_applies_keys_and_preserves_drift | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Exercise saved SSH public-key parsing and normalization.; Exercise idempotent synchronization of selected saved SSH keys.; Exercise the boundary between membership and native SSH key application. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-397a7869f303"></a>
+<a id="coverage-a02d25ff6350"></a>
+
+## [cmd/soda-project-terminal/tests/project_account.rs](../../../../../cmd/soda-project-terminal/tests/project_account.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–178, 219–271, 286–410; current module/import/attribute shell; declaration FAILURE_LINE; declaration bin_path; declaration TEST_SEQ; declaration Env; fields root; declaration setup; declaration run; declaration commands; declaration mode; declaration read; declaration doc; declaration provisions_locked_home_marker_shared_empty_keyfile; declaration retry_never_erases_existing_keys; declaration join_never_applies_keys_and_preserves_drift; declaration occupied_inputs_and_unassociated_users_refuse; declaration validation_refuses_before_native_effects; declaration lock_contention_refuses_before_effects; declaration failed_sync_releases_lock_and_keeps_partial_files; declaration stdin_size_boundary_is_exact; declaration malformed_stdin_refuses; declaration argv_is_ignored_like_the_python | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Imports and module declarations wire cmd/soda-project-terminal/tests/project_account.rs into its current native target.; 21 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 179–218, 272–285; declaration selected_keys_admin_rerun_is_idempotent; declaration key_symlink_is_not_followed | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | selected_keys_admin_rerun_is_idempotent: source assertion of development ssh access.; key_symlink_is_not_followed: source assertion of development ssh access. — current source cmd/soda-project-terminal/tests/project_account.rs; lines 179-218; module/caller wiring inspected; exact byte-identical source map rust/soda-project-account/tests/binary.rs; exact byte-identical prior map docs/development/ideal-filetree-plan/coverage/maps/soda-project-account.md at the same current line; current source cmd/soda-project-terminal/tests/project_account.rs; lines 272-285; module/caller wiring inspected; exact byte-identical source map rust/soda-project-account/tests/binary.rs; exact byte-identical prior map docs/development/ideal-filetree-plan/coverage/maps/soda-project-account.md at the same current line |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-8955aff292da"></a>
 
-## [rust/soda-project-account/src/account.rs](../../../../../rust/soda-project-account/src/account.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 1–20 | Human account request/response/native configuration; declarations/fields: `Request`, `Response`, `Config`, `production`, `test_root`, `valid_login`, `is_py_space` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 21 | Human account request/response/native configuration; declaration/member Request; declarations/fields: `Request` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 22 | Human account request/response/native configuration; declaration/member Request.login; declarations/fields: `Request.login` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 23 | Human account request/response/native configuration; declaration/member Request.identity; declarations/fields: `Request.identity` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 24 | Human account request/response/native configuration; declaration/member Request.admin; declarations/fields: `Request.admin` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 25–29 | Human account request/response/native configuration; declaration/member Request.keys; declarations/fields: `Request.keys` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 30 | Human account request/response/native configuration; declaration/member Response; declarations/fields: `Response` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 31 | Human account request/response/native configuration; declaration/member Response.login; declarations/fields: `Response.login` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 32–35 | Human account request/response/native configuration; declaration/member Response.identity; declarations/fields: `Response.identity` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 36–37 | Human account request/response/native configuration; declaration/member RunCommand; declarations/fields: `RunCommand` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 38–42 | Human account request/response/native configuration; declaration/member SyncFile; declarations/fields: `SyncFile` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 43 | Human account request/response/native configuration; declaration/member Config; declarations/fields: `Config` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 44 | Human account request/response/native configuration; declaration/member Config.accounts; declarations/fields: `Config.accounts` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 45–46 | Human account request/response/native configuration; declaration/member Config.keys; declarations/fields: `Config.keys` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 47 | Human account request/response/native configuration; declaration/member Config.passwd_file; declarations/fields: `Config.passwd_file` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 48 | Human account request/response/native configuration; declaration/member Config.expect_uid; declarations/fields: `Config.expect_uid` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 49 | Human account request/response/native configuration; declaration/member Config.expect_gid; declarations/fields: `Config.expect_gid` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 50–51 | Human account request/response/native configuration; declaration/member Config.require_root; declarations/fields: `Config.require_root` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 52 | Human account request/response/native configuration; declaration/member Config.fail_sync; declarations/fields: `Config.fail_sync` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 53 | Human account request/response/native configuration; declaration/member Config.run_command; declarations/fields: `Config.run_command` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 54–59 | Human account request/response/native configuration; declaration/member Config.sync_file; declarations/fields: `Config.sync_file` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 60–75 | Human account request/response/native configuration; declaration/member production; declarations/fields: `production` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 76–92 | Human account request/response/native configuration; declaration/member test_root; declarations/fields: `test_root` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 93–103 | Human account request/response/native configuration; declaration/member valid_login; declarations/fields: `valid_login` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 104–113 | Human account request/response/native configuration; declaration/member is_py_space; declarations/fields: `is_py_space` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 114–136 | Initial selected-key shape admission; declarations/fields: `valid_key_head` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 137–155 | Initial selected-key shape admission; declaration/member valid_key_body; declarations/fields: `valid_key_body` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 156–170 | Initial selected-key shape admission; declaration/member valid_key; declarations/fields: `valid_key` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 171–220 | Account request decoding and native account commands; declarations/fields: `parse_request` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 221–232 | Account request decoding and native account commands; declaration/member run_command_inherit; declarations/fields: `run_command_inherit` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 233–249 | Account request decoding and native account commands; declaration/member useradd_argv; declarations/fields: `useradd_argv` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 250–256 | Account request decoding and native account commands; declaration/member usermod_argv; declarations/fields: `usermod_argv` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 257–262 | No-follow owned read/create/sync/lock primitives; declarations/fields: `cstring` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 263–278 | No-follow owned read/create/sync/lock primitives; declaration/member open_nofollow; declarations/fields: `open_nofollow` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 279–285 | No-follow owned read/create/sync/lock primitives; declaration/member ReadError; declarations/fields: `ReadError` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 286–317 | No-follow owned read/create/sync/lock primitives; declaration/member owned_contents; declarations/fields: `owned_contents` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 318–326 | No-follow owned read/create/sync/lock primitives; declaration/member sync_one; declarations/fields: `sync_one` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 327–345 | No-follow owned read/create/sync/lock primitives; declaration/member create_file; declarations/fields: `create_file` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 346–360 | No-follow owned read/create/sync/lock primitives; declaration/member lock_exclusive_nb; declarations/fields: `lock_exclusive_nb` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 361–364 | No-follow owned read/create/sync/lock primitives; declaration/member lexists; declarations/fields: `lexists` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 365–399 | Native home/account association lookup; declarations/fields: `system_home` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 400–411 | Native home/account association lookup; declaration/member test_passwd_home; declarations/fields: `test_passwd_home` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 412–421 | Native home/account association lookup; declaration/member lookup_home; declarations/fields: `lookup_home` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 422–425 | Project-local root account association admission; declarations/fields: `provision` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 426–437 | Exclusive managed-key directory lock/admission |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 438–479 | Account/key marker association and native locked account creation |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 480–495 | Initial selected authorized-key materialization; drift requires explicit maintenance |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 496–511 | Shared home link and explicit wheel administrator account |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 512–517, 684–688, 873–892, 909–934 | Native account fixture assertions; declarations/fields: `tests`, `parse_doc`, `occupied_inputs_and_unassociated_users_refuse`, `existing_account_binding_matrix` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 518–521 | Native account fixture assertions; declaration/member TEST_SEQ; declarations/fields: `TEST_SEQ` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 522–536 | Native account fixture assertions; declaration/member test_root; declarations/fields: `test_root` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 537–547 | Native account fixture assertions; declaration/member request; declarations/fields: `request` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 548–574 | Native account fixture assertions; declaration/member direct_config; declarations/fields: `direct_config` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 575–601 | Native account fixture assertions; declaration/member login_matrix; declarations/fields: `login_matrix` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 602–671, 812–851, 893–908 | Source assertion of Development SSH access; declarations/fields: `key_oracle`, `selected_keys_rerun_is_idempotent`, `key_symlink_is_not_followed` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 672–683 | Source assertion of Development SSH access; declaration/member key_length_counts_characters_not_bytes; declarations/fields: `key_length_counts_characters_not_bytes` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 689–724 | Native account fixture assertions; declaration/member request_shape_matrix; declarations/fields: `request_shape_matrix` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 725–764 | Native account fixture assertions; declaration/member request_scalar_matrix; declarations/fields: `request_scalar_matrix` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 765–769 | Native account fixture assertions; declaration/member mode_of; declarations/fields: `mode_of` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 770–811 | Native account fixture assertions; declaration/member provisions_locked_home_marker_shared_empty_keyfile; declarations/fields: `provisions_locked_home_marker_shared_empty_keyfile` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 852–872 | Source assertion of Human membership and accounts; declarations/fields: `join_never_applies_keys_and_preserves_drift` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 935–956 | Native account fixture assertions; declaration/member lock_contention_refuses_before_effects; declarations/fields: `lock_contention_refuses_before_effects` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 957–1025 | Native account fixture assertions; declaration/member fsync_order_holds_lock_and_orders_durably; declarations/fields: `fsync_order_holds_lock_and_orders_durably` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 1026–1042 | Native account fixture assertions; declaration/member failed_sync_releases_lock_and_keeps_partial_files; declarations/fields: `failed_sync_releases_lock_and_keeps_partial_files` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 1043–1061 | Native account fixture assertions; declaration/member unsafe_directories_refuse; declarations/fields: `unsafe_directories_refuse` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 1062–1068 | Native account fixture assertions; declaration/member unprivileged_production_gate; declarations/fields: `unprivileged_production_gate` |
-
-<a id="coverage-397a7869f303"></a>
-
-## [rust/soda-project-account/tests/binary.rs](../../../../../rust/soda-project-account/tests/binary.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 1–12, 220–232, 250–272, 287–306 | Project-local locked human account association and administrator membership; declarations/fields: `FAILURE_LINE`, `bin_path`, `TEST_SEQ`, `Env`, `setup`, `run`, `commands`, `mode`, `read`, `doc`, `provisions_locked_home_marker_shared_empty_keyfile`, `retry_never_erases_existing_keys`, `occupied_inputs_and_unassociated_users_refuse`, `validation_refuses_before_native_effects` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 13–15 | Project-local locked human account association and administrator membership; declaration/member FAILURE_LINE; declarations/fields: `FAILURE_LINE` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 16–27 | Project-local locked human account association and administrator membership; declaration/member bin_path; declarations/fields: `bin_path` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 28–31 | Project-local locked human account association and administrator membership; declaration/member TEST_SEQ; declarations/fields: `TEST_SEQ` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 32 | Project-local locked human account association and administrator membership; declaration/member Env; declarations/fields: `Env` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 33–36 | Project-local locked human account association and administrator membership; declaration/member Env.root; declarations/fields: `Env.root` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 37–74 | Project-local locked human account association and administrator membership; declaration/member setup; declarations/fields: `setup` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 75–111 | Project-local locked human account association and administrator membership; declaration/member run; declarations/fields: `run` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 112–123 | Project-local locked human account association and administrator membership; declaration/member commands; declarations/fields: `commands` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 124–127 | Project-local locked human account association and administrator membership; declaration/member mode; declarations/fields: `mode` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 128–132 | Project-local locked human account association and administrator membership; declaration/member read; declarations/fields: `read` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 133–158 | Project-local locked human account association and administrator membership; declaration/member doc; declarations/fields: `doc` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 159–179 | Project-local locked human account association and administrator membership; declaration/member provisions_locked_home_marker_shared_empty_keyfile; declarations/fields: `provisions_locked_home_marker_shared_empty_keyfile` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 180–219, 273–286 | Source assertion of Development SSH access; declarations/fields: `selected_keys_admin_rerun_is_idempotent`, `key_symlink_is_not_followed` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 233–249 | Source assertion of Human membership and accounts; declarations/fields: `join_never_applies_keys_and_preserves_drift` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 307–331 | Project-local locked human account association and administrator membership; declaration/member lock_contention_refuses_before_effects; declarations/fields: `lock_contention_refuses_before_effects` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 332–348 | Project-local locked human account association and administrator membership; declaration/member failed_sync_releases_lock_and_keeps_partial_files; declarations/fields: `failed_sync_releases_lock_and_keeps_partial_files` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 349–384 | Project-local locked human account association and administrator membership; declaration/member stdin_size_boundary_is_exact; declarations/fields: `stdin_size_boundary_is_exact` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 385–404 | Project-local locked human account association and administrator membership; declaration/member malformed_stdin_refuses; declarations/fields: `malformed_stdin_refuses` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 405–410 | Project-local locked human account association and administrator membership; declaration/member argv_is_ignored_like_the_python; declarations/fields: `argv_is_ignored_like_the_python` |
-
+Former source `rust/soda-project-account/src/account.rs`; consult its pinned earlier Git source and the current coverage disposition.

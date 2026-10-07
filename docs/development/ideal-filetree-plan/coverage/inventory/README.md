@@ -1,28 +1,31 @@
 # Tracked-file inventory index
 
-### Every tracked file
+Each current tracked path appears once. Kind and per-duty owner/disposition are
+separate; detailed mixed/oversized units link to current responsibility maps.
+Source snapshot, reuse and limits: [coverage index](../README.md).
 
-Each row records the current file, its kind and lifecycle, and its candidate slice ownership. A single-owner file belongs to that slice throughout; binary inputs have file-level attribution. The linked interval maps give the deeper resolution for mixed files. References and line intervals are for the recorded commit; live working-tree line numbers can drift.
+The source-root grouping describes current paths rather than target packages.
+Former navigation filenames remain stable: `native-packages.md` covers `lib/`,
+`appliance.md` covers `system/`, and the former Project OS page redirects to its
+current inventory. No former-root rows count twice.
 
+| Current root | Paths | Inventory |
+| --- | ---: | --- |
+| `(root)` | 22 | [root-files.md](root-files.md) |
+| `.agents` | 1 | [agent-plans.md](agent-plans.md) |
+| `.githooks` | 1 | [git-hooks.md](git-hooks.md) |
+| `assets` | 175 | [assets.md](assets.md) |
+| `cmd` | 338 | [cmd.md](cmd.md) |
+| `docs` | 305 | [docs.md](docs.md) |
+| `factory-os` | 1 | [factory-os.md](factory-os.md) |
+| `frontend` | 345 | [frontend.md](frontend.md) |
+| `internal` | 451 | [backend.md](backend.md) |
+| `lib` | 429 | [native-packages.md](native-packages.md) |
+| `scripts` | 80 | [scripts.md](scripts.md) |
+| `system` | 64 | [appliance.md](appliance.md) |
+| `tests` | 140 | [tests.md](tests.md) |
+| `tools` | 193 | [tools.md](tools.md) |
 
-Snapshot, lifecycle definitions and limits: [coverage index](../README.md).
-The current-root grouping describes recorded source paths, not the desired
-product architecture. Each path occurs once across the following inventories.
-
-| Source root at snapshot | Inventory |
-| --- | --- |
-| `(root files)` | [root-files](root-files.md) |
-| `.agents` | [agent-plans](agent-plans.md) |
-| `.githooks` | [git-hooks](git-hooks.md) |
-| `appliance` | [appliance](appliance.md) |
-| `assets` | [assets](assets.md) |
-| `cmd` | [cmd](cmd.md) |
-| `docs` | [docs](docs.md) |
-| `factory-os` | [factory-os](factory-os.md) |
-| `frontend` | [frontend](frontend.md) |
-| `internal` | [backend](backend.md) |
-| `project-os` | [project-os](project-os.md) |
-| `rust` | [native-packages](native-packages.md) |
-| `scripts` | [scripts](scripts.md) |
-| `tests` | [tests](tests.md) |
-| `tools` | [tools](tools.md) |
+Total: **2,545 tracked paths**; current working additions: **0**.
+Generated/captured/third-party artifacts have producer/consumer dispositions;
+their presence does not imply authored-code, rendering or native-execution proof.

@@ -1,52 +1,39 @@
 # Soda factory
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-d147fbf65cbb"></a>
+
+## [cmd/soda-factory/src/main.rs](../../../../../cmd/soda-factory/src/main.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–242; lines 1–6: use std and attached body; lines 7–7: use std and attached body; lines 8–8: use std and attached body; lines 9–9: use std and attached body; lines 10–12: const USAGE and attached body; lines 13–13: const OPERATOR_PATH and attached body; lines 14–14: const OPERATOR_HOST and attached body; lines 15–15: const RESPONSE_LIMIT and attached body; lines 16–16: const CLIENT_TIMEOUT and attached body; lines 17–26: fn main and attached body; lines 27–31: fn run and attached body; lines 32–37: struct ParsedArgs and attached body; lines 38–43: fn print_usage and attached body; lines 44–105: fn parse_args and attached body; lines 106–150: fn dispatch and attached body; lines 151–151: fn encode_envelope and attached body; lines 152–152: use serde and attached body; lines 153–153: use serde_json and attached body; lines 154–154: use std and attached body; lines 155–155: use std and attached body; lines 156–157: struct GoFormatter and attached body; lines 158–158: impl Formatter and attached body; lines 159–181: fn write_string_fragment and attached body; lines 182–203: fn write_char_escape and attached body; lines 204–241: fn send and attached body; lines 242–242: mod operator_tests and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use std in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 26 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ed0d743acaf4"></a>
+
+## [cmd/soda-factory/src/operator_tests.rs](../../../../../cmd/soda-factory/src/operator_tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–247; lines 1–1: use super and attached body; lines 2–2: use std and attached body; lines 3–3: use std and attached body; lines 4–4: use std and attached body; lines 5–5: use std and attached body; lines 6–6: use std and attached body; lines 7–8: static TEST_SOCKET_SEQ and attached body; lines 9–15: fn args and attached body; lines 16–81: fn operator_server and attached body; lines 82–94: fn request_parts and attached body; lines 95–117: fn status_envelope_matches_go_client_bytes and attached body; lines 118–149: fn stop_and_reconcile_envelopes_carry_sorted_keys and attached body; lines 150–180: fn responses_map_like_the_go_client and attached body; lines 181–193: fn success_appends_missing_trailing_newline and attached body; lines 194–202: fn oversized_response_is_refused and attached body; lines 203–213: fn unreachable_socket_maps_to_unavailable and attached body; lines 214–240: fn local_misuse_is_rejected and attached body; lines 241–247: fn envelope_escapes_match_go_encoding_json and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-b25e1fd0f0dd"></a>
-
 <a id="rustsoda-factorysrcmainrs-1"></a>
 
-## [rust/soda-factory/src/main.rs](../../../../../rust/soda-factory/src/main.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1–10 | Explicit factory operator status/stop/reconcile CLI; declarations/fields: `USAGE`, `OPERATOR_PATH`, `OPERATOR_HOST`, `RESPONSE_LIMIT`, `CLIENT_TIMEOUT`, `main`, `run`, `ParsedArgs`, `print_usage`, `parse_args`, `dispatch` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 11–12 | Explicit factory operator status/stop/reconcile CLI; declaration/member USAGE; declarations/fields: `USAGE` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 13 | Explicit factory operator status/stop/reconcile CLI; declaration/member OPERATOR_PATH; declarations/fields: `OPERATOR_PATH` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 14 | Explicit factory operator status/stop/reconcile CLI; declaration/member OPERATOR_HOST; declarations/fields: `OPERATOR_HOST` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 15 | Explicit factory operator status/stop/reconcile CLI; declaration/member RESPONSE_LIMIT; declarations/fields: `RESPONSE_LIMIT` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 16–17 | Explicit factory operator status/stop/reconcile CLI; declaration/member CLIENT_TIMEOUT; declarations/fields: `CLIENT_TIMEOUT` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 18–27 | Explicit factory operator status/stop/reconcile CLI; declaration/member main; declarations/fields: `main` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 28–32 | Explicit factory operator status/stop/reconcile CLI; declaration/member run; declarations/fields: `run` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 33 | Explicit factory operator status/stop/reconcile CLI; declaration/member ParsedArgs; declarations/fields: `ParsedArgs` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 34 | Explicit factory operator status/stop/reconcile CLI; declaration/member ParsedArgs.socket; declarations/fields: `ParsedArgs.socket` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 35 | Explicit factory operator status/stop/reconcile CLI; declaration/member ParsedArgs.command; declarations/fields: `ParsedArgs.command` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 36–38 | Explicit factory operator status/stop/reconcile CLI; declaration/member ParsedArgs.positional; declarations/fields: `ParsedArgs.positional` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 39–44 | Explicit factory operator status/stop/reconcile CLI; declaration/member print_usage; declarations/fields: `print_usage` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 45–106 | Explicit factory operator status/stop/reconcile CLI; declaration/member parse_args; declarations/fields: `parse_args` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 107–152 | Explicit factory operator status/stop/reconcile CLI; declaration/member dispatch; declarations/fields: `dispatch` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 153–168 | Strict factory request JSON encoding; declarations/fields: `encode_envelope` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 169–189 | Strict factory request JSON encoding; declaration/member push_json_string; declarations/fields: `push_json_string` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 190–227 | Bounded private host socket transport; declarations/fields: `send` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 228–275 | Bounded private host socket transport; declaration/member read_response; declarations/fields: `read_response` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 276–290 | Bounded private host socket transport; declaration/member read_exact_limited; declarations/fields: `read_exact_limited` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 291–308 | Bounded private host socket transport; declaration/member read_to_end_limited; declarations/fields: `read_to_end_limited` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 309–331 | Bounded private host socket transport; declaration/member read_chunked; declarations/fields: `read_chunked` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 332–352 | Bounded private host socket transport; declaration/member read_line; declarations/fields: `read_line` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 353–359 | Bounded private host socket transport; declaration/member tests; declarations/fields: `tests` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 360–361 | Bounded private host socket transport; declaration/member TEST_SOCKET_SEQ; declarations/fields: `TEST_SOCKET_SEQ` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 362–367 | Factory CLI source assertions; declarations/fields: `args` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 368–427 | Factory CLI source assertions; declaration/member operator_server; declarations/fields: `operator_server` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 428–439 | Factory CLI source assertions; declaration/member request_parts; declarations/fields: `request_parts` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 440–461 | Factory CLI source assertions; declaration/member status_envelope_matches_go_client_bytes; declarations/fields: `status_envelope_matches_go_client_bytes` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 462–493 | Factory CLI source assertions; declaration/member stop_and_reconcile_envelopes_carry_sorted_keys; declarations/fields: `stop_and_reconcile_envelopes_carry_sorted_keys` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 494–524 | Factory CLI source assertions; declaration/member responses_map_like_the_go_client; declarations/fields: `responses_map_like_the_go_client` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 525–537 | Factory CLI source assertions; declaration/member success_appends_missing_trailing_newline; declarations/fields: `success_appends_missing_trailing_newline` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 538–547 | Factory CLI source assertions; declaration/member oversized_response_is_refused; declarations/fields: `oversized_response_is_refused` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 548–558 | Factory CLI source assertions; declaration/member unreachable_socket_maps_to_unavailable; declarations/fields: `unreachable_socket_maps_to_unavailable` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 559–585 | Factory CLI source assertions; declaration/member local_misuse_is_rejected; declarations/fields: `local_misuse_is_rejected` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 586–593 | Factory CLI source assertions; declaration/member envelope_escapes_match_go_encoding_json; declarations/fields: `envelope_escapes_match_go_encoding_json` |
-
+Former source `rust/soda-factory/src/main.rs`; consult its pinned earlier Git source and the current coverage disposition.

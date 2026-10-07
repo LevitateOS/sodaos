@@ -1,163 +1,447 @@
 # Backend forgejo
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-9e5fb8076312"></a>
-
 <a id="internalforgejobackgroundgo-1"></a>
 
 ## [internal/forgejo/background.go](../../../../../internal/forgejo/background.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 1–20 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 21–24 | Declared identifiers/bounds maxBackgroundBodyBytes for Background service admission; declarations/fields: `maxBackgroundBodyBytes` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 25–34 | Declared identifiers/bounds maxBackgroundStatusBody for Background service admission; declarations/fields: `maxBackgroundStatusBody` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 35–48 | Record, DTO or interface contract ServiceBackground for Background service admission; declarations/fields: `ServiceBackground` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 49–54 | NewServiceBackground — Background service admission; declarations/fields: `NewServiceBackground` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 55–94, 184–191 | Authoritative native snapshot/revision operation via shared admission; declarations/fields: `ServiceBackground.ReadNativeRevision`, `ServiceBackground.ReadSnapshot`, `backgroundClientAdapter.ReadNativeRevision`, `backgroundClientAdapter.ReadSnapshot` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 95–121 | ServiceBackground.SubmitOperation — Background service admission; declarations/fields: `ServiceBackground.SubmitOperation` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 122–139 | ServiceBackground.GetOperation — Background service admission; declarations/fields: `ServiceBackground.GetOperation` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 140–159 | ServiceBackground.CancelOperation — Background service admission; declarations/fields: `ServiceBackground.CancelOperation` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 160–179 | ServiceBackground.PublishPushEnv — Background service admission; declarations/fields: `ServiceBackground.PublishPushEnv` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 180–183 | Record, DTO or interface contract backgroundClientAdapter for Background service admission; declarations/fields: `backgroundClientAdapter` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 192–195 | backgroundClientAdapter.SubmitOperation — Background service admission; declarations/fields: `backgroundClientAdapter.SubmitOperation` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 196–199 | backgroundClientAdapter.GetOperation — Background service admission; declarations/fields: `backgroundClientAdapter.GetOperation` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 200–203 | backgroundClientAdapter.CancelOperation — Background service admission; declarations/fields: `backgroundClientAdapter.CancelOperation` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 204–216 | validBackgroundAdmission — Background service admission; declarations/fields: `validBackgroundAdmission` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 217–229 | validBackgroundOperationID — Background service admission; declarations/fields: `validBackgroundOperationID` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 230–240 | backgroundSecret — Background service admission; declarations/fields: `backgroundSecret` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 241–250 | checkBackgroundRecord — Background service admission; declarations/fields: `checkBackgroundRecord` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 251–272 | checkBackgroundLookup — Background service admission; declarations/fields: `checkBackgroundLookup` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 273–298 | ServiceBackground.call — Background service admission; declarations/fields: `ServiceBackground.call` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 299–312 | ServiceBackground.admissionForCall — Background service admission; declarations/fields: `ServiceBackground.admissionForCall` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 313–382 | ServiceBackground.bootstrap — Background service admission; declarations/fields: `ServiceBackground.bootstrap` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 383–429 | ServiceBackground.post — Background service admission; declarations/fields: `ServiceBackground.post` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 430–442 | ServiceBackground.verifiedPeer — Background service admission; declarations/fields: `ServiceBackground.verifiedPeer` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 443–450 | readStatusBody — Background service admission; declarations/fields: `readStatusBody` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–18; file scaffold | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 19–38, 79–167, 176–186; ServiceBackground; NewServiceBackground; SubmitOperation; GetOperation; CancelOperation; PublishPushEnv; backgroundClientAdapter | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Current declaration duty: ServiceBackground; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 39–78, 168–175; ReadNativeRevision; ReadSnapshot | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current declaration duty: ReadNativeRevision; Current declaration duty: ReadSnapshot — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-d7a9a3149384"></a>
+
+## [internal/forgejo/background_admission.go](../../../../../internal/forgejo/background_admission.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–165; file scaffold; maxBackgroundBodyBytes; validBackgroundAdmission; validBackgroundOperationID; backgroundSecret; checkBackgroundRecord; admissionForCall; bootstrap; verifiedPeer | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-b3264fdcee80"></a>
+
+## [internal/forgejo/background_test.go](../../../../../internal/forgejo/background_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–319; file scaffold; scriptedBackgroundServer; current; handler; serveOp; TestServiceBackgroundVerifiesPeerBeforeSendingCredential; TestServiceBackgroundRejectsForeignNestedRecord; shortSocketPath; serveScriptedBackground; TestServiceBackgroundSharesOneAdmission; TestServiceBackgroundRebindsAfterRevocation; TestServiceBackgroundMapsDispatchStatuses | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-fc3a0ed46e1c"></a>
+
+## [internal/forgejo/background_transport.go](../../../../../internal/forgejo/background_transport.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–121; file scaffold; maxBackgroundStatusBody; checkBackgroundLookup; call; post; readStatusBody | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-7757b0beb8a1"></a>
+
+## [internal/forgejo/checks.go](../../../../../internal/forgejo/checks.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–173; file scaffold; CheckAssessor; NewCheckAssessor; checkActor; ObserveChecks; checkReadError; matchCheckTarget | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-da866174645d"></a>
+
+## [internal/forgejo/checks_test.go](../../../../../internal/forgejo/checks_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–141; file scaffold; checkTargetForObserve; checkSnapshotFixture; TestMatchCheckTargetLatestWins; TestMatchCheckTargetStaleTipsPassThrough; TestMatchCheckTargetHidden; TestMatchCheckTargetRefusals; TestCheckReadErrorMapsBusy; TestObserveChecksRejectsInvalidTarget | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-27d6a3048980"></a>
 
 ## [internal/forgejo/client.go](../../../../../internal/forgejo/client.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Historical-purpose attribution does not claim this Go helper is currently called; its unit lifecycle is unknown.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 1–14 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 15–18 | Record, DTO or interface contract Client for Authoritative native reads; declarations/fields: `Client` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 19–24 | Record, DTO or interface contract User for Authoritative native reads; declarations/fields: `User` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 25–33 | Record, DTO or interface contract Repository for Authoritative native reads; declarations/fields: `Repository` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 34–39 | Record, DTO or interface contract RepositoryPermissions for Authoritative native reads; declarations/fields: `RepositoryPermissions` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 40–43 | New — Authoritative native reads; declarations/fields: `New` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 44–51 | transportError — Authoritative native reads; declarations/fields: `transportError` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 52–75 | decodeResponse — Authoritative native reads; declarations/fields: `decodeResponse` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 76–103 | Client.request — Authoritative native reads; declarations/fields: `Client.request` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 104–112 | Client.Current — Authoritative native reads; declarations/fields: `Client.Current` |
-| [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) / unknown | 113–115 | Historical Go bootstrap-token revocation after durable operator configuration; current Rust soda-setup owns the live operation; declarations/fields: `Client.RevokeCurrentToken` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–112; whole file; Client; User; Repository; RepositoryPermissions; New; transportError; decodeResponse; Client.request; Client.Current | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 10 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 113–115; Client.RevokeCurrentToken | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) | unresolved | Historical Go bootstrap-token revocation after durable operator configuration; current Rust soda-setup owns the live operation; declarations/fields: `Client.RevokeCurrentToken` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-07949652966e"></a>
+
+## [internal/forgejo/client_test.go](../../../../../internal/forgejo/client_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–33; file scaffold; TestCurrent; TestNoCredentialRedirect | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestCurrent; Current declaration duty: TestNoCredentialRedirect — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-dae7780022bd"></a>
+
+## [internal/forgejo/errors.go](../../../../../internal/forgejo/errors.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20; file scaffold; HTTPError; Error | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; Current declaration duty: HTTPError; Current declaration duty: Error — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-c54cbd1c2364"></a>
+
+## [internal/forgejo/errors_test.go](../../../../../internal/forgejo/errors_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–69; file scaffold; TestResponseBoundary; TestNativeStatusIsTypedAndSanitized; TestTransportCancellation | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-75ed324c2b45"></a>
-
 <a id="internalforgejomergego-1"></a>
 
 ## [internal/forgejo/merge.go](../../../../../internal/forgejo/merge.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 1–23 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 24–29 | Record, DTO or interface contract Merger for Conditional native merge; declarations/fields: `Merger` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 30–33 | NewMerger — Conditional native merge; declarations/fields: `NewMerger` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 34–58 | Merger.checkActor — Conditional native merge; declarations/fields: `Merger.checkActor` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 59–83 | Merger.ObserveMerge — Conditional native merge; declarations/fields: `Merger.ObserveMerge` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 84–93 | mergeReadError — Conditional native merge; declarations/fields: `mergeReadError` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 94–134 | Native merge target identity, revision, branch and review evidence integrity; declarations/fields: `matchMergeTarget` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 135–155 | Exact-head independent official approval/changes-requested eligibility decision; declarations/fields: `matchMergeTarget` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 156–163 | Return verified native merge observation with mapped G06 check evidence; declarations/fields: `matchMergeTarget` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 164–169 | Exact-candidate approval/refusal policy within native merge matcher; native identity parsing remains G07 in partition below; declarations/fields: `matchMergeTarget` |
-| [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) / active | 170–228 | Map latest native CI evidence inside merge bracket; shares G06 semantics with CheckAssessor; declarations/fields: `matchMergeChecks` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 229–246 | mergeIntent — Conditional native merge; declarations/fields: `mergeIntent` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 247–275 | Merger.SubmitMerge — Conditional native merge; declarations/fields: `Merger.SubmitMerge` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 276–295 | Merger.LookupOp — Conditional native merge; declarations/fields: `Merger.LookupOp` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 296–310 | Merger.CancelOp — Conditional native merge; declarations/fields: `Merger.CancelOp` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 311–330 | mergeCallError — Conditional native merge; declarations/fields: `mergeCallError` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 331–361 | mergeOperationOutcome — Conditional native merge; declarations/fields: `mergeOperationOutcome` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 362–373 | Record, DTO or interface contract mergeReceipt for Conditional native merge; declarations/fields: `mergeReceipt` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 374–401 | Merger.AdoptMerge — Conditional native merge; declarations/fields: `Merger.AdoptMerge` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 402–426 | Merger.ObserveCompletion — Conditional native merge; declarations/fields: `Merger.ObserveCompletion` |
-| [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) / active | 427–459 | matchMergeConfirmation — Conditional native merge; declarations/fields: `matchMergeConfirmation` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20; file scaffold | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 21–219; Merger; NewMerger; checkActor; ObserveMerge; mergeReadError; mergeIntent; SubmitMerge; LookupOp; CancelOp; mergeCallError; mergeOperationOutcome | [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) | retained | Current declaration duty: Merger; 11 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-47942fe788eb"></a>
+
+## [internal/forgejo/merge_completion.go](../../../../../internal/forgejo/merge_completion.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–117; file scaffold; mergeReceipt; AdoptMerge; ObserveCompletion; matchMergeConfirmation | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-745684ba8493"></a>
+
+## [internal/forgejo/merge_observation.go](../../../../../internal/forgejo/merge_observation.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–144; file scaffold; matchMergeTarget; matchMergeChecks | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; Current declaration duty: matchMergeTarget; Current declaration duty: matchMergeChecks — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-6d31a60c6341"></a>
+
+## [internal/forgejo/merge_test.go](../../../../../internal/forgejo/merge_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–275; file scaffold; mergeTestWork; mergeTestOutcome; TestMergerReceipt; TestMergerIntentFastForwardOnly; mergeTestSnapshots; TestMergerMatchTarget; TestMergerMatchConfirmation; TestMergerLookupAfterCredentialLoss | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-3130a4345f2f"></a>
 
 ## [internal/forgejo/observe.go](../../../../../internal/forgejo/observe.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 1–15 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 16–23 | Declared identifiers/bounds ObservationIssuePageSize for Authoritative native reads; declarations/fields: `ObservationIssuePageSize` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 24–38 | Record, DTO or interface contract ServiceObserver for Authoritative native reads; declarations/fields: `ServiceObserver` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 39–44 | NewServiceObserver — Authoritative native reads; declarations/fields: `NewServiceObserver` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 45–51 | ServiceObserver.Credential — Authoritative native reads; declarations/fields: `ServiceObserver.Credential` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 52–55 | ServiceObserver.SnapshotReader — Authoritative native reads; declarations/fields: `ServiceObserver.SnapshotReader` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 56–71 | ServiceObserver.ensureClient — Authoritative native reads; declarations/fields: `ServiceObserver.ensureClient` |
-| [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / active | 72–119 | Shared native service admission and actor credential binding; declarations/fields: `ServiceObserver.sharedBackgroundLocked`, `ServiceObserver.ShareBackground`, `ServiceObserver.ensureActor` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 120–123 | Record, DTO or interface contract serviceSnapshotReader for Authoritative native reads; declarations/fields: `serviceSnapshotReader` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 124–131 | serviceSnapshotReader.ReadNativeRevision — Authoritative native reads; declarations/fields: `serviceSnapshotReader.ReadNativeRevision` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 132–147 | serviceSnapshotReader.ReadSnapshot — Authoritative native reads; declarations/fields: `serviceSnapshotReader.ReadSnapshot` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 148–163 | ServiceObserver.ListIssuesPage — Authoritative native reads; declarations/fields: `ServiceObserver.ListIssuesPage` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 164–179 | Client.RepositoryByID — Authoritative native reads; declarations/fields: `Client.RepositoryByID` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 180–186 | Record, DTO or interface contract ListedIssue for Authoritative native reads; declarations/fields: `ListedIssue` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 187–213 | Client.ListRepositoryIssuesPage — Authoritative native reads; declarations/fields: `Client.ListRepositoryIssuesPage` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–71, 120–213; whole file; ObservationIssuePageSize; ServiceObserver; NewServiceObserver; ServiceObserver.Credential; ServiceObserver.SnapshotReader; ServiceObserver.ensureClient; serviceSnapshotReader; serviceSnapshotReader.ReadNativeRevision; serviceSnapshotReader.ReadSnapshot; ServiceObserver.ListIssuesPage; Client.RepositoryByID; ListedIssue; Client.ListRepositoryIssuesPage | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 14 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 72–119; ServiceObserver.sharedBackgroundLocked, ServiceObserver.ShareBackground, ServiceObserver.ensureActor | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Shared native service admission and actor credential binding; declarations/fields: `ServiceObserver.sharedBackgroundLocked`, `ServiceObserver.ShareBackground`, `ServiceObserver.ensureActor` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-d3e08163e098"></a>
+
+## [internal/forgejo/observe_test.go](../../../../../internal/forgejo/observe_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–198; file scaffold; observationCredential; observationREST; TestServiceObserverListsIssuesOldestFirst; TestServiceObserverListBounds; fakeBackgroundServer; handler; serveBackgroundSocket; TestServiceObserverBootstrapsOnce; TestServiceObserverBootstrapFailure | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-e3cb6caf989e"></a>
+
+## [internal/forgejo/own_keys.go](../../../../../internal/forgejo/own_keys.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–41; file scaffold; OwnPublicKey; validOwnPublicKey; OwnPublicKeys | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-11a8549e6c95"></a>
+
+## [internal/forgejo/ownership.go](../../../../../internal/forgejo/ownership.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–28; file scaffold; OrganizationOwner | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; Current declaration duty: OrganizationOwner — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-42302a38efd2"></a>
+
+## [internal/forgejo/publish.go](../../../../../internal/forgejo/publish.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–345; file scaffold; Publisher; NewPublisher; ObservePublication; SubmitPublish; PushBranch; SubmitPRCreate; LookupOp; CancelOp; AdoptBranch; AdoptPRCreation; publicationOutcomeMatches; publisherConfig; checkActor; cachedLogin; protectedSecrets; mapValidationError; flattenOutcome; flattenError | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 19 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-6988678fcfe6"></a>
+
+## [internal/forgejo/publish/candidate_validation.go](../../../../../internal/forgejo/publish/candidate_validation.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–90; file scaffold; ValidatedRepo; PrepareValidated; verifyCandidateBundle; validationVerdict; Close | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-3715f19b3d9f"></a>
+
+## [internal/forgejo/publish/credentials.go](../../../../../internal/forgejo/publish/credentials.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–129; file scaffold; checkCredentials; credentialScanResult; scanCredentials; credentialObjectHeader; credentialObjectSizeAllowed; scanCredentialObject | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-f7761249f452"></a>
+
+## [internal/forgejo/publish/credentials_test.go](../../../../../internal/forgejo/publish/credentials_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–116; file scaffold; candidateGit; candidateBundle; TestPublisherRejectsCredentialHistoryBeforeAuthorization; TestPublisherAcceptsCleanCandidateWithCredentialDenylist; TestPublisherRejectsCompressedOversizedDecodedObject; TestCredentialScanRejectsMismatchedContentIdentity; TestCredentialScanRejectsDecodedAggregateLimit | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-53053d2a3f30"></a>
+
+## [internal/forgejo/publish/git.go](../../../../../internal/forgejo/publish/git.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–64; file scaffold; repository; initialize; run; command; limitedOutput; Write | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-3a8182478af6"></a>
+
+## [internal/forgejo/publish/operation_git_test.go](../../../../../internal/forgejo/publish/operation_git_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–150; file scaffold; TestPushBranchMovesExactlyItsTarget; TestObserveTipParsesExactAdvertisement; TestObserveForPublishRefusesBeforeAnyCall; servePublicationGit | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-f143f20babd3"></a>
+
+## [internal/forgejo/publish/operation_observation.go](../../../../../internal/forgejo/publish/operation_observation.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–124; file scaffold; ObserveForPublish; validPublishRef; bracketRevision; mapRevisionError; observeTips; observeTip | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-bd63d08e7edc"></a>
+
+## [internal/forgejo/publish/operation_push.go](../../../../../internal/forgejo/publish/operation_push.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–86; file scaffold; runWithEnv; PushBranch; reconcilePush | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-94f681cb54a1"></a>
+
+## [internal/forgejo/publish/operation_receipts.go](../../../../../internal/forgejo/publish/operation_receipts.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–114; file scaffold; PublishReceipt; DecodePublishReceipt; PRCreateReceipt; DecodePRCreateReceipt; OperationNotAfter | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-0ee2c51a20d6"></a>
+
+## [internal/forgejo/publish/operation_receipts_test.go](../../../../../internal/forgejo/publish/operation_receipts_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–100; file scaffold; TestDecodePublishReceiptRefusesLookalikes; TestDecodePRCreateReceiptRefusesLookalikes; TestReceiptRejectsTrailingDocument | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-aad5e21707ed"></a>
+
+## [internal/forgejo/publish/publish.go](../../../../../internal/forgejo/publish/publish.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–167; file scaffold; Config; Request; Validate; validateRemote; ValidateCandidate; prepare; privateInputs; protected; validateCandidate; localFixture | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-6fa02b532af7"></a>
+
+## [internal/forgejo/publish/publish_test.go](../../../../../internal/forgejo/publish/publish_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–85; file scaffold; candidateFixture; TestPublisherValidatesCandidate; TestPublisherRejectsMismatchedBundle | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-a45a5490b11a"></a>
+
+## [internal/forgejo/publish/review_role_test.go](../../../../../internal/forgejo/publish/review_role_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20; file scaffold; TestST10PublisherRejectsReviewerBundle | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestST10PublisherRejectsReviewerBundle — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-4f88991f9166"></a>
+
+## [internal/forgejo/publish/source.go](../../../../../internal/forgejo/publish/source.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–84; file scaffold; Source; BranchRevision; sourceRepository | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-dc86ad39fbe5"></a>
+
+## [internal/forgejo/publish_test.go](../../../../../internal/forgejo/publish_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–238; file scaffold; publishWorkFixture; publishTestPublisher; TestPublisherResolvesPerRepositoryRemote; TestPublisherSubmitsThroughSharedTransport; TestPublisherRefusesInvalidBundle; TestPublisherAdoptsExactReceipts; TestPublisherCanObserveWithoutPreviousObservation; TestPublisherAdoptionRejectsForeignOperationMetadata | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-bc43f54bfa20"></a>
+
+## [internal/forgejo/repositories.go](../../../../../internal/forgejo/repositories.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–13; file scaffold; RepositoryPageSize; repositoryPart | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; Current declaration duty: RepositoryPageSize; Current declaration duty: repositoryPart — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-81c9ae4c456c"></a>
+
+## [internal/forgejo/review.go](../../../../../internal/forgejo/review.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–290; file scaffold; Reviewer; NewReviewer; checkActor; ObserveReview; reviewReadError; matchReviewTarget; reviewIntent; SubmitReview; LookupOp; CancelOp; reviewCallError; reviewOperationOutcome; reviewReceipt; AdoptReview | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 15 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-109ffe706a88"></a>
+
+## [internal/forgejo/review_test.go](../../../../../internal/forgejo/review_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–197; file scaffold; reviewTestWork; reviewTestOutcome; TestReviewerReceipt; TestReviewerIntentBodyOnly; TestReviewerLookupAfterCredentialLoss; TestReviewerActorMismatch; TestReviewerExactNativeTarget; TestReviewerLostSubmitReply | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-ab7ca91464f5"></a>
-
 <a id="internalforgejosnapshotgo-1"></a>
 
 ## [internal/forgejo/snapshot.go](../../../../../internal/forgejo/snapshot.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 1–29 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 30–31 | Record, DTO or interface contract SnapshotFamily for Authoritative native reads; declarations/fields: `SnapshotFamily` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 32–41, 52–73 | Declared identifiers/bounds (declaration group) for Authoritative native reads; declarations/fields: `(declaration group)` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 42–51 | validFamily — Authoritative native reads; declarations/fields: `validFamily` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 74–85 | Record, DTO or interface contract SnapshotRequest for Authoritative native reads; declarations/fields: `SnapshotRequest` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 86–98 | decimalID — Authoritative native reads; declarations/fields: `decimalID` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 99–111 | fullOID — Authoritative native reads; declarations/fields: `fullOID` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 112–123 | fullBranchRef — Authoritative native reads; declarations/fields: `fullBranchRef` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 124–203 | ValidateRequest — Authoritative native reads; declarations/fields: `ValidateRequest` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 204–209 | ContentDigest — Authoritative native reads; declarations/fields: `ContentDigest` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 210–220 | Record, DTO or interface contract LifecycleEvent for Authoritative native reads; declarations/fields: `LifecycleEvent` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 221–229 | Record, DTO or interface contract CreationProvenance for Authoritative native reads; declarations/fields: `CreationProvenance` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 230–252 | Record, DTO or interface contract IssueEvidence for Authoritative native reads; declarations/fields: `IssueEvidence` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 253–270 | Record, DTO or interface contract CommentEvidence for Authoritative native reads; declarations/fields: `CommentEvidence` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 271–280 | Record, DTO or interface contract CommentPage for Authoritative native reads; declarations/fields: `CommentPage` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 281–292 | Record, DTO or interface contract DependencyEvidence for Authoritative native reads; declarations/fields: `DependencyEvidence` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 293–300 | Record, DTO or interface contract DependencyPage for Authoritative native reads; declarations/fields: `DependencyPage` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 301–322 | Record, DTO or interface contract PullEvidence for Authoritative native reads; declarations/fields: `PullEvidence` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 323–340 | Record, DTO or interface contract ReviewEvidence for Authoritative native reads; declarations/fields: `ReviewEvidence` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 341–348 | Record, DTO or interface contract ReviewPage for Authoritative native reads; declarations/fields: `ReviewPage` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 349–363 | Record, DTO or interface contract CheckEvidence for Authoritative native reads; declarations/fields: `CheckEvidence` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 364–371 | Record, DTO or interface contract CheckSet for Authoritative native reads; declarations/fields: `CheckSet` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 372–382 | Record, DTO or interface contract RefEvidence for Authoritative native reads; declarations/fields: `RefEvidence` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 383–399 | Record, DTO or interface contract NativeSnapshot for Authoritative native reads; declarations/fields: `NativeSnapshot` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 400–411 | Record, DTO or interface contract SnapshotReader for Authoritative native reads; declarations/fields: `SnapshotReader` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 412–453 | BracketedRead — Authoritative native reads; declarations/fields: `BracketedRead` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 454–515 | ValidateSnapshot — Authoritative native reads; declarations/fields: `ValidateSnapshot` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 516–537 | validIssue — Authoritative native reads; declarations/fields: `validIssue` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 538–558 | validCommentPage — Authoritative native reads; declarations/fields: `validCommentPage` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 559–576 | validDependencyPage — Authoritative native reads; declarations/fields: `validDependencyPage` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 577–595 | validPull — Authoritative native reads; declarations/fields: `validPull` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 596–613 | validReviewPage — Authoritative native reads; declarations/fields: `validReviewPage` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 614–634 | validCheckSet — Authoritative native reads; declarations/fields: `validCheckSet` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 635–663 | validRefs — Authoritative native reads; declarations/fields: `validRefs` |
-| [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) / active | 664–716 | HasHiddenEvidence — Authoritative native reads; declarations/fields: `HasHiddenEvidence` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–25; file scaffold | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 26–214; NativeSnapshot; SnapshotReader; BracketedRead; ValidateSnapshot; HasHiddenEvidence | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current declaration duty: NativeSnapshot; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-301a967e8bc2"></a>
+
+## [internal/forgejo/snapshot_issue.go](../../../../../internal/forgejo/snapshot_issue.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–153; file scaffold; LifecycleEvent; CreationProvenance; IssueEvidence; CommentEvidence; CommentPage; DependencyEvidence; DependencyPage; validIssue; validCommentPage; validDependencyPage | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 11 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-bac834cfe1cb"></a>
+
+## [internal/forgejo/snapshot_pull.go](../../../../../internal/forgejo/snapshot_pull.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–168; file scaffold; PullEvidence; ReviewEvidence; ReviewPage; CheckEvidence; CheckSet; RefEvidence; validPull; validReviewPage; validCheckSet; validRefs | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 11 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-4c851bafeaf0"></a>
+
+## [internal/forgejo/snapshot_request.go](../../../../../internal/forgejo/snapshot_request.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–189; file scaffold; SnapshotFamily; validFamily; SnapshotRequest; decimalID; fullOID; fullBranchRef; ValidateRequest; ContentDigest | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-653e7ba714cd"></a>
+
+## [internal/forgejo/snapshot_test.go](../../../../../internal/forgejo/snapshot_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–187; file scaffold; fakeSnapshotReader; ReadNativeRevision; ReadSnapshot; snapshotTestRequest; snapshotTestSnapshot; idleRevision; TestBracketedReadAcceptsEqualIdleBracket; TestBracketedReadRefusesInterveningChange; TestBracketedReadRefusesMissingPage; TestBracketedReadReturnsHiddenRecordsForAuthorization; TestBracketedReadRefusesDigestMismatch; TestValidateRequestBoundsFamilies; TestContentDigestIsStable | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 14 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-c73dda68dae6"></a>
+
+## [internal/forgejo/snapshot_transport.go](../../../../../internal/forgejo/snapshot_transport.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–88; file scaffold; BackgroundSnapshotReader; ReadNativeRevision; ReadSnapshot; decodeSnapshotAnswer | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-b982934975cb"></a>
+
+## [internal/forgejo/snapshot_transport_test.go](../../../../../internal/forgejo/snapshot_transport_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–177; file scaffold; fakeBackgroundClient; ReadNativeRevision; ReadSnapshot; SubmitOperation; GetOperation; CancelOperation; wireSnapshotAnswer; TestBackgroundSnapshotReaderMapsWireSnapshot; TestBackgroundSnapshotReaderRefusesUnusableTransport; TestBracketedReadBindsRevisionFromBracket; TestValidateRequestRequiresFamilySelectors | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |

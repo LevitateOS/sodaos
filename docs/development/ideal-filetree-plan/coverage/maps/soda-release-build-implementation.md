@@ -1,514 +1,429 @@
 # Soda release build implementation
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-R02 re-audit COMPLETE @HEAD: 7 live sections verified clean (coreos, coreos_stream, files, json_go, lib, oci, production); progress.rs section retained as RETIRED (C08 3aaec1c8). GAP (pre-existing audit scope, not drift): `coreos_iso.rs`, `elf.rs`, `forgejo.rs`, `http.rs`, `oci_layout.rs` exist since the audit blob but were never interval-mapped in any map; leaf-level inventory covers them (native-packages.md:290-299, D02/D03/D05); first-audit rows pending as new work.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-47d643575161"></a>
+
+## [lib/release-inputs/src/elf.rs](../../../../../lib/release-inputs/src/elf.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–45; lines 1–5: const HEADER_LEN and attached body; lines 6–9: struct Elf64Le and attached body; lines 10–21: fn elf64_le_header and attached body; lines 22–22: mod tests and attached body; lines 23–25: use super and attached body; lines 26–45: fn header_fields_require_a_complete_elf64_little_endian_prefix and attached body | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Declaration block for const HEADER_LEN in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f0e02079188c"></a>
+
+## [lib/release-inputs/src/lib.rs](../../../../../lib/release-inputs/src/lib.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20; lines 1–7: mod elf and attached body; lines 8–10: mod reader and attached body; lines 11–13: mod trust_key and attached body; lines 14–15: mod tests and attached body; lines 16–20: fn package_metadata_present and attached body | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Declaration block for mod elf in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7979fa8447df"></a>
+
+## [lib/release-inputs/src/reader.rs](../../../../../lib/release-inputs/src/reader.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–86; lines 1–13: mod forgejo and attached body; lines 14–14: mod muse and attached body; lines 15–15: mod settings and attached body; lines 16–16: mod signature and attached body; lines 17–17: mod stream and attached body; lines 18–21: mod url and attached body; lines 22–22: struct Error and attached body; lines 23–24: impl std and attached body; lines 25–28: fn fmt and attached body; lines 29–32: impl std and attached body; lines 33–41: fn oci_architecture and attached body; lines 42–46: fn is_digest and attached body; lines 47–49: fn is_revision and attached body; lines 50–55: fn non_empty_digits and attached body; lines 56–56: mod tests and attached body; lines 57–59: use super and attached body; lines 60–72: fn architecture_names and attached body; lines 73–86: fn digest_and_revision_shapes and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for mod forgejo in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-c7d5144480cc"></a>
+
+## [lib/release-inputs/src/reader/forgejo.rs](../../../../../lib/release-inputs/src/reader/forgejo.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–159; lines 1–8: use super and attached body; lines 9–12: const FORGEJO_COMPILER_IMAGE and attached body; lines 13–15: const FORGEJO_BUN_VERSION and attached body; lines 16–19: const FORGEJO_BUN_SHA256 and attached body; lines 20–22: const FORGEJO_UPSTREAM_BASE and attached body; lines 23–26: const FORGEJO_COMPAT_TOKEN and attached body; lines 27–37: fn forgejo_version_stamp and attached body; lines 38–60: fn valid_apk_list and attached body; lines 61–73: fn has_native_build_tools and attached body; lines 74–78: struct ForgejoToolchain and attached body; lines 79–80: impl ForgejoToolchain and attached body; lines 81–92: fn validate and attached body; lines 93–93: mod tests and attached body; lines 94–94: use super and attached body; lines 95–104: fn toolchain and attached body; lines 105–117: fn version_stamp_carries_short_revision and attached body; lines 118–135: fn apk_list_requires_sorted_unique_names and attached body; lines 136–159: fn toolchain_validation_pins_image_and_native_tools and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-fb2238fbfc33"></a>
+
+## [lib/release-inputs/src/reader/muse.rs](../../../../../lib/release-inputs/src/reader/muse.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–96; lines 1–7: use super and attached body; lines 8–15: struct MuseArtifact and attached body; lines 16–35: fn valid_muse_version and attached body; lines 36–48: fn valid_muse_artifact and attached body; lines 49–49: mod tests and attached body; lines 50–50: use super and attached body; lines 51–60: fn artifact and attached body; lines 61–65: fn accepts_pinned_release and attached body; lines 66–96: fn rejects_bad_pins and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a93399baa385"></a>
+
+## [lib/release-inputs/src/reader/settings.rs](../../../../../lib/release-inputs/src/reader/settings.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–158; lines 1–7: use super and attached body; lines 8–12: use std and attached body; lines 13–31: fn single_setting and attached body; lines 32–36: fn recipe_base and attached body; lines 37–41: fn unit_image and attached body; lines 42–55: fn valid_command_name and attached body; lines 56–80: fn soda_commands and attached body; lines 81–81: mod tests and attached body; lines 82–82: use super and attached body; lines 83–83: use std and attached body; lines 84–85: static NEXT_ID and attached body; lines 86–98: fn scratch_dir and attached body; lines 99–127: fn single_setting_reads_missing_and_duplicate and attached body; lines 128–158: fn soda_commands_inventories_sorted_commands and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-554e197a31e4"></a>
+
+## [lib/release-inputs/src/reader/signature.rs](../../../../../lib/release-inputs/src/reader/signature.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–81; lines 1–16: const GNUPG_FAILURES and attached body; lines 17–29: fn valid_sig_match and attached body; lines 30–49: fn valid_signature and attached body; lines 50–50: mod tests and attached body; lines 51–51: use super and attached body; lines 52–55: const SIGNER and attached body; lines 56–62: fn accepts_matching_validsig and attached body; lines 63–68: fn accepts_subkey_validsig_in_long_form and attached body; lines 69–81: fn rejects_failures_and_mismatches and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for const GNUPG_FAILURES in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-8e9ce09b49cb"></a>
+
+## [lib/release-inputs/src/reader/stream.rs](../../../../../lib/release-inputs/src/reader/stream.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–311; lines 1–7: use super and attached body; lines 8–8: use super and attached body; lines 9–17: struct CoreOSImage and attached body; lines 18–34: fn valid_release and attached body; lines 35–64: fn valid_stream_images and attached body; lines 65–80: fn stream_release_url and attached body; lines 81–88: struct TailnetInputs and attached body; lines 89–99: fn valid_tailnet_version and attached body; lines 100–110: fn valid_tailnet_base and attached body; lines 111–123: fn valid_tailnet_inputs and attached body; lines 124–131: struct ResolvedCoreOS and attached body; lines 132–167: fn valid_resolved_coreos and attached body; lines 168–168: mod tests and attached body; lines 169–169: use super and attached body; lines 170–178: fn iso and attached body; lines 179–187: fn qemu and attached body; lines 188–202: fn resolved and attached body; lines 203–236: fn stream_images_require_https_triples and attached body; lines 237–252: fn release_url_derives_from_stream_endpoint and attached body; lines 253–280: fn tailnet_pins_require_version_checksum_and_base and attached body; lines 281–311: fn resolved_coreos_requires_metadata_and_pinned_base and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 21 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e746cd56f93a"></a>
+
+## [lib/release-inputs/src/reader/url.rs](../../../../../lib/release-inputs/src/reader/url.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–104; lines 1–4: use url and attached body; lines 5–31: fn https_url and attached body; lines 32–52: fn valid_escapes and attached body; lines 53–53: mod tests and attached body; lines 54–56: use super and attached body; lines 57–75: fn admits_production_metadata_urls and attached body; lines 76–99: fn rejects_unsafe_public_inputs and attached body; lines 100–104: fn numeric_hosts_use_whatwg_ip_classification_for_admission and attached body | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Declaration block for use url in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b68884685c60"></a>
+
+## [lib/release-inputs/src/trust_key.rs](../../../../../lib/release-inputs/src/trust_key.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–133; lines 1–5: use p256 and attached body; lines 6–7: const MAX_PEM_BYTES and attached body; lines 8–8: const BEGIN and attached body; lines 9–15: const END and attached body; lines 16–63: fn parse_p256_public_key and attached body; lines 64–64: mod tests and attached body; lines 65–65: use super and attached body; lines 66–66: use p256 and attached body; lines 67–70: const GENERATOR and attached body; lines 71–77: fn admits_p256_and_returns_the_decoded_spki and attached body; lines 78–100: fn rejects_off_curve_and_non_single_pem_envelopes and attached body; lines 101–133: fn rejects_non_p256_or_noncanonical_spki_encodings and attached body | [D07](../../slices/release-and-installation.md#d07-release-admission-and-preparation) | retained | Declaration block for use p256 in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-cc678946c824"></a>
+
+## [lib/soda-release-build/src/confined_files.rs](../../../../../lib/soda-release-build/src/confined_files.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–190; lines 1–4: use crate and attached body; lines 5–5: use std and attached body; lines 6–6: use std and attached body; lines 7–7: use std and attached body; lines 8–11: use std and attached body; lines 12–16: struct Root and attached body; lines 17–24: struct FileMeta and attached body; lines 25–32: fn stat_to_meta and attached body; lines 33–35: impl Root and attached body; lines 36–50: fn open and attached body; lines 51–52: fn resolve_parent and attached body; lines 53–89: use std and attached body; lines 90–111: fn lstat and attached body; lines 112–123: fn open_file and attached body; lines 124–134: fn open_unchanged and attached body; lines 135–148: fn open_at and attached body; lines 149–165: fn open_at_fd and attached body; lines 166–169: fn is_regular_meta and attached body; lines 170–171: fn same_file_meta and attached body; lines 172–176: use std and attached body; lines 177–190: fn hash_at and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 21 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-0ee161fbce5f"></a>
-
 <a id="rustsoda-release-buildsrccoreosrs-1"></a>
+<a id="coverage-96d8cad69d60"></a>
 
 ## [lib/soda-release-build/src/coreos.rs](../../../../../lib/soda-release-build/src/coreos.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Current cohesive body inspected; single defining duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1–14 | Pinned CoreOS input resolution and verification; declarations/fields: `CoreOSImage`, `emit`, `VerifiedBase`, `marshal`, `https_url`, `valid_signer`, `admit_coreos_fetch`, `download_http`, `download`, `download_verified_archive`, `run_bounded`, `set_nonblocking`, `decompress_coreos`, `fetch_coreos`, `fetch_coreos_with`, `verify_coreos_signature`, `tests`, `oracle_https_url_vectors`, `oracle_download_bounds_and_no_overwrite`, `verified_base_marshal_shape` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 15 | Pinned CoreOS input resolution and verification; declaration/member CoreOSImage; declarations/fields: `CoreOSImage` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 16 | Pinned CoreOS input resolution and verification; declaration/member CoreOSImage.url; declarations/fields: `CoreOSImage.url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 17 | Pinned CoreOS input resolution and verification; declaration/member CoreOSImage.signature_url; declarations/fields: `CoreOSImage.signature_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 18 | Pinned CoreOS input resolution and verification; declaration/member CoreOSImage.sha256; declarations/fields: `CoreOSImage.sha256` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 19–22 | Pinned CoreOS input resolution and verification; declaration/member CoreOSImage.uncompressed_sha256; declarations/fields: `CoreOSImage.uncompressed_sha256` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 23–40 | Pinned CoreOS input resolution and verification; declaration/member emit; declarations/fields: `emit` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 41 | Pinned CoreOS input resolution and verification; declaration/member VerifiedBase; declarations/fields: `VerifiedBase` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 42 | Pinned CoreOS input resolution and verification; declaration/member VerifiedBase.path; declarations/fields: `VerifiedBase.path` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 43 | Pinned CoreOS input resolution and verification; declaration/member VerifiedBase.sha256; declarations/fields: `VerifiedBase.sha256` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 44 | Pinned CoreOS input resolution and verification; declaration/member VerifiedBase.architecture; declarations/fields: `VerifiedBase.architecture` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 45 | Pinned CoreOS input resolution and verification; declaration/member VerifiedBase.release; declarations/fields: `VerifiedBase.release` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 46–49 | Pinned CoreOS input resolution and verification; declaration/member VerifiedBase.signer; declarations/fields: `VerifiedBase.signer` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 50–64 | Pinned CoreOS input resolution and verification; declaration/member marshal; declarations/fields: `marshal` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 65–68 | Pinned CoreOS input resolution and verification; declaration/member https_url; declarations/fields: `https_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 69–72 | Pinned CoreOS input resolution and verification; declaration/member valid_signer; declarations/fields: `valid_signer` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 73–85 | Pinned CoreOS input resolution and verification; declaration/member admit_coreos_fetch; declarations/fields: `admit_coreos_fetch` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 86–136 | Pinned CoreOS input resolution and verification; declaration/member download_http; declarations/fields: `download_http` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 137–140 | Pinned CoreOS input resolution and verification; declaration/member download; declarations/fields: `download` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 141–165 | Pinned CoreOS input resolution and verification; declaration/member download_verified_archive; declarations/fields: `download_verified_archive` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 166–253 | Pinned CoreOS input resolution and verification; declaration/member run_bounded; declarations/fields: `run_bounded` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 254–268 | Pinned CoreOS input resolution and verification; declaration/member set_nonblocking; declarations/fields: `set_nonblocking` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 269–315 | Pinned CoreOS input resolution and verification; declaration/member decompress_coreos; declarations/fields: `decompress_coreos` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 316–324 | Pinned CoreOS input resolution and verification; declaration/member fetch_coreos; declarations/fields: `fetch_coreos` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 325–364 | Pinned CoreOS input resolution and verification; declaration/member fetch_coreos_with; declarations/fields: `fetch_coreos_with` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 365–404 | Pinned CoreOS input resolution and verification; declaration/member verify_coreos_signature; declarations/fields: `verify_coreos_signature` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 405–410 | Pinned CoreOS input resolution and verification; declaration/member tests; declarations/fields: `tests` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 411–427 | Pinned CoreOS input resolution and verification; declaration/member oracle_https_url_vectors; declarations/fields: `oracle_https_url_vectors` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 428–463 | Pinned CoreOS input resolution and verification; declaration/member oracle_download_bounds_and_no_overwrite; declarations/fields: `oracle_download_bounds_and_no_overwrite` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 464–476 | Pinned CoreOS input resolution and verification; declaration/member verified_base_marshal_shape; declarations/fields: `verified_base_marshal_shape` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–522; whole file: pinned coreos release input admission and verified download/decompression, including signature and checksum bindings | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Pinned CoreOS release input admission and verified download/decompression, including signature and checksum bindings. — lib/soda-release-build/src/coreos.rs; consumed by live-input resolution |
+
+<a id="coverage-78a0bcc6f698"></a>
+
+## [lib/soda-release-build/src/coreos/process.rs](../../../../../lib/soda-release-build/src/coreos/process.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–129; lines 1–5: use crate and attached body; lines 6–6: use std and attached body; lines 7–7: use std and attached body; lines 8–10: use std and attached body; lines 11–53: fn run_bounded and attached body; lines 54–74: use std and attached body; lines 75–114: use std and attached body; lines 115–129: fn set_nonblocking and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-23c7088e0101"></a>
+
+## [lib/soda-release-build/src/coreos_iso.rs](../../../../../lib/soda-release-build/src/coreos_iso.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–78; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use std and attached body; lines 9–20: fn admit_coreos_iso_fetch and attached body; lines 21–41: fn fetch_verified_iso and attached body; lines 42–49: fn fetch_coreos_iso and attached body; lines 50–78: fn fetch_coreos_iso_with and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-67290639f2af"></a>
+
+## [lib/soda-release-build/src/coreos_registry.rs](../../../../../lib/soda-release-build/src/coreos_registry.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–196; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use serde and attached body; lines 9–9: use serde and attached body; lines 10–10: use std and attached body; lines 11–11: use std and attached body; lines 12–12: use std and attached body; lines 13–14: const COREOS_CONTAINER_REPO and attached body; lines 15–15: const COREOS_CONTAINER_TAG and attached body; lines 16–86: fn resolve_registry_digests_with and attached body; lines 87–90: struct ManifestIndex and attached body; lines 91–95: struct ManifestRecord and attached body; lines 96–100: struct ManifestPlatform and attached body; lines 101–101: fn deserialize and attached body; lines 102–103: struct V and attached body; lines 104–104: type Value and attached body; lines 105–107: fn expecting and attached body; lines 108–130: fn visit_map and attached body; lines 131–131: fn deserialize and attached body; lines 132–133: struct V and attached body; lines 134–134: type Value and attached body; lines 135–137: fn expecting and attached body; lines 138–168: fn visit_map and attached body; lines 169–169: fn deserialize and attached body; lines 170–171: struct V and attached body; lines 172–172: type Value and attached body; lines 173–175: fn expecting and attached body; lines 176–196: fn visit_map and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 30 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-8edea7777a05"></a>
-
 <a id="rustsoda-release-buildsrccoreos_streamrs-1"></a>
+<a id="coverage-940ce722ac2c"></a>
 
 ## [lib/soda-release-build/src/coreos_stream.rs](../../../../../lib/soda-release-build/src/coreos_stream.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Current cohesive body inspected; single defining duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 1–17 | CoreOS and Tailnet stream live-input resolution; declarations/fields: `DEFAULT_COREOS_STREAM_URL`, `DEFAULT_COREOS_REGISTRY`, `COREOS_CONTAINER_REPO`, `COREOS_CONTAINER_TAG`, `coreos_stream_url`, `coreos_registry`, `DEFAULT_TAILNET_INDEX_URL`, `DEFAULT_TAILNET_BASE_TAGS_URL`, `tailnet_index_url`, `tailnet_base_tags_url`, `TailnetInputs`, `emit`, `decode`, `ResolvedCoreOS`, `decode_coreos_image`, `LiveInputs`, `marshal`, `write_live_inputs`, `read_live_inputs`, `valid_live_inputs`, `valid_tailnet_inputs`, `valid_resolved_coreos`, `fetch_capped_json`, `fetch_capped_text`, `resolve_tailnet_inputs`, `resolve_tailnet_inputs_with`, `latest_tailnet_release`, `parse_tailnet_release_at`, `latest_tailnet_release_with`, `latest_tailnet_base_tag_with`, `resolve_stream_build`, `stream_release_from_location`, `valid_stream_images_local`, `resolve_registry_digests_with`, `resolve_coreos_iso`, `resolve_coreos_iso_with`, `resolve_coreos_qemu`, `resolve_coreos_qemu_with`, `resolve_coreos`, `resolve_coreos_with`, `tests`, `fixture_live_inputs`, `stream_doc`, `index_doc`, `oracle_tailnet_release_selection`, `oracle_stream_build_parsing`, `oracle_live_inputs_round_trip`, `oracle_resolve_coreos_over_stub` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 18–19 | CoreOS and Tailnet stream live-input resolution; declaration/member DEFAULT_COREOS_STREAM_URL; declarations/fields: `DEFAULT_COREOS_STREAM_URL` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 20 | CoreOS and Tailnet stream live-input resolution; declaration/member DEFAULT_COREOS_REGISTRY; declarations/fields: `DEFAULT_COREOS_REGISTRY` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 21 | CoreOS and Tailnet stream live-input resolution; declaration/member COREOS_CONTAINER_REPO; declarations/fields: `COREOS_CONTAINER_REPO` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 22–23 | CoreOS and Tailnet stream live-input resolution; declaration/member COREOS_CONTAINER_TAG; declarations/fields: `COREOS_CONTAINER_TAG` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 24–32 | CoreOS and Tailnet stream live-input resolution; declaration/member coreos_stream_url; declarations/fields: `coreos_stream_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 33–42 | CoreOS and Tailnet stream live-input resolution; declaration/member coreos_registry; declarations/fields: `coreos_registry` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 43 | CoreOS and Tailnet stream live-input resolution; declaration/member DEFAULT_TAILNET_INDEX_URL; declarations/fields: `DEFAULT_TAILNET_INDEX_URL` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 44–46 | CoreOS and Tailnet stream live-input resolution; declaration/member DEFAULT_TAILNET_BASE_TAGS_URL; declarations/fields: `DEFAULT_TAILNET_BASE_TAGS_URL` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 47–55 | CoreOS and Tailnet stream live-input resolution; declaration/member tailnet_index_url; declarations/fields: `tailnet_index_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 56–66 | CoreOS and Tailnet stream live-input resolution; declaration/member tailnet_base_tags_url; declarations/fields: `tailnet_base_tags_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 67 | CoreOS and Tailnet stream live-input resolution; declaration/member TailnetInputs; declarations/fields: `TailnetInputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 68 | CoreOS and Tailnet stream live-input resolution; declaration/member TailnetInputs.version; declarations/fields: `TailnetInputs.version` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 69 | CoreOS and Tailnet stream live-input resolution; declaration/member TailnetInputs.sha256; declarations/fields: `TailnetInputs.sha256` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 70–73 | CoreOS and Tailnet stream live-input resolution; declaration/member TailnetInputs.base; declarations/fields: `TailnetInputs.base` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 74–81, 102–132 | CoreOS and Tailnet stream live-input resolution; declaration/member emit; declarations/fields: `emit` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 82–92, 133–146, 171–178 | CoreOS and Tailnet stream live-input resolution; declaration/member decode; declarations/fields: `decode` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 93 | CoreOS and Tailnet stream live-input resolution; declaration/member ResolvedCoreOS; declarations/fields: `ResolvedCoreOS` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 94 | CoreOS and Tailnet stream live-input resolution; declaration/member ResolvedCoreOS.release; declarations/fields: `ResolvedCoreOS.release` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 95 | CoreOS and Tailnet stream live-input resolution; declaration/member ResolvedCoreOS.metadata_url; declarations/fields: `ResolvedCoreOS.metadata_url` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 96 | CoreOS and Tailnet stream live-input resolution; declaration/member ResolvedCoreOS.container; declarations/fields: `ResolvedCoreOS.container` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 97 | CoreOS and Tailnet stream live-input resolution; declaration/member ResolvedCoreOS.iso; declarations/fields: `ResolvedCoreOS.iso` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 98–101 | CoreOS and Tailnet stream live-input resolution; declaration/member ResolvedCoreOS.qemu; declarations/fields: `ResolvedCoreOS.qemu` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 147–157 | CoreOS and Tailnet stream live-input resolution; declaration/member decode_coreos_image; declarations/fields: `decode_coreos_image` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 158 | CoreOS and Tailnet stream live-input resolution; declaration/member LiveInputs; declarations/fields: `LiveInputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 159 | CoreOS and Tailnet stream live-input resolution; declaration/member LiveInputs.coreos; declarations/fields: `LiveInputs.coreos` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 160–163 | CoreOS and Tailnet stream live-input resolution; declaration/member LiveInputs.tailnet; declarations/fields: `LiveInputs.tailnet` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 164–170 | CoreOS and Tailnet stream live-input resolution; declaration/member marshal; declarations/fields: `marshal` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 179–184 | CoreOS and Tailnet stream live-input resolution; declaration/member write_live_inputs; declarations/fields: `write_live_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 185–191 | CoreOS and Tailnet stream live-input resolution; declaration/member read_live_inputs; declarations/fields: `read_live_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 192–196 | CoreOS and Tailnet stream live-input resolution; declaration/member valid_live_inputs; declarations/fields: `valid_live_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 197–206 | CoreOS and Tailnet stream live-input resolution; declaration/member valid_tailnet_inputs; declarations/fields: `valid_tailnet_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 207–257 | CoreOS and Tailnet stream live-input resolution; declaration/member valid_resolved_coreos; declarations/fields: `valid_resolved_coreos` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 258–291 | CoreOS and Tailnet stream live-input resolution; declaration/member fetch_capped_json; declarations/fields: `fetch_capped_json` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 292–301 | CoreOS and Tailnet stream live-input resolution; declaration/member fetch_capped_text; declarations/fields: `fetch_capped_text` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 302–305 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_tailnet_inputs; declarations/fields: `resolve_tailnet_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 306–329 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_tailnet_inputs_with; declarations/fields: `resolve_tailnet_inputs_with` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 330–362 | CoreOS and Tailnet stream live-input resolution; declaration/member latest_tailnet_release; declarations/fields: `latest_tailnet_release` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 363–392 | CoreOS and Tailnet stream live-input resolution; declaration/member parse_tailnet_release_at; declarations/fields: `parse_tailnet_release_at` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 393–397 | CoreOS and Tailnet stream live-input resolution; declaration/member latest_tailnet_release_with; declarations/fields: `latest_tailnet_release_with` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 398–438 | CoreOS and Tailnet stream live-input resolution; declaration/member latest_tailnet_base_tag_with; declarations/fields: `latest_tailnet_base_tag_with` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 439–506 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_stream_build; declarations/fields: `resolve_stream_build` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 507–530 | CoreOS and Tailnet stream live-input resolution; declaration/member stream_release_from_location; declarations/fields: `stream_release_from_location` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 531–559 | CoreOS and Tailnet stream live-input resolution; declaration/member valid_stream_images_local; declarations/fields: `valid_stream_images_local` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 560–645 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_registry_digests_with; declarations/fields: `resolve_registry_digests_with` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 646–649 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_coreos_iso; declarations/fields: `resolve_coreos_iso` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 650–662 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_coreos_iso_with; declarations/fields: `resolve_coreos_iso_with` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 663–666 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_coreos_qemu; declarations/fields: `resolve_coreos_qemu` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 667–680 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_coreos_qemu_with; declarations/fields: `resolve_coreos_qemu_with` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 681–684 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_coreos; declarations/fields: `resolve_coreos` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 685–707 | CoreOS and Tailnet stream live-input resolution; declaration/member resolve_coreos_with; declarations/fields: `resolve_coreos_with` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 708–711 | CoreOS and Tailnet stream live-input resolution; declaration/member tests; declarations/fields: `tests` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 712–746 | CoreOS and Tailnet stream live-input resolution; declaration/member fixture_live_inputs; declarations/fields: `fixture_live_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 747–765 | CoreOS and Tailnet stream live-input resolution; declaration/member stream_doc; declarations/fields: `stream_doc` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 766–773 | CoreOS and Tailnet stream live-input resolution; declaration/member index_doc; declarations/fields: `index_doc` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 774–787 | CoreOS and Tailnet stream live-input resolution; declaration/member oracle_tailnet_release_selection; declarations/fields: `oracle_tailnet_release_selection` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 788–799 | CoreOS and Tailnet stream live-input resolution; declaration/member oracle_stream_build_parsing; declarations/fields: `oracle_stream_build_parsing` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 800–826 | CoreOS and Tailnet stream live-input resolution; declaration/member oracle_live_inputs_round_trip; declarations/fields: `oracle_live_inputs_round_trip` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 827–856 | CoreOS and Tailnet stream live-input resolution; declaration/member oracle_resolve_coreos_over_stub; declarations/fields: `oracle_resolve_coreos_over_stub` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–425; whole file: coreos stream and tailnet live-input document parsing, resolution and locked input serialization | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | CoreOS stream and Tailnet live-input document parsing, resolution and locked input serialization. — lib/soda-release-build/src/coreos_stream.rs; consumed by release build input resolver |
+
+<a id="coverage-efc01c53b2bb"></a>
+
+## [lib/soda-release-build/src/elf.rs](../../../../../lib/soda-release-build/src/elf.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–70; lines 1–4: use crate and attached body; lines 5–5: use soda_build_tools and attached body; lines 6–6: use std and attached body; lines 7–9: use std and attached body; lines 10–27: fn inspect_elf and attached body; lines 28–34: fn is_native_executable and attached body; lines 35–35: mod tests and attached body; lines 36–36: use super and attached body; lines 37–48: fn fixture_elf and attached body; lines 49–70: fn native_elf_header_profile and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-495c86a56818"></a>
-
 <a id="rustsoda-release-buildsrcfilesrs-1"></a>
+<a id="coverage-a877363f9a56"></a>
 
 ## [lib/soda-release-build/src/files.rs](../../../../../lib/soda-release-build/src/files.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 1–17 | Confined builder file, native architecture and immutable byte input primitives; declarations/fields: `File`, `emit`, `marshal`, `decode`, `oci_architecture`, `is_digest`, `is_revision`, `require_native`, `hash_file`, `hash_at`, `fresh_directory`, `private_destination`, `write_new`, `chmod`, `read_json`, `read_json_at`, `LIMIT`, `Root`, `FileMeta`, `stat_to_meta`, `open`, `resolve_parent`, `lstat`, `open_file`, `open_unchanged`, `open_at`, `open_at_fd`, `is_regular_meta`, `same_file_meta`, `first_json_end`, `skip_ws`, `skip_string`, `skip_number`, `skip_literal`, `skip_value`, `abs_path`, `tests`, `scratch`, `COUNT`, `unique`, `validators_match_go`, `hash_file_refuses_symlinks`, `fresh_and_private_directories`, `write_new_is_exclusive`, `read_json_strict_round_trip`, `root_rejects_symlink_escape` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 18 | Confined builder file, native architecture and immutable byte input primitives; declaration/member File; declarations/fields: `File` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 19 | Confined builder file, native architecture and immutable byte input primitives; declaration/member File.sha256; declarations/fields: `File.sha256` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 20 | Confined builder file, native architecture and immutable byte input primitives; declaration/member File.mode; declarations/fields: `File.mode` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 21 | Confined builder file, native architecture and immutable byte input primitives; declaration/member File.link; declarations/fields: `File.link` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 22–25 | Confined builder file, native architecture and immutable byte input primitives; declaration/member File.directory; declarations/fields: `File.directory` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 26–40 | Confined builder file, native architecture and immutable byte input primitives; declaration/member emit; declarations/fields: `emit` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 41–44 | Confined builder file, native architecture and immutable byte input primitives; declaration/member marshal; declarations/fields: `marshal` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 45–55 | Confined builder file, native architecture and immutable byte input primitives; declaration/member decode; declarations/fields: `decode` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 56–64 | Confined builder file, native architecture and immutable byte input primitives; declaration/member oci_architecture; declarations/fields: `oci_architecture` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 65–69 | Confined builder file, native architecture and immutable byte input primitives; declaration/member is_digest; declarations/fields: `is_digest` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 70–74 | Confined builder file, native architecture and immutable byte input primitives; declaration/member is_revision; declarations/fields: `is_revision` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 75–83 | Confined builder file, native architecture and immutable byte input primitives; declaration/member require_native; declarations/fields: `require_native` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 84–93 | Confined builder file, native architecture and immutable byte input primitives; declaration/member hash_file; declarations/fields: `hash_file` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 94–109 | Confined builder file, native architecture and immutable byte input primitives; declaration/member hash_at; declarations/fields: `hash_at` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 110–125 | Confined builder file, native architecture and immutable byte input primitives; declaration/member fresh_directory; declarations/fields: `fresh_directory` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 126–142 | Confined builder file, native architecture and immutable byte input primitives; declaration/member private_destination; declarations/fields: `private_destination` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 143–159 | Confined builder file, native architecture and immutable byte input primitives; declaration/member write_new; declarations/fields: `write_new` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 160–165 | Confined builder file, native architecture and immutable byte input primitives; declaration/member chmod; declarations/fields: `chmod` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 166–181 | Confined builder file, native architecture and immutable byte input primitives; declaration/member read_json; declarations/fields: `read_json` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 182–187 | Confined builder file, native architecture and immutable byte input primitives; declaration/member read_json_at; declarations/fields: `read_json_at` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 188–221 | Confined builder file, native architecture and immutable byte input primitives; declaration/member LIMIT; declarations/fields: `LIMIT` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 222 | Confined builder file, native architecture and immutable byte input primitives; declaration/member Root; declarations/fields: `Root` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 223–226 | Confined builder file, native architecture and immutable byte input primitives; declaration/member Root.fd; declarations/fields: `Root.fd` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 227 | Confined builder file, native architecture and immutable byte input primitives; declaration/member FileMeta; declarations/fields: `FileMeta` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 228 | Confined builder file, native architecture and immutable byte input primitives; declaration/member FileMeta.is_regular; declarations/fields: `FileMeta.is_regular` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 229 | Confined builder file, native architecture and immutable byte input primitives; declaration/member FileMeta.size; declarations/fields: `FileMeta.size` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 230 | Confined builder file, native architecture and immutable byte input primitives; declaration/member FileMeta.dev; declarations/fields: `FileMeta.dev` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 231–234 | Confined builder file, native architecture and immutable byte input primitives; declaration/member FileMeta.ino; declarations/fields: `FileMeta.ino` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 235–245 | Confined builder file, native architecture and immutable byte input primitives; declaration/member stat_to_meta; declarations/fields: `stat_to_meta` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 246–261 | Confined builder file, native architecture and immutable byte input primitives; declaration/member open; declarations/fields: `open` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 262–299 | Confined builder file, native architecture and immutable byte input primitives; declaration/member resolve_parent; declarations/fields: `resolve_parent` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 300–321 | Confined builder file, native architecture and immutable byte input primitives; declaration/member lstat; declarations/fields: `lstat` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 322–333 | Confined builder file, native architecture and immutable byte input primitives; declaration/member open_file; declarations/fields: `open_file` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 334–345 | Confined builder file, native architecture and immutable byte input primitives; declaration/member open_unchanged; declarations/fields: `open_unchanged` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 346–359 | Confined builder file, native architecture and immutable byte input primitives; declaration/member open_at; declarations/fields: `open_at` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 360–376 | Confined builder file, native architecture and immutable byte input primitives; declaration/member open_at_fd; declarations/fields: `open_at_fd` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 377–380 | Confined builder file, native architecture and immutable byte input primitives; declaration/member is_regular_meta; declarations/fields: `is_regular_meta` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 381–388 | Confined builder file, native architecture and immutable byte input primitives; declaration/member same_file_meta; declarations/fields: `same_file_meta` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 389–392 | Confined builder file, native architecture and immutable byte input primitives; declaration/member first_json_end; declarations/fields: `first_json_end` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 393–399 | Confined builder file, native architecture and immutable byte input primitives; declaration/member skip_ws; declarations/fields: `skip_ws` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 400–414 | Confined builder file, native architecture and immutable byte input primitives; declaration/member skip_string; declarations/fields: `skip_string` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 415–430 | Confined builder file, native architecture and immutable byte input primitives; declaration/member skip_number; declarations/fields: `skip_number` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 431–438 | Confined builder file, native architecture and immutable byte input primitives; declaration/member skip_literal; declarations/fields: `skip_literal` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 439–475 | Confined builder file, native architecture and immutable byte input primitives; declaration/member skip_value; declarations/fields: `skip_value` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 476–484 | Confined builder file, native architecture and immutable byte input primitives; declaration/member abs_path; declarations/fields: `abs_path` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 485–488 | Confined builder file, native architecture and immutable byte input primitives; declaration/member tests; declarations/fields: `tests` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 489–495 | Confined builder file, native architecture and immutable byte input primitives; declaration/member scratch; declarations/fields: `scratch` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 496 | Confined builder file, native architecture and immutable byte input primitives; declaration/member COUNT; declarations/fields: `COUNT` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 497–501 | Confined builder file, native architecture and immutable byte input primitives; declaration/member unique; declarations/fields: `unique` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 502–516 | Confined builder file, native architecture and immutable byte input primitives; declaration/member validators_match_go; declarations/fields: `validators_match_go` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 517–537 | Confined builder file, native architecture and immutable byte input primitives; declaration/member hash_file_refuses_symlinks; declarations/fields: `hash_file_refuses_symlinks` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 538–572 | Confined builder file, native architecture and immutable byte input primitives; declaration/member fresh_and_private_directories; declarations/fields: `fresh_and_private_directories` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 573–584 | Confined builder file, native architecture and immutable byte input primitives; declaration/member write_new_is_exclusive; declarations/fields: `write_new_is_exclusive` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 585–607 | Confined builder file, native architecture and immutable byte input primitives; declaration/member read_json_strict_round_trip; declarations/fields: `read_json_strict_round_trip` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 608–621 | Confined builder file, native architecture and immutable byte input primitives; declaration/member root_rejects_symlink_escape; declarations/fields: `root_rejects_symlink_escape` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–223; lines 14–18: tests and attached behavior; attached module comments and attributes; lines 19–26: File and attached behavior; lines 27–37: marshal and attached behavior; lines 38–46: struct FileOutput; lines 47–52: fn is_false; lines 53–53: fn deserialize; lines 54–56: struct FileVisitor; lines 57–57: type Value; lines 58–61: fn expecting; lines 62–82: fn visit_map; lines 83–92: fn field; lines 93–122: fn integer_field; lines 123–131: oci_architecture and attached behavior; lines 132–136: is_digest and attached behavior; lines 137–141: is_revision and attached behavior; lines 142–150: require_native and attached behavior; lines 151–160: hash_file and attached behavior; lines 161–176: fresh_directory and attached behavior; lines 177–193: private_destination and attached behavior; lines 194–209: write_new and attached behavior; lines 210–216: chmod and attached behavior; lines 217–223: abs_path and attached behavior | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Confined builder file, native architecture and immutable byte input primitives; declaration/member tests Adjacent comments and attributes explain this same authored responsibility.; 22 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-<a id="coverage-ea777fc0e833"></a>
+<a id="coverage-07ec951e4416"></a>
 
-<a id="rustsoda-release-buildsrcjson_gors-1"></a>
+## [lib/soda-release-build/src/files/tests.rs](../../../../../lib/soda-release-build/src/files/tests.rs)
 
-## [lib/soda-release-build/src/json_go.rs](../../../../../lib/soda-release-build/src/json_go.rs)
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–167; lines 1–1: use super and attached body; lines 2–2: use crate and attached body; lines 3–3: use crate and attached body; lines 4–4: use std and attached body; lines 5–11: fn scratch and attached body; lines 12–13: static COUNT and attached body; lines 14–18: fn unique and attached body; lines 19–33: fn validators_match_go and attached body; lines 34–54: fn hash_file_refuses_symlinks and attached body; lines 55–89: fn fresh_and_private_directories and attached body; lines 90–101: fn write_new_is_exclusive and attached body; lines 102–124: fn read_json_strict_round_trip and attached body; lines 125–139: fn file_duplicate_fields_validate_only_the_last_match and attached body; lines 140–154: fn file_mode_keeps_go_integer_token_edges and attached body; lines 155–167: fn root_rejects_symlink_escape and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 1–13 | Go-shaped release JSON emission; declarations/fields: `FieldError`, `Fields`, `of`, `lookup`, `present`, `string`, `int`, `string_list`, `string_map`, `object`, `object_list`, `Strict`, `json_kind`, `bind`, `field`, `mismatch`, `boolean`, `uint32`, `nested`, `object_map`, `finish`, `Emit`, `sorted_object`, `marshal_indent`, `emit_indent`, `emit_value`, `tests`, `oracle_marshal_indent_vectors`, `strict_rejects_unknown_fields_go_style`, `strict_folds_names_and_skips_null`, `lenient_lookup_folds_and_last_wins` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 14–16 | Go-shaped release JSON emission; declaration/member FieldError; declarations/fields: `FieldError` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 17 | Go-shaped release JSON emission; declaration/member Fields; declarations/fields: `Fields` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 18–21 | Go-shaped release JSON emission; declaration/member Fields.entries; declarations/fields: `Fields.entries` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 22–29 | Go-shaped release JSON emission; declaration/member of; declarations/fields: `of` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 30–39, 162–172 | Go-shaped release JSON emission; declaration/member lookup; declarations/fields: `lookup` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 40–47 | Go-shaped release JSON emission; declaration/member present; declarations/fields: `present` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 48–56, 187–194 | Go-shaped release JSON emission; declaration/member string; declarations/fields: `string` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 57–67 | Go-shaped release JSON emission; declaration/member int; declarations/fields: `int` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 68–82, 214–230 | Go-shaped release JSON emission; declaration/member string_list; declarations/fields: `string_list` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 83–100, 231–247 | Go-shaped release JSON emission; declaration/member string_map; declarations/fields: `string_map` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 101–108, 248–259 | Go-shaped release JSON emission; declaration/member object; declarations/fields: `object` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 109–124 | Go-shaped release JSON emission; declaration/member object_list; declarations/fields: `object_list` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 125 | Go-shaped release JSON emission; declaration/member Strict; declarations/fields: `Strict` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 126 | Go-shaped release JSON emission; declaration/member Strict.entries; declarations/fields: `Strict.entries` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 127 | Go-shaped release JSON emission; declaration/member Strict.seen; declarations/fields: `Strict.seen` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 128–130 | Go-shaped release JSON emission; declaration/member Strict.target; declarations/fields: `Strict.target` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 131–142 | Go-shaped release JSON emission; declaration/member json_kind; declarations/fields: `json_kind` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 143–161 | Go-shaped release JSON emission; declaration/member bind; declarations/fields: `bind` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 173–179 | Go-shaped release JSON emission; declaration/member field; declarations/fields: `field` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 180–186 | Go-shaped release JSON emission; declaration/member mismatch; declarations/fields: `mismatch` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 195–202 | Go-shaped release JSON emission; declaration/member boolean; declarations/fields: `boolean` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 203–213 | Go-shaped release JSON emission; declaration/member uint32; declarations/fields: `uint32` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 260–279 | Go-shaped release JSON emission; declaration/member nested; declarations/fields: `nested` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 280–301 | Go-shaped release JSON emission; declaration/member object_map; declarations/fields: `object_map` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 302–314 | Go-shaped release JSON emission; declaration/member finish; declarations/fields: `finish` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 315–324 | Go-shaped release JSON emission; declaration/member Emit; declarations/fields: `Emit` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 325–332 | Go-shaped release JSON emission; declaration/member sorted_object; declarations/fields: `sorted_object` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 333–338 | Go-shaped release JSON emission; declaration/member marshal_indent; declarations/fields: `marshal_indent` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 339–344 | Go-shaped release JSON emission; declaration/member emit_indent; declarations/fields: `emit_indent` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 345–390 | Go-shaped release JSON emission; declaration/member emit_value; declarations/fields: `emit_value` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 391–394 | Go-shaped release JSON emission; declaration/member tests; declarations/fields: `tests` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 395–421 | Go-shaped release JSON emission; declaration/member oracle_marshal_indent_vectors; declarations/fields: `oracle_marshal_indent_vectors` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 422–432 | Go-shaped release JSON emission; declaration/member strict_rejects_unknown_fields_go_style; declarations/fields: `strict_rejects_unknown_fields_go_style` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 433–441 | Go-shaped release JSON emission; declaration/member strict_folds_names_and_skips_null; declarations/fields: `strict_folds_names_and_skips_null` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 442–451 | Go-shaped release JSON emission; declaration/member lenient_lookup_folds_and_last_wins; declarations/fields: `lenient_lookup_folds_and_last_wins` |
+<a id="coverage-7d78a9120c73"></a>
+
+## [lib/soda-release-build/src/forgejo.rs](../../../../../lib/soda-release-build/src/forgejo.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–338; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use serde and attached body; lines 9–9: use serde and attached body; lines 10–10: use serde and attached body; lines 11–11: use std and attached body; lines 12–19: use soda_build_tools and attached body; lines 20–31: fn forgejo_version_stamp and attached body; lines 32–35: struct ForgejoToolchain and attached body; lines 36–37: impl ForgejoToolchain and attached body; lines 38–46: fn validate and attached body; lines 47–51: fn marshal and attached body; lines 52–53: impl Serialize and attached body; lines 54–62: fn serialize and attached body; lines 63–63: fn deserialize and attached body; lines 64–65: struct ToolchainVisitor and attached body; lines 66–66: type Value and attached body; lines 67–69: fn expecting and attached body; lines 70–105: fn visit_map and attached body; lines 106–123: fn record_forgejo_toolchain and attached body; lines 124–134: fn build_forgejo_binary and attached body; lines 135–141: fn validate_forgejo_build and attached body; lines 142–194: fn forgejo_build_args and attached body; lines 195–204: fn inspect_forgejo_build and attached body; lines 205–217: fn stage_fork_binary and attached body; lines 218–218: mod tests and attached body; lines 219–219: use super and attached body; lines 220–222: use crate and attached body; lines 223–235: fn oracle_version_stamp_vectors and attached body; lines 236–273: fn oracle_toolchain_provenance_vectors and attached body; lines 274–338: fn oracle_stage_fork_binary_wiring and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 33 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-94cc6ab4739c"></a>
+
+## [lib/soda-release-build/src/http.rs](../../../../../lib/soda-release-build/src/http.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–339; lines 1–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–11: use std and attached body; lines 12–14: use std and attached body; lines 15–20: struct HttpResponse and attached body; lines 21–23: impl HttpResponse and attached body; lines 24–27: fn status_line and attached body; lines 28–29: impl std and attached body; lines 30–39: fn fmt and attached body; lines 40–40: trait HttpTransport and attached body; lines 41–49: fn get and attached body; lines 50–50: struct UreqTransport and attached body; lines 51–52: impl HttpTransport and attached body; lines 53–78: fn get and attached body; lines 79–87: fn ureq_response and attached body; lines 88–93: fn is_redirect and attached body; lines 94–102: fn split_url and attached body; lines 103–135: fn resolve_location and attached body; lines 136–163: fn get_follow and attached body; lines 164–197: fn fetch_capped_json and attached body; lines 198–207: fn fetch_capped_text and attached body; lines 208–208: mod tests and attached body; lines 209–209: use super and attached body; lines 210–210: use std and attached body; lines 211–213: use std and attached body; lines 214–217: struct Stub and attached body; lines 218–219: impl Stub and attached body; lines 220–234: fn new and attached body; lines 235–236: impl HttpTransport and attached body; lines 237–262: fn get and attached body; lines 263–275: fn reason and attached body; lines 276–320: fn oracle_redirect_policy_vectors and attached body; lines 321–339: fn oracle_location_resolution_vectors and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 33 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a99185852c1d"></a>
+
+## [lib/soda-release-build/src/json_emit.rs](../../../../../lib/soda-release-build/src/json_emit.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–210; lines 1–3: use serde and attached body; lines 4–4: use serde_json and attached body; lines 5–5: use std and attached body; lines 6–7: struct CompactGoFormatter and attached body; lines 8–9: impl Formatter and attached body; lines 10–15: fn write_string_fragment and attached body; lines 16–23: fn write_char_escape and attached body; lines 24–27: struct PrettyGoFormatter and attached body; lines 28–29: impl Formatter and attached body; lines 30–35: fn write_string_fragment and attached body; lines 36–42: fn write_char_escape and attached body; lines 43–49: fn begin_array and attached body; lines 50–56: fn end_array and attached body; lines 57–63: fn begin_array_value and attached body; lines 64–70: fn end_array_value and attached body; lines 71–77: fn begin_object and attached body; lines 78–84: fn end_object and attached body; lines 85–91: fn begin_object_key and attached body; lines 92–98: fn begin_object_value and attached body; lines 99–106: fn end_object_value and attached body; lines 107–129: fn write_go_string_fragment and attached body; lines 130–146: fn write_go_char_escape and attached body; lines 147–157: fn serialize and attached body; lines 158–167: fn marshal_indent and attached body; lines 168–172: fn marshal_compact and attached body; lines 173–173: mod tests and attached body; lines 174–176: use super and attached body; lines 177–178: fn pretty_go_json_vectors and attached body; lines 179–188: struct Vector and attached body; lines 189–210: struct Nested and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use serde in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 30 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f954a3ba4108"></a>
+
+## [lib/soda-release-build/src/json_input.rs](../../../../../lib/soda-release-build/src/json_input.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–62; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use serde and attached body; lines 7–7: use serde and attached body; lines 8–8: use std and attached body; lines 9–13: use std and attached body; lines 14–23: fn parse_integer_token and attached body; lines 24–35: fn read_json and attached body; lines 36–39: fn read_json_at and attached body; lines 40–62: const LIMIT and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-33ce1bf6ebad"></a>
+<a id="coverage-4963a8a36cc2"></a>
 
 ## [lib/soda-release-build/src/lib.rs](../../../../../lib/soda-release-build/src/lib.rs)
 
-R02 re-audited vs `0d8d3b8e` audit blob: `pub mod clock` + `pub mod progress` rows DROPPED (modules retired in 3aaec1c8/D03-E4, no successor); doc range tightened 1–14; all module rows verified at new lines; Error/helpers rows verified current.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Public module wiring is mapped separately; module exposure does not create a new process boundary.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17, 20, 22, 24, 26–28, 31–262; lines 1–17: mod confined_files; attached module comments and attributes; lines 20–20: mod coreos_registry; lines 22–22: mod elf; lines 24–24: mod forgejo; lines 26–26: mod json_emit; lines 27–27: mod json_input; lines 28–28: mod live_inputs; lines 31–31: mod production; lines 32–32: mod production_assets; lines 33–33: mod production_compile; lines 34–34: mod production_images; lines 35–35: mod production_inputs; lines 36–38: mod tailnet_inputs; lines 39–39: mod test_support; lines 107–108: impl From | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current mod confined_files and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 15 named units assigned here; remaining selectors preserve each duty — lib/soda-release-build/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 18–19, 21; lines 18–18: mod coreos; lines 19–19: mod coreos_iso; lines 21–21: mod coreos_stream | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Module wiring: coreos; Pinned input acquisition; Module wiring: coreos_iso; Pinned input acquisition; Module wiring: coreos_stream; Pinned input acquisition — lib/soda-release-build/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 23; lines 23–23: mod files | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Module wiring: files; Configuration and filesystem primitives — lib/soda-release-build/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 25; lines 25–25: mod http | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Module wiring: http; Private IPC and service lifetime — lib/soda-release-build/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
+| 29–30; lines 29–29: mod oci; lines 30–30: mod oci_layout | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Module wiring: oci; Artifact verification; Module wiring: oci_layout; Artifact verification — lib/soda-release-build/src/lib.rs; current symbols and attached bodies inspected; current consumer is the module/pipeline named in source |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–14, 35–108 | Native production module/error wiring; declarations/fields: `Error`, `msg`, `message`, `exit_code`, `signal`, `is_cancelled`, `with_exit_code`, `with_signal`, `cancelled`, `fmt`, `from`, `io_error` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 18 | Module wiring: coreos; Pinned input acquisition; declarations/fields: `coreos` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 18 | Module wiring: coreos_iso; Pinned input acquisition; declarations/fields: `coreos_iso` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 19 | Module wiring: coreos_stream; Pinned input acquisition; declarations/fields: `coreos_stream` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 20 | Module wiring: elf; Candidate production; declarations/fields: `elf` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 21 | Module wiring: files; Configuration and filesystem primitives; declarations/fields: `files` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 22 | Module wiring: forgejo; Candidate production; declarations/fields: `forgejo` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 23 | Module wiring: http; Private IPC and service lifetime; declarations/fields: `http` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 24 | Module wiring: json_go; Encoding and parsing; declarations/fields: `json_go` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 25 | Module wiring: oci; Artifact verification; declarations/fields: `oci` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 26 | Module wiring: oci_layout; Artifact verification; declarations/fields: `oci_layout` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 27 | Module wiring: production; Candidate production; declarations/fields: `production` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 109–165 | Exact digest hashing; declarations/fields: `sha256_hex`, `sha256_hex_stream`, `hex_lower`, `look_path`, `is_executable` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 166–250 | Native input/path admission and protected byte primitives; declarations/fields: `path_clean`, `to_slash`, `test_env_lock`, `LOCK`, `tests`, `oracle_path_clean_vectors`, `look_path_matches_go_errors` |
+<a id="coverage-3bf5a40bd502"></a>
+
+## [lib/soda-release-build/src/live_inputs.rs](../../../../../lib/soda-release-build/src/live_inputs.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–335; lines 1–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use serde and attached body; lines 11–11: use serde and attached body; lines 12–12: use serde and attached body; lines 13–13: use std and attached body; lines 14–17: use std and attached body; lines 18–27: struct TailnetInputs and attached body; lines 28–28: fn deserialize and attached body; lines 29–30: struct TailnetVisitor and attached body; lines 31–31: type Value and attached body; lines 32–34: fn expecting and attached body; lines 35–72: fn visit_map and attached body; lines 73–79: struct ResolvedCoreOS and attached body; lines 80–81: impl Serialize and attached body; lines 82–100: fn serialize and attached body; lines 101–101: fn deserialize and attached body; lines 102–103: struct ResolvedVisitor and attached body; lines 104–104: type Value and attached body; lines 105–107: fn expecting and attached body; lines 108–128: fn visit_map and attached body; lines 129–153: fn decode and attached body; lines 154–159: struct LiveInputs and attached body; lines 160–161: impl LiveInputs and attached body; lines 162–167: fn marshal and attached body; lines 168–168: fn deserialize and attached body; lines 169–170: struct LiveVisitor and attached body; lines 171–171: type Value and attached body; lines 172–174: fn expecting and attached body; lines 175–206: fn visit_map and attached body; lines 207–212: fn write_live_inputs and attached body; lines 213–219: fn read_live_inputs and attached body; lines 220–223: fn valid_live_inputs and attached body; lines 224–233: fn valid_tailnet_inputs and attached body; lines 234–286: fn valid_resolved_coreos and attached body; lines 287–287: mod tests and attached body; lines 288–288: use super and attached body; lines 289–291: use crate and attached body; lines 292–309: fn live_inputs_nested_aliases_keep_source_order_before_typed_decode and attached body; lines 310–335: fn oracle_live_inputs_round_trip and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 43 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-b01b99e67b72"></a>
-
 <a id="rustsoda-release-buildsrcocirs-1"></a>
+<a id="coverage-9f9af3cb3e11"></a>
 
 ## [lib/soda-release-build/src/oci.rs](../../../../../lib/soda-release-build/src/oci.rs)
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Current coherent source duties matched to live consumer and prior semantic unit context
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1–16 | OCI archive/layer/config identity verification; declarations/fields: `MANIFEST_MEDIA_TYPE`, `INDEX_MEDIA_TYPE`, `CONFIG_MEDIA_TYPE`, `LAYER_TAR`, `LAYER_TAR_GZIP`, `LAYER_TAR_ZSTD`, `Image`, `marshal_compact`, `Descriptor`, `decode`, `annotation`, `Blob`, `LayerMember`, `open_oci_archive`, `check_tar_entry_name`, `check_tar_directory`, `is_valid_oci_regular_entry`, `record_tar_entry`, `copy_oci_blob`, `is_json_bytes`, `read_oci_blob`, `entry_raw_name`, `read_archive_blob_entry`, `read_oci_archive_entries`, `read_oci_index`, `MediaType`, `media_type`, `OciManifest`, `parse_oci_manifest`, `fetch_oci_blob`, `validate_oci_layers`, `validate_oci_rootfs`, `validate_oci_attribution`, `inspect_oci_config`, `inspect_oci_image`, `inspect_archive_index`, `inspect_oci`, `requested_oci_paths`, `clean_layer_name`, `whiteout_target`, `record_layer_deletion`, `record_ancestor_replacement`, `record_opaque_directory`, `record_layer_entry`, `hex_digest`, `scan_oci_layer`, `layer_archive_indexes`, `HashReader`, `new`, `hex`, `read`, `scan_layer_reader`, `scan_archive_layer`, `scan_oci_archive_layers`, `resolve_oci_members`, `inspect_content_manifest`, `inspect_oci_content`, `tests`, `FIXTURE_REVISION`, `fixture_oci_bytes`, `raw_tar_entry`, `write_fixture`, `marshal_compact_matches_go_encoder_bytes`, `oracle_identity_and_wrong_platform`, `oracle_content_members`, `oracle_layer_scanner_vectors`, `oracle_gzip_and_zstd_layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 17 | OCI archive/layer/config identity verification; declaration/member MANIFEST_MEDIA_TYPE; declarations/fields: `MANIFEST_MEDIA_TYPE` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 18 | OCI archive/layer/config identity verification; declaration/member INDEX_MEDIA_TYPE; declarations/fields: `INDEX_MEDIA_TYPE` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 19 | OCI archive/layer/config identity verification; declaration/member CONFIG_MEDIA_TYPE; declarations/fields: `CONFIG_MEDIA_TYPE` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 20 | OCI archive/layer/config identity verification; declaration/member LAYER_TAR; declarations/fields: `LAYER_TAR` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 21 | OCI archive/layer/config identity verification; declaration/member LAYER_TAR_GZIP; declarations/fields: `LAYER_TAR_GZIP` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 22–25 | OCI archive/layer/config identity verification; declaration/member LAYER_TAR_ZSTD; declarations/fields: `LAYER_TAR_ZSTD` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 26 | OCI archive/layer/config identity verification; declaration/member Image; declarations/fields: `Image` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 27 | OCI archive/layer/config identity verification; declaration/member Image.manifest; declarations/fields: `Image.manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 28 | OCI archive/layer/config identity verification; declaration/member Image.config; declarations/fields: `Image.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 29 | OCI archive/layer/config identity verification; declaration/member Image.architecture; declarations/fields: `Image.architecture` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 30 | OCI archive/layer/config identity verification; declaration/member Image.revision; declarations/fields: `Image.revision` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 31 | OCI archive/layer/config identity verification; declaration/member Image.source; declarations/fields: `Image.source` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 32 | OCI archive/layer/config identity verification; declaration/member Image.base_name; declarations/fields: `Image.base_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 33–40 | OCI archive/layer/config identity verification; declaration/member Image.base_digest; declarations/fields: `Image.base_digest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 41–67 | OCI archive/layer/config identity verification; declaration/member marshal_compact; declarations/fields: `marshal_compact` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 68–71 | OCI archive/layer/config identity verification; declaration/member LoadBlobs; declarations/fields: `LoadBlobs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 72 | OCI archive/layer/config identity verification; declaration/member Descriptor; declarations/fields: `Descriptor` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 73 | OCI archive/layer/config identity verification; declaration/member Descriptor.digest; declarations/fields: `Descriptor.digest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 74 | OCI archive/layer/config identity verification; declaration/member Descriptor.size; declarations/fields: `Descriptor.size` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 75 | OCI archive/layer/config identity verification; declaration/member Descriptor.media_type; declarations/fields: `Descriptor.media_type` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 76 | OCI archive/layer/config identity verification; declaration/member Descriptor.urls; declarations/fields: `Descriptor.urls` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 77–80 | OCI archive/layer/config identity verification; declaration/member Descriptor.annotations; declarations/fields: `Descriptor.annotations` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 81–90 | OCI archive/layer/config identity verification; declaration/member decode; declarations/fields: `decode` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 91–99 | OCI archive/layer/config identity verification; declaration/member annotation; declarations/fields: `annotation` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 100 | OCI archive/layer/config identity verification; declaration/member Blob; declarations/fields: `Blob` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 101 | OCI archive/layer/config identity verification; declaration/member Blob.hash; declarations/fields: `Blob.hash` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 102 | OCI archive/layer/config identity verification; declaration/member Blob.size; declarations/fields: `Blob.size` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 103–106 | OCI archive/layer/config identity verification; declaration/member Blob.data; declarations/fields: `Blob.data` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 107 | OCI archive/layer/config identity verification; declaration/member LayerMember; declarations/fields: `LayerMember` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 108 | OCI archive/layer/config identity verification; declaration/member LayerMember.hash; declarations/fields: `LayerMember.hash` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 109 | OCI archive/layer/config identity verification; declaration/member LayerMember.present; declarations/fields: `LayerMember.present` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 110–113 | OCI archive/layer/config identity verification; declaration/member LayerMember.blocked; declarations/fields: `LayerMember.blocked` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 114–115 | OCI archive/layer/config identity verification; declaration/member LayerScans; declarations/fields: `LayerScans` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 116–128 | OCI archive/layer/config identity verification; declaration/member open_oci_archive; declarations/fields: `open_oci_archive` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 129–138 | OCI archive/layer/config identity verification; declaration/member check_tar_entry_name; declarations/fields: `check_tar_entry_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 139–148 | OCI archive/layer/config identity verification; declaration/member check_tar_directory; declarations/fields: `check_tar_directory` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 149–158 | OCI archive/layer/config identity verification; declaration/member is_valid_oci_regular_entry; declarations/fields: `is_valid_oci_regular_entry` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 159–171 | OCI archive/layer/config identity verification; declaration/member record_tar_entry; declarations/fields: `record_tar_entry` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 172–223 | OCI archive/layer/config identity verification; declaration/member copy_oci_blob; declarations/fields: `copy_oci_blob` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 224–233 | OCI archive/layer/config identity verification; declaration/member is_json_bytes; declarations/fields: `is_json_bytes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 234–259 | OCI archive/layer/config identity verification; declaration/member read_oci_blob; declarations/fields: `read_oci_blob` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 260–266 | OCI archive/layer/config identity verification; declaration/member entry_raw_name; declarations/fields: `entry_raw_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 267–289 | OCI archive/layer/config identity verification; declaration/member read_archive_blob_entry; declarations/fields: `read_archive_blob_entry` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 290–325 | OCI archive/layer/config identity verification; declaration/member read_oci_archive_entries; declarations/fields: `read_oci_archive_entries` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 326–359 | OCI archive/layer/config identity verification; declaration/member read_oci_index; declarations/fields: `read_oci_index` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 360 | OCI archive/layer/config identity verification; declaration/member MediaType; declarations/fields: `MediaType` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 361–369 | OCI archive/layer/config identity verification; declaration/member media_type; declarations/fields: `media_type` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 370 | OCI archive/layer/config identity verification; declaration/member OciManifest; declarations/fields: `OciManifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 371 | OCI archive/layer/config identity verification; declaration/member OciManifest.config; declarations/fields: `OciManifest.config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 372–374 | OCI archive/layer/config identity verification; declaration/member OciManifest.layers; declarations/fields: `OciManifest.layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 375–406 | OCI archive/layer/config identity verification; declaration/member parse_oci_manifest; declarations/fields: `parse_oci_manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 407–428 | OCI archive/layer/config identity verification; declaration/member fetch_oci_blob; declarations/fields: `fetch_oci_blob` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 429–443 | OCI archive/layer/config identity verification; declaration/member validate_oci_layers; declarations/fields: `validate_oci_layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 444–459 | OCI archive/layer/config identity verification; declaration/member validate_oci_rootfs; declarations/fields: `validate_oci_rootfs` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 460–487 | OCI archive/layer/config identity verification; declaration/member validate_oci_attribution; declarations/fields: `validate_oci_attribution` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 488–556 | OCI archive/layer/config identity verification; declaration/member inspect_oci_config; declarations/fields: `inspect_oci_config` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 557–579 | OCI archive/layer/config identity verification; declaration/member inspect_oci_image; declarations/fields: `inspect_oci_image` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 580–596 | OCI archive/layer/config identity verification; declaration/member inspect_archive_index; declarations/fields: `inspect_archive_index` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 597–604 | OCI archive/layer/config identity verification; declaration/member inspect_oci; declarations/fields: `inspect_oci` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 605–627 | OCI archive/layer/config identity verification; declaration/member requested_oci_paths; declarations/fields: `requested_oci_paths` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 628–641 | OCI archive/layer/config identity verification; declaration/member clean_layer_name; declarations/fields: `clean_layer_name` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 642–655 | OCI archive/layer/config identity verification; declaration/member whiteout_target; declarations/fields: `whiteout_target` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 656–673 | OCI archive/layer/config identity verification; declaration/member record_layer_deletion; declarations/fields: `record_layer_deletion` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 674–695 | OCI archive/layer/config identity verification; declaration/member record_ancestor_replacement; declarations/fields: `record_ancestor_replacement` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 696–713 | OCI archive/layer/config identity verification; declaration/member record_opaque_directory; declarations/fields: `record_opaque_directory` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 714–750 | OCI archive/layer/config identity verification; declaration/member record_layer_entry; declarations/fields: `record_layer_entry` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 751–758 | OCI archive/layer/config identity verification; declaration/member hex_digest; declarations/fields: `hex_digest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 759–813 | OCI archive/layer/config identity verification; declaration/member scan_oci_layer; declarations/fields: `scan_oci_layer` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 814–836 | OCI archive/layer/config identity verification; declaration/member layer_archive_indexes; declarations/fields: `layer_archive_indexes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 837 | OCI archive/layer/config identity verification; declaration/member HashReader; declarations/fields: `HashReader` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 838 | OCI archive/layer/config identity verification; declaration/member HashReader.inner; declarations/fields: `HashReader.inner` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 839–842 | OCI archive/layer/config identity verification; declaration/member HashReader.hasher; declarations/fields: `HashReader.hasher` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 843–849 | OCI archive/layer/config identity verification; declaration/member new; declarations/fields: `new` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 850–855 | OCI archive/layer/config identity verification; declaration/member hex; declarations/fields: `hex` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 856–863 | OCI archive/layer/config identity verification; declaration/member read; declarations/fields: `read` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 864–879 | OCI archive/layer/config identity verification; declaration/member scan_layer_reader; declarations/fields: `scan_layer_reader` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 880–923 | OCI archive/layer/config identity verification; declaration/member scan_archive_layer; declarations/fields: `scan_archive_layer` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 924–950 | OCI archive/layer/config identity verification; declaration/member scan_oci_archive_layers; declarations/fields: `scan_oci_archive_layers` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 951–983 | OCI archive/layer/config identity verification; declaration/member resolve_oci_members; declarations/fields: `resolve_oci_members` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 984–1009 | OCI archive/layer/config identity verification; declaration/member inspect_content_manifest; declarations/fields: `inspect_content_manifest` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1010–1033 | OCI archive/layer/config identity verification; declaration/member inspect_oci_content; declarations/fields: `inspect_oci_content` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1034–1038 | OCI archive/layer/config identity verification; declaration/member tests; declarations/fields: `tests` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1039–1042 | OCI archive/layer/config identity verification; declaration/member FIXTURE_REVISION; declarations/fields: `FIXTURE_REVISION` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1043–1104 | OCI archive/layer/config identity verification; declaration/member fixture_oci_bytes; declarations/fields: `fixture_oci_bytes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1105–1127 | OCI archive/layer/config identity verification; declaration/member raw_tar_entry; declarations/fields: `raw_tar_entry` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1128–1140 | OCI archive/layer/config identity verification; declaration/member write_fixture; declarations/fields: `write_fixture` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1141–1159 | OCI archive/layer/config identity verification; declaration/member marshal_compact_matches_go_encoder_bytes; declarations/fields: `marshal_compact_matches_go_encoder_bytes` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1160–1181 | OCI archive/layer/config identity verification; declaration/member oracle_identity_and_wrong_platform; declarations/fields: `oracle_identity_and_wrong_platform` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1182–1206 | OCI archive/layer/config identity verification; declaration/member oracle_content_members; declarations/fields: `oracle_content_members` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1207–1265 | OCI archive/layer/config identity verification; declaration/member oracle_layer_scanner_vectors; declarations/fields: `oracle_layer_scanner_vectors` |
-| [D05](../../slices/release-and-installation.md#d05-artifact-verification) / active | 1266–1336 | OCI archive/layer/config identity verification; declaration/member oracle_gzip_and_zstd_layers; declarations/fields: `oracle_gzip_and_zstd_layers` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–256; lines 13–14: mod archive; attached module comments and attributes; lines 15–15: mod content; lines 16–18: manifest and attached behavior; lines 19–19: tests and attached behavior; lines 20–21: MANIFEST_MEDIA_TYPE and attached behavior; lines 22–22: INDEX_MEDIA_TYPE and attached behavior; lines 23–23: CONFIG_MEDIA_TYPE and attached behavior; lines 24–24: LAYER_TAR and attached behavior; lines 25–25: LAYER_TAR_GZIP and attached behavior; lines 26–29: LAYER_TAR_ZSTD and attached behavior; lines 30–51: Image and attached behavior; lines 52–57: marshal_compact and attached behavior; lines 58–61: LoadBlobs and attached behavior; lines 72–73: struct DescriptorVisitor; lines 108–118: fn raw_field; lines 119–135: fn raw_integer_field; lines 136–138: struct StringPairs; lines 140–141: struct PairsVisitor; lines 160–167: annotation and attached behavior; lines 168–173: Blob and attached behavior; lines 174–181: hex_digest and attached behavior; lines 182–199: inspect_archive_index and attached behavior; lines 200–205: inspect_oci and attached behavior; lines 206–232: inspect_content_manifest and attached behavior; lines 233–247: inspect_oci_content and attached behavior | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Current mod archive and its attached implementation body; current module purpose and consumer determine this responsibility. Adjacent comments and attributes explain this same authored responsibility.; 25 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-1511215e39c6"></a>
+
+## [lib/soda-release-build/src/oci/archive.rs](../../../../../lib/soda-release-build/src/oci/archive.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–224; lines 1–4: use super and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use std and attached body; lines 8–8: use std and attached body; lines 9–9: use std and attached body; lines 10–10: use std and attached body; lines 11–27: fn open_oci_archive and attached body; lines 28–37: fn check_tar_entry_name and attached body; lines 38–47: fn check_tar_directory and attached body; lines 48–57: fn is_valid_oci_regular_entry and attached body; lines 58–71: fn record_tar_entry and attached body; lines 72–76: fn copy_oci_blob and attached body; lines 77–122: use sha2 and attached body; lines 123–132: fn is_json_bytes and attached body; lines 133–158: fn read_oci_blob and attached body; lines 159–165: fn entry_raw_name and attached body; lines 166–188: fn read_archive_blob_entry and attached body; lines 189–224: fn read_oci_archive_entries and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 19 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-7445f5823747"></a>
+
+## [lib/soda-release-build/src/oci/content.rs](../../../../../lib/soda-release-build/src/oci/content.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–238; lines 1–4: use super and attached body; lines 5–5: use super and attached body; lines 6–6: use crate and attached body; lines 7–7: use sha2 and attached body; lines 8–11: use soda_release_deliver and attached body; lines 12–12: use std and attached body; lines 13–15: use std and attached body; lines 16–16: type LayerScans and attached body; lines 17–54: fn layer_archive_indexes and attached body; lines 55–62: struct HashReader and attached body; lines 63–70: fn new and attached body; lines 71–77: fn hex and attached body; lines 78–94: fn read and attached body; lines 95–99: use sha2 and attached body; lines 100–109: fn scan_layer_reader and attached body; lines 110–117: fn scan_archive_layer and attached body; lines 118–172: fn scan_archive_layer_with_budget and attached body; lines 173–205: fn scan_oci_archive_layers and attached body; lines 206–238: fn resolve_oci_members and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 19 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-3bd66e4590dd"></a>
+
+## [lib/soda-release-build/src/oci/manifest.rs](../../../../../lib/soda-release-build/src/oci/manifest.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–318; lines 1–7: use super and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use serde and attached body; lines 11–11: use serde and attached body; lines 12–12: use std and attached body; lines 13–16: type RawJson and attached body; lines 17–19: struct IntegerToken and attached body; lines 20–28: fn deserialize and attached body; lines 29–32: struct LayoutRecord and attached body; lines 33–37: struct IndexRecord and attached body; lines 38–43: struct ManifestRecord and attached body; lines 44–49: struct ConfigRecord and attached body; lines 50–53: struct RootfsRecord and attached body; lines 54–56: struct ConfigSection and attached body; lines 57–60: macro_rules! serde_record and attached body; lines 61–63: fn deserialize and attached body; lines 64–64: type Value and attached body; lines 65–65: fn expecting and attached body; lines 66–96: fn visit_map and attached body; lines 97–119: fn read_oci_index and attached body; lines 120–124: struct OciManifest and attached body; lines 125–145: fn parse_oci_manifest and attached body; lines 146–166: fn fetch_oci_blob and attached body; lines 167–181: fn validate_oci_layers and attached body; lines 182–197: fn validate_oci_rootfs and attached body; lines 198–225: fn validate_oci_attribution and attached body; lines 226–278: fn inspect_oci_config and attached body; lines 279–302: fn inspect_oci_image and attached body; lines 303–303: mod tests and attached body; lines 304–306: use super and attached body; lines 307–318: fn schema_version_keeps_go_integer_tokens and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 32 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-89b047cdc223"></a>
+
+## [lib/soda-release-build/src/oci/tests.rs](../../../../../lib/soda-release-build/src/oci/tests.rs)
+
+Current cohesive body inspected; single defining duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–416; whole file: source-level oci parser, archive-shape and content-verification oracles for the release build library | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Source-level OCI parser, archive-shape and content-verification oracles for the release build library. — lib/soda-release-build/src/oci/tests.rs; test module for OCI producers/inspection |
+
+<a id="coverage-7f8ee5523495"></a>
+
+## [lib/soda-release-build/src/oci_layout.rs](../../../../../lib/soda-release-build/src/oci_layout.rs)
+
+Inherited prior inventory row; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–361; lines 1–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use crate and attached body; lines 11–11: use std and attached body; lines 12–16: use std and attached body; lines 17–21: struct OciLayout and attached body; lines 22–23: fn same_opened and attached body; lines 24–26: use std and attached body; lines 27–46: fn validate_oci_layout_inputs and attached body; lines 47–57: fn open_oci_layout_root and attached body; lines 58–113: fn inspect_oci_layout and attached body; lines 114–138: fn load_layout_entry and attached body; lines 139–139: mod tests and attached body; lines 140–140: use super and attached body; lines 141–141: use crate and attached body; lines 142–142: use crate and attached body; lines 143–256: fn layout_fixture and attached body; lines 257–281: fn oracle_layout_identities_and_counts and attached body; lines 282–361: fn oracle_layout_refuses_substitution and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 22 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-9258418e94ee"></a>
-
 <a id="rustsoda-release-buildsrcproductionrs-1"></a>
+<a id="coverage-c5999e83f1b9"></a>
 
 ## [lib/soda-release-build/src/production.rs](../../../../../lib/soda-release-build/src/production.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
+Current cohesive production adapter body inspected
 
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–109; whole file: native image production adapter interface and image export implementation | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Defines the production inputs and execution hooks, validates native build context, exports the four frozen input images, builds the exact Forgejo fork binary, stages that binary, and returns the image archive digest. It does not sign, publish, or install the candidate. — lib/soda-release-build/src/production.rs:1-109; module docs plus Production::validate/images/build_forgejo_binary/stage_fork_binary; consumer lib/soda-release-image/src/build.rs and release pipeline |
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–15 | Existing native compilation/assets/image production pipeline; declarations/fields: `Production`, `step`, `call_execute`, `call_capture`, `validate`, `compile_rust`, `compile`, `assets`, `require_pinned_bun`, `dependencies`, `asset_steps` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 16 | Existing native compilation/assets/image production pipeline; declaration/member BuildExec; declarations/fields: `BuildExec` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 17 | Existing native compilation/assets/image production pipeline; declaration/member BuildCapture; declarations/fields: `BuildCapture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 18–20 | Existing native compilation/assets/image production pipeline; declaration/member NextFn; declarations/fields: `NextFn` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 21 | Existing native compilation/assets/image production pipeline; declaration/member PullFn; declarations/fields: `PullFn` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 22 | Existing native compilation/assets/image production pipeline; declaration/member BuildFn; declarations/fields: `BuildFn` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 23–26 | Existing native compilation/assets/image production pipeline; declaration/member ExportFn; declarations/fields: `ExportFn` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 27 | Existing native compilation/assets/image production pipeline; declaration/member Production; declarations/fields: `Production` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 28 | Existing native compilation/assets/image production pipeline; declaration/member Production.source; declarations/fields: `Production.source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 29 | Existing native compilation/assets/image production pipeline; declaration/member Production.forgejo_source; declarations/fields: `Production.forgejo_source` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 30 | Existing native compilation/assets/image production pipeline; declaration/member Production.forgejo_revision; declarations/fields: `Production.forgejo_revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 31 | Existing native compilation/assets/image production pipeline; declaration/member Production.native; declarations/fields: `Production.native` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 32 | Existing native compilation/assets/image production pipeline; declaration/member Production.out; declarations/fields: `Production.out` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 33 | Existing native compilation/assets/image production pipeline; declaration/member Production.arch; declarations/fields: `Production.arch` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 34–36 | Existing native compilation/assets/image production pipeline; declaration/member Production.revision; declarations/fields: `Production.revision` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 37 | Existing native compilation/assets/image production pipeline; declaration/member Production.live_inputs; declarations/fields: `Production.live_inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 38 | Existing native compilation/assets/image production pipeline; declaration/member Production.execute; declarations/fields: `Production.execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 39 | Existing native compilation/assets/image production pipeline; declaration/member Production.capture; declarations/fields: `Production.capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 40 | Existing native compilation/assets/image production pipeline; declaration/member Production.next; declarations/fields: `Production.next` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 41–44 | Existing native compilation/assets/image production pipeline; declaration/member Production.inputs; declarations/fields: `Production.inputs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 45–51 | Existing native compilation/assets/image production pipeline; declaration/member step; declarations/fields: `step` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 52–58 | Existing native compilation/assets/image production pipeline; declaration/member call_execute; declarations/fields: `call_execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 59–65 | Existing native compilation/assets/image production pipeline; declaration/member call_capture; declarations/fields: `call_capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 66–85 | Existing native compilation/assets/image production pipeline; declaration/member validate; declarations/fields: `validate` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 86–117 | Existing native compilation/assets/image production pipeline; declaration/member compile_rust; declarations/fields: `compile_rust` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 118–139 | Existing native compilation/assets/image production pipeline; declaration/member compile; declarations/fields: `compile` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 140–167 | Existing native compilation/assets/image production pipeline; declaration/member assets; declarations/fields: `assets` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 168–187 | Existing native compilation/assets/image production pipeline; declaration/member require_pinned_bun; declarations/fields: `require_pinned_bun` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 188–205 | Existing native compilation/assets/image production pipeline; declaration/member dependencies; declarations/fields: `dependencies` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 206–336 | Existing native compilation/assets/image production pipeline; declaration/member asset_steps; declarations/fields: `asset_steps` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 337–364 | Frozen pinned image acquisition; declarations/fields: `pull_frozen_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 365–379 | Native image production/inspection result assembly; declarations/fields: `images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 380–389 | Native image production/inspection result assembly; declaration/member admit_resolved_input_record; declarations/fields: `admit_resolved_input_record` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 390–447 | Native image production/inspection result assembly; declaration/member pull_resolved_input; declarations/fields: `pull_resolved_input` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 448–470 | Native image production/inspection result assembly; declaration/member recipe_image_refs; declarations/fields: `recipe_image_refs` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 471–478 | Native image production/inspection result assembly; declaration/member live_tailnet_inputs; declarations/fields: `live_tailnet_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 479–496 | Pinned CoreOS/live input resolution; declarations/fields: `resolve_inputs` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 497–540 | Pinned CoreOS/live input resolution; declaration/member build_image; declarations/fields: `build_image` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 541–572 | Pinned CoreOS/live input resolution; declaration/member export_image_archive; declarations/fields: `export_image_archive` |
-| [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) / active | 573–590 | Pinned CoreOS/live input resolution; declaration/member resolve_rocky_base; declarations/fields: `resolve_rocky_base` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 591–618 | Native image export and exact build receipts; declarations/fields: `export_app_images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 619–633 | Native image export and exact build receipts; declaration/member export_forgejo_image; declarations/fields: `export_forgejo_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 634–642 | Native image export and exact build receipts; declaration/member export_proxy_image; declarations/fields: `export_proxy_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 643–665 | Native image export and exact build receipts; declaration/member export_tailnet_image; declarations/fields: `export_tailnet_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 666–683 | Native image export and exact build receipts; declaration/member export_extension_image; declarations/fields: `export_extension_image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 684–735 | Native image export and exact build receipts; declaration/member export_images; declarations/fields: `export_images` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 736–740 | Native image export and exact build receipts; declaration/member build_forgejo_binary; declarations/fields: `build_forgejo_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 741–747 | Native image export and exact build receipts; declaration/member stage_fork_binary; declarations/fields: `stage_fork_binary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 748 | Native image export and exact build receipts; declaration/member ProducedImage; declarations/fields: `ProducedImage` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 749 | Native image export and exact build receipts; declaration/member ProducedImage.image; declarations/fields: `ProducedImage.image` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 750–754 | Native image export and exact build receipts; declaration/member ProducedImage.archive_sha256; declarations/fields: `ProducedImage.archive_sha256` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 755 | Native image export and exact build receipts; declaration/member ResolvedInput; declarations/fields: `ResolvedInput` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 756 | Native image export and exact build receipts; declaration/member ResolvedInput.requested; declarations/fields: `ResolvedInput.requested` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 757 | Native image export and exact build receipts; declaration/member ResolvedInput.reference; declarations/fields: `ResolvedInput.reference` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 758–761 | Native image export and exact build receipts; declaration/member ResolvedInput.config; declarations/fields: `ResolvedInput.config` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 762–770 | Native image export and exact build receipts; declaration/member emit; declarations/fields: `emit` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 771–780 | Native image export and exact build receipts; declaration/member parse_image_repo; declarations/fields: `parse_image_repo` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 781–798 | Native image export and exact build receipts; declaration/member lexical_rel; declarations/fields: `lexical_rel` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 799–807 | Native image export and exact build receipts; declaration/member tests; declarations/fields: `tests` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 808–939 | Native image export and exact build receipts; declaration/member production_fixture; declarations/fields: `production_fixture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 940–1006 | Native image export and exact build receipts; declaration/member oracle_production_sequence; declarations/fields: `oracle_production_sequence` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1007–1026 | Native image export and exact build receipts; declaration/member oracle_production_failure_stops; declarations/fields: `oracle_production_failure_stops` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1027–1065 | Native image export and exact build receipts; declaration/member oracle_production_refusals; declarations/fields: `oracle_production_refusals` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1066–1080 | Native image export and exact build receipts; declaration/member oracle_asset_destinations_refuse_early; declarations/fields: `oracle_asset_destinations_refuse_early` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1081–1116 | Native image export and exact build receipts; declaration/member oracle_compile_recipes; declarations/fields: `oracle_compile_recipes` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1117–1126 | Native image export and exact build receipts; declaration/member oracle_image_repo_parsing; declarations/fields: `oracle_image_repo_parsing` |
+<a id="coverage-8bca6aadcbf5"></a>
+
+## [lib/soda-release-build/src/production/tests.rs](../../../../../lib/soda-release-build/src/production/tests.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–328; lines 1–1: use super and attached body; lines 2–2: use crate and attached body; lines 3–3: use crate and attached body; lines 4–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use std and attached body; lines 8–10: use std and attached body; lines 11–147: fn production_fixture and attached body; lines 148–212: fn oracle_production_sequence and attached body; lines 213–232: fn oracle_production_failure_stops and attached body; lines 233–268: fn oracle_production_refusals and attached body; lines 269–283: fn oracle_asset_destinations_refuse_early and attached body; lines 284–319: fn oracle_compile_recipes and attached body; lines 320–328: fn oracle_image_repo_parsing and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use super in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 15 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-99b094ad7919"></a>
+
+## [lib/soda-release-build/src/production_assets.rs](../../../../../lib/soda-release-build/src/production_assets.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–167; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use std and attached body; lines 7–9: impl Production and attached body; lines 10–36: fn assets and attached body; lines 37–167: fn asset_steps and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0d1c0b41caeb"></a>
+
+## [lib/soda-release-build/src/production_compile.rs](../../../../../lib/soda-release-build/src/production_compile.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–137; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use serde and attached body; lines 7–7: use serde and attached body; lines 8–8: use std and attached body; lines 9–13: impl Production and attached body; lines 14–47: fn compile_rust and attached body; lines 48–67: fn compile and attached body; lines 68–84: fn require_pinned_bun and attached body; lines 85–102: fn dependencies and attached body; lines 103–108: struct PackageManifest and attached body; lines 109–109: fn deserialize and attached body; lines 110–111: struct V and attached body; lines 112–112: type Value and attached body; lines 113–115: fn expecting and attached body; lines 116–137: fn visit_map and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 16 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ec912acb4c19"></a>
+
+## [lib/soda-release-build/src/production_images.rs](../../../../../lib/soda-release-build/src/production_images.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–275; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use soda_build_tools and attached body; lines 10–10: use std and attached body; lines 11–13: use std and attached body; lines 14–14: type PullFn and attached body; lines 15–15: type BuildFn and attached body; lines 16–19: type ExportFn and attached body; lines 20–35: fn lexical_rel and attached body; lines 36–37: impl Production and attached body; lines 38–80: fn build_image and attached body; lines 81–112: fn export_image_archive and attached body; lines 113–130: fn resolve_rocky_base and attached body; lines 131–158: fn export_app_images and attached body; lines 159–173: fn export_forgejo_image and attached body; lines 174–182: fn export_proxy_image and attached body; lines 183–205: fn export_tailnet_image and attached body; lines 206–223: fn export_extension_image and attached body; lines 224–246: fn export_images and attached body; lines 247–275: macro_rules! exporting and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 23 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-03c616be8c09"></a>
+
+## [lib/soda-release-build/src/production_inputs.rs](../../../../../lib/soda-release-build/src/production_inputs.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–176; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use serde and attached body; lines 10–10: use soda_build_tools and attached body; lines 11–14: use std and attached body; lines 15–22: struct ResolvedInput and attached body; lines 23–30: fn parse_image_repo and attached body; lines 31–33: impl Production and attached body; lines 34–60: fn pull_frozen_image and attached body; lines 61–68: fn admit_resolved_input_record and attached body; lines 69–126: fn pull_resolved_input and attached body; lines 127–150: fn recipe_image_refs and attached body; lines 151–158: fn live_tailnet_inputs and attached body; lines 159–176: fn resolve_inputs and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f10ae67c9613"></a>
+
+## [lib/soda-release-build/src/tailnet_inputs.rs](../../../../../lib/soda-release-build/src/tailnet_inputs.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–234; lines 1–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use crate and attached body; lines 9–9: use crate and attached body; lines 10–10: use serde and attached body; lines 11–14: use serde and attached body; lines 15–17: fn resolve_tailnet_inputs and attached body; lines 18–42: fn resolve_tailnet_inputs_with and attached body; lines 43–74: fn latest_tailnet_release and attached body; lines 75–104: fn parse_tailnet_release_at and attached body; lines 105–109: fn latest_tailnet_release_with and attached body; lines 110–145: fn latest_tailnet_base_tag_with and attached body; lines 146–150: struct TagDocument and attached body; lines 151–151: fn deserialize and attached body; lines 152–153: struct DocVisitor and attached body; lines 154–154: type Value and attached body; lines 155–157: fn expecting and attached body; lines 158–181: fn visit_map and attached body; lines 182–187: struct TagRecord and attached body; lines 188–188: fn deserialize and attached body; lines 189–190: struct RecordVisitor and attached body; lines 191–191: type Value and attached body; lines 192–194: fn expecting and attached body; lines 195–217: fn visit_map and attached body; lines 218–218: mod tests and attached body; lines 219–221: use super and attached body; lines 222–234: fn oracle_tailnet_release_selection and attached body | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 28 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b5c8027c5016"></a>
+
+## [lib/soda-release-build/src/test_support.rs](../../../../../lib/soda-release-build/src/test_support.rs)
+
+Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–108; lines 1–4: use crate and attached body; lines 5–5: use crate and attached body; lines 6–6: use crate and attached body; lines 7–7: use crate and attached body; lines 8–8: use std and attached body; lines 9–13: const FIXTURE_REVISION and attached body; lines 14–73: fn fixture_oci_bytes and attached body; lines 74–108: fn fixture_live_inputs and attached body | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Declaration block for use crate in the current Rust source source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
+
+<a id="coverage-ea777fc0e833"></a>
+<a id="rustsoda-release-buildsrcjson_gors-1"></a>
+
+Former source `lib/soda-release-build/src/json_go.rs`; consult its pinned earlier Git source and the current coverage disposition.
 
 <a id="coverage-876126f7558f"></a>
-
 <a id="rustsoda-release-buildsrcprogressrs-1"></a>
 
-## [rust/soda-release-build/src/progress.rs](../../../../../rust/soda-release-build/src/progress.rs)
-
-> R02 RETIRED: RETIRED in C08 commit 3aaec1c8 (evidenced-dead build progress/clock mirror, D03-E4); no successor. Intervals below are audit history.
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 1–13 | Native fork/assets/images candidate production; declarations/fields: `BuildProgress`, `new_for_test`, `note_reason`, `emit`, `create_log`, `phase`, `end_phase`, `next`, `end`, `write_section_summary`, `finish`, `join_errors`, `join3`, `join_option`, `join_results`, `failed_text`, `duration`, `finish_kind`, `new_build_progress`, `build_exit_code`, `SharedBuffer`, `new`, `contents`, `text`, `write`, `flush`, `BuildExecution`, `default`, `go_toolchain_pin`, `PIN`, `resolve_build_tool`, `signal_name`, `spawn`, `command_failed`, `observation_failed`, `execute`, `capture`, `tests`, `progress_fixture`, `fake_clock`, `oracle_native_timing_owner`, `oracle_phase_clock_and_failed_output`, `oracle_note_reason_vectors`, `oracle_log_occupied_retained`, `oracle_child_shares_parent_total`, `oracle_cancellation_and_pinned_compiler` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 14 | Native fork/assets/images candidate production; declaration/member BuildProgress; declarations/fields: `BuildProgress` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 15 | Native fork/assets/images candidate production; declaration/member BuildProgress.title; declarations/fields: `BuildProgress.title` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 16 | Native fork/assets/images candidate production; declaration/member BuildProgress.label; declarations/fields: `BuildProgress.label` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 17 | Native fork/assets/images candidate production; declaration/member BuildProgress.path; declarations/fields: `BuildProgress.path` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 18 | Native fork/assets/images candidate production; declaration/member BuildProgress.origin; declarations/fields: `BuildProgress.origin` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 19–20 | Native fork/assets/images candidate production; declaration/member BuildProgress.started; declarations/fields: `BuildProgress.started` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 21 | Native fork/assets/images candidate production; declaration/member BuildProgress.now; declarations/fields: `BuildProgress.now` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 22 | Native fork/assets/images candidate production; declaration/member BuildProgress.stderr; declarations/fields: `BuildProgress.stderr` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 23 | Native fork/assets/images candidate production; declaration/member BuildProgress.finished; declarations/fields: `BuildProgress.finished` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 24 | Native fork/assets/images candidate production; declaration/member BuildProgress.phase; declarations/fields: `BuildProgress.phase` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 25 | Native fork/assets/images candidate production; declaration/member BuildProgress.phase_started; declarations/fields: `BuildProgress.phase_started` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 26–29 | Native fork/assets/images candidate production; declaration/member BuildProgress.reason; declarations/fields: `BuildProgress.reason` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 30–52 | Native fork/assets/images candidate production; declaration/member new_for_test; declarations/fields: `new_for_test` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 53–65 | Native fork/assets/images candidate production; declaration/member note_reason; declarations/fields: `note_reason` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 66–105 | Native fork/assets/images candidate production; declaration/member emit; declarations/fields: `emit` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 106–117 | Native fork/assets/images candidate production; declaration/member create_log; declarations/fields: `create_log` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 118–129 | Native fork/assets/images candidate production; declaration/member phase; declarations/fields: `phase` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 130–150 | Native fork/assets/images candidate production; declaration/member end_phase; declarations/fields: `end_phase` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 151–162 | Native fork/assets/images candidate production; declaration/member next; declarations/fields: `next` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 163–184 | Native fork/assets/images candidate production; declaration/member end; declarations/fields: `end` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 185–215 | Native fork/assets/images candidate production; declaration/member write_section_summary; declarations/fields: `write_section_summary` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 216–238 | Native fork/assets/images candidate production; declaration/member finish; declarations/fields: `finish` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 239–245 | Native fork/assets/images candidate production; declaration/member join_errors; declarations/fields: `join_errors` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 246–253 | Native fork/assets/images candidate production; declaration/member join3; declarations/fields: `join3` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 254–262 | Native fork/assets/images candidate production; declaration/member join_option; declarations/fields: `join_option` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 263–270 | Native fork/assets/images candidate production; declaration/member join_results; declarations/fields: `join_results` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 271–278 | Native fork/assets/images candidate production; declaration/member failed_text; declarations/fields: `failed_text` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 279–284 | Native fork/assets/images candidate production; declaration/member duration; declarations/fields: `duration` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 285–296 | Native fork/assets/images candidate production; declaration/member finish_kind; declarations/fields: `finish_kind` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 297–331 | Native fork/assets/images candidate production; declaration/member new_build_progress; declarations/fields: `new_build_progress` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 332–353 | Native fork/assets/images candidate production; declaration/member build_exit_code; declarations/fields: `build_exit_code` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 354 | Native fork/assets/images candidate production; declaration/member SharedBuffer; declarations/fields: `SharedBuffer` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 355–358 | Native fork/assets/images candidate production; declaration/member SharedBuffer.inner; declarations/fields: `SharedBuffer.inner` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 359–362 | Native fork/assets/images candidate production; declaration/member new; declarations/fields: `new` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 363–366 | Native fork/assets/images candidate production; declaration/member contents; declarations/fields: `contents` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 367–372 | Native fork/assets/images candidate production; declaration/member text; declarations/fields: `text` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 373–377 | Native fork/assets/images candidate production; declaration/member write; declarations/fields: `write` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 378–385 | Native fork/assets/images candidate production; declaration/member flush; declarations/fields: `flush` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 386 | Native fork/assets/images candidate production; declaration/member BuildExecution; declarations/fields: `BuildExecution` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 387 | Native fork/assets/images candidate production; declaration/member BuildExecution.cancelled; declarations/fields: `BuildExecution.cancelled` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 388 | Native fork/assets/images candidate production; declaration/member BuildExecution.log; declarations/fields: `BuildExecution.log` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 389–392 | Native fork/assets/images candidate production; declaration/member BuildExecution.output; declarations/fields: `BuildExecution.output` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 393–401 | Native fork/assets/images candidate production; declaration/member default; declarations/fields: `default` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 402–403 | Native fork/assets/images candidate production; declaration/member go_toolchain_pin; declarations/fields: `go_toolchain_pin` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 404–423 | Native fork/assets/images candidate production; declaration/member PIN; declarations/fields: `PIN` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 424–432 | Native fork/assets/images candidate production; declaration/member resolve_build_tool; declarations/fields: `resolve_build_tool` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 433–447 | Native fork/assets/images candidate production; declaration/member signal_name; declarations/fields: `signal_name` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 448–472 | Native fork/assets/images candidate production; declaration/member spawn; declarations/fields: `spawn` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 473–483 | Native fork/assets/images candidate production; declaration/member command_failed; declarations/fields: `command_failed` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 484–495 | Native fork/assets/images candidate production; declaration/member observation_failed; declarations/fields: `observation_failed` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 496–579 | Native fork/assets/images candidate production; declaration/member execute; declarations/fields: `execute` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 580–657 | Native fork/assets/images candidate production; declaration/member capture; declarations/fields: `capture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 658–663 | Native fork/assets/images candidate production; declaration/member tests; declarations/fields: `tests` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 664–688 | Native fork/assets/images candidate production; declaration/member progress_fixture; declarations/fields: `progress_fixture` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 689–694 | Native fork/assets/images candidate production; declaration/member fake_clock; declarations/fields: `fake_clock` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 695–740 | Native fork/assets/images candidate production; declaration/member oracle_native_timing_owner; declarations/fields: `oracle_native_timing_owner` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 741–768 | Native fork/assets/images candidate production; declaration/member oracle_phase_clock_and_failed_output; declarations/fields: `oracle_phase_clock_and_failed_output` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 769–804 | Native fork/assets/images candidate production; declaration/member oracle_note_reason_vectors; declarations/fields: `oracle_note_reason_vectors` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 805–815 | Native fork/assets/images candidate production; declaration/member oracle_log_occupied_retained; declarations/fields: `oracle_log_occupied_retained` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 816–834 | Native fork/assets/images candidate production; declaration/member oracle_child_shares_parent_total; declarations/fields: `oracle_child_shares_parent_total` |
-| [D03](../../slices/release-and-installation.md#d03-candidate-production) / active | 835–857 | Native fork/assets/images candidate production; declaration/member oracle_cancellation_and_pinned_compiler; declarations/fields: `oracle_cancellation_and_pinned_compiler` |
-
+Former source `rust/soda-release-build/src/progress.rs`; consult its pinned earlier Git source and the current coverage disposition.

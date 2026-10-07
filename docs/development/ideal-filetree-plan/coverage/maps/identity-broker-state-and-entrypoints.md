@@ -1,211 +1,164 @@
 # Identity broker state and entrypoints
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-R02 re-audit COMPLETE @HEAD: main.rs + schema.rs verified clean; store.rs split re-mapped (store + 6 store_* siblings). All rows machine-verified against current bytes.
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-f3d116baaaff"></a>
+
+## [cmd/soda-identity/Cargo.toml](../../../../../cmd/soda-identity/Cargo.toml)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–24; package, binary/library targets, and broker/provider dependencies | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Defines the identity broker package and its native service entrypoints and core broker dependencies. — current cmd/soda-identity/Cargo.toml package/target declarations and src/main.rs/lib.rs |
+| 25; AES-GCM encrypted credential custody dependency | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | Pins AES-GCM for encrypted identity credential custody. — current cmd/soda-identity/Cargo.toml; cmd/soda-identity/src/crypto.rs import |
+| 26, 28–31; Unix HTTP and Hyper server dependency declarations | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Pins the Unix HTTP, Hyper server, HTTP body, and Tokio runtime dependencies used by broker service lifetime and request serving. — current cmd/soda-identity/Cargo.toml; src/http.rs and lib/unix-http callers |
+| 27; native PostgreSQL client dependency | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Pins tokio-postgres for native storage connections and SQL parameter execution. — current cmd/soda-identity/Cargo.toml; src/store.rs and src/pg.rs imports |
+| 32–34; wire time and supporting representation dependencies | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Pins byte and time representation dependencies shared by broker wire decoding. — current cmd/soda-identity/Cargo.toml; src/wire_time.rs and lib/wire-time callers |
 
 <a id="coverage-9d94b3328ec0"></a>
+<a id="coverage-ec73f7e3f00f"></a>
 
 ## [cmd/soda-identity/src/main.rs](../../../../../cmd/soda-identity/src/main.rs)
 
-Re-audit @HEAD: every row verified declaration-by-declaration against current bytes; no drift.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–106 | Broker service settings and process startup; declarations/fields: `SETTINGS_FIELDS`, `PROVIDER_FIELDS`, `ProviderSettings`, `Settings`, `SHUTDOWN`, `handle_signal`, `main`, `run`, `parse_args` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 107–132 | Protected configuration input; declarations/fields: `load` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 133–197 | Distinct admin/runtime socket activation and listener admission; declarations/fields: `service_listeners`, `listen`, `activated_listeners` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 198–203 | Open shared broker PostgreSQL Store with protected configured DSN/key; declarations/fields: `open_store` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 204–244 | Broker key/DSN secret input and protected encryption custody; declarations/fields: `open_store`, `grant_key`, `secret` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 245–246, 278–282 | Broker assembly and provider/controller initialization; declarations/fields: `open_broker` |
-| [I07](../../slices/identity-brokering.md#i07-codex-adapter) / active | 247–262 | Construct configured Codex enrollment adapter and private native enrollment root; declarations/fields: `identity_providers::codex::Provider::new` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 263–277 | Construct configured Muse enrollment adapter and private native enrollment root; declarations/fields: `identity_providers::muse::Provider::new` |
-| [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / active | 283–318 | Protected directory creation; declarations/fields: `mkdir_all_mode` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 319–346, 349–358, 365–374 | Private server worker lifetime and periodic reconciliation; declarations/fields: `serve` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 347–348 | Schedule broker periodic exact lease reconciliation; declarations/fields: `broker.sweep` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 359–364 | Drive periodic lease retirement/reconciliation and preserve unconfirmed termination result; declarations/fields: `broker.sweep` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14; current module/import/attribute shell | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/main.rs into its current native target. — current source cmd/soda-identity/src/main.rs; Cargo target and callers |
+| 15–106, 133–197, 245–282, 319–378; declaration SETTINGS_FIELDS; declaration PROVIDER_FIELDS; declaration ProviderSettings; fields binary, version, sha256, root; declaration Settings; fields database_dsn_file, key_file, admin_socket, runtime_socket, host_socket, codex, muse; declaration SHUTDOWN; declaration handle_signal; declaration main; declaration run; declaration parse_args; declaration service_listeners; declaration listen; declaration activated_listeners; declaration open_broker; declaration serve | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | SETTINGS_FIELDS: implement the current Unix-socket service and process lifetime duty in main.rs.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 107–132, 283–318; declaration load; declaration mkdir_all_mode | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | load: implement the current configuration and safe filesystem primitives duty in main.rs.; mkdir_all_mode: implement the current configuration and safe filesystem primitives duty in main.rs. — current source cmd/soda-identity/src/main.rs; lines 107-132; module/caller wiring inspected; current source cmd/soda-identity/src/main.rs; lines 283-318; module/caller wiring inspected |
+| 198–244; declaration open_store; declaration grant_key; declaration secret | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | open_store: implement the current encrypted credential custody and cryptographic binding duty in main.rs.; grant_key: implement the current encrypted credential custody and cryptographic binding duty in main.rs.; secret: implement the current encrypted credential custody and cryptographic binding duty in main.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-00ed7b9f06a9"></a>
+<a id="coverage-392bddd5bae7"></a>
 
 ## [cmd/soda-identity/src/schema.rs](../../../../../cmd/soda-identity/src/schema.rs)
 
-Embedded generated compatibility copy names internal/store/schema.go as the source of truth; embedded drift test is structural source coverage, not native PostgreSQL execution. The users SQL lines mix native actor mirror id/login (G01) and local display-name preference name (G09); Project declaration mixes association/owner (P01), readiness/profile (P02) and LAN ip (N02). These are generated same-line schema references, not broker domain mutation ownership. Named generated SQL subunits on lines 11/13/149/151 share physical lines because the declaration/query is dense; symbols identify disjoint fields, not competing ownership of a field or duplicate production operations.
+Current copied SQL mirror; domain table/column declarations and domain-specific guard invocations follow their owning slices; generic trigger implementation and schema/version/admission verification shell remain H02.
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / generated | 1–8, 148, 183–229 | Embedded compatibility copy of the shared Go PostgreSQL schema; declarations/fields: `SCHEMA_VERSION`, `STATEMENTS`, `VERIFY_QUERIES`, `VERIFY_TRIGGERS`, `tests`, `go_literals`, `schema_matches_go_source` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / generated | 9 | Generated shared SQL declaration/constraint/query for schema_version; declarations/fields: `schema_version` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / generated | 10, 64–67 | Generated shared SQL schema/query compatibility mechanics; declarations/fields: `INSERT INTO schema_version`, `CREATE OR REPLACE FUNCTION soda_reject_immutable` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / generated | 11, 149 | Generated native user mirror fields users.id/users.login; browser actor identity reference, not Project native-account provisioning; declarations/fields: `users` |
-| [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) / generated | 11 | Generated users.name display-name preference field/default, separate from id/login on the same SQL line; declarations/fields: `users.name` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / generated | 12, 150 | Generated saved developer public-key fields keys.id/user_id/public/fingerprint and uniqueness constraint; declarations/fields: `keys` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / generated | 13 | Generated projects.ip native LAN observation field/default; separate from association and readiness on same SQL line; declarations/fields: `projects.ip` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / generated | 13, 125, 151 | Generated repository association fields projects.id/name/repository_id/owner_id/repository; additional readiness and LAN field seams listed separately; declarations/fields: `projects` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / generated | 13 | Generated projects.ready/creation_profile readiness and immutable profile fields/check; separate from repository association on same SQL line; declarations/fields: `projects.ready`, `projects.creation_profile`, `octet_length(creation_profile::text)<=1024` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / generated | 14, 152 | Generated shared SQL declaration/constraint/query for memberships; declarations/fields: `memberships` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / generated | 15, 153 | Generated shared SQL declaration/constraint/query for grant_key_check; declarations/fields: `grant_key_check` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / generated | 16–21, 158 | Generated shared SQL declaration/constraint/query for factory_runs; declarations/fields: `factory_runs` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / generated | 22–26, 159 | Generated shared SQL declaration/constraint/query for factory_commands; declarations/fields: `factory_commands` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / generated | 27, 160 | Generated shared SQL declaration/constraint/query for factory_policies; declarations/fields: `factory_policies` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / generated | 28, 161 | Generated shared SQL declaration/constraint/query for factory_capacity; declarations/fields: `factory_capacity` |
-| [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) / generated | 29, 162 | Generated shared SQL declaration/constraint/query for factory_operator_grants; declarations/fields: `factory_operator_grants` |
-| [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) / generated | 30, 163 | Generated shared SQL declaration/constraint/query for factory_sponsorships; declarations/fields: `factory_sponsorships` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / generated | 31, 164 | Generated shared SQL declaration/constraint/query for factory_dispatch; declarations/fields: `factory_dispatch` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / generated | 32–33, 128–129, 165 | Generated shared SQL declaration/constraint/query for factory_dispatch_regs; declarations/fields: `factory_dispatch_regs` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / generated | 34, 130–131, 169 | Generated shared SQL declaration/constraint/query for factory_takeovers; declarations/fields: `factory_takeovers` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / generated | 35, 132–133, 178 | Generated shared SQL declaration/constraint/query for factory_run_views; declarations/fields: `factory_run_views` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / generated | 36–37, 166 | Generated shared SQL declaration/constraint/query for factory_assignments; declarations/fields: `factory_assignments` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / generated | 38, 167 | Generated shared SQL declaration/constraint/query for factory_reservations; declarations/fields: `factory_reservations` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / generated | 39, 168 | Generated shared SQL declaration/constraint/query for factory_usage; declarations/fields: `factory_usage` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / generated | 40, 134–135, 170 | Generated shared SQL declaration/constraint/query for issue_acceptance_decisions; declarations/fields: `issue_acceptance_decisions` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / generated | 41, 171 | Generated shared SQL declaration/constraint/query for issue_acceptance_heads; declarations/fields: `issue_acceptance_heads` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / generated | 42, 136–137, 172 | Generated shared SQL declaration/constraint/query for issue_acceptance_withdrawals; declarations/fields: `issue_acceptance_withdrawals` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / generated | 43 | Generated shared SQL declaration/constraint/query for issue_controls; declarations/fields: `issue_controls` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / generated | 44 | Generated shared SQL declaration/constraint/query for intake_deliveries; declarations/fields: `intake_deliveries` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / generated | 45, 179 | Generated shared SQL declaration/constraint/query for factory_publications; declarations/fields: `factory_publications` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / generated | 46 | Generated shared SQL declaration/constraint/query for factory_check_assessments; declarations/fields: `factory_check_assessments` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / generated | 47, 180–182 | Generated shared SQL declaration/constraint/query for factory_merges; declarations/fields: `factory_merges` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / generated | 48 | Generated shared SQL declaration/constraint/query for factory_readiness_sweeps; declarations/fields: `factory_readiness_sweeps` |
-| [P10](../../slices/projects.md#p10-shared-tools-and-packages) / generated | 49, 173 | Generated shared SQL declaration/constraint/query for project_environment_grants; declarations/fields: `project_environment_grants` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / generated | 50, 138–139, 174 | Generated shared SQL declaration/constraint/query for project_requirement_decisions; declarations/fields: `project_requirement_decisions` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / generated | 51, 175 | Generated shared SQL declaration/constraint/query for project_requirement_heads; declarations/fields: `project_requirement_heads` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / generated | 52, 140–141, 176 | Generated shared SQL declaration/constraint/query for project_approval_decisions; declarations/fields: `project_approval_decisions` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / generated | 53, 177 | Generated shared SQL declaration/constraint/query for project_approval_heads; declarations/fields: `project_approval_heads` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / generated | 54 | Generated shared SQL declaration/constraint/query for identity_connections; declarations/fields: `identity_connections` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / generated | 55–56 | Generated shared SQL declaration/constraint/query for identity_grants; declarations/fields: `identity_grants` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / generated | 57 | Generated shared SQL declaration/constraint/query for identity_leases; declarations/fields: `identity_leases` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / generated | 58, 142–143 | Generated shared SQL declaration/constraint/query for identity_events; declarations/fields: `identity_events` |
-| [P05](../../slices/projects.md#p05-project-startstop) / generated | 59, 154 | Generated shared SQL declaration/constraint/query for project_lifecycle_grants; declarations/fields: `project_lifecycle_grants` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / generated | 60, 155 | Generated shared SQL declaration/constraint/query for project_maintenance; declarations/fields: `project_maintenance` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / generated | 61–62, 156 | Generated shared SQL declaration/constraint/query for project_preparations; declarations/fields: `project_preparations` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / generated | 63, 157 | Generated shared SQL declaration/constraint/query for identity_executions; declarations/fields: `identity_executions` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / generated | 68–74 | Generated immutable creation-profile SQL constraint; declarations/fields: `CREATE OR REPLACE FUNCTION soda_guard_creation_profile` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / generated | 75–92, 126 | Generated immutable factory run identity/final outcome SQL constraint; declarations/fields: `CREATE OR REPLACE FUNCTION soda_guard_run_binding`, `factory_runs` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / generated | 93–104, 127 | Generated immutable factory command receipt SQL constraint; declarations/fields: `CREATE OR REPLACE FUNCTION soda_guard_command`, `factory_commands` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / generated | 105–114, 144 | Generated immutable preparation decision-reference SQL constraint; declarations/fields: `CREATE OR REPLACE FUNCTION soda_guard_preparation_refs`, `project_preparations` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / generated | 115–124, 145–147 | Generated immutable execution fence identity/terminal SQL constraint; declarations/fields: `CREATE OR REPLACE FUNCTION soda_guard_execution_identity`, `identity_executions` |
-| [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) / generated | 149 | Generated schema verification query names users.name preference field alongside native actor mirror id/login; declarations/fields: `users.name` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / generated | 151 | Generated schema verification query names projects.ip native LAN observation field; declarations/fields: `projects.ip` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / generated | 151 | Generated schema verification query names projects.ready/creation_profile alongside association fields; declarations/fields: `projects.ready`, `projects.creation_profile` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–10, 21, 33, 37, 56, 62, 64–67, 146–148, 181–229; schema_version PostgreSQL table/query/trigger declaration; factory_unsettled_runs PostgreSQL table/query/trigger declaration; factory_dispatch_regs_repository PostgreSQL table/query/trigger declaration; factory_unfinished_assignment PostgreSQL table/query/trigger declaration; identity_grant_recipient PostgreSQL table/query/trigger declaration; project_preparations_project PostgreSQL table/query/trigger declaration; as PostgreSQL table/query/trigger declaration; schema constants, Rust array delimiters, drift extractor/test and module shell | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | schema_version PostgreSQL table/query/trigger declaration; 11 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 11, 149; users.id/login actor mirror | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | users.id/login actor mirror — current embedded SQL literal lines 11-11 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 149-149 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 11, 149; users.name display-name preference | [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) | retained | users.name display-name preference — current embedded SQL literal lines 11-11 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 149-149 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 12, 150; keys PostgreSQL table/query/trigger declaration | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | keys PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 12-12 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 150-150 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 13, 151; projects repository association and owner fields | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | projects repository association and owner fields — current embedded SQL literal lines 13-13 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 151-151 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 13, 68–74, 125, 151; projects readiness and creation_profile fields; function soda_guard_creation_profile; immutable_creation_profile domain immutability trigger | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | projects readiness and creation_profile fields; Reject changes to a project creation profile after creation; this is Project profile immutability policy.; immutable_creation_profile: enforce the owning domain slice’s immutable-state policy for its protected database row. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 13, 151; projects.ip LAN observation field | [N02](../../slices/networking.md#n02-project-lan-access) | retained | projects.ip LAN observation field — current embedded SQL literal lines 13-13 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 151-151 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 14, 152; memberships PostgreSQL table/query/trigger declaration | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | memberships PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 14-14 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 152-152 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 15, 54, 153; grant_key_check PostgreSQL table/query/trigger declaration; identity_connections PostgreSQL table/query/trigger declaration | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | grant_key_check PostgreSQL table/query/trigger declaration; identity_connections PostgreSQL table/query/trigger declaration — Current named units/source consumers; retained normalized source evidence records each selector |
+| 16–20, 22–26, 34, 75–104, 126–127, 130–131, 158–159, 169; factory_runs PostgreSQL table/query/trigger declaration; factory_commands PostgreSQL table/query/trigger declaration; factory_takeovers PostgreSQL table/query/trigger declaration; function soda_guard_run_binding; function soda_guard_command; factory_run_binding_immutable domain immutability trigger; factory_command_immutable domain immutability trigger; factory_takeover_immutable_update domain immutability trigger; factory_takeover_immutable_delete domain immutability trigger | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | factory_runs PostgreSQL table/query/trigger declaration; 12 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 27, 160; factory_policies PostgreSQL table/query/trigger declaration | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | factory_policies PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 27-27 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 160-160 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 28, 38–39, 161, 167–168; factory_capacity PostgreSQL table/query/trigger declaration; factory_reservations PostgreSQL table/query/trigger declaration; factory_usage PostgreSQL table/query/trigger declaration | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | factory_capacity PostgreSQL table/query/trigger declaration; factory_reservations PostgreSQL table/query/trigger declaration; factory_usage PostgreSQL table/query/trigger declaration — Current named units/source consumers; retained normalized source evidence records each selector |
+| 29, 162; factory_operator_grants PostgreSQL table/query/trigger declaration | [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) | retained | factory_operator_grants PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 29-29 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 162-162 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 30, 163; factory_sponsorships PostgreSQL table/query/trigger declaration | [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) | retained | factory_sponsorships PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 30-30 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 163-163 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 31–32, 36, 128–129, 164–166; factory_dispatch PostgreSQL table/query/trigger declaration; factory_dispatch_regs PostgreSQL table/query/trigger declaration; factory_assignments PostgreSQL table/query/trigger declaration; factory_dispatch_reg_immutable_update domain immutability trigger; factory_dispatch_reg_immutable_delete domain immutability trigger | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | factory_dispatch PostgreSQL table/query/trigger declaration; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 35, 132–133, 178; factory_run_views PostgreSQL table/query/trigger declaration; factory_run_view_immutable_update domain immutability trigger; factory_run_view_immutable_delete domain immutability trigger | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | factory_run_views PostgreSQL table/query/trigger declaration; factory_run_view_immutable_update: enforce the owning domain slice’s immutable-state policy for its protected database row.; factory_run_view_immutable_delete: enforce the owning domain slice’s immutable-state policy for its protected database row. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 40–42, 134–137, 170–172; issue_acceptance_decisions PostgreSQL table/query/trigger declaration; issue_acceptance_heads PostgreSQL table/query/trigger declaration; issue_acceptance_withdrawals PostgreSQL table/query/trigger declaration; issue_acceptance_decision_immutable_update domain immutability trigger; issue_acceptance_decision_immutable_delete domain immutability trigger; issue_acceptance_withdrawal_immutable_update domain immutability trigger; issue_acceptance_withdrawal_immutable_delete domain immutability trigger | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | issue_acceptance_decisions PostgreSQL table/query/trigger declaration; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 43–44, 48; issue_controls PostgreSQL table/query/trigger declaration; intake_deliveries PostgreSQL table/query/trigger declaration; factory_readiness_sweeps PostgreSQL table/query/trigger declaration | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | issue_controls PostgreSQL table/query/trigger declaration; intake_deliveries PostgreSQL table/query/trigger declaration; factory_readiness_sweeps PostgreSQL table/query/trigger declaration — Current named units/source consumers; retained normalized source evidence records each selector |
+| 45, 179; factory_publications PostgreSQL table/query/trigger declaration | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | factory_publications PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 45-45 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 179-179 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 46; factory_check_assessments PostgreSQL table/query/trigger declaration | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | factory_check_assessments PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 46-46 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 47, 180; factory_merges PostgreSQL table/query/trigger declaration | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | factory_merges PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 47-47 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 180-180 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 49, 173; project_environment_grants PostgreSQL table/query/trigger declaration | [P10](../../slices/projects.md#p10-shared-tools-and-packages) | retained | project_environment_grants PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 49-49 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 173-173 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 50–51, 138–139, 174–175; project_requirement_decisions PostgreSQL table/query/trigger declaration; project_requirement_heads PostgreSQL table/query/trigger declaration; project_requirement_decision_immutable_update domain immutability trigger; project_requirement_decision_immutable_delete domain immutability trigger | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | project_requirement_decisions PostgreSQL table/query/trigger declaration; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 52–53, 140–141, 176–177; project_approval_decisions PostgreSQL table/query/trigger declaration; project_approval_heads PostgreSQL table/query/trigger declaration; project_approval_decision_immutable_update domain immutability trigger; project_approval_decision_immutable_delete domain immutability trigger | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | project_approval_decisions PostgreSQL table/query/trigger declaration; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 55; identity_grants PostgreSQL table/query/trigger declaration | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | identity_grants PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 55-55 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 57, 63, 115–124, 145, 157; identity_leases PostgreSQL table/query/trigger declaration; identity_executions PostgreSQL table/query/trigger declaration; function soda_guard_execution_identity; identity_execution_immutable domain immutability trigger | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | identity_leases PostgreSQL table/query/trigger declaration; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 58, 142–143; identity_events PostgreSQL table/query/trigger declaration; identity_events_immutable_update domain immutability trigger; identity_events_immutable_delete domain immutability trigger | [I10](../../slices/identity-brokering.md#i10-identity-audit-history) | retained | identity_events PostgreSQL table/query/trigger declaration; identity_events_immutable_update: enforce the owning domain slice’s immutable-state policy for its protected database row.; identity_events_immutable_delete: enforce the owning domain slice’s immutable-state policy for its protected database row. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 59, 154; project_lifecycle_grants PostgreSQL table/query/trigger declaration | [P05](../../slices/projects.md#p05-project-startstop) | retained | project_lifecycle_grants PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 59-59 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 154-154 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 60, 155; project_maintenance PostgreSQL table/query/trigger declaration | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | project_maintenance PostgreSQL table/query/trigger declaration — current embedded SQL literal lines 60-60 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go; current embedded SQL literal lines 155-155 in cmd/soda-identity/src/schema.rs; Go source internal/store/schema.go |
+| 61, 105–114, 144, 156; project_preparations PostgreSQL table/query/trigger declaration; function soda_guard_preparation_refs; preparation_refs_immutable domain immutability trigger | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | project_preparations PostgreSQL table/query/trigger declaration; Keep a preparation record bound to its project, role, requirements, approval, and identifier.; preparation_refs_immutable: enforce the owning domain slice’s immutable-state policy for its protected database row. — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-984632265c1d"></a>
-
 <a id="rustsoda-identitysrcstorers-1"></a>
+<a id="coverage-b9f61164dac7"></a>
 
 ## [cmd/soda-identity/src/store.rs](../../../../../cmd/soda-identity/src/store.rs)
 
-Re-audit @HEAD: pre-A05/A06 `store.rs` split into `store.rs` + 6 `store_*` siblings; rows re-mapped declaration-by-declaration to current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–9 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `identity_binding`, `bind`, `Store`, `Store.client`, `Store.grants`, `Tx`, `Tx.store`, `open_encrypted`, `open`, `query`, `exec`, `query_row`, `simple`, `transaction`, `changed`, `Param`, `text`, `int`, `boolean`, `bytea`, `encode`, `tests`, `bind_rewrites_placeholders_outside_literals`, `bytea_params_use_hex_text_form` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 11–13 | Transactional PostgreSQL Store and shared schema admission; declaration/member identity_binding; declarations/fields: `identity_binding` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 17–47 | Transactional PostgreSQL Store and shared schema admission; declaration/member bind; declarations/fields: `bind` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 49–52 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store; declarations/fields: `Store` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 50 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store.client; declarations/fields: `Store.client` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 51 | Transactional PostgreSQL Store and shared schema admission; declaration/member Store.grants; declarations/fields: `Store.grants` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 54–56 | Transactional PostgreSQL Store and shared schema admission; declaration/member Tx; declarations/fields: `Tx` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 55 | Transactional PostgreSQL Store and shared schema admission; declaration/member Tx.store; declarations/fields: `Tx.store` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 59–62 | Transactional PostgreSQL Store and shared schema admission; declaration/member open_encrypted; declarations/fields: `open_encrypted` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 64–77 | Transactional PostgreSQL Store and shared schema admission; declaration/member open; declarations/fields: `open` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 79–83 | Transactional PostgreSQL Store and shared schema admission; declaration/member query; declarations/fields: `query` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 79–83 | Transaction query and shared schema mechanics; declaration/member query; declarations/fields: `query` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 85–87 | Transactional PostgreSQL Store and shared schema admission; declaration/member exec; declarations/fields: `exec` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 85–87 | Transaction query and shared schema mechanics; declaration/member exec; declarations/fields: `exec` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 89–92 | Transactional PostgreSQL Store and shared schema admission; declaration/member query_row; declarations/fields: `query_row` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 89–92 | Transaction query and shared schema mechanics; declaration/member query_row; declarations/fields: `query_row` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 94–96 | Transactional PostgreSQL Store and shared schema admission; declaration/member simple; declarations/fields: `simple` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 98 | Transactional PostgreSQL Store and shared schema admission; declaration/member transaction; declarations/fields: `transaction` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 134–139 | Connection change and lease audit event construction; declarations/fields: `changed` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 141–147 | PostgreSQL parameter formatting; declarations/fields: `Param` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 150–152 | PostgreSQL parameter formatting; declaration/member text; declarations/fields: `text` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 154–156 | PostgreSQL parameter formatting; declaration/member int; declarations/fields: `int` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 158–160 | PostgreSQL parameter formatting; declaration/member boolean; declarations/fields: `boolean` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 162–164 | PostgreSQL parameter formatting; declaration/member bytea; declarations/fields: `bytea` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 166–184 | PostgreSQL parameter formatting; declaration/member encode; declarations/fields: `encode` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 186–211 | SQL parameter/source assertions; declarations/fields: `tests` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 190–205 | SQL parameter/source assertions; declaration/member bind_rewrites_placeholders_outside_literals; declarations/fields: `bind_rewrites_placeholders_outside_literals` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 207–211 | SQL parameter/source assertions; declaration/member bytea_params_use_hex_text_form; declarations/fields: `bytea_params_use_hex_text_form` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14, 19–456; current module/import/attribute shell; declaration OPERATION_BUDGET; declaration CLEANUP_BUDGET; declaration Store; fields client, runtime, dsn, operation_budget, grants; declaration Tx; fields store, connection, deadline, failed; declaration open_encrypted; declaration open; declaration query; declaration exec; declaration query_row; declaration simple; declaration transaction; declaration begin_operation; declaration connect_if_needed; declaration discard; declaration set_operation_budget_for_test; declaration drop; declaration query_on; declaration exec_on; declaration run_simple; declaration encode_params; declaration param_refs; declaration changed; declaration Param; declaration text; declaration json; declaration int; declaration int64; declaration boolean; declaration bytea; declaration encode; declaration store_tests | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Imports and module declarations wire the current PostgreSQL Store, pg driver, query adapter, and storage tests.; 36 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 15–18; declaration identity_binding | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | Build the per-connection and generation associated-data identity consumed by credential encryption and lease storage. — current source cmd/soda-identity/src/store.rs; lines 15-18; module/caller wiring inspected |
+
+<a id="coverage-da1d1adb07f0"></a>
 
 ## [cmd/soda-identity/src/store_connections.rs](../../../../../cmd/soda-identity/src/store_connections.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–5 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `save_connection`, `connection`, `credential`, `connections`, `available`, `set_state` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 6–52 | Encrypted connection credential save/read; declarations/fields: `save_connection` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 54–60 | Connection metadata read; declarations/fields: `connection` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 62–71 | Protected credential read; declarations/fields: `credential` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 73–81 | Connection availability; declarations/fields: `connections` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 83–97 | Connection availability; declaration/member available; declarations/fields: `available` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 100–132 | Connection state/generation mutation; declarations/fields: `set_state` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–5, 62–72, 83–132; current module/import/attribute shell; declaration credential; declaration available; declaration set_state | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/store_connections.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 6–61, 73–82; declaration save_connection; declaration connection; declaration connections | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | save_connection: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in store_connections.rs.; connection: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in store_connections.rs.; connections: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in store_connections.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-25088ea64b41"></a>
 
 ## [cmd/soda-identity/src/store_events.rs](../../../../../cmd/soda-identity/src/store_events.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–5 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `events`, `append_event`, `lease_event` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / unknown | 6–23 | Bounded owner/connection immutable event read helper; runtime read exposure/retention unresolved; declarations/fields: `events` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 26–53 | Credential-free immutable event append inside domain transaction; declarations/fields: `append_event` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 55–70 | Connection change and lease audit event construction; declaration/member lease_event; declarations/fields: `lease_event` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–54; current module/import/attribute shell; declaration events; declaration append_event | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/store_events.rs into its current native target.; events: implement the current identity enrollment and owner consent duty in store_events.rs.; append_event: implement the current identity enrollment and owner consent duty in store_events.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 55–70; declaration lease_event | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | lease_event: implement the current execution admission and lease fencing duty in store_events.rs. — current source cmd/soda-identity/src/store_events.rs; lines 55-70; module/caller wiring inspected |
+
+<a id="coverage-edf2b06d895e"></a>
 
 ## [cmd/soda-identity/src/store_executions.rs](../../../../../cmd/soda-identity/src/store_executions.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–5 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `execution`, `admit_execution`, `observe_execution` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 8–14 | Execution fence read/admission; declarations/fields: `execution` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 19–39 | Execution fence read/admission; declaration/member admit_execution; declarations/fields: `admit_execution` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 44–62 | Terminal execution observation and forgotten lease reconciliation; declarations/fields: `observe_execution` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–7; current module/import/attribute shell | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/store_executions.rs into its current native target. — current source cmd/soda-identity/src/store_executions.rs; Cargo target and callers |
+| 8–62; declaration execution; declaration admit_execution; declaration observe_execution | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | execution: implement the current execution admission and lease fencing duty in store_executions.rs.; admit_execution: implement the current execution admission and lease fencing duty in store_executions.rs.; observe_execution: implement the current execution admission and lease fencing duty in store_executions.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-416300f46a68"></a>
 
 ## [cmd/soda-identity/src/store_grants.rs](../../../../../cmd/soda-identity/src/store_grants.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–5 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `save_grant`, `grant`, `grants_for`, `revoke_grant` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 6–36 | Grant save/read/revoke authority; declarations/fields: `save_grant` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 38–44 | Grant save/read/revoke authority; declaration/member grant; declarations/fields: `grant` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 46–54 | Grant save/read/revoke authority; declaration/member grants_for; declarations/fields: `grants_for` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 56–84 | Grant save/read/revoke authority; declaration/member revoke_grant; declarations/fields: `revoke_grant` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–84; current module/import/attribute shell; declaration save_grant; declaration grant; declaration grants_for; declaration revoke_grant | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/store_grants.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0ee4ad1de141"></a>
 
 ## [cmd/soda-identity/src/store_leases.rs](../../../../../cmd/soda-identity/src/store_leases.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–6 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `leases`, `lease`, `reserve`, `register`, `return_lease`, `forget_lease`, `maintain_credential` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 7–12 | Lease read/reserve and exact execution fences; declarations/fields: `leases` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 14–20 | Lease read/reserve and exact execution fences; declaration/member lease; declarations/fields: `lease` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 22–51 | Lease read/reserve and exact execution fences; declaration/member reserve; declarations/fields: `reserve` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 53–63 | Native binding registration persistence; declarations/fields: `register` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 66–79 | Lease return and credential maintenance; declarations/fields: `return_lease` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 81–92 | Terminal execution observation and forgotten lease reconciliation; declaration/member forget_lease; declarations/fields: `forget_lease` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 95 | Provider credential maintenance under current exact lease; declarations/fields: `maintain_credential` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–6, 22–52, 98–137; current module/import/attribute shell; declaration reserve; declaration maintain_credential | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/store_leases.rs into its current native target.; reserve: implement the current identity enrollment and owner consent duty in store_leases.rs.; maintain_credential: implement the current identity enrollment and owner consent duty in store_leases.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 7–21, 53–97; declaration leases; declaration lease; declaration register; declaration return_lease; declaration forget_lease | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | leases: implement the current execution admission and lease fencing duty in store_leases.rs.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-57fc1a9afdb9"></a>
 
 ## [cmd/soda-identity/src/store_schema.rs](../../../../../cmd/soda-identity/src/store_schema.rs)
 
-Re-audit @HEAD: split sibling; spans re-audited against current bytes.
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–7 | Transactional PostgreSQL Store and shared schema admission; declarations/fields: `check_grant_key`, `reject_unkeyed_identity_credentials`, `validate_grant_key`, `initialize_grant_key`, `initialize_schema`, `grants`, `load_schema_version`, `verify_required_columns`, `verify_trigger` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 8–21 | Grant encryption-key verification and custody init; declarations/fields: `check_grant_key` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 23–41 | Grant encryption-key verification and custody init; declaration/member reject_unkeyed_identity_credentials; declarations/fields: `reject_unkeyed_identity_credentials` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 43–54 | Grant encryption-key verification and custody init; declaration/member validate_grant_key; declarations/fields: `validate_grant_key` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 56–66 | Grant encryption-key verification and custody init; declaration/member initialize_grant_key; declarations/fields: `initialize_grant_key` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 68–89 | Shared schema version admission; declarations/fields: `initialize_schema` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 91–96 | Delegation value validation; declarations/fields: `grants` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 99–130 | Transaction query and shared schema mechanics; declaration/member load_schema_version; declarations/fields: `load_schema_version` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 132–138 | Transaction query and shared schema mechanics; declaration/member verify_required_columns; declarations/fields: `verify_required_columns` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 140–150 | Transaction query and shared schema mechanics; declaration/member verify_trigger; declarations/fields: `verify_trigger` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–146; current module/import/attribute shell; declaration check_grant_key; declaration reject_unkeyed_identity_credentials; declaration validate_grant_key; declaration initialize_grant_key; declaration initialize_schema; declaration grants; declaration load_schema_version; declaration verify_required_columns; declaration verify_trigger | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Imports and module declarations wire cmd/soda-identity/src/store_schema.rs into its current native target.; 10 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-71e51d5957cb"></a>
+
+## [cmd/soda-identity/src/store_tests.rs](../../../../../cmd/soda-identity/src/store_tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–2; current module/import/attribute shell | [I01](../../slices/identity-brokering.md#i01-enrollment-and-owner-consent) | retained | Imports and module declarations wire cmd/soda-identity/src/store_tests.rs into its current native target. — current source cmd/soda-identity/src/store_tests.rs; Cargo target and callers |
+| 3–13; declaration parameters_keep_postgres_value_types | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | parameters_keep_postgres_value_types: implement the current native PostgreSQL query, transaction, schema, and parameter handling duty in store_tests.rs. — current source cmd/soda-identity/src/store_tests.rs; lines 3-13; module/caller wiring inspected |

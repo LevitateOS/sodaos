@@ -1,469 +1,614 @@
 # Backend store
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-fa3146f813f8"></a>
+
+## [internal/store/corruption.go](../../../../../internal/store/corruption.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17; file scaffold | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 18–45; InjectCorruptFactoryRun; DropFactoryRunViews | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: InjectCorruptFactoryRun; Current declaration duty: DropFactoryRunViews — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-01de9d0ef58e"></a>
+
+## [internal/store/ephemeral.go](../../../../../internal/store/ephemeral.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–104; file scaffold; TestFixtureDSN; OpenEphemeral; createEphemeralDatabase; ephemeralName | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-28fa99a4c0e2"></a>
+
+## [internal/store/factory.go](../../../../../internal/store/factory.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–181; file scaffold; RecordFactoryRun; FactoryRun; SaveFactoryRun; FactoryRuns; RecordFactoryCommand; FactoryCommand; UnfinishedCommands; FinishFactoryCommand | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-f8171fb08abf"></a>
-
 <a id="internalstorefactory_assignmentsgo-1"></a>
 
 ## [internal/store/factory_assignments.go](../../../../../internal/store/factory_assignments.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–15 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 16–21 | Declared identifiers/bounds ErrAssignmentActive for Assignment and dispatch; declarations/fields: `ErrAssignmentActive` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 22–32 | Declared identifiers/bounds (declaration group) for Assignment and dispatch; declarations/fields: `(declaration group)` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 33–35 | Declared identifiers/bounds MaxQueuedDispatch for Assignment and dispatch; declarations/fields: `MaxQueuedDispatch` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 36–50, 486–504 | Atomic capacity, planned reservation and charged usage enforcement; declarations/fields: `storeAssignedLimit`, `Store.ActiveRunCounts` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 51–129 | Store.RecordDispatchPacket — Assignment and dispatch; declarations/fields: `Store.RecordDispatchPacket` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 130–209 | Atomic held capacity/repository/connection/planned-versus-confirmed usage enforcement; reads independently owned policy/operator/sponsorship limits; declarations/fields: `checkAdmissionTx` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 210 | checkAdmissionTx — Assignment and dispatch; declarations/fields: `checkAdmissionTx` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 211–224 | admissionChanged — Assignment and dispatch; declarations/fields: `admissionChanged` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 225–231 | cappedCountTx — Assignment and dispatch; declarations/fields: `cappedCountTx` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 232–243 | dispatchPacketError — Assignment and dispatch; declarations/fields: `dispatchPacketError` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 244–255 | Store.Assignment — Assignment and dispatch; declarations/fields: `Store.Assignment` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 256–267 | Store.AssignmentByRun — Assignment and dispatch; declarations/fields: `Store.AssignmentByRun` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 268–297 | Store.IssueAssignments — Assignment and dispatch; declarations/fields: `Store.IssueAssignments` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 298–400 | Store.RecordRetryPacket — Assignment and dispatch; declarations/fields: `Store.RecordRetryPacket` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 401–429 | Store.FinishAssignment — Assignment and dispatch; declarations/fields: `Store.FinishAssignment` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 430–456 | Store.AssignedAssignments — Assignment and dispatch; declarations/fields: `Store.AssignedAssignments` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 457–485 | Oldest-first issue dispatch queue selection; declarations/fields: `Store.QueuedControls` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–11, 15–115; file scaffold; Assignment; AssignmentByRun; IssueAssignments; FinishAssignment; AssignedAssignments | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 12–14; storeAssignedLimit | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current declaration duty: storeAssignedLimit — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-082686001ffc"></a>
+
+## [internal/store/factory_checks.go](../../../../../internal/store/factory_checks.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–52; file scaffold; RecordCheckAssessment; CheckAssessment | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; Current declaration duty: RecordCheckAssessment; Current declaration duty: CheckAssessment — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-4e45ba771259"></a>
+
+## [internal/store/factory_checks_test.go](../../../../../internal/store/factory_checks_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 39–92; file scaffold; TestRecordCheckAssessmentRoundTrip; TestRecordCheckAssessmentRejectsMalformed | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestRecordCheckAssessmentRoundTrip; Current declaration duty: TestRecordCheckAssessmentRejectsMalformed — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 13–38; checkAssessmentFixture | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current declaration duty: checkAssessmentFixture — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-59e7c8af2798"></a>
+
+## [internal/store/factory_dispatch_packet.go](../../../../../internal/store/factory_dispatch_packet.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–123, 205–236; file scaffold; ErrAssignmentActive; RecordDispatchPacket; admissionChanged; cappedCountTx; dispatchPacketError | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 124–204; checkAdmissionTx | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: checkAdmissionTx — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-4c931bde530b"></a>
+
+## [internal/store/factory_dispatch_queue.go](../../../../../internal/store/factory_dispatch_queue.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–66; file scaffold; MaxQueuedDispatch; QueuedControls; ActiveRunCounts | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-224426eeb0d0"></a>
+
+## [internal/store/factory_dispatch_queue_test.go](../../../../../internal/store/factory_dispatch_queue_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–57, 88–168; file scaffold; TestReservationTransitions; queuedTestControl; TestQueuedControlsOldestFirst; TestActiveRunCountsSkipAttributed | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 58–87; TestRunUsageFirstWriteWins | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: TestRunUsageFirstWriteWins — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-18dff481a157"></a>
-
 <a id="internalstorefactory_dispatch_testgo-1"></a>
 
 ## [internal/store/factory_dispatch_test.go](../../../../../internal/store/factory_dispatch_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 1–15 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 16–25 | Fixture/protocol support dispatchStoreFixture; declarations/fields: `dispatchStoreFixture` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 26–42, 203–378, 439–459 | Atomic admission, reservation transitions and confirmed accounting assertions; declarations/fields: `seedDispatchLimits`, `TestRecordDispatchPacketEnforcesLimits`, `TestRecordRetryPacketReholdsAndRefusesLimits`, `TestReservationTransitions`, `TestRunUsageFirstWriteWins`, `TestActiveRunCountsSkipAttributed` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 43–46 | Fixture/protocol support dispatchTestRegistration; declarations/fields: `dispatchTestRegistration` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 47–62 | Fixture/protocol support dispatchTestPrompt; declarations/fields: `dispatchTestPrompt` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 63–87 | Fixture/protocol support dispatchTestPacket; declarations/fields: `dispatchTestPacket` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 88–122 | Assertions TestRecordDispatchPacket: packet refused: %v; declarations/fields: `TestRecordDispatchPacket` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 123–126 | Fixture/protocol support isAssignmentActive; declarations/fields: `isAssignmentActive` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 127–137 | Fixture/protocol support retryTestRun; declarations/fields: `retryTestRun` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 138–202 | Assertions TestRecordRetryPacketBoundsAttemptsAndFinishes: attempt not recorded: %+v %v; declarations/fields: `TestRecordRetryPacketBoundsAttemptsAndFinishes` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 379–394 | Fixture/protocol support queuedTestControl; declarations/fields: `queuedTestControl` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 395–438 | Assertions TestQueuedControlsOldestFirst: queued count = %d; declarations/fields: `TestQueuedControlsOldestFirst` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–25, 43–126; file scaffold; dispatchStoreFixture; dispatchTestRegistration; dispatchTestPrompt; dispatchTestPacket; TestRecordDispatchPacket; isAssignmentActive | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 26–42, 127–181; seedDispatchLimits; TestRecordDispatchPacketEnforcesLimits | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current declaration duty: seedDispatchLimits; Current declaration duty: TestRecordDispatchPacketEnforcesLimits — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-f41e1a04a434"></a>
 
 ## [internal/store/factory_grants.go](../../../../../internal/store/factory_grants.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 1–13 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 14–17 | Declared identifiers/bounds ErrStaleRevision for Repository factory policy; declarations/fields: `ErrStaleRevision` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 18–20 | Declared identifiers/bounds ErrDispatchClosed for Repository factory policy; declarations/fields: `ErrDispatchClosed` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 21–24 | Declared identifiers/bounds ErrDispatchConflict for Repository factory policy; declarations/fields: `ErrDispatchConflict` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 25–55 | Generic revisioned JSONB row/CAS mechanics, semantic wrappers retain authority; declarations/fields: `Store.saveRevisionedGrant`, `Store.loadGrant` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 56–65 | Store.SaveRepositoryPolicy — Repository factory policy; declarations/fields: `Store.SaveRepositoryPolicy` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 66–71 | Store.RepositoryPolicy — Repository factory policy; declarations/fields: `Store.RepositoryPolicy` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 72–87 | Capacity record persistence; declarations/fields: `Store.SaveCapacity`, `Store.Capacity` |
-| [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) / active | 88–103 | Operator execution grant persistence; declarations/fields: `Store.SaveOperatorGrant`, `Store.OperatorGrant` |
-| [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) / active | 104–164 | Connection sponsorship persistence; declarations/fields: `Store.SaveSponsorship`, `Store.Sponsorship`, `Store.Sponsorships` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 165–182, 247–321 | Dispatch gate withdrawal/reopening persistence; declarations/fields: `Store.DispatchState`, `Store.WithdrawDispatch`, `Store.ReopenDispatch` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 183–246 | Immutable dispatch registration persistence; declarations/fields: `Store.RegisterDispatch`, `registerDispatchTx` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14; file scaffold | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 15–25, 57–72; ErrStaleRevision; ErrDispatchClosed; ErrDispatchConflict; SaveRepositoryPolicy; RepositoryPolicy | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Current declaration duty: ErrStaleRevision; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 26–56; saveRevisionedGrant; loadGrant | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current declaration duty: saveRevisionedGrant; Current declaration duty: loadGrant — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 73–88; SaveCapacity; Capacity | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current declaration duty: SaveCapacity; Current declaration duty: Capacity — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 89–104; SaveOperatorGrant; OperatorGrant | [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) | retained | Current declaration duty: SaveOperatorGrant; Current declaration duty: OperatorGrant — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 105–165; SaveSponsorship; Sponsorship; Sponsorships | [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) | retained | Current declaration duty: SaveSponsorship; Current declaration duty: Sponsorship; Current declaration duty: Sponsorships — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 166–183, 248–322; DispatchState; WithdrawDispatch; ReopenDispatch | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current declaration duty: DispatchState; Current declaration duty: WithdrawDispatch; Current declaration duty: ReopenDispatch — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 184–247; RegisterDispatch; registerDispatchTx | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: RegisterDispatch; Current declaration duty: registerDispatchTx — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-1998756bdb5e"></a>
 
 ## [internal/store/factory_grants_test.go](../../../../../internal/store/factory_grants_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 1–12 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 13–14 | Fixture/protocol support grantTestTime; declarations/fields: `grantTestTime` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 15–20 | Fixture/protocol support grantStoreFixture; declarations/fields: `grantStoreFixture` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 21–38 | Fixture/protocol support grantTestPolicy; declarations/fields: `grantTestPolicy` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 39–62 | Assertions TestPolicySaveIsCAS: policy: %+v %v; declarations/fields: `TestPolicySaveIsCAS` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 63–74 | Separate capacity/operator execution records assertions partitioned below; declarations/fields: `TestCapacityAndOperatorGrant` |
-| [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) / active | 75–84 | Operator execution grant revision assertions inside capacity/grant test; declarations/fields: `TestCapacityAndOperatorGrant` |
-| [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) / active | 85–108 | Connection sponsorship revision/visibility persistence assertions; declarations/fields: `TestSponsorships` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 109–177 | Withdrawal ordering and immutable command replay assertions; declarations/fields: `TestDispatchWithdrawalOrdering`, `TestSettingsCommandReplay` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–62; whole file; grantTestTime; grantStoreFixture; grantTestPolicy; TestPolicySaveIsCAS | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 5 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 63–74; TestCapacityAndOperatorGrant | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Separate capacity/operator execution records assertions partitioned below; declarations/fields: `TestCapacityAndOperatorGrant` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 75–84; TestCapacityAndOperatorGrant | [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) | retained | Operator execution grant revision assertions inside capacity/grant test; declarations/fields: `TestCapacityAndOperatorGrant` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 85–108; TestSponsorships | [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) | retained | Connection sponsorship revision/visibility persistence assertions; declarations/fields: `TestSponsorships` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 109–177; TestDispatchWithdrawalOrdering, TestSettingsCommandReplay | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Withdrawal ordering and immutable command replay assertions; declarations/fields: `TestDispatchWithdrawalOrdering`, `TestSettingsCommandReplay` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-957843a7f1f0"></a>
 
 ## [internal/store/factory_inventory.go](../../../../../internal/store/factory_inventory.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1–19 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 20–46 | Store.FactoryUnsettledRuns — Run lifecycle and intervention; declarations/fields: `Store.FactoryUnsettledRuns` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 47–74 | Store.ProjectFactoryRuns — Run lifecycle and intervention; declarations/fields: `Store.ProjectFactoryRuns` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 75–103 | Store.ProjectUnsettledRuns — Run lifecycle and intervention; declarations/fields: `Store.ProjectUnsettledRuns` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 104–138 | Association pagination for authorized Spaces inventory; declarations/fields: `Store.SpaceProjectsAfter` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 139–174 | Stable dispatch queue continuation; declarations/fields: `Store.QueuedControlsAfter` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–19, 139–174; file scaffold; QueuedControlsAfter | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; Current declaration duty: QueuedControlsAfter — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 20–103; FactoryUnsettledRuns; ProjectFactoryRuns; ProjectUnsettledRuns | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current declaration duty: FactoryUnsettledRuns; Current declaration duty: ProjectFactoryRuns; Current declaration duty: ProjectUnsettledRuns — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 104–138; SpaceProjectsAfter | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Current declaration duty: SpaceProjectsAfter — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-27fd6cbe7d53"></a>
 
 ## [internal/store/factory_inventory_test.go](../../../../../internal/store/factory_inventory_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1–11 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 12–17 | Fixture/protocol support inventoryFixture; declarations/fields: `inventoryFixture` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 18–23 | Fixture/protocol support inventoryRun; declarations/fields: `inventoryRun` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 24–37 | Fixture/protocol support recordInventoryRun; declarations/fields: `recordInventoryRun` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 38–56 | Assertions TestFactoryUnsettledRunsSkipsSettledHistory: unsettled listing missed live work: %d runs %v; declarations/fields: `TestFactoryUnsettledRunsSkipsSettledHistory` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 57–79 | Assertions TestProjectRunListsScopeToProject: project history wrong: %d runs %v; declarations/fields: `TestProjectRunListsScopeToProject` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 80–109 | Association pagination assertions; declarations/fields: `TestSpaceProjectsAfterPages` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 110–133 | Dispatch queue continuation assertions; declarations/fields: `TestQueuedControlsAfterContinues` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–79; whole file; inventoryFixture; inventoryRun; recordInventoryRun; TestFactoryUnsettledRunsSkipsSettledHistory; TestProjectRunListsScopeToProject | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 6 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 80–109; TestSpaceProjectsAfterPages | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Association pagination assertions; declarations/fields: `TestSpaceProjectsAfterPages` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 110–133; TestQueuedControlsAfterContinues | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Dispatch queue continuation assertions; declarations/fields: `TestQueuedControlsAfterContinues` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-713894fb4d96"></a>
+
+## [internal/store/factory_lifecycle.go](../../../../../internal/store/factory_lifecycle.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–13, 19–58; file scaffold; RecordTakeover; Takeover | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; Current declaration duty: RecordTakeover; Current declaration duty: Takeover — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 14–18; ErrTakeoverConflict | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: ErrTakeoverConflict — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-9ea27a6ad525"></a>
+
+## [internal/store/factory_lifecycle_test.go](../../../../../internal/store/factory_lifecycle_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–70; file scaffold; takeoverStore; takeoverFixture; TestTakeoverRecordReplays; TestTakeoverUnknownIsNotFound; TestTakeoverRecordValidates | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-bcb338cb890a"></a>
+
+## [internal/store/factory_merges.go](../../../../../internal/store/factory_merges.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 16–18, 24–42, 145–235, 265–286; file scaffold; storeMergeableLimit; RecordMerge; mergeRebaseAllowed; mergeOperationUpdateAllowed; OutstandingMerges; OpenMerges; MergeForIssue; IssueMergeCompletion | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 13–15, 19–23, 43–120, 236–264; storeMergeLimit; ErrMergeConflict; MergeByPublication; UpdateMerge; MergeablePublications | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current declaration duty: storeMergeLimit; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 121–144; mergeUpdateAllowed | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: mergeUpdateAllowed — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-cb38cac4b7e9"></a>
+
+## [internal/store/factory_merges_test.go](../../../../../internal/store/factory_merges_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 39–49; file scaffold; mergeTestIntent | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; Current declaration duty: mergeTestIntent — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 13–38, 72–122; mergeTestRecord; seedMergeAssignment; TestUpdateMergeRegistersOnce; TestUpdateMergeGateRefusesWithdrawnDispatch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: mergeTestRecord; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 50–71, 123–152; TestRecordMergeRoundTrip; TestMergeListings | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current declaration duty: TestRecordMergeRoundTrip; Current declaration duty: TestMergeListings — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-62af5f6eb272"></a>
+
+## [internal/store/factory_publication_intent_test.go](../../../../../internal/store/factory_publication_intent_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–11, 125–190; file scaffold; TestPublicationRegistrationRejectsAuthorityChangesAfterPreflight | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestPublicationRegistrationRejectsAuthorityChangesAfterPreflight — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 12–124; TestPublicationRegistrationPersistsImmutableIntent; TestWithdrawalOrdersPublicationRegistrationAndKeepsReconciliation; TestPublicationReceiptAndTerminalOutcomeCannotBeReplaced | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: TestPublicationRegistrationPersistsImmutableIntent; Current declaration duty: TestWithdrawalOrdersPublicationRegistrationAndKeepsReconciliation; Current declaration duty: TestPublicationReceiptAndTerminalOutcomeCannotBeReplaced — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-0d33802d4366"></a>
+
+## [internal/store/factory_publications.go](../../../../../internal/store/factory_publications.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 16–18, 24–42, 155–233; file scaffold; storePublishableLimit; RecordPublication; publicationOperationUpdateAllowed; OutstandingPublications; OpenPublications | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 13–15, 19–23, 43–154, 234–263; storePublicationLimit; ErrPublicationConflict; PublicationByAssignment; UpdatePublication; publicationUpdateAllowed; PublishableAssignments | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: storePublicationLimit; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-98fd029563b9"></a>
-
 <a id="internalstorefactory_publications_testgo-1"></a>
 
 ## [internal/store/factory_publications_test.go](../../../../../internal/store/factory_publications_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 1–13 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 14–48 | Fixture/protocol support publicationStoreFixture; declarations/fields: `publicationStoreFixture` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 49–70 | Fixture/protocol support publicationTestRecord; declarations/fields: `publicationTestRecord` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 71–92 | Assertions TestRecordPublicationRoundTrip: record: %v; declarations/fields: `TestRecordPublicationRoundTrip` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 93–125 | Assertions TestUpdatePublicationComparesAndSwaps: record: %v; declarations/fields: `TestUpdatePublicationComparesAndSwaps` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 126–140 | Fixture/protocol support finishedPublishableAssignment; declarations/fields: `finishedPublishableAssignment` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 141–164 | Fixture/protocol support recordFinishedAssignment; declarations/fields: `recordFinishedAssignment` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 165–193 | Assertions TestPublishableAssignmentsSelectsReportedCompleted: list: %v; declarations/fields: `TestPublishableAssignmentsSelectsReportedCompleted` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 194–235 | Assertions TestOutstandingPublicationsListsOpenAndFenced: record open: %v; declarations/fields: `TestOutstandingPublicationsListsOpenAndFenced` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 236–243 | Fixture/protocol support publicationStoreIntent; declarations/fields: `publicationStoreIntent` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 244–293 | Assertions TestPublicationRegistrationPersistsImmutableIntent: immutable change: %v; declarations/fields: `TestPublicationRegistrationPersistsImmutableIntent` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 294–334 | Assertions TestWithdrawalOrdersPublicationRegistrationAndKeepsReconciliation: reconcile after withdrawal: %v; declarations/fields: `TestWithdrawalOrdersPublicationRegistrationAndKeepsReconciliation` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 335–356 | Assertions TestPublicationReceiptAndTerminalOutcomeCannotBeReplaced: old verdict moved to new identity: %v; declarations/fields: `TestPublicationReceiptAndTerminalOutcomeCannotBeReplaced` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 357–369 | Fixture/protocol support seedPublicationAssignment; declarations/fields: `seedPublicationAssignment` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 370–435 | Assertions TestPublicationRegistrationRejectsAuthorityChangesAfterPreflight: operation escaped changed authority: %v; declarations/fields: `TestPublicationRegistrationRejectsAuthorityChangesAfterPreflight` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–254; file scaffold; publicationStoreFixture; publicationTestRecord; TestRecordPublicationRoundTrip; TestUpdatePublicationComparesAndSwaps; finishedPublishableAssignment; recordFinishedAssignment; TestPublishableAssignmentsSelectsReportedCompleted; TestOutstandingPublicationsListsOpenAndFenced; publicationStoreIntent; seedPublicationAssignment | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 11 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
-<a id="coverage-698246430cc4"></a>
+<a id="coverage-8b646d5da10a"></a>
 
-## [internal/store/identity.go](../../../../../internal/store/identity.go)
+## [internal/store/factory_reservations.go](../../../../../internal/store/factory_reservations.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 1–10 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 11–33 | Encrypted identity connection credential persistence used by current compatibility/qualification fixtures; declarations/fields: `identityBinding`, `Store.IdentitySaveConnection` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 34–65 | Shared-schema identity metadata reads and fixture delegation writes; declarations/fields: `Store.IdentityConnection`, `Store.IdentitySaveGrant`, `Store.IdentityGrant` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–12, 16–143; file scaffold; Reservation; HeldReservations; transitionReservation; ConsumeReservation; ReleaseReservation; ReholdReservation; RecordRunUsage; RunUsage | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 13–15, 144–149; MaxHeldReservations; UsageTotal | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: MaxHeldReservations; Current declaration duty: UsageTotal — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
-<a id="coverage-fc987cc9b8c7"></a>
+<a id="coverage-a7c97b7afae2"></a>
 
-## [internal/store/identity_events.go](../../../../../internal/store/identity_events.go)
+## [internal/store/factory_retry_packet.go](../../../../../internal/store/factory_retry_packet.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Go append is reached through fixture identity writers; native Rust broker appends audit transactionally. No current browser/HTTP audit-read feature is demonstrated.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 1–10 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 11–22 | Atomic domain write+audit transaction mechanics; declarations/fields: `Store.identityAtomic` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 23–43 | appendIdentityEvent — Identity audit history; declarations/fields: `appendIdentityEvent` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–118; file scaffold; RecordRetryPacket | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; Current declaration duty: RecordRetryPacket — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-17bbf6ce34a1"></a>
+
+## [internal/store/factory_retry_packet_test.go](../../../../../internal/store/factory_retry_packet_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–131; file scaffold; retryTestRun; TestRecordRetryPacketBoundsAttemptsAndFinishes; TestRecordRetryPacketReholdsAndRefusesLimits | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-e2d89894d729"></a>
+
+## [internal/store/factory_review_role_test.go](../../../../../internal/store/factory_review_role_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–11; file scaffold | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 12–35; TestST10PublishableAssignmentsExcludeReviewer | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: TestST10PublishableAssignmentsExcludeReviewer — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-65b68647f1f5"></a>
+
+## [internal/store/factory_test.go](../../../../../internal/store/factory_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–23, 60–83; file scaffold; factoryFixture; factoryRun; TestFactoryRunsListNewestFirst | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 24–59, 84–111; TestFactoryRunIdentityOnlyAdvances; TestFactoryCommandIdentityConflictsOnChangedPayload | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: TestFactoryRunIdentityOnlyAdvances; Current declaration duty: TestFactoryCommandIdentityConflictsOnChangedPayload — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-ac52ec4ff146"></a>
+
+## [internal/store/factory_views.go](../../../../../internal/store/factory_views.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–11, 17–73; file scaffold; RecordFactoryRunView; FactoryRunView; FactoryRunViews | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 12–16; ErrRunViewConflict | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: ErrRunViewConflict — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-9d3d2af8b0b0"></a>
+
+## [internal/store/factory_views_test.go](../../../../../internal/store/factory_views_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–76; file scaffold; TestFactoryRunViewRecordReplays; TestFactoryRunViewRequiresItsRun; TestFactoryRunViewsListNewestFirst | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-c4a690b69098"></a>
+
+## [internal/store/grants.go](../../../../../internal/store/grants.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–102; file scaffold; ErrGrantKey; grantCipher; newGrantCipher; seal; open; keyBinding; checkGrantKey; rejectUnkeyedIdentityCredentials; validateGrantKey; initializeGrantKey | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current scaffold duty: file scaffold; 11 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-e51b4b0cbb6f"></a>
+
+## [internal/store/grants_test.go](../../../../../internal/store/grants_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–57; file scaffold; TestIdentityEncryptionKeyMustSurviveRestart | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestIdentityEncryptionKeyMustSurviveRestart — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-c225f2b12d4f"></a>
+
+## [internal/store/identity_fixture.go](../../../../../internal/store/identity_fixture.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–105; file scaffold; seedIdentityInsert; SeedIdentityConnection; SeedIdentityGrant; identityBinding; identityAtomic; appendIdentityEvent | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-322a6adfc409"></a>
 
 ## [internal/store/identity_test.go](../../../../../internal/store/identity_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 1–10 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 11–50 | Credential custody validation/round-trip fixture assertions; declarations/fields: `TestIdentityConnectionRoundTripAndValidation` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 51–67 | Assertions TestIdentityGrantRoundTrip: saved grant unreadable; declarations/fields: `TestIdentityGrantRoundTrip` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 68–113 | Append-only credential-free audit/rollback assertions; declarations/fields: `TestIdentityAuditTrailIsImmutableAndCredentialFree`, `TestIdentityAuditFailureRollsBackSave` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–11, 60–83; file scaffold; TestIdentityGrantRoundTrip | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestIdentityGrantRoundTrip — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 12–59; TestIdentityConnectionRoundTripAndValidation | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | Current declaration duty: TestIdentityConnectionRoundTripAndValidation — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 84–130; TestIdentityAuditTrailIsImmutableAndCredentialFree; TestIdentityAuditFailureRollsBackSave | [I10](../../slices/identity-brokering.md#i10-identity-audit-history) | retained | Current declaration duty: TestIdentityAuditTrailIsImmutableAndCredentialFree; Current declaration duty: TestIdentityAuditFailureRollsBackSave — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-3b5c8b9b53f4"></a>
+
+## [internal/store/issue_acceptances.go](../../../../../internal/store/issue_acceptances.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–147; file scaffold; AdmitAcceptanceDecision; AcceptanceDecision; AcceptanceHead; AcceptanceDepth; WithdrawAcceptanceDecision; AcceptanceWithdrawn | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-b99dec7916ab"></a>
+
+## [internal/store/issue_acceptances_test.go](../../../../../internal/store/issue_acceptances_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–102; file scaffold; acceptanceFixture; TestAdmitAcceptanceChainsPredecessors; TestWithdrawAcceptanceLatchesHead | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-27c964ad743e"></a>
 
 ## [internal/store/issue_controls.go](../../../../../internal/store/issue_controls.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 1–17 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 18–20 | Declared identifiers/bounds MaxIntakeDeliveries for Issue intake and readiness; declarations/fields: `MaxIntakeDeliveries` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 21–26 | Declared identifiers/bounds MaxIssueControls for Issue intake and readiness; declarations/fields: `MaxIssueControls` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 27–69 | Store.RecordIssueAssessment — Issue intake and readiness; declarations/fields: `Store.RecordIssueAssessment` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 70–82 | Store.IssueControl — Issue intake and readiness; declarations/fields: `Store.IssueControl` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 83–109 | Store.IssueControls — Issue intake and readiness; declarations/fields: `Store.IssueControls` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 110–119 | Store.IntakeDeliverySeen — Issue intake and readiness; declarations/fields: `Store.IntakeDeliverySeen` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 120–143 | Store.RecordIntakeDelivery — Issue intake and readiness; declarations/fields: `Store.RecordIntakeDelivery` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 144–192 | Store.AcceptanceDependants — Issue intake and readiness; declarations/fields: `Store.AcceptanceDependants` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 193–199 | Store.ReadinessSweepRevision — Issue intake and readiness; declarations/fields: `Store.ReadinessSweepRevision` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 200–214 | Store.SaveReadinessSweep — Issue intake and readiness; declarations/fields: `Store.SaveReadinessSweep` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 215–234 | Repository policy inventory used by readiness sweeps; declarations/fields: `Store.FactoryPolicies` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17; file scaffold | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 18–214; MaxIntakeDeliveries; MaxIssueControls; RecordIssueAssessment; IssueControl; IssueControls; IntakeDeliverySeen; RecordIntakeDelivery; AcceptanceDependants; ReadinessSweepRevision; SaveReadinessSweep | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current declaration duty: MaxIntakeDeliveries; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 215–234; FactoryPolicies | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Current declaration duty: FactoryPolicies — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-aaa37b27b70e"></a>
+
+## [internal/store/issue_controls_test.go](../../../../../internal/store/issue_controls_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–176; file scaffold; readinessTestStore; readinessCandidate; TestRecordIssueAssessment; TestIssueControlsListOldestFirst; TestIntakeDeliveryDedup; TestAcceptanceDependants; TestReadinessSweepState | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-cad8b9caa61e"></a>
+
+## [internal/store/members.go](../../../../../internal/store/members.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–28; file scaffold; Member; Members | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Current scaffold duty: file scaffold; Current declaration duty: Member; Current declaration duty: Members — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-d6b2594c3e40"></a>
+
+## [internal/store/observe.go](../../../../../internal/store/observe.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–9, 25–70; file scaffold; ReadSchemaVersion; OpenObserve | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold; Current declaration duty: ReadSchemaVersion; Current declaration duty: OpenObserve — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 10–24; openReadOnly | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: openReadOnly — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 71–95; IntegrityCheck | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: IntegrityCheck — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-a53d5628d8a4"></a>
+
+## [internal/store/observe_test.go](../../../../../internal/store/observe_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–8; file scaffold | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 9–71; TestReadSchemaVersionAndOpenObserve | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Current declaration duty: TestReadSchemaVersionAndOpenObserve — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-278c771f6a09"></a>
+
+## [internal/store/postgres_fixture_test.go](../../../../../internal/store/postgres_fixture_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–27; file scaffold; postgresFixture | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold; Current declaration duty: postgresFixture — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-a4970692e99c"></a>
 
 ## [internal/store/preparation.go](../../../../../internal/store/preparation.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–14 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 15–53 | Standing Project lifecycle grant CAS; declarations/fields: `Store.SaveLifecycleGrant`, `Store.LifecycleGrant` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 54–94 | Preparation admission hold CAS; declarations/fields: `Store.SaveMaintenanceHold`, `Store.MaintenanceHold` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 95–128 | Store.AdmitPreparation — Checkout allocation and preparation; declarations/fields: `Store.AdmitPreparation` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 129–154 | Store.ObservePreparation — Checkout allocation and preparation; declarations/fields: `Store.ObservePreparation` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 155–165 | Store.Preparation — Checkout allocation and preparation; declarations/fields: `Store.Preparation` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 166–185 | Store.ProjectPreparations — Checkout allocation and preparation; declarations/fields: `Store.ProjectPreparations` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14, 95–185; file scaffold; AdmitPreparation; ObservePreparation; Preparation; ProjectPreparations | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 15–53; SaveLifecycleGrant; LifecycleGrant | [P05](../../slices/projects.md#p05-project-startstop) | retained | Current declaration duty: SaveLifecycleGrant; Current declaration duty: LifecycleGrant — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 54–94; SaveMaintenanceHold; MaintenanceHold | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Current declaration duty: SaveMaintenanceHold; Current declaration duty: MaintenanceHold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-6439ad7b3573"></a>
 
 ## [internal/store/preparation_test.go](../../../../../internal/store/preparation_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 1–11 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 12–18 | Fixture/protocol support (declaration group); declarations/fields: `(declaration group)` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 19–32 | Fixture/protocol support prepTestStore; declarations/fields: `prepTestStore` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 33–41 | Fixture/protocol support prepTestPreparation; declarations/fields: `prepTestPreparation` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 42–63 | Lifecycle grant revision assertions; declarations/fields: `TestLifecycleGrantRevisionRejectsStaleWriters` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 64–83 | Persistent preparation hold assertions; declarations/fields: `TestMaintenanceHoldPersistsWithCAS` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 84–100 | Assertions TestAdmitPreparationIsIdempotentForExactInputs: admit: %v %v; declarations/fields: `TestAdmitPreparationIsIdempotentForExactInputs` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 101–128 | Assertions TestPreparationRefsAreImmutable: requirement reference mutation accepted; declarations/fields: `TestPreparationRefsAreImmutable` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–41, 84–128; file scaffold; prepTestStore; prepTestPreparation; TestAdmitPreparationIsIdempotentForExactInputs; TestPreparationRefsAreImmutable | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 42–63; TestLifecycleGrantRevisionRejectsStaleWriters | [P05](../../slices/projects.md#p05-project-startstop) | retained | Current declaration duty: TestLifecycleGrantRevisionRejectsStaleWriters — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 64–83; TestMaintenanceHoldPersistsWithCAS | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Current declaration duty: TestMaintenanceHoldPersistsWithCAS — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-0fb359162dd4"></a>
 
 ## [internal/store/project_grants.go](../../../../../internal/store/project_grants.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–14 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 15–24 | Store.SaveEnvironmentGrant — Repository association and creation; declarations/fields: `Store.SaveEnvironmentGrant` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 25–30 | Store.EnvironmentGrant — Repository association and creation; declarations/fields: `Store.EnvironmentGrant` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 31–64 | Requirement acceptance chain/head persistence; declarations/fields: `Store.AdmitRequirementDecision`, `Store.RequirementDecision`, `Store.RequirementHead`, `Store.RequirementDepth` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 65–100 | Privileged effect approval chain/head persistence; declarations/fields: `Store.AdmitApprovalDecision`, `Store.ApprovalDecision`, `Store.ApprovalHead`, `Store.ApprovalDepth` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 101–160 | Shared immutable decision transaction/CAS mechanics; typed callers own decision semantics; declarations/fields: `Store.admitProjectDecision` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14; file scaffold | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 15–30; SaveEnvironmentGrant; EnvironmentGrant | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Current declaration duty: SaveEnvironmentGrant; Current declaration duty: EnvironmentGrant — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 31–64; AdmitRequirementDecision; RequirementDecision; RequirementHead; RequirementDepth | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Current declaration duty: AdmitRequirementDecision; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 65–100; AdmitApprovalDecision; ApprovalDecision; ApprovalHead; ApprovalDepth | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Current declaration duty: AdmitApprovalDecision; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 101–160; admitProjectDecision | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current declaration duty: admitProjectDecision — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-c4b8f4ed9428"></a>
 
 ## [internal/store/project_grants_test.go](../../../../../internal/store/project_grants_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 1–11 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 12–22 | Fixture/protocol support grantProjectFixture; declarations/fields: `grantProjectFixture` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 23–44 | Assertions TestEnvironmentGrantIsCAS: stale environment grant saved; declarations/fields: `TestEnvironmentGrantIsCAS` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 45–84 | Requirement acceptance predecessor/replay assertions; declarations/fields: `TestRequirementDecisionChain` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 85–106 | Approval predecessor/replay assertions; declarations/fields: `TestApprovalDecisionChain` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–44; whole file; grantProjectFixture; TestEnvironmentGrantIsCAS | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Fixture/protocol support grantProjectFixture; declarations/fields: `grantProjectFixture`; Assertions TestEnvironmentGrantIsCAS: stale environment grant saved; declarations/fields: `TestEnvironmentGrantIsCAS` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 45–84; TestRequirementDecisionChain | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Requirement acceptance predecessor/replay assertions; declarations/fields: `TestRequirementDecisionChain` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 85–106; TestApprovalDecisionChain | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Approval predecessor/replay assertions; declarations/fields: `TestApprovalDecisionChain` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+<a id="coverage-2d6fbf5e7c8a"></a>
+
+## [internal/store/project_profile_test.go](../../../../../internal/store/project_profile_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–43; file scaffold; TestProjectWithoutCreationProfileAndImmutableCreation | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestProjectWithoutCreationProfileAndImmutableCreation — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-a0df3af0f947"></a>
 
 ## [internal/store/schema.go](../../../../../internal/store/schema.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Shared physical declarations/SQL rows/constructor lines have separate named-field units; this is coupled storage/projection, not competing decision ownership. Table/field/guard units identify domain record invariants; schema format/init/query mechanics remain H02. Identity event storage stays I10 even where Go writes are fixture-only.
+Current canonical Go schema source and Rust literal mirror inspected by SQL statement; domain tables/columns and their domain-specific guards follow the owning slice; generic guard implementation, schema version/admission, indexes and verification mechanics remain H02.
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–9 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 10–16 | Declared identifiers/bounds schemaFormatVersion for Storage mechanics; declarations/fields: `schemaFormatVersion` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 17–19, 73–76, 155–158 | Declared identifiers/bounds schemaStatements for Storage mechanics; declarations/fields: `schemaStatements` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 20 | Native actor mirror fields id/login and id primary-key/check, separate from local display preference; declarations/fields: `users.id`, `users.login`, `PRIMARY KEY(id)`, `CHECK(id>0)` |
-| [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) / active | 20 | Soda-local name preference field and default, separate from native actor id/login; declarations/fields: `users.name`, `name TEXT NOT NULL DEFAULT ''` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 21 | Persistence schema for keys; own saved development SSH key records; declarations/fields: `keys` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 22 | Observed native Project LAN IP field/default, separate from repository association and readiness; declarations/fields: `projects.ip`, `ip TEXT NOT NULL DEFAULT ''` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 22 | Repository association fields and relation constraints, separate from profile/readiness and LAN address; declarations/fields: `projects.id`, `projects.name`, `projects.repository_id`, `projects.owner_id`, `projects.repository`, `UNIQUE(repository_id)`, `REFERENCES users(id)` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 22 | Immutable selected creation profile and confirmed readiness fields/constraints; declarations/fields: `projects.creation_profile`, `projects.ready`, `octet_length(creation_profile::text)<=1024` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 23 | Persistence schema for memberships; human Project account mapping; declarations/fields: `memberships` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 24 | Persistence schema for grant_key_check; encryption master-key binding; declarations/fields: `grant_key_check` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 25–30 | Factory run ledger and unresolved-run index; declarations/fields: `factory_runs`, `factory_unsettled_runs` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 31–35 | Immutable shared admitted command/replay ledger; declarations/fields: `factory_commands` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 36 | Persistence schema for factory_policies; declarations/fields: `factory_policies` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 37 | Persistence schema for factory_capacity; declarations/fields: `factory_capacity` |
-| [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) / active | 38 | Persistence schema for factory_operator_grants; declarations/fields: `factory_operator_grants` |
-| [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) / active | 39 | Persistence schema for factory_sponsorships; declarations/fields: `factory_sponsorships` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 40 | Persistence schema for factory_dispatch; withdrawal/reopening gate; declarations/fields: `factory_dispatch` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 41 | Persistence schema for factory_dispatch_regs; declarations/fields: `factory_dispatch_regs` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 42 | Persistence schema for factory_dispatch_regs repository index; declarations/fields: `factory_dispatch_regs repository index` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 43 | Persistence schema for factory_takeovers; declarations/fields: `factory_takeovers` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 44 | Persistence schema for factory_run_views; exact display locator; declarations/fields: `factory_run_views` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 45 | Persistence schema for factory_assignments; declarations/fields: `factory_assignments` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 46 | Persistence schema for unfinished assignment uniqueness; declarations/fields: `unfinished assignment uniqueness` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 47 | Persistence schema for factory_reservations; declarations/fields: `factory_reservations` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 48 | Persistence schema for factory_usage; declarations/fields: `factory_usage` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 49 | Persistence schema for issue_acceptance_decisions; declarations/fields: `issue_acceptance_decisions` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 50 | Persistence schema for issue_acceptance_heads; declarations/fields: `issue_acceptance_heads` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 51 | Persistence schema for issue_acceptance_withdrawals; declarations/fields: `issue_acceptance_withdrawals` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 52 | Persistence schema for issue_controls; declarations/fields: `issue_controls` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 53 | Persistence schema for intake_deliveries; declarations/fields: `intake_deliveries` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 54 | Persistence schema for factory_publications; declarations/fields: `factory_publications` |
-| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 55 | Persistence schema for factory_check_assessments; declarations/fields: `factory_check_assessments` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 56 | Persistence schema for factory_merges; declarations/fields: `factory_merges` |
-| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 57 | Persistence schema for factory_readiness_sweeps; declarations/fields: `factory_readiness_sweeps` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 58 | Persistence schema for project_environment_grants; declarations/fields: `project_environment_grants` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 59 | Persistence schema for project_requirement_decisions; declarations/fields: `project_requirement_decisions` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 60 | Persistence schema for project_requirement_heads; declarations/fields: `project_requirement_heads` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 61 | Persistence schema for project_approval_decisions; declarations/fields: `project_approval_decisions` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 62 | Persistence schema for project_approval_heads; declarations/fields: `project_approval_heads` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 63 | Persistence schema for identity_connections.credential; encrypted custody; declarations/fields: `identity_connections.credential` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 63 | Connection availability/generation metadata shares encrypted connection row; declarations/fields: `identity_connections.owner_id`, `identity_connections.generation`, `identity_connections.state`, `identity_connections.data` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 64 | Persistence schema for identity_grants; declarations/fields: `identity_grants` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 65 | Persistence schema for identity_grant_recipient uniqueness; declarations/fields: `identity_grant_recipient uniqueness` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 66 | Persistence schema for identity_leases; declarations/fields: `identity_leases` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 67 | Persistence schema for identity_events immutable audit; declarations/fields: `identity_events immutable audit` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 68 | Persistence schema for project_lifecycle_grants; declarations/fields: `project_lifecycle_grants` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 69 | Persistence schema for project_maintenance; declarations/fields: `project_maintenance` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 70 | Persistence schema for project_preparations; declarations/fields: `project_preparations` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 71 | Persistence schema for project_preparations_project index; declarations/fields: `project_preparations_project index` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 72 | Persistence schema for identity_executions; declarations/fields: `identity_executions` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 77–83, 134, 249–252 | Immutable selected native creation profile guard/trigger verification; declarations/fields: `soda_guard_creation_profile`, `immutable_creation_profile`, `verifyImmutableCreationProfile` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 84–113 | Immutable factory run identity/terminal progression and command receipt guards; declarations/fields: `soda_guard_run_binding`, `soda_guard_command` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 114–123 | Immutable exact preparation role/decision reference guard; declarations/fields: `soda_guard_preparation_refs` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 124–133 | Immutable execution digest and terminal admission fence guard; declarations/fields: `soda_guard_execution_identity` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 135 | Persistence schema for factory_run_binding_immutable trigger; declarations/fields: `factory_run_binding_immutable trigger` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 136 | Persistence schema for factory_command_immutable trigger; declarations/fields: `factory_command_immutable trigger` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 137 | Persistence schema for factory_dispatch registration immutable update; declarations/fields: `factory_dispatch registration immutable update` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 138 | Persistence schema for factory_dispatch registration immutable delete; declarations/fields: `factory_dispatch registration immutable delete` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 139 | Persistence schema for factory_takeover immutable update; declarations/fields: `factory_takeover immutable update` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 140 | Persistence schema for factory_takeover immutable delete; declarations/fields: `factory_takeover immutable delete` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 141 | Persistence schema for factory_run_view immutable update; declarations/fields: `factory_run_view immutable update` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 142 | Persistence schema for factory_run_view immutable delete; declarations/fields: `factory_run_view immutable delete` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 143 | Persistence schema for issue_acceptance decision immutable update; declarations/fields: `issue_acceptance decision immutable update` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 144 | Persistence schema for issue_acceptance decision immutable delete; declarations/fields: `issue_acceptance decision immutable delete` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 145 | Persistence schema for issue_acceptance withdrawal immutable update; declarations/fields: `issue_acceptance withdrawal immutable update` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 146 | Persistence schema for issue_acceptance withdrawal immutable delete; declarations/fields: `issue_acceptance withdrawal immutable delete` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 147 | Persistence schema for project_requirement decision immutable update; declarations/fields: `project_requirement decision immutable update` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 148 | Persistence schema for project_requirement decision immutable delete; declarations/fields: `project_requirement decision immutable delete` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 149 | Persistence schema for project_approval decision immutable update; declarations/fields: `project_approval decision immutable update` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 150 | Persistence schema for project_approval decision immutable delete; declarations/fields: `project_approval decision immutable delete` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 151 | Persistence schema for identity_event immutable update; declarations/fields: `identity_event immutable update` |
-| [I10](../../slices/identity-brokering.md#i10-identity-audit-history) / active | 152 | Persistence schema for identity_event immutable delete; declarations/fields: `identity_event immutable delete` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 153 | Persistence schema for preparation_refs_immutable trigger; declarations/fields: `preparation_refs_immutable trigger` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 154 | Persistence schema for identity_execution_immutable trigger; declarations/fields: `identity_execution_immutable trigger` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 159–160 | SchemaVersion — Storage mechanics; declarations/fields: `SchemaVersion` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 161–168 | schemaPresent — Storage mechanics; declarations/fields: `schemaPresent` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 169–179 | refuseUnversionedDatabase — Storage mechanics; declarations/fields: `refuseUnversionedDatabase` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 180–191 | storedSchemaVersion — Storage mechanics; declarations/fields: `storedSchemaVersion` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 192–193, 226–237 | verifyRequiredColumns — Storage mechanics; declarations/fields: `verifyRequiredColumns` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 194 | Required native actor mirror field selectors in shared users read; declarations/fields: `users.id`, `users.login` |
-| [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) / active | 194 | Required local preference selector in shared users schema verification; declarations/fields: `users.name` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 195 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `keys` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 196 | Required native LAN IP selector in shared Project schema verification; declarations/fields: `projects.ip` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 196 | Required repository association field selectors in shared Project schema verification; declarations/fields: `projects.id`, `projects.name`, `projects.repository_id`, `projects.owner_id`, `projects.repository` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 196 | Required immutable profile/readiness selectors in shared Project schema verification; declarations/fields: `projects.creation_profile`, `projects.ready` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 197 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `memberships` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 198 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `grant_key_check` |
-| [P05](../../slices/projects.md#p05-project-startstop) / active | 199 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `project_lifecycle_grants` |
-| [P12](../../slices/projects.md#p12-maintenance-holds) / active | 200 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `project_maintenance` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 201 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `project_preparations` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 202 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `identity_executions` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 203–204, 209, 214 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_runs`, `factory_commands`, `factory_dispatch`, `factory_takeovers` |
-| [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / active | 205 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_policies` |
-| [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) / active | 206, 212–213 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_capacity`, `factory_reservations`, `factory_usage` |
-| [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) / active | 207 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_operator_grants` |
-| [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) / active | 208 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_sponsorships` |
-| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 210–211 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_dispatch_regs`, `factory_assignments` |
-| [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / active | 215–217 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `issue_acceptance_decisions`, `issue_acceptance_heads`, `issue_acceptance_withdrawals` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 218 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `project_environment_grants` |
-| [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / active | 219–220 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `project_requirement_decisions`, `project_requirement_heads` |
-| [P09](../../slices/projects.md#p09-privileged-preparation-approval) / active | 221–222 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `project_approval_decisions`, `project_approval_heads` |
-| [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / active | 223 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_run_views` |
-| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 224 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_publications` |
-| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 225 | Required current domain table/column group; declarations/fields: `verifyRequiredColumns`, `factory_merges` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 238–248 | verifyTrigger — Storage mechanics; declarations/fields: `verifyTrigger` |
-| [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) / active | 253–256 | Verify immutable exact preparation decision references; declarations/fields: `verifyImmutablePreparationRefs` |
-| [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) / active | 257–260 | Verify immutable execution fence and terminal state; declarations/fields: `verifyImmutableExecutionIdentity` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 261–271 | loadSchemaVersion — Storage mechanics; declarations/fields: `loadSchemaVersion` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 272–306 | initializeSchema — Storage mechanics; declarations/fields: `initializeSchema` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–19, 30, 42, 46, 65, 71, 73–76, 155–248, 261–306; file scaffold; schemaFormatVersion; schema_version PostgreSQL table/query/trigger declaration; factory_unsettled_runs PostgreSQL table/query/trigger declaration; factory_dispatch_regs_repository PostgreSQL table/query/trigger declaration; factory_unfinished_assignment PostgreSQL table/query/trigger declaration; identity_grant_recipient PostgreSQL table/query/trigger declaration; project_preparations_project PostgreSQL table/query/trigger declaration; as PostgreSQL table/query/trigger declaration; SchemaVersion; schemaPresent; refuseUnversionedDatabase; storedSchemaVersion; verifyRequiredColumns; verifyTrigger; loadSchemaVersion; initializeSchema | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Package/import, DDL array declaration/closing syntax and schema-version documentation shell for canonical PostgreSQL schema; domain literals have separate owners.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 20; users.id/login actor mirror | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | users.id/login actor mirror: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 20-20; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 11-11; schema.rs drift test enforces equality |
+| 20; users.name display-name preference | [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) | retained | users.name display-name preference: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 20-20; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 11-11; schema.rs drift test enforces equality |
+| 21; keys PostgreSQL table/query/trigger declaration | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | keys PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 21-21; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 12-12; schema.rs drift test enforces equality |
+| 22, 77–83, 134, 249–252; projects readiness and creation_profile fields; function soda_guard_creation_profile; immutable_creation_profile domain immutability trigger; verifyImmutableCreationProfile | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | projects readiness and creation_profile fields: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 22; projects repository association and owner fields | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | projects repository association and owner fields: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 22-22; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 13-13; schema.rs drift test enforces equality |
+| 22; projects.ip LAN observation field | [N02](../../slices/networking.md#n02-project-lan-access) | retained | projects.ip LAN observation field: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 22-22; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 13-13; schema.rs drift test enforces equality |
+| 23; memberships PostgreSQL table/query/trigger declaration | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | memberships PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 23-23; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 14-14; schema.rs drift test enforces equality |
+| 24, 63; grant_key_check PostgreSQL table/query/trigger declaration; identity_connections PostgreSQL table/query/trigger declaration | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | grant_key_check PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; identity_connections PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 24-24; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 15-15; schema.rs drift test enforces equality; current Go schemaStatements literal internal/store/schema.go lines 63-63; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 54-54; schema.rs drift test enforces equality |
+| 25–29, 31–35, 43, 84–113, 135–136, 139–140; factory_runs PostgreSQL table/query/trigger declaration; factory_commands PostgreSQL table/query/trigger declaration; factory_takeovers PostgreSQL table/query/trigger declaration; function soda_guard_run_binding; function soda_guard_command; factory_run_binding_immutable domain immutability trigger; factory_command_immutable domain immutability trigger; factory_takeover_immutable_update domain immutability trigger; factory_takeover_immutable_delete domain immutability trigger | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | factory_runs PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 36; factory_policies PostgreSQL table/query/trigger declaration | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | factory_policies PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 36-36; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 27-27; schema.rs drift test enforces equality |
+| 37, 47–48; factory_capacity PostgreSQL table/query/trigger declaration; factory_reservations PostgreSQL table/query/trigger declaration; factory_usage PostgreSQL table/query/trigger declaration | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | factory_capacity PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; factory_reservations PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; factory_usage PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 38; factory_operator_grants PostgreSQL table/query/trigger declaration | [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) | retained | factory_operator_grants PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 38-38; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 29-29; schema.rs drift test enforces equality |
+| 39; factory_sponsorships PostgreSQL table/query/trigger declaration | [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) | retained | factory_sponsorships PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 39-39; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 30-30; schema.rs drift test enforces equality |
+| 40–41, 45, 137–138; factory_dispatch PostgreSQL table/query/trigger declaration; factory_dispatch_regs PostgreSQL table/query/trigger declaration; factory_assignments PostgreSQL table/query/trigger declaration; factory_dispatch_reg_immutable_update domain immutability trigger; factory_dispatch_reg_immutable_delete domain immutability trigger | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | factory_dispatch PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 44, 141–142; factory_run_views PostgreSQL table/query/trigger declaration; factory_run_view_immutable_update domain immutability trigger; factory_run_view_immutable_delete domain immutability trigger | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | factory_run_views PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; factory_run_view_immutable_update: enforce the owning domain slice’s immutable-state policy for its protected database row.; factory_run_view_immutable_delete: enforce the owning domain slice’s immutable-state policy for its protected database row. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 49–51, 143–146; issue_acceptance_decisions PostgreSQL table/query/trigger declaration; issue_acceptance_heads PostgreSQL table/query/trigger declaration; issue_acceptance_withdrawals PostgreSQL table/query/trigger declaration; issue_acceptance_decision_immutable_update domain immutability trigger; issue_acceptance_decision_immutable_delete domain immutability trigger; issue_acceptance_withdrawal_immutable_update domain immutability trigger; issue_acceptance_withdrawal_immutable_delete domain immutability trigger | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | issue_acceptance_decisions PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 52–53, 57; issue_controls PostgreSQL table/query/trigger declaration; intake_deliveries PostgreSQL table/query/trigger declaration; factory_readiness_sweeps PostgreSQL table/query/trigger declaration | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | issue_controls PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; intake_deliveries PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; factory_readiness_sweeps PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 54; factory_publications PostgreSQL table/query/trigger declaration | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | factory_publications PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 54-54; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 45-45; schema.rs drift test enforces equality |
+| 55; factory_check_assessments PostgreSQL table/query/trigger declaration | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | factory_check_assessments PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 55-55; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 46-46; schema.rs drift test enforces equality |
+| 56; factory_merges PostgreSQL table/query/trigger declaration | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | factory_merges PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 56-56; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 47-47; schema.rs drift test enforces equality |
+| 58; project_environment_grants PostgreSQL table/query/trigger declaration | [P10](../../slices/projects.md#p10-shared-tools-and-packages) | retained | project_environment_grants PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 58-58; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 49-49; schema.rs drift test enforces equality |
+| 59–60, 147–148; project_requirement_decisions PostgreSQL table/query/trigger declaration; project_requirement_heads PostgreSQL table/query/trigger declaration; project_requirement_decision_immutable_update domain immutability trigger; project_requirement_decision_immutable_delete domain immutability trigger | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | project_requirement_decisions PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 61–62, 149–150; project_approval_decisions PostgreSQL table/query/trigger declaration; project_approval_heads PostgreSQL table/query/trigger declaration; project_approval_decision_immutable_update domain immutability trigger; project_approval_decision_immutable_delete domain immutability trigger | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | project_approval_decisions PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 64; identity_grants PostgreSQL table/query/trigger declaration | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | identity_grants PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 64-64; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 55-55; schema.rs drift test enforces equality |
+| 66, 72, 124–133, 154, 257–260; identity_leases PostgreSQL table/query/trigger declaration; identity_executions PostgreSQL table/query/trigger declaration; function soda_guard_execution_identity; identity_execution_immutable domain immutability trigger; verifyImmutableExecutionIdentity | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | identity_leases PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 67, 151–152; identity_events PostgreSQL table/query/trigger declaration; identity_events_immutable_update domain immutability trigger; identity_events_immutable_delete domain immutability trigger | [I10](../../slices/identity-brokering.md#i10-identity-audit-history) | retained | identity_events PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; identity_events_immutable_update: enforce the owning domain slice’s immutable-state policy for its protected database row.; identity_events_immutable_delete: enforce the owning domain slice’s immutable-state policy for its protected database row. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 68; project_lifecycle_grants PostgreSQL table/query/trigger declaration | [P05](../../slices/projects.md#p05-project-startstop) | retained | project_lifecycle_grants PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 68-68; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 59-59; schema.rs drift test enforces equality |
+| 69; project_maintenance PostgreSQL table/query/trigger declaration | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | project_maintenance PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal. — current Go schemaStatements literal internal/store/schema.go lines 69-69; byte-identical Rust mirror cmd/soda-identity/src/schema.rs lines 60-60; schema.rs drift test enforces equality |
+| 70, 114–123, 153, 253–256; project_preparations PostgreSQL table/query/trigger declaration; function soda_guard_preparation_refs; preparation_refs_immutable domain immutability trigger; verifyImmutablePreparationRefs | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | project_preparations PostgreSQL table/query/trigger declaration: owns this domain schema row/field responsibility in canonical PostgreSQL DDL; Rust schema.rs mirrors this literal.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-24ed293e59b9"></a>
+
+## [internal/store/schema_test.go](../../../../../internal/store/schema_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–142; file scaffold; TestOpenCreatesOnlyTheCurrentSchema; legacyFingerprint; TestOpenRejectsOldSchemaWithoutMutation; TestOpenRejectsUnversionedDataWithoutMutation | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-9da153c94ff8"></a>
+
+## [internal/store/staged_seed.go](../../../../../internal/store/staged_seed.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20; file scaffold | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 21–64; SeedStagedDependencyEdge | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: SeedStagedDependencyEdge — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-b26d414d0eb2"></a>
 
 ## [internal/store/store.go](../../../../../internal/store/store.go)
 
-Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Shared physical declarations/SQL rows/constructor lines have separate named-field units; this is coupled storage/projection, not competing decision ownership.
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–18 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 19–21 | Declared identifiers/bounds ErrNotFound for Storage mechanics; declarations/fields: `ErrNotFound` |
-| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 22–23 | Immutable command identity conflict sentinel; declarations/fields: `ErrCommandConflict` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 24–27 | Record, DTO or interface contract Store for Storage mechanics; declarations/fields: `Store` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 28–29, 31, 43–53, 181–184, 186, 189–190, 192–194 | Native admitted actor mirror; local display name retains its separate G09 owner; declarations/fields: `User`, `Session`, `Store.UpsertUser`, `Store.User` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 30 | Native actor login and persisted local name share one Go field declaration; declarations/fields: `User.Login` |
-| [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) / active | 30 | Soda-local profile display name distinct from mirrored login; declarations/fields: `User.Name` |
-| [P04](../../slices/projects.md#p04-development-ssh-access) / active | 32–35, 203–233 | Own saved development public key persistence; declarations/fields: `Key`, `Store.AddKey`, `Store.RemoveKey`, `Store.Keys` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 36, 38–39, 42, 234–238, 247–249, 255–257, 262–264, 266–273, 294–297 | Repository association persistence/row assembly; profile, readiness and LAN fields have separate named selectors; declarations/fields: `Project`, `Store.CreateProject`, `scanProject`, `projectColumns`, `Store.Project`, `Store.ProjectByRepository` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 37 | Immutable selected native creation profile DTO reference; declarations/fields: `Project.Profile` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 40 | Native observed LAN IP field in shared Go declaration; declarations/fields: `Project.IP` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 40 | Repository label field in shared Go declaration; declarations/fields: `Project.Repository` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 41 | Native Project confirmed provisioning readiness; declarations/fields: `Project.Ready` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 54–82 | bind — Storage mechanics; declarations/fields: `bind` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 83–86 | Store.exec — Storage mechanics; declarations/fields: `Store.exec` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 87–90 | Store.query — Storage mechanics; declarations/fields: `Store.query` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 91–97 | Store.queryRow — Storage mechanics; declarations/fields: `Store.queryRow` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 98–99 | Record, DTO or interface contract tx for Storage mechanics; declarations/fields: `tx` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 100–107 | Store.begin — Storage mechanics; declarations/fields: `Store.begin` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 108–109 | tx.Commit — Storage mechanics; declarations/fields: `tx.Commit` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 110–111 | tx.Rollback — Storage mechanics; declarations/fields: `tx.Rollback` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 112–115 | tx.exec — Storage mechanics; declarations/fields: `tx.exec` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 116–119 | tx.query — Storage mechanics; declarations/fields: `tx.query` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 120–126 | tx.queryRow — Storage mechanics; declarations/fields: `tx.queryRow` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 127–136 | sameJSONDocument — Storage mechanics; declarations/fields: `sameJSONDocument` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 137–140 | Open — Storage mechanics; declarations/fields: `Open` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 141–148 | Production encryption key binding before schema initialization; declarations/fields: `OpenEncrypted` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 149–154 | Small PostgreSQL connection pool initialization; declarations/fields: `configureStore` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 155 | Bind provisioned credential encryption key to existing stored check; declarations/fields: `checkGrantKey` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 156–158 | Create/refuse current schema according to database format; declarations/fields: `initializeSchema` |
-| [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) / active | 159–161 | Initialize encryption key check only after current schema admission; declarations/fields: `initializeGrantKey` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 162–168 | configureStore — Storage mechanics; declarations/fields: `configureStore` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 169–178 | open — Storage mechanics; declarations/fields: `open` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 179–180 | Store.Close — Storage mechanics; declarations/fields: `Store.Close` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 185 | Native actor id/login INSERT and conflict update of login only; declarations/fields: `users.id`, `users.login`, `ON CONFLICT(id) DO UPDATE SET login=excluded.login` |
-| [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) / active | 185 | Initial local name INSERT; conflict branch preserves existing display-name preference; declarations/fields: `users.name`, `u.Name` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 187–188 | Return from admitted native actor mirror write; declarations/fields: `Store.UpsertUser` |
-| [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / active | 191 | Native actor id/login selectors in shared User read; declarations/fields: `users.id`, `users.login`, `User.ID`, `User.Login` |
-| [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) / active | 191 | Local display-name preference selector in shared User read; declarations/fields: `users.name`, `User.Name` |
-| [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) / active | 195–202 | Soda-local display-name preference persistence; declarations/fields: `Store.RenameProfile` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 239–245 | Validate and encode immutable selected native creation profile; declarations/fields: `Project.Profile`, `Profile.Validate`, `json.Marshal(p.Profile)` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 246 | Create repository association fields in composite INSERT; declarations/fields: `projects.id`, `projects.name`, `projects.repository_id`, `projects.owner_id`, `projects.repository` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 246 | Persist immutable selected native creation profile in composite INSERT; declarations/fields: `projects.creation_profile`, `string(raw)` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 250, 252–254 | Confirmed native Project runtime readiness persistence; declarations/fields: `Store.MarkReady` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 251 | Persist observed native LAN IP in shared readiness UPDATE; declarations/fields: `projects.ip`, `ip` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 251 | Mark confirmed native provisioning readiness in shared UPDATE; declarations/fields: `projects.ready`, `ready=TRUE` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 258 | Decode native LAN IP selector from shared Project row; declarations/fields: `Project.IP` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 258 | Decode repository association fields from shared Project row; declarations/fields: `Project.ID`, `Project.Name`, `Project.RepositoryID`, `Project.OwnerID`, `Project.Repository` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 258 | Decode current readiness and immutable profile selectors from shared Project row; declarations/fields: `Project.Ready`, `profile` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 259–261 | Decode immutable selected creation profile from nullable JSON; declarations/fields: `Project.Profile`, `project.Decode` |
-| [N02](../../slices/networking.md#n02-project-lan-access) / active | 265 | Shared SELECT native LAN IP column; declarations/fields: `ip` |
-| [P01](../../slices/projects.md#p01-repository-association-and-creation) / active | 265 | Shared SELECT association column group; declarations/fields: `id`, `name`, `repository_id`, `owner_id`, `repository` |
-| [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / active | 265 | Shared SELECT immutable profile/readiness column group; declarations/fields: `ready`, `creation_profile` |
-| [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) / active | 274–293 | Bounded association scan for authorized inventory; caller authorizes each row; declarations/fields: `Store.SpaceProjects` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 298–307 | Human Project membership/account persistence; declarations/fields: `Store.Join`, `Store.MemberLogin` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–20, 23–26, 53–66, 75–106; file scaffold; ErrNotFound; Store; sameJSONDocument; Open; configureStore; open; Close | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 21–22; ErrCommandConflict | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current declaration duty: ErrCommandConflict — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 27–30, 42–52, 107–120; User; Session; UpsertUser | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current declaration duty: User; Current declaration duty: Session; Current declaration duty: UpsertUser — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 31–34, 129–159; Key; AddKey; RemoveKey; Keys | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Current declaration duty: Key; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 35–41, 160–175, 181–199, 220–223; Project; CreateProject; scanProject; projectColumns; ProjectByRepository | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Current declaration duty: Project; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 67–74; OpenEncrypted | [I02](../../slices/identity-brokering.md#i02-encrypted-credential-custody) | retained | Current declaration duty: OpenEncrypted — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 121–128; RenameProfile | [G09](../../slices/forgejo-integration.md#g09-local-profile-preferences) | retained | Current declaration duty: RenameProfile — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 176–180; MarkReady | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Current declaration duty: MarkReady — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 200–219; SpaceProjects | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Current declaration duty: SpaceProjects — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 224–233; Join; MemberLogin | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Current declaration duty: Join; Current declaration duty: MemberLogin — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-f4cfe40ce089"></a>
 
 ## [internal/store/store_test.go](../../../../../internal/store/store_test.go)
 
-Test/fixture assertions inspected as source only; no test, build, native driver or browser run performed. A defined scenario is not a passing qualification result.
+exact-blob current maintained map; full spans retained
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 1–11 | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 12–68 | Bounded Project memberships and persistent own account assertions; declarations/fields: `TestMembersListingIsBounded`, `TestPersistenceAndMembership` |
-| [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / active | 69–84 | Assertions TestSetupSocketDSNParses: host %q, want socket directory; declarations/fields: `TestSetupSocketDSNParses` |
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–11, 69–84; whole file; TestSetupSocketDSNParses | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Assertions TestSetupSocketDSNParses: host %q, want socket directory; declarations/fields: `TestSetupSocketDSNParses` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 12–68; TestMembersListingIsBounded, TestPersistenceAndMembership | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Bounded Project memberships and persistent own account assertions; declarations/fields: `TestMembersListingIsBounded`, `TestPersistenceAndMembership` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
+
+<a id="coverage-698246430cc4"></a>
+
+Former source `internal/store/identity.go`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="coverage-fc987cc9b8c7"></a>
+
+Former source `internal/store/identity_events.go`; consult its pinned earlier Git source and the current coverage disposition.

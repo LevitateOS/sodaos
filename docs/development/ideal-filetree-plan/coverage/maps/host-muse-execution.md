@@ -1,391 +1,406 @@
 # Host muse execution
 
-[Responsibility map index](README.md) · [Coverage snapshot and limits](../README.md).
-Page grouping is navigation; the slice IDs retain their individual review ownership.
+[Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+Current responsibility accounting at `519b76bd` (2026-10-07).
+One slice owns each named duty; disjoint complete symbols may share an owner.
+Compound fields/clauses may share a physical line with distinct selectors.
+Disposition concerns the duty, not source validity or installed qualification.
+
+<a id="coverage-481016c83564"></a>
+
+## [lib/host/src/muse/args.rs](../../../../../lib/host/src/muse/args.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–83; current module/import/attribute shell; declaration muse_auth_override; declaration muse_value_flag; declaration muse_positional; declaration muse_provider_arguments; declaration muse_arguments | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/args.rs into its current native target.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-03ca3b94870d"></a>
+
+## [lib/host/src/muse/argv.rs](../../../../../lib/host/src/muse/argv.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–116; current module/import/attribute shell; declaration muse_command_argv; declaration unit_active_argv; declaration unit_invocation_argv | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/argv.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-8b3f9e8a45f8"></a>
+
+## [lib/host/src/muse/codec.rs](../../../../../lib/host/src/muse/codec.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–44; current module/import/attribute shell; declaration muse_command_exit; declaration JsonPacket; declaration split_json_object | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/codec.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-4654e7768206"></a>
+
+## [lib/host/src/muse/config.rs](../../../../../lib/host/src/muse/config.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14; current module/import/attribute shell; declaration decode_config_view | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/config.rs into its current native target.; decode_config_view: implement the current provider execution integration duty in config.rs. — current source lib/host/src/muse/config.rs; Cargo target and callers; current source lib/host/src/muse/config.rs; lines 7-14; module/caller wiring inspected |
+
+<a id="coverage-98eece53868d"></a>
+
+## [lib/host/src/muse/connection.rs](../../../../../lib/host/src/muse/connection.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–51; current module/import/attribute shell; declaration MuseConnection; fields id, provider_id, state; declaration muse_connection_authorized; declaration select_muse_connection | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/connection.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-2731e2aa3ab0"></a>
+
+## [lib/host/src/muse/execution.rs](../../../../../lib/host/src/muse/execution.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–252; current module/import/attribute shell; declaration verify_guest_binary; declaration prepare_execution; declaration reserve_execution; declaration deliver_execution; declaration control_execution | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/execution.rs into its current native target.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-faa954fb9446"></a>
+
+## [lib/host/src/muse/inspect.rs](../../../../../lib/host/src/muse/inspect.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–101; current module/import/attribute shell; declaration MuseInspection; fields id, pid, project, running, privileged, userns; declaration deserialize; declaration InspectionVisitor; declaration Value; declaration expecting; declaration visit_map; declaration muse_peer_alive; declaration sleep_until | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/inspect.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a77ceec81163"></a>
+
+## [lib/host/src/muse/launch.rs](../../../../../lib/host/src/muse/launch.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–29, 88–314; current module/import/attribute shell; declaration MuseLaunch; fields runtime; declaration new; declaration serve_one; declaration serve_connection; declaration shell; declaration shell_inner; declaration finish_unconfirmed; declaration control_loop | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/launch.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 30–87; declaration serve | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | serve: implement the current Unix-socket service and process lifetime duty in launch.rs. — current source lib/host/src/muse/launch.rs; lines 30-87; module/caller wiring inspected |
+
+<a id="coverage-f0ade161f531"></a>
+
+## [lib/host/src/muse/mod.rs](../../../../../lib/host/src/muse/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–19, 27–55, 64–95; current module/import/attribute shell; declaration args; declaration connection; declaration runtime_types; declaration validate; declaration argv; declaration execution; declaration inspect; declaration launch; declaration nested; declaration observe; declaration operate; declaration ops; declaration request; declaration resolve; declaration socket; declaration spawn; declaration stage; declaration stop; declaration tests | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/mod.rs into its current native target.; 20 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 20–26, 56–59; declaration wire; declaration codec | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | wire: implement the current wire decoding, encoding, and representation conversion duty in mod.rs.; codec: implement the current wire decoding, encoding, and representation conversion duty in mod.rs. — current source lib/host/src/muse/mod.rs; lines 20-26; module/caller wiring inspected; current source lib/host/src/muse/mod.rs; lines 56-59; module/caller wiring inspected |
+| 60–63; declaration config | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | config: implement the current configuration and safe filesystem primitives duty in mod.rs. — current source lib/host/src/muse/mod.rs; lines 60-63; module/caller wiring inspected |
+
+<a id="coverage-c6924a75def1"></a>
+
+## [lib/host/src/muse/nested.rs](../../../../../lib/host/src/muse/nested.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–252; current module/import/attribute shell; declaration register_nested; declaration registration_authority; declaration registered_child; declaration validate_nested; declaration nested_namespace; declaration actor_account; declaration AccountWire; fields username, home_dir, json; declaration nested_caller | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/nested.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-8bd149422338"></a>
+
+## [lib/host/src/muse/observe.rs](../../../../../lib/host/src/muse/observe.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–90; current module/import/attribute shell; declaration podman; declaration guest; declaration guest_refs; declaration inspect | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/observe.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ecaca1312fab"></a>
+
+## [lib/host/src/muse/operate.rs](../../../../../lib/host/src/muse/operate.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–200; current module/import/attribute shell; declaration muse_operation; declaration project_operation; declaration cleanup_execution_state; declaration invoke_state; declaration retire_mount; declaration retire_execution_files | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/operate.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-5a4f1faaf7de"></a>
+
+## [lib/host/src/muse/ops.rs](../../../../../lib/host/src/muse/ops.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–65; current module/import/attribute shell; declaration muse_resize; declaration state_container; declaration prepare_muse_listener_dir | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/ops.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-4722a92bdd49"></a>
+
+## [lib/host/src/muse/request.rs](../../../../../lib/host/src/muse/request.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–88; current module/import/attribute shell; declaration MuseRequest; fields request, files; declaration muse_request_from_fd; declaration muse_descriptors_valid | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/request.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b321df63ff35"></a>
+
+## [lib/host/src/muse/resolve.rs](../../../../../lib/host/src/muse/resolve.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–195; current module/import/attribute shell; declaration resolve_project; declaration kernel_caller; declaration registered_caller; declaration resolve; declaration resolve_inner; declaration project_account; declaration project_actor; declaration authorized_caller | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/resolve.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a93797f2cd0c"></a>
+
+## [lib/host/src/muse/runtime_types.rs](../../../../../lib/host/src/muse/runtime_types.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–101; current module/import/attribute shell; declaration MusePeer; fields pid, uid, gid, pidfd; declaration MuseCaller; fields project, container, login, home, namespace, child, registration, actor, uid, gid, project_pid, nested_pid, muse_allowed; declaration MuseNested; fields parent, project, child, namespace, registration, actor, pid, muse; declaration MuseExecution; fields caller, request, lease, binding, path, unit; declaration MuseHooks; declaration acquire; declaration attach; declaration end; declaration authorize; declaration nested_authorize; declaration select; declaration MuseRuntime; fields exec, hooks, binary_version, binary_sha256, nested; declaration new | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/runtime_types.rs into its current native target.; 14 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-915ae580508e"></a>
+
+## [lib/host/src/muse/socket.rs](../../../../../lib/host/src/muse/socket.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–46; current module/import/attribute shell; declaration SO_PEERPIDFD; declaration muse_peer_from_fd | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/socket.rs into its current native target.; SO_PEERPIDFD: implement the current provider execution integration duty in socket.rs.; muse_peer_from_fd: implement the current provider execution integration duty in socket.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-eb5d3264c4a1"></a>
+
+## [lib/host/src/muse/spawn.rs](../../../../../lib/host/src/muse/spawn.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–24; current module/import/attribute shell; declaration spawn_execution | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/spawn.rs into its current native target.; spawn_execution: implement the current provider execution integration duty in spawn.rs. — current source lib/host/src/muse/spawn.rs; Cargo target and callers; current source lib/host/src/muse/spawn.rs; lines 4-24; module/caller wiring inspected |
+
+<a id="coverage-52992bfb00e9"></a>
+
+## [lib/host/src/muse/stage.rs](../../../../../lib/host/src/muse/stage.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–234; current module/import/attribute shell; declaration stage; declaration stage_files; declaration stage_config; declaration populate_config; declaration auth_mount_target; declaration copy_nested_config | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/stage.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-ab20334836a2"></a>
+
+## [lib/host/src/muse/stop.rs](../../../../../lib/host/src/muse/stop.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–102; current module/import/attribute shell; declaration stop_execution; declaration validate_muse_binding; declaration await_unit | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/stop.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-81f2cd1ead4f"></a>
+
+## [lib/host/src/muse/tests.rs](../../../../../lib/host/src/muse/tests.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–2291; current module/import/attribute shell; declaration PID; declaration TID; declaration IID; declaration CID; declaration PIN; declaration TMP_COUNTER; declaration ENV_LOCK; declaration deadline; declaration test_tmp; declaration RecordedCall; declaration FakeExec; fields calls, script; declaration new; declaration calls; declaration run; declaration ok; declaration err; declaration FakeHooks; fields select_out, acquire_out, attach_out, end_calls, end_out, authorize_out, nested_out, selects, acquires, attaches; declaration acquire; declaration attach; declaration end; declaration authorize; declaration nested_authorize; declaration select; declaration runtime; declaration caller; declaration lease_fixture; declaration launch_request_validate_matrix; declaration launch_decode_matrix; declaration muse_arguments_matrix; declaration connection_directory_matrix; declaration cgroup_matrix; declaration uidmap_matrix; declaration passwd_and_modes_matrix; declaration registration_and_child_matrix; declaration readonly_mount_matrix; declaration elf_header; declaration elf_matrix; declaration signal_and_root_matrix; declaration muse_command_goldens; declaration inspect_flows; declaration actor_account_flows; declaration reserve_execution_flows; declaration stage_flows; declaration deliver_execution_flows; declaration stop_execution_flows; declaration retire_mount_matrix; declaration validate_and_ops_matrix; declaration state_container_matrix; declaration config_view_matrix; declaration control_execution_flows; declaration open_pty_pair; declaration pty_size; declaration open_pipe_pair; declaration verify_guest_binary_flows; declaration seqpacket_pair; declaration send_with_fds; declaration peer_attestation; declaration accepted_muse_connection_is_cloexec; declaration request_parsing_matrix; declaration rejected_received_rights_are_closed; declaration truncated_rights_are_rejected_and_closed; declaration oversized_request_datagram_is_rejected; declaration request_validation_failure_closes_received_rights; declaration command_exit_matrix; declaration json_split_matrix; declaration control_loop_matrix; declaration serve_shutdown_and_listener_setup; declaration muse_host_environment_filters_meta_key | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/tests.rs into its current native target.; 70 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-3ca060fa3dfb"></a>
+
+## [lib/host/src/muse/validate.rs](../../../../../lib/host/src/muse/validate.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–538; current module/import/attribute shell; declaration MUSE_INSPECT; declaration MUSE_CHILD_INSPECT; declaration muse_project_cgroup; declaration muse_mapped_uid; declaration muse_passwd_valid; declaration muse_account_node; declaration muse_account_modes; declaration muse_registration_valid; declaration muse_child_pid; declaration ChildInspection; fields id, pid, running; declaration deserialize; declaration ChildVisitor; declaration Value; declaration expecting; declaration visit_map; declaration SoftString; declaration SoftStringVisitor; declaration visit_str; declaration visit_string; declaration visit_unit; declaration visit_bool; declaration visit_i64; declaration visit_u64; declaration visit_f64; declaration visit_seq; declaration SoftBool; declaration SoftBoolVisitor; declaration Mount; fields source, destination, rw; declaration MountVisitor; declaration MountItem; declaration ItemVisitor; declaration muse_readonly_mount; declaration muse_elf; declaration host_go_arch; declaration muse_signal; declaration muse_project_credential_root; declaration muse_delivery_valid; declaration muse_host_environment | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/validate.rs into its current native target.; 71 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-f83664f68888"></a>
+
+## [lib/host/src/muse/wire.rs](../../../../../lib/host/src/muse/wire.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–372; current module/import/attribute shell; declaration MUSE_LAUNCH_SOCKET; declaration MUSE_CONNECTION_SETTING; declaration NestedRegistration; fields child_id, actor_id, registration_id, muse; declaration deserialize; declaration RegistrationVisitor; declaration Value; declaration expecting; declaration visit_map; declaration LaunchRequest; fields home, register, config_home, term, connection_id, cwd, args, tty, cols, rows; declaration RequestVisitor; declaration LaunchControl; fields signal, cols, rows; declaration ControlVisitor; declaration LaunchExit; fields code, error; declaration denied; declaration cleanup_unconfirmed; declaration encode; declaration encode_line; declaration launch_text; declaration launch_absolute_path; declaration launch_arguments_valid; declaration validate; declaration registration_valid; declaration decode | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse/wire.rs into its current native target.; 33 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-a546243813d1"></a>
+<a id="coverage-32590f33ca8d"></a>
+
+## [lib/host/src/muse_serve.rs](../../../../../lib/host/src/muse_serve.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–167; current module/import/attribute shell; declaration CLEANUP_SECS; declaration WAIT_POLL_MS; declaration LISTEN_BACKLOG; declaration start; declaration muse; declaration finish_start; declaration spawn_detached; declaration wait_bounded | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/src/muse_serve.rs into its current native target.; 9 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 168–196; declaration open_muse_listener | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | open_muse_listener: implement the current Unix-socket service and process lifetime duty in muse_serve.rs. — current source lib/host/src/muse_serve.rs; lines 168-196; module/caller wiring inspected |
+
+<a id="coverage-9325ccc40087"></a>
+
+## [lib/host/src/terminal/factory/muse/commands.rs](../../../../../lib/host/src/terminal/factory/muse/commands.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–113; current module/import/attribute shell; declaration factory_muse_supervisor; declaration muse_setup_script; declaration muse_start_gate_script; declaration muse_exec_argv | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/commands.rs into its current native target.; 5 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-500ebd7e3075"></a>
+
+## [lib/host/src/terminal/factory/muse/lifecycle.rs](../../../../../lib/host/src/terminal/factory/muse/lifecycle.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–109; current module/import/attribute shell; declaration factory_muse_wait; declaration factory_muse_validate; declaration factory_muse_stop; declaration factory_muse_stop_unbound; declaration factory_muse_capture; declaration factory_muse_live; declaration factory_muse_output | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/lifecycle.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-2266a92a8645"></a>
+
+## [lib/host/src/terminal/factory/muse/mod.rs](../../../../../lib/host/src/terminal/factory/muse/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–24; current module/import/attribute shell; declaration commands; declaration lifecycle; declaration paths; declaration reserve; declaration start; declaration tests | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/mod.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-e50183514c01"></a>
+
+## [lib/host/src/terminal/factory/muse/paths.rs](../../../../../lib/host/src/terminal/factory/muse/paths.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–120; current module/import/attribute shell; declaration FactoryMusePaths; fields checkout, run_dir, home, muse_config, prompt, marker, started, stop, pid_file, output, stdout, auth, credential, guest; declaration factory_muse_run_paths; declaration factory_muse_paths; declaration factory_muse_binding; declaration factory_muse_guest | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/paths.rs into its current native target.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-b7c56ea98d34"></a>
+
+## [lib/host/src/terminal/factory/muse/reserve.rs](../../../../../lib/host/src/terminal/factory/muse/reserve.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–17, 38–193; current module/import/attribute shell; declaration factory_muse_reserve; declaration factory_muse_setup; declaration factory_muse_stage | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/reserve.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 18–37; declaration verify_muse_harness | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | verify_muse_harness: implement the current candidate verification assessment duty in reserve.rs. — current source lib/host/src/terminal/factory/muse/reserve.rs; lines 18-37; module/caller wiring inspected |
+
+<a id="coverage-3a1e9c1ca59e"></a>
+
+## [lib/host/src/terminal/factory/muse/start.rs](../../../../../lib/host/src/terminal/factory/muse/start.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–50; current module/import/attribute shell; declaration factory_muse_start | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/start.rs into its current native target.; factory_muse_start: implement the current factory run lifecycle and intervention duty in start.rs. — current source lib/host/src/terminal/factory/muse/start.rs; Cargo target and callers; current source lib/host/src/terminal/factory/muse/start.rs; lines 14-50; module/caller wiring inspected |
+
+<a id="coverage-66b127a2df7d"></a>
+
+## [lib/host/src/terminal/factory/muse/tests/commands.rs](../../../../../lib/host/src/terminal/factory/muse/tests/commands.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–56; current module/import/attribute shell; declaration supervisor_shape; declaration setup_and_gate_scripts | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/tests/commands.rs into its current native target.; supervisor_shape: implement the current factory run lifecycle and intervention duty in commands.rs.; setup_and_gate_scripts: implement the current factory run lifecycle and intervention duty in commands.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-4f14b9c493e9"></a>
+
+## [lib/host/src/terminal/factory/muse/tests/common.rs](../../../../../lib/host/src/terminal/factory/muse/tests/common.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–163; current module/import/attribute shell; declaration PID; declaration RID; declaration IID; declaration CID; declaration PREP; declaration ROLE; declaration COMMIT; declaration PIN; declaration TMP_COUNTER; declaration deadline; declaration test_tmp; declaration RecordedCall; declaration FakeExec; fields calls, script; declaration new; declaration calls; declaration run; declaration ok; declaration err; declaration make_service; declaration write_harness; declaration reserve_harness; declaration inspect_json; declaration muse_run; declaration muse_run_dir; declaration muse_lease; declaration euid | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/tests/common.rs into its current native target.; 27 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-6b0201c44247"></a>
+
+## [lib/host/src/terminal/factory/muse/tests/lifecycle.rs](../../../../../lib/host/src/terminal/factory/muse/tests/lifecycle.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–81; current module/import/attribute shell; declaration wait_output_live; declaration stop_and_capture; declaration finish_denied_for_muse | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/tests/lifecycle.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-d41472a0b623"></a>
+
+## [lib/host/src/terminal/factory/muse/tests/mod.rs](../../../../../lib/host/src/terminal/factory/muse/tests/mod.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–6; declaration commands; declaration common; declaration lifecycle; declaration paths; declaration reserve; declaration start | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | commands: implement the current factory run lifecycle and intervention duty in mod.rs.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-0579d77d2d53"></a>
+
+## [lib/host/src/terminal/factory/muse/tests/paths.rs](../../../../../lib/host/src/terminal/factory/muse/tests/paths.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–63; current module/import/attribute shell; declaration paths_and_guest; declaration binding_gates | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/tests/paths.rs into its current native target.; paths_and_guest: implement the current factory run lifecycle and intervention duty in paths.rs.; binding_gates: implement the current factory run lifecycle and intervention duty in paths.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-309ab10a17dd"></a>
+
+## [lib/host/src/terminal/factory/muse/tests/reserve.rs](../../../../../lib/host/src/terminal/factory/muse/tests/reserve.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–10, 53–220; current module/import/attribute shell; declaration reserve_denial_pins; declaration reserve_success_argv_sequence; declaration reserve_stage_missing_guest | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/tests/reserve.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 11–52; declaration verify_harness_matrix | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | verify_harness_matrix: implement the current candidate verification assessment duty in reserve.rs. — current source lib/host/src/terminal/factory/muse/tests/reserve.rs; lines 11-52; module/caller wiring inspected |
+
+<a id="coverage-df10841a3114"></a>
+
+## [lib/host/src/terminal/factory/muse/tests/start.rs](../../../../../lib/host/src/terminal/factory/muse/tests/start.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–84; current module/import/attribute shell; declaration start_flows | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/muse/tests/start.rs into its current native target.; start_flows: implement the current factory run lifecycle and intervention duty in start.rs. — current source lib/host/src/terminal/factory/muse/tests/start.rs; Cargo target and callers; current source lib/host/src/terminal/factory/muse/tests/start.rs; lines 7-84; module/caller wiring inspected |
+
+<a id="coverage-2ec56c0c7f39"></a>
+<a id="coverage-27b47c7ed802"></a>
+
+## [lib/host/tests/muse_serve_oracle.rs](../../../../../lib/host/tests/muse_serve_oracle.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–944; current module/import/attribute shell; declaration account; declaration domain; declaration json; declaration muse; declaration muse_serve; declaration net; declaration nist; declaration project; declaration sha256; declaration ssh; declaration terminal; declaration PID; declaration TID; declaration IID; declaration CID; declaration CHID; declaration RID; declaration PIN; declaration deadline; declaration RecordedCall; declaration FakeExec; fields calls, script; declaration new; declaration calls; declaration run; declaration ok; declaration err; declaration FakeHooks; fields end_calls; declaration acquire; declaration attach; declaration end; declaration authorize; declaration nested_authorize; declaration select; declaration runtime; declaration lease_fixture; declaration delivery_fixture; declaration valid_launch_request; declaration self_pid; declaration dead_peer; declaration live_peer; declaration TMP_COUNTER; declaration work_tmp; declaration sock_path; declaration cleanup; declaration seqpacket_connect; declaration close_fd; declaration devnull; declaration send_with_fds; declaration recv_line; declaration start_rejects_invalid_request_without_touching_exec; declaration start_denies_dead_peer_without_touching_exec; declaration start_denies_live_peer_outside_any_project; declaration muse_validate_ok_echoes_delivery; declaration muse_validate_stale_on_invocation_mismatch; declaration muse_stop_ok_without_custody_return; declaration muse_start_action_denied_like_go; declaration muse_finish_action_denied_like_go; declaration muse_unknown_action_denied_after_invocation_check; declaration muse_malformed_delivery_never_calls_out; declaration open_listener_binds_seqpacket_world_writable; declaration open_listener_refuses_nonempty_dir; declaration open_listener_reports_empty_before_occupied; declaration open_listener_rejects_overlong_path; declaration spawn_existing_serve; declaration launch_wire; declaration register_wire; declaration DENIED_LINE; declaration serve_loopback_register_denied; declaration serve_loopback_launch_denied; declaration serve_loopback_garbage_denied; declaration serve_loopback_never_echoes_request_bytes; declaration serve_loopback_shutdown_clean_without_connections; declaration oracle_launch_exit_wire_bytes; declaration oracle_launch_request_go_shapes; declaration oracle_muse_arguments_vectors; declaration oracle_muse_command_argv_project_and_nested | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Imports and module declarations wire lib/host/tests/muse_serve_oracle.rs into its current native target.; 78 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+## Removed predecessor navigation
+
+These anchors identify earlier mapped source. Their paths no longer define this current map;
+the current inventory and normalized predecessor ledger preserve replacement/retirement evidence.
+No historical source body is counted as current coverage.
 
 <a id="coverage-5ff369a7e67e"></a>
 
-## [rust/soda-host/src/muse.rs](../../../../../rust/soda-host/src/muse.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1–28 | Muse execution and nested registration module wiring |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 29–31 | Native launch/control/nested request contracts; declarations/fields: `MUSE_LAUNCH_SOCKET`, `MUSE_CONNECTION_SETTING`, `NestedRegistration`, `NESTED_REGISTRATION_SPECS`, `LaunchRequest`, `LAUNCH_REQUEST_SPECS`, `LaunchControl`, `LAUNCH_CONTROL_SPECS`, `LaunchExit`, `denied`, `cleanup_unconfirmed`, `encode`, `encode_line`, `launch_text`, `launch_absolute_path`, `launch_arguments_valid`, `validate`, `registration_valid`, `decode`, `decode_value` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 32–33 | Native launch/control/nested request contracts; declaration/member MUSE_LAUNCH_SOCKET; declarations/fields: `MUSE_LAUNCH_SOCKET` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 34–37 | Native launch/control/nested request contracts; declaration/member MUSE_CONNECTION_SETTING; declarations/fields: `MUSE_CONNECTION_SETTING` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 38 | Native launch/control/nested request contracts; declaration/member NestedRegistration; declarations/fields: `NestedRegistration` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 39 | Native launch/control/nested request contracts; declaration/member NestedRegistration.child_id; declarations/fields: `NestedRegistration.child_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 40 | Native launch/control/nested request contracts; declaration/member NestedRegistration.actor_id; declarations/fields: `NestedRegistration.actor_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 41 | Native launch/control/nested request contracts; declaration/member NestedRegistration.registration_id; declarations/fields: `NestedRegistration.registration_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 42–44 | Native launch/control/nested request contracts; declaration/member NestedRegistration.muse; declarations/fields: `NestedRegistration.muse` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 45–65 | Native launch/control/nested request contracts; declaration/member NESTED_REGISTRATION_SPECS; declarations/fields: `NESTED_REGISTRATION_SPECS` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 66 | Native launch/control/nested request contracts; declaration/member LaunchRequest; declarations/fields: `LaunchRequest` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 67 | Native launch/control/nested request contracts; declaration/member LaunchRequest.home; declarations/fields: `LaunchRequest.home` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 68 | Native launch/control/nested request contracts; declaration/member LaunchRequest.register; declarations/fields: `LaunchRequest.register` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 69 | Native launch/control/nested request contracts; declaration/member LaunchRequest.config_home; declarations/fields: `LaunchRequest.config_home` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 70 | Native launch/control/nested request contracts; declaration/member LaunchRequest.term; declarations/fields: `LaunchRequest.term` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 71 | Native launch/control/nested request contracts; declaration/member LaunchRequest.connection_id; declarations/fields: `LaunchRequest.connection_id` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 72 | Native launch/control/nested request contracts; declaration/member LaunchRequest.cwd; declarations/fields: `LaunchRequest.cwd` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 73 | Native launch/control/nested request contracts; declaration/member LaunchRequest.args; declarations/fields: `LaunchRequest.args` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 74 | Native launch/control/nested request contracts; declaration/member LaunchRequest.tty; declarations/fields: `LaunchRequest.tty` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 75 | Native launch/control/nested request contracts; declaration/member LaunchRequest.cols; declarations/fields: `LaunchRequest.cols` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 76–78 | Native launch/control/nested request contracts; declaration/member LaunchRequest.rows; declarations/fields: `LaunchRequest.rows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 79–127 | Native launch/control/nested request contracts; declaration/member LAUNCH_REQUEST_SPECS; declarations/fields: `LAUNCH_REQUEST_SPECS` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 128 | Native launch/control/nested request contracts; declaration/member LaunchControl; declarations/fields: `LaunchControl` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 129 | Native launch/control/nested request contracts; declaration/member LaunchControl.signal; declarations/fields: `LaunchControl.signal` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 130 | Native launch/control/nested request contracts; declaration/member LaunchControl.cols; declarations/fields: `LaunchControl.cols` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 131–133 | Native launch/control/nested request contracts; declaration/member LaunchControl.rows; declarations/fields: `LaunchControl.rows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 134–150 | Native launch/control/nested request contracts; declaration/member LAUNCH_CONTROL_SPECS; declarations/fields: `LAUNCH_CONTROL_SPECS` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 151 | Native launch/control/nested request contracts; declaration/member LaunchExit; declarations/fields: `LaunchExit` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 152 | Native launch/control/nested request contracts; declaration/member LaunchExit.code; declarations/fields: `LaunchExit.code` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 153–156 | Native launch/control/nested request contracts; declaration/member LaunchExit.error; declarations/fields: `LaunchExit.error` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 157–163 | Native launch/control/nested request contracts; declaration/member denied; declarations/fields: `denied` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 164–170 | Native launch/control/nested request contracts; declaration/member cleanup_unconfirmed; declarations/fields: `cleanup_unconfirmed` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 171–181 | Native launch/control/nested request contracts; declaration/member encode; declarations/fields: `encode` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 182–186 | Native launch/control/nested request contracts; declaration/member encode_line; declarations/fields: `encode_line` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 187–190 | Native launch/control/nested request contracts; declaration/member launch_text; declarations/fields: `launch_text` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 191–197 | Native launch/control/nested request contracts; declaration/member launch_absolute_path; declarations/fields: `launch_absolute_path` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 198–210 | Native launch/control/nested request contracts; declaration/member launch_arguments_valid; declarations/fields: `launch_arguments_valid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 211–233 | Native launch/control/nested request contracts; declaration/member validate; declarations/fields: `validate` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 234–250 | Native launch/control/nested request contracts; declaration/member registration_valid; declarations/fields: `registration_valid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 251–255, 298–314 | Native launch/control/nested request contracts; declaration/member decode; declarations/fields: `decode` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 256–297 | Native launch/control/nested request contracts; declaration/member decode_value; declarations/fields: `decode_value` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 315–316 | Allowed native Muse args and credential override refusal; declarations/fields: `muse_auth_override`, `muse_value_flag`, `muse_positional`, `muse_provider_arguments`, `muse_arguments` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 317–323 | Allowed native Muse args and credential override refusal; declaration/member muse_auth_override; declarations/fields: `muse_auth_override` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 324–342 | Allowed native Muse args and credential override refusal; declaration/member muse_value_flag; declarations/fields: `muse_value_flag` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 343–358 | Allowed native Muse args and credential override refusal; declaration/member muse_positional; declarations/fields: `muse_positional` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 359–384 | Allowed native Muse args and credential override refusal; declaration/member muse_provider_arguments; declarations/fields: `muse_provider_arguments` |
-| [I08](../../slices/identity-brokering.md#i08-muse-adapter) / active | 385–396 | Allowed native Muse args and credential override refusal; declaration/member muse_arguments; declarations/fields: `muse_arguments` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 397–400 | Available connection selection metadata; declarations/fields: `MuseConnection`, `muse_connection_authorized`, `select_muse_connection` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 401 | Available connection selection metadata; declaration/member MuseConnection; declarations/fields: `MuseConnection` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 402 | Available connection selection metadata; declaration/member MuseConnection.id; declarations/fields: `MuseConnection.id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 403 | Available connection selection metadata; declaration/member MuseConnection.provider_id; declarations/fields: `MuseConnection.provider_id` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 404–408 | Available connection selection metadata; declaration/member MuseConnection.state; declarations/fields: `MuseConnection.state` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 409–419 | Available connection selection metadata; declaration/member muse_connection_authorized; declarations/fields: `muse_connection_authorized` |
-| [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) / active | 420–445 | Available connection selection metadata; declaration/member select_muse_connection; declarations/fields: `select_muse_connection` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 446–449 | Muse native execution/runtime types; declarations/fields: `MusePeer`, `MuseCaller`, `MuseNested`, `MuseExecution`, `MuseHooks`, `acquire`, `attach`, `end`, `authorize`, `nested_authorize`, `select`, `MuseRuntime`, `new` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 450 | Muse native execution/runtime types; declaration/member MusePeer; declarations/fields: `MusePeer` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 451 | Muse native execution/runtime types; declaration/member MusePeer.pid; declarations/fields: `MusePeer.pid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 452 | Muse native execution/runtime types; declaration/member MusePeer.uid; declarations/fields: `MusePeer.uid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 453 | Muse native execution/runtime types; declaration/member MusePeer.gid; declarations/fields: `MusePeer.gid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 454–457 | Muse native execution/runtime types; declaration/member MusePeer.pidfd; declarations/fields: `MusePeer.pidfd` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 458 | Muse native execution/runtime types; declaration/member MuseCaller; declarations/fields: `MuseCaller` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 459 | Muse native execution/runtime types; declaration/member MuseCaller.project; declarations/fields: `MuseCaller.project` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 460 | Muse native execution/runtime types; declaration/member MuseCaller.container; declarations/fields: `MuseCaller.container` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 461 | Muse native execution/runtime types; declaration/member MuseCaller.login; declarations/fields: `MuseCaller.login` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 462 | Muse native execution/runtime types; declaration/member MuseCaller.home; declarations/fields: `MuseCaller.home` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 463 | Muse native execution/runtime types; declaration/member MuseCaller.namespace; declarations/fields: `MuseCaller.namespace` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 464 | Muse native execution/runtime types; declaration/member MuseCaller.child; declarations/fields: `MuseCaller.child` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 465 | Muse native execution/runtime types; declaration/member MuseCaller.registration; declarations/fields: `MuseCaller.registration` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 466 | Muse native execution/runtime types; declaration/member MuseCaller.actor; declarations/fields: `MuseCaller.actor` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 467 | Muse native execution/runtime types; declaration/member MuseCaller.uid; declarations/fields: `MuseCaller.uid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 468 | Muse native execution/runtime types; declaration/member MuseCaller.gid; declarations/fields: `MuseCaller.gid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 469 | Muse native execution/runtime types; declaration/member MuseCaller.project_pid; declarations/fields: `MuseCaller.project_pid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 470 | Muse native execution/runtime types; declaration/member MuseCaller.nested_pid; declarations/fields: `MuseCaller.nested_pid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 471–474 | Muse native execution/runtime types; declaration/member MuseCaller.muse_allowed; declarations/fields: `MuseCaller.muse_allowed` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 475 | Muse native execution/runtime types; declaration/member MuseNested; declarations/fields: `MuseNested` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 476 | Muse native execution/runtime types; declaration/member MuseNested.parent; declarations/fields: `MuseNested.parent` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 477 | Muse native execution/runtime types; declaration/member MuseNested.project; declarations/fields: `MuseNested.project` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 478 | Muse native execution/runtime types; declaration/member MuseNested.child; declarations/fields: `MuseNested.child` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 479 | Muse native execution/runtime types; declaration/member MuseNested.namespace; declarations/fields: `MuseNested.namespace` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 480 | Muse native execution/runtime types; declaration/member MuseNested.registration; declarations/fields: `MuseNested.registration` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 481 | Muse native execution/runtime types; declaration/member MuseNested.actor; declarations/fields: `MuseNested.actor` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 482 | Muse native execution/runtime types; declaration/member MuseNested.pid; declarations/fields: `MuseNested.pid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 483–488 | Muse native execution/runtime types; declaration/member MuseNested.muse; declarations/fields: `MuseNested.muse` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 489 | Muse native execution/runtime types; declaration/member MuseExecution; declarations/fields: `MuseExecution` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 490 | Muse native execution/runtime types; declaration/member MuseExecution.caller; declarations/fields: `MuseExecution.caller` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 491 | Muse native execution/runtime types; declaration/member MuseExecution.request; declarations/fields: `MuseExecution.request` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 492 | Muse native execution/runtime types; declaration/member MuseExecution.lease; declarations/fields: `MuseExecution.lease` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 493 | Muse native execution/runtime types; declaration/member MuseExecution.binding; declarations/fields: `MuseExecution.binding` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 494 | Muse native execution/runtime types; declaration/member MuseExecution.path; declarations/fields: `MuseExecution.path` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 495–498 | Muse native execution/runtime types; declaration/member MuseExecution.unit; declarations/fields: `MuseExecution.unit` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 499 | Muse native execution/runtime types; declaration/member MuseHooks; declarations/fields: `MuseHooks` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 500 | Muse native execution/runtime types; declaration/member acquire; declarations/fields: `acquire` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 501–506 | Muse native execution/runtime types; declaration/member attach; declarations/fields: `attach` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 507 | Muse native execution/runtime types; declaration/member end; declarations/fields: `end` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 508 | Muse native execution/runtime types; declaration/member authorize; declarations/fields: `authorize` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 509 | Muse native execution/runtime types; declaration/member nested_authorize; declarations/fields: `nested_authorize` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 510–519 | Muse native execution/runtime types; declaration/member select; declarations/fields: `select` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 520 | Muse native execution/runtime types; declaration/member MuseRuntime; declarations/fields: `MuseRuntime` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 521 | Muse native execution/runtime types; declaration/member MuseRuntime.exec; declarations/fields: `MuseRuntime.exec` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 522 | Muse native execution/runtime types; declaration/member MuseRuntime.hooks; declarations/fields: `MuseRuntime.hooks` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 523 | Muse native execution/runtime types; declaration/member MuseRuntime.binary_version; declarations/fields: `MuseRuntime.binary_version` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 524 | Muse native execution/runtime types; declaration/member MuseRuntime.binary_sha256; declarations/fields: `MuseRuntime.binary_sha256` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 525–528 | Muse native execution/runtime types; declaration/member MuseRuntime.nested; declarations/fields: `MuseRuntime.nested` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 529–539 | Muse native execution/runtime types; declaration/member new; declarations/fields: `new` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 540–542 | Native path/process/namespace provenance resolution helpers; declarations/fields: `MUSE_INSPECT`, `MUSE_CHILD_INSPECT`, `muse_project_cgroup`, `muse_mapped_uid`, `muse_passwd_valid`, `muse_account_node`, `muse_account_modes`, `muse_registration_valid`, `muse_child_pid`, `muse_readonly_mount`, `muse_elf`, `host_go_arch`, `muse_signal`, `muse_project_credential_root`, `muse_delivery_valid`, `muse_host_environment` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 543–544 | Native path/process/namespace provenance resolution helpers; declaration/member MUSE_INSPECT; declarations/fields: `MUSE_INSPECT` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 545–549 | Native path/process/namespace provenance resolution helpers; declaration/member MUSE_CHILD_INSPECT; declarations/fields: `MUSE_CHILD_INSPECT` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 550–564 | Native path/process/namespace provenance resolution helpers; declaration/member muse_project_cgroup; declarations/fields: `muse_project_cgroup` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 565–585 | Native path/process/namespace provenance resolution helpers; declaration/member muse_mapped_uid; declarations/fields: `muse_mapped_uid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 586–596 | Native path/process/namespace provenance resolution helpers; declaration/member muse_passwd_valid; declarations/fields: `muse_passwd_valid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 597–614 | Native path/process/namespace provenance resolution helpers; declaration/member muse_account_node; declarations/fields: `muse_account_node` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 615–628 | Native path/process/namespace provenance resolution helpers; declaration/member muse_account_modes; declarations/fields: `muse_account_modes` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 629–636 | Native path/process/namespace provenance resolution helpers; declaration/member muse_registration_valid; declarations/fields: `muse_registration_valid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 637–662 | Native path/process/namespace provenance resolution helpers; declaration/member muse_child_pid; declarations/fields: `muse_child_pid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 663–693 | Native path/process/namespace provenance resolution helpers; declaration/member muse_readonly_mount; declarations/fields: `muse_readonly_mount` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 694–712 | Native path/process/namespace provenance resolution helpers; declaration/member muse_elf; declarations/fields: `muse_elf` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 713–721 | Native path/process/namespace provenance resolution helpers; declaration/member host_go_arch; declarations/fields: `host_go_arch` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 722–739 | Native path/process/namespace provenance resolution helpers; declaration/member muse_signal; declarations/fields: `muse_signal` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 740–759 | Native path/process/namespace provenance resolution helpers; declaration/member muse_project_credential_root; declarations/fields: `muse_project_credential_root` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 760–770 | Native path/process/namespace provenance resolution helpers; declaration/member muse_delivery_valid; declarations/fields: `muse_delivery_valid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 771–776 | Native path/process/namespace provenance resolution helpers; declaration/member muse_host_environment; declarations/fields: `muse_host_environment` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 777–780 | Allowed native execution argv; declarations/fields: `muse_command_argv`, `unit_active_argv`, `unit_invocation_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 781–870 | Allowed native execution argv; declaration/member muse_command_argv; declarations/fields: `muse_command_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 871–881 | Allowed native execution argv; declaration/member unit_active_argv; declarations/fields: `unit_active_argv` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 882–891 | Allowed native execution argv; declaration/member unit_invocation_argv; declarations/fields: `unit_invocation_argv` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 892–895 | Caller, Project, nested child and exact native binding attestation; declarations/fields: `MuseInspection`, `MUSE_INSPECTION_SPECS`, `muse_peer_alive`, `sleep_until`, `podman`, `guest`, `guest_refs`, `inspect`, `resolve_project`, `kernel_caller`, `registered_caller`, `resolve`, `resolve_inner`, `project_account`, `project_actor`, `authorized_caller`, `register_nested`, `registration_authority`, `registered_child`, `validate_nested`, `nested_namespace`, `actor_account`, `nested_caller`, `verify_guest_binary` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 896 | Caller, Project, nested child and exact native binding attestation; declaration/member MuseInspection; declarations/fields: `MuseInspection` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 897 | Caller, Project, nested child and exact native binding attestation; declaration/member MuseInspection.id; declarations/fields: `MuseInspection.id` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 898 | Caller, Project, nested child and exact native binding attestation; declaration/member MuseInspection.project; declarations/fields: `MuseInspection.project` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 899 | Caller, Project, nested child and exact native binding attestation; declaration/member MuseInspection.running; declarations/fields: `MuseInspection.running` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 900 | Caller, Project, nested child and exact native binding attestation; declaration/member MuseInspection.privileged; declarations/fields: `MuseInspection.privileged` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 901–903 | Caller, Project, nested child and exact native binding attestation; declaration/member MuseInspection.userns; declarations/fields: `MuseInspection.userns` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 904–930 | Caller, Project, nested child and exact native binding attestation; declaration/member MUSE_INSPECTION_SPECS; declarations/fields: `MUSE_INSPECTION_SPECS` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 931–941 | Caller, Project, nested child and exact native binding attestation; declaration/member muse_peer_alive; declarations/fields: `muse_peer_alive` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 942–958 | Caller, Project, nested child and exact native binding attestation; declaration/member sleep_until; declarations/fields: `sleep_until` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 959–965 | Caller, Project, nested child and exact native binding attestation; declaration/member podman; declarations/fields: `podman` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 966–981 | Caller, Project, nested child and exact native binding attestation; declaration/member guest; declarations/fields: `guest` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 982–997 | Caller, Project, nested child and exact native binding attestation; declaration/member guest_refs; declarations/fields: `guest_refs` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 998–1043 | Caller, Project, nested child and exact native binding attestation; declaration/member inspect; declarations/fields: `inspect` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1044–1077 | Caller, Project, nested child and exact native binding attestation; declaration/member resolve_project; declarations/fields: `resolve_project` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1078–1096 | Caller, Project, nested child and exact native binding attestation; declaration/member kernel_caller; declarations/fields: `kernel_caller` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1097–1122 | Caller, Project, nested child and exact native binding attestation; declaration/member registered_caller; declarations/fields: `registered_caller` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1123–1129 | Caller, Project, nested child and exact native binding attestation; declaration/member resolve; declarations/fields: `resolve` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1130–1149 | Caller, Project, nested child and exact native binding attestation; declaration/member resolve_inner; declarations/fields: `resolve_inner` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1150–1180 | Caller, Project, nested child and exact native binding attestation; declaration/member project_account; declarations/fields: `project_account` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1181–1215 | Caller, Project, nested child and exact native binding attestation; declaration/member project_actor; declarations/fields: `project_actor` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1216–1223 | Caller, Project, nested child and exact native binding attestation; declaration/member authorized_caller; declarations/fields: `authorized_caller` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1224–1248 | Caller, Project, nested child and exact native binding attestation; declaration/member register_nested; declarations/fields: `register_nested` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1249–1270 | Caller, Project, nested child and exact native binding attestation; declaration/member registration_authority; declarations/fields: `registration_authority` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1271–1318 | Caller, Project, nested child and exact native binding attestation; declaration/member registered_child; declarations/fields: `registered_child` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1319–1371 | Caller, Project, nested child and exact native binding attestation; declaration/member validate_nested; declarations/fields: `validate_nested` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1372–1405 | Caller, Project, nested child and exact native binding attestation; declaration/member nested_namespace; declarations/fields: `nested_namespace` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1406–1442 | Caller, Project, nested child and exact native binding attestation; declaration/member actor_account; declarations/fields: `actor_account` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1443–1462 | Caller, Project, nested child and exact native binding attestation; declaration/member nested_caller; declarations/fields: `nested_caller` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1463–1522 | Caller, Project, nested child and exact native binding attestation; declaration/member verify_guest_binary; declarations/fields: `verify_guest_binary` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1523–1557 | Native launch preparation and reserved execution integration; declarations/fields: `prepare_execution` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1558–1614 | Native launch preparation and reserved execution integration; declaration/member reserve_execution; declarations/fields: `reserve_execution` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1615–1659 | Private credential delivery into bound execution; declarations/fields: `deliver_execution` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1660–1700 | Native controls and execution-stage integration; declarations/fields: `control_execution` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1701–1731 | Native controls and execution-stage integration; declaration/member stage; declarations/fields: `stage` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1732–1784 | Private staged auth/config/nested payload files and mounts; declarations/fields: `stage_files` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1785–1806 | Private staged auth/config/nested payload files and mounts; declaration/member stage_config; declarations/fields: `stage_config` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1807–1832 | Private staged auth/config/nested payload files and mounts; declaration/member populate_config; declarations/fields: `populate_config` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1833–1862 | Private staged auth/config/nested payload files and mounts; declaration/member auth_mount_target; declarations/fields: `auth_mount_target` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1863–1928 | Private staged auth/config/nested payload files and mounts; declaration/member copy_nested_config; declarations/fields: `copy_nested_config` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 1929–1972 | Exact native stop operation; declarations/fields: `stop_execution` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 1973–1999 | Native execution validation callback; declarations/fields: `validate_muse_binding` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2000–2021 | Await execution and Project operations; declarations/fields: `await_unit` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2022–2042 | Await execution and Project operations; declaration/member muse_operation; declarations/fields: `muse_operation` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2043–2086 | Await execution and Project operations; declaration/member project_operation; declarations/fields: `project_operation` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2087–2142 | Bound execution retirement and private-file cleanup; declarations/fields: `cleanup_execution_state` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2143–2156 | Bound execution retirement and private-file cleanup; declaration/member invoke_state; declarations/fields: `invoke_state` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2157–2185 | Bound execution retirement and private-file cleanup; declaration/member retire_mount; declarations/fields: `retire_mount` |
-| [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) / active | 2186–2208 | Bound execution retirement and private-file cleanup; declaration/member retire_execution_files; declarations/fields: `retire_execution_files` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2209–2227 | Native PTY resize; declarations/fields: `muse_resize` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 2228–2244 | Bound native execution state container; declarations/fields: `state_container` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2245–2270 | Public launch-interface listener directory and socket support; declarations/fields: `prepare_muse_listener_dir` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2271–2274 | Public launch-interface listener directory and socket support; declaration/member SO_PEERPIDFD; declarations/fields: `SO_PEERPIDFD` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 2275–2310 | PIDFD/native caller peer resolution; declarations/fields: `muse_peer_from_fd` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 2311–2322 | PIDFD/native caller peer resolution; declaration/member close_fds; declarations/fields: `close_fds` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2323–2365 | Descriptor and packet parsing; declarations/fields: `parse_unix_rights` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2366 | Descriptor and packet parsing; declaration/member MuseRequest; declarations/fields: `MuseRequest` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2367 | Descriptor and packet parsing; declaration/member MuseRequest.request; declarations/fields: `MuseRequest.request` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2368–2372 | Descriptor and packet parsing; declaration/member MuseRequest.files; declarations/fields: `MuseRequest.files` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2373–2429 | Descriptor and packet parsing; declaration/member muse_request_from_fd; declarations/fields: `muse_request_from_fd` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2430–2437 | Bounded unixpacket descriptor exchange and native listener support; declarations/fields: `muse_descriptors_valid` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2438–2460 | Bounded unixpacket descriptor exchange and native listener support; declaration/member muse_command_exit; declarations/fields: `muse_command_exit` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2461–2500 | Bounded unixpacket descriptor exchange and native listener support; declaration/member split_json_object; declarations/fields: `split_json_object` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2501 | Bounded unixpacket descriptor exchange and native listener support; declaration/member MuseLaunch; declarations/fields: `MuseLaunch` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2502–2505 | Bounded unixpacket descriptor exchange and native listener support; declaration/member MuseLaunch.runtime; declarations/fields: `MuseLaunch.runtime` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2506–2514 | Bounded unixpacket descriptor exchange and native listener support; declaration/member new; declarations/fields: `new` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2515–2570 | Bounded unixpacket descriptor exchange and native listener support; declaration/member serve; declarations/fields: `serve` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2571–2597 | Bounded unixpacket descriptor exchange and native listener support; declaration/member serve_one; declarations/fields: `serve_one` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2598–2603 | Bounded unixpacket descriptor exchange and native listener support; declaration/member serve_connection; declarations/fields: `serve_connection` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2604–2605 | Bounded unixpacket descriptor exchange and native listener support; declaration/member Closer; declarations/fields: `Closer` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 2606–2640 | Bounded unixpacket descriptor exchange and native listener support; declaration/member drop; declarations/fields: `drop` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2641–2651 | Native shell/CLI launch and control loop; declarations/fields: `shell` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2652–2729 | Native shell/CLI launch and control loop; declaration/member shell_inner; declarations/fields: `shell_inner` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2730–2743 | Native shell/CLI launch and control loop; declaration/member finish_unconfirmed; declarations/fields: `finish_unconfirmed` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2744–2808 | Native shell/CLI launch and control loop; declaration/member control_loop; declarations/fields: `control_loop` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2809–2833 | Native shell/CLI launch and control loop; declaration/member spawn_execution; declarations/fields: `spawn_execution` |
-| [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) / active | 2834–2869 | Project env config decode; declarations/fields: `decode_config_view` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2870–2874, 3516–3543, 3793–3852 | Muse source test scaffolding and assertions; declarations/fields: `tests`, `readonly_mount_matrix`, `reserve_execution_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2875 | Muse source test scaffolding and assertions; declaration/member PID; declarations/fields: `PID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2876 | Muse source test scaffolding and assertions; declaration/member TID; declarations/fields: `TID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2877 | Muse source test scaffolding and assertions; declaration/member IID; declarations/fields: `IID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2878 | Muse source test scaffolding and assertions; declaration/member CID; declarations/fields: `CID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2879–2880 | Muse source test scaffolding and assertions; declaration/member PIN; declarations/fields: `PIN` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2881 | Muse source test scaffolding and assertions; declaration/member TMP_COUNTER; declarations/fields: `TMP_COUNTER` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2882–2883 | Muse source test scaffolding and assertions; declaration/member ENV_LOCK; declarations/fields: `ENV_LOCK` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2884–2887 | Muse source test scaffolding and assertions; declaration/member deadline; declarations/fields: `deadline` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2888–2894 | Muse source test scaffolding and assertions; declaration/member test_tmp; declarations/fields: `test_tmp` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2895–2896 | Muse source test scaffolding and assertions; declaration/member RecordedCall; declarations/fields: `RecordedCall` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2897 | Muse source test scaffolding and assertions; declaration/member FakeExec; declarations/fields: `FakeExec` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2898 | Muse source test scaffolding and assertions; declaration/member FakeExec.calls; declarations/fields: `FakeExec.calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2899–2902 | Muse source test scaffolding and assertions; declaration/member FakeExec.script; declarations/fields: `FakeExec.script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2903–2909, 2958–2974 | Muse source test scaffolding and assertions; declaration/member new; declarations/fields: `new` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2910–2915 | Muse source test scaffolding and assertions; declaration/member calls; declarations/fields: `calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2916–2935 | Muse source test scaffolding and assertions; declaration/member run; declarations/fields: `run` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2936–2939 | Muse source test scaffolding and assertions; declaration/member ok; declarations/fields: `ok` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2940–2943 | Muse source test scaffolding and assertions; declaration/member err; declarations/fields: `err` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2944 | Muse source test scaffolding and assertions; declaration/member FakeHooks; declarations/fields: `FakeHooks` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2945 | Muse source test scaffolding and assertions; declaration/member FakeHooks.select_out; declarations/fields: `FakeHooks.select_out` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2946 | Muse source test scaffolding and assertions; declaration/member FakeHooks.acquire_out; declarations/fields: `FakeHooks.acquire_out` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2947 | Muse source test scaffolding and assertions; declaration/member FakeHooks.attach_out; declarations/fields: `FakeHooks.attach_out` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2948 | Muse source test scaffolding and assertions; declaration/member FakeHooks.end_calls; declarations/fields: `FakeHooks.end_calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2949 | Muse source test scaffolding and assertions; declaration/member FakeHooks.end_out; declarations/fields: `FakeHooks.end_out` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2950 | Muse source test scaffolding and assertions; declaration/member FakeHooks.authorize_out; declarations/fields: `FakeHooks.authorize_out` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2951 | Muse source test scaffolding and assertions; declaration/member FakeHooks.nested_out; declarations/fields: `FakeHooks.nested_out` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2952 | Muse source test scaffolding and assertions; declaration/member FakeHooks.selects; declarations/fields: `FakeHooks.selects` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2953 | Muse source test scaffolding and assertions; declaration/member FakeHooks.acquires; declarations/fields: `FakeHooks.acquires` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2954–2957 | Muse source test scaffolding and assertions; declaration/member FakeHooks.attaches; declarations/fields: `FakeHooks.attaches` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2975–2978 | Muse source test scaffolding and assertions; declaration/member acquire; declarations/fields: `acquire` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2979–2990 | Muse source test scaffolding and assertions; declaration/member attach; declarations/fields: `attach` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2991–2997 | Muse source test scaffolding and assertions; declaration/member end; declarations/fields: `end` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 2998–3000 | Muse source test scaffolding and assertions; declaration/member authorize; declarations/fields: `authorize` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3001–3008 | Muse source test scaffolding and assertions; declaration/member nested_authorize; declarations/fields: `nested_authorize` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3009–3023 | Muse source test scaffolding and assertions; declaration/member select; declarations/fields: `select` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3024–3027 | Muse source test scaffolding and assertions; declaration/member runtime; declarations/fields: `runtime` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3028–3040 | Muse source test scaffolding and assertions; declaration/member caller; declarations/fields: `caller` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3041–3070 | Muse source test scaffolding and assertions; declaration/member lease_fixture; declarations/fields: `lease_fixture` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3071–3220 | Muse source test scaffolding and assertions; declaration/member launch_request_validate_matrix; declarations/fields: `launch_request_validate_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3221–3271 | Muse source test scaffolding and assertions; declaration/member launch_decode_matrix; declarations/fields: `launch_decode_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3272–3328 | Muse source test scaffolding and assertions; declaration/member muse_arguments_matrix; declarations/fields: `muse_arguments_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3329–3385 | Muse source test scaffolding and assertions; declaration/member connection_directory_matrix; declarations/fields: `connection_directory_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3386–3407 | Muse source test scaffolding and assertions; declaration/member cgroup_matrix; declarations/fields: `cgroup_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3408–3424 | Muse source test scaffolding and assertions; declaration/member uidmap_matrix; declarations/fields: `uidmap_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3425–3467 | Muse source test scaffolding and assertions; declaration/member passwd_and_modes_matrix; declarations/fields: `passwd_and_modes_matrix` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 3468–3515 | Source assertion of Native binding and private delivery; declarations/fields: `registration_and_child_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3544–3553 | Muse source test scaffolding and assertions; declaration/member elf_header; declarations/fields: `elf_header` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3554–3567 | Muse source test scaffolding and assertions; declaration/member elf_matrix; declarations/fields: `elf_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3568–3611 | Muse source test scaffolding and assertions; declaration/member signal_and_root_matrix; declarations/fields: `signal_and_root_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3612–3718 | Muse source test scaffolding and assertions; declaration/member muse_command_goldens; declarations/fields: `muse_command_goldens` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3719–3755 | Muse source test scaffolding and assertions; declaration/member inspect_flows; declarations/fields: `inspect_flows` |
-| [P03](../../slices/projects.md#p03-human-membership-and-accounts) / active | 3756–3792 | Source assertion of Human membership and accounts; declarations/fields: `actor_account_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 3853–4001 | Muse source test scaffolding and assertions; declaration/member stage_flows; declarations/fields: `stage_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4002–4081 | Muse source test scaffolding and assertions; declaration/member deliver_execution_flows; declarations/fields: `deliver_execution_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4082–4225 | Muse source test scaffolding and assertions; declaration/member stop_execution_flows; declarations/fields: `stop_execution_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4226–4277 | Muse source test scaffolding and assertions; declaration/member retire_mount_matrix; declarations/fields: `retire_mount_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4278–4366 | Muse source test scaffolding and assertions; declaration/member validate_and_ops_matrix; declarations/fields: `validate_and_ops_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4367–4385 | Muse source test scaffolding and assertions; declaration/member state_container_matrix; declarations/fields: `state_container_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4386–4398 | Muse source test scaffolding and assertions; declaration/member config_view_matrix; declarations/fields: `config_view_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4399–4527 | Muse source test scaffolding and assertions; declaration/member control_execution_flows; declarations/fields: `control_execution_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4528–4544 | Muse source test scaffolding and assertions; declaration/member open_pty_pair; declarations/fields: `open_pty_pair` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4545–4552 | Muse source test scaffolding and assertions; declaration/member pty_size; declarations/fields: `pty_size` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4553–4560 | Muse source test scaffolding and assertions; declaration/member open_pipe_pair; declarations/fields: `open_pipe_pair` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4561–4672 | Muse source test scaffolding and assertions; declaration/member verify_guest_binary_flows; declarations/fields: `verify_guest_binary_flows` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4673–4681 | Muse source test scaffolding and assertions; declaration/member seqpacket_pair; declarations/fields: `seqpacket_pair` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4682–4711 | Muse source test scaffolding and assertions; declaration/member send_with_fds; declarations/fields: `send_with_fds` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4712–4739 | Muse source test scaffolding and assertions; declaration/member peer_attestation; declarations/fields: `peer_attestation` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4740–4802 | Muse source test scaffolding and assertions; declaration/member request_parsing_matrix; declarations/fields: `request_parsing_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4803–4851 | Muse source test scaffolding and assertions; declaration/member command_exit_matrix; declarations/fields: `command_exit_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4852–4865 | Muse source test scaffolding and assertions; declaration/member json_split_matrix; declarations/fields: `json_split_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4866–4960 | Muse source test scaffolding and assertions; declaration/member control_loop_matrix; declarations/fields: `control_loop_matrix` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 4961–5023 | Muse source test scaffolding and assertions; declaration/member serve_shutdown_and_listener_setup; declarations/fields: `serve_shutdown_and_listener_setup` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 5024–5041 | Muse source test scaffolding and assertions; declaration/member muse_host_environment_filters_meta_key; declarations/fields: `muse_host_environment_filters_meta_key` |
-
-<a id="coverage-a546243813d1"></a>
-
-## [rust/soda-host/src/muse_serve.rs](../../../../../rust/soda-host/src/muse_serve.rs)
-
-
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1–143 | Muse hook contract and launch handoff; declarations/fields: `CLEANUP_SECS`, `WAIT_POLL_MS`, `LISTEN_BACKLOG`, `start`, `muse`, `finish_start`, `spawn_detached` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 144–166 | Bounded launched execution wait; declarations/fields: `wait_bounded` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 167–239 | Native public Muse launch socket directory/open/peer lifetime; declarations/fields: `open_muse_listener` |
-
-<a id="coverage-2ec56c0c7f39"></a>
-
-## [rust/soda-host/tests/muse_serve_oracle.rs](../../../../../rust/soda-host/tests/muse_serve_oracle.rs)
-
-Source assertions/fixtures were inspected for mapping only; no test execution, runtime or installed proof claimed. Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
-
-| Slice / lifecycle | Current lines | Responsibility and declarations |
-| --- | --- | --- |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 1–13 | Scripted Muse launch-hook and listener admission oracle; declarations/fields: `account`, `domain`, `json`, `muse`, `muse_serve`, `net`, `nist`, `project`, `sha256`, `ssh`, `texec`, `PID`, `TID`, `IID`, `CID`, `CHID`, `RID`, `PIN`, `deadline`, `FakeExec`, `new`, `calls`, `run`, `ok`, `err`, `FakeHooks`, `acquire`, `attach`, `end`, `authorize`, `nested_authorize`, `select`, `runtime`, `lease_fixture`, `delivery_fixture`, `valid_launch_request`, `self_pid`, `dead_peer`, `live_peer`, `TMP_COUNTER`, `work_tmp`, `sock_path`, `cleanup`, `seqpacket_connect`, `close_fd`, `devnull`, `send_with_fds`, `recv_line`, `start_rejects_invalid_request_without_touching_exec`, `start_denies_dead_peer_without_touching_exec`, `start_denies_live_peer_outside_any_project`, `muse_validate_ok_echoes_delivery`, `muse_validate_stale_on_invocation_mismatch`, `muse_stop_ok_without_custody_return`, `muse_start_action_denied_like_go`, `muse_finish_action_denied_like_go`, `muse_unknown_action_denied_after_invocation_check`, `muse_malformed_delivery_never_calls_out`, `open_listener_binds_seqpacket_world_writable`, `open_listener_refuses_nonempty_dir`, `open_listener_reports_empty_before_occupied`, `open_listener_rejects_overlong_path`, `spawn_existing_serve`, `launch_wire`, `register_wire`, `DENIED_LINE`, `serve_loopback_register_denied`, `serve_loopback_launch_denied`, `serve_loopback_garbage_denied`, `serve_loopback_never_echoes_request_bytes`, `serve_loopback_shutdown_clean_without_connections`, `oracle_launch_exit_wire_bytes`, `oracle_launch_request_go_shapes`, `oracle_muse_arguments_vectors`, `oracle_muse_command_argv_project_and_nested` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 14–16 | Scripted Muse launch-hook and listener admission oracle; declaration/member account; declarations/fields: `account` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 17–19 | Scripted Muse launch-hook and listener admission oracle; declaration/member domain; declarations/fields: `domain` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 20–22 | Scripted Muse launch-hook and listener admission oracle; declaration/member json; declarations/fields: `json` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 23–24 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse; declarations/fields: `muse` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 25–27 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse_serve; declarations/fields: `muse_serve` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 28–30 | Scripted Muse launch-hook and listener admission oracle; declaration/member net; declarations/fields: `net` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 31–33 | Scripted Muse launch-hook and listener admission oracle; declaration/member nist; declarations/fields: `nist` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 34–36 | Scripted Muse launch-hook and listener admission oracle; declaration/member project; declarations/fields: `project` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 37–39 | Scripted Muse launch-hook and listener admission oracle; declaration/member sha256; declarations/fields: `sha256` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 40–42 | Scripted Muse launch-hook and listener admission oracle; declaration/member ssh; declarations/fields: `ssh` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 43–60 | Scripted Muse launch-hook and listener admission oracle; declaration/member texec; declarations/fields: `texec` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 61 | Scripted Muse launch-hook and listener admission oracle; declaration/member PID; declarations/fields: `PID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 62 | Scripted Muse launch-hook and listener admission oracle; declaration/member TID; declarations/fields: `TID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 63 | Scripted Muse launch-hook and listener admission oracle; declaration/member IID; declarations/fields: `IID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 64 | Scripted Muse launch-hook and listener admission oracle; declaration/member CID; declarations/fields: `CID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 65 | Scripted Muse launch-hook and listener admission oracle; declaration/member CHID; declarations/fields: `CHID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 66 | Scripted Muse launch-hook and listener admission oracle; declaration/member RID; declarations/fields: `RID` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 67–68 | Scripted Muse launch-hook and listener admission oracle; declaration/member PIN; declarations/fields: `PIN` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 69–72 | Scripted Muse launch-hook and listener admission oracle; declaration/member deadline; declarations/fields: `deadline` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 73–74 | Scripted Muse launch-hook and listener admission oracle; declaration/member RecordedCall; declarations/fields: `RecordedCall` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 75 | Scripted Muse launch-hook and listener admission oracle; declaration/member FakeExec; declarations/fields: `FakeExec` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 76 | Scripted Muse launch-hook and listener admission oracle; declaration/member FakeExec.calls; declarations/fields: `FakeExec.calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 77–80 | Scripted Muse launch-hook and listener admission oracle; declaration/member FakeExec.script; declarations/fields: `FakeExec.script` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 81–87, 127–134 | Scripted Muse launch-hook and listener admission oracle; declaration/member new; declarations/fields: `new` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 88–93 | Scripted Muse launch-hook and listener admission oracle; declaration/member calls; declarations/fields: `calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 94–113 | Scripted Muse launch-hook and listener admission oracle; declaration/member run; declarations/fields: `run` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 114–117 | Scripted Muse launch-hook and listener admission oracle; declaration/member ok; declarations/fields: `ok` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 118–121 | Scripted Muse launch-hook and listener admission oracle; declaration/member err; declarations/fields: `err` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 122 | Scripted Muse launch-hook and listener admission oracle; declaration/member FakeHooks; declarations/fields: `FakeHooks` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 123–126 | Scripted Muse launch-hook and listener admission oracle; declaration/member FakeHooks.end_calls; declarations/fields: `FakeHooks.end_calls` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 135–137 | Scripted Muse launch-hook and listener admission oracle; declaration/member acquire; declarations/fields: `acquire` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 138–145 | Scripted Muse launch-hook and listener admission oracle; declaration/member attach; declarations/fields: `attach` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 146–152 | Scripted Muse launch-hook and listener admission oracle; declaration/member end; declarations/fields: `end` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 153–155 | Scripted Muse launch-hook and listener admission oracle; declaration/member authorize; declarations/fields: `authorize` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 156–163 | Scripted Muse launch-hook and listener admission oracle; declaration/member nested_authorize; declarations/fields: `nested_authorize` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 164–174 | Scripted Muse launch-hook and listener admission oracle; declaration/member select; declarations/fields: `select` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 175–178 | Scripted Muse launch-hook and listener admission oracle; declaration/member runtime; declarations/fields: `runtime` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 179–205 | Scripted Muse launch-hook and listener admission oracle; declaration/member lease_fixture; declarations/fields: `lease_fixture` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 206–212 | Scripted Muse launch-hook and listener admission oracle; declaration/member delivery_fixture; declarations/fields: `delivery_fixture` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 213–220 | Scripted Muse launch-hook and listener admission oracle; declaration/member valid_launch_request; declarations/fields: `valid_launch_request` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 221–226 | Scripted Muse launch-hook and listener admission oracle; declaration/member self_pid; declarations/fields: `self_pid` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 227–237 | Scripted Muse launch-hook and listener admission oracle; declaration/member dead_peer; declarations/fields: `dead_peer` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 238–253 | Scripted Muse launch-hook and listener admission oracle; declaration/member live_peer; declarations/fields: `live_peer` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 254–257 | Scripted Muse launch-hook and listener admission oracle; declaration/member TMP_COUNTER; declarations/fields: `TMP_COUNTER` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 258–267 | Scripted Muse launch-hook and listener admission oracle; declaration/member work_tmp; declarations/fields: `work_tmp` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 268–273 | Scripted Muse launch-hook and listener admission oracle; declaration/member sock_path; declarations/fields: `sock_path` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 274–279 | Scripted Muse launch-hook and listener admission oracle; declaration/member cleanup; declarations/fields: `cleanup` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 280–297 | Scripted Muse launch-hook and listener admission oracle; declaration/member seqpacket_connect; declarations/fields: `seqpacket_connect` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 298–303 | Scripted Muse launch-hook and listener admission oracle; declaration/member close_fd; declarations/fields: `close_fd` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 304–310 | Scripted Muse launch-hook and listener admission oracle; declaration/member devnull; declarations/fields: `devnull` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 311–347 | Scripted Muse launch-hook and listener admission oracle; declaration/member send_with_fds; declarations/fields: `send_with_fds` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 348–372 | Scripted Muse launch-hook and listener admission oracle; declaration/member recv_line; declarations/fields: `recv_line` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 373–386 | Scripted Muse launch-hook and listener admission oracle; declaration/member start_rejects_invalid_request_without_touching_exec; declarations/fields: `start_rejects_invalid_request_without_touching_exec` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 387–397 | Scripted Muse launch-hook and listener admission oracle; declaration/member start_denies_dead_peer_without_touching_exec; declarations/fields: `start_denies_dead_peer_without_touching_exec` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 398–415 | Scripted Muse launch-hook and listener admission oracle; declaration/member start_denies_live_peer_outside_any_project; declarations/fields: `start_denies_live_peer_outside_any_project` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 416–426 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse_validate_ok_echoes_delivery; declarations/fields: `muse_validate_ok_echoes_delivery` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 427–437 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse_validate_stale_on_invocation_mismatch; declarations/fields: `muse_validate_stale_on_invocation_mismatch` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 438–452 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse_stop_ok_without_custody_return; declarations/fields: `muse_stop_ok_without_custody_return` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 453–465 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse_start_action_denied_like_go; declarations/fields: `muse_start_action_denied_like_go` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 466–476 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse_finish_action_denied_like_go; declarations/fields: `muse_finish_action_denied_like_go` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 477–487 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse_unknown_action_denied_after_invocation_check; declarations/fields: `muse_unknown_action_denied_after_invocation_check` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 488–514 | Scripted Muse launch-hook and listener admission oracle; declaration/member muse_malformed_delivery_never_calls_out; declarations/fields: `muse_malformed_delivery_never_calls_out` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 515–543 | Scripted Muse launch-hook and listener admission oracle; declaration/member open_listener_binds_seqpacket_world_writable; declarations/fields: `open_listener_binds_seqpacket_world_writable` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 544–555 | Scripted Muse launch-hook and listener admission oracle; declaration/member open_listener_refuses_nonempty_dir; declarations/fields: `open_listener_refuses_nonempty_dir` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 556–571 | Scripted Muse launch-hook and listener admission oracle; declaration/member open_listener_reports_empty_before_occupied; declarations/fields: `open_listener_reports_empty_before_occupied` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 572–583 | Scripted Muse launch-hook and listener admission oracle; declaration/member open_listener_rejects_overlong_path; declarations/fields: `open_listener_rejects_overlong_path` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 584–594 | Scripted Muse launch-hook and listener admission oracle; declaration/member spawn_existing_serve; declarations/fields: `spawn_existing_serve` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 595–598 | Scripted Muse launch-hook and listener admission oracle; declaration/member launch_wire; declarations/fields: `launch_wire` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 599–609 | Scripted Muse launch-hook and listener admission oracle; declaration/member register_wire; declarations/fields: `register_wire` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 610–615 | Scripted Muse launch-hook and listener admission oracle; declaration/member DENIED_LINE; declarations/fields: `DENIED_LINE` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 616–637 | Scripted Muse launch-hook and listener admission oracle; declaration/member serve_loopback_register_denied; declarations/fields: `serve_loopback_register_denied` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 638–661 | Scripted Muse launch-hook and listener admission oracle; declaration/member serve_loopback_launch_denied; declarations/fields: `serve_loopback_launch_denied` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 662–681 | Scripted Muse launch-hook and listener admission oracle; declaration/member serve_loopback_garbage_denied; declarations/fields: `serve_loopback_garbage_denied` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 682–703 | Scripted Muse launch-hook and listener admission oracle; declaration/member serve_loopback_never_echoes_request_bytes; declarations/fields: `serve_loopback_never_echoes_request_bytes` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 704–720 | Scripted Muse launch-hook and listener admission oracle; declaration/member serve_loopback_shutdown_clean_without_connections; declarations/fields: `serve_loopback_shutdown_clean_without_connections` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 721–741 | Scripted Muse launch-hook and listener admission oracle; declaration/member oracle_launch_exit_wire_bytes; declarations/fields: `oracle_launch_exit_wire_bytes` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 742–780 | Scripted Muse launch-hook and listener admission oracle; declaration/member oracle_launch_request_go_shapes; declarations/fields: `oracle_launch_request_go_shapes` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 781–809 | Scripted Muse launch-hook and listener admission oracle; declaration/member oracle_muse_arguments_vectors; declarations/fields: `oracle_muse_arguments_vectors` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 810–946 | Scripted Muse launch-hook and listener admission oracle; declaration/member oracle_muse_command_argv_project_and_nested; declarations/fields: `oracle_muse_command_argv_project_and_nested` |
-
+Former source `rust/soda-host/src/muse.rs`; consult its pinned earlier Git source and the current coverage disposition.

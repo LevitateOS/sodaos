@@ -8,4 +8,4 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
-| [factory-os/Containerfile](../../../../../factory-os/Containerfile) | configuration | [P06](../../slices/projects.md#p06-factory-role-accounts) / obsolete | [current units](../maps/root-and-retired-definitions.md#coverage-7a882221a14c) |
+| [factory-os/Containerfile](../../../../../factory-os/Containerfile) | configuration / service / selector | [P06](../../slices/projects.md#p06-factory-role-accounts) / obsolete | Unselected soda-agent disposable factory recipe; current six-image selector and non-login Project-role contract exclude this alternate implementation |
