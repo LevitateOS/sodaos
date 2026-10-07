@@ -141,17 +141,43 @@ func SetEnv(env []string, key, val string) []string {
 
 var (
 	cargoMu    sync.Mutex
-	cargoBuilt = map[string]string{} // build key -> "" on success, stderr tail on failure
+	cargoBuilt = map[string]cargoBuildResult{}
 )
 
-// CargoBinary builds a Rust binary once per key (like setUpClass) and returns
-// its target/debug path. extra holds cargo build flags after -p pkg.
+type cargoBuildResult struct {
+	processError string
+	stderrTail   string
+}
+
+func cargoTargetDir() string {
+	target := os.Getenv("CARGO_TARGET_DIR")
+	if target == "" {
+		target = filepath.Join(RepoRoot, "target")
+	} else if !filepath.IsAbs(target) {
+		target = filepath.Join(RepoRoot, target)
+	}
+	return filepath.Clean(target)
+}
+
+// CargoBinary builds a Rust binary once per argument and target-directory key
+// (like setUpClass) and returns its configured target/debug path. extra holds
+// cargo build flags after -p pkg.
 func CargoBinary(t *testing.T, pkg, bin string, extra ...string) string {
 	t.Helper()
+	path, result := cargoBinary(pkg, bin, extra...)
+	if result.processError != "" {
+		t.Fatalf("cannot build %s: cargo build failed: %s; stderr: %s", bin, result.processError, result.stderrTail)
+	}
+	return path
+}
+
+func cargoBinary(pkg, bin string, extra ...string) (string, cargoBuildResult) {
 	args := append([]string{"build", "-p", pkg}, extra...)
-	key := strings.Join(args, "\x00")
+	targetDir := cargoTargetDir()
+	keyParts := append(append([]string(nil), args...), targetDir)
+	key := strings.Join(keyParts, "\x00")
 	cargoMu.Lock()
-	failure, seen := cargoBuilt[key]
+	result, seen := cargoBuilt[key]
 	cargoMu.Unlock()
 	if !seen {
 		cmd := exec.Command("cargo", args...)
@@ -159,18 +185,19 @@ func CargoBinary(t *testing.T, pkg, bin string, extra ...string) string {
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
-		failure = ""
-		if err := cmd.Run(); err != nil {
-			failure = tail(stderr.String(), 2000)
+		err := cmd.Run()
+		result = cargoBuildResult{stderrTail: tail(stderr.String(), 2000)}
+		if err != nil {
+			result.processError = err.Error()
 		}
 		cargoMu.Lock()
-		cargoBuilt[key] = failure
+		cargoBuilt[key] = result
 		cargoMu.Unlock()
 	}
-	if failure != "" {
-		t.Fatalf("cannot build %s: %s", bin, failure)
+	if result.processError != "" {
+		return "", result
 	}
-	return filepath.Join(RepoRoot, "target", "debug", bin)
+	return filepath.Join(targetDir, "debug", bin), result
 }
 
 func tail(s string, n int) string {

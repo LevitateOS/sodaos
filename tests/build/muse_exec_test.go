@@ -1,11 +1,7 @@
-// The muse factory runner (rust/soda-host/src/tmuse.rs) drives headless
-// `muse exec` with a fixed argv and a stream contract: stdout carries exactly
-// the final answer, diagnostics go to stderr, exit 0 marks success, and a
-// bogus staged auth.json fails fast with nonzero exit. This test pins that
-// contract against the real CLI using the zero-spend echo provider (plus one
-// invalid-auth rejection through the runner's own file-backend env), so a
-// CLI behavior change fails loudly instead of silently breaking supervised
-// runs. Skips when muse is not installed.
+// Optional live CLI coverage for the muse factory runner. Running these cases
+// is an explicit development action: SODA_TEST_MUSE_CLI must name the binary.
+// The ordinary build suite tests selection behavior without discovering a
+// user's ambient CLI.
 package build
 
 import (
@@ -19,16 +15,24 @@ import (
 	"time"
 )
 
+func selectedMuseCLI(value string) (string, bool) {
+	if value == "" || !filepath.IsAbs(value) {
+		return "", false
+	}
+	return value, true
+}
+
 func museBinary(t *testing.T) string {
 	t.Helper()
-	if path, err := exec.LookPath("muse"); err == nil {
-		return path
+	path, selected := selectedMuseCLI(os.Getenv("SODA_TEST_MUSE_CLI"))
+	if !selected {
+		t.Skip("set SODA_TEST_MUSE_CLI to an absolute Muse binary path to run live CLI checks")
 	}
-	if _, err := os.Stat("/home/vince/.local/bin/muse"); err == nil {
-		return "/home/vince/.local/bin/muse"
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+		t.Fatalf("SODA_TEST_MUSE_CLI must name an executable file: %s", path)
 	}
-	t.Skip("muse CLI unavailable")
-	return ""
+	return path
 }
 
 func runMuseExec(t *testing.T, ctx context.Context, env []string, args ...string) (int, string, string) {
@@ -66,6 +70,19 @@ func runMuseExec(t *testing.T, ctx context.Context, env []string, args ...string
 		}
 	}
 	return code, stdout.String(), stderr.String()
+}
+
+func TestMuseExecCLISelectionIsExplicit(t *testing.T) {
+	if path, ok := selectedMuseCLI(""); ok || path != "" {
+		t.Fatalf("empty selector chose a CLI: %q", path)
+	}
+	if path, ok := selectedMuseCLI("relative/muse"); ok || path != "" {
+		t.Fatalf("relative selector was accepted: %q", path)
+	}
+	want := "/opt/muse/bin/muse"
+	if path, ok := selectedMuseCLI(want); !ok || path != want {
+		t.Fatalf("explicit selector = %q, %v", path, ok)
+	}
 }
 
 func TestMuseExecStreamContract(t *testing.T) {
