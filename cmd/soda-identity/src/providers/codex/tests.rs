@@ -110,7 +110,15 @@ fn managed_enrollment_persists_only_after_process_stop() {
         session.inner.finished.load(Ordering::SeqCst),
         "credential retained before provider process ended"
     );
-    let root = session.inner.root.clone();
+    let root = session
+        .inner
+        .root
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .path()
+        .to_path_buf();
     session.close().unwrap();
     assert!(!root.exists(), "credential tmpfs root not removed");
 }
@@ -121,7 +129,15 @@ fn cancel_removes_unfinished_enrollment() {
     let provider = fixture_provider(&dir, false);
     let session = provider.start(1).unwrap();
     assert_eq!(session.snapshot().state, "pending");
-    let root = session.inner.root.clone();
+    let root = session
+        .inner
+        .root
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .path()
+        .to_path_buf();
     session.close().unwrap();
     assert!(!root.exists(), "canceled credentials retained");
 }

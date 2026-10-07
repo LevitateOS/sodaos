@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::io::FromRawFd;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
@@ -64,19 +64,17 @@ impl Provider {
 
     fn create_session(&self) -> Result<Session, Error> {
         let dir = enrollment_tempdir(Path::new(&self.config.root))?;
-        let state_dir = dir.join("state");
-        let log_dir = dir.join("logs");
+        let root = dir.path().to_path_buf();
+        let state_dir = root.join("state");
+        let log_dir = root.join("logs");
         // Enrollment diagnostics and credentials remain confined to the tmpfs root.
-        let stderr_path = dir.join("stderr");
-        let log = std::fs::File::create(&stderr_path).map_err(|_| {
-            let _ = std::fs::remove_dir_all(&dir);
-            Error::failed("codex enrollment could not start")
-        })?;
+        let stderr_path = root.join("stderr");
+        let log = std::fs::File::create(&stderr_path)
+            .map_err(|_| Error::failed("codex enrollment could not start"))?;
         let _ = std::fs::set_permissions(&stderr_path, std::fs::Permissions::from_mode(0o600));
         use std::os::unix::io::AsRawFd;
         let dup = unsafe { libc::dup(log.as_raw_fd()) };
         if dup < 0 {
-            let _ = std::fs::remove_dir_all(&dir);
             return Err(Error::failed("codex enrollment could not start"));
         }
         let stderr = unsafe { Stdio::from_raw_fd(dup) };
@@ -90,25 +88,21 @@ impl Provider {
             .arg("app-server")
             .env_clear()
             .envs(
-                environment(dir.to_string_lossy().as_ref())
+                environment(root.to_string_lossy().as_ref())
                     .iter()
                     .map(|entry| split_env(entry)),
             )
-            .current_dir(&dir)
+            .current_dir(&root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(stderr)
             .spawn()
-            .map_err(|_| {
-                let _ = std::fs::remove_dir_all(&dir);
-                Error::failed("codex enrollment could not start")
-            })?;
+            .map_err(|_| Error::failed("codex enrollment could not start"))?;
         let stdin = match child.stdin.take() {
             Some(stdin) => stdin,
             None => {
                 let _ = child.kill();
                 let _ = child.wait();
-                let _ = std::fs::remove_dir_all(&dir);
                 return Err(Error::failed("codex enrollment could not start"));
             }
         };
@@ -117,7 +111,6 @@ impl Provider {
             None => {
                 let _ = child.kill();
                 let _ = child.wait();
-                let _ = std::fs::remove_dir_all(&dir);
                 return Err(Error::failed("codex enrollment could not start"));
             }
         };
@@ -137,7 +130,7 @@ impl Provider {
                 child: Mutex::new(Some(child)),
                 replies: Mutex::new(HashMap::new()),
                 next: Mutex::new(0),
-                root: dir,
+                root: Mutex::new(Some(dir)),
                 done: Mutex::new(done_rx),
                 finished: AtomicBool::new(false),
                 cancelled: AtomicBool::new(false),
@@ -169,7 +162,7 @@ struct Inner {
     child: Mutex<Option<Child>>,
     replies: Mutex<HashMap<i64, mpsc::SyncSender<Message>>>,
     next: Mutex<i64>,
-    root: PathBuf,
+    root: Mutex<Option<tempfile::TempDir>>,
     done: Mutex<mpsc::Receiver<()>>,
     finished: AtomicBool,
     cancelled: AtomicBool,
@@ -181,7 +174,7 @@ impl Drop for Inner {
         // Session and pump threads retain this owner until the child is reaped.
         // This fallback covers callers that drop a completed session without
         // calling close; explicit close still reports cleanup errors.
-        let _ = std::fs::remove_dir_all(&self.root);
+        self.root.get_mut().unwrap().take();
     }
 }
 
@@ -284,7 +277,12 @@ impl Session {
     }
 
     fn credential_file(&self) -> Result<Vec<u8>, Error> {
-        let path = self.inner.root.join("auth.json");
+        let root = self.inner.root.lock().unwrap();
+        let path = root
+            .as_ref()
+            .expect("session root retained")
+            .path()
+            .join("auth.json");
         let info = std::fs::symlink_metadata(&path)
             .map_err(|_| Error::denied("invalid credential file"))?;
         if !info.file_type().is_file()
@@ -331,7 +329,9 @@ impl Session {
             );
         }
         self.stop()?;
-        std::fs::remove_dir_all(&self.inner.root)?;
+        if let Some(root) = self.inner.root.lock().unwrap().take() {
+            root.close()?;
+        }
         Ok(())
     }
 }

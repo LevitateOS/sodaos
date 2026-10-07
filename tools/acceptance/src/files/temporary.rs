@@ -50,37 +50,50 @@ pub fn private_destination(path: &str) -> Result<(), Error> {
 /// Private scratch directory, removed on drop.
 #[derive(Debug)]
 pub struct TempDir {
-    path: std::path::PathBuf,
+    dir: tempfile::TempDir,
 }
 
 impl TempDir {
     /// Create a fresh private scratch directory.
     pub fn new(prefix: &str) -> Result<TempDir, Error> {
-        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let mut path = std::env::temp_dir();
-        path.push(format!(
-            "{prefix}-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-        ));
-        fresh_directory(&path.to_string_lossy())?;
-        Ok(TempDir { path })
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::Builder::new()
+            .prefix(&format!("{prefix}-"))
+            .permissions(std::fs::Permissions::from_mode(0o700))
+            .tempdir()?;
+        Ok(TempDir { dir })
     }
 
     /// Join a name below the directory.
     pub fn join(&self, name: &str) -> std::path::PathBuf {
-        self.path.join(name)
+        self.dir.path().join(name)
     }
 
     /// Directory path.
     pub fn path(&self) -> &std::path::Path {
-        &self.path
+        self.dir.path()
     }
 }
 
-impl Drop for TempDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.path);
+#[cfg(test)]
+mod tests {
+    use super::TempDir;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn private_tempdir_is_created_and_removed_by_owner() {
+        let path;
+        {
+            let dir = TempDir::new("soda-acceptance").unwrap();
+            path = dir.path().to_path_buf();
+            assert!(path.starts_with(std::env::temp_dir()));
+            assert_eq!(dir.join("body").parent(), Some(dir.path()));
+            assert_eq!(
+                std::fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+        assert!(!path.exists());
     }
 }
 

@@ -9,7 +9,7 @@ use serde::Deserialize;
 use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
@@ -44,7 +44,8 @@ impl Provider {
     /// identity.
     pub fn start(&self, _owner: i64) -> Result<Session, Error> {
         let dir = enrollment_tempdir(Path::new(&self.config.root))?;
-        let id = dir
+        let root = dir.path().to_path_buf();
+        let id = root
             .file_name()
             .map(|n| n.as_bytes().to_vec())
             .unwrap_or_default();
@@ -52,25 +53,21 @@ impl Provider {
             .arg("login")
             .env_clear()
             .envs(
-                environment(dir.to_string_lossy().as_ref())
+                environment(root.to_string_lossy().as_ref())
                     .iter()
                     .map(|entry| split_env(entry)),
             )
-            .current_dir(&dir)
+            .current_dir(&root)
             .stdout(Stdio::piped())
             // Never relay native diagnostics: they may carry credentials.
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|_| {
-                let _ = std::fs::remove_dir_all(&dir);
-                Error::failed("muse enrollment could not start")
-            })?;
+            .map_err(|_| Error::failed("muse enrollment could not start"))?;
         let stdout = match child.stdout.take() {
             Some(stdout) => stdout,
             None => {
                 let _ = child.kill();
                 let _ = child.wait();
-                let _ = std::fs::remove_dir_all(&dir);
                 return Err(Error::failed("muse enrollment could not start"));
             }
         };
@@ -87,7 +84,7 @@ impl Provider {
                     connection: None,
                 }),
                 child: Mutex::new(Some(child)),
-                root: dir,
+                root: Mutex::new(Some(dir)),
                 done: Mutex::new(done_rx),
                 finished: AtomicBool::new(false),
             }),
@@ -116,7 +113,7 @@ fn split_env(entry: &str) -> (&str, &str) {
 struct Inner {
     state: Mutex<Enrollment>,
     child: Mutex<Option<Child>>,
-    root: PathBuf,
+    root: Mutex<Option<tempfile::TempDir>>,
     done: Mutex<mpsc::Receiver<()>>,
     finished: AtomicBool,
 }
@@ -124,9 +121,8 @@ struct Inner {
 impl Drop for Inner {
     fn drop(&mut self) {
         // Session and pump threads retain this owner until the child is reaped.
-        // This fallback covers callers that drop a completed session without
-        // calling close; explicit close still reports cleanup errors.
-        let _ = std::fs::remove_dir_all(&self.root);
+        // TempDir's fallback cleanup covers abandoned completed sessions.
+        self.root.get_mut().unwrap().take();
     }
 }
 
@@ -144,7 +140,13 @@ impl Session {
         if self.snapshot().state != "completed" {
             return Err(Error::failed("muse enrollment is incomplete"));
         }
-        let data = credential_file(&self.inner.root.join("config/muse/auth.json"))?;
+        let root = self.inner.root.lock().unwrap();
+        let path = root
+            .as_ref()
+            .expect("session root retained")
+            .path()
+            .join("config/muse/auth.json");
+        let data = credential_file(&path)?;
         Ok((
             Connection {
                 provider_id: "muse".to_string(),
@@ -167,7 +169,9 @@ impl Session {
         let done = self.inner.done.lock().unwrap();
         match done.recv_timeout(Duration::from_secs(5)) {
             Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => {
-                std::fs::remove_dir_all(&self.inner.root)?;
+                if let Some(root) = self.inner.root.lock().unwrap().take() {
+                    root.close()?;
+                }
                 Ok(())
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {

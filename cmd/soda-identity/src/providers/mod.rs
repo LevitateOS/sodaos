@@ -12,7 +12,7 @@ pub mod types;
 
 use std::fmt;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
 
@@ -82,7 +82,7 @@ impl From<std::io::Error> for Error {
 
 /// Unique `enrollment-*` directory under a provider root, mirroring
 /// `os.MkdirTemp(root, "enrollment-")`.
-pub(crate) fn enrollment_tempdir(root: &Path) -> std::io::Result<PathBuf> {
+pub(crate) fn enrollment_tempdir(root: &Path) -> std::io::Result<tempfile::TempDir> {
     enrollment_tempdir_with(root, |out| {
         getrandom::fill(out).map_err(std::io::Error::other)
     })
@@ -91,23 +91,17 @@ pub(crate) fn enrollment_tempdir(root: &Path) -> std::io::Result<PathBuf> {
 fn enrollment_tempdir_with(
     root: &Path,
     mut fill: impl FnMut(&mut [u8]) -> std::io::Result<()>,
-) -> std::io::Result<PathBuf> {
-    for _ in 0..100 {
-        let mut suffix = [0u8; 16];
-        fill(&mut suffix)
-            .map_err(|_| std::io::Error::other("enrollment randomness unavailable"))?;
-        let dir = root.join(format!("enrollment-{}", sha256::hex(&suffix)));
-        use std::os::unix::fs::DirBuilderExt;
-        match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
-            Ok(()) => return Ok(dir),
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => return Err(err),
-        }
-    }
-    Err(std::io::Error::new(
-        std::io::ErrorKind::AlreadyExists,
-        "enrollment directory unavailable",
-    ))
+) -> std::io::Result<tempfile::TempDir> {
+    // Keep the provider's fail-closed entropy boundary explicit; tempfile's
+    // own collision-safe suffix is used only after this required source passes.
+    let mut prefix = [0u8; 16];
+    fill(&mut prefix).map_err(|_| std::io::Error::other("enrollment randomness unavailable"))?;
+    use std::os::unix::fs::PermissionsExt;
+    tempfile::Builder::new()
+        .prefix(&format!("enrollment-{}-", sha256::hex(&prefix)))
+        .rand_bytes(8)
+        .permissions(std::fs::Permissions::from_mode(0o700))
+        .tempdir_in(root)
 }
 
 /// Enrollment roots must be private tmpfs, mirroring `privateTmpfs`.
@@ -137,25 +131,22 @@ pub(crate) fn private_tmpfs(root: &Path) -> Result<(), Error> {
 
 #[cfg(test)]
 pub(crate) struct TestDir {
-    path: PathBuf,
+    dir: tempfile::TempDir,
 }
 
 #[cfg(test)]
 impl TestDir {
     pub(crate) fn new() -> TestDir {
-        let mut suffix = [0u8; 8];
-        getrandom::fill(&mut suffix).expect("test entropy unavailable");
-        let path = std::env::temp_dir().join(format!(
-            "soda-idp-test-{}-{}",
-            std::process::id(),
-            sha256::hex(&suffix)
-        ));
-        std::fs::create_dir_all(&path).unwrap();
-        TestDir { path }
+        TestDir {
+            dir: tempfile::Builder::new()
+                .prefix("soda-idp-test-")
+                .tempdir()
+                .expect("test temporary directory unavailable"),
+        }
     }
 
     pub(crate) fn path(&self) -> &Path {
-        &self.path
+        self.dir.path()
     }
 }
 
@@ -165,33 +156,25 @@ mod entropy_tests {
 
     #[test]
     fn enrollment_tempdir_propagates_partial_entropy_failure() {
-        let root = std::env::temp_dir().join(format!("soda-idp-entropy-{}", std::process::id()));
-        std::fs::create_dir(&root).unwrap();
-        let result = enrollment_tempdir_with(&root, |out| {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path();
+        let result = enrollment_tempdir_with(root, |out| {
             out[0] = 1;
             Err(std::io::Error::other("injected entropy failure"))
         });
         assert!(result.is_err());
-        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
-        let made = enrollment_tempdir_with(&root, |out| {
+        assert_eq!(std::fs::read_dir(root).unwrap().count(), 0);
+        let made = enrollment_tempdir_with(root, |out| {
             out.fill(1);
             Ok(())
         })
         .unwrap();
         use std::os::unix::fs::PermissionsExt;
         assert_eq!(
-            std::fs::metadata(&made).unwrap().permissions().mode() & 0o777,
+            std::fs::metadata(made.path()).unwrap().permissions().mode() & 0o777,
             0o700
         );
-        std::fs::remove_dir_all(made).unwrap();
-        std::fs::remove_dir_all(root).unwrap();
-    }
-}
-
-#[cfg(test)]
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.path);
+        made.close().unwrap();
     }
 }
 

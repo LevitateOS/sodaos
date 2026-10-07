@@ -206,7 +206,15 @@ fn native_enrollment_keeps_presentation_private() {
         !public.contains("synthetic"),
         "diagnostics escaped: {public}"
     );
-    let root = session.inner.root.clone();
+    let root = session
+        .inner
+        .root
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .path()
+        .to_path_buf();
     session.close().unwrap();
     assert!(!root.exists(), "credential root not removed");
 }
