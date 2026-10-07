@@ -1,24 +1,7 @@
-use std::ffi::CString;
 use std::io;
-use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
-
-#[link(name = "c")]
-extern "C" {
-    fn geteuid() -> u32;
-    fn chown(path: *const std::os::raw::c_char, owner: u32, group: u32) -> std::os::raw::c_int;
-    fn getpwnam(name: *const std::os::raw::c_char) -> *const Passwd;
-}
-
-#[repr(C)]
-struct Passwd {
-    pw_name: *const std::os::raw::c_char,
-    pw_passwd: *const std::os::raw::c_char,
-    pw_uid: u32,
-    pw_gid: u32,
-}
 
 pub(crate) struct Paths {
     pub(crate) root: PathBuf,
@@ -67,31 +50,53 @@ pub(crate) struct RealSys;
 
 impl Sys for RealSys {
     fn euid(&self) -> u32 {
-        unsafe { geteuid() }
+        unsafe { libc::geteuid() }
     }
 
     fn lookup_user(&self, name: &str) -> Result<(u32, u32), String> {
-        let cname =
-            CString::new(name).map_err(|_| format!("getpwnam(): name not found: {name:?}"))?;
-        let entry = unsafe { getpwnam(cname.as_ptr()) };
-        if entry.is_null() {
-            return Err(format!("getpwnam(): name not found: {name:?}"));
+        let cname = std::ffi::CString::new(name)
+            .map_err(|_| format!("getpwnam(): name not found: {name:?}"))?;
+        let mut result = std::ptr::null_mut();
+        let mut size = unsafe { libc::sysconf(libc::_SC_GETPW_R_SIZE_MAX) };
+        if size < 0 {
+            size = 1024;
         }
-        let (uid, gid) = unsafe { ((*entry).pw_uid, (*entry).pw_gid) };
-        Ok((uid, gid))
+        const MAX_NSS_BYTES: usize = 1024 * 1024;
+        let mut buffer = vec![0u8; (size as usize).clamp(1024, MAX_NSS_BYTES)];
+        loop {
+            let mut entry: libc::passwd = unsafe { std::mem::zeroed() };
+            let code = unsafe {
+                libc::getpwnam_r(
+                    cname.as_ptr(),
+                    &mut entry,
+                    buffer.as_mut_ptr().cast(),
+                    buffer.len(),
+                    &mut result,
+                )
+            };
+            if code == libc::ERANGE {
+                if buffer.len() >= MAX_NSS_BYTES {
+                    return Err("getpwnam(): account record exceeds limit".to_string());
+                }
+                buffer.resize((buffer.len() * 2).min(MAX_NSS_BYTES), 0);
+                continue;
+            }
+            if code != 0 {
+                return Err(format!(
+                    "getpwnam(): {}",
+                    io::Error::from_raw_os_error(code)
+                ));
+            }
+            if result.is_null() {
+                return Err(format!("getpwnam(): name not found: {name:?}"));
+            }
+            return Ok((entry.pw_uid, entry.pw_gid));
+        }
     }
 
     fn chown(&mut self, path: &Path, uid: u32, gid: u32) -> io::Result<()> {
-        let bytes = path.as_os_str().as_bytes();
-        let mut nul = Vec::with_capacity(bytes.len() + 1);
-        nul.extend_from_slice(bytes);
-        nul.push(0);
-        let ret = unsafe { chown(nul.as_ptr() as *const std::os::raw::c_char, uid, gid) };
-        if ret == 0 {
-            Ok(())
-        } else {
-            Err(io::Error::last_os_error())
-        }
+        use std::os::unix::fs::chown;
+        chown(path, Some(uid), Some(gid))
     }
 
     fn run(&mut self, argv: &[&str]) -> io::Result<i32> {

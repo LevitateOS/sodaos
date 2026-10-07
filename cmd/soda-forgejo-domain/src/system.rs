@@ -44,10 +44,15 @@ impl Sys for RealSys {
             Ok(output) => {
                 let mut combined = output.stdout;
                 combined.extend_from_slice(&output.stderr);
-                (
-                    output.status.code().unwrap_or(1),
-                    String::from_utf8_lossy(&combined).into_owned(),
-                )
+                let code = output.status.code().unwrap_or_else(|| {
+                    use std::os::unix::process::ExitStatusExt;
+                    output
+                        .status
+                        .signal()
+                        .map(|signal| 128 + signal)
+                        .unwrap_or(1)
+                });
+                (code, String::from_utf8_lossy(&combined).into_owned())
             }
             Err(e) => (1, e.to_string()),
         }

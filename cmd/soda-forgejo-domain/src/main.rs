@@ -20,11 +20,6 @@ use crate::cli::{help_text, parse_args, usage};
 use crate::domain::dispatch;
 use crate::system::{Paths, RealSys};
 
-#[link(name = "c")]
-extern "C" {
-    fn geteuid() -> u32;
-}
-
 fn main() {
     let argv: Vec<String> = std::env::args().collect();
     let prog = argv
@@ -48,7 +43,7 @@ fn main() {
             std::process::exit(2);
         }
     };
-    if unsafe { geteuid() } != 0 {
+    if unsafe { libc::geteuid() } != 0 {
         eprintln!(
             "{}\n{prog}: error: native host operator/root required",
             usage(prog)

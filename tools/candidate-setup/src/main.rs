@@ -45,30 +45,9 @@ const LEGACY_HOME: &str = "/var/lib/soda-candidate-home";
 const LEGACY_RUN: &str = "/var/lib/soda-candidate-run";
 const WORKER_USER: &str = "soda-build-worker";
 
-extern "C" {
-    fn flock(fd: i32, op: i32) -> i32;
-    fn faccessat(dirfd: i32, path: *const i8, mode: i32, flags: i32) -> i32;
-    fn umask(mask: u32) -> u32;
-    fn sigaction(signum: i32, act: *const Sigaction, oldact: *mut Sigaction) -> i32;
-}
-
-/// Matches glibc's `struct sigaction` on Linux (handler, signal mask, flags,
-/// restorer). The glibc wrapper fills in the restorer itself.
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct Sigaction {
-    handler: usize,
-    mask: [u64; 16],
-    flags: i32,
-    restorer: usize,
-}
-
-const SIGPIPE: i32 = 13;
-const SIG_DFL: usize = 0;
-const LOCK_EX: i32 = 2;
-const LOCK_NB: i32 = 4;
-const AT_FDCWD: i32 = -100;
-const X_OK: i32 = 1;
+use libc::{
+    faccessat, flock, sigaction, umask, AT_FDCWD, LOCK_EX, LOCK_NB, SIGPIPE, SIG_DFL, X_OK,
+};
 
 /// How the process ends: a `fail()` message with exit 1, or a propagated
 /// child status with no extra output (the script's `set -e` behavior).
@@ -241,12 +220,10 @@ fn main() {
     // EPIPE and println! would panic instead of dying like the shell);
     // restore the default disposition for byte parity.
     unsafe {
-        let restore_pipe = Sigaction {
-            handler: SIG_DFL,
-            mask: [0; 16],
-            flags: 0,
-            restorer: 0,
-        };
+        let mut restore_pipe: libc::sigaction = std::mem::zeroed();
+        restore_pipe.sa_sigaction = SIG_DFL;
+        restore_pipe.sa_flags = 0;
+        libc::sigemptyset(&mut restore_pipe.sa_mask);
         sigaction(SIGPIPE, &restore_pipe, std::ptr::null_mut());
     }
     let mut cleanup: Vec<PathBuf> = Vec::new();

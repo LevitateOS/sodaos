@@ -36,26 +36,7 @@ pub(crate) const PREFIX_DEFAULT: &str = "ghcr.io/levitateos/sodaos";
 pub(crate) const AUTHORITY: &str = "/var/lib/soda-candidate-authority";
 pub(crate) const WORKER_USER: &str = "soda-build-worker";
 
-extern "C" {
-    pub(crate) fn faccessat(dirfd: i32, path: *const i8, mode: i32, flags: i32) -> i32;
-    pub(crate) fn umask(mask: u32) -> u32;
-    fn sigaction(signum: i32, act: *const Sigaction, oldact: *mut Sigaction) -> i32;
-}
-pub(crate) const AT_FDCWD: i32 = -100;
-pub(crate) const X_OK: i32 = 1;
-const SIGPIPE: i32 = 13;
-const SIG_DFL: usize = 0;
-
-/// Matches glibc's `struct sigaction` on Linux (handler, signal mask, flags,
-/// restorer). The glibc wrapper fills in the restorer itself.
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct Sigaction {
-    handler: usize,
-    mask: [u64; 16],
-    flags: i32,
-    restorer: usize,
-}
+pub(crate) use libc::{faccessat, umask, AT_FDCWD, X_OK};
 
 /// How the process ends: a `fail()` message with exit 1, or a propagated
 /// child status with no extra output (the script's `set -e` behavior).
@@ -124,13 +105,11 @@ fn main() {
     // Die by SIGPIPE like the shell instead of panicking on a closed pipe,
     // and keep the script's `umask 077` for staging and children.
     unsafe {
-        let restore_pipe = Sigaction {
-            handler: SIG_DFL,
-            mask: [0; 16],
-            flags: 0,
-            restorer: 0,
-        };
-        sigaction(SIGPIPE, &restore_pipe, std::ptr::null_mut());
+        let mut restore_pipe: libc::sigaction = std::mem::zeroed();
+        restore_pipe.sa_sigaction = libc::SIG_DFL;
+        restore_pipe.sa_flags = 0;
+        libc::sigemptyset(&mut restore_pipe.sa_mask);
+        libc::sigaction(libc::SIGPIPE, &restore_pipe, std::ptr::null_mut());
         umask(0o077);
     }
     let mut argv: Vec<String> = env::args().collect();
