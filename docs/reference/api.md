@@ -71,6 +71,13 @@ Create binds an immutable profile. Join creates the project-local account and
 records membership only after confirmed native success. Terminal details are in
 the [managed terminal contract](terminal.md).
 
+Deleting a saved development key accepts a JSON body with `confirm_last: true`
+when the actor explicitly confirms removal. If that key is the final saved key,
+unconfirmed deletion returns HTTP 409. The Store checks this within the deletion
+transaction, including concurrent removals. This is the saved-key confirmation
+requirement in [Project access](../product/projects.md); it does not revoke an
+installed Project SSH key.
+
 ## Public probes
 
 | Method | Path | Purpose |
