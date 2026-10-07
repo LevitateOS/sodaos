@@ -1,5 +1,7 @@
 # Host runtime
 
+L11 leaves caller-owned IP, URL/percent and timestamp admission adapters around std, url/percent-encoding and `lib/wire-time`; calendar/IP grammar engines have no further split allocation. N4 provider curl remains held at the owned resolver/deadline and Executor custody boundary described in [L10](../library-adoption.md#l10-external-http-adapters). Completed host structural checkpoints retain their original scope.
+
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 

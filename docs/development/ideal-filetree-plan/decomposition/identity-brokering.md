@@ -1,5 +1,7 @@
 # Identity brokering
 
+L11 replaces wire_time calendar code with the shared strict `lib/wire-time` adapter, checked conversion/addition and observable Serde errors. The identity owner retains UnixTime records, grant/lease lifetime checks, digest authority and route percent-path admission; no calendar or URL service/DTO is added.
+
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 

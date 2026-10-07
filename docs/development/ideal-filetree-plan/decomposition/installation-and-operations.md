@@ -243,7 +243,7 @@ completed engine replacement.
 
 ## rust/soda-install/src/netip.rs
 
-Observed size: 836 lines, including tests where embedded. N8 replaces the IPv4/IPv6 grammar and formatting engine with std::net::IpAddr. Retain one small adapter for admitted zones, prefix masking/containment and purpose-specific address selection. Do not further split the legacy grammar/error port into permanent target modules. Keep address/prefix policy tests with the adapter.
+Observed size: 836 lines at the historical review. L11/N8 replaces the IPv4/IPv6 grammar and formatting engine with std::net::IpAddr in `4d0f1128`. Retain one small adapter for admitted zones, prefix masking/containment and purpose-specific address selection. Do not further split the legacy grammar/error port into permanent target modules. Keep address/prefix policy tests with the adapter.
 
 - `cmd/soda-install/src/netip/mod.rs`
 - `cmd/soda-install/src/netip/tests/mod.rs`
@@ -319,9 +319,9 @@ parallel Go-compatible MPINT/text parser remains.
 
 ## rust/soda-install/src/urlx.rs
 
-Observed size: 730 lines, including tests where embedded. N7 replaces manifest/origin URL parsing with url 2.5.8 and explicit raw lexical/admission guards. X50901 removes the obsolete URI-SAN parser caller. Retire the complete urlx port once both caller changes land; there is no desired generic URL-parser leaf here.
+Observed size: 730 lines at the historical review. L06 removed the certificate URI-SAN caller; L11 removes the last setup display caller and the complete urlx engine in `4d0f1128`. The retained setup/access adapter uses typed URL parsing with raw origin admission and unchanged displayed configuration. There is no generic URL-parser target leaf.
 
-The historical urlx module and its exact foreign-error vectors are retirement scope. Keep manifest/origin policy fixtures with their actual caller.
+The historical URL grammar and foreign-error suites are retired. Origin/display policy fixtures remain with setup/access; the source spans below remain provenance.
 
 Evidence: rust/soda-install/src/urlx.rs:1-9 documented net/url byte/error semantics; rust/soda-install/src/urlx.rs:105-355 unescape, host/authority/scheme and parse; rust/soda-install/src/urlx.rs:356-370 hostname; rust/soda-install/src/urlx.rs:374-730 oracle URL and exact-error tests.
 
@@ -363,8 +363,8 @@ admission/signature/caller failures replace those grammar tests. Unused
 noncritical extensions do not need independent validators; duplicate OIDs and
 unsupported critical extensions fail. RSA/EC/Ed and PSS parameters follow their
 strict supported profiles. This establishes neither expiry nor chain/browser
-trust. `urlx` remains for live setup/origin callers until L11; L06 removes only
-its obsolete URI-SAN caller. Historical structural work and the completed CF-06
+trust. L11 removes the remaining setup urlx engine after the L06 URI-SAN
+cutover. Historical structural work and the completed CF-06
 signature repair retain their original scope.
 
 ## rust/soda-rotate-lab-creds/src/main.rs

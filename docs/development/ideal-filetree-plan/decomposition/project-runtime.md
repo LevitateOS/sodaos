@@ -1,5 +1,7 @@
 # Project runtime
 
+L11 implements the narrow timex lease adapter through `lib/wire-time`, with explicit preepoch expiry refusal and strict producer fixtures. The permissive Python ISO parser and its equivalence vectors are retired. Local PTY/process budgets use an Instant origin while wait, kill/reap and signal ownership stay here.
+
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 

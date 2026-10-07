@@ -1,5 +1,7 @@
 # Verification and support
 
+L11/N13 delegates valid evidence URL interpretation to url setters, omits malformed/non-UTF8 tokens and preserves the completed L01 streaming bounds and failure publication. Acceptance timestamp validation/formatting uses `lib/wire-time`; selected calendar and URL grammars are retired, while evidence/pump lifecycle remains Soda-owned.
+
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 

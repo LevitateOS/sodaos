@@ -553,6 +553,25 @@ cases, TLS rejection, body framing/caps and no secret-bearing argv/logs.
 Declare the actual DNS/deadline guarantee. Acceptance curl remains an existing
 engine with its L01 completion repair; do not replace that lifecycle by analogy.
 
+N3 source transfer is complete in `719d1137`: one purpose-specific ureq Agent,
+normal rustls trust, no redirect/environment proxy/compression, bounded success
+and status-error bodies, neutral credential-safe errors and a whole-request I/O
+deadline. Local fixtures prove framing, cap-plus-one, literal token authorization,
+204 revocation, TLS transport rejection and a single budget across headers/body.
+The OS resolver can exceed that deadline; setup's previous resolver was also
+unbounded. This is a development check, not installed Forgejo qualification.
+
+**N4 remains held.** C owns the transport fit proof and A receives any later host
+cutover. The native Executor currently bounds the whole child, including DNS,
+and joins/kills transfers while preserving its host-native authority marker and
+injected test seam. ureq 2.12.1 explicitly cannot interrupt blocking DNS; a
+worker detached on timeout would leave credential-bearing work alive. The
+replacement prerequisite is a concrete owned resolver/transport fit that keeps
+that contract. Acceptance requires resolver-inclusive deadline/cancellation,
+Basic/Bearer custody, bounded framing, TLS/redirect/proxy policy and a single
+uncertain key-create attempt. Curl remains the implementation until that proof
+passes. Its form and timestamp adapters may change independently through L11.
+
 ### L11 URL, IP and time adapters
 
 Scope: N7/N8/N9's complete caller tables, including host/guest/identity and C's
@@ -564,6 +583,36 @@ Acceptance: admitted URL/loopback/IP forms, rejected controls/credentials/escape
 embedded-IPv4 IPv6, timestamp grammar/expiry and no unsafe normalization.
 Delete grammar/calendar engines; installer certificate-only URL/calendar removal
 follows L06. N12's small purpose predicates remain retained.
+
+The shared `lib/wire-time` adapter owns the strict four-digit year 1..9999,
+uppercase T/Z, required timezone, two-digit fields, 1..9 fractional digits and
+no-leap-second lexical gate; time owns calendar validation and checked conversion.
+UTC range and nanosecond normalization are checked. Domain lifetime/expiry and
+raw signed deadline text stay with callers. Filename formatters share its UTC
+projection. Local polling uses Instant; release progress retains its absolute
+Linux CLOCK_MONOTONIC origin shared through SODA_BUILD_START_NS.
+
+URL adapters check controls, percent escapes, raw authority/delimiter/explicit
+port presence and restricted raw paths before WHATWG normalization. Parsed hosts
+supply IDNA/numeric-IP connection and loopback policy while stored authenticated
+literals remain unchanged. Each owner retains its empty-userinfo/query/port rule.
+N13 uses URL setters for credential/query/fragment removal and omits malformed or
+non-UTF8 tokens; L01's bounded split withholding and failure publication remain.
+Installer urlx is retired with its last setup display caller in `4d0f1128`.
+IP adapters delegate grammar/display to std while retaining explicit IPv6 zones,
+family-checked masks, private/CGNAT/ULA and Tailnet unicast policy.
+
+Source adoption is complete through `4d0f1128`, `2d9066bd` and `380914ed`.
+Luna medium settled unresolved HTTP/deadline and URL admission; Luna low handled
+the settled HTTP, URL/percent, IP and time transfers. Root owned graph changes,
+verification and commits. 1,572 selected test executions pass, alongside locked
+offline native development builds for 16 selected packages. Four unchanged
+opt-in PG tests and the existing pops doctest were ignored. A broader unrelated
+release-assets staging test lacks prebuilt project-tools/bin/muse; it does not
+qualify that staging workflow. The actual artifact worker must still meet time's
+Rust1.88 minimum; local Rust1.99 proves only this development graph. Installed
+provider/CA/browser/VM and shipping qualification remain separate. N4's failed
+transport fit proof stays visible in L10; no task or parked checkpoint is skipped.
 
 ### L12 File, FD and process ownership
 
@@ -694,7 +743,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [N1](../../research/library-reuse-investigation.md#n1) | REPLACE | L09 | A |
 | [N2](../../research/library-reuse-investigation.md#n2) | REPLACE | L09 | A |
 | [N3](../../research/library-reuse-investigation.md#n3) | REPLACE | L10 | C |
-| [N4](../../research/library-reuse-investigation.md#n4) | CONSOLIDATE | L10 | C |
+| [N4](../../research/library-reuse-investigation.md#n4) | HOLD: resolver-inclusive cancellation / Executor fit | L10 | C |
 | [N5](../../research/library-reuse-investigation.md#n5) | REPLACE | L09 | A |
 | [N6](../../research/library-reuse-investigation.md#n6) | REPLACE | L09 | A |
 | [N7](../../research/library-reuse-investigation.md#n7) | REPLACE | L11 | A |

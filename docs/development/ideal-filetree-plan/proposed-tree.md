@@ -26,10 +26,12 @@ the earlier exact-match/delta counts below are historical observations.
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
 | A-owned `lib/unix-http/{Cargo.toml,src/lib.rs}` | Shared bounded Hyper Unix client and driver/deadline custody; callers retain socket, status and credential policy |
 | Host `daemon/{http,response,websocket}`, `json/{mod,number}`, `ssh/mod` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
-| Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar grammar is retired; live setup URL callers remain for L11 |
+| Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar and setup urlx grammar are retired; setup retains a narrow typed origin/display adapter |
 | Release `json*`, Compose/Muse/guest wire and Acceptance structured data | Concrete Serde admission/emission and bounded ordered/raw application data; `lib/json` is retired with no target allocation |
 | Release/build/import OCI adapters | Delivery owns low-level scanning; callers retain admitted content/layout/descriptor policy and original blob custody |
 | `lib/release-inputs/src/trust_key.rs` and release trust callers | Shared typed P-256 admission; image/delivery retain role authority and original-DER fingerprints |
+| `lib/wire-time` and URL/IP caller modules | Shared strict wire timestamp gate and time-backed UTC projection; caller-owned typed URL, percent and std IP adapters retain raw literals, admission and expiry. No general calendar/URL/IP engine allocation |
+| Setup Forgejo and host provider adapters | Setup uses ureq with bounded I/O and declared blocking-DNS exception. Provider keeps curl/Executor until resolver-inclusive cancellation/custody fit passes |
 | Release/terminal/acceptance process, file and evidence modules | Existing authority, bounded input/output, cancellation, cleanup and narrow library adapters; no new framework |
 
 Hash/codec engines disappear into selected library calls and existing fingerprint
