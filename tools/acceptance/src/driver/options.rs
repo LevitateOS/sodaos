@@ -8,9 +8,6 @@ use clap::{Arg, ArgAction, Command};
 
 /// Parse the admitted positive humantime grammar into a bounded duration.
 pub(super) fn parse_duration(text: &str) -> Result<Duration, ()> {
-    if text.starts_with('-') || text.is_empty() || text == "+" {
-        return Err(());
-    }
     let unsigned = text.strip_prefix('+').unwrap_or(text);
     let normalized = unsigned.replace('μ', "µ");
     let duration = humantime::parse_duration(&normalized).map_err(|_| ())?;
