@@ -6,6 +6,12 @@ Each entry distinguishes direct upstream API use from the retained application s
 
 Numeric selectors refer to the pinned source. Multiple duties in one file remain separate responsibilities in the [coverage maps](../coverage/maps/README.md); this integration map does not transfer their defining owner.
 
+The [adapter challenge](adapter-challenges.md) at `2dc3bce9` selects the PEM
+decoder cut and challenges Identity's deliberately retained JSON casing/null
+profile. Its conditional decisions refine L06/L04 without invalidating their
+completed adoption evidence. Other crypto/wire admission retains its actual
+producer and signing authority; a listed policy does not require this wrapper.
+
 | Integration | Selected version |
 | --- | --- |
 | [aes-gcm](#integration-1) | 0.11.1 |

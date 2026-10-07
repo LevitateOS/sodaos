@@ -6,11 +6,11 @@ Current responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
 recorded working bytes. The existing **2,545 paths**, reconciled through `f8b22b0b`,
-plus **four library-caller documents, one observation-reliability chapter and
-one connected workflow-trace chapter**
+plus **four library-caller documents, one observation-reliability chapter,
+one connected workflow-trace chapter and one adapter-challenge chapter**
 are accounted exactly once in the [tracked-file inventories](inventory/README.md).
 No working source additions were
-present. These six H06 documents are the explicit current documentation delta;
+present. These seven H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -24,11 +24,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including six authored documents / missing / duplicate rows | 2,551 / 0 / 0 |
+| Current paths including seven authored documents / missing / duplicate rows | 2,552 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus six whole-document H06 duties | 20,117 + 6 = 20,123 |
+| Existing named duties plus seven whole-document H06 duties | 20,117 + 7 = 20,124 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -49,7 +49,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 311 |
+| `docs` | 312 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |
@@ -149,6 +149,12 @@ historical complete source-validity review.
 The [connected workflow traces](../workflow-traces.md) add one H06 whole-document
 duty at source `91685799`. Their current callers, findings and source-corrected
 dispositions do not advance the historical full-slice validity review.
+
+The [adapter challenges](../library-integrations/adapter-challenges.md) add one
+H06 whole-document duty at source `2dc3bce9`. Selected upstream APIs and concrete
+caller-interface cuts refine the existing packets; profile/upstream gates and
+parked ownership assessments do not reopen completed adoption or advance native
+qualification.
 
 - [Current tracked inventories](inventory/README.md)
 - [Current responsibility maps](maps/README.md)

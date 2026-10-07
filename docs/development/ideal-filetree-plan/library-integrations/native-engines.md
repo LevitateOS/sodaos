@@ -6,6 +6,12 @@ Each entry distinguishes direct upstream API use from the retained application s
 
 Numeric selectors refer to the pinned source. Multiple duties in one file remain separate responsibilities in the [coverage maps](../coverage/maps/README.md); this integration map does not transfer their defining owner.
 
+The [adapter challenge](adapter-challenges.md) at `2dc3bce9` selects typed
+PostgreSQL rows/parameters and typed descriptor flags. It assesses the actual
+synchronous callers and rejects an unproved async migration as local cleanup.
+No forwarding-only tempfile wrapper was found. These refinements preserve
+completed L08/L12/L13 contracts rather than marking adoption incomplete.
+
 | Integration | Selected version |
 | --- | --- |
 | [bytes](#integration-1) | 1.12.1 |

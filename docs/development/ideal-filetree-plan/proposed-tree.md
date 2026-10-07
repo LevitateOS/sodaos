@@ -25,7 +25,8 @@ the earlier exact-match/delta counts below are historical observations.
 The [workflow requirements map](workflow-requirements.md) is an H06 audit
 document allocated below. The current [library caller maps](library-integrations/README.md),
 [observation-reliability chapter](observation-reliability.md) and
-[connected workflow traces](workflow-traces.md) are also H06 audit documents
+[connected workflow traces](workflow-traces.md) and
+[adapter challenges](library-integrations/adapter-challenges.md) are also H06 audit documents
 allocated below. These additions do not regenerate the historical
 target allocation or refresh R02 counts.
 
@@ -837,6 +838,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── library-adoption.md
 │   │   │   ├── library-integrations/
 │   │   │   │   ├── README.md
+│   │   │   │   ├── adapter-challenges.md
 │   │   │   │   ├── crypto-profiles.md
 │   │   │   │   ├── go-browser.md
 │   │   │   │   └── native-engines.md

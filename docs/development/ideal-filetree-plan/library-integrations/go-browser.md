@@ -6,6 +6,12 @@ Each entry distinguishes direct upstream API use from the retained application s
 
 Numeric selectors refer to the pinned source. Multiple duties in one file remain separate responsibilities in the [coverage maps](../coverage/maps/README.md); this integration map does not transfer their defining owner.
 
+The [adapter challenge](adapter-challenges.md) at `2dc3bce9` selects SDK snapshot
+wire-value reuse, records upstream security prerequisites for the mirrored SDK
+transport, and challenges Go JSON normalization with explicit alias policy.
+Browser callback-bag consolidation remains a parked reassessment until a net
+deletion is demonstrated. Developer/type-only entries are not product adapters.
+
 | Integration | Selected version |
 | --- | --- |
 | [forgejo.org/extension-sdk](#integration-1) | v0.0.0 -&gt; local ../forgejo-ext/sdk @ c92db11c14b773c9cc20ccfa4b853b4c017e8717 |

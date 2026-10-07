@@ -7,6 +7,14 @@ moved machinery visible alongside deleted engines. The existing [task list](../i
 [lane schedule](../implementation-lanes.md) and [adoption chapter](../library-adoption.md)
 remain the execution plan.
 
+The subsequent [selected-version adapter challenge](adapter-challenges.md) at
+`2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
+It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON
+profile changes and upstream SDK transport capabilities have explicit
+prerequisites. Synchronous/string interface alternatives and parked browser
+ownership are assessed separately. This census identifies a retained duty,
+not a requirement to retain the present wrapper.
+
 Source: `f8b22b0bcf274f42bd6395a2ddf89872135ecb2d`, tree
 `607899f44a2c3b1368aa09e0f2fa61c4fe703927`, inspected 2026-10-07. The application
 source is unchanged from the recorded [baseline](../review-baseline.md). The
