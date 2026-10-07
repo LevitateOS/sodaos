@@ -14,6 +14,7 @@ fn base64_round_trip_matches_go_vectors() {
     }
     assert!(base64_decode("Zg=").is_err());
     assert!(base64_decode("Zg*=").is_err());
+    assert!(base64_decode("Zm9v\n").is_err());
     // Non-canonical trailing bits rejected like Go's decoder.
     assert!(base64_decode("Zh==").is_err());
 }

@@ -66,62 +66,36 @@ pub fn is_zero(value: &i64) -> bool {
 /// Go []byte JSON form: standard padded base64.
 pub mod base64_bytes {
     use super::*;
+    use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
+    use base64::engine::DecodePaddingMode;
+    use base64::{alphabet, DecodeError, Engine};
 
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    pub fn encode(data: &[u8]) -> String {
-        let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
-        for chunk in data.chunks(3) {
-            let n = chunk.len();
-            let mut v: u32 = 0;
-            for &b in chunk {
-                v = (v << 8) | b as u32;
-            }
-            v <<= 8 * (3 - n);
-            for i in 0..4 {
-                if i <= n {
-                    out.push(ALPHABET[((v >> (18 - i * 6)) & 63) as usize] as char);
-                } else {
-                    out.push('=');
-                }
-            }
-        }
-        out
+    fn go_std() -> GeneralPurpose {
+        GeneralPurpose::new(
+            &alphabet::STANDARD,
+            GeneralPurposeConfig::new()
+                .with_decode_padding_mode(DecodePaddingMode::RequireCanonical)
+                .with_decode_allow_trailing_bits(true),
+        )
     }
 
-    fn decode_value(b: u8) -> Result<u8, String> {
-        match b {
-            b'A'..=b'Z' => Ok(b - b'A'),
-            b'a'..=b'z' => Ok(b - b'a' + 26),
-            b'0'..=b'9' => Ok(b - b'0' + 52),
-            b'+' => Ok(62),
-            b'/' => Ok(63),
-            _ => Err(format!("invalid base64 byte {b:?}")),
-        }
+    pub fn encode(data: &[u8]) -> String {
+        base64::engine::general_purpose::STANDARD.encode(data)
     }
 
     pub fn decode(text: &str) -> Result<Vec<u8>, String> {
-        let bytes = text.as_bytes();
-        if !bytes.len().is_multiple_of(4) {
+        if !text.len().is_multiple_of(4) {
             return Err("invalid base64 length".to_string());
         }
-        let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
-        for chunk in bytes.chunks(4) {
-            // Padding rules mirror encoding/base64 StdEncoding strictly:
-            // at most two trailing `=`, and no data after padding.
-            let pad = chunk.iter().rev().take_while(|b| **b == b'=').count();
-            if pad > 2 || chunk[..4 - pad].contains(&b'=') {
-                return Err("invalid base64 padding".to_string());
+        go_std().decode(text).map_err(|error| match error {
+            DecodeError::InvalidByte(_, b'=') | DecodeError::InvalidPadding => {
+                "invalid base64 padding".to_string()
             }
-            let mut v: u32 = 0;
-            for &b in &chunk[..4 - pad] {
-                v = (v << 6) | decode_value(b)? as u32;
+            DecodeError::InvalidByte(_, byte) => format!("invalid base64 byte {byte:?}"),
+            DecodeError::InvalidLength(_) | DecodeError::InvalidLastSymbol(_, _) => {
+                "invalid base64 length".to_string()
             }
-            v <<= 6 * pad;
-            let word = v.to_be_bytes();
-            out.extend_from_slice(&word[1..4 - pad]);
-        }
-        Ok(out)
+        })
     }
 
     #[allow(clippy::ptr_arg)]

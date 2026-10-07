@@ -157,10 +157,18 @@ fn invalid_keys_rejected() {
 fn base64_vectors() {
     assert_eq!(b64_decode("").unwrap_err(), "invalid base64".to_string());
     assert_eq!(b64_decode("QUI=").unwrap(), b"AB");
+    assert_eq!(b64_decode("YR==").unwrap(), b"a");
+    assert!(b64_decode("YQ==\r\n").is_err());
     assert_eq!(b64_decode("QUI"), Err("invalid base64".to_string()));
     assert_eq!(b64_decode("AB=C"), Err("invalid base64".to_string()));
     assert_eq!(b64_encode(b"AB"), "QUI=");
     assert_eq!(b64_encode_raw(b"AB"), "QUI");
+    assert_eq!(b64_decode_go(b"Y\r\nQ==").unwrap(), b"a");
+    assert_eq!(b64_decode_go(b"Zg\r\n").unwrap_err(), 2);
+    assert_eq!(b64_decode_go(b"Y\r\n!").unwrap_err(), 3);
+    assert_eq!(b64_decode_go(b"AA=").unwrap_err(), 3);
+    assert_eq!(b64_decode_go(b"AB=\r\nC").unwrap_err(), 4);
+    assert_eq!(b64_decode_go(b"AB==CD").unwrap_err(), 4);
 }
 
 #[test]

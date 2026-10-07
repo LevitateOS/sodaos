@@ -1,3 +1,4 @@
+use base64::Engine;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
@@ -22,27 +23,7 @@ pub(crate) fn hex_encode(raw: &[u8]) -> String {
 }
 
 pub(crate) fn base64_encode(raw: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(raw.len().div_ceil(3) * 4);
-    for chunk in raw.chunks(3) {
-        let mut n: u32 = 0;
-        for (i, byte) in chunk.iter().enumerate() {
-            n |= (*byte as u32) << (16 - 8 * i);
-        }
-        out.push(ALPHABET[(n >> 18) as usize & 63] as char);
-        out.push(ALPHABET[(n >> 12) as usize & 63] as char);
-        if chunk.len() > 1 {
-            out.push(ALPHABET[(n >> 6) as usize & 63] as char);
-        } else {
-            out.push('=');
-        }
-        if chunk.len() > 2 {
-            out.push(ALPHABET[n as usize & 63] as char);
-        } else {
-            out.push('=');
-        }
-    }
-    out
+    base64::engine::general_purpose::STANDARD.encode(raw)
 }
 
 fn write_secret_file(path: &Path, value: &str) -> Result<(), String> {

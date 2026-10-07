@@ -1,4 +1,4 @@
-use super::launch_wire::json_string;
+use super::launch_json::serialize_go;
 use super::paths::path_error;
 use std::ffi::{CStr, CString};
 use std::fs;
@@ -34,6 +34,20 @@ pub(crate) fn account_for(actor: &str) -> Result<(), String> {
     Err(String::from("provisioned account missing"))
 }
 
+#[derive(serde::Serialize)]
+struct AccountRecord<'a> {
+    #[serde(rename = "Uid")]
+    uid: String,
+    #[serde(rename = "Gid")]
+    gid: String,
+    #[serde(rename = "Username")]
+    username: &'a str,
+    #[serde(rename = "Name")]
+    name: &'a str,
+    #[serde(rename = "HomeDir")]
+    home_dir: &'a str,
+}
+
 fn account_entry(directory: &str, name: &str, actor: &str) -> Result<bool, String> {
     let marker = format!("{directory}/{name}");
     if account_node(&marker, false).is_err() {
@@ -44,17 +58,16 @@ fn account_entry(directory: &str, name: &str, actor: &str) -> Result<bool, Strin
         return Ok(false);
     }
     let (uid, gid, gecos, dir) = lookup_user(name)?;
-    let mut out = String::from("{\"Uid\":");
-    out.push_str(&json_string(&uid.to_string()));
-    out.push_str(",\"Gid\":");
-    out.push_str(&json_string(&gid.to_string()));
-    out.push_str(",\"Username\":");
-    out.push_str(&json_string(name));
-    out.push_str(",\"Name\":");
-    out.push_str(&json_string(&gecos));
-    out.push_str(",\"HomeDir\":");
-    out.push_str(&json_string(&dir));
-    out.push_str("}\n");
+    let out = format!(
+        "{}\n",
+        serialize_go(&AccountRecord {
+            uid: uid.to_string(),
+            gid: gid.to_string(),
+            username: name,
+            name: &gecos,
+            home_dir: &dir,
+        })
+    );
     print!("{out}");
     use std::io::Write;
     io::stdout().flush().map_err(|e| e.to_string())?;

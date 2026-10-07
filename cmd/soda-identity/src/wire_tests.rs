@@ -96,7 +96,10 @@ fn base64_matches_go_byte_form() {
         );
     }
     assert!(base64_bytes::decode("Zg").is_err());
+    assert_eq!(base64_bytes::decode("YR==").unwrap(), b"a");
     assert!(base64_bytes::decode("Zg=a").is_err());
+    assert!(base64_bytes::decode("YQ==YQ==").is_err());
+    assert!(base64_bytes::decode("YQ== ").is_err());
     assert!(base64_bytes::decode("====").is_err());
 }
 

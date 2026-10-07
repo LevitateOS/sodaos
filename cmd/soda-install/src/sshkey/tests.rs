@@ -151,12 +151,15 @@ fn sk_keys_match_go_truncation_rule() {
 fn base64_matches_go_decode() {
     assert_eq!(b64_decode_go(b"").unwrap(), b"");
     assert_eq!(b64_decode_go(b"QUI=").unwrap(), b"AB");
-    assert_eq!(b64_decode_go(b"QUI").unwrap(), b"AB"); // lenient tail
+    assert_eq!(b64_decode_go(b"YR==").unwrap(), b"a"); // unused trailing bits ignored
+    assert_eq!(b64_decode_go(b"Zg==\r\n").unwrap(), b"f");
     assert_eq!(b64_decode_go(b"QUJD").unwrap(), b"ABC");
+    assert!(b64_decode_go(b"QUI").is_err()); // standard padding is required
     assert!(b64_decode_go(b"Q").is_err());
     assert!(b64_decode_go(b"AB=C").is_err());
     assert!(b64_decode_go(b"A===").is_err());
     assert!(b64_decode_go(b"AB==CD").is_err());
+    assert!(b64_decode_go(b"Zg== ").is_err());
     assert_eq!(b64_encode(b"AB"), "QUI=");
     assert_eq!(b64_encode_raw(b"AB"), "QUI");
 }

@@ -1,164 +1,40 @@
-pub(crate) fn parse_json_string(text: &str, start: usize) -> Result<(String, usize), ()> {
-    let bytes = text.as_bytes();
-    if start >= bytes.len() || bytes[start] != b'"' {
-        return Err(());
-    }
-    let mut out = String::new();
-    let mut i = start + 1;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'"' => return Ok((out, i + 1)),
-            b'\\' => {
-                i += 1;
-                if i >= bytes.len() {
-                    return Err(());
-                }
-                match bytes[i] {
-                    b'"' => out.push('"'),
-                    b'\\' => out.push('\\'),
-                    b'/' => out.push('/'),
-                    b'b' => out.push('\u{0008}'),
-                    b'f' => out.push('\u{000c}'),
-                    b'n' => out.push('\n'),
-                    b'r' => out.push('\r'),
-                    b't' => out.push('\t'),
-                    b'u' => {
-                        if i + 4 >= bytes.len() {
-                            return Err(());
-                        }
-                        // H03-F4: decode the 4 hex digits from bytes. A str
-                        // slice here panics when the window ends inside a
-                        // multibyte char; bytes reject that as malformed.
-                        let mut cp: u32 = 0;
-                        for k in 1..=4 {
-                            let value = match bytes[i + k] {
-                                b'0'..=b'9' => (bytes[i + k] - b'0') as u32,
-                                b'a'..=b'f' => (bytes[i + k] - b'a' + 10) as u32,
-                                b'A'..=b'F' => (bytes[i + k] - b'A' + 10) as u32,
-                                _ => return Err(()),
-                            };
-                            cp = cp * 16 + value;
-                        }
-                        let c = char::from_u32(cp).ok_or(())?;
-                        if (0xd800..0xe000).contains(&cp) {
-                            return Err(());
-                        }
-                        out.push(c);
-                        i += 4;
-                    }
-                    _ => return Err(()),
-                }
-            }
-            0x00..=0x1f => return Err(()),
-            _ => {
-                let c = text[i..].chars().next().ok_or(())?;
-                out.push(c);
-                i += c.len_utf8() - 1;
+//! Go-compatible JSON string escaping for Muse's existing wire records.
+
+use serde::Serialize;
+use serde_json::ser::Formatter;
+use std::io::{self, Write};
+
+pub(crate) struct GoFormatter;
+
+impl Formatter for GoFormatter {
+    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
+        let mut start = 0;
+        for (index, ch) in fragment.char_indices() {
+            let escape: Option<&[u8]> = match ch {
+                '<' => Some(b"\\u003c"),
+                '>' => Some(b"\\u003e"),
+                '&' => Some(b"\\u0026"),
+                '\u{2028}' => Some(b"\\u2028"),
+                '\u{2029}' => Some(b"\\u2029"),
+                _ => None,
+            };
+            if let Some(escape) = escape {
+                writer.write_all(fragment[start..index].as_bytes())?;
+                writer.write_all(escape)?;
+                start = index + ch.len_utf8();
             }
         }
-        i += 1;
+        writer.write_all(fragment[start..].as_bytes())
     }
-    Err(())
 }
 
-pub(crate) fn parse_json_integer(text: &str, start: usize) -> Result<(i64, usize), ()> {
-    let bytes = text.as_bytes();
-    let mut i = start;
-    if i < bytes.len() && bytes[i] == b'-' {
-        i += 1;
-    }
-    let digits = i;
-    while i < bytes.len() && bytes[i].is_ascii_digit() {
-        i += 1;
-    }
-    if i == digits || i == start {
-        return Err(());
-    }
-    // Go rejects fractions and exponents for int fields.
-    if i < bytes.len() && (bytes[i] == b'.' || bytes[i] == b'e' || bytes[i] == b'E') {
-        return Err(());
-    }
-    text[start..i]
-        .parse::<i64>()
-        .map_err(|_| ())
-        .map(|v| (v, i))
-}
-
-pub(crate) fn skip_json_value(text: &str, start: usize) -> Result<usize, ()> {
-    let bytes = text.as_bytes();
-    if start >= bytes.len() {
-        return Err(());
-    }
-    match bytes[start] {
-        b'"' => parse_json_string(text, start).map(|(_, next)| next),
-        b'{' | b'[' => {
-            let open = bytes[start];
-            let close = if open == b'{' { b'}' } else { b']' };
-            let mut i = start + 1;
-            let mut depth = 1;
-            let mut in_string = false;
-            let mut escaped = false;
-            while i < bytes.len() {
-                let b = bytes[i];
-                if in_string {
-                    if escaped {
-                        escaped = false;
-                    } else if b == b'\\' {
-                        escaped = true;
-                    } else if b == b'"' {
-                        in_string = false;
-                    }
-                } else if b == b'"' {
-                    in_string = true;
-                } else if b == open {
-                    depth += 1;
-                } else if b == close {
-                    depth -= 1;
-                    if depth == 0 {
-                        return Ok(i + 1);
-                    }
-                }
-                i += 1;
-            }
-            Err(())
-        }
-        b't' => {
-            if text[start..].starts_with("true") {
-                Ok(start + 4)
-            } else {
-                Err(())
-            }
-        }
-        b'f' => {
-            if text[start..].starts_with("false") {
-                Ok(start + 5)
-            } else {
-                Err(())
-            }
-        }
-        b'n' => {
-            if text[start..].starts_with("null") {
-                Ok(start + 4)
-            } else {
-                Err(())
-            }
-        }
-        b'-' | b'0'..=b'9' => {
-            let mut i = start;
-            if bytes[i] == b'-' {
-                i += 1;
-            }
-            while i < bytes.len()
-                && (bytes[i].is_ascii_digit()
-                    || matches!(bytes[i], b'.' | b'e' | b'E' | b'+' | b'-'))
-            {
-                i += 1;
-            }
-            if i == start {
-                return Err(());
-            }
-            Ok(i)
-        }
-        _ => Err(()),
-    }
+pub(crate) fn serialize_go<T: Serialize>(value: &T) -> String {
+    let mut serializer = serde_json::Serializer::with_formatter(Vec::new(), GoFormatter);
+    value
+        .serialize(&mut serializer)
+        .expect("serializing JSON to a Vec cannot fail");
+    String::from_utf8(serializer.into_inner()).expect("serde_json emits UTF-8")
 }

@@ -42,6 +42,14 @@ fn shell_request_wire_matches_go() {
 }
 
 #[test]
+fn shell_request_keeps_go_html_safe_escapes() {
+    let mut request = shell_fixture();
+    request.cwd = String::from("/work/<>&\u{2028}\u{2029}");
+    let encoded = shell_request_json(&request);
+    assert!(encoded.contains("\"cwd\":\"/work/\\u003c\\u003e\\u0026\\u2028\\u2029\""));
+}
+
+#[test]
 fn shell_validation_matches_go() {
     validate_shell(&shell_fixture()).unwrap();
     let mut bad = shell_fixture();
@@ -81,12 +89,35 @@ fn launch_exit_parsing_matches_go_unmarshal() {
         parse_launch_exit(b"{\"error\":\"denied\",\"code\":1}\n").unwrap(),
         (1, String::from("denied"))
     );
+    assert_eq!(
+        parse_launch_exit(b"{\"code\":1,\"code\":2,\"error\":\"first\",\"error\":\"last\"}")
+            .unwrap(),
+        (2, String::from("last"))
+    );
+    assert_eq!(
+        parse_launch_exit(b"{\"future\":{\"array\":[1,{\"nested\":true}]}}").unwrap(),
+        (0, String::new())
+    );
+    let mut deeply_nested = String::from("{\"future\":");
+    deeply_nested.push_str(&"[".repeat(130));
+    deeply_nested.push('0');
+    deeply_nested.push_str(&"]".repeat(130));
+    deeply_nested.push('}');
+    assert!(deeply_nested.len() < 4096);
+    assert_eq!(
+        parse_launch_exit(deeply_nested.as_bytes()).unwrap(),
+        (0, String::new())
+    );
     for bad in [
         "",
         "{",
         "{\"code\":}",
         "{\"code\":\"0\"}",
         "{\"code\":0,}",
+        "{\"code\":null}",
+        "{\"error\":null}",
+        "{\"code\":1.0}",
+        "{}{}",
         "[]",
     ] {
         assert!(
@@ -101,6 +132,7 @@ fn launch_exit_rejects_malformed_unicode_boundary() {
     // H03-F4: a \u window ending inside a multibyte char must reject
     // through the established Err path, not panic the decoder.
     assert!(parse_launch_exit("{\"error\":\"\\u€é\"}".as_bytes()).is_err());
+    assert!(parse_launch_exit(b"{\xff}").is_err());
     // Valid escapes still decode.
     assert_eq!(
         parse_launch_exit(b"{\"error\":\"A\\u0041\"}").unwrap(),

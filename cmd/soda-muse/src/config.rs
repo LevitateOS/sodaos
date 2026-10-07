@@ -1,4 +1,5 @@
-use super::launch_wire::{base64_encode, json_string};
+use super::launch_json::serialize_go;
+use super::launch_wire::base64_encode;
 use super::paths::{go_base, go_join, path_error};
 use std::fs;
 use std::io;
@@ -113,16 +114,11 @@ pub(crate) fn read_config(source: &str) -> Result<(), String> {
         }
         view.push((name, body));
     }
-    let mut out = String::from("{");
-    for (i, (name, body)) in view.iter().enumerate() {
-        if i > 0 {
-            out.push(',');
-        }
-        out.push_str(&json_string(name));
-        out.push(':');
-        out.push_str(&json_string(&base64_encode(body)));
+    let mut encoded = std::collections::BTreeMap::new();
+    for (name, body) in &view {
+        encoded.insert(*name, base64_encode(body));
     }
-    out.push_str("}\n");
+    let out = format!("{}\n", serialize_go(&encoded));
     print!("{out}");
     use std::io::Write;
     io::stdout().flush().map_err(|e| e.to_string())?;

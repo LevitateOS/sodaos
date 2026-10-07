@@ -1,123 +1,91 @@
-// ---------- base64 (strict standard alphabet) ----------
+use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
+use base64::engine::DecodePaddingMode;
+use base64::{alphabet, DecodeError, Engine};
 
-fn b64_value(c: u8) -> Option<u8> {
-    match c {
-        b'A'..=b'Z' => Some(c - b'A'),
-        b'a'..=b'z' => Some(c - b'a' + 26),
-        b'0'..=b'9' => Some(c - b'0' + 52),
-        b'+' => Some(62),
-        b'/' => Some(63),
-        _ => None,
+fn go_std() -> GeneralPurpose {
+    GeneralPurpose::new(
+        &alphabet::STANDARD,
+        GeneralPurposeConfig::new()
+            .with_decode_padding_mode(DecodePaddingMode::RequireCanonical)
+            .with_decode_allow_trailing_bits(true),
+    )
+}
+
+fn source_offset(indices: &[usize], src_len: usize, compact_offset: usize) -> usize {
+    indices.get(compact_offset).copied().unwrap_or(src_len)
+}
+
+/// Translate a crate error back to Go's `CorruptInputError` offset. Padding
+/// errors need a little caller-local mapping because Go reports the expected
+/// second `=` or the first byte after final padding in those cases.
+fn go_error_offset(
+    error: DecodeError,
+    compact: &[u8],
+    source_indices: &[usize],
+    src_len: usize,
+) -> usize {
+    match error {
+        DecodeError::InvalidByte(index, b'=') => match index % 4 {
+            0 | 1 => source_offset(source_indices, src_len, index),
+            2 => {
+                let second_pad = index + 1;
+                if compact.get(second_pad) != Some(&b'=') {
+                    if let Some(&next_source_index) = source_indices.get(second_pad) {
+                        return next_source_index.saturating_sub(1);
+                    }
+                    return src_len;
+                }
+                source_offset(source_indices, src_len, second_pad + 1)
+            }
+            _ => source_offset(source_indices, src_len, index + 1),
+        },
+        DecodeError::InvalidByte(index, _) | DecodeError::InvalidLastSymbol(index, _) => {
+            source_offset(source_indices, src_len, index)
+        }
+        DecodeError::InvalidLength(_) | DecodeError::InvalidPadding => {
+            let last_quantum = compact.len() - compact.len() % 4;
+            let trailing_pad_count = compact[last_quantum..]
+                .iter()
+                .rev()
+                .take_while(|byte| **byte == b'=')
+                .count();
+            let symbol_count = compact[last_quantum..].len() - trailing_pad_count;
+            if trailing_pad_count == 1 && symbol_count == 2 {
+                src_len
+            } else {
+                source_len_for_incomplete_quantum(
+                    compact,
+                    source_indices,
+                    src_len,
+                    last_quantum,
+                    symbol_count,
+                )
+            }
+        }
     }
 }
 
+fn source_len_for_incomplete_quantum(
+    compact: &[u8],
+    source_indices: &[usize],
+    src_len: usize,
+    start: usize,
+    symbol_count: usize,
+) -> usize {
+    if start + symbol_count == compact.len() {
+        src_len.saturating_sub(symbol_count)
+    } else {
+        source_offset(source_indices, src_len, start)
+    }
+}
+
+/// Decode a padded SSH blob. SSH key lines refuse all whitespace at their
+/// parser boundary; this engine preserves Go's lenient unused trailing bits.
 pub fn b64_decode(s: &str) -> Result<Vec<u8>, String> {
-    let b = s.as_bytes();
-    if b.is_empty() || !b.len().is_multiple_of(4) {
+    if s.is_empty() {
         return Err("invalid base64".to_string());
     }
-    let mut out = Vec::with_capacity(b.len() / 4 * 3);
-    let mut pad = 0;
-    for (i, chunk) in b.chunks(4).enumerate() {
-        let last = i == b.len() / 4 - 1;
-        let mut vals = [0u8; 4];
-        for (j, &c) in chunk.iter().enumerate() {
-            if c == b'=' {
-                if !last || j < 2 {
-                    return Err("invalid base64".to_string());
-                }
-                pad += 1;
-                vals[j] = 0;
-            } else {
-                if pad > 0 {
-                    return Err("invalid base64".to_string());
-                }
-                vals[j] = b64_value(c).ok_or_else(|| "invalid base64".to_string())?;
-            }
-        }
-        if pad > 2 {
-            return Err("invalid base64".to_string());
-        }
-        let n = (u32::from(vals[0]) << 18)
-            | (u32::from(vals[1]) << 12)
-            | (u32::from(vals[2]) << 6)
-            | u32::from(vals[3]);
-        out.push((n >> 16) as u8);
-        if pad < 2 {
-            out.push((n >> 8) as u8);
-        }
-        if pad == 0 {
-            out.push(n as u8);
-        }
-    }
-    Ok(out)
-}
-
-/// One `decodeQuantum` step of `base64.StdEncoding.Decode` (pinned Go
-/// toolchain): `\r`/`\n` skipped, `CorruptInputError` offsets exact.
-/// Returns the new read index; partial output on error is discarded by
-/// every caller, exactly like `encoding/json` discards it.
-fn decode_quantum_go(src: &[u8], mut si: usize, out: &mut Vec<u8>) -> Result<usize, usize> {
-    let mut dbuf = [0u8; 4];
-    let mut dlen = 4usize;
-    let mut j = 0usize;
-    while j < 4 {
-        if src.len() == si {
-            if j == 0 {
-                return Ok(si);
-            }
-            return Err(si - j);
-        }
-        let b = src[si];
-        si += 1;
-        if let Some(v) = b64_value(b) {
-            dbuf[j] = v;
-            j += 1;
-            continue;
-        }
-        if b == b'\n' || b == b'\r' {
-            continue;
-        }
-        if b != b'=' {
-            return Err(si - 1);
-        }
-        match j {
-            0 | 1 => return Err(si - 1),
-            2 => {
-                while si < src.len() && (src[si] == b'\n' || src[si] == b'\r') {
-                    si += 1;
-                }
-                if si == src.len() {
-                    return Err(src.len());
-                }
-                if src[si] != b'=' {
-                    return Err(si - 1);
-                }
-                si += 1;
-            }
-            _ => {}
-        }
-        while si < src.len() && (src[si] == b'\n' || src[si] == b'\r') {
-            si += 1;
-        }
-        if si < src.len() {
-            return Err(si);
-        }
-        dlen = j;
-        break;
-    }
-    let val = (u32::from(dbuf[0]) << 18)
-        | (u32::from(dbuf[1]) << 12)
-        | (u32::from(dbuf[2]) << 6)
-        | u32::from(dbuf[3]);
-    out.push((val >> 16) as u8);
-    if dlen >= 3 {
-        out.push((val >> 8) as u8);
-    }
-    if dlen >= 4 {
-        out.push(val as u8);
-    }
-    Ok(si)
+    go_std().decode(s).map_err(|_| "invalid base64".to_string())
 }
 
 /// `base64.StdEncoding.Decode` for JSON `[]byte` fields: decoded bytes on
@@ -126,12 +94,19 @@ pub fn b64_decode_go(src: &[u8]) -> Result<Vec<u8>, usize> {
     if src.is_empty() {
         return Ok(Vec::new());
     }
-    let mut out = Vec::with_capacity(src.len().div_ceil(4) * 3);
-    let mut si = 0;
-    while si < src.len() {
-        si = decode_quantum_go(src, si, &mut out)?;
+
+    let mut compact = Vec::with_capacity(src.len());
+    let mut source_indices = Vec::with_capacity(src.len());
+    for (index, &byte) in src.iter().enumerate() {
+        if byte != b'\r' && byte != b'\n' {
+            compact.push(byte);
+            source_indices.push(index);
+        }
     }
-    Ok(out)
+
+    go_std()
+        .decode(&compact)
+        .map_err(|error| go_error_offset(error, &compact, &source_indices, src.len()))
 }
 
 /// `CorruptInputError.Error()`: `illegal base64 data at input byte N`.
@@ -139,27 +114,10 @@ pub fn b64_corrupt(offset: usize) -> String {
     format!("illegal base64 data at input byte {offset}")
 }
 
-const B64_STD: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
 pub fn b64_encode(raw: &[u8]) -> String {
-    let mut out = String::with_capacity(raw.len().div_ceil(3) * 4);
-    for chunk in raw.chunks(3) {
-        let mut n: u32 = 0;
-        for &b in chunk {
-            n = (n << 8) | u32::from(b);
-        }
-        n <<= 8 * (3 - chunk.len());
-        for i in 0..4 {
-            if i <= chunk.len() {
-                out.push(B64_STD[((n >> (18 - 6 * i)) & 63) as usize] as char);
-            } else {
-                out.push('=');
-            }
-        }
-    }
-    out
+    base64::engine::general_purpose::STANDARD.encode(raw)
 }
 
 pub fn b64_encode_raw(raw: &[u8]) -> String {
-    b64_encode(raw).trim_end_matches('=').to_string()
+    base64::engine::general_purpose::STANDARD_NO_PAD.encode(raw)
 }

@@ -16,6 +16,8 @@ fn base64_round_trip_and_rejections() {
         assert_eq!(decode_base64(&encode_base64(raw)).unwrap(), raw);
     }
     assert_eq!(decode_base64("").unwrap(), b"");
+    assert_eq!(decode_base64("YR==").unwrap(), b"a"); // Go ignores unused trailing bits.
+    assert!(decode_base64("Zm9v\n").is_err());
     for bad in ["a", "abc", "ab=c", "a===", "ab!d", "abcd=", "===="] {
         assert!(decode_base64(bad).is_err(), "{bad}");
     }

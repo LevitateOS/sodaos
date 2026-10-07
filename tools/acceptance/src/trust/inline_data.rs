@@ -1,3 +1,6 @@
+use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
+use base64::engine::DecodePaddingMode;
+use base64::{alphabet, Engine};
 use soda_json::JsonValue;
 
 use crate::error::Error;
@@ -5,79 +8,24 @@ use crate::error::Error;
 /// Inline gzip bound: 1 MiB of decoded bytes.
 pub(super) const INLINE_GZIP_LIMIT: u64 = 1 << 20;
 
-const B64_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-fn b64_value(byte: u8) -> Option<u8> {
-    B64_ALPHABET
-        .iter()
-        .position(|b| *b == byte)
-        .map(|i| i as u8)
-}
-
-/// Strict standard-alphabet base64 decode, like Go's `StdEncoding`.
+/// Standard-alphabet Go `StdEncoding` decode: canonical padding with unused
+/// trailing bits ignored.
 pub fn decode_base64(input: &str) -> Result<Vec<u8>, Error> {
-    let bytes = input.as_bytes();
-    if !bytes.len().is_multiple_of(4) {
-        return Err(Error::msg("invalid base64"));
-    }
-    let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
-    let (chunks, _) = bytes.as_chunks::<4>();
-    let total = chunks.len();
-    for (index, chunk) in chunks.iter().enumerate() {
-        let last = index + 1 == total;
-        let mut values = [0u8; 4];
-        let mut padding = 0;
-        for (i, byte) in chunk.iter().enumerate() {
-            if *byte == b'=' {
-                if !last || i < 2 {
-                    return Err(Error::msg("invalid base64"));
-                }
-                padding += 1;
-                values[i] = 0;
-            } else {
-                if padding > 0 {
-                    return Err(Error::msg("invalid base64"));
-                }
-                values[i] = b64_value(*byte).ok_or_else(|| Error::msg("invalid base64"))?;
-            }
-        }
-        let triple = ((values[0] as u32) << 18)
-            | ((values[1] as u32) << 12)
-            | ((values[2] as u32) << 6)
-            | values[3] as u32;
-        out.push((triple >> 16) as u8);
-        if padding < 2 {
-            out.push((triple >> 8) as u8);
-        }
-        if padding == 0 {
-            out.push(triple as u8);
-        }
-    }
-    Ok(out)
+    let engine = GeneralPurpose::new(
+        &alphabet::STANDARD,
+        GeneralPurposeConfig::new()
+            .with_decode_padding_mode(DecodePaddingMode::RequireCanonical)
+            .with_decode_allow_trailing_bits(true),
+    );
+    engine
+        .decode(input)
+        .map_err(|_| Error::msg("invalid base64"))
 }
 
 /// Standard base64 encode, for tests only. Production never emits secrets.
 #[cfg(test)]
 pub fn encode_base64(input: &[u8]) -> String {
-    let mut out = String::new();
-    for chunk in input.chunks(3) {
-        let mut block = [0u8; 3];
-        block[..chunk.len()].copy_from_slice(chunk);
-        let triple = ((block[0] as u32) << 16) | ((block[1] as u32) << 8) | block[2] as u32;
-        out.push(B64_ALPHABET[(triple >> 18) as usize] as char);
-        out.push(B64_ALPHABET[((triple >> 12) & 63) as usize] as char);
-        if chunk.len() > 1 {
-            out.push(B64_ALPHABET[((triple >> 6) & 63) as usize] as char);
-        } else {
-            out.push('=');
-        }
-        if chunk.len() > 2 {
-            out.push(B64_ALPHABET[(triple & 63) as usize] as char);
-        } else {
-            out.push('=');
-        }
-    }
-    out
+    base64::engine::general_purpose::STANDARD.encode(input)
 }
 
 /// Percent-decode bytes, like Go's `url.PathUnescape`: `+` stays literal,
