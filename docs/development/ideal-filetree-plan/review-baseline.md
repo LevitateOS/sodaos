@@ -208,3 +208,7 @@ do not answer the new maintenance-cost question for runtime bridges, duplicated
 JSON mechanics or retained compatibility. Those questions remain for subsequent
 audit steps. R02, broader R03, R04, B03.C, L16.G, L10.N4 and CFG01 retain their
 existing scopes and gates; this input refresh closes none of them.
+
+The subsequent [workflow requirements extraction](workflow-requirements.md)
+records current contract context and the owner's final-key confirmation decision.
+It does not advance this source pin or any earlier behavioral evidence.

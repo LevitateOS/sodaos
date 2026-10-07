@@ -5,6 +5,11 @@ each slice's intended model during its audit, then compare implementation and
 test assumptions with that model. Existing slice cards and responsibility maps
 establish review scope; they do not establish correctness or approve requirements.
 
+The [current workflow requirements](workflow-requirements.md) connect all 80
+existing slice IDs to actors, authority, inputs, state and required outcomes.
+Use their canonical owner links and explicit questions when establishing a model;
+the map does not advance historical source review or prove implementation behavior.
+
 Create one review record at `reviews/<slice-id>.md` when that slice's review
 begins, using its exact catalog ID, such as `reviews/I06.md`. Link it from the
 existing slice card and add its actual path to the proposed tree and documentation

@@ -22,6 +22,9 @@ not a requirement to recreate their old implementation. The
 and gated deletion. Full inventory/count regeneration waits for implementation;
 the earlier exact-match/delta counts below are historical observations.
 
+The [workflow requirements map](workflow-requirements.md) is an H06 audit
+document allocated below; adding that leaf does not refresh R02 counts or coverage.
+
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
@@ -836,6 +839,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── review-assignments.md
 │   │   │   ├── review-baseline.md
 │   │   │   ├── review-format.md
+│   │   │   ├── workflow-requirements.md
 │   │   │   ├── reviews/
 │   │   │   │   ├── README.md
 │   │   │   │   ├── D01.md
