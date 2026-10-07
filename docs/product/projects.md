@@ -265,6 +265,10 @@ confirmed native success.
 
 Developers have Linux accounts **inside projects**, not human host accounts or homes.
 
+Removing the last saved development-access public key requires explicit
+confirmation. Saved-key removal does not itself establish that previously
+installed native SSH access has been revoked.
+
 ## Persistence
 
 Normal startup starts the **existing** container. Preserve accounts, homes, SSH host
