@@ -3,7 +3,7 @@
 
 use serde::de::{Error as DeError, MapAccess, SeqAccess, Visitor};
 use serde::ser::{Error as _, SerializeMap, SerializeSeq};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserializer, Serialize, Serializer};
 use serde_json::value::RawValue;
 
 use crate::error::Error;
@@ -20,15 +20,13 @@ pub(crate) enum OrderedValue {
 
 impl OrderedValue {
     pub(crate) fn parse(text: &str) -> Result<Self, Error> {
-        let mut decoder = serde_json::Deserializer::from_str(text);
-        let raw =
-            Box::<RawValue>::deserialize(&mut decoder).map_err(|_| Error::msg("invalid JSON"))?;
-        decoder.end().map_err(|_| Error::msg("invalid JSON"))?;
-        Self::from_raw(raw.get(), 0)
+        let raw: &RawValue = serde_json::from_str(text).map_err(|_| Error::msg("invalid JSON"))?;
+        Self::from_raw(raw, 0)
     }
 
-    fn from_raw(raw: &str, parent_depth: usize) -> Result<Self, Error> {
-        match raw.as_bytes().first() {
+    fn from_raw(raw: &RawValue, parent_depth: usize) -> Result<Self, Error> {
+        let token = raw.get();
+        match token.as_bytes().first() {
             Some(b'{') => {
                 let depth = parent_depth + 1;
                 if depth > 127 {
@@ -48,15 +46,15 @@ impl OrderedValue {
                     ) -> Result<Self::Value, A::Error> {
                         let mut entries = Vec::new();
                         while let Some(key) = map.next_key::<String>()? {
-                            let raw = map.next_value::<Box<RawValue>>()?;
-                            let value = OrderedValue::from_raw(raw.get(), self.depth)
+                            let raw = map.next_value::<&'de RawValue>()?;
+                            let value = OrderedValue::from_raw(raw, self.depth)
                                 .map_err(A::Error::custom)?;
                             entries.push((key, value));
                         }
                         Ok(OrderedValue::Object(entries))
                     }
                 }
-                let mut decoder = serde_json::Deserializer::from_str(raw);
+                let mut decoder = serde_json::Deserializer::from_str(raw.get());
                 let value = decoder
                     .deserialize_map(ObjectVisitor { depth })
                     .map_err(|_| Error::msg("invalid JSON"))?;
@@ -81,33 +79,33 @@ impl OrderedValue {
                         mut seq: A,
                     ) -> Result<Self::Value, A::Error> {
                         let mut entries = Vec::new();
-                        while let Some(raw) = seq.next_element::<Box<RawValue>>()? {
-                            let value = OrderedValue::from_raw(raw.get(), self.depth)
+                        while let Some(raw) = seq.next_element::<&'de RawValue>()? {
+                            let value = OrderedValue::from_raw(raw, self.depth)
                                 .map_err(A::Error::custom)?;
                             entries.push(value);
                         }
                         Ok(OrderedValue::Array(entries))
                     }
                 }
-                let mut decoder = serde_json::Deserializer::from_str(raw);
+                let mut decoder = serde_json::Deserializer::from_str(raw.get());
                 let value = decoder
                     .deserialize_seq(ArrayVisitor { depth })
                     .map_err(|_| Error::msg("invalid JSON"))?;
                 decoder.end().map_err(|_| Error::msg("invalid JSON"))?;
                 Ok(value)
             }
-            Some(b'"') => serde_json::from_str(raw)
+            Some(b'"') => serde_json::from_str(token)
                 .map(OrderedValue::String)
                 .map_err(|_| Error::msg("invalid JSON")),
-            Some(b't' | b'f') => serde_json::from_str(raw)
+            Some(b't' | b'f') => serde_json::from_str(token)
                 .map(OrderedValue::Bool)
                 .map_err(|_| Error::msg("invalid JSON")),
-            Some(b'n') if raw == "null" => Ok(OrderedValue::Null),
+            Some(b'n') if token == "null" => Ok(OrderedValue::Null),
             Some(b'-' | b'0'..=b'9') => {
                 // The RawValue was validated by serde_json; retain its exact
                 // token so 1, 1.0 and 1e0 remain distinct.
-                RawValue::from_string(raw.to_owned())
-                    .map(|_| OrderedValue::Number(raw.to_owned()))
+                RawValue::from_string(token.to_owned())
+                    .map(|_| OrderedValue::Number(token.to_owned()))
                     .map_err(|_| Error::msg("invalid JSON"))
             }
             _ => Err(Error::msg("invalid JSON")),

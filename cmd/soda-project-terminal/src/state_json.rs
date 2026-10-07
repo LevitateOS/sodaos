@@ -4,7 +4,7 @@
 
 use serde::de::{Error as DeError, MapAccess, SeqAccess, Visitor};
 use serde::ser::{Error as SerError, SerializeMap, SerializeSeq};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserializer, Serialize, Serializer};
 use serde_json::value::RawValue;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,17 +19,15 @@ pub(crate) enum StateValue {
 
 impl StateValue {
     pub(crate) fn parse(text: &str) -> Result<Self, String> {
-        let mut decoder = serde_json::Deserializer::from_str(text);
-        let raw =
-            Box::<RawValue>::deserialize(&mut decoder).map_err(|_| "invalid JSON".to_string())?;
-        decoder.end().map_err(|_| "invalid JSON".to_string())?;
-        let mut value = Self::from_raw(raw.get(), 0)?;
+        let raw: &RawValue = serde_json::from_str(text).map_err(|_| "invalid JSON".to_string())?;
+        let mut value = Self::from_raw(raw, 0)?;
         value.collapse_dictionaries();
         Ok(value)
     }
 
-    fn from_raw(raw: &str, parent_depth: usize) -> Result<Self, String> {
-        match raw.as_bytes().first() {
+    fn from_raw(raw: &RawValue, parent_depth: usize) -> Result<Self, String> {
+        let token = raw.get();
+        match token.as_bytes().first() {
             Some(b'{') => {
                 let depth = parent_depth + 1;
                 if depth > 127 {
@@ -49,15 +47,15 @@ impl StateValue {
                     ) -> Result<Self::Value, A::Error> {
                         let mut entries = Vec::new();
                         while let Some(key) = map.next_key::<String>()? {
-                            let raw = map.next_value::<Box<RawValue>>()?;
-                            let value = StateValue::from_raw(raw.get(), self.depth)
-                                .map_err(A::Error::custom)?;
+                            let raw = map.next_value::<&'de RawValue>()?;
+                            let value =
+                                StateValue::from_raw(raw, self.depth).map_err(A::Error::custom)?;
                             entries.push((key, value));
                         }
                         Ok(StateValue::Object(entries))
                     }
                 }
-                let mut decoder = serde_json::Deserializer::from_str(raw);
+                let mut decoder = serde_json::Deserializer::from_str(raw.get());
                 let value = decoder
                     .deserialize_map(ObjectVisitor { depth })
                     .map_err(|_| "invalid JSON".to_string())?;
@@ -82,30 +80,30 @@ impl StateValue {
                         mut seq: A,
                     ) -> Result<Self::Value, A::Error> {
                         let mut values = Vec::new();
-                        while let Some(raw) = seq.next_element::<Box<RawValue>>()? {
-                            let value = StateValue::from_raw(raw.get(), self.depth)
-                                .map_err(A::Error::custom)?;
+                        while let Some(raw) = seq.next_element::<&'de RawValue>()? {
+                            let value =
+                                StateValue::from_raw(raw, self.depth).map_err(A::Error::custom)?;
                             values.push(value);
                         }
                         Ok(StateValue::Array(values))
                     }
                 }
-                let mut decoder = serde_json::Deserializer::from_str(raw);
+                let mut decoder = serde_json::Deserializer::from_str(raw.get());
                 let value = decoder
                     .deserialize_seq(ArrayVisitor { depth })
                     .map_err(|_| "invalid JSON".to_string())?;
                 decoder.end().map_err(|_| "invalid JSON".to_string())?;
                 Ok(value)
             }
-            Some(b'"') => serde_json::from_str(raw)
+            Some(b'"') => serde_json::from_str(token)
                 .map(Self::Str)
                 .map_err(|_| "invalid JSON".to_string()),
-            Some(b't' | b'f') => serde_json::from_str(raw)
+            Some(b't' | b'f') => serde_json::from_str(token)
                 .map(Self::Bool)
                 .map_err(|_| "invalid JSON".to_string()),
-            Some(b'n') if raw == "null" => Ok(Self::Null),
-            Some(b'-' | b'0'..=b'9') => RawValue::from_string(raw.to_owned())
-                .map(|_| Self::Number(raw.to_owned()))
+            Some(b'n') if token == "null" => Ok(Self::Null),
+            Some(b'-' | b'0'..=b'9') => RawValue::from_string(token.to_owned())
+                .map(|_| Self::Number(token.to_owned()))
                 .map_err(|_| "invalid JSON".to_string()),
             _ => Err("invalid JSON".to_string()),
         }

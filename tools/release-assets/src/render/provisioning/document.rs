@@ -5,7 +5,7 @@ use std::io;
 use std::path::Path;
 
 use serde::de::{MapAccess, SeqAccess, Visitor};
-use serde::ser::{SerializeMap, SerializeSeq};
+use serde::ser::{Error as SerError, SerializeMap, SerializeSeq};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::ser::{CharEscape, Formatter, PrettyFormatter};
 use serde_json::value::RawValue;
@@ -19,18 +19,18 @@ use super::{ProvError, ProvKind};
 pub(crate) enum Node {
     Null,
     Bool(bool),
-    Number(Box<RawValue>),
+    Number(String),
     String(String),
     Array(Vec<Node>),
     Object(Vec<(String, Node)>),
 }
 
-enum RawChildren {
-    Array(Vec<Box<RawValue>>),
-    Object(Vec<(String, Box<RawValue>)>),
+enum RawChildren<'de> {
+    Array(Vec<&'de RawValue>),
+    Object(Vec<(String, &'de RawValue)>),
 }
 
-impl<'de> Deserialize<'de> for RawChildren {
+impl<'de> Deserialize<'de> for RawChildren<'de> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -38,7 +38,7 @@ impl<'de> Deserialize<'de> for RawChildren {
         struct ChildrenVisitor;
 
         impl<'de> Visitor<'de> for ChildrenVisitor {
-            type Value = RawChildren;
+            type Value = RawChildren<'de>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("an ordered JSON object or array")
@@ -49,7 +49,7 @@ impl<'de> Deserialize<'de> for RawChildren {
                 A: SeqAccess<'de>,
             {
                 let mut values = Vec::with_capacity(seq.size_hint().unwrap_or(0));
-                while let Some(value) = seq.next_element::<Box<RawValue>>()? {
+                while let Some(value) = seq.next_element::<&'de RawValue>()? {
                     values.push(value);
                 }
                 Ok(RawChildren::Array(values))
@@ -60,7 +60,7 @@ impl<'de> Deserialize<'de> for RawChildren {
                 A: MapAccess<'de>,
             {
                 let mut values = Vec::with_capacity(map.size_hint().unwrap_or(0));
-                while let Some((key, value)) = map.next_entry::<String, Box<RawValue>>()? {
+                while let Some((key, value)) = map.next_entry::<String, &'de RawValue>()? {
                     values.push((key, value));
                 }
                 Ok(RawChildren::Object(values))
@@ -81,7 +81,7 @@ impl Node {
             b't' => Ok(Node::Bool(true)),
             b'f' => Ok(Node::Bool(false)),
             b'"' => Ok(Node::String(serde_json::from_str(raw.get())?)),
-            b'-' | b'0'..=b'9' => Ok(Node::Number(serde_json::from_str(raw.get())?)),
+            b'-' | b'0'..=b'9' => Ok(Node::Number(raw.get().to_owned())),
             b'[' => {
                 let depth = parent_depth + 1;
                 if depth > 127 {
@@ -121,8 +121,8 @@ impl Node {
     }
 
     pub(crate) fn parse_document(text: &str) -> Result<Node, serde_json::Error> {
-        let raw: Box<RawValue> = serde_json::from_str(text)?;
-        Node::parse(&raw, 0)
+        let raw: &RawValue = serde_json::from_str(text)?;
+        Node::parse(raw, 0)
     }
 }
 
@@ -134,7 +134,9 @@ impl Serialize for Node {
         match self {
             Node::Null => serializer.serialize_unit(),
             Node::Bool(value) => serializer.serialize_bool(*value),
-            Node::Number(raw) => raw.serialize(serializer),
+            Node::Number(raw) => RawValue::from_string(raw.clone())
+                .map_err(S::Error::custom)?
+                .serialize(serializer),
             Node::String(value) => serializer.serialize_str(value),
             Node::Array(values) => {
                 let mut seq = serializer.serialize_seq(Some(values.len()))?;
@@ -350,10 +352,7 @@ pub(crate) fn str_value(text: &str) -> Node {
 pub(crate) fn file_entry(path: &str, mode: u32, inline: &str) -> Node {
     Node::Object(vec![
         ("path".to_string(), str_value(path)),
-        (
-            "mode".to_string(),
-            Node::Number(RawValue::from_string(mode.to_string()).expect("integer token")),
-        ),
+        ("mode".to_string(), Node::Number(mode.to_string())),
         (
             "contents".to_string(),
             Node::Object(vec![("inline".to_string(), str_value(inline))]),
