@@ -388,7 +388,7 @@ pub fn parse_shipping_inventory(snapshot: &str, json: &str) -> Result<ShippingIn
         jsonio::parse(json).map_err(|_| Error::msg("invalid Cargo metadata"))?;
     let metadata_root = fs::canonicalize(&metadata.workspace_root)
         .map_err(|_| Error::msg("invalid Cargo metadata"))?;
-    if metadata_root != root || !manifest.is_file() {
+    if metadata_root != root || !manifest.starts_with(&root) || !manifest.is_file() {
         return Err(Error::msg("Cargo metadata workspace mismatch"));
     }
     let workspace_ids: BTreeSet<&str> = metadata
@@ -406,12 +406,14 @@ pub fn parse_shipping_inventory(snapshot: &str, json: &str) -> Result<ShippingIn
         if !workspace_ids.contains(package.id.as_str()) {
             continue;
         }
-        if package.name.is_empty() || !found_ids.insert(package.id.clone()) {
+        if package.id.is_empty() || package.name.is_empty() || !found_ids.insert(package.id.clone())
+        {
             return Err(Error::msg("invalid Cargo package identity"));
         }
         let path = fs::canonicalize(&package.manifest_path)
             .map_err(|_| Error::msg("invalid Cargo package manifest"))?;
         if !path.starts_with(&root)
+            || !path.is_file()
             || path.file_name().and_then(|name| name.to_str()) != Some("Cargo.toml")
             || !manifests.insert(path.clone())
         {
