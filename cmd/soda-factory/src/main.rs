@@ -147,44 +147,59 @@ fn dispatch(
     send(socket, &envelope, out)
 }
 
-/// Encode a string map as JSON exactly the way Go's encoding/json encodes a
-/// map[string]string: keys sorted, `<`, `>`, `&` escaped, short escapes for
-/// the common controls, `\u00xx` for the rest, plus a trailing newline.
+/// Encode the fixed string envelope with Go-compatible sorted keys and escapes.
 fn encode_envelope(envelope: &[(&str, &str)]) -> Vec<u8> {
-    let mut pairs: Vec<(&str, &str)> = envelope.to_vec();
-    pairs.sort_by(|a, b| a.0.cmp(b.0));
-    let mut body = String::from("{");
-    for (n, (key, value)) in pairs.iter().enumerate() {
-        if n > 0 {
-            body.push(',');
-        }
-        push_json_string(&mut body, key);
-        body.push(':');
-        push_json_string(&mut body, value);
-    }
-    body.push_str("}\n");
-    body.into_bytes()
-}
+    use serde::Serialize;
+    use serde_json::ser::{CharEscape, CompactFormatter, Formatter, Serializer};
+    use std::collections::BTreeMap;
+    use std::io;
 
-fn push_json_string(out: &mut String, value: &str) {
-    out.push('"');
-    for ch in value.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '<' => out.push_str("\\u003c"),
-            '>' => out.push_str("\\u003e"),
-            '&' => out.push_str("\\u0026"),
-            c if (c as u32) < 0x20 => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
+    struct GoFormatter;
+    impl Formatter for GoFormatter {
+        fn write_string_fragment<W: ?Sized + io::Write>(
+            &mut self,
+            writer: &mut W,
+            fragment: &str,
+        ) -> io::Result<()> {
+            let mut start = 0;
+            for (index, ch) in fragment.char_indices() {
+                let escaped = match ch {
+                    '<' => Some("\\u003c"),
+                    '>' => Some("\\u003e"),
+                    '&' => Some("\\u0026"),
+                    '\u{2028}' => Some("\\u2028"),
+                    '\u{2029}' => Some("\\u2029"),
+                    _ => None,
+                };
+                if let Some(escaped) = escaped {
+                    writer.write_all(fragment[start..index].as_bytes())?;
+                    writer.write_all(escaped.as_bytes())?;
+                    start = index + ch.len_utf8();
+                }
             }
-            c => out.push(c),
+            writer.write_all(fragment[start..].as_bytes())
+        }
+
+        fn write_char_escape<W: ?Sized + io::Write>(
+            &mut self,
+            writer: &mut W,
+            escape: CharEscape,
+        ) -> io::Result<()> {
+            CompactFormatter.write_char_escape(writer, escape)
         }
     }
-    out.push('"');
+
+    let mut object = BTreeMap::new();
+    for (key, value) in envelope {
+        object.insert(*key, *value);
+    }
+    let mut body = Vec::new();
+    let mut serializer = Serializer::with_formatter(&mut body, GoFormatter);
+    object
+        .serialize(&mut serializer)
+        .expect("writing to Vec cannot fail");
+    body.push(b'\n');
+    body
 }
 
 fn send(socket: &str, envelope: &[(&str, &str)], out: &mut dyn Write) -> Result<(), String> {

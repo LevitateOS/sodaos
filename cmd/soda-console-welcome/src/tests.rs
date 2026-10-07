@@ -3,27 +3,29 @@ use crate::origin::{valid_listen, valid_origin};
 
 #[test]
 fn top_object_extracts_strings_last_wins() {
-    let fields = parse_top_object(r#"{"a": "1", "b": 2, "a": "3", "c": null}"#).unwrap();
-    assert_eq!(fields.get("a"), Some(&Some("3".to_string())));
-    assert_eq!(fields.get("b"), Some(&None));
-    assert_eq!(fields.get("c"), Some(&None));
+    let fields =
+        parse_top_object(r#"{"listen": "1", "forgejo_url": 2, "listen": "3", "unknown": null}"#)
+            .unwrap();
+    assert_eq!(fields.get("listen"), Some(&Some("3".to_string())));
+    assert_eq!(fields.get("forgejo_url"), Some(&None));
+    assert!(!fields.contains_key("unknown"));
     assert!(parse_top_object(r#"{"unclosed""#).is_none());
     assert!(parse_top_object(r#"[1,2]"#).is_none());
-    assert!(parse_top_object(r#"{"a": "1"} trailing"#).is_none());
-    assert!(parse_top_object(r#"{"a": NaN, "b": Infinity, "c": -Infinity}"#).is_some());
+    assert!(parse_top_object(r#"{"listen": "1"} trailing"#).is_none());
+    assert!(parse_top_object(r#"{"listen": NaN, "b": Infinity, "c": -Infinity}"#).is_none());
 }
 
 #[test]
 fn string_escapes_decode_like_python() {
-    let fields = parse_top_object(r#"{"a": "x\"y\\z\/\b\f\n\r\té☃"}"#).unwrap();
+    let fields = parse_top_object(r#"{"listen": "x\"y\\z\/\b\f\n\r\té☃"}"#).unwrap();
     assert_eq!(
-        fields.get("a"),
+        fields.get("listen"),
         Some(&Some("x\"y\\z/\u{8}\u{c}\n\r\té☃".to_string()))
     );
-    let fields = parse_top_object(r#"{"a": "A𝄞B"}"#).unwrap();
-    assert_eq!(fields.get("a"), Some(&Some("A𝄞B".to_string())));
-    assert!(parse_top_object("{\"a\": \"\\ud800\"}").is_none());
-    assert!(parse_top_object("{\"a\": \"line\nbreak\"}").is_none());
+    let fields = parse_top_object(r#"{"listen": "A𝄞B"}"#).unwrap();
+    assert_eq!(fields.get("listen"), Some(&Some("A𝄞B".to_string())));
+    assert!(parse_top_object("{\"listen\": \"\\ud800\"}").is_none());
+    assert!(parse_top_object("{\"listen\": \"line\nbreak\"}").is_none());
 }
 
 #[test]

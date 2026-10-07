@@ -62,340 +62,49 @@ pub(crate) fn render_config(config: &str, tunnel_host: &str) {
     }
 }
 
-/// Top-level JSON object as string-field map (last duplicate wins, like
-/// Python's dict). None = parse failure or non-object. Values decode to
-/// Some(string) for JSON strings, None for any other JSON value.
+/// Read the consumed top-level string fields while Serde validates the entire value.
 pub(crate) fn parse_top_object(
     text: &str,
 ) -> Option<std::collections::HashMap<String, Option<String>>> {
-    let bytes = text.as_bytes();
-    let mut parser = JsonParser {
-        bytes,
-        pos: 0,
-        depth: 0,
-    };
-    parser.skip_ws();
-    if parser.peek() != Some(b'{') {
-        return None;
-    }
-    let fields = parser.parse_object_top()?;
-    parser.skip_ws();
-    if parser.pos != bytes.len() {
-        return None; // json.loads rejects trailing data ("Extra data").
-    }
-    Some(fields)
-}
+    use serde::de::{IgnoredAny, MapAccess, Visitor};
+    use serde::Deserialize;
 
-struct JsonParser<'a> {
-    bytes: &'a [u8],
-    pos: usize,
-    depth: u32,
-}
-
-impl<'a> JsonParser<'a> {
-    fn peek(&self) -> Option<u8> {
-        self.bytes.get(self.pos).copied()
-    }
-
-    fn skip_ws(&mut self) {
-        while matches!(self.peek(), Some(b' ' | b'\t' | b'\n' | b'\r')) {
-            self.pos += 1;
-        }
-    }
-
-    fn literal(&mut self, word: &[u8]) -> bool {
-        if self.bytes[self.pos..].starts_with(word) {
-            self.pos += word.len();
-            true
-        } else {
-            false
-        }
-    }
-
-    fn parse_object_top(&mut self) -> Option<std::collections::HashMap<String, Option<String>>> {
-        // pos at '{'.
-        self.pos += 1;
-        let mut fields = std::collections::HashMap::new();
-        self.skip_ws();
-        if self.peek() == Some(b'}') {
-            self.pos += 1;
-            return Some(fields);
-        }
-        loop {
-            self.skip_ws();
-            let key = self.parse_string()?;
-            self.skip_ws();
-            if self.peek() != Some(b':') {
-                return None;
-            }
-            self.pos += 1;
-            self.skip_ws();
-            let value = self.parse_value_top()?;
-            fields.insert(key, value);
-            self.skip_ws();
-            match self.peek() {
-                Some(b',') => {
-                    self.pos += 1;
+    struct TopObject(std::collections::HashMap<String, Option<String>>);
+    impl<'de> Deserialize<'de> for TopObject {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            struct ObjectVisitor;
+            impl<'de> Visitor<'de> for ObjectVisitor {
+                type Value = TopObject;
+                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    f.write_str("a JSON object")
                 }
-                Some(b'}') => {
-                    self.pos += 1;
-                    return Some(fields);
-                }
-                _ => return None,
-            }
-        }
-    }
-
-    /// Top-level member value: decoded for strings, validated-and-discarded
-    /// otherwise (objects/arrays recurse for syntax validation, as json.loads
-    /// parses the whole document).
-    fn parse_value_top(&mut self) -> Option<Option<String>> {
-        match self.peek()? {
-            b'"' => Some(Some(self.parse_string()?)),
-            _ => {
-                self.parse_any()?;
-                Some(None)
-            }
-        }
-    }
-
-    fn parse_any(&mut self) -> Option<()> {
-        // json.loads has no depth limit (deep input raises RecursionError,
-        // which the script does NOT catch); cap here and treat overflow as
-        // a parse failure instead of a traceback.
-        if self.depth > 1000 {
-            return None;
-        }
-        self.depth += 1;
-        let result = self.parse_any_inner();
-        self.depth -= 1;
-        result
-    }
-
-    fn parse_any_inner(&mut self) -> Option<()> {
-        match self.peek()? {
-            b'"' => {
-                self.parse_string()?;
-                Some(())
-            }
-            b'{' => {
-                self.pos += 1;
-                self.skip_ws();
-                if self.peek() == Some(b'}') {
-                    self.pos += 1;
-                    return Some(());
-                }
-                loop {
-                    self.skip_ws();
-                    self.parse_string()?;
-                    self.skip_ws();
-                    if self.peek() != Some(b':') {
-                        return None;
-                    }
-                    self.pos += 1;
-                    self.skip_ws();
-                    self.parse_any()?;
-                    self.skip_ws();
-                    match self.peek() {
-                        Some(b',') => self.pos += 1,
-                        Some(b'}') => {
-                            self.pos += 1;
-                            return Some(());
-                        }
-                        _ => return None,
-                    }
-                }
-            }
-            b'[' => {
-                self.pos += 1;
-                self.skip_ws();
-                if self.peek() == Some(b']') {
-                    self.pos += 1;
-                    return Some(());
-                }
-                loop {
-                    self.skip_ws();
-                    self.parse_any()?;
-                    self.skip_ws();
-                    match self.peek() {
-                        Some(b',') => self.pos += 1,
-                        Some(b']') => {
-                            self.pos += 1;
-                            return Some(());
-                        }
-                        _ => return None,
-                    }
-                }
-            }
-            b't' => self.literal(b"true").then_some(()),
-            b'f' => self.literal(b"false").then_some(()),
-            b'n' => self.literal(b"null").then_some(()),
-            // json.loads accepts NaN/Infinity/-Infinity; all land in the
-            // except branch later as non-strings.
-            b'N' => self.literal(b"NaN").then_some(()),
-            b'I' => self.literal(b"Infinity").then_some(()),
-            b'-' => {
-                if self.bytes[self.pos..].starts_with(b"-Infinity") {
-                    self.pos += "-Infinity".len();
-                    Some(())
-                } else {
-                    self.parse_number()
-                }
-            }
-            b'0'..=b'9' => self.parse_number(),
-            _ => None,
-        }
-    }
-
-    fn parse_number(&mut self) -> Option<()> {
-        let start = self.pos;
-        if self.peek() == Some(b'-') {
-            self.pos += 1;
-        }
-        match self.peek() {
-            Some(b'0') => self.pos += 1,
-            Some(b'1'..=b'9') => {
-                while matches!(self.peek(), Some(b'0'..=b'9')) {
-                    self.pos += 1;
-                }
-            }
-            _ => return None,
-        }
-        if self.peek() == Some(b'.') {
-            self.pos += 1;
-            if !matches!(self.peek(), Some(b'0'..=b'9')) {
-                return None;
-            }
-            while matches!(self.peek(), Some(b'0'..=b'9')) {
-                self.pos += 1;
-            }
-        }
-        if matches!(self.peek(), Some(b'e' | b'E')) {
-            self.pos += 1;
-            if matches!(self.peek(), Some(b'+' | b'-')) {
-                self.pos += 1;
-            }
-            if !matches!(self.peek(), Some(b'0'..=b'9')) {
-                return None;
-            }
-            while matches!(self.peek(), Some(b'0'..=b'9')) {
-                self.pos += 1;
-            }
-        }
-        if self.pos == start {
-            return None;
-        }
-        Some(())
-    }
-
-    /// JSON string with full escape decoding, including \uXXXX surrogate
-    /// pairs. Lone surrogates fail (Python keeps them, then crashes printing
-    /// a validating URL — a traceback, not a contract).
-    fn parse_string(&mut self) -> Option<String> {
-        if self.peek() != Some(b'"') {
-            return None;
-        }
-        self.pos += 1;
-        let mut out = String::new();
-        loop {
-            let byte = self.peek()?;
-            match byte {
-                b'"' => {
-                    self.pos += 1;
-                    return Some(out);
-                }
-                b'\\' => {
-                    self.pos += 1;
-                    match self.peek()? {
-                        b'"' => {
-                            out.push('"');
-                            self.pos += 1;
-                        }
-                        b'\\' => {
-                            out.push('\\');
-                            self.pos += 1;
-                        }
-                        b'/' => {
-                            out.push('/');
-                            self.pos += 1;
-                        }
-                        b'b' => {
-                            out.push('\u{8}');
-                            self.pos += 1;
-                        }
-                        b'f' => {
-                            out.push('\u{c}');
-                            self.pos += 1;
-                        }
-                        b'n' => {
-                            out.push('\n');
-                            self.pos += 1;
-                        }
-                        b'r' => {
-                            out.push('\r');
-                            self.pos += 1;
-                        }
-                        b't' => {
-                            out.push('\t');
-                            self.pos += 1;
-                        }
-                        b'u' => {
-                            self.pos += 1;
-                            let high = self.parse_hex4()?;
-                            if (0xD800..0xDC00).contains(&high) {
-                                if self.bytes.get(self.pos..self.pos + 2) == Some(b"\\u") {
-                                    self.pos += 2;
-                                    let low = self.parse_hex4()?;
-                                    if (0xDC00..0xE000).contains(&low) {
-                                        let code =
-                                            0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
-                                        out.push(char::from_u32(code)?);
-                                    } else {
-                                        return None;
-                                    }
-                                } else {
-                                    return None;
-                                }
-                            } else if (0xDC00..0xE000).contains(&high) {
-                                return None;
+                fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
+                    let mut fields = std::collections::HashMap::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        if key == "listen" || key == "forgejo_url" {
+                            let raw = map.next_value::<Box<serde_json::value::RawValue>>()?;
+                            let value = if raw.get().starts_with('"') {
+                                Some(
+                                    serde_json::from_str::<String>(raw.get())
+                                        .map_err(serde::de::Error::custom)?,
+                                )
                             } else {
-                                out.push(char::from_u32(high)?);
-                            }
+                                None
+                            };
+                            fields.insert(key, value);
+                        } else {
+                            let _: IgnoredAny = map.next_value()?;
                         }
-                        _ => return None,
                     }
-                }
-                0x00..=0x1F => return None, // json.loads rejects literal controls.
-                _ => {
-                    // Regular UTF-8 scalar (input is already valid UTF-8).
-                    let rest = &self.bytes[self.pos..];
-                    let text = std::str::from_utf8(rest).ok()?;
-                    let ch = text.chars().next()?;
-                    out.push(ch);
-                    self.pos += ch.len_utf8();
+                    Ok(TopObject(fields))
                 }
             }
+            deserializer.deserialize_map(ObjectVisitor)
         }
     }
 
-    fn parse_hex4(&mut self) -> Option<u32> {
-        if self.pos + 4 > self.bytes.len() {
-            return None;
-        }
-        let mut value = 0u32;
-        for i in 0..4 {
-            value = value * 16 + hex_value(self.bytes[self.pos + i])?;
-        }
-        self.pos += 4;
-        Some(value)
-    }
-}
-
-fn hex_value(byte: u8) -> Option<u32> {
-    match byte {
-        b'0'..=b'9' => Some((byte - b'0') as u32),
-        b'a'..=b'f' => Some((byte - b'a' + 10) as u32),
-        b'A'..=b'F' => Some((byte - b'A' + 10) as u32),
-        _ => None,
-    }
+    let mut deserializer = serde_json::Deserializer::from_str(text);
+    let TopObject(fields) = TopObject::deserialize(&mut deserializer).ok()?;
+    deserializer.end().ok()?;
+    Some(fields)
 }

@@ -230,9 +230,9 @@ fn local_misuse_is_rejected() {
 
 #[test]
 fn envelope_escapes_match_go_encoding_json() {
-    let body = encode_envelope(&[("type", "a<b>&\"c\"\n")]);
+    let body = encode_envelope(&[("type", "a<b>&\"c\"\n\u{2028}é\u{2029}")]);
     assert_eq!(
         body,
-        b"{\"type\":\"a\\u003cb\\u003e\\u0026\\\"c\\\"\\n\"}\n"
+        "{\"type\":\"a\\u003cb\\u003e\\u0026\\\"c\\\"\\n\\u2028é\\u2029\"}\n".as_bytes()
     );
 }
