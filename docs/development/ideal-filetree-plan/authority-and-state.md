@@ -17,6 +17,12 @@ and [lanes](implementation-lanes.md) remain the execution plan. This is source
 inspection and documentation; no tests, builds, database/provider/VM/network
 operations or native qualification ran.
 
+The [independent challenge](independent-conclusions.md) at `24fc3ea7` refines
+F08/F12 below from the current split/ported definitions: dispatch capture and
+acceptance/publication capture remain separate duties, while merge equality
+supports a conditional completion refusal rather than unrelated-result admission.
+Historical review locations are context, not current source-identity evidence.
+
 ## Authority and transition coverage
 
 A library's successful parse, a durable ID, a prior permission observation and
@@ -117,12 +123,12 @@ not a whole-slice validity refresh or reopened completed structural work.
 | --- | --- |
 | **F07-F1 / B** | Compare full current factory authority at final packet admission, not only capacity maxima. Establish revision tuple/refuse-or-replan policy; changed grant/enabled/paused state between plan and packet cannot reach host launch |
 | **F07-F2 / B** | Recorded prompt lacks contracted controller limits/actions/checks/blockers, dependency outcomes and approved repository instructions/template revision. Identify authoritative inputs; their actual bounded content participates in the recorded prompt digest |
-| **F08-F1 / B** | Order withdrawal and registration at one serialization point. Both race commit orders must refuse registration or include its immutable operation in cancellation/reconciliation; no native commit is claimed |
+| **F08-F1 / B** | Order withdrawal and registration at one serialization point. Preserve both duties: current WithdrawDispatch enumerates registrations before its separate gate close; acceptance withdrawal versus initial publication-operation registration has its own capture interleaving. Both race commit orders must refuse registration or include its immutable operation in cancellation/reconciliation; no native commit is claimed |
 | **F08-F3 / B**, native file handoff to A | Delayed successful finish can overwrite stop-requested/uncertain receipt attribution. Define owner-confirmed settlement; retain stop provenance and custody uncertainty across both interleavings |
 | **F09-F1 / B** | Published-parent correction operations escape open/fenced-only withdrawal enumeration. Include every retained correction identity in cancel/reconcile, preserving immutable intent and uncertain outcome |
 | **F10-F1 / B** | Existing allowance helpers lack the production autonomous reviewer/correction path. Consume existing prerequisites and cumulative limits through the actual coordinator; seeded reviewer fixtures do not prove it |
 | **F10-F2 / B** | Reviewer submission reconstructs a stable-ID intent with fresh head/deadline rather than retaining the original. Persist/lookup original intent before submit; uncertain retry cannot change it. Actual native G05 replay remains its gate |
-| **F12-F1 / B** | Candidate-head equality is not result reachability/attribution for a merge commit. Actual G07/native producer evidence is prerequisite; unrelated/stale/ambiguous result cannot release dependants. Removing equality alone is insufficient |
+| **F12-F1 / B** | Current Merge.Validate/completeMerge exact head and BaseTip equality can refuse a reachable attributable result after legitimate target advance; this is a conditional completion/profile mismatch, not demonstrated unrelated-result admission. Actual G07/native producer evidence is prerequisite; unrelated/stale/ambiguous result cannot release dependants. Removing equality alone is insufficient |
 | **P04-F1 / B** | Require the owner's explicit confirmation for deleting the final saved key, at the actual frontend/API/Store deletion decision, including concurrent changes. Installed empty-set confirmation is separate; saved deletion cannot claim SSH revocation |
 | **OBS-S01 / C** | Make redacted artifact-map conversion fallible: distinct transformed-key collisions cannot drop a digest and publish completed. Preserve existing schema/noncolliding/repeated-path behavior and leak-safe failure |
 | **H06-F1 / C** | Distinguish analyzer/tool/parse/missing-input failure from valid clean output through the real script/hook. Failed observation cannot produce complexity PASS |

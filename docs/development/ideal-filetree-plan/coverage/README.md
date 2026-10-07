@@ -11,10 +11,11 @@ one connected workflow-trace chapter, one adapter-challenge chapter and
 one representation chapter, one concurrency/termination chapter and
 one authority/state chapter, one resource-bounds chapter, one custody chapter,
 one dependency/architecture-cost chapter, one test/evidence chapter and
-one build/installation/operational join chapter and one total maintenance chapter**
+one build/installation/operational join chapter, one total maintenance chapter
+and one independent consequential-challenge chapter**
 are accounted exactly once in the [tracked-file inventories](inventory/README.md).
 No working source additions were
-present. These sixteen H06 documents are the explicit current documentation delta;
+present. These seventeen H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -28,11 +29,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including sixteen authored documents / missing / duplicate rows | 2,561 / 0 / 0 |
+| Current paths including seventeen authored documents / missing / duplicate rows | 2,562 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus sixteen whole-document H06 duties | 20,117 + 16 = 20,133 |
+| Existing named duties plus seventeen whole-document H06 duties | 20,117 + 17 = 20,134 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -53,7 +54,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 321 |
+| `docs` | 322 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |
@@ -185,6 +186,12 @@ one H06 whole-document duty at source `797e6ec8`. All 73 integration-map entries
 receive a supported disposition; local joins and optional/held candidates keep
 separate scope. Source recommendations do not measure total savings or qualify
 the implemented product.
+
+The [independent consequential challenge](../independent-conclusions.md) adds
+one H06 whole-document duty at source `24fc3ea7`. It challenges all 73 integration
+recommendations and 75 canonical prior claims, corrects evidence associations
+and records one separate CA profile question. Supported, repaired, withdrawn,
+dormant and held conclusions remain distinct; agreement is not qualification.
 
 - [Current tracked inventories](inventory/README.md)
 - [Current responsibility maps](maps/README.md)

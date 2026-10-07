@@ -129,7 +129,12 @@ Limit p224/p256/p384/p521 to `default-features = false` with
 `arithmetic,ecdsa,std`; limit RSA to `std,u64_digit` with defaults disabled.
 Keep the direct ecdsa `verifying,pkcs8,std`, elliptic-curve and x509-cert profiles
 unchanged. Preserve every currently supported curve/algorithm and Soda's envelope
-parser. Other legitimate edges can still unify PEM/PKCS8/random features; acceptance
+parser. Current algorithm admission stays unchanged during this feature-only cut. The
+[independent challenge](independent-conclusions.md) distinguishes that acceptance
+from a permanent four-curve product requirement: the guide names families and
+the recorded Caddy fixture proves P-256 only. Any later narrowing consumes the
+separate C-owned CA-ALGORITHM-PROFILE-1 decision and actual producer evidence.
+Other legitimate edges can still unify PEM/PKCS8/random features; acceptance
 must distinguish removed requests from actual per-target closure reductions.
 
 ### COST-BOOTSTRAP-SEAM-1 — two commands require a full production implementation

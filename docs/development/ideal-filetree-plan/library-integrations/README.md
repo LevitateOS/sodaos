@@ -45,6 +45,12 @@ The [total maintenance assessment](../integration-maintenance-result.md) at
 synchronization, errors, dependencies and operational work. It gives each of the
 73 entries a recommendation and assesses local joins and held optional candidates.
 
+The [independent consequential challenge](../independent-conclusions.md) at
+`24fc3ea7` examines those recommendations and 75 canonical prior claims against
+contracts and callers. It corrects five misplaced references and separates a
+new CA algorithm-profile question from the current feature-only cut. Agreement
+retains explicit source, behavior and producer-evidence limits.
+
 The subsequent [selected-version adapter challenge](adapter-challenges.md) at
 `2dc3bce9` evaluates these surfaces against upstream APIs and actual callers.
 It selects typed PostgreSQL, PEM, descriptor-flag and SDK snapshot cuts; JSON
