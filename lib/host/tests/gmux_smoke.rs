@@ -11,13 +11,11 @@ use soda_host::gmux_admission::{
     TERMINAL_REQUEST_LIMIT, TERMINAL_STREAM_CAP,
 };
 use soda_host::gmux_backend::{BackendError, ExecBackend, StubBackend, TerminalSession};
-use soda_host::gmux_routes::{
-    dispatch, websocket_accept_key, DaemonConfig, RouteOutcome, ROUTE_TABLE,
-};
+use soda_host::gmux_routes::{dispatch, DaemonConfig, HttpResponse, RouteOutcome, ROUTE_TABLE};
 use soda_host::gmux_server::{systemd_listener, Server};
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 // -- helpers --
@@ -28,25 +26,90 @@ fn head(method: &str, path: &str) -> RequestHead {
     h
 }
 
-fn status_of(response: &[u8]) -> u16 {
-    let text = std::str::from_utf8(response).unwrap();
-    assert!(text.starts_with("HTTP/1.1 "), "bad status line: {text:?}");
-    text["HTTP/1.1 ".len()..][..3].parse().unwrap()
+trait ResponseView {
+    fn status(&self) -> u16;
+    fn headers_and_body(&self) -> String;
+    fn body_bytes(&self) -> Vec<u8>;
+    fn header_value(&self, name: &str) -> Option<String>;
+}
+impl ResponseView for Vec<u8> {
+    fn status(&self) -> u16 {
+        let s = String::from_utf8_lossy(self);
+        s["HTTP/1.1 ".len()..][..3].parse().unwrap()
+    }
+    fn headers_and_body(&self) -> String {
+        String::from_utf8_lossy(self).into_owned()
+    }
+    fn body_bytes(&self) -> Vec<u8> {
+        let p = self.windows(4).position(|w| w == b"\r\n\r\n").unwrap();
+        self[p + 4..].to_vec()
+    }
+    fn header_value(&self, name: &str) -> Option<String> {
+        let end = self.windows(4).position(|w| w == b"\r\n\r\n")?;
+        let head = std::str::from_utf8(&self[..end]).ok()?;
+        head.lines().skip(1).find_map(|line| {
+            let (key, value) = line.split_once(':')?;
+            key.eq_ignore_ascii_case(name)
+                .then(|| value.trim().to_string())
+        })
+    }
+}
+impl ResponseView for HttpResponse {
+    fn status(&self) -> u16 {
+        self.status().as_u16()
+    }
+    fn headers_and_body(&self) -> String {
+        let mut s = format!("HTTP/1.1 {}\r\n", self.status());
+        for (name, value) in self.headers() {
+            let canonical = name
+                .as_str()
+                .split('-')
+                .map(|part| {
+                    let mut chars = part.chars();
+                    chars
+                        .next()
+                        .map(|c| c.to_ascii_uppercase().to_string() + chars.as_str())
+                        .unwrap_or_default()
+                })
+                .collect::<Vec<_>>()
+                .join("-");
+            s.push_str(&canonical);
+            s.push_str(": ");
+            s.push_str(value.to_str().unwrap_or(""));
+            s.push_str("\r\n");
+        }
+        s.push_str("\r\n");
+        s.push_str(&String::from_utf8_lossy(&self.body_bytes()));
+        s
+    }
+    fn body_bytes(&self) -> Vec<u8> {
+        use http_body_util::BodyExt;
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(self.body().clone().collect())
+            .unwrap()
+            .to_bytes()
+            .to_vec()
+    }
+    fn header_value(&self, name: &str) -> Option<String> {
+        self.headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
+    }
+}
+fn status_of<R: ResponseView>(response: &R) -> u16 {
+    response.status()
+}
+fn text_of<R: ResponseView>(response: &R) -> String {
+    response.headers_and_body()
+}
+fn body_of<R: ResponseView>(response: &R) -> Vec<u8> {
+    response.body_bytes()
 }
 
-fn text_of(response: &[u8]) -> &str {
-    std::str::from_utf8(response).unwrap()
-}
-
-fn body_of(response: &[u8]) -> &[u8] {
-    let pos = response
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .expect("response has no head/body split");
-    &response[pos + 4..]
-}
-
-fn dispatch_stub(method: &str, path: &str, body: &[u8]) -> Vec<u8> {
+fn dispatch_stub(method: &str, path: &str, body: &[u8]) -> HttpResponse {
     let gate = AdmissionGate::new();
     let terminal_gate = TerminalGate::new();
     dispatch(
@@ -70,6 +133,23 @@ struct ScriptBackend {
     seen_bodies: Arc<Mutex<Vec<Vec<u8>>>>,
     seen_image: Arc<Mutex<String>>,
     pumped: Arc<AtomicU64>,
+    pumped_message: Arc<Mutex<Option<String>>>,
+    blocked_calls: Option<Arc<(AtomicU64, AtomicBool)>>,
+    hold_pump: bool,
+}
+
+struct ReleaseBlockedCalls(Arc<(AtomicU64, AtomicBool)>);
+impl Drop for ReleaseBlockedCalls {
+    fn drop(&mut self) {
+        self.0 .1.store(true, Ordering::SeqCst);
+    }
+}
+
+struct StopSmokeServer(Arc<Server<ScriptBackend>>);
+impl Drop for StopSmokeServer {
+    fn drop(&mut self) {
+        self.0.shutdown();
+    }
 }
 
 impl ScriptBackend {
@@ -80,6 +160,9 @@ impl ScriptBackend {
             seen_bodies: Arc::new(Mutex::new(Vec::new())),
             seen_image: Arc::new(Mutex::new(String::new())),
             pumped: Arc::new(AtomicU64::new(u64::MAX)),
+            pumped_message: Arc::new(Mutex::new(None)),
+            blocked_calls: None,
+            hold_pump: false,
         }
     }
 
@@ -90,11 +173,21 @@ impl ScriptBackend {
             seen_bodies: Arc::new(Mutex::new(Vec::new())),
             seen_image: Arc::new(Mutex::new(String::new())),
             pumped: Arc::new(AtomicU64::new(u64::MAX)),
+            pumped_message: Arc::new(Mutex::new(None)),
+            blocked_calls: None,
+            hold_pump: false,
         }
     }
 
     fn replay(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         self.seen_bodies.lock().unwrap().push(body.to_vec());
+        if let Some(state) = &self.blocked_calls {
+            let (entered, release) = state.as_ref();
+            entered.fetch_add(1, Ordering::SeqCst);
+            while !release.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+        }
         self.result.clone()
     }
 }
@@ -190,10 +283,29 @@ impl ExecBackend for ScriptBackend {
     }
     fn pump_terminal(
         &self,
-        _stream: UnixStream,
+        mut stream: tungstenite::protocol::WebSocket<UnixStream>,
         session: TerminalSession,
+        shutdown: Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<(), BackendError> {
         self.pumped.store(session.id, Ordering::SeqCst);
+        if self.hold_pump {
+            while !shutdown.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            return Ok(());
+        }
+        loop {
+            match stream.read() {
+                Ok(tungstenite::Message::Ping(_)) => {
+                    let _ = stream.flush();
+                }
+                Ok(tungstenite::Message::Text(text)) => {
+                    *self.pumped_message.lock().unwrap() = Some(text.to_string());
+                    break;
+                }
+                _ => break,
+            }
+        }
         Ok(())
     }
 }
@@ -568,8 +680,14 @@ fn native_error_mapping_matches_go() {
         .into_response();
         assert_eq!(status_of(&response), *status, "error {error:?}");
         assert_eq!(body_of(&response), body.as_bytes(), "error {error:?}");
-        assert!(text_of(&response).contains("Content-Type: text/plain; charset=utf-8"));
-        assert!(text_of(&response).contains("X-Content-Type-Options: nosniff"));
+        assert_eq!(
+            response.header_value("content-type").as_deref(),
+            Some("text/plain; charset=utf-8")
+        );
+        assert_eq!(
+            response.header_value("x-content-type-options").as_deref(),
+            Some("nosniff")
+        );
     }
 }
 
@@ -601,7 +719,10 @@ fn native_success_envelope_matches_go_encoder() {
     )
     .into_response();
     assert_eq!(status_of(&response), 200);
-    assert!(text_of(&response).contains("Content-Type: application/json"));
+    assert_eq!(
+        response.header_value("content-type").as_deref(),
+        Some("application/json")
+    );
     assert_eq!(body_of(&response), b"{\"a\":1}\n");
 }
 
@@ -798,7 +919,10 @@ fn tailnet_error_mapping_matches_go() {
         .into_response();
         assert_eq!(status_of(&response), *status, "error {error:?}");
         // Every tailnet response carries no-store, errors included.
-        assert!(text_of(&response).contains("Cache-Control: no-store\r\n"));
+        assert_eq!(
+            response.header_value("cache-control").as_deref(),
+            Some("no-store")
+        );
     }
     let failure = "Tailnet operation unavailable or unconfirmed; observe before retrying\n";
     let backend = ScriptBackend::err(BackendError::Internal);
@@ -834,7 +958,10 @@ fn tailnet_success_has_no_trailing_newline_and_disabled_is_503() {
     .into_response();
     assert_eq!(status_of(&response), 200);
     assert_eq!(body_of(&response), b"{\"saved\":true}");
-    assert!(text_of(&response).contains("Cache-Control: no-store\r\n"));
+    assert_eq!(
+        response.header_value("cache-control").as_deref(),
+        Some("no-store")
+    );
 
     // Oversized backend payloads fail closed with 502 like Go.
     let big = ScriptBackend::ok(&vec![b'x'; 65537]);
@@ -867,7 +994,10 @@ fn tailnet_success_has_no_trailing_newline_and_disabled_is_503() {
 
     let response = dispatch_stub("POST", "/tailnet/bogus", b"{}");
     assert_eq!(status_of(&response), 404);
-    assert!(text_of(&response).contains("Cache-Control: no-store\r\n"));
+    assert_eq!(
+        response.header_value("cache-control").as_deref(),
+        Some("no-store")
+    );
 }
 
 // -- routes: terminal --
@@ -876,15 +1006,18 @@ fn terminal_head() -> RequestHead {
     let mut h = head("GET", "/terminal");
     h.upgrade_websocket = true;
     h.ws_key = Some("dGhlIHNhbXBsZSBub25jZQ==".to_string());
+    let request = hyper::Request::builder()
+        .method("GET")
+        .uri("http://local/terminal")
+        .version(hyper::Version::HTTP_11)
+        .header("upgrade", "websocket")
+        .header("connection", "Upgrade")
+        .header("sec-websocket-version", "13")
+        .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==")
+        .body(())
+        .unwrap();
+    h.websocket_request = Some(request);
     h
-}
-
-#[test]
-fn websocket_accept_key_matches_rfc6455_vector() {
-    assert_eq!(
-        websocket_accept_key("dGhlIHNhbXBsZSBub25jZQ=="),
-        "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
-    );
 }
 
 #[test]
@@ -908,10 +1041,18 @@ fn terminal_upgrade_holds_slot_and_renders_101() {
             slot,
         } => {
             assert_eq!(status_of(&response), 101);
-            assert!(text_of(&response).contains("Connection: Upgrade\r\n"));
-            assert!(text_of(&response).contains("Upgrade: websocket\r\n"));
-            assert!(text_of(&response)
-                .contains("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"));
+            assert_eq!(
+                response.header_value("connection").as_deref(),
+                Some("Upgrade")
+            );
+            assert_eq!(
+                response.header_value("upgrade").as_deref(),
+                Some("websocket")
+            );
+            assert_eq!(
+                response.header_value("sec-websocket-accept").as_deref(),
+                Some("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
+            );
             assert_eq!(session.id, 7);
             assert_eq!(terminal_gate.live(), 1, "slot held for the session");
             drop(slot);
@@ -1023,7 +1164,15 @@ fn terminal_rejections_match_go() {
 fn stub_pump_reports_unimplemented() {
     let (stream, _peer) = UnixStream::pair().unwrap();
     assert_eq!(
-        StubBackend.pump_terminal(stream, TerminalSession { id: 0 }),
+        StubBackend.pump_terminal(
+            tungstenite::protocol::WebSocket::from_raw_socket(
+                stream,
+                tungstenite::protocol::Role::Server,
+                None
+            ),
+            TerminalSession { id: 0 },
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        ),
         Err(BackendError::Unimplemented)
     );
 }
@@ -1036,9 +1185,29 @@ fn read_all(stream: &mut UnixStream) -> Vec<u8> {
     out
 }
 
+fn read_http_head(stream: &mut UnixStream) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut byte = [0u8; 1];
+    while !out.ends_with(b"\r\n\r\n") {
+        stream.read_exact(&mut byte).unwrap();
+        out.push(byte[0]);
+    }
+    out
+}
+
+fn socket_path(name: &str) -> std::path::PathBuf {
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .find(|path| path.join("Cargo.toml").is_file() && path.join("lib").is_dir())
+        .expect("test crate is inside the workspace");
+    let dir = repo.join(".artifacts/l08-l09");
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join(format!("{name}-{}.sock", std::process::id()))
+}
+
 #[test]
 fn server_serves_stub_routes_and_parser_rejections() {
-    let path = std::env::temp_dir().join(format!("gmux-smoke-{}.sock", std::process::id()));
+    let path = socket_path("gmux-smoke");
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path).unwrap();
     let server = Arc::new(Server::new(
@@ -1063,7 +1232,10 @@ fn server_serves_stub_routes_and_parser_rejections() {
         .unwrap();
     let response = read_all(&mut client);
     assert_eq!(status_of(&response), 501);
-    assert!(text_of(&response).contains("Cache-Control: no-store\r\n"));
+    assert_eq!(
+        response.header_value("cache-control").as_deref(),
+        Some("no-store")
+    );
 
     // Malformed head -> 400.
     let mut client = UnixStream::connect(&path).unwrap();
@@ -1079,12 +1251,15 @@ fn server_serves_stub_routes_and_parser_rejections() {
     client.write_all(b"\r\n\r\n").unwrap();
     assert_eq!(status_of(&read_all(&mut client)), 431);
 
-    // Chunked bodies are refused (single Content-Length only).
+    // Hyper decodes legal chunked framing; dispatch then applies the normal
+    // route behavior to the empty request body.
     let mut client = UnixStream::connect(&path).unwrap();
     client
-        .write_all(b"POST /create HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n")
+        .write_all(
+            b"POST /create HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n",
+        )
         .unwrap();
-    assert_eq!(status_of(&read_all(&mut client)), 400);
+    assert_eq!(status_of(&read_all(&mut client)), 501);
 
     server.shutdown();
     handle.join().unwrap();
@@ -1094,11 +1269,12 @@ fn server_serves_stub_routes_and_parser_rejections() {
 
 #[test]
 fn server_runs_terminal_upgrade_and_pump() {
-    let path = std::env::temp_dir().join(format!("gmux-term-{}.sock", std::process::id()));
+    let path = socket_path("gmux-term");
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path).unwrap();
     let backend = ScriptBackend::ok(b"{}");
     let pumped = Arc::clone(&backend.pumped);
+    let pumped_message = Arc::clone(&backend.pumped_message);
     let server = Arc::new(Server::new(Arc::new(backend), DaemonConfig::all_enabled()));
     let serving = Arc::clone(&server);
     let handle = std::thread::spawn(move || serving.serve(&listener));
@@ -1106,17 +1282,140 @@ fn server_runs_terminal_upgrade_and_pump() {
     let mut client = UnixStream::connect(&path).unwrap();
     client
         .write_all(
-            b"GET /terminal HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n",
+            b"GET /terminal HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n\x89\x84\x01\x02\x03\x04\x71\x6b\x6d\x63\x81\x85\x01\x02\x03\x04\x69\x67\x6f\x68\x6e",
         )
         .unwrap();
     // The pump records the session and returns, closing the stream.
     let response = read_all(&mut client);
     assert_eq!(status_of(&response), 101);
-    assert!(text_of(&response).contains("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo="));
+    assert_eq!(
+        response.header_value("sec-websocket-accept").as_deref(),
+        Some("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
+    );
     assert_eq!(pumped.load(Ordering::SeqCst), 7);
+    assert_eq!(
+        pumped_message.lock().unwrap().as_deref(),
+        Some("hello"),
+        "Hyper read-ahead bytes must reach tungstenite"
+    );
+    assert!(
+        response.windows(6).any(|w| w == b"\x8a\x04ping"),
+        "tungstenite should answer Ping from the same protocol owner"
+    );
 
     server.shutdown();
     handle.join().unwrap();
+    assert_eq!(server.inflight(), 0, "upgrade pump ownership is joined");
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn server_keeps_upgrade_inflight_until_pump_shutdown_join() {
+    let path = socket_path("gmux-pump-live");
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+    let mut backend = ScriptBackend::ok(b"{}");
+    backend.hold_pump = true;
+    let pumped = Arc::clone(&backend.pumped);
+    let server = Arc::new(Server::new(Arc::new(backend), DaemonConfig::all_enabled()));
+    let _stop_on_exit = StopSmokeServer(Arc::clone(&server));
+    let serving = Arc::clone(&server);
+    let handle = std::thread::spawn(move || serving.serve(&listener));
+    let mut client = UnixStream::connect(&path).unwrap();
+    client.write_all(b"GET /terminal HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n").unwrap();
+    let response_head = read_http_head(&mut client);
+    assert_eq!(status_of(&response_head), 101);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while pumped.load(Ordering::SeqCst) != 7 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert_eq!(pumped.load(Ordering::SeqCst), 7);
+    assert!(
+        server.inflight() > 0,
+        "inflight includes the active upgrade pump"
+    );
+    server.shutdown();
+    handle.join().unwrap();
+    assert_eq!(
+        server.inflight(),
+        0,
+        "inflight drops only after pump cleanup joins"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn server_bounds_backend_work_and_joins_it_during_shutdown() {
+    let path = socket_path("gmux-drain");
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+    let mut backend = ScriptBackend::ok(b"{}");
+    let callback_state = Arc::new((AtomicU64::new(0), AtomicBool::new(false)));
+    backend.blocked_calls = Some(Arc::clone(&callback_state));
+    let server = Arc::new(Server::new(Arc::new(backend), DaemonConfig::all_enabled()));
+    let _stop_on_exit = StopSmokeServer(Arc::clone(&server));
+    let _release_on_exit = ReleaseBlockedCalls(Arc::clone(&callback_state));
+    let serving = Arc::clone(&server);
+    let handle = std::thread::spawn(move || serving.serve(&listener));
+
+    let mut admitted = Vec::new();
+    for _ in 0..16 {
+        let mut client = UnixStream::connect(&path).unwrap();
+        client
+            .write_all(b"POST /profile HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\n{}")
+            .unwrap();
+        admitted.push(client);
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while callback_state.0.load(Ordering::SeqCst) != 16 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert_eq!(
+        callback_state.0.load(Ordering::SeqCst),
+        16,
+        "all bounded backend permits are occupied"
+    );
+
+    let mut excess = UnixStream::connect(&path).unwrap();
+    excess
+        .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+        .unwrap();
+    excess
+        .write_all(b"POST /profile HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\n{}")
+        .unwrap();
+    let response = read_all(&mut excess);
+    assert_eq!(status_of(&response), 503, "excess backend work is rejected");
+
+    // An admitted partial head remains owned by the server until shutdown
+    // cancels its HTTP driver; backend callbacks remain joined separately.
+    let mut partial = UnixStream::connect(&path).unwrap();
+    partial
+        .write_all(b"POST /profile HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n")
+        .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while server.inflight() < 17 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert!(
+        server.inflight() >= 17,
+        "partial request remains tracked alongside callbacks"
+    );
+
+    server.shutdown();
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    assert!(
+        !handle.is_finished(),
+        "shutdown must join active backend callbacks"
+    );
+    callback_state.1.store(true, Ordering::SeqCst);
+    handle.join().unwrap();
+    assert_eq!(
+        server.inflight(),
+        0,
+        "HTTP drivers and backend ownership are drained"
+    );
+    drop(admitted);
+    drop(partial);
     let _ = std::fs::remove_file(&path);
 }
 

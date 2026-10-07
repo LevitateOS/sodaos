@@ -4,10 +4,9 @@
 // same error strings, same exit codes (0 clean, 78 tailnet preparation
 // unconfirmed, 1 any other failure, 2 flag-parse errors).
 //
-// One documented deviation: Go's `CloseTerminals` force-closes hijacked
-// terminal streams so shutdown drains fast; the mux owns stream slots as
-// pure counters (no handles), so a shutdown with live terminals waits out
-// the 5s drain instead. The outcome is identical (exit after ≤5s).
+// The mux owns all HTTP, backend and terminal pump tasks and joins them
+// during shutdown. In-flight backend operations retain their domain
+// deadlines; no task is detached to satisfy an invented process-exit cap.
 use std::os::unix::io::AsRawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -22,7 +21,6 @@ const DEFAULT_CONFIG: &str = "/etc/soda/host.json";
 const RELEASE_CONFIG: &str = "/usr/share/soda/release.json";
 const FACTORY_STATE_DIR: &str = "/var/lib/soda/host/factory";
 const MUSE_JOIN_TIMEOUT: Duration = Duration::from_secs(35);
-const SHUTDOWN_DRAIN: Duration = Duration::from_secs(5);
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -301,8 +299,8 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
         std::thread::sleep(Duration::from_millis(50));
     }
 
-    // Shutdown order mirrors Go: retire launch executions (35s), then
-    // stop accepting and drain (5s), then report muse failures first.
+    // Shutdown order mirrors Go: retire launch executions, then stop
+    // accepting and join mux-owned work, then report muse failures first.
     muse_shutdown.store(true, Ordering::SeqCst);
     let mut launch_failure: Option<String> = None;
     if let Some(handle) = muse_handle {
@@ -327,10 +325,6 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
         }
     }
     server.shutdown();
-    let drain = Instant::now() + SHUTDOWN_DRAIN;
-    while server.inflight() > 0 && Instant::now() < drain {
-        std::thread::sleep(Duration::from_millis(50));
-    }
     let _ = serve_handle.join();
 
     if let Some(e) = launch_failure {

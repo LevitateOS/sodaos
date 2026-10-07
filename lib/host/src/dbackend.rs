@@ -20,7 +20,7 @@ use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::os::unix::net::UnixStream;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::gmux_backend::{BackendError, ExecBackend, TerminalSession};
@@ -1081,10 +1081,11 @@ impl ExecBackend for DaemonBackend {
 
     fn pump_terminal(
         &self,
-        stream: UnixStream,
+        stream: tungstenite::protocol::WebSocket<UnixStream>,
         _session: TerminalSession,
+        shutdown: Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<(), BackendError> {
-        pump_terminal(&self.terminal, self, stream).map_err(internal)
+        pump_terminal(&self.terminal, self, stream, shutdown).map_err(internal)
     }
 }
 
@@ -1364,325 +1365,387 @@ impl DaemonBackend {
 
 // -- terminal pump (terminal.go terminalHandler + service.go Handler) --
 
-/// Incoming websocket message after server-side processing.
-enum WsIn {
-    Text(Vec<u8>),
-    Closed,
-}
-
-/// Read one complete client message: single or fragmented frames, ping
-/// answered, pong ignored, close ends the pump. Client frames MUST be
-/// masked (RFC 6455 §5.1); anything else is a transport error. `TimedOut`
-/// reads surface as `Closed` so the expiry deadline ends the pump.
-fn ws_read_message(
-    stream: &mut UnixStream,
-    limit: usize,
-    deadline: Instant,
-) -> Result<WsIn, String> {
-    let mut message: Vec<u8> = Vec::new();
-    let mut fragmented = false;
-    loop {
-        set_deadline(stream, deadline, true)?;
-        let mut head = [0u8; 2];
-        read_exact(stream, &mut head)?;
-        let fin = head[0] & 0x80 != 0;
-        let opcode = head[0] & 0x0f;
-        let masked = head[1] & 0x80 != 0;
-        if !masked {
-            return Err("terminal transport ended".to_string());
-        }
-        let mut length = (head[1] & 0x7f) as u64;
-        if length == 126 {
-            let mut ext = [0u8; 2];
-            read_exact(stream, &mut ext)?;
-            length = u16::from_be_bytes(ext) as u64;
-        } else if length == 127 {
-            let mut ext = [0u8; 8];
-            read_exact(stream, &mut ext)?;
-            length = u64::from_be_bytes(ext);
-        }
-        if opcode >= 0x8 && length > 125 {
-            return Err("terminal transport ended".to_string());
-        }
-        if length > limit as u64 || message.len() as u64 + length > limit as u64 {
-            return Err("terminal transport ended".to_string());
-        }
-        let mut mask = [0u8; 4];
-        read_exact(stream, &mut mask)?;
-        let mut payload = vec![0u8; length as usize];
-        read_exact(stream, &mut payload)?;
-        for (i, byte) in payload.iter_mut().enumerate() {
-            *byte ^= mask[i % 4];
-        }
-        match opcode {
-            0x8 => return Ok(WsIn::Closed),
-            0x9 => {
-                ws_write_frame(stream, 0xA, &payload, deadline)?;
-                continue;
-            }
-            0xA => continue,
-            // Binary frames are invalid control (Go rejects them); fail the
-            // transport like Go's handshake/message error.
-            0x2 => return Err("terminal transport ended".to_string()),
-            0x0..=0x1 => {
-                if opcode != 0x0 {
-                    if fragmented {
-                        return Err("terminal transport ended".to_string());
-                    }
-                } else if !fragmented {
-                    return Err("terminal transport ended".to_string());
-                }
-                message.extend_from_slice(&payload);
-                if fin {
-                    return Ok(WsIn::Text(message));
-                }
-                fragmented = true;
-            }
-            _ => return Err("terminal transport ended".to_string()),
-        }
-    }
-}
-
-fn read_exact(stream: &mut UnixStream, buf: &mut [u8]) -> Result<(), String> {
-    use std::io::Read;
-    stream.read_exact(buf).map_err(|e| {
-        if e.kind() == std::io::ErrorKind::TimedOut {
-            "terminal transport expired".to_string()
-        } else {
-            "terminal transport ended".to_string()
-        }
-    })
-}
-
-fn set_deadline(stream: &UnixStream, deadline: Instant, read: bool) -> Result<(), String> {
-    let remaining = deadline.saturating_duration_since(Instant::now());
-    let result = if read {
-        stream.set_read_timeout(Some(remaining))
-    } else {
-        stream.set_write_timeout(Some(remaining))
-    };
-    result.map_err(|_| "terminal transport ended".to_string())
-}
-
-/// Write one unmasked server text frame (5s cap like Go's `Write`).
-fn ws_write_text(
-    stream: &mut UnixStream,
-    body: &[u8],
-    ctx_deadline: Instant,
-) -> Result<(), String> {
-    let write_deadline = Instant::now() + Duration::from_secs(5);
-    let deadline = write_deadline.min(ctx_deadline);
-    ws_write_frame(stream, 0x1, body, deadline)
-}
-
-fn ws_write_frame(
-    stream: &mut UnixStream,
-    opcode: u8,
-    body: &[u8],
-    deadline: Instant,
-) -> Result<(), String> {
-    use std::io::Write;
-    set_deadline(stream, deadline, false)?;
-    let mut head = vec![0x80 | opcode];
-    if body.len() < 126 {
-        head.push(body.len() as u8);
-    } else if body.len() <= 0xffff {
-        head.push(126);
-        head.extend_from_slice(&(body.len() as u16).to_be_bytes());
-    } else {
-        head.push(127);
-        head.extend_from_slice(&(body.len() as u64).to_be_bytes());
-    }
-    stream.write_all(&head).map_err(|e| {
-        if e.kind() == std::io::ErrorKind::TimedOut {
-            "terminal transport expired".to_string()
-        } else {
-            "terminal transport ended".to_string()
-        }
-    })?;
-    stream
-        .write_all(body)
-        .map_err(|_| "terminal transport ended".to_string())?;
-    stream
-        .flush()
-        .map_err(|_| "terminal transport ended".to_string())
-}
-
+/// Terminal attach loop. Tungstenite owns RFC6455 framing and the upgraded
+/// connection; one thread owns the protocol for the entire session.
 fn closed_frame(reason: &str) -> terminal::TerminalFrame {
     terminal::TerminalFrame {
-        frame_type: "closed".to_string(),
+        frame_type: "closed".into(),
         data: String::new(),
         cols: 0,
         rows: 0,
-        reason: reason.to_string(),
+        reason: reason.into(),
         terminals: None,
     }
 }
 
-/// Owns the upgraded stream until the session ends: first-frame request
-/// (5s, text, ≤4096 bytes, strict `TerminalRequest`, valid window),
-/// expiry deadline, launch (inspect 10s, managed end, native attach),
-/// then the bidirectional pump. Mirrors `Handler`/`pumpIO` in service.go.
 fn pump_terminal(
     service: &terminal::Service<project::Native>,
     backend: &DaemonBackend,
-    mut stream: UnixStream,
+    mut ws: tungstenite::protocol::WebSocket<UnixStream>,
+    shutdown: Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<(), String> {
     use crate::gmux_admission::{TERMINAL_FRAME_LIMIT, TERMINAL_REQUEST_LIMIT};
+    use std::os::fd::AsRawFd;
+    use std::sync::atomic::Ordering;
+    use tungstenite::{Error as WsError, Message};
 
-    // First frame: 5s like Go's `readTerminalRequest`.
+    let socket_fd = ws.get_ref().as_raw_fd();
+    let flags = unsafe { libc::fcntl(socket_fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(socket_fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err("terminal transport ended".to_string());
+    }
+    ws.set_config(|config| {
+        config.max_message_size = Some(TERMINAL_REQUEST_LIMIT);
+        config.max_frame_size = Some(TERMINAL_REQUEST_LIMIT);
+    });
     let first_deadline = Instant::now() + Duration::from_secs(5);
-    let request_bytes = match ws_read_message(&mut stream, TERMINAL_FRAME_LIMIT, first_deadline)? {
-        WsIn::Text(body) if body.len() <= TERMINAL_REQUEST_LIMIT => body,
-        _ => return Ok(()),
-    };
-    let request = match terminal::TerminalRequest::decode(&request_bytes).ok() {
-        Some(request) if request.valid(terminal::now_unix()) => request,
-        _ => return Ok(()),
-    };
-    // Expiry deadline from the request (Go: 12h ctx capped by Expires).
-    let expiry = Instant::now()
-        + Duration::from_secs(request.expires.saturating_sub(terminal::now_unix()).max(0) as u64);
-    let session_deadline = (Instant::now() + Duration::from_secs(12 * 3600)).min(expiry);
-
-    // Launch: inspect (10s), managed end, native attach.
-    let inspect_deadline = Instant::now() + Duration::from_secs(10);
-    let container = match service.project_container(
-        &request.project,
-        true,
-        inspect_deadline.min(session_deadline),
-    ) {
-        Ok(cid) => cid,
-        Err(_) => {
-            let frame = closed_frame("launch_failed");
-            let _ = ws_write_text(&mut stream, frame.encode().as_bytes(), session_deadline);
+    let first = loop {
+        if shutdown.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        let remaining = first_deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Ok(());
+        }
+        match ws.read() {
+            Ok(Message::Text(text)) if text.len() <= TERMINAL_REQUEST_LIMIT => {
+                break text.as_bytes().to_vec()
+            }
+            Ok(Message::Ping(_)) => {
+                let _ = ws.flush();
+            }
+            Ok(Message::Pong(_)) => {}
+            Err(WsError::Io(ref e)) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Ok(_) | Err(_) => return Ok(()),
+        }
+        let mut pollfd = libc::pollfd {
+            fd: socket_fd,
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        let wait = first_deadline
+            .saturating_duration_since(Instant::now())
+            .as_millis()
+            .min(100) as i32;
+        if unsafe { libc::poll(&mut pollfd, 1, wait.max(1)) } < 0
+            && std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted
+        {
             return Ok(());
         }
     };
-    let end_hook = |actor: i64, lease_id: &str| {
-        // Scaffold until Lane I lands; then the real broker call.
-        // The error text never surfaces (managed_end maps it internally).
-        backend.broker.end_lease(actor, lease_id, session_deadline)
+    let request = match terminal::TerminalRequest::decode(&first).ok() {
+        Some(request) if request.valid(terminal::now_unix()) => request,
+        _ => return Ok(()),
     };
+    ws.set_config(|config| {
+        config.max_message_size = Some(TERMINAL_FRAME_LIMIT);
+        config.max_frame_size = Some(TERMINAL_FRAME_LIMIT);
+    });
+    let expiry = Instant::now()
+        + Duration::from_secs(request.expires.saturating_sub(terminal::now_unix()).max(0) as u64);
+    let session_deadline = expiry;
+    let inspect_deadline = (Instant::now() + Duration::from_secs(10)).min(session_deadline);
+    let container = match service.project_container(&request.project, true, inspect_deadline) {
+        Ok(cid) => cid,
+        Err(_) => {
+            let _ = ws.send(Message::Text(closed_frame("launch_failed").encode().into()));
+            return Ok(());
+        }
+    };
+    let end_hook =
+        |actor: i64, lease_id: &str| backend.broker.end_lease(actor, lease_id, session_deadline);
     if service
         .managed_end(&container, &request, Some(&end_hook), session_deadline)
         .is_err()
     {
-        let frame = closed_frame("cleanup_unconfirmed");
-        let _ = ws_write_text(&mut stream, frame.encode().as_bytes(), session_deadline);
+        let _ = ws.send(Message::Text(
+            closed_frame("cleanup_unconfirmed").encode().into(),
+        ));
+        return Ok(());
+    }
+    if shutdown.load(Ordering::Acquire) {
         return Ok(());
     }
     let attach = match terminal::NativeAttach::attach(&container, &request) {
         Ok(attach) => attach,
         Err(_) => {
-            let frame = closed_frame("launch_failed");
-            let _ = ws_write_text(&mut stream, frame.encode().as_bytes(), session_deadline);
+            let _ = ws.send(Message::Text(closed_frame("launch_failed").encode().into()));
             return Ok(());
         }
     };
-    let attach = Arc::new(Mutex::new(attach));
-    // Detach the output reader under one brief lock: the outgoing loop
-    // below must not hold the shared attach mutex across blocking reads,
-    // or input, expiry and close starve while the child is quiet (H01-F3).
-    // Teardown still funnels through close(): it drops stdin and kills
-    // the child, and the resulting stdout EOF ends the detached read.
-    let reader = match attach.lock() {
-        Ok(mut guard) => guard.take_reader(),
-        Err(_) => None,
-    };
-    let Some(mut reader) = reader else {
-        if let Ok(mut guard) = attach.lock() {
-            guard.close();
+    pump_attached(ws, attach, session_deadline, shutdown)
+}
+
+fn pump_attached<S>(
+    mut ws: tungstenite::protocol::WebSocket<S>,
+    mut attach: terminal::NativeAttach,
+    deadline: Instant,
+    shutdown: Arc<std::sync::atomic::AtomicBool>,
+) -> Result<(), String>
+where
+    S: std::io::Read + std::io::Write + std::os::fd::AsRawFd + Send + 'static,
+{
+    use crate::gmux_admission::TERMINAL_FRAME_LIMIT;
+    use std::io::Read;
+    use std::io::Write;
+    use std::os::fd::AsRawFd;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::mpsc::{self, TryRecvError, TrySendError};
+    use tungstenite::{Error as WsError, Message};
+    let socket_fd = ws.get_ref().as_raw_fd();
+    let flags = unsafe { libc::fcntl(socket_fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(socket_fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        attach.close();
+        return Err("terminal transport ended".to_string());
+    }
+    let mut reader = match attach.take_reader() {
+        Some(reader) => reader,
+        None => {
+            attach.close();
+            return Ok(());
         }
-        return Ok(());
     };
 
-    // Expiry watcher: Go's ctx deadline cancels the socket and closes the
-    // process; here the watcher closes the attach and read timeouts end
-    // the loops.
-    let expiry_attach = Arc::clone(&attach);
-    let expiry_in = session_deadline.saturating_duration_since(Instant::now());
-    std::thread::spawn(move || {
-        std::thread::sleep(expiry_in);
-        if let Ok(mut guard) = expiry_attach.lock() {
-            guard.close();
-        }
-    });
-
-    // Incoming: text TerminalFrames, strict, input-valid; a `close` frame
-    // ends input (the launcher still reports teardown); anything else
-    // closes the attach and ends the pump.
-    let mut incoming_stream = stream
-        .try_clone()
-        .map_err(|_| "terminal transport ended".to_string())?;
-    let incoming_attach = Arc::clone(&attach);
-    let incoming = std::thread::spawn(move || loop {
-        let message =
-            match ws_read_message(&mut incoming_stream, TERMINAL_FRAME_LIMIT, session_deadline) {
-                Ok(WsIn::Text(body)) => body,
-                Ok(_) => {
-                    if let Ok(mut guard) = incoming_attach.lock() {
-                        guard.close();
-                    }
-                    return;
-                }
-                Err(_) => {
-                    if let Ok(mut guard) = incoming_attach.lock() {
-                        guard.close();
-                    }
-                    return;
-                }
+    // A bounded child-output queue keeps a quiet or slow socket from pinning
+    // the stdout reader. Cancellation is polled even if a descendant retains
+    // the pipe after the direct child exits.
+    let (out_tx, out_rx) = mpsc::sync_channel::<terminal::TerminalFrame>(8);
+    let (wake_reader, mut wake_writer) =
+        UnixStream::pair().map_err(|_| "terminal transport ended")?;
+    wake_reader.set_nonblocking(true).ok();
+    wake_writer.set_nonblocking(true).ok();
+    let cancel_reader = Arc::new(AtomicBool::new(false));
+    let worker_cancel = Arc::clone(&cancel_reader);
+    let output = std::thread::spawn(move || {
+        let mut line = Vec::with_capacity(1024);
+        let mut buf = [0u8; 4096];
+        while !worker_cancel.load(Ordering::Acquire) {
+            let mut pollfd = libc::pollfd {
+                fd: reader.get_ref().as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
             };
-        let frame = terminal::TerminalFrame::decode(&message);
-        let valid = frame.as_ref().is_ok_and(|f| f.input_valid());
-        match frame {
-            Ok(frame) if valid => {
-                let is_close = frame.frame_type == "close";
-                let mut guard = match incoming_attach.lock() {
-                    Ok(guard) => guard,
-                    Err(_) => return,
-                };
-                if guard.input_frame(&frame).is_err() {
-                    guard.close();
-                    return;
-                }
-                drop(guard);
-                if is_close {
-                    return;
+            let ready = unsafe { libc::poll(&mut pollfd, 1, 100) };
+            if ready < 0 {
+                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                } else {
+                    break;
                 }
             }
-            _ => {
-                if let Ok(mut guard) = incoming_attach.lock() {
-                    guard.close();
+            if ready == 0 {
+                continue;
+            }
+            match reader.get_mut().read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    for &byte in &buf[..n] {
+                        if byte == b'\n' {
+                            if line.last() == Some(&b'\r') {
+                                line.pop();
+                            }
+                            if let Ok(frame) = terminal::parse_output_line(&line) {
+                                line.clear();
+                                let mut frame = frame;
+                                loop {
+                                    if worker_cancel.load(Ordering::Acquire) {
+                                        return;
+                                    }
+                                    match out_tx.try_send(frame) {
+                                        Ok(()) => {
+                                            let _ = wake_writer.write(&[1]);
+                                            break;
+                                        }
+                                        Err(TrySendError::Full(returned)) => {
+                                            frame = returned;
+                                            std::thread::sleep(Duration::from_millis(5));
+                                        }
+                                        Err(TrySendError::Disconnected(_)) => return,
+                                    }
+                                }
+                            } else {
+                                return;
+                            }
+                        } else {
+                            line.push(byte);
+                            if line.len() > 131072 {
+                                return;
+                            }
+                        }
+                    }
                 }
-                return;
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::WouldBlock
+                        || e.kind() == std::io::ErrorKind::Interrupted =>
+                {
+                    continue
+                }
+                Err(_) => break,
             }
         }
     });
 
-    // Outgoing: frames until `closed`/`metadata`, error, or expiry.
-    loop {
-        // Lock-free: the reader was detached above (H01-F3).
-        let frame = match terminal::NativeAttach::output_frame(&mut reader) {
-            Ok(frame) => frame,
-            Err(_) => break,
+    let deadline = deadline;
+    let mut pending_send = false;
+    let mut pending_message: Option<Message> = None;
+    let mut write_deadline = None;
+    let mut closed = false;
+    let mut close_received = false;
+    // `read()` may have pulled later complete frames into tungstenite's own
+    // buffer with the first text request. Drain that before sleeping on fd.
+    let mut drain_buffered = true;
+    while Instant::now() < deadline && !shutdown.load(Ordering::Acquire) {
+        if write_deadline.is_some_and(|until| Instant::now() >= until) {
+            break;
+        }
+        let mut pollfds = [
+            libc::pollfd {
+                fd: socket_fd,
+                events: libc::POLLIN
+                    | if pending_send || pending_message.is_some() {
+                        libc::POLLOUT
+                    } else {
+                        0
+                    },
+                revents: 0,
+            },
+            libc::pollfd {
+                fd: wake_reader.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            },
+        ];
+        let ready = if drain_buffered && !pending_send && pending_message.is_none() {
+            1
+        } else {
+            unsafe { libc::poll(pollfds.as_mut_ptr(), pollfds.len() as _, 100) }
         };
-        let done = frame.frame_type == "closed" || frame.frame_type == "metadata";
-        if ws_write_text(&mut stream, frame.encode().as_bytes(), session_deadline).is_err() {
+        if ready < 0 && std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
             break;
         }
-        if done {
+        if pollfds[0].revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0 {
             break;
         }
+        if pollfds[1].revents & libc::POLLIN != 0 {
+            let mut wake_bytes = [0u8; 64];
+            let _ = wake_reader_read(&wake_reader, &mut wake_bytes);
+        }
+        if pending_message.is_none() && !pending_send {
+            match out_rx.try_recv() {
+                Ok(frame) => {
+                    closed = frame.frame_type == "closed" || frame.frame_type == "metadata";
+                    pending_message = Some(Message::Text(frame.encode().into()));
+                    write_deadline = Some(Instant::now() + Duration::from_secs(5));
+                }
+                Err(TryRecvError::Disconnected) => break,
+                Err(TryRecvError::Empty) => {}
+            }
+        }
+        if pending_send {
+            if pollfds[0].revents & libc::POLLOUT != 0 {
+                match ws.flush() {
+                    Ok(()) => {
+                        pending_send = false;
+                        if pending_message.is_none() {
+                            write_deadline = None;
+                        }
+                    }
+                    Err(WsError::Io(ref e)) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(_) => break,
+                }
+            }
+        }
+        if !pending_send {
+            if let Some(message) = pending_message.take() {
+                write_deadline.get_or_insert_with(|| Instant::now() + Duration::from_secs(5));
+                match ws.write(message) {
+                    Ok(()) => pending_send = true,
+                    Err(WsError::WriteBufferFull(message)) => {
+                        pending_message = Some(*message);
+                        pending_send = true;
+                    }
+                    // tungstenite retains the frame in its write buffer after
+                    // an I/O WouldBlock; flush it later without resending it.
+                    Err(WsError::Io(ref e))
+                        if e.kind() == std::io::ErrorKind::WouldBlock
+                            || e.kind() == std::io::ErrorKind::TimedOut =>
+                    {
+                        pending_send = true
+                    }
+                    Err(_) => break,
+                }
+            }
+        }
+        if (closed || close_received) && !pending_send && pending_message.is_none() {
+            break;
+        }
+        if !drain_buffered && pollfds[0].revents & libc::POLLIN == 0 {
+            continue;
+        }
+        match ws.read() {
+            Ok(Message::Text(text)) if text.len() <= TERMINAL_FRAME_LIMIT => {
+                let Ok(frame) = terminal::TerminalFrame::decode(text.as_bytes()) else {
+                    break;
+                };
+                if !frame.input_valid() {
+                    break;
+                }
+                let is_close = frame.frame_type == "close";
+                if attach.input_frame(&frame).is_err() || is_close {
+                    break;
+                }
+                drain_buffered = true;
+            }
+            Ok(Message::Ping(_)) => {
+                pending_send = true;
+                write_deadline.get_or_insert_with(|| Instant::now() + Duration::from_secs(5));
+                drain_buffered = true;
+            }
+            Ok(Message::Pong(_)) => {
+                drain_buffered = true;
+            }
+            Ok(Message::Close(_)) => {
+                let _ = ws.close(None);
+                pending_send = true;
+                write_deadline.get_or_insert_with(|| Instant::now() + Duration::from_secs(5));
+                close_received = true;
+            }
+            Ok(_) => break,
+            Err(WsError::Io(ref e)) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                drain_buffered = false;
+            }
+            Err(_) => break,
+        }
     }
-
-    // Go's `defer p.Close()` + conn close: unblock the reader, join it.
-    if let Ok(mut guard) = attach.lock() {
-        guard.close();
+    cancel_reader.store(true, Ordering::Release);
+    drop(out_rx);
+    attach.close();
+    let _ = output.join();
+    let _ = ws.close(None);
+    let close_deadline = (Instant::now() + Duration::from_millis(250)).min(deadline);
+    while Instant::now() < close_deadline {
+        let mut pfd = libc::pollfd {
+            fd: socket_fd,
+            events: libc::POLLOUT,
+            revents: 0,
+        };
+        let ready = unsafe { libc::poll(&mut pfd, 1, 25) };
+        if ready <= 0 {
+            continue;
+        }
+        match ws.flush() {
+            Ok(()) => break,
+            Err(WsError::Io(ref e)) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
+            Err(_) => break,
+        }
     }
-    let _ = stream.shutdown(std::net::Shutdown::Both);
-    let _ = incoming.join();
     Ok(())
+}
+
+fn wake_reader_read(stream: &UnixStream, buf: &mut [u8]) -> usize {
+    use std::io::Read;
+    let mut stream = stream;
+    stream.read(buf).unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -1728,6 +1791,234 @@ mod tests {
             sha256: "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
         });
         DaemonBackend::open(cfg, file!())
+    }
+
+    struct ShortIo {
+        inner: UnixStream,
+        block_first_write: bool,
+    }
+
+    impl std::os::fd::AsRawFd for ShortIo {
+        fn as_raw_fd(&self) -> std::os::fd::RawFd {
+            self.inner.as_raw_fd()
+        }
+    }
+    impl std::io::Read for ShortIo {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            std::io::Read::read(&mut self.inner, buf)
+        }
+    }
+    impl std::io::Write for ShortIo {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if self.block_first_write {
+                self.block_first_write = false;
+                return Err(std::io::ErrorKind::WouldBlock.into());
+            }
+            std::io::Write::write(&mut self.inner, &buf[..buf.len().min(3)])
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            std::io::Write::flush(&mut self.inner)
+        }
+    }
+
+    fn synthetic_attach(script: &str) -> (terminal::NativeAttach, u32) {
+        let child = std::process::Command::new("/bin/sh")
+            .arg("-c")
+            .arg(script)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("start synthetic stdio child");
+        let pid = child.id();
+        (
+            terminal::NativeAttach::from_child_for_test(child).unwrap(),
+            pid,
+        )
+    }
+
+    #[test]
+    fn production_attached_pump_handles_ping_short_writes_and_flushes_closed_once() {
+        use tungstenite::protocol::{Role, WebSocket};
+        use tungstenite::Message;
+        let (server, client) = UnixStream::pair().unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let server_ws = WebSocket::from_raw_socket(
+            ShortIo {
+                inner: server,
+                block_first_write: true,
+            },
+            Role::Server,
+            None,
+        );
+        let mut client_ws = WebSocket::from_raw_socket(client, Role::Client, None);
+        let (attach, _) = synthetic_attach(
+            "printf '%s\\n' '{\"type\":\"closed\",\"reason\":\"exited\"}'; read line",
+        );
+        let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let pump_shutdown = Arc::clone(&shutdown);
+        let pump = std::thread::spawn(move || {
+            pump_attached(
+                server_ws,
+                attach,
+                Instant::now() + Duration::from_secs(3),
+                pump_shutdown,
+            )
+        });
+
+        client_ws
+            .send(Message::Ping(bytes::Bytes::from_static(b"ping")))
+            .unwrap();
+        let mut got_pong = false;
+        let mut text_count = 0;
+        for _ in 0..6 {
+            match client_ws.read() {
+                Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
+                    break
+                }
+                Err(tungstenite::Error::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut => {
+                    break
+                }
+                Err(error) => panic!("server websocket read failed: {error}"),
+                Ok(message) => match message {
+                    Message::Pong(payload) => {
+                        assert_eq!(payload, bytes::Bytes::from_static(b"ping"));
+                        got_pong = true;
+                    }
+                    Message::Text(text) => {
+                        assert_eq!(
+                            terminal::TerminalFrame::decode(text.as_bytes())
+                                .unwrap()
+                                .frame_type,
+                            "closed"
+                        );
+                        text_count += 1;
+                    }
+                    Message::Close(_) => break,
+                    other => panic!("unexpected websocket message: {other:?}"),
+                },
+            }
+        }
+        assert!(got_pong, "same protocol owner answers Ping");
+        assert_eq!(
+            text_count, 1,
+            "WouldBlock retries must not duplicate a terminal frame"
+        );
+        pump.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn production_attached_pump_cancels_full_output_queue_and_reaps_child() {
+        use tungstenite::protocol::{Role, WebSocket};
+        let (server, _client) = UnixStream::pair().unwrap();
+        let server_ws = WebSocket::from_raw_socket(server, Role::Server, None);
+        let (attach, pid) = synthetic_attach(
+            "i=0; while [ $i -lt 20000 ]; do printf '%s\\n' '{\"type\":\"output\",\"data\":\"YQ==\"}'; i=$((i+1)); done; exec /bin/sleep 60",
+        );
+        let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let pump_shutdown = Arc::clone(&shutdown);
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let pump = std::thread::spawn(move || {
+            let result = pump_attached(
+                server_ws,
+                attach,
+                Instant::now() + Duration::from_secs(10),
+                pump_shutdown,
+            );
+            let _ = done_tx.send(result);
+        });
+        std::thread::sleep(Duration::from_millis(200));
+        shutdown.store(true, Ordering::Release);
+        done_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("cancelled pump joins despite slow peer")
+            .unwrap();
+        pump.join().unwrap();
+        assert_eq!(
+            unsafe { libc::kill(pid as i32, 0) },
+            -1,
+            "NativeAttach must kill and reap its direct child"
+        );
+    }
+
+    #[test]
+    fn production_attached_pump_expires_stalled_websocket_write() {
+        use std::os::fd::AsRawFd;
+        use tungstenite::protocol::{Role, WebSocket};
+        let (server, client) = UnixStream::pair().unwrap();
+        let small_buffer: libc::c_int = 4096;
+        assert_eq!(
+            unsafe {
+                libc::setsockopt(
+                    server.as_raw_fd(),
+                    libc::SOL_SOCKET,
+                    libc::SO_SNDBUF,
+                    &small_buffer as *const _ as *const libc::c_void,
+                    std::mem::size_of_val(&small_buffer) as libc::socklen_t,
+                )
+            },
+            0
+        );
+        let (attach, pid) = synthetic_attach(
+            "i=0; while [ $i -lt 20000 ]; do printf '%s\\n' '{\"type\":\"output\",\"data\":\"YQ==\"}'; i=$((i+1)); done; exec /bin/sleep 60",
+        );
+        let ws = WebSocket::from_raw_socket(server, Role::Server, None);
+        let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let started = Instant::now();
+        pump_attached(
+            ws,
+            attach,
+            Instant::now() + Duration::from_secs(9),
+            shutdown,
+        )
+        .unwrap();
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed >= Duration::from_millis(4500),
+            "stalled peer should consume the 5s write budget: {elapsed:?}"
+        );
+        assert!(
+            elapsed < Duration::from_secs(10),
+            "5s write budget plus 3s child grace and final flush should bound the pump: {elapsed:?}"
+        );
+        assert_eq!(
+            unsafe { libc::kill(pid as i32, 0) },
+            -1,
+            "deadline cleanup must reap NativeAttach child"
+        );
+        drop(client); // Intentionally unread until pump expiry.
+    }
+
+    #[test]
+    fn native_attach_input_frame_expires_when_child_does_not_read() {
+        use crate::terminal::TerminalFrame;
+        let (mut attach, pid) = synthetic_attach("exec /bin/sleep 60");
+        let frame = TerminalFrame {
+            frame_type: "input".to_string(),
+            data: "QUFB".repeat(5461),
+            ..Default::default()
+        };
+        let started = Instant::now();
+        let result = loop {
+            match attach.input_frame(&frame) {
+                Ok(()) => {}
+                Err(error) => break error,
+            }
+        };
+        let elapsed = started.elapsed();
+        assert_eq!(result, "terminal input deadline exceeded");
+        assert!(
+            elapsed >= Duration::from_millis(1900),
+            "stdin backpressure should use its 2s budget: {elapsed:?}"
+        );
+        attach.close();
+        assert_eq!(
+            unsafe { libc::kill(pid as i32, 0) },
+            -1,
+            "input failure cleanup must reap child"
+        );
     }
 
     // -- decode/gate layer: invalid bodies fail before any executor touch --
@@ -2066,92 +2357,6 @@ mod tests {
     }
 
     // -- websocket codec over a loopback pair --
-
-    fn masked_frame(opcode: u8, payload: &[u8], fin: bool) -> Vec<u8> {
-        let mut frame = vec![(if fin { 0x80 } else { 0 }) | opcode];
-        let mask = [0x11u8, 0x22, 0x33, 0x44];
-        if payload.len() < 126 {
-            frame.push(0x80 | payload.len() as u8);
-        } else {
-            frame.push(0x80 | 126);
-            frame.extend_from_slice(&(payload.len() as u16).to_be_bytes());
-        }
-        frame.extend_from_slice(&mask);
-        frame.extend(payload.iter().enumerate().map(|(i, b)| b ^ mask[i % 4]));
-        frame
-    }
-
-    fn read_server_frame(stream: &mut UnixStream) -> (u8, Vec<u8>) {
-        use std::io::Read;
-        let mut head = [0u8; 2];
-        stream.read_exact(&mut head).unwrap();
-        assert_eq!(head[1] & 0x80, 0, "server frames are unmasked");
-        let mut len = (head[1] & 0x7f) as usize;
-        if len == 126 {
-            let mut ext = [0u8; 2];
-            stream.read_exact(&mut ext).unwrap();
-            len = u16::from_be_bytes(ext) as usize;
-        }
-        let mut payload = vec![0u8; len];
-        stream.read_exact(&mut payload).unwrap();
-        (head[0] & 0x0f, payload)
-    }
-
-    #[test]
-    fn ws_codec_round_trip_ping_fragmentation_close() {
-        use std::io::Write;
-        use std::os::unix::net::UnixStream;
-        let deadline = Instant::now() + Duration::from_secs(5);
-        // Text message.
-        let (mut client, mut server) = UnixStream::pair().unwrap();
-        client
-            .write_all(&masked_frame(0x1, b"hello", true))
-            .unwrap();
-        match ws_read_message(&mut server, 131072, deadline).unwrap() {
-            WsIn::Text(body) => assert_eq!(body, b"hello"),
-            _ => panic!("expected text"),
-        }
-        // Fragmented message assembles.
-        let (mut client, mut server) = UnixStream::pair().unwrap();
-        client.write_all(&masked_frame(0x1, b"he", false)).unwrap();
-        client.write_all(&masked_frame(0x0, b"llo", true)).unwrap();
-        match ws_read_message(&mut server, 131072, deadline).unwrap() {
-            WsIn::Text(body) => assert_eq!(body, b"hello"),
-            _ => panic!("expected assembled text"),
-        }
-        // Ping is answered, then the next message reads.
-        let (mut client, mut server) = UnixStream::pair().unwrap();
-        client.write_all(&masked_frame(0x9, b"pp", true)).unwrap();
-        client
-            .write_all(&masked_frame(0x1, b"after", true))
-            .unwrap();
-        match ws_read_message(&mut server, 131072, deadline).unwrap() {
-            WsIn::Text(body) => assert_eq!(body, b"after"),
-            _ => panic!("expected text after ping"),
-        }
-        let (opcode, pong) = read_server_frame(&mut client);
-        assert_eq!(opcode, 0xA);
-        assert_eq!(pong, b"pp");
-        // Close ends the pump.
-        let (mut client, mut server) = UnixStream::pair().unwrap();
-        client.write_all(&masked_frame(0x8, b"", true)).unwrap();
-        assert!(matches!(
-            ws_read_message(&mut server, 131072, deadline),
-            Ok(WsIn::Closed)
-        ));
-        // Binary, unmasked, and over-limit frames are transport errors.
-        let (mut client, mut server) = UnixStream::pair().unwrap();
-        client.write_all(&masked_frame(0x2, b"nope", true)).unwrap();
-        assert!(ws_read_message(&mut server, 131072, deadline).is_err());
-        let (mut client, mut server) = UnixStream::pair().unwrap();
-        client.write_all(&[0x81, 0x01, b'x']).unwrap();
-        assert!(ws_read_message(&mut server, 131072, deadline).is_err());
-        let (mut client, mut server) = UnixStream::pair().unwrap();
-        client
-            .write_all(&masked_frame(0x1, b"toolong", true))
-            .unwrap();
-        assert!(ws_read_message(&mut server, 4, deadline).is_err());
-    }
 
     #[test]
     fn terminal_accept_mints_unique_sessions() {

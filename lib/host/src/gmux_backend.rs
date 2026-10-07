@@ -12,6 +12,7 @@
 // Success payloads MUST be JSON values without a trailing newline; the
 // route layer appends the newline to match Go's json.Encoder envelope.
 use std::os::unix::net::UnixStream;
+use tungstenite::protocol::WebSocket;
 
 /// Backend failure modes, one per distinct HTTP mapping in daemon.go.
 //
@@ -122,8 +123,9 @@ pub trait ExecBackend: Send + Sync {
     /// Consumes the stream; the mux never touches it after handoff.
     fn pump_terminal(
         &self,
-        stream: UnixStream,
+        stream: WebSocket<UnixStream>,
         session: TerminalSession,
+        shutdown: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<(), BackendError>;
 }
 
@@ -214,8 +216,9 @@ impl ExecBackend for StubBackend {
     }
     fn pump_terminal(
         &self,
-        _stream: UnixStream,
+        _stream: WebSocket<UnixStream>,
         _session: TerminalSession,
+        _shutdown: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<(), BackendError> {
         Err(BackendError::Unimplemented)
     }

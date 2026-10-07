@@ -1,24 +1,22 @@
 // Unix-socket HTTP server for the Rust daemon mux (PR26).
 //
-// Follows the established Rust Unix-HTTP pattern (soda-identity/src/http.rs):
-// a nonblocking accept loop, one thread per connection, connections closed
-// after each response, fixed header/body caps with read timeouts. Request
-// parsing mirrors Go's net/http surface the daemon depends on (method,
-// target, query/escape/Origin admission inputs, single Content-Length, no
-// chunked); dispatch and envelopes live in gmux_routes.
+// Hyper owns HTTP/1 parsing, framing and response serialization. This owner
+// keeps bounded connection/backend admission, route policy and cancellation.
 //
 // Served from the root systemd socket like cmd/soda-host/main.go: the
 // binary main obtains the listener from fd 3 (see `systemd_listener`),
 // mounts one `Server`, and stops it through the shutdown flag. Terminal
-// upgrades keep their connection thread as the pump thread, mirroring Go
-// where the handler goroutine pumps until the session ends.
+// upgrades retain a joined pump task for the full admitted session.
 use crate::gmux_admission::{AdmissionGate, TerminalGate};
 use crate::gmux_backend::ExecBackend;
-use crate::gmux_routes::{dispatch, error_response, DaemonConfig, RouteOutcome};
+use crate::gmux_routes::{dispatch, error_response, DaemonConfig, HttpResponse, RouteOutcome};
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper::Request;
+use hyper_util::rt::{TokioIo, TokioTimer};
 use std::io;
-use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::UnixListener;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,7 +24,7 @@ use std::time::Duration;
 #[path = "daemon/http.rs"]
 mod http;
 
-use self::http::{drain_head, read_request, ParseFailure};
+use self::http::{read_body, request_head, HEADER_TIMEOUT, MAX_HEADER};
 
 /// The mux server. Generic over the executor so tests mount the stub and
 /// the integrator mounts the real adapter without touching this file.
@@ -66,97 +64,236 @@ impl<B: ExecBackend + 'static> Server<B> {
     /// mirroring Go's Serve returning on fatal listener errors).
     pub fn serve(&self, listener: &UnixListener) {
         listener.set_nonblocking(true).ok();
-        let mut fatal_errors = 0u32;
-        loop {
-            if self.shutdown.load(Ordering::SeqCst) {
-                return;
+        let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            return;
+        };
+        let Ok(listener) = listener.try_clone() else {
+            return;
+        };
+        let shutdown = Arc::clone(&self.shutdown);
+        let backend = Arc::clone(&self.backend);
+        let config = self.config.clone();
+        let gate = Arc::clone(&self.gate);
+        let terminal_gate = Arc::clone(&self.terminal_gate);
+        let inflight = Arc::clone(&self.inflight);
+        let backend_permits = Arc::new(tokio::sync::Semaphore::new(16));
+        let backend_jobs = Arc::new(std::sync::Mutex::new(
+            Vec::<tokio::task::JoinHandle<()>>::new(),
+        ));
+        runtime.block_on(async move {
+            let Ok(listener) = tokio::net::UnixListener::from_std(listener) else { return; };
+            let permits = Arc::new(tokio::sync::Semaphore::new(128));
+            let upgrades = Arc::new(std::sync::Mutex::new(Vec::<tokio::task::JoinHandle<()>>::new()));
+            let mut connections = tokio::task::JoinSet::new();
+            let mut fatal_errors = 0u32;
+            loop {
+                if shutdown.load(Ordering::SeqCst) { break; }
+                let finished = {
+                    let mut jobs = backend_jobs.lock().unwrap();
+                    let all = std::mem::take(&mut *jobs);
+                    let (finished, pending): (Vec<_>, Vec<_>) = all.into_iter().partition(|job| job.is_finished());
+                    *jobs = pending;
+                    finished
+                };
+                for job in finished { let _ = job.await; }
+                let finished_upgrades = {
+                    let mut tasks = upgrades.lock().unwrap();
+                    let all = std::mem::take(&mut *tasks);
+                    let (finished, pending): (Vec<_>, Vec<_>) = all.into_iter().partition(|task| task.is_finished());
+                    *tasks = pending;
+                    finished
+                };
+                for task in finished_upgrades { let _ = task.await; }
+                tokio::select! {
+                    accepted = listener.accept() => match accepted {
+                        Ok((stream, _)) => {
+                            fatal_errors = 0;
+                            let permit = match Arc::clone(&permits).try_acquire_owned() {
+                                Ok(permit) => permit,
+                                Err(_) => { drop(stream); continue; }
+                            };
+                            inflight.fetch_add(1, Ordering::SeqCst);
+                            connections.spawn(handle_connection(
+                                stream, Arc::clone(&backend), config.clone(), Arc::clone(&gate),
+                                Arc::clone(&terminal_gate), Arc::clone(&shutdown), Arc::clone(&upgrades),
+                                Arc::clone(&backend_permits), Arc::clone(&backend_jobs), permit, Arc::clone(&inflight),
+                            ));
+                        }
+                        Err(e) if e.kind() == std::io::ErrorKind::Interrupted || e.kind() == std::io::ErrorKind::ConnectionAborted => {}
+                        Err(_) => { fatal_errors += 1; if fatal_errors >= 20 { break; } }
+                    },
+                    joined = connections.join_next(), if !connections.is_empty() => { let _ = joined; }
+                    _ = tokio::time::sleep(Duration::from_millis(50)) => {}
+                }
             }
-            match listener.accept() {
-                Ok((stream, _)) => {
-                    fatal_errors = 0;
-                    self.inflight.fetch_add(1, Ordering::SeqCst);
-                    let backend = Arc::clone(&self.backend);
-                    let config = self.config.clone();
-                    let gate = Arc::clone(&self.gate);
-                    let terminal_gate = Arc::clone(&self.terminal_gate);
-                    let inflight = Arc::clone(&self.inflight);
-                    std::thread::spawn(move || {
-                        handle_connection(stream, backend.as_ref(), &config, &gate, &terminal_gate);
-                        inflight.fetch_sub(1, Ordering::SeqCst);
-                    });
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    fatal_errors = 0;
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-                Err(e)
-                    if e.kind() == std::io::ErrorKind::Interrupted
-                        || e.kind() == std::io::ErrorKind::ConnectionAborted =>
-                {
-                    fatal_errors = 0;
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-                Err(_) => {
-                    if self.shutdown.load(Ordering::SeqCst) {
-                        return;
-                    }
-                    fatal_errors += 1;
-                    if fatal_errors >= 20 {
-                        return;
-                    }
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-            }
-        }
+            shutdown.store(true, Ordering::SeqCst);
+            while connections.join_next().await.is_some() {}
+            let tasks = upgrades.lock().map(|mut tasks| std::mem::take(&mut *tasks)).unwrap_or_default();
+            for task in tasks { let _ = task.await; }
+            let jobs = backend_jobs.lock().map(|mut jobs| std::mem::take(&mut *jobs)).unwrap_or_default();
+            for job in jobs { let _ = job.await; }
+        });
     }
 }
 
-fn handle_connection<B: ExecBackend>(
-    mut stream: UnixStream,
-    backend: &B,
-    config: &DaemonConfig,
-    gate: &AdmissionGate,
-    terminal_gate: &TerminalGate,
+async fn handle_connection<B: ExecBackend + 'static>(
+    stream: tokio::net::UnixStream,
+    backend: Arc<B>,
+    config: DaemonConfig,
+    gate: Arc<AdmissionGate>,
+    terminal_gate: Arc<TerminalGate>,
+    shutdown: Arc<AtomicBool>,
+    upgrades: Arc<std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    backend_permits: Arc<tokio::sync::Semaphore>,
+    backend_jobs: Arc<std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    _permit: tokio::sync::OwnedSemaphorePermit,
+    inflight: Arc<AtomicUsize>,
 ) {
-    match read_request(&mut stream) {
-        Ok((head, body, body_complete)) => {
-            match dispatch(
-                backend,
-                config,
-                gate,
-                terminal_gate,
-                &head,
-                &body,
-                body_complete,
-            ) {
-                RouteOutcome::Respond(response) => {
-                    let _ = stream.write_all(&response);
+    struct Inflight(Arc<AtomicUsize>);
+    impl Drop for Inflight {
+        fn drop(&mut self) {
+            self.0.fetch_sub(1, Ordering::SeqCst);
+        }
+    }
+    let _inflight = Inflight(inflight);
+    let connection_shutdown = Arc::clone(&shutdown);
+    let connection_count = Arc::clone(&_inflight.0);
+    let service = service_fn(move |mut request: Request<hyper::body::Incoming>| {
+        let backend = Arc::clone(&backend);
+        let config = config.clone();
+        let gate = Arc::clone(&gate);
+        let terminal_gate = Arc::clone(&terminal_gate);
+        let shutdown = Arc::clone(&connection_shutdown);
+        let upgrades = Arc::clone(&upgrades);
+        let backend_permits = Arc::clone(&backend_permits);
+        let backend_jobs = Arc::clone(&backend_jobs);
+        let connection_count = Arc::clone(&connection_count);
+        async move {
+            let on_upgrade = hyper::upgrade::on(&mut request);
+            let head = match request_head(&request) {
+                Ok(head) => head,
+                Err(_) => {
+                    return Ok::<HttpResponse, std::convert::Infallible>(error_response(
+                        400,
+                        "invalid request",
+                    ))
                 }
+            };
+            let body_result = tokio::select! {
+                result = read_body(request.into_body(), &head.path) => result,
+                _ = wait_shutdown(Arc::clone(&shutdown)) => return Ok(error_response(503, "service shutting down")),
+            };
+            let (body, complete) = match body_result {
+                Ok(body) => body,
+                Err(_) => (Vec::new(), false),
+            };
+            let permit = match backend_permits.try_acquire_owned() {
+                Ok(permit) => permit,
+                Err(_) => return Ok(error_response(503, "service busy")),
+            };
+            let route_backend = Arc::clone(&backend);
+            let (send_outcome, receive_outcome) = tokio::sync::oneshot::channel();
+            let job = tokio::task::spawn_blocking(move || {
+                let _permit = permit;
+                let outcome = dispatch(
+                    route_backend.as_ref(),
+                    &config,
+                    &gate,
+                    &terminal_gate,
+                    &head,
+                    &body,
+                    complete,
+                );
+                let _ = send_outcome.send(outcome);
+            });
+            if let Ok(mut jobs) = backend_jobs.lock() {
+                jobs.push(job);
+            }
+            let outcome = tokio::select! {
+                result = receive_outcome => match result {
+                    Ok(outcome) => outcome,
+                    Err(_) => return Ok(error_response(500, "native operation failed; inspect operator journal")),
+                },
+                _ = wait_shutdown(Arc::clone(&shutdown)) => return Ok(error_response(503, "service shutting down")),
+            };
+            match outcome {
+                RouteOutcome::Respond(response) => Ok(response),
                 RouteOutcome::TerminalUpgrade {
                     response,
                     session,
                     slot,
                 } => {
-                    if stream.write_all(&response).is_err() {
-                        return;
+                    let backend = Arc::clone(&backend);
+                    connection_count.fetch_add(1, Ordering::SeqCst);
+                    let task = tokio::spawn(async move {
+                        struct PumpInflight(Arc<AtomicUsize>);
+                        impl Drop for PumpInflight {
+                            fn drop(&mut self) {
+                                self.0.fetch_sub(1, Ordering::SeqCst);
+                            }
+                        }
+                        let _pump_inflight = PumpInflight(connection_count);
+                        let _slot = slot;
+                        let upgraded = tokio::select! {
+                            upgraded = on_upgrade => upgraded,
+                            _ = wait_shutdown(Arc::clone(&shutdown)) => return,
+                        };
+                        if let Ok(upgraded) = upgraded {
+                            if let Ok(io) = upgraded.downcast::<TokioIo<tokio::net::UnixStream>>() {
+                                let read_buf = io.read_buf.to_vec();
+                                if let Ok(stream) = io.io.into_inner().into_std() {
+                                    let _ = stream.set_nonblocking(false);
+                                    let mut websocket_config =
+                                        tungstenite::protocol::WebSocketConfig::default();
+                                    websocket_config.read_buffer_size = 8192;
+                                    websocket_config.write_buffer_size = 8192;
+                                    websocket_config.max_write_buffer_size = 262_144;
+                                    websocket_config.max_message_size =
+                                        Some(crate::gmux_admission::TERMINAL_FRAME_LIMIT);
+                                    websocket_config.max_frame_size =
+                                        Some(crate::gmux_admission::TERMINAL_FRAME_LIMIT);
+                                    let ws = tungstenite::protocol::WebSocket::from_partially_read(
+                                        stream,
+                                        read_buf,
+                                        tungstenite::protocol::Role::Server,
+                                        Some(websocket_config),
+                                    );
+                                    let job_shutdown = Arc::clone(&shutdown);
+                                    let _ = tokio::task::spawn_blocking(move || {
+                                        backend.pump_terminal(ws, session, job_shutdown)
+                                    })
+                                    .await;
+                                }
+                            }
+                        }
+                    });
+                    if let Ok(mut tasks) = upgrades.lock() {
+                        tasks.push(task);
                     }
-                    // The slot lives in this thread until the pump returns,
-                    // mirroring Go's deferred unregister after pumpIO.
-                    let _slot = slot;
-                    let _ = backend.pump_terminal(stream, session);
+                    Ok(response)
                 }
             }
         }
-        Err(ParseFailure::Invalid) => {
-            let _ = stream.write_all(&error_response(400, "invalid request"));
-        }
-        Err(ParseFailure::HeadersTooLarge) => {
-            // Drain the rest of the head so the client observes the 431
-            // instead of a reset (the response must not race in-flight
-            // request bytes on a connection we are about to close).
-            drain_head(&mut stream);
-            let _ = stream.write_all(&error_response(431, "header too large"));
-        }
+    });
+    let mut builder = http1::Builder::new();
+    builder
+        .keep_alive(false)
+        .max_buf_size(MAX_HEADER)
+        .max_header_size(MAX_HEADER)
+        .header_read_timeout(HEADER_TIMEOUT)
+        .timer(TokioTimer::new());
+    tokio::select! {
+        _ = builder.serve_connection(TokioIo::new(stream), service).with_upgrades() => {},
+        _ = wait_shutdown(Arc::clone(&shutdown)) => {},
+    }
+}
+
+async fn wait_shutdown(shutdown: Arc<AtomicBool>) {
+    while !shutdown.load(Ordering::Acquire) {
+        tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 

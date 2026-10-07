@@ -7,6 +7,7 @@ use crate::gmux_backend::{BackendError, ExecBackend, TerminalSession};
 
 use super::response::{
     error_response, json_response, not_found_response, tailnet_json_response, tailnet_response,
+    HttpResponse,
 };
 use super::websocket::websocket_upgrade_response;
 
@@ -46,9 +47,9 @@ impl DaemonConfig {
 /// terminal upgrade (101 bytes already rendered) plus the session and the
 /// stream slot the server must hold for the pump lifetime.
 pub enum RouteOutcome {
-    Respond(Vec<u8>),
+    Respond(HttpResponse),
     TerminalUpgrade {
-        response: Vec<u8>,
+        response: HttpResponse,
         session: TerminalSession,
         slot: TerminalSlot,
     },
@@ -56,7 +57,7 @@ pub enum RouteOutcome {
 
 impl RouteOutcome {
     /// Unwrap a plain response (tests use this for non-terminal routes).
-    pub fn into_response(self) -> Vec<u8> {
+    pub fn into_response(self) -> HttpResponse {
         match self {
             RouteOutcome::Respond(bytes) => bytes,
             RouteOutcome::TerminalUpgrade { .. } => {
@@ -114,7 +115,7 @@ fn dispatch_native<B: ExecBackend + ?Sized>(
     head: &RequestHead,
     body: &[u8],
     body_complete: bool,
-) -> Vec<u8> {
+) -> HttpResponse {
     if let Err(reject) = validate_native_request(head) {
         return error_response(reject.status, reject.message);
     }
@@ -176,7 +177,7 @@ fn dispatch_identity<B: ExecBackend + ?Sized>(
     head: &RequestHead,
     body: &[u8],
     body_complete: bool,
-) -> Vec<u8> {
+) -> HttpResponse {
     if !valid_identity_request(head) || !config.identity_available {
         return error_response(400, "invalid identity operation");
     }
@@ -209,7 +210,7 @@ fn dispatch_tailnet<B: ExecBackend + ?Sized>(
     head: &RequestHead,
     body: &[u8],
     body_complete: bool,
-) -> Vec<u8> {
+) -> HttpResponse {
     let action = match validate_tailnet_request(head) {
         Ok(action) => action,
         Err(404) => return tailnet_response(not_found_response()),
@@ -270,6 +271,13 @@ fn dispatch_terminal<B: ExecBackend + ?Sized>(
         (true, Some(key)) => key.clone(),
         _ => return invalid(),
     };
+    let Some(websocket_request) = head.websocket_request.as_ref() else {
+        return invalid();
+    };
+    let response = websocket_upgrade_response(websocket_request);
+    if response.status() != hyper::StatusCode::SWITCHING_PROTOCOLS {
+        return RouteOutcome::Respond(response);
+    }
     let slot = match terminal_gate.try_register() {
         Some(slot) => slot,
         None => return RouteOutcome::Respond(error_response(503, "terminal unavailable")),
@@ -282,7 +290,7 @@ fn dispatch_terminal<B: ExecBackend + ?Sized>(
         Err(_) => return RouteOutcome::Respond(error_response(503, "terminal unavailable")),
     };
     RouteOutcome::TerminalUpgrade {
-        response: websocket_upgrade_response(&key),
+        response,
         session,
         slot,
     }

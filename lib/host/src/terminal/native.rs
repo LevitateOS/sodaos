@@ -165,6 +165,40 @@ pub struct NativeAttach {
 }
 
 impl NativeAttach {
+    #[cfg(test)]
+    pub(crate) fn from_child_for_test(mut child: std::process::Child) -> Result<Self, String> {
+        use std::os::fd::FromRawFd;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| "test stdin unavailable".to_string())?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| "test stdout unavailable".to_string())?;
+        let stdin_fd = stdin.as_raw_fd();
+        let stdout_fd = stdout.as_raw_fd();
+        std::mem::forget(stdin);
+        std::mem::forget(stdout);
+        let stdin = unsafe { File::from_raw_fd(stdin_fd) };
+        let stdout = unsafe { File::from_raw_fd(stdout_fd) };
+        let flags = unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_GETFL) };
+        if flags < 0
+            || unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) }
+                < 0
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("test terminal input unavailable".to_string());
+        }
+        Ok(NativeAttach {
+            child: Some(child),
+            stdin: Some(stdin),
+            reader: Some(BufReader::new(stdout)),
+            closed: false,
+        })
+    }
+
     /// `AttachNative`: start the fixed podman/agent attachment bridge.
     pub fn attach(container: &str, input: &TerminalRequest) -> Result<Self, String> {
         let seconds = input.expires - now_unix();
@@ -209,6 +243,15 @@ impl NativeAttach {
         std::mem::forget(stdout);
         let stdin = unsafe { File::from_raw_fd(stdin_fd) };
         let stdout = unsafe { File::from_raw_fd(stdout_fd) };
+        let flags = unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_GETFL) };
+        if flags < 0
+            || unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) }
+                < 0
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("terminal input unavailable".to_string());
+        }
         Ok(NativeAttach {
             child: Some(child),
             stdin: Some(stdin),
@@ -226,32 +269,60 @@ impl NativeAttach {
             .stdin
             .as_mut()
             .ok_or_else(|| "terminal input ended".to_string())?;
-        // `File` has no write deadline; poll for writability like Go's
-        // `SetWriteDeadline` on the stdin pipe.
-        let mut pfd = libc::pollfd {
-            fd: stdin.as_raw_fd(),
-            events: libc::POLLOUT,
-            revents: 0,
-        };
-        let ready = unsafe { libc::poll(&mut pfd, 1, 2000) };
-        if ready == 0 {
-            return Err("terminal input deadline exceeded".to_string());
-        }
-        if ready < 0 || pfd.revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0 {
-            return Err("terminal input ended".to_string());
-        }
         let mut body = f.encode().into_bytes();
         body.push(b'\n');
-        stdin
-            .write_all(&body)
-            .map_err(|e| format!("terminal input ended: {e}"))?;
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let mut offset = 0;
+        while offset < body.len() {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err("terminal input deadline exceeded".to_string());
+            }
+            let mut pfd = libc::pollfd {
+                fd: stdin.as_raw_fd(),
+                events: libc::POLLOUT,
+                revents: 0,
+            };
+            let wait = remaining.as_millis().min(50) as i32;
+            let ready = unsafe { libc::poll(&mut pfd, 1, wait.max(1)) };
+            if ready < 0 {
+                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                }
+                return Err("terminal input ended".to_string());
+            }
+            if ready == 0 {
+                continue;
+            }
+            if pfd.revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0 {
+                return Err("terminal input ended".to_string());
+            }
+            match stdin.write(&body[offset..]) {
+                Ok(0) => return Err("terminal input ended".to_string()),
+                Ok(written) => offset += written,
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::WouldBlock
+                        || e.kind() == std::io::ErrorKind::Interrupted =>
+                {
+                    continue
+                }
+                Err(_) => return Err("terminal input ended".to_string()),
+            }
+        }
         Ok(())
     }
 
     /// Detach the stdout reader for lock-free output pumps (H01-F3).
     /// Teardown still funnels through [`Self::close`].
     pub fn take_reader(&mut self) -> Option<BufReader<File>> {
-        self.reader.take()
+        let reader = self.reader.take()?;
+        let fd = reader.get_ref().as_raw_fd();
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+        if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+            self.reader = Some(reader);
+            return None;
+        }
+        Some(reader)
     }
 
     /// `nativeTerminal.Output`: one validated agent stdout line.

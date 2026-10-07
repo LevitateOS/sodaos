@@ -22,8 +22,8 @@ mod routes;
 mod websocket;
 
 pub use self::response::error_response;
+pub use self::response::HttpResponse;
 pub use self::routes::{dispatch, DaemonConfig, RouteOutcome};
-pub use self::websocket::websocket_accept_key;
 
 // -- complete route table (method, path) --
 

@@ -90,6 +90,8 @@ pub struct RequestHead {
     pub upgrade_websocket: bool,
     /// First `Sec-WebSocket-Key` value, if any.
     pub ws_key: Option<String>,
+    /// Parsed original head for tungstenite's WebSocket handshake validator.
+    pub websocket_request: Option<hyper::Request<()>>,
 }
 
 impl RequestHead {
@@ -103,6 +105,7 @@ impl RequestHead {
             origin_present: false,
             upgrade_websocket: false,
             ws_key: None,
+            websocket_request: None,
         }
     }
 }
