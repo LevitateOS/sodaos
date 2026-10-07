@@ -115,7 +115,6 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `store` | PostgreSQL schema + row ops, including the factory run/command ledger | HTTP, host execute | `store.go`, `schema.go`, `factory.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
-| `testoci` | Inert OCI test fixtures | Production images | `fixture.go` |
 | `web` | HTTP root mux + wiring only | Business handlers | `server.go` |
 | `web/api` | Product API + settings + terminal WS | OAuth state machine | concern files |
 | `web/auth` | Native extension identity, profiles and account keys | Environment/terminal APIs | `service.go`, `provider.go` |
