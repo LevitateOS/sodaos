@@ -297,7 +297,7 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
         drop(listener);
         result
     });
-    while !SHUTDOWN.load(Ordering::SeqCst) {
+    while !SHUTDOWN.load(Ordering::SeqCst) && !server.is_shutdown() {
         if serve_handle.is_finished() {
             break;
         }
@@ -317,12 +317,16 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
     loop {
         if !muse_window_expired
             && muse_deadline <= Instant::now()
-            && muse_handle.as_ref().is_some_and(|handle| !handle.is_finished())
+            && muse_handle
+                .as_ref()
+                .is_some_and(|handle| !handle.is_finished())
         {
             launch_failure = Some("launch execution retirement remains unconfirmed".to_string());
             muse_window_expired = true;
         }
-        let muse_done = muse_handle.as_ref().map_or(true, |handle| handle.is_finished());
+        let muse_done = muse_handle
+            .as_ref()
+            .map_or(true, |handle| handle.is_finished());
         if muse_done && serve_handle.is_finished() {
             break;
         }
@@ -355,9 +359,7 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
     };
 
     match (launch_failure, server_failure) {
-        (Some(launch), Some(server)) => {
-            Err(MainError::Other(format!("{launch}; {server}")))
-        }
+        (Some(launch), Some(server)) => Err(MainError::Other(format!("{launch}; {server}"))),
         (Some(error), None) | (None, Some(error)) => Err(MainError::Other(error)),
         (None, None) => Ok(()),
     }

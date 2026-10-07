@@ -54,6 +54,11 @@ impl<B: ExecBackend + 'static> Server<B> {
         self.shutdown.store(true, Ordering::SeqCst);
     }
 
+    /// Whether a request or operator has asked the host to retire this server.
+    pub fn is_shutdown(&self) -> bool {
+        self.shutdown.load(Ordering::Acquire)
+    }
+
     /// Connections currently being handled (binary main drains on this).
     pub fn inflight(&self) -> usize {
         self.inflight.load(Ordering::SeqCst)
@@ -63,7 +68,8 @@ impl<B: ExecBackend + 'static> Server<B> {
     /// burst so the supervisor restarts a deaf daemon (http.rs precedent,
     /// mirroring Go's Serve returning on fatal listener errors).
     pub fn serve(&self, listener: &UnixListener) -> Result<(), String> {
-        listener.set_nonblocking(true)
+        listener
+            .set_nonblocking(true)
             .map_err(|_| "server listener setup failed".to_string())?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -325,16 +331,23 @@ async fn handle_connection<B: ExecBackend + 'static>(
                                     match tokio::task::spawn_blocking(move || {
                                         backend.pump_terminal(ws, session, job_shutdown)
                                     })
-                                    .await {
+                                    .await
+                                    {
                                         Ok(Ok(())) => {}
-                                        Ok(Err(error)) => record_task_failure(
-                                            &task_failure,
-                                            &format!("terminal pump failed: {error:?}"),
-                                        ),
-                                        Err(_) => record_task_failure(
-                                            &task_failure,
-                                            "terminal pump worker panicked",
-                                        ),
+                                        Ok(Err(error)) => {
+                                            record_task_failure(
+                                                &task_failure,
+                                                &format!("terminal pump failed: {error:?}"),
+                                            );
+                                            shutdown.store(true, Ordering::SeqCst);
+                                        }
+                                        Err(_) => {
+                                            record_task_failure(
+                                                &task_failure,
+                                                "terminal pump worker panicked",
+                                            );
+                                            shutdown.store(true, Ordering::SeqCst);
+                                        }
                                     }
                                 }
                             }

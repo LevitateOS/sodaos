@@ -1947,13 +1947,23 @@ fn output_line_and_attach_pins() {
     );
     // Attach pre-checks fire before any spawn.
     assert_eq!(
-        NativeAttach::attach("short", &base_request()).unwrap_err(),
+        NativeAttach::attach(
+            "short",
+            &base_request(),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .unwrap_err(),
         "invalid terminal target"
     );
     let mut expired = base_request();
     expired.expires = now_unix() - 1;
     assert_eq!(
-        NativeAttach::attach(CID, &expired).unwrap_err(),
+        NativeAttach::attach(
+            CID,
+            &expired,
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .unwrap_err(),
         "invalid terminal target"
     );
 }
@@ -2158,6 +2168,7 @@ fn take_reader_detaches_output() {
         reader: Some(BufReader::new(out_file)),
         closed: false,
         close_failure: None,
+        shutdown: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
     };
     let mut reader = attach.take_reader().expect("reader detached");
     assert!(attach.take_reader().is_none());
@@ -2183,6 +2194,7 @@ fn quiet_output_never_blocks_input() {
         reader: Some(BufReader::new(out_file)),
         closed: false,
         close_failure: None,
+        shutdown: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
     };
     let mut reader = attach.take_reader().unwrap();
     let out = std::thread::spawn(move || NativeAttach::output_frame(&mut reader));
@@ -2229,6 +2241,7 @@ fn attach_with_child(argv: &[&str]) -> (NativeAttach, u32, u64) {
             reader: None,
             closed: false,
             close_failure: None,
+            shutdown: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         },
         pid,
         starttime,
@@ -2298,6 +2311,7 @@ fn close_reaps_killed_child() {
 #[test]
 fn close_keeps_child_owned_after_wait_error() {
     let (mut attach, pid, starttime) = attach_with_child(&["sleep", "30"]);
+    let shutdown = std::sync::Arc::clone(&attach.shutdown);
     let child = attach.child.as_mut().unwrap();
     child.kill().unwrap();
     let waited = unsafe { libc::waitpid(pid as libc::pid_t, std::ptr::null_mut(), 0) };
@@ -2305,7 +2319,11 @@ fn close_keeps_child_owned_after_wait_error() {
 
     let first = attach.close().unwrap_err();
     assert_eq!(first, "terminal child status unconfirmed");
-    assert!(attach.child.is_some(), "unconfirmed Child must remain owned");
+    assert!(shutdown.load(std::sync::atomic::Ordering::SeqCst));
+    assert!(
+        attach.child.is_some(),
+        "unconfirmed Child must remain owned"
+    );
     assert_eq!(attach.close().unwrap_err(), first, "failure remains sticky");
     assert_pid_reaped(pid, starttime);
     // ECHILD is intentionally unconfirmable through this Child owner, so do

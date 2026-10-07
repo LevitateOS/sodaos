@@ -3,6 +3,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::account::AGENT_PROGRAM;
@@ -183,23 +185,39 @@ pub struct NativeAttach {
     pub(in crate::terminal) reader: Option<BufReader<File>>,
     pub(in crate::terminal) closed: bool,
     pub(in crate::terminal) close_failure: Option<String>,
+    pub(in crate::terminal) shutdown: Arc<AtomicBool>,
 }
 
-fn reap_failed_attach(mut child: std::process::Child, reason: &str) -> String {
+fn reap_failed_attach(
+    mut child: std::process::Child,
+    reason: &str,
+    shutdown: Arc<AtomicBool>,
+) -> String {
     drop(child.stdin.take());
     drop(child.stdout.take());
     let grace_deadline = Instant::now() + Duration::from_secs(3);
     let mut may_kill = true;
     let mut kill_attempted = false;
+    let mut reap_deadline = None;
     loop {
         match child.try_wait() {
             Ok(Some(_)) => return reason.to_string(),
             Ok(None) if may_kill && !kill_attempted && Instant::now() >= grace_deadline => {
                 kill_attempted = true;
-                let _ = child.kill();
+                reap_deadline = Some(Instant::now() + Duration::from_secs(3));
+                if child.kill().is_err() {
+                    shutdown.store(true, Ordering::SeqCst);
+                }
             }
-            Ok(None) => {}
-            Err(_) => may_kill = false,
+            Ok(None) => {
+                if reap_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+                    shutdown.store(true, Ordering::SeqCst);
+                }
+            }
+            Err(_) => {
+                may_kill = false;
+                shutdown.store(true, Ordering::SeqCst);
+            }
         }
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -207,17 +225,30 @@ fn reap_failed_attach(mut child: std::process::Child, reason: &str) -> String {
 
 impl NativeAttach {
     #[cfg(test)]
-    pub(crate) fn from_child_for_test(mut child: std::process::Child) -> Result<Self, String> {
+    pub(crate) fn from_child_for_test(
+        mut child: std::process::Child,
+        shutdown: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
         use std::os::fd::FromRawFd;
         let stdin = match child.stdin.take() {
             Some(stdin) => stdin,
-            None => return Err(reap_failed_attach(child, "test stdin unavailable")),
+            None => {
+                return Err(reap_failed_attach(
+                    child,
+                    "test stdin unavailable",
+                    shutdown,
+                ))
+            }
         };
         let stdout = match child.stdout.take() {
             Some(stdout) => stdout,
             None => {
                 drop(stdin);
-                return Err(reap_failed_attach(child, "test stdout unavailable"));
+                return Err(reap_failed_attach(
+                    child,
+                    "test stdout unavailable",
+                    shutdown,
+                ));
             }
         };
         let stdin_fd = stdin.as_raw_fd();
@@ -233,7 +264,11 @@ impl NativeAttach {
         {
             drop(stdin);
             drop(stdout);
-            return Err(reap_failed_attach(child, "test terminal input unavailable"));
+            return Err(reap_failed_attach(
+                child,
+                "test terminal input unavailable",
+                shutdown,
+            ));
         }
         Ok(NativeAttach {
             child: Some(child),
@@ -241,11 +276,16 @@ impl NativeAttach {
             reader: Some(BufReader::new(stdout)),
             closed: false,
             close_failure: None,
+            shutdown,
         })
     }
 
     /// `AttachNative`: start the fixed podman/agent attachment bridge.
-    pub fn attach(container: &str, input: &TerminalRequest) -> Result<Self, String> {
+    pub fn attach(
+        container: &str,
+        input: &TerminalRequest,
+        shutdown: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
         let seconds = input.expires - now_unix();
         if !domain::valid_container_id(container) || !input.valid(now_unix()) || seconds < 1 {
             return Err("invalid terminal target".to_string());
@@ -273,13 +313,23 @@ impl NativeAttach {
             .map_err(|e| format!("/usr/bin/podman failed: {e}"))?;
         let stdin = match child.stdin.take() {
             Some(stdin) => stdin,
-            None => return Err(reap_failed_attach(child, "terminal stdin unavailable")),
+            None => {
+                return Err(reap_failed_attach(
+                    child,
+                    "terminal stdin unavailable",
+                    shutdown,
+                ))
+            }
         };
         let stdout = match child.stdout.take() {
             Some(stdout) => stdout,
             None => {
                 drop(stdin);
-                return Err(reap_failed_attach(child, "terminal stdout unavailable"));
+                return Err(reap_failed_attach(
+                    child,
+                    "terminal stdout unavailable",
+                    shutdown,
+                ));
             }
         };
         use std::os::unix::io::FromRawFd;
@@ -298,7 +348,11 @@ impl NativeAttach {
         {
             drop(stdin);
             drop(stdout);
-            return Err(reap_failed_attach(child, "terminal input unavailable"));
+            return Err(reap_failed_attach(
+                child,
+                "terminal input unavailable",
+                shutdown,
+            ));
         }
         Ok(NativeAttach {
             child: Some(child),
@@ -306,6 +360,7 @@ impl NativeAttach {
             reader: Some(BufReader::new(stdout)),
             closed: false,
             close_failure: None,
+            shutdown,
         })
     }
 
@@ -468,6 +523,7 @@ impl NativeAttach {
     }
 
     fn fail_close(&mut self, message: &str) -> Result<(), String> {
+        self.shutdown.store(true, Ordering::SeqCst);
         let error = message.to_string();
         self.close_failure = Some(error.clone());
         Err(error)

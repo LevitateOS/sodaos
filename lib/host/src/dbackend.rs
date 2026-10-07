@@ -1472,7 +1472,7 @@ fn pump_terminal(
     }
     // NativeAttach::attach is a synchronous spawn outside the shared
     // one-shot deadline; shutdown custody for that child remains separate.
-    let attach = match terminal::NativeAttach::attach(&container, &request) {
+    let attach = match terminal::NativeAttach::attach(&container, &request, Arc::clone(&shutdown)) {
         Ok(attach) => attach,
         Err(_) => {
             let _ = ws.send(Message::Text(closed_frame("launch_failed").encode().into()));
@@ -1850,7 +1850,13 @@ mod tests {
         }
     }
 
-    fn synthetic_attach(script: &str) -> (terminal::NativeAttach, u32) {
+    fn synthetic_attach(
+        script: &str,
+    ) -> (
+        terminal::NativeAttach,
+        u32,
+        Arc<std::sync::atomic::AtomicBool>,
+    ) {
         let child = std::process::Command::new("/bin/sh")
             .arg("-c")
             .arg(script)
@@ -1860,10 +1866,10 @@ mod tests {
             .spawn()
             .expect("start synthetic stdio child");
         let pid = child.id();
-        (
-            terminal::NativeAttach::from_child_for_test(child).unwrap(),
-            pid,
-        )
+        let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let attach =
+            terminal::NativeAttach::from_child_for_test(child, Arc::clone(&shutdown)).unwrap();
+        (attach, pid, shutdown)
     }
 
     #[test]
@@ -1883,10 +1889,9 @@ mod tests {
             None,
         );
         let mut client_ws = WebSocket::from_raw_socket(client, Role::Client, None);
-        let (attach, _) = synthetic_attach(
+        let (attach, _, shutdown) = synthetic_attach(
             "printf '%s\\n' '{\"type\":\"closed\",\"reason\":\"exited\"}'; read line",
         );
-        let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let pump_shutdown = Arc::clone(&shutdown);
         let pump = std::thread::spawn(move || {
             pump_attached(
@@ -1943,10 +1948,9 @@ mod tests {
         use tungstenite::protocol::{Role, WebSocket};
         let (server, _client) = UnixStream::pair().unwrap();
         let server_ws = WebSocket::from_raw_socket(server, Role::Server, None);
-        let (attach, pid) = synthetic_attach(
+        let (attach, pid, shutdown) = synthetic_attach(
             "i=0; while [ $i -lt 20000 ]; do printf '%s\\n' '{\"type\":\"output\",\"data\":\"YQ==\"}'; i=$((i+1)); done; exec /bin/sleep 60",
         );
-        let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let pump_shutdown = Arc::clone(&shutdown);
         let (done_tx, done_rx) = std::sync::mpsc::channel();
         let pump = std::thread::spawn(move || {
@@ -1990,11 +1994,10 @@ mod tests {
             },
             0
         );
-        let (attach, pid) = synthetic_attach(
+        let (attach, pid, shutdown) = synthetic_attach(
             "i=0; while [ $i -lt 20000 ]; do printf '%s\\n' '{\"type\":\"output\",\"data\":\"YQ==\"}'; i=$((i+1)); done; exec /bin/sleep 60",
         );
         let ws = WebSocket::from_raw_socket(server, Role::Server, None);
-        let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let started = Instant::now();
         pump_attached(
             ws,
@@ -2023,7 +2026,7 @@ mod tests {
     #[test]
     fn native_attach_input_frame_expires_when_child_does_not_read() {
         use crate::terminal::TerminalFrame;
-        let (mut attach, pid) = synthetic_attach("exec /bin/sleep 60");
+        let (mut attach, pid, _) = synthetic_attach("exec /bin/sleep 60");
         let frame = TerminalFrame {
             frame_type: "input".to_string(),
             data: "QUFB".repeat(5461),

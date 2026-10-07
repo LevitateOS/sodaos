@@ -292,9 +292,6 @@ impl ExecBackend for ScriptBackend {
     ) -> Result<(), BackendError> {
         self.pumped.store(session.id, Ordering::SeqCst);
         if self.fail_pump {
-            while !shutdown.load(Ordering::SeqCst) {
-                std::thread::sleep(std::time::Duration::from_millis(5));
-            }
             return Err(BackendError::Internal);
         }
         if self.hold_pump {
@@ -1235,7 +1232,13 @@ fn server_serves_stub_routes_and_parser_rejections() {
         .unwrap();
     client.write_all(&vec![b'a'; 9000]).unwrap();
     client.write_all(b"\r\n\r\n").unwrap();
-    assert_eq!(status_of(&read_all(&mut client)), 431);
+    // Hyper can reject once the header limit is crossed while excess request
+    // bytes remain unread. Its parser-error response is an empty 431, so
+    // verify the complete response head and zero body length without treating
+    // an unread-input reset as a truncated response body.
+    let response = read_http_head(&mut client);
+    assert_eq!(status_of(&response), 431);
+    assert_eq!(response.header_value("content-length").as_deref(), Some("0"));
 
     // Hyper decodes legal chunked framing; dispatch then applies the normal
     // route behavior to the empty request body.
@@ -1316,7 +1319,14 @@ fn terminal_pump_failure_is_reported_by_server_serve() {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
     assert_eq!(pumped.load(Ordering::SeqCst), 7);
-    server.shutdown();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while !server.is_shutdown() && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert!(
+        server.is_shutdown(),
+        "pump failure must initiate server shutdown"
+    );
     assert_eq!(
         handle.join().unwrap().unwrap_err(),
         "terminal pump failed: Internal"
