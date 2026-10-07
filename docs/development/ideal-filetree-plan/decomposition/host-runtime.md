@@ -23,7 +23,7 @@ small integration proofs before transport replacement.
 | [N4](../../../research/library-reuse-investigation.md#n4), [N7](../../../research/library-reuse-investigation.md#n7): `tcontrol_provider.rs`, native/provider URL helpers | Use the selected blocking HTTPS engine and URL/form/percent primitives. Retain credential scope/lifetime, neutral errors, no uncertain replay and raw lexical admission; generic curl recipes and authority/escape algorithms are superseded. |
 | [N8](../../../research/library-reuse-investigation.md#n8), [N9](../../../research/library-reuse-investigation.md#n9): Tailnet address/time and terminal/Factory deadline codecs | Use std IP types and the selected time codec. Retain zone/mask, DNS/name and purpose-specific address policy, lease/deadline bounds, zero-time handling and original signed text; calendar/IP engines are superseded. |
 | [CF-01](../../../research/library-reuse-investigation.md#cf-01)–[CF-04](../../../research/library-reuse-investigation.md#cf-04): SHA, NIST, SSH and Base64 helpers | Adopt RustCrypto, ssh-key and explicit Base64 profiles. Retain admitted algorithms/options, uncompressed curve gates, canonical public-key output, raw-byte digest recipes and managed-key revision/ownership policy. Do not extract separate crypto/SSH engines. |
-| [N10](../../../research/library-reuse-investigation.md#n10), [N11](../../../research/library-reuse-investigation.md#n11): Muse packet/peer helpers and obsolete daemon peer adapter | Use typed descriptor/socket mechanics where they simplify the active owner. Retain exact stdio-FD admission, kernel peer/pidfd pinning, cgroup/account custody and cleanup. Delete the unused daemon peer duplicate; HTTP does not replace the Muse packet channel. |
+| [N10](../../../research/library-reuse-investigation.md#n10), [N11](../../../research/library-reuse-investigation.md#n11): Muse packet/peer helpers and obsolete daemon peer adapter | Use typed descriptor/socket mechanics where they simplify the active owner. Retain exact stdio-FD admission, kernel peer/pidfd pinning, cgroup/account custody and cleanup. L18/N11 retired the unused daemon peer duplicate at `eaed66a9`; active Muse attestation tests remain. HTTP does not replace the Muse packet channel. |
 | [JSON01](../../../research/library-reuse-investigation.md#json01): host and maintenance JSON scanners/binders | Adopt serde/serde_json with explicit caller DTO/Visitor profiles. Keep ordered aliases, null/byte-field admission, caps and canonical raw-byte boundaries; generic scanner/string/number state machines are superseded. |
 
 Host HTTP relies on its root-owned filesystem/systemd socket admission; it does
@@ -44,34 +44,28 @@ not reopen protocol-engine extraction.
 
 ## Current Forgejo Tailnet helper allocation
 
-[N07](../reviews/N07.md) and A's independent current source/caller challenge
-select Rust for the existing privileged one-shot helper. Keep the installed
-`/usr/libexec/soda/soda-forgejo-tailnet` and current
-`tcontrol_native.rs:792–806` caller. Add this binary to the existing `soda-host`
-Cargo package: `cmd/soda-forgejo-tailnet/main.rs` calls the defining native
-owner `lib/host/src/tailnet/forgejo.rs`. It has no separate manifest or service.
+L11 implemented the existing privileged one-shot helper in
+`cmd/soda-forgejo-tailnet/main.rs` and its defining
+`lib/host/src/tailnet/forgejo.rs` owner. Cargo selects it as an additional binary
+of `soda-host`; release-image selects that package/bin and preserves installed
+`/usr/libexec/soda/soda-forgejo-tailnet`. Current `tcontrol_native.rs` invokes the
+helper through its Executor. The exclusive Go helper/rewrite predecessors are
+retired; live Go Tailnet DTO/status and remaining Forgejo clients stay.
 
-That one native module owns the root admission, 90-second command deadline,
-actual Tailnet Endpoint observation, bounded Podman state decoding, real
-22/tcp binding to the selected IPv4 at port 2222, SSH_DOMAIN-only rewrite,
-0600 temporary file/atomic rename, conditional restart and existing diagnostic
-behavior. Reuse the actual Rust Endpoint observer and predicate with the
-equivalent required fields. An observation-only hostname does not replace the
-native listener guard. Retain both current Go test subjects as a private
-`cfg(test)` descendant in this same `forgejo.rs`: actual bound listener and
-credential-free refusal, browser/OAuth preservation and unchanged-content
-behavior. No extra test file is required by their current size.
+Retain root admission, the 90-second deadline, Endpoint observation, bounded
+Podman decoding, actual listener guard, SSH_DOMAIN-only rewrite, private
+atomic publication, conditional restart and diagnostics. Existing private
+`forgejo.rs` tests own the listener/refusal and byte-rewrite subjects. L11 source
+and affected development builds are complete; installed listener/restart/helper
+qualification remains separate.
 
-At cutover, release-image's existing `compile_soda_commands` must select
-Cargo package `soda-host`, binary `soda-forgejo-tailnet`, and the same installed
-destination explicitly; its current package-equals-binary loop is insufficient.
-Go command enumeration must exclude Rust-only entrypoints after relocation.
-Rebind real source/build tests and fixture paths. Retire the entire Go
-`cmd/soda-forgejo-tailnet/main.go`/`main_test.go` and helper-exclusive
-`internal/forgejo/tailnet.go`/`tailnet_test.go` only after their required behavior
-and tests are bound to this successor. Keep live Go Tailnet DTO/status clients
-and the remaining Forgejo client package. Source review does not establish
-native listener, restart or installed parity; no implementation was performed.
+R02/A34 assigns remaining Tailnet project/run-binding/enroll-run, policy and
+optional caller/test seams to C04.M; host/companion lifecycle remains A07.M/V.
+L09/L11 adapters are already the implementation. A34 module reshuffling is not
+missing behavior or permission to restore snapshot protocol bodies. R02/C41's
+Muse caller/account/connection and cleanup-order duties remain A07.M/V around
+L12's FD/process mechanics; caller/cleanup splits are optional until a concrete
+owner benefit is established.
 
 ## Current terminal predecessor retirement
 

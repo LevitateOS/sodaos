@@ -16,70 +16,33 @@ Historical integrator checklist with partially superseded instructions; active c
 
 <a id="coverage-7768dd1418a0"></a>
 
-## [rust/soda-host/src/gmux_admission.rs](../../../../../rust/soda-host/src/gmux_admission.rs)
+## [lib/host/src/gmux_admission.rs](../../../../../lib/host/src/gmux_admission.rs)
 
- Large-file ledger retains committed declaration/member spans rather than grouping methods into one whole-file unit; responsibility follows the verified concern/branch mapping, not declaration count.
+Scoped R02 reconciliation at `eaed66a9` (2026-10-07). B27's concern extraction
+is already integrated. The current facade contains only policy module wiring
+and exports (lines 1–16); the defining policy is
+[daemon/admission.rs](../../../../../lib/host/src/daemon/admission.rs).
+N11's duplicate daemon peer types/functions and two equivalence smoke tests are
+retired. HTTP keeps filesystem/systemd socket authorization. Active Muse
+credentials/pidfd ownership is defined separately by
+[muse/socket.rs](../../../../../lib/host/src/muse/socket.rs) and
+[MusePeer](../../../../../lib/host/src/muse/runtime_types.rs), exercised by
+`muse::tests::peer_attestation`. No peer-UID gate is added to HTTP. These are
+current locations/ranges and L18 retained-duty checks, not a fresh full-slice
+validity audit or installed qualification.
 
-| Slice / lifecycle | Current lines | Responsibility and declarations |
+| Slice / lifecycle | Defining file / current lines | Responsibility and declarations |
 | --- | --- | --- |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 1–20 | Private HTTP head/body admission and mutation serialization; declarations/fields: `BODY_LIMIT_DEFAULT`, `BODY_LIMIT_LARGE`, `BODY_LIMIT_IDENTITY`, `NATIVE_CLEAN_PATHS`, `ADMITTED_MUTATION_PATHS`, `IDENTITY_ACTIONS`, `TAILNET_ACTIONS`, `TERMINAL_STREAM_CAP`, `TERMINAL_REQUEST_LIMIT`, `TERMINAL_FRAME_LIMIT`, `RequestHead`, `post`, `NativeRejection`, `validate_native_request`, `is_admitted_mutation_path`, `body_limit_for` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 21–22 | Private HTTP head/body admission and mutation serialization; declaration/member BODY_LIMIT_DEFAULT; declarations/fields: `BODY_LIMIT_DEFAULT` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 23–24 | Private HTTP head/body admission and mutation serialization; declaration/member BODY_LIMIT_LARGE; declarations/fields: `BODY_LIMIT_LARGE` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 25–30 | Private HTTP head/body admission and mutation serialization; declaration/member BODY_LIMIT_IDENTITY; declarations/fields: `BODY_LIMIT_IDENTITY` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 31–54 | Private HTTP head/body admission and mutation serialization; declaration/member NATIVE_CLEAN_PATHS; declarations/fields: `NATIVE_CLEAN_PATHS` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 55–65 | Private HTTP head/body admission and mutation serialization; declaration/member ADMITTED_MUTATION_PATHS; declarations/fields: `ADMITTED_MUTATION_PATHS` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 66–68 | Private HTTP head/body admission and mutation serialization; declaration/member IDENTITY_ACTIONS; declarations/fields: `IDENTITY_ACTIONS` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 69–78 | Private HTTP head/body admission and mutation serialization; declaration/member TAILNET_ACTIONS; declarations/fields: `TAILNET_ACTIONS` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 79–81 | Private HTTP head/body admission and mutation serialization; declaration/member TERMINAL_STREAM_CAP; declarations/fields: `TERMINAL_STREAM_CAP` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 82–84 | Private HTTP head/body admission and mutation serialization; declaration/member TERMINAL_REQUEST_LIMIT; declarations/fields: `TERMINAL_REQUEST_LIMIT` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 85–96 | Private HTTP head/body admission and mutation serialization; declaration/member TERMINAL_FRAME_LIMIT; declarations/fields: `TERMINAL_FRAME_LIMIT` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 97 | Private HTTP head/body admission and mutation serialization; declaration/member RequestHead; declarations/fields: `RequestHead` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 98 | Private HTTP head/body admission and mutation serialization; declaration/member RequestHead.method; declarations/fields: `RequestHead.method` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 99 | Private HTTP head/body admission and mutation serialization; declaration/member RequestHead.path; declarations/fields: `RequestHead.path` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 100 | Private HTTP head/body admission and mutation serialization; declaration/member RequestHead.has_query; declarations/fields: `RequestHead.has_query` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 101 | Private HTTP head/body admission and mutation serialization; declaration/member RequestHead.escaped; declarations/fields: `RequestHead.escaped` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 102–104 | Private HTTP head/body admission and mutation serialization; declaration/member RequestHead.origin_present; declarations/fields: `RequestHead.origin_present` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 105–106 | Private HTTP head/body admission and mutation serialization; declaration/member RequestHead.upgrade_websocket; declarations/fields: `RequestHead.upgrade_websocket` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 107–111 | Private HTTP head/body admission and mutation serialization; declaration/member RequestHead.ws_key; declarations/fields: `RequestHead.ws_key` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 112–128 | Private HTTP head/body admission and mutation serialization; declaration/member post; declarations/fields: `post` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 129 | Private HTTP head/body admission and mutation serialization; declaration/member NativeRejection; declarations/fields: `NativeRejection` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 130 | Private HTTP head/body admission and mutation serialization; declaration/member NativeRejection.status; declarations/fields: `NativeRejection.status` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 131–134 | Private HTTP head/body admission and mutation serialization; declaration/member NativeRejection.message; declarations/fields: `NativeRejection.message` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 135–151 | Private HTTP head/body admission and mutation serialization; declaration/member validate_native_request; declarations/fields: `validate_native_request` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 152–156 | Private HTTP head/body admission and mutation serialization; declaration/member is_admitted_mutation_path; declarations/fields: `is_admitted_mutation_path` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 157–170 | Private HTTP head/body admission and mutation serialization; declaration/member body_limit_for; declarations/fields: `body_limit_for` |
-| [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | 171–176 | Identity operation shape admission; declarations/fields: `valid_identity_request` |
-| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | 177–189 | Tailnet operation shape admission; declarations/fields: `validate_tailnet_request` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 190–204 | Private terminal upgrade request admission; declarations/fields: `valid_terminal_request` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 205 | Serialized native mutation gate; declarations/fields: `AdmissionGate` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 206–209 | Serialized native mutation gate; declaration/member AdmissionGate.held; declarations/fields: `AdmissionGate.held` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 210–218 | Serialized native mutation gate; declaration/member fn; declarations/fields: `fn` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 219–224 | Serialized native mutation gate; declaration/member acquire; declarations/fields: `acquire` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 225–227 | Serialized native mutation gate; declaration/member try_acquire; declarations/fields: `try_acquire` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 228–233 | Interactive stream cap and held registration; declarations/fields: `AdmissionGuard`, `TerminalGate`, `new`, `try_register`, `live`, `TerminalSlot`, `drop` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 234 | Interactive stream cap and held registration; declaration/member AdmissionGuard; declarations/fields: `AdmissionGuard` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 235–244 | Interactive stream cap and held registration; declaration/member AdmissionGuard._guard; declarations/fields: `AdmissionGuard._guard` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 245 | Interactive stream cap and held registration; declaration/member TerminalGate; declarations/fields: `TerminalGate` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 246–249 | Interactive stream cap and held registration; declaration/member TerminalGate.live; declarations/fields: `TerminalGate.live` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 250–256 | Interactive stream cap and held registration; declaration/member new; declarations/fields: `new` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 257–268 | Interactive stream cap and held registration; declaration/member try_register; declarations/fields: `try_register` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 269–275 | Interactive stream cap and held registration; declaration/member live; declarations/fields: `live` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 276 | Interactive stream cap and held registration; declaration/member TerminalSlot; declarations/fields: `TerminalSlot` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 277–280 | Interactive stream cap and held registration; declaration/member TerminalSlot.live; declarations/fields: `TerminalSlot.live` |
-| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | 281–290 | Interactive stream cap and held registration; declaration/member drop; declarations/fields: `drop` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 291 | Native socket peer credential mechanics; declarations/fields: `PeerCred` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 292 | Native socket peer credential mechanics; declaration/member PeerCred.pid; declarations/fields: `PeerCred.pid` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 293 | Native socket peer credential mechanics; declaration/member PeerCred.uid; declarations/fields: `PeerCred.uid` |
-| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | 294–300 | Native socket peer credential mechanics; declaration/member PeerCred.gid; declarations/fields: `PeerCred.gid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 301 | Muse caller peer PIDFD provenance types and attestation; declarations/fields: `MusePeer` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 302 | Muse caller peer PIDFD provenance types and attestation; declaration/member MusePeer.pid; declarations/fields: `MusePeer.pid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 303 | Muse caller peer PIDFD provenance types and attestation; declaration/member MusePeer.uid; declarations/fields: `MusePeer.uid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 304–305 | Muse caller peer PIDFD provenance types and attestation; declaration/member MusePeer.gid; declarations/fields: `MusePeer.gid` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 306–310 | Muse caller peer PIDFD provenance types and attestation; declaration/member MusePeer.pidfd; declarations/fields: `MusePeer.pidfd` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 311–315 | Muse caller peer PIDFD provenance types and attestation; declaration/member SO_PEERPIDFD; declarations/fields: `SO_PEERPIDFD` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 316–348 | Muse caller peer PIDFD provenance types and attestation; declaration/member peer_cred; declarations/fields: `peer_cred` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 349–395 | Muse caller peer PIDFD provenance types and attestation; declaration/member muse_peer; declarations/fields: `muse_peer` |
-| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / active | 396–403 | Muse caller peer PIDFD provenance types and attestation; declaration/member close_pidfd; declarations/fields: `close_pidfd` |
+| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | gmux_admission.rs 1–16 | Module `admission` and direct policy exports; no peer wrapper or DTO duplication |
+| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | daemon/admission.rs 1–63 | BODY_LIMIT_DEFAULT/LARGE/IDENTITY, NATIVE_CLEAN_PATHS, ADMITTED_MUTATION_PATHS, IDENTITY_ACTIONS, TAILNET_ACTIONS |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | daemon/admission.rs 64–71 | TERMINAL_STREAM_CAP, TERMINAL_REQUEST_LIMIT, TERMINAL_FRAME_LIMIT |
+| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | daemon/admission.rs 72–158 | RequestHead method/path/has_query/escaped/origin_present/upgrade_websocket/ws_key/websocket_request and post constructor; NativeRejection status/message; native validation, mutation-path and body-limit policy |
+| [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery), [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) / active | daemon/admission.rs 159–164 | valid_identity_request shape/admission |
+| [N03](../../slices/networking.md#n03-host-tailnet-control) / active | daemon/admission.rs 165–177 | validate_tailnet_request action/shape/admission |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | daemon/admission.rs 178–182 | valid_terminal_request shape/admission |
+| [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / active | daemon/admission.rs 183–225 | AdmissionGate.held/new/acquire/try_acquire and AdmissionGuard._guard; mutex custody |
+| [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / active | daemon/admission.rs 226–273 | TerminalGate.live/new/try_register and TerminalSlot.live/drop; held slot lifetime |
+| H01/I05 duplicate / retired by N11 | daemon/peer.rs removed | PeerCred and raw-pidfd MusePeer duplicate, peer_cred, muse_peer, close_pidfd; meaningful attestation remains in the actual Muse owner |
 
 <a id="coverage-1c0dfc31b87c"></a>
 

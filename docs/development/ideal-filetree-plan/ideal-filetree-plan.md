@@ -14,10 +14,11 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
-Current priority: [library adoption](library-adoption.md), selectively reconciled
-against source `72e4bb9015b6d6a622b45638104c74851a137473` and the recorded SDK
-pin. Further implementation dispatch is paused. Completed structural work and
-parked checkpoints remain preserved; pending generic-engine decomposition is
+Current priority: [library adoption](library-adoption.md). Its initial
+reconciliation used source `72e4bb9015b6d6a622b45638104c74851a137473` and the
+recorded SDK pin; the task list records later implemented source scopes.
+Further unrelated restructuring dispatch remains parked. Completed structural
+work and parked checkpoints remain preserved; pending generic-engine decomposition is
 superseded only where the chapter names a replacement. The current task list
 and lane schedule remain the execution plan, using built-in Codex subagents.
 This scoped update does not regenerate the complete tree, advance historical
@@ -25,7 +26,11 @@ coverage counts or qualify behavior. The non-normative
 [investigation](../../research/library-reuse-investigation.md) supports the
 selected direction; product/trust owners remain authoritative.
 
-Last maintained: **2026-10-06**. The execution schedule now provides
+Last maintained: **2026-10-07**. The latest scoped R02 update accounts for
+L18 retirements at `eaed66a9` and reassesses parked A34/B27/C41 duties against
+current library adapters. Selected retirement maps are refreshed; full-tree
+coverage/count reconciliation remains pending below. The execution schedule
+provides
 [parallel implementation lanes](implementation-lanes.md) and a
 [dependency-ordered task list](implementation-tasks.md), prepared against
 `de65ff68`. That checkout's delta from the audit source is documentation only;

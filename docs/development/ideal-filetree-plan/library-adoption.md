@@ -56,7 +56,7 @@ undispatched subject to their exact gates below.
 | L15 SDK input admission | B | B06, C01 | Complete at `c92db11c14` in the exact sibling checkout; retain meaningful per-dial credential transport |
 | L16 Evidence matching | C | C11 | L01 completion, bounded secret-input custody from L12 and declared escape/resource profiles |
 | L17 Configuration evidence | C | C05/C09 | Native corpus collected; rust-ini 0.21.3 fails continuation admission, so CFG01 cutover is held; CFG02 retained independently |
-| L18 Dead machinery removal | C | C05/C11, A/B handoffs | Recheck last callers at implementation revision; no substitute or blanket dependency removal |
+| L18 Dead machinery removal | C | C05/C11, A/B handoffs | Complete in `eaed66a9`: N11/TMP02/DEAD01 retired after current reference and retained-duty checks |
 
 ### L00 Admission and boundary preparation
 
@@ -425,7 +425,8 @@ offline native development build pass. Eight existing unrelated public-export
 warnings remain; no installed/native-worker qualification is claimed. The
 [development receipt](../../../.artifacts/l05-l06/verification.md) records scope,
 producer provenance and failed diagnostics separately. CA did not wait for SSH;
-A34/B27 and full inventory/count regeneration remain parked.
+A34's checkpoint is preserved; B27 is integrated and retained only as provenance.
+Full inventory/count regeneration remains pending.
 
 ### L07 Native SQL parameters
 
@@ -640,8 +641,9 @@ The selected graph pins rustix 1.1.5, libc 0.2.190, tempfile 3.27.0 and walkdir
 introduced. Existing already-bounded libc/stat/publication adapters remain where
 a library transfer would not reduce policy-bearing code. The old generic PATH,
 errno and shell-diagnostic engines and manual active ancillary parser are retired.
-N11's separate daemon peer duplicate and TMP02's unused migrate temporary remain
-L18 work; L10.N4's transport hold and L16's optional matcher are unchanged.
+N11's separate daemon peer duplicate and TMP02's unused migrate temporary were
+outside L12; L18 has since retired both. L10.N4's transport hold and L16's
+optional matcher remain unchanged.
 
 | Acceptance boundary | Executed local evidence |
 | --- | --- |
@@ -796,8 +798,9 @@ provider, VM, shipping and appliance-toolchain qualification remain separate.
 The locked admission added eleven cached dependency nodes without changing
 existing pins. Clap uses std/help/usage/error-context only; the highest declared
 new MSRV is Rust 1.85, and cached manifests/licenses plus the actual affected
-feature closure were checked. L15/L17, the held L10.N4,
-L18 cleanup and optional L16 are unchanged.
+feature closure were checked. L15 input admission and L18 cleanup subsequently
+completed at their defined source scopes. CFG01 fit, the held L10.N4 and
+optional L16 remain separately scoped.
 
 Final passing receipts are `muse-writer-test`, `oci-writer-test`,
 `inventory-assets-test`, `assets-format-test` (canonical renderer),
@@ -938,6 +941,42 @@ needed, then delete without replacement. Preserve actual Muse peer policy and
 testify/other dependencies with remaining consumers. Acceptance is reference
 closure plus affected existing package/source checks, not a new absence harness.
 
+Source completion (2026-10-07), `eaed66a9d7e521b8b920480000df2c2ca1318365`:
+Luna low verified references against `3c64997c`, authored the A/C Rust and B Go
+handoffs, and independently reviewed the final removal. N11's wrapper had only
+module exports and two duplicate smoke tests. Both tests' credentials/pidfd
+assertions already exist on the active Muse path; its peer-attestation test
+passes. The wrapper, exports and duplicate tests are removed; actual Muse
+SO_PEERCRED/original-connection SO_PEERPIDFD, OwnedFd lifetime and caller/cgroup
+policy remain with `muse/socket.rs` and its real callers.
+
+TMP02 no longer creates or deletes an unused random empty file. The migration
+still reads and scrubs in memory before rewriting the original inode, preserving
+byte-line/database-section policy, mode, ownership, diagnostics and error exits.
+Only this command's getrandom manifest/lock edge was removed; its dependency
+list is now empty. Shared getrandom/libc and Go testify retain live consumers.
+DEAD01's single 128-line fixture file had no imports, callers, tests or explicit
+build/install registration. It is deleted without replacement; active Rust OCI
+fixtures remain with their actual import/install/build owners, and inert
+comments no longer point to the dead Go helper.
+
+Forty existing tests pass: one active Muse peer test, 31 remaining gmux smoke
+subjects, two migrate unit tests, three real-command/service-wiring script tests
+and three Go architecture tests. Eight bounded actual-command byte fixtures also
+pass with mode 0640, the original dev/inode and a non-writable parent directory
+as an unprivileged user. They cover non-UTF8, CRLF, unterminated lines, exact
+sections, password spelling and blank/empty records; their inputs/results are
+retained in the source commit receipt. Rust/Cargo 1.99.0 and Go 1.26.7 built the
+three affected development entrypoints (`soda-host`, `soda-forgejo-tailnet`,
+`soda-forgejo-migrate`) with locked offline dependencies. Current metadata lists
+28 Cargo members and 29 Go packages. Format/diff checks pass. These checks do
+not claim installed systemd/container behavior or release qualification.
+
+The scoped R02 retirement maps and parked-seam assessment below are reconciled;
+full historical inventory/count/table regeneration remains pending. L10.N4,
+CFG01 fit, optional L16 and the separate B03.C operator input-cap concern keep
+their existing owners and gates.
+
 ## Readiness gates
 
 | Gate | Exact requirement | Holds only |
@@ -972,7 +1011,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [N8](../../research/library-reuse-investigation.md#n8) | REPLACE | L11 | A |
 | [N9](../../research/library-reuse-investigation.md#n9) | REPLACE | L11 | A |
 | [N10](../../research/library-reuse-investigation.md#n10) | CONSOLIDATE | L12 | C |
-| [N11](../../research/library-reuse-investigation.md#n11) | DELETE | L18 | C |
+| [N11](../../research/library-reuse-investigation.md#n11) | DELETE complete | L18 `eaed66a9`; actual Muse retained | C |
 | [N12](../../research/library-reuse-investigation.md#n12) | RETAIN | L11 retained | A |
 | [N13](../../research/library-reuse-investigation.md#n13) | REPLACE | L01 repair complete; L11 parser adoption | C |
 | [N14](../../research/library-reuse-investigation.md#n14) | RETAIN | L01 | C |
@@ -991,7 +1030,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [JSON02](../../research/library-reuse-investigation.md#json02) | RETAIN | L04 retained | C |
 | [RNG01](../../research/library-reuse-investigation.md#rng01) | REPLACE | L03 | A |
 | [TMP01](../../research/library-reuse-investigation.md#tmp01) | REPLACE | L12 | C |
-| [TMP02](../../research/library-reuse-investigation.md#tmp02) | DELETE | L18 | C |
+| [TMP02](../../research/library-reuse-investigation.md#tmp02) | DELETE complete | L18 `eaed66a9`; original-inode scrub retained | C |
 | [FS01](../../research/library-reuse-investigation.md#fs01) | CONSOLIDATE | L12 | C |
 | [PATH01](../../research/library-reuse-investigation.md#path01) | DELETE | L12 | C |
 | [PROC01](../../research/library-reuse-investigation.md#proc01) | CONSOLIDATE | L12 | C |
@@ -1014,28 +1053,32 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [X50901](../../research/library-reuse-investigation.md#x50901) | REPLACE | L06 | C |
 | [KEEP01](../../research/library-reuse-investigation.md#keep01) | RETAIN | Existing package duties retained | Coordinator |
 | [SYS01](../../research/library-reuse-investigation.md#sys01) | REPLACE | L14 | C |
-| [DEAD01](../../research/library-reuse-investigation.md#dead01) | DELETE | L18 | C |
+| [DEAD01](../../research/library-reuse-investigation.md#dead01) | DELETE complete | L18 `eaed66a9`; no replacement fixture | C |
 
 ## Parked checkpoints
 
-Canonical application source remains the investigation pin above; planning
-commits change documentation only. Parked A
-`fe23ec933fb0880bee07d2dc0b5b4fea3f9880e9`, B
+Luna low reassessed the exclusive checkpoint deltas against canonical
+`3c64997c`, then reconciled N11's removal at `eaed66a9`. This is the scoped R02
+assessment of remaining seams, separate from the historical full-tree audit.
+Parked A `fe23ec933fb0880bee07d2dc0b5b4fea3f9880e9`, B
 `a62614a32feb827a06275263a0304570443fbccc`, and C
-`b3c9e23b2b6b8c7a8e3b5cdb93af00321888fae8` retain their branches/work and command
-handles. No reset, merge, replay, restart, timer or implementation dispatch is
-part of this reconciliation. Planning uses their source diffs as observations,
-not as merged coverage or replacement qualification.
+`b3c9e23b2b6b8c7a8e3b5cdb93af00321888fae8` remain at exactly those branch tips.
+No checkpoint replay, merge, reset, restart or timer change was performed.
 
-| Checkpoint | Useful retained scope | Superseded or held scope | Planning disposition |
-| --- | --- | --- | --- |
-| A | Eight checkpoint-only A34 commits move Tailnet control/project caller/test seams; these application policy seams remain useful | The snapshot predates later canonical consolidation: its two-dot comparison also exposes older protocol, predicate, forwarding and test wiring, not additional A34 work to carry forward | Preserve branch; assess the A34 delta from merge-base `f253b96d` against current L09/L11 adapters. Do not restore stale snapshot bodies |
-| B | B27 admission/routes/HTTP/WS/peer/test extraction is already patch-equivalent in canonical history | Two-dot differences also include canonical's later host-native consolidation; they do not establish unmerged B27 work | Preserve checkpoint; do not replay already integrated extraction. Its generic bodies now have L09/L18 follow-ups |
-| C | Four C41 commits change seven Muse paths (286 insertions/273 deletions); argument/caller/cleanup seams retain meaningful state/authority and cleanup-order duties | Its 17-path two-dot comparison includes pre-B27 daemon/test wiring because canonical advanced after divergence; those differences are not C-authored reinlining work | Preserve branch; evaluate the seven-path C41 delta from merge-base `bb6be3a3` under L12 and existing duties. Preserve current canonical protocol/test wiring |
+| Checkpoint / exact comparison | Retained application duty and current defining owner | Disposition within existing tasks |
+| --- | --- | --- |
+| A34: eight exclusive commits, ten-path delta from merge-base `f253b96ddf235b6c5b6935730f0ebc713c8b3b45` | `tcontrol.rs` still owns project/run-binding/enroll-run bridges called by the companion and `dbackend`; policy/provider/enrollment/retry remain local. All seven moved tests already exist in `tests/tcontrol_oracle.rs` | C04.M retains policy/provider/enrollment and optional caller/test ownership seams; A07.M/V retains host/companion binding/lifetime. Library-local test placement is optional, not missing behavior. L09/L11 already own transport and selected time/IP/URL adapters. Preserve the checkpoint; any later split must consume current adapter bodies |
+| B27: seven U1–U7 commits from `7089a6d089fc712ec35dcc168f737aad8a322154`; the full checkpoint/canonical merge-base is `c0caefb34971b0565440f3d346cf13cc3ba1828f`, whose 101-commit divergent range is not a B27 delta. Canonical U1–U6 patch IDs match and canonical U7 `72e4bb90` is an ancestor | Current `daemon/{admission,routes,response,http,websocket}.rs` owns actual policy and library adapters. Later L09 upgrade/pump/read-ahead and response tests supersede the snapshot representation | No B27 replay. The only dead peer duplicate is now removed by L18/N11; active Muse attestation is retained. Completed structural work remains complete at its original scope; native authority/qualification findings keep their own gates |
+| C41: four exclusive commits, seven-path delta from merge-base `bb6be3a3f86dc385e53924af57965e972273b4e1` | `muse/args.rs` feeds execution; `connection.rs` supplies backend selection; resolve/nested retain caller/account/cgroup checks; `operate.rs` owns ordered mount/file/state cleanup called by stop. L12 owns lower-level FD/process/cancellation mechanics | A07.M owns retained caller/custody/cleanup seams; A07.V owns actual lifecycle evidence. Caller and cleanup splits are coherent optional seams; combining argv and broker connection selection lacks a demonstrated single owner. Existing Muse tests cover these helpers. Keep current boundaries pending a concrete owner benefit; do not replay the stale 17-path two-dot diff |
 
-These are source/diff and caller assessments, not approval to merge or proof of
-replacement/native behavior. Recheck selected commits against the actual
-implementation revision before any separately scoped integration.
+Acceptance of this assessment: every useful duty stays assigned to an existing
+owner, superseded generic splits are excluded from the desired responsibility,
+and the three checkpoint tips remain unchanged. No new coverage gap was
+established by these module moves. If a seam is selected later, its prerequisite
+is a diff against the then-current defining adapters; its acceptance is retained
+caller/custody behavior and the relevant existing tests, with no old engine
+restoration. Full source-to-slice recount and installed qualification remain
+separate R02/R04 work.
 
 ## Completion of a selected change
 

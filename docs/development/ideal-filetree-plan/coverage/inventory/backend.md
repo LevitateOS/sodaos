@@ -4,6 +4,11 @@
 
 ## Coverage inventory: internal
 
+Scoped R02/L18 update at `eaed66a9` (2026-10-07): `internal/testoci/fixture.go`
+is retired without replacement. Current Go package enumeration and topology
+checks pass. The earlier census below remains historical; this does not claim a
+complete inventory/range refresh.
+
 R02 check @HEAD `69e97afc` (B01–B05 pure splits): all 357 row paths verified
 present at HEAD — zero stale rows (split parents retained, no deletions).
 Census: 430 tracked `internal/` files / 357 rowed / 73 unlisted new split
@@ -279,7 +284,7 @@ queued (show as STALE on touch, do not silently carry).
 | [internal/tailnet/project_status.go](../../../../../internal/tailnet/project_status.go) | source / active | [N06](../../slices/networking.md#n06-project-companion-lifecycle) |
 | [internal/tailnet/tailnet.go](../../../../../internal/tailnet/tailnet.go) | source / active | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) |
 | [internal/tailnet/tailnet_test.go](../../../../../internal/tailnet/tailnet_test.go) | test / active | [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) |
-| [internal/testoci/fixture.go](../../../../../internal/testoci/fixture.go) | source / active | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
+| `internal/testoci/fixture.go` (L18/DEAD01 retired at `eaed66a9`) | retired test-support / no replacement | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) |
 | [internal/web/api/access_keys.go](../../../../../internal/web/api/access_keys.go) | source / active | [P04](../../slices/projects.md#p04-development-ssh-access) |
 | [internal/web/api/api.go](../../../../../internal/web/api/api.go) | source / active | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention), [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions), [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads), [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime), [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives), [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability), [P01](../../slices/projects.md#p01-repository-association-and-creation), [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory), [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) — [interval map](../maps/backend-web-api.md#coverage-02c4cfae64a5) |
 | [internal/web/api/dispatch_inputs.go](../../../../../internal/web/api/dispatch_inputs.go) | source / active | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) |
