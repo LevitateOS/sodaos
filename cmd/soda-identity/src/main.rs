@@ -105,7 +105,18 @@ fn parse_args() -> Result<String, String> {
 }
 
 fn load(path: &str) -> Result<Settings, String> {
-    let raw = std::fs::read(path).map_err(|e| format!("read identity settings: {e}"))?;
+    use std::io::Read;
+
+    let mut raw = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|file| {
+            file.take(soda_identity::strict::MAX_DOCUMENT as u64 + 1)
+                .read_to_end(&mut raw)
+        })
+        .map_err(|e| format!("read identity settings: {e}"))?;
+    if raw.len() > soda_identity::strict::MAX_DOCUMENT {
+        return Err("read identity settings: document exceeds size limit".to_string());
+    }
     let settings: Settings = soda_identity::strict::decode(
         &raw,
         soda_identity::strict::MAX_DOCUMENT,
@@ -128,6 +139,63 @@ fn load(path: &str) -> Result<Settings, String> {
         return Err("administration and runtime sockets must differ".to_string());
     }
     Ok(settings)
+}
+
+#[cfg(test)]
+mod settings_load_tests {
+    use super::*;
+    use std::fs;
+
+    fn valid_settings(total_len: usize) -> Vec<u8> {
+        let mut bytes = br#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host"}"#.to_vec();
+        assert!(total_len >= bytes.len());
+        bytes.resize(total_len, b' ');
+        bytes
+    }
+
+    #[test]
+    fn exact_limit_reaches_strict_decoder() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let bytes = valid_settings(soda_identity::strict::MAX_DOCUMENT);
+        assert_eq!(bytes.len(), soda_identity::strict::MAX_DOCUMENT);
+        fs::write(&path, bytes).unwrap();
+
+        assert!(load(path.to_str().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn over_limit_refuses_before_decode() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let bytes = valid_settings(soda_identity::strict::MAX_DOCUMENT + 1);
+        assert_eq!(bytes.len(), soda_identity::strict::MAX_DOCUMENT + 1);
+        fs::write(&path, bytes).unwrap();
+
+        assert_eq!(
+            load(path.to_str().unwrap()).unwrap_err(),
+            "read identity settings: document exceeds size limit"
+        );
+    }
+
+    #[test]
+    fn read_error_fails_startup() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing.json");
+
+        assert!(load(missing.to_str().unwrap())
+            .unwrap_err()
+            .starts_with("read identity settings:"));
+    }
+
+    #[test]
+    fn directory_read_error_fails_startup() {
+        let dir = tempfile::tempdir().unwrap();
+
+        assert!(load(dir.path().to_str().unwrap())
+            .unwrap_err()
+            .starts_with("read identity settings:"));
+    }
 }
 
 fn service_listeners(settings: &Settings) -> Result<(UnixListener, UnixListener), String> {
