@@ -323,7 +323,16 @@ deleted with their callers and dependency edge. Its 48 library checks, 12
 integration oracles, development build and medium review passed. Integer-token
 adapters retain `-0` as zero while rejecting fractions, exponents and overflow;
 raw input hashes and required producer bytes remain at their owners.
-Remaining host, release-image/deliver/tools, import/activate, guest and tool
+Host checkpoint `df4b2cf5` transfers terminal stream/inspection, factory records
+and preparation/helper records to owner DTOs. Its signed token adapter preserves
+`-0`, nullable exits and per-occurrence alias validation; unsigned bytes retain
+their separate refusal policy. All 325 host library tests, 198 private Muse
+oracles, 58 native-control oracles, the development build and medium review
+passed with fresh local fixtures. Remaining host callers still hold its engine.
+Activation and candidate/lab credential producers completed in `eba27412`:
+54 tests, development builds and medium review passed. Typed producer records
+retain Python escaping, property order, indentation and newline contracts.
+Remaining host, release-image/deliver/tools, import, guest and tool
 callers hold JSON01 completion and deletion of `lib/json`.
 The [active verification record](../../../.artifacts/l03-l04/verification.md)
 links commits to local receipt scope and retains failed/environment-limited

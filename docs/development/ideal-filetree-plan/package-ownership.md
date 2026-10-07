@@ -168,6 +168,13 @@ are bounded raw-byte custody, concrete record admission and required producer
 formatters. Pending consumers still hold shared-crate deletion; a completed
 owner transfer does not complete JSON01 repository-wide.
 
+Host terminal/factory/preparation records now use caller-owned Serde DTOs
+(`df4b2cf5`), with signed token and byte adapters preserving their distinct
+admission policies. Untransferred host clients still hold the legacy engine.
+Activation and candidate/lab credential producers (`eba27412`) retain only
+configuration validation and required Python-compatible output formatters;
+their removed JSON machinery has no pending structural split.
+
 ### Selected engine and adapter ownership
 
 The [packet definitions](library-adoption.md#execution-packets) supply exact
