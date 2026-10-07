@@ -15,6 +15,11 @@ prerequisites. Synchronous/string interface alternatives and parked browser
 ownership are assessed separately. This census identifies a retained duty,
 not a requirement to retain the present wrapper.
 
+The subsequent [representation audit](../data-representations.md) at `463ce772`
+checks duplicate/alias/null/number and output rules against actual producers.
+It adds concrete evidence/formatter/provisioning cuts and narrows shared-model,
+ordered-tree and native-schema changes to explicit profile/ownership decisions.
+
 Source: `f8b22b0bcf274f42bd6395a2ddf89872135ecb2d`, tree
 `607899f44a2c3b1368aa09e0f2fa61c4fe703927`, inspected 2026-10-07. The application
 source is unchanged from the recorded [baseline](../review-baseline.md). The

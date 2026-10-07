@@ -16,6 +16,11 @@ the new challenge reads defining mechanisms and their actual callers against
 selected upstream source. It does not claim a fresh body review of every census
 selector or every transitive implementation path.
 
+The subsequent [representation audit](../data-representations.md) at `463ce772`
+reassesses retained visitors and formatting against actual producers. Old L04
+profiles/goldens do not impose permanent unreleased compatibility; release wire,
+ordered-tree and formatter cuts now have explicit scoped dispositions there.
+
 ## Selected API coverage and dispositions
 
 The Rust partition covers all **38 direct external dependency names**. Exact

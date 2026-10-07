@@ -7,10 +7,11 @@ root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
 recorded working bytes. The existing **2,545 paths**, reconciled through `f8b22b0b`,
 plus **four library-caller documents, one observation-reliability chapter,
-one connected workflow-trace chapter and one adapter-challenge chapter**
+one connected workflow-trace chapter, one adapter-challenge chapter and
+one representation chapter**
 are accounted exactly once in the [tracked-file inventories](inventory/README.md).
 No working source additions were
-present. These seven H06 documents are the explicit current documentation delta;
+present. These eight H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -24,11 +25,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including seven authored documents / missing / duplicate rows | 2,552 / 0 / 0 |
+| Current paths including eight authored documents / missing / duplicate rows | 2,553 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus seven whole-document H06 duties | 20,117 + 7 = 20,124 |
+| Existing named duties plus eight whole-document H06 duties | 20,117 + 8 = 20,125 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -49,7 +50,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `.githooks` | 1 |
 | `assets` | 175 |
 | `cmd` | 338 |
-| `docs` | 312 |
+| `docs` | 313 |
 | `factory-os` | 1 |
 | `frontend` | 345 |
 | `internal` | 451 |
@@ -155,6 +156,11 @@ H06 whole-document duty at source `2dc3bce9`. Selected upstream APIs and concret
 caller-interface cuts refine the existing packets; profile/upstream gates and
 parked ownership assessments do not reopen completed adoption or advance native
 qualification.
+
+The [representation audit](../data-representations.md) adds one H06
+whole-document duty at source `463ce772`. Concrete producer/caller questions,
+raw-byte authority and conditional consolidation decisions refine the existing
+packets without advancing the historical full-slice validity review.
 
 - [Current tracked inventories](inventory/README.md)
 - [Current responsibility maps](maps/README.md)
