@@ -301,7 +301,7 @@ fn oracle_compile_recipes() {
     let text = calls.lock().unwrap().join("\n");
     assert!(
         text.contains("cargo build --release --locked")
-            && text.contains("-p soda-identity-compose")
+            && text.contains("-p soda-identity-compose --bin soda-identity-compose")
     );
     assert_eq!(text.matches("cargo build").count(), 1);
     for (bad_crate, bad_bin) in [

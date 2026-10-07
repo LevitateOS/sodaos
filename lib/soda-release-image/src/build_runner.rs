@@ -180,11 +180,25 @@ pub fn build_environment_pairs() -> Vec<(String, String)> {
 pub fn run_build_command(
     cancel: &Cancel,
     log: &mut dyn Write,
-    mut output: Option<&mut dyn Write>,
+    output: Option<&mut dyn Write>,
     dir: &str,
     name: &str,
     args: &[String],
 ) -> Result<String, Error> {
+    let budget = bounded_operation_deadline(&sys::base_name(name), args);
+    run_build_command_with_budget(cancel, log, output, dir, name, args, budget)
+}
+
+fn run_build_command_with_budget(
+    cancel: &Cancel,
+    log: &mut dyn Write,
+    mut output: Option<&mut dyn Write>,
+    dir: &str,
+    name: &str,
+    args: &[String],
+    budget: Option<std::time::Duration>,
+) -> Result<String, Error> {
+    let operation_deadline = budget.map(|duration| std::time::Instant::now() + duration);
     let base = sys::base_name(name);
     let mut command = std::process::Command::new(name);
     command
@@ -208,7 +222,17 @@ pub fn run_build_command(
     let mut captured = Vec::new();
     let mut status = None;
     let mut drain_deadline = None;
+    let mut timed_out = false;
     while status.is_none() || stdout.is_some() || stderr.is_some() {
+        if !timed_out
+            && status.is_none()
+            && operation_deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline)
+        {
+            timed_out = true;
+            let _ = child.kill();
+            status = child.wait().ok();
+            drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
+        }
         if cancel.is_cancelled() && status.is_none() {
             let _ = child.kill();
             status = child.wait().ok();
@@ -264,6 +288,11 @@ pub fn run_build_command(
     let status =
         status.ok_or_else(|| Error::msg(format!("{base} failed; child status unavailable")))?;
     let text = String::from_utf8_lossy(&captured).into_owned();
+    if timed_out {
+        return Err(Error::msg(format!(
+            "{base} failed; retain attempt and inspect build.log: metadata deadline exceeded"
+        )));
+    }
     if cancel.is_cancelled() {
         return Err(Error::msg(format!(
             "{base} failed; retain attempt and inspect build.log: build cancelled"
@@ -279,6 +308,11 @@ pub fn run_build_command(
         )));
     }
     Ok(text.trim().to_string())
+}
+
+fn bounded_operation_deadline(base: &str, args: &[String]) -> Option<std::time::Duration> {
+    (base == "cargo" && args.first().is_some_and(|arg| arg == "metadata"))
+        .then_some(std::time::Duration::from_secs(120))
 }
 
 struct ChildGuard(std::process::Child);

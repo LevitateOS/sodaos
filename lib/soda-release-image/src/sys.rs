@@ -4,13 +4,14 @@
 //! inventory, and the private-file check. Heavy foreign operations (OCI,
 //! signing, live resolution) live behind [`crate::foreign::Production`].
 
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
 use crate::error::Error;
 use crate::jsonio;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Shared inventory primitive (`build.File`).
@@ -318,74 +319,267 @@ pub fn is_rust_command(cmd_dir: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// CODEX-CR02-001: `[[bin]]` names declared by a Rust command manifest.
-/// Unreadable manifests yield no names so the caller keeps the previous
-/// classification; the real workspace build owns those failures.
-fn declared_bins(cmd_dir: &str) -> Vec<String> {
-    let text = fs::read_to_string(join(&[cmd_dir, "Cargo.toml"])).unwrap_or_default();
-    let mut names = Vec::new();
-    let mut in_bin = false;
-    for raw in text.lines() {
-        let line = raw.trim();
-        if line.starts_with('[') {
-            let head = line.split('#').next().unwrap_or("").trim();
-            in_bin = head == "[[bin]]";
-            continue;
-        }
-        if !in_bin {
-            continue;
-        }
-        let Some(rest) = line.strip_prefix("name") else {
-            continue;
-        };
-        let Some(value) = rest.trim_start().strip_prefix('=') else {
-            continue;
-        };
-        let mut value = value.trim();
-        if value.len() >= 2 {
-            let quote = value.as_bytes()[0];
-            if (quote == b'"' || quote == b'\'') && value.as_bytes()[value.len() - 1] == quote {
-                value = &value[1..value.len() - 1];
-            } else if quote == b'"' || quote == b'\'' {
-                // Trailing comment after the quoted name; take the quoted part.
-                let bytes = value.as_bytes();
-                if let Some(end) = bytes[1..].iter().position(|b| *b == quote) {
-                    value = &value[1..1 + end];
-                }
+#[derive(Debug, Deserialize)]
+struct CargoMetadata {
+    workspace_root: String,
+    workspace_members: Vec<String>,
+    packages: Vec<CargoPackageMetadata>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoPackageMetadata {
+    id: String,
+    name: String,
+    manifest_path: String,
+    #[serde(default)]
+    features: BTreeMap<String, Vec<String>>,
+    targets: Vec<CargoTargetMetadata>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoTargetMetadata {
+    name: String,
+    kind: Vec<String>,
+    #[serde(default, rename = "required-features")]
+    required_features: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ShippingPackage {
+    id: String,
+    name: String,
+    manifest_path: PathBuf,
+    bins: BTreeMap<String, BTreeSet<String>>,
+    default_features: BTreeSet<String>,
+}
+
+/// Immutable Cargo target inventory for one admitted workspace snapshot.
+#[derive(Debug, Clone)]
+pub struct ShippingInventory {
+    workspace_root: PathBuf,
+    packages: Vec<ShippingPackage>,
+    commands: Vec<String>,
+}
+
+fn active_default_features(features: &BTreeMap<String, Vec<String>>) -> BTreeSet<String> {
+    let mut active = BTreeSet::new();
+    let mut pending = VecDeque::new();
+    if features.contains_key("default") {
+        active.insert("default".to_string());
+        pending.push_back("default".to_string());
+    }
+    while let Some(feature) = pending.pop_front() {
+        for item in features.get(&feature).into_iter().flatten() {
+            if features.contains_key(item) && active.insert(item.clone()) {
+                pending.push_back(item.clone());
             }
         }
-        names.push(value.to_string());
     }
-    names
+    active
 }
 
-/// CODEX-CR02-001: true when a Rust-owned cmd directory must not ship
-/// through the cmd identity — its manifest declares `[[bin]]` entries but
-/// none of them is the command's own directory name. Such a crate ships
-/// its real binaries through RUST_TOOLS tuples instead. Manifests with no
-/// `[[bin]]` section keep the previous classification.
-fn ships_no_command_bin(cmd_dir: &str, name: &str) -> bool {
-    let bins = declared_bins(cmd_dir);
-    !bins.is_empty() && !bins.iter().any(|bin| bin == name)
+/// Parse Cargo's tolerant metadata schema and bind it to the admitted
+/// workspace. Package IDs remain opaque strings throughout.
+pub fn parse_shipping_inventory(snapshot: &str, json: &str) -> Result<ShippingInventory, Error> {
+    let root = fs::canonicalize(snapshot).map_err(|_| Error::msg("invalid Cargo workspace"))?;
+    let manifest = fs::canonicalize(root.join("Cargo.toml"))
+        .map_err(|_| Error::msg("invalid Cargo workspace"))?;
+    let metadata: CargoMetadata =
+        jsonio::parse(json).map_err(|_| Error::msg("invalid Cargo metadata"))?;
+    let metadata_root = fs::canonicalize(&metadata.workspace_root)
+        .map_err(|_| Error::msg("invalid Cargo metadata"))?;
+    if metadata_root != root || !manifest.is_file() {
+        return Err(Error::msg("Cargo metadata workspace mismatch"));
+    }
+    let workspace_ids: BTreeSet<&str> = metadata
+        .workspace_members
+        .iter()
+        .map(String::as_str)
+        .collect();
+    if workspace_ids.len() != metadata.workspace_members.len() {
+        return Err(Error::msg("invalid Cargo workspace membership"));
+    }
+    let mut found_ids = BTreeSet::new();
+    let mut manifests = BTreeSet::new();
+    let mut packages = Vec::new();
+    for package in metadata.packages {
+        if !workspace_ids.contains(package.id.as_str()) {
+            continue;
+        }
+        if package.name.is_empty() || !found_ids.insert(package.id.clone()) {
+            return Err(Error::msg("invalid Cargo package identity"));
+        }
+        let path = fs::canonicalize(&package.manifest_path)
+            .map_err(|_| Error::msg("invalid Cargo package manifest"))?;
+        if !path.starts_with(&root)
+            || path.file_name().and_then(|name| name.to_str()) != Some("Cargo.toml")
+            || !manifests.insert(path.clone())
+        {
+            return Err(Error::msg("Cargo package manifest outside workspace"));
+        }
+        let default_features = active_default_features(&package.features);
+        let mut bins = BTreeMap::new();
+        for target in package.targets {
+            if !target.kind.iter().any(|kind| kind == "bin") {
+                continue;
+            }
+            let required: BTreeSet<String> = target.required_features.into_iter().collect();
+            if bins.insert(target.name, required).is_some() {
+                return Err(Error::msg("duplicate Cargo binary target"));
+            }
+        }
+        packages.push(ShippingPackage {
+            id: package.id,
+            name: package.name,
+            manifest_path: path,
+            bins,
+            default_features,
+        });
+    }
+    if found_ids.len() != workspace_ids.len() {
+        return Err(Error::msg("Cargo metadata omitted workspace package"));
+    }
+    Ok(ShippingInventory {
+        workspace_root: root,
+        packages,
+        commands: Vec::new(),
+    })
 }
 
-/// Packaging ownership: crates whose binaries RUST_TOOLS installs keep
-/// their established destinations; shared discovery must not also produce
-/// them as appliance commands. Kept in sync with
-/// `build_compile::RUST_TOOLS` by `toolsown_members_match_rust_tools`.
-const RUST_TOOLS_MEMBERS: &[&str] = &[
-    "soda-acceptance",
-    "soda-activate",
-    "soda-console-welcome",
-    "soda-forgejo-domain",
-    "soda-forgejo-migrate",
-    "soda-install",
-    "soda-pg-maintenance",
-    "soda-project-terminal",
-];
+impl ShippingInventory {
+    fn package_at(&self, manifest: &Path) -> Result<Option<&ShippingPackage>, Error> {
+        let path = fs::canonicalize(manifest).map_err(|_| Error::msg("Cargo manifest missing"))?;
+        if !path.starts_with(&self.workspace_root) {
+            return Err(Error::msg("Cargo manifest outside admitted workspace"));
+        }
+        Ok(self
+            .packages
+            .iter()
+            .find(|package| package.manifest_path == path))
+    }
 
-fn is_tools_owned(name: &str) -> bool {
-    RUST_TOOLS_MEMBERS.contains(&name)
+    /// Confirms one actual bin target and that its required feature set is
+    /// enabled by Cargo's default-feature build recipe.
+    pub fn require_bin(&self, package_name: &str, bin: &str) -> Result<(), Error> {
+        let mut matches = self
+            .packages
+            .iter()
+            .filter(|package| package.name == package_name);
+        let package = matches
+            .next()
+            .ok_or_else(|| Error::msg("Cargo package target missing"))?;
+        if matches.next().is_some() {
+            return Err(Error::msg("ambiguous Cargo package target"));
+        }
+        Self::require_package_bin(package, bin)?;
+        // Read the opaque ID as part of the admitted identity without parsing
+        // Cargo's version-sensitive ID representation.
+        if package.id.is_empty() {
+            return Err(Error::msg("invalid Cargo package identity"));
+        }
+        Ok(())
+    }
+
+    fn contains_bin_at(&self, manifest: &Path, bin: &str) -> Result<bool, Error> {
+        let Some(package) = self.package_at(manifest)? else {
+            return Err(Error::msg("Cargo metadata omitted command manifest"));
+        };
+        let Some(required) = package.bins.get(bin) else {
+            return Ok(false);
+        };
+        if required
+            .iter()
+            .any(|feature| !package.default_features.contains(feature))
+        {
+            return Err(Error::msg("Cargo binary requires a non-default feature"));
+        }
+        Ok(true)
+    }
+
+    pub fn require_bin_at(&self, manifest: &str, bin: &str) -> Result<(), Error> {
+        let package = self
+            .package_at(Path::new(manifest))?
+            .ok_or_else(|| Error::msg("Cargo metadata omitted command manifest"))?;
+        Self::require_package_bin(package, bin)
+    }
+
+    fn require_package_bin(package: &ShippingPackage, bin: &str) -> Result<(), Error> {
+        let required = package
+            .bins
+            .get(bin)
+            .ok_or_else(|| Error::msg("Cargo binary target missing"))?;
+        if required
+            .iter()
+            .any(|feature| !package.default_features.contains(feature))
+        {
+            return Err(Error::msg("Cargo binary requires a non-default feature"));
+        }
+        Ok(())
+    }
+
+    pub fn package_name_for_manifest(&self, manifest: &str) -> Result<&str, Error> {
+        self.package_name_at(Path::new(manifest))
+    }
+
+    fn has_bins_at(&self, manifest: &Path) -> Result<bool, Error> {
+        self.package_at(manifest)?
+            .map(|package| !package.bins.is_empty())
+            .ok_or_else(|| Error::msg("Cargo metadata omitted command manifest"))
+    }
+
+    fn package_name_at(&self, manifest: &Path) -> Result<&str, Error> {
+        self.package_at(manifest)?
+            .map(|package| package.name.as_str())
+            .ok_or_else(|| Error::msg("Cargo metadata omitted command manifest"))
+    }
+
+    pub fn commands(&self) -> &[String] {
+        &self.commands
+    }
+
+    /// Freeze the existing appliance-command policy into this snapshot's
+    /// inventory. `tool_members` comes from the authoritative RUST_TOOLS table.
+    pub fn select_commands(
+        mut self,
+        source: &str,
+        tool_members: &[&str],
+    ) -> Result<ShippingInventory, Error> {
+        let mut names = Vec::new();
+        let entries = fs::read_dir(join(&[source, "cmd"]))?;
+        let mut dirs: Vec<String> = entries
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_type().map(|t| t.is_dir()).unwrap_or(false))
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        dirs.sort();
+        for name in dirs {
+            let cmd_dir = join(&[source, "cmd", &name]);
+            if is_rust_command(&cmd_dir) {
+                let manifest = PathBuf::from(&cmd_dir).join("Cargo.toml");
+                let package_name = self.package_name_at(&manifest)?;
+                if self.has_bins_at(&manifest)? && !self.contains_bin_at(&manifest, &name)? {
+                    continue;
+                }
+                if tool_members.contains(&package_name) {
+                    continue;
+                }
+            }
+            if name == "soda-forgejo-tailnet" && !has_go_sources(&cmd_dir) {
+                continue;
+            }
+            if !is_soda_command(&name) || name == "soda-artifacts" || name == "soda-acceptance" {
+                return Err(Error::msg(
+                    "support tools must remain outside appliance commands",
+                ));
+            }
+            names.push(name);
+        }
+        if names.is_empty() {
+            return Err(Error::msg("missing Soda commands"));
+        }
+        self.commands = names;
+        Ok(self)
+    }
 }
 
 /// N07-T3: true when a cmd directory still carries Go sources. Unreadable
@@ -403,54 +597,6 @@ fn has_go_sources(cmd_dir: &str) -> bool {
             })
         })
         .unwrap_or(true)
-}
-
-/// `build.SodaCommands`: sorted `cmd/soda-*` directories, tools excluded.
-pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
-    let mut names = Vec::new();
-    let entries = fs::read_dir(join(&[source, "cmd"]))?;
-    let mut dirs: Vec<String> = entries
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.file_type().map(|t| t.is_dir()).unwrap_or(false))
-        .map(|entry| entry.file_name().to_string_lossy().into_owned())
-        .collect();
-    dirs.sort();
-    for name in dirs {
-        // CODEX-CR02-001 (subsumes CODEX-A01-CMD-1): a Rust-owned cmd
-        // directory ships as an appliance command only when its manifest
-        // declares a binary of its own directory name. Multi-binary/lib
-        // crates (soda-project-terminal, soda-pg-maintenance) ship their
-        // real binaries via RUST_TOOLS; skip them here (not error) so
-        // compile/link never reference the bogus identity.
-        if is_rust_command(&join(&[source, "cmd", &name]))
-            && ships_no_command_bin(&join(&[source, "cmd", &name]), &name)
-        {
-            continue;
-        }
-        // Packaging ownership: a RUST_TOOLS member crate keeps its
-        // established install destinations; skip it here (not error) so
-        // compile/link produce each binary exactly once.
-        if is_rust_command(&join(&[source, "cmd", &name])) && is_tools_owned(&name) {
-            continue;
-        }
-        // N07-T3: cmd/soda-forgejo-tailnet is Rust-built from the soda-host
-        // package once its Go sources retire; skip it here (not error) so
-        // discovery never attempts a Go build of a sourceless directory.
-        // Pre-retirement trees (Go sources present) list it exactly as before.
-        if name == "soda-forgejo-tailnet" && !has_go_sources(&join(&[source, "cmd", &name])) {
-            continue;
-        }
-        if !is_soda_command(&name) || name == "soda-artifacts" || name == "soda-acceptance" {
-            return Err(Error::msg(
-                "support tools must remain outside appliance commands",
-            ));
-        }
-        names.push(name);
-    }
-    if names.is_empty() {
-        return Err(Error::msg("missing Soda commands"));
-    }
-    Ok(names)
 }
 
 fn is_soda_command(name: &str) -> bool {
@@ -504,6 +650,137 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cargo_metadata_binds_opaque_ids_to_canonical_manifests_and_default_features() {
+        let root = std::env::temp_dir().join(format!("sri-metadata-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let command = root.join("cmd/soda-command");
+        fs::create_dir_all(&command).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"cmd/soda-command\"]\nresolver = \"2\"\n",
+        )
+        .unwrap();
+        fs::write(
+            command.join("Cargo.toml"),
+            "[package]\nname = \"renamed-package\"\nversion = \"0.1.0\"\nedition = \"2021\"\n[features]\ndefault = [\"first\"]\nfirst = [\"second\"]\nsecond = []\noptional = []\n[[bin]]\nname = \"soda-command\"\npath = \"src/main.rs\"\nrequired-features = [\"second\"]\n[[bin]]\nname = \"other-tool\"\npath = \"src/other.rs\"\nrequired-features = [\"optional\"]\n",
+        )
+        .unwrap();
+        fs::create_dir_all(command.join("src")).unwrap();
+        fs::write(command.join("src/main.rs"), b"fn main() {}\n").unwrap();
+        fs::write(command.join("src/other.rs"), b"fn main() {}\n").unwrap();
+        let command_manifest = command.join("Cargo.toml").canonicalize().unwrap();
+        let root = root.canonicalize().unwrap();
+        let metadata = serde_json::json!({
+            "workspace_root": root,
+            "workspace_members": ["opaque package id"],
+            "packages": [{
+                "id": "opaque package id",
+                "name": "renamed-package",
+                "manifest_path": command_manifest,
+                "features": {
+                    "default": ["first"],
+                    "first": ["second"],
+                    "second": [],
+                    "optional": []
+                },
+                "targets": [
+                    {"name":"soda-command", "kind":["bin"], "required-features":["second"], "extra":true},
+                    {"name":"other-tool", "kind":["bin"], "required-features":["optional"]},
+                    {"name":"renamed_package", "kind":["lib"]}
+                ],
+                "new_cargo_field": {"ignored": true}
+            }],
+            "new_top_level_field": true
+        })
+        .to_string();
+        let inventory = parse_shipping_inventory(root.to_str().unwrap(), &metadata).unwrap();
+        inventory
+            .require_bin("renamed-package", "soda-command")
+            .unwrap();
+        assert_eq!(
+            inventory
+                .require_bin("renamed-package", "other-tool")
+                .unwrap_err()
+                .0,
+            "Cargo binary requires a non-default feature"
+        );
+        assert_eq!(inventory.packages[0].id, "opaque package id");
+        // Exercise Cargo's actual versioned schema, including its hyphenated
+        // required-features field, rather than relying only on a JSON fixture.
+        let actual = crate::build_runner::run_build_command(
+            &crate::build_runner::Cancel::new(),
+            &mut Vec::new(),
+            None,
+            root.to_str().unwrap(),
+            "cargo",
+            &[
+                "metadata".to_string(),
+                "--format-version=1".to_string(),
+                "--no-deps".to_string(),
+                "--offline".to_string(),
+                "--locked".to_string(),
+            ],
+        )
+        .unwrap();
+        let actual = parse_shipping_inventory(root.to_str().unwrap(), &actual).unwrap();
+        actual
+            .require_bin("renamed-package", "soda-command")
+            .unwrap();
+        assert!(actual.require_bin("renamed-package", "other-tool").is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn actual_workspace_shipping_commands_preserve_the_selected_inventory() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let metadata = crate::build_runner::run_build_command(
+            &crate::build_runner::Cancel::new(),
+            &mut Vec::new(),
+            None,
+            root.to_str().unwrap(),
+            "cargo",
+            &[
+                "metadata".to_string(),
+                "--format-version=1".to_string(),
+                "--no-deps".to_string(),
+                "--offline".to_string(),
+                "--locked".to_string(),
+            ],
+        )
+        .unwrap();
+        let tools: Vec<&str> = crate::build_compile::RUST_TOOLS
+            .iter()
+            .map(|(package, _, _)| *package)
+            .collect();
+        let inventory = parse_shipping_inventory(root.to_str().unwrap(), &metadata)
+            .unwrap()
+            .select_commands(root.to_str().unwrap(), &tools)
+            .unwrap();
+        assert_eq!(
+            inventory.commands(),
+            &[
+                "soda-dashboard",
+                "soda-extension",
+                "soda-factory",
+                "soda-identity",
+                "soda-identity-compose",
+                "soda-image-import",
+                "soda-muse",
+                "soda-muse-maintain",
+                "soda-setup",
+                "soda-tailnet",
+            ]
+        );
+        for (package, bin, _) in crate::build_compile::RUST_TOOLS {
+            inventory.require_bin(package, bin).unwrap();
+        }
+    }
 
     #[test]
     fn bounded_read_caps_growth_and_keeps_open_inode() {
@@ -633,7 +910,7 @@ mod tests {
     }
 
     #[test]
-    fn cmd1_discovery_skips_folded_terminal_crate() {
+    fn inventory_rejects_duplicate_opaque_ids() {
         // CORR-C-004-AMEND-1 (CODEX-A01-CMD-1): post-A01 fold, cmd/
         // soda-project-terminal carries a manifest, but its package ships
         // project-terminal + project-account — never a soda-project-terminal
@@ -650,116 +927,17 @@ mod tests {
             b"[package]\nname = \"soda-project-terminal\"\n[[bin]]\nname = \"project-terminal\"\n[[bin]]\nname = \"project-account\"\n",
         )
         .unwrap();
-        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
-        assert_eq!(names, vec!["soda-fakego".to_string()]);
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn cr02_discovery_skips_multibin_pg_crate() {
-        // CODEX-CR02-001: cmd/soda-pg-maintenance is Rust-owned but declares
-        // only backup/restore/init-roles bins — never a soda-pg-maintenance
-        // binary. Discovery must skip it (RUST_TOOLS owns those bins) while
-        // a same-name-bin crate and real Go commands still list.
-        let dir = std::env::temp_dir().join(format!("sri-cr02a-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        let snapshot = dir.join("snap");
-        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
-        let identity = snapshot.join("cmd/soda-identity");
-        fs::create_dir_all(&identity).unwrap();
-        fs::write(
-            identity.join("Cargo.toml"),
-            b"[package]\nname = \"soda-identity\"\n[[bin]]\nname = \"soda-identity\"\n",
-        )
-        .unwrap();
-        let pg = snapshot.join("cmd/soda-pg-maintenance");
-        fs::create_dir_all(&pg).unwrap();
-        fs::write(
-            pg.join("Cargo.toml"),
-            b"[package]\nname = \"soda-pg-maintenance\"\n[lib]\nname = \"soda_pg_maintenance\"\n[[bin]]\nname = \"soda-pg-backup\"\n[[bin]]\nname = \"soda-pg-restore\"\n[[bin]]\nname = \"soda-pg-init-roles\"\n",
-        )
-        .unwrap();
-        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
-        assert_eq!(
-            names,
-            vec!["soda-fakego".to_string(), "soda-identity".to_string()]
-        );
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn toolsown_members_match_rust_tools() {
-        // The discovery ownership list must name exactly the RUST_TOOLS
-        // member crates: port PRs extend the table, and discovery skips
-        // every member so each binary is produced exactly once.
-        let mut members: Vec<&str> = crate::build_compile::RUST_TOOLS
-            .iter()
-            .map(|(m, _, _)| *m)
-            .collect();
-        members.sort();
-        members.dedup();
-        let mut listed: Vec<&str> = RUST_TOOLS_MEMBERS.to_vec();
-        listed.sort();
-        assert_eq!(listed, members);
-    }
-
-    #[test]
-    fn toolsown_discovery_skips_tools_members() {
-        // A RUST_TOOLS member with a same-name binary (e.g. activate) is
-        // still skipped: RUST_TOOLS owns its established destinations. A
-        // same-name crate outside the table and Go commands still list.
-        let dir = std::env::temp_dir().join(format!("sri-toolsown-a-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        let snapshot = dir.join("snap");
-        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
-        let owned = snapshot.join("cmd/soda-activate");
-        fs::create_dir_all(&owned).unwrap();
-        fs::write(
-            owned.join("Cargo.toml"),
-            b"[package]\nname = \"soda-activate\"\n[[bin]]\nname = \"soda-activate\"\n",
-        )
-        .unwrap();
-        let kept = snapshot.join("cmd/soda-identity");
-        fs::create_dir_all(&kept).unwrap();
-        fs::write(
-            kept.join("Cargo.toml"),
-            b"[package]\nname = \"soda-identity\"\n[[bin]]\nname = \"soda-identity\"\n",
-        )
-        .unwrap();
-        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
-        assert_eq!(
-            names,
-            vec!["soda-fakego".to_string(), "soda-identity".to_string()]
-        );
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn n07t3_discovery_skips_tailnet_only_after_go_retirement() {
-        // N07-T3: cmd/soda-forgejo-tailnet has no manifest of its own; it
-        // leaves Go discovery only once its Go sources retire. A retired
-        // directory (Rust sources only) is skipped so no Go build is
-        // attempted, while a pre-retirement directory (main.go present)
-        // lists exactly as before.
-        let dir = std::env::temp_dir().join(format!("sri-n07t3b-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        let snapshot = dir.join("snap");
-        fs::create_dir_all(snapshot.join("cmd/soda-fakego")).unwrap();
-        let tailnet = snapshot.join("cmd/soda-forgejo-tailnet");
-        fs::create_dir_all(&tailnet).unwrap();
-        fs::write(tailnet.join("main.go"), b"package main\n").unwrap();
-        fs::write(tailnet.join("main.rs"), b"fn main() {}\n").unwrap();
-        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
-        assert_eq!(
-            names,
-            vec![
-                "soda-fakego".to_string(),
-                "soda-forgejo-tailnet".to_string()
-            ]
-        );
-        fs::remove_file(tailnet.join("main.go")).unwrap();
-        let names = soda_commands(snapshot.to_str().unwrap()).unwrap();
-        assert_eq!(names, vec!["soda-fakego".to_string()]);
+        // No Cargo metadata members means a Rust-owned command manifest
+        // cannot be silently admitted from TOML alone.
+        fs::create_dir_all(&snapshot).unwrap();
+        fs::write(snapshot.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+        let metadata = serde_json::json!({
+            "workspace_root": snapshot.canonicalize().unwrap(),
+            "workspace_members": ["duplicate", "duplicate"],
+            "packages": []
+        })
+        .to_string();
+        assert!(parse_shipping_inventory(snapshot.to_str().unwrap(), &metadata).is_err());
         let _ = fs::remove_dir_all(&dir);
     }
 

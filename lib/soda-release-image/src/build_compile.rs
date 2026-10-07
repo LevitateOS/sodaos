@@ -7,21 +7,38 @@ use crate::foreign::Production;
 use crate::jsonio;
 use crate::sys;
 
+const RUNTIME_COMMANDS: [(&str, &str); 9] = [
+    ("soda-identity-compose", "soda-identity-compose"),
+    ("soda-factory", "soda-factory"),
+    ("soda-setup", "soda-setup"),
+    ("soda-image-import", "soda-image-import"),
+    ("soda-muse", "soda-muse"),
+    ("soda-muse-maintain", "soda-muse-maintain"),
+    ("soda-identity", "soda-identity"),
+    ("soda-host", "soda-host"),
+    // The retired Go tailnet command is now a second soda-host binary.
+    ("soda-host", "soda-forgejo-tailnet"),
+];
+
 pub fn compile_soda_commands(
     production: &dyn Production,
     snapshot: &str,
     context_dir: &str,
+    inventory: &sys::ShippingInventory,
 ) -> Result<(), Error> {
-    let names = sys::soda_commands(snapshot)?;
+    let names = inventory.commands().to_vec();
     // CORR-C-001: discovery follows actual owners. A cmd directory with
     // its own manifest is Rust-owned (post-cutover layout); anything else
     // stays on the Go recipe. Pre-cutover trees behave exactly as before.
-    let mut rust_seen: Vec<String> = Vec::new();
+    let mut rust_seen: Vec<(String, String)> = Vec::new();
     for name in &names {
         let dest = sys::join(&[context_dir, "rootfs/usr/libexec/soda", name]);
+        let manifest = sys::join(&[snapshot, "cmd", name, "Cargo.toml"]);
         if sys::is_rust_command(&sys::join(&[snapshot, "cmd", name])) {
-            rust_seen.push(name.clone());
-            production.compile_rust(name, name, &dest)?;
+            let package = inventory.package_name_for_manifest(&manifest)?;
+            inventory.require_bin_at(&manifest, name)?;
+            rust_seen.push((package.to_string(), name.clone()));
+            production.compile_rust(package, name, &dest)?;
         } else {
             production.compile(name, &format!("./cmd/{name}"), &dest)?;
         }
@@ -29,21 +46,12 @@ pub fn compile_soda_commands(
     // Rust-ported commands no longer live under cmd/; the workspace owns them.
     // Names already produced from cmd/ above are skipped: each existing
     // binary is produced and staged exactly once.
-    for (member, bin) in [
-        ("soda-identity-compose", "soda-identity-compose"),
-        ("soda-factory", "soda-factory"),
-        ("soda-setup", "soda-setup"),
-        ("soda-image-import", "soda-image-import"),
-        ("soda-muse", "soda-muse"),
-        ("soda-muse-maintain", "soda-muse-maintain"),
-        ("soda-identity", "soda-identity"),
-        ("soda-host", "soda-host"),
-        // N07-T3: the tailnet binary lives in the soda-host package and has
-        // no cmd manifest of its own; same libexec destination the Go recipe
-        // used for ./cmd/soda-forgejo-tailnet.
-        ("soda-host", "soda-forgejo-tailnet"),
-    ] {
-        if !rust_seen.iter().any(|seen| seen.as_str() == bin) {
+    for (member, bin) in RUNTIME_COMMANDS {
+        inventory.require_bin(member, bin)?;
+        if !rust_seen
+            .iter()
+            .any(|seen| seen.0 == member && seen.1 == bin)
+        {
             production.compile_rust(
                 member,
                 bin,
@@ -156,8 +164,13 @@ pub const RUST_TOOLS: [(&str, &str, &str); 10] = [
     ),
 ];
 
-pub fn compile_rust_tools(production: &dyn Production, context_dir: &str) -> Result<(), Error> {
+pub fn compile_rust_tools(
+    production: &dyn Production,
+    context_dir: &str,
+    inventory: &sys::ShippingInventory,
+) -> Result<(), Error> {
     for (member, bin, dest) in RUST_TOOLS {
+        inventory.require_bin(member, bin)?;
         let dest = sys::join(&[context_dir, dest]);
         fs::create_dir_all(sys::dir_name(&dest))?;
         production.compile_rust(member, bin, &dest)?;
@@ -172,12 +185,47 @@ pub fn compile_shipping_tools(
     artifacts: &str,
     revision: &str,
     arch: &str,
-) -> Result<(), Error> {
+) -> Result<sys::ShippingInventory, Error> {
     // Prepare no longer stages anything under usr/libexec/soda (the last
     // shell tool compiled out), so create it explicitly for the compilers.
     fs::create_dir_all(sys::join(&[context_dir, "rootfs/usr/libexec/soda"]))?;
-    compile_soda_commands(production, snapshot, context_dir)?;
-    compile_rust_tools(production, context_dir)?;
+    let manifest = sys::join(&[snapshot, "Cargo.toml"]);
+    let metadata = production.capture(
+        snapshot,
+        "cargo",
+        &[
+            "metadata".to_string(),
+            "--format-version".to_string(),
+            "1".to_string(),
+            "--no-deps".to_string(),
+            "--locked".to_string(),
+            "--offline".to_string(),
+            "--manifest-path".to_string(),
+            manifest,
+        ],
+    )?;
+    let tool_members: Vec<&str> = RUST_TOOLS.iter().map(|(member, _, _)| *member).collect();
+    let inventory = sys::parse_shipping_inventory(snapshot, &metadata)?
+        .select_commands(snapshot, &tool_members)?;
+    // Validate every selected target before the first compilation side effect.
+    for name in inventory.commands() {
+        let cmd_dir = sys::join(&[snapshot, "cmd", name]);
+        if sys::is_rust_command(&cmd_dir) {
+            inventory.require_bin_at(&sys::join(&[&cmd_dir, "Cargo.toml"]), name)?;
+        }
+    }
+    for (member, bin) in RUNTIME_COMMANDS.into_iter().chain([
+        ("soda-release-tools", "soda-artifacts"),
+        ("soda-acceptance", "soda-acceptance"),
+        ("soda-acceptance", "soda-acceptance-remote"),
+    ]) {
+        inventory.require_bin(member, bin)?;
+    }
+    for (member, bin, _) in RUST_TOOLS {
+        inventory.require_bin(member, bin)?;
+    }
+    compile_soda_commands(production, snapshot, context_dir, &inventory)?;
+    compile_rust_tools(production, context_dir, &inventory)?;
     let tools = sys::join(&[artifacts, "tools"]);
     sys::create_dir(&tools, 0o755)?;
     // D03-F2: soda-artifacts is Rust-ported; build the existing
@@ -207,7 +255,8 @@ pub fn compile_shipping_tools(
         sys::join(&[&tools, "soda-installer"]),
     )
     .map_err(|e| Error::msg(e.to_string()))?;
-    record_tool_files(&tools, revision, arch, artifacts)
+    record_tool_files(&tools, revision, arch, artifacts)?;
+    Ok(inventory)
 }
 
 #[cfg(test)]
@@ -218,6 +267,124 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::model;
+    use crate::sys::ShippingInventory;
+
+    fn test_metadata(snapshot: &str) -> String {
+        fs::create_dir_all(snapshot).unwrap();
+        let mut packages: std::collections::BTreeMap<String, (String, Vec<String>)> =
+            std::collections::BTreeMap::new();
+        let mut add = |package: &str, bins: &[&str]| {
+            packages
+                .entry(package.to_string())
+                .or_insert_with(|| (package.to_string(), Vec::new()))
+                .1
+                .extend(bins.iter().map(|bin| (*bin).to_string()));
+        };
+        for (member, bin) in [
+            ("soda-identity-compose", "soda-identity-compose"),
+            ("soda-factory", "soda-factory"),
+            ("soda-setup", "soda-setup"),
+            ("soda-image-import", "soda-image-import"),
+            ("soda-muse", "soda-muse"),
+            ("soda-muse-maintain", "soda-muse-maintain"),
+            ("soda-identity", "soda-identity"),
+            ("soda-host", "soda-host"),
+            ("soda-host", "soda-forgejo-tailnet"),
+            ("soda-release-tools", "soda-artifacts"),
+            ("soda-acceptance", "soda-acceptance"),
+            ("soda-acceptance", "soda-acceptance-remote"),
+        ] {
+            add(member, &[bin]);
+        }
+        for (member, bin, _) in RUST_TOOLS {
+            add(member, &[bin]);
+        }
+        let cmd_root = sys::join(&[snapshot, "cmd"]);
+        if let Ok(entries) = fs::read_dir(&cmd_root) {
+            for entry in entries
+                .flatten()
+                .filter(|entry| entry.path().join("Cargo.toml").is_file())
+            {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                let (package, bins) = match name.as_str() {
+                    "soda-project-terminal" => {
+                        (name.clone(), vec!["project-terminal", "project-account"])
+                    }
+                    "soda-pg-maintenance" => (
+                        name.clone(),
+                        vec!["soda-pg-backup", "soda-pg-restore", "soda-pg-init-roles"],
+                    ),
+                    _ => (name.clone(), vec![name.as_str()]),
+                };
+                add(&package, &bins);
+            }
+        }
+        drop(add);
+        for (_, bins) in packages.values_mut() {
+            bins.sort();
+            bins.dedup();
+        }
+        let mut member_ids = Vec::new();
+        let mut member_dirs = Vec::new();
+        let mut metadata_packages = Vec::new();
+        for (index, (name, (_, bins))) in packages.iter().enumerate() {
+            let id = format!("opaque-member-{index}");
+            member_ids.push(id.clone());
+            let manifest = if std::path::Path::new(&sys::join(&[&cmd_root, name])).is_dir() {
+                member_dirs.push(format!("cmd/{name}"));
+                sys::join(&[&cmd_root, name, "Cargo.toml"])
+            } else {
+                member_dirs.push(format!("fixture/{name}"));
+                sys::join(&[snapshot, &format!("fixture/{name}/Cargo.toml")])
+            };
+            fs::create_dir_all(sys::dir_name(&manifest)).unwrap();
+            let mut cargo =
+                format!("[package]\nname = {name:?}\nversion = \"0.1.0\"\nedition = \"2021\"\n");
+            for bin in bins {
+                cargo.push_str(&format!(
+                    "[[bin]]\nname = {bin:?}\npath = \"src/{bin}.rs\"\n"
+                ));
+            }
+            fs::write(&manifest, cargo).unwrap();
+            for bin in bins {
+                let source = sys::join(&[
+                    sys::dir_name(&manifest).as_str(),
+                    "src",
+                    &format!("{bin}.rs"),
+                ]);
+                fs::create_dir_all(sys::dir_name(&source)).unwrap();
+                fs::write(source, "fn main() {}\n").unwrap();
+            }
+            metadata_packages.push(serde_json::json!({
+                "id": id, "name": name, "manifest_path": std::fs::canonicalize(manifest).unwrap(),
+                "features": {"default": []},
+                "targets": bins.iter().map(|bin| serde_json::json!({"name": bin, "kind": ["bin"], "required-features": []})).collect::<Vec<_>>()
+            }));
+        }
+        let workspace = format!(
+            "[workspace]\nmembers = [{}]\nresolver = \"2\"\n",
+            member_dirs
+                .iter()
+                .map(|member| format!("{member:?}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        fs::write(sys::join(&[snapshot, "Cargo.toml"]), workspace).unwrap();
+        let metadata = serde_json::json!({
+            "workspace_root": std::fs::canonicalize(snapshot).unwrap(),
+            "workspace_members": member_ids, "packages": metadata_packages
+        })
+        .to_string();
+        metadata
+    }
+
+    fn test_inventory(snapshot: &str) -> ShippingInventory {
+        let tool_members: Vec<&str> = RUST_TOOLS.iter().map(|(member, _, _)| *member).collect();
+        sys::parse_shipping_inventory(snapshot, &test_metadata(snapshot))
+            .unwrap()
+            .select_commands(snapshot, &tool_members)
+            .unwrap()
+    }
     struct Recorder {
         go: RefCell<Vec<(String, String, String)>>,
         rust: RefCell<Vec<(String, String, String)>>,
@@ -250,8 +417,13 @@ mod tests {
         fn execute(&self, _: &str, _: &str, _: &[String]) -> Result<(), Error> {
             panic!("command run")
         }
-        fn capture(&self, _: &str, _: &str, _: &[String]) -> Result<String, Error> {
-            panic!("command run")
+        fn capture(&self, _: &str, _: &str, args: &[String]) -> Result<String, Error> {
+            let manifest = args.last().expect("metadata manifest argument");
+            let snapshot = std::path::Path::new(manifest)
+                .parent()
+                .unwrap()
+                .to_string_lossy();
+            Ok(test_metadata(&snapshot))
         }
         fn next(&self, _: &str) -> Result<(), Error> {
             Ok(())
@@ -409,7 +581,8 @@ mod tests {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),
         };
-        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        let inventory = test_inventory(snapshot.to_str().unwrap());
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context, &inventory).unwrap();
         // Go-owned dir takes the Go recipe with its cmd path.
         assert!(recorder.go.borrow().iter().any(|(n, p, d)| {
             n == "soda-fakego"
@@ -449,7 +622,8 @@ mod tests {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),
         };
-        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        let inventory = test_inventory(snapshot.to_str().unwrap());
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context, &inventory).unwrap();
         let tailnet = recorder
             .rust
             .borrow()
@@ -492,7 +666,8 @@ mod tests {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),
         };
-        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        let inventory = test_inventory(snapshot.to_str().unwrap());
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context, &inventory).unwrap();
         assert!(!recorder
             .rust
             .borrow()
@@ -517,7 +692,8 @@ mod tests {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),
         };
-        compile_rust_tools(&tools, &context).unwrap();
+        let inventory = test_inventory(snapshot.to_str().unwrap());
+        compile_rust_tools(&tools, &context, &inventory).unwrap();
         let shipped = tools
             .rust
             .borrow()
@@ -551,7 +727,8 @@ mod tests {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),
         };
-        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        let inventory = test_inventory(snapshot.to_str().unwrap());
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context, &inventory).unwrap();
         assert!(!recorder
             .rust
             .borrow()
@@ -581,7 +758,8 @@ mod tests {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),
         };
-        compile_rust_tools(&tools, &context).unwrap();
+        let inventory = test_inventory(snapshot.to_str().unwrap());
+        compile_rust_tools(&tools, &context, &inventory).unwrap();
         for bin in ["soda-pg-backup", "soda-pg-restore", "soda-pg-init-roles"] {
             let shipped = tools
                 .rust
@@ -623,7 +801,8 @@ mod tests {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),
         };
-        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context).unwrap();
+        let inventory = test_inventory(snapshot.to_str().unwrap());
+        compile_soda_commands(&recorder, snapshot.to_str().unwrap(), &context, &inventory).unwrap();
         for member in [
             "soda-activate",
             "soda-forgejo-domain",
@@ -636,7 +815,8 @@ mod tests {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),
         };
-        compile_rust_tools(&tools, &context).unwrap();
+        let inventory = test_inventory(snapshot.to_str().unwrap());
+        compile_rust_tools(&tools, &context, &inventory).unwrap();
         for (member, bin, dest) in [
             (
                 "soda-activate",

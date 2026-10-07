@@ -11,9 +11,12 @@ use crate::jsonio;
 use crate::model;
 use crate::sys;
 
-pub fn link_candidate_commands(source: &str, context: &str, native: &str) -> Result<(), Error> {
+pub fn link_candidate_commands(
+    context: &str,
+    native: &str,
+    commands: &[String],
+) -> Result<(), Error> {
     fs::create_dir_all(sys::join(&[native, "bin"]))?;
-    let commands = sys::soda_commands(source)?;
     // Reuse the already compiled vendor binaries; never compile again for assets.
     for name in commands {
         fs::hard_link(
@@ -285,6 +288,7 @@ pub fn complete_candidate(
     prefix: &str,
     base: &crate::prepare::Base,
     production: &dyn Production,
+    commands: &[String],
     phase: &mut dyn FnMut(&str) -> Result<(), Error>,
 ) -> Result<model::Payload, Error> {
     let mut payload = model::Payload {
@@ -304,7 +308,7 @@ pub fn complete_candidate(
         upgrade_from: Vec::new(),
         ..model::Payload::default()
     };
-    link_candidate_commands(source, context, production.native())?;
+    link_candidate_commands(context, production.native(), commands)?;
     let forgejo_context = stage_candidate_forgejo(&mut payload, source, context, out, production)?;
     phase("P4 / Build application images")?;
     let images = production.images(&forgejo_context)?;
@@ -399,9 +403,9 @@ mod tests {
         fs::write(bindir.join("project-account"), b"account").unwrap();
         let native = dir.join("native");
         link_candidate_commands(
-            source.to_str().unwrap(),
             context.to_str().unwrap(),
             native.to_str().unwrap(),
+            &["soda-fakego".to_string()],
         )
         .unwrap();
         assert!(native.join("bin/soda-fakego").is_file());
@@ -431,18 +435,21 @@ mod tests {
         fs::write(bindir.join("soda-forgejo-tailnet"), b"tailnet").unwrap();
         let native = dir.join("native");
         link_candidate_commands(
-            source.to_str().unwrap(),
             context.to_str().unwrap(),
             native.to_str().unwrap(),
+            &[
+                "soda-fakego".to_string(),
+                "soda-forgejo-tailnet".to_string(),
+            ],
         )
         .unwrap();
         assert!(native.join("bin/soda-forgejo-tailnet").is_file());
         fs::remove_file(tailnet.join("main.go")).unwrap();
         fs::remove_dir_all(&native).unwrap();
         link_candidate_commands(
-            source.to_str().unwrap(),
             context.to_str().unwrap(),
             native.to_str().unwrap(),
+            &["soda-fakego".to_string()],
         )
         .unwrap();
         assert!(native.join("bin/soda-fakego").is_file());
@@ -476,9 +483,9 @@ mod tests {
         fs::write(bindir.join("soda-pg-init-roles"), b"roles").unwrap();
         let native = dir.join("native");
         link_candidate_commands(
-            source.to_str().unwrap(),
             context.to_str().unwrap(),
             native.to_str().unwrap(),
+            &["soda-fakego".to_string()],
         )
         .unwrap();
         assert!(native.join("bin/soda-fakego").is_file());

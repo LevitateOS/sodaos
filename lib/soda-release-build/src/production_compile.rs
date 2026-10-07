@@ -30,6 +30,8 @@ impl Production {
                 manifest.to_string_lossy().into_owned(),
                 "-p".to_string(),
                 crate_name.to_string(),
+                "--bin".to_string(),
+                bin.to_string(),
             ],
         )?;
         let raw = std::fs::read(PathBuf::from(&self.source).join("target/release").join(bin))

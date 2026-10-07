@@ -22,6 +22,7 @@ pub fn build_host_candidate(
     prefix: &str,
     base: &prepare::Base,
     production: &dyn Production,
+    inventory: &crate::sys::ShippingInventory,
     next: &mut dyn FnMut(&str) -> Result<(), Error>,
 ) -> Result<(), Error> {
     let mut payload = payload_stage::complete_candidate(
@@ -33,6 +34,7 @@ pub fn build_host_candidate(
         prefix,
         base,
         production,
+        inventory.commands(),
         next,
     )?;
     next("P5 / Build FCOS host candidate")?;

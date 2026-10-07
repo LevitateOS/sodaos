@@ -171,7 +171,7 @@ pub fn execute_build_production(
     phase: &mut dyn FnMut(&str) -> Result<(), Error>,
 ) -> Result<request::Result, Error> {
     phase("P3 / Compile shipping programs")?;
-    compile_shipping_tools(
+    let inventory = compile_shipping_tools(
         production,
         snapshot,
         context_dir,
@@ -188,6 +188,7 @@ pub fn execute_build_production(
         &request.repository_prefix,
         base,
         production,
+        &inventory,
         phase,
     )?;
     build_media::finish_build_media(production, request, media_tooling, assembler, phase)?;
@@ -416,7 +417,7 @@ fn run_build_inner(
     // Execute phases P3+ with progress-driven phase labels.
     let outcome: Result<request::Result, Error> = (|| {
         progress.phase("P3 / Compile shipping programs")?;
-        compile_shipping_tools(
+        let inventory = compile_shipping_tools(
             &*production,
             &snapshot,
             &context_dir,
@@ -433,6 +434,7 @@ fn run_build_inner(
             &request.repository_prefix,
             &base,
             &*production,
+            &inventory,
             &mut |label| progress.phase(label),
         )?;
         build_media::finish_build_media(

@@ -1,6 +1,46 @@
 use super::*;
 
 #[test]
+fn metadata_deadline_is_scoped_to_the_metadata_operation() {
+    assert_eq!(
+        bounded_operation_deadline("cargo", &["metadata".to_string()]),
+        Some(std::time::Duration::from_secs(120))
+    );
+    assert_eq!(
+        bounded_operation_deadline("cargo", &["build".to_string()]),
+        None
+    );
+    assert_eq!(
+        bounded_operation_deadline("git", &["metadata".to_string()]),
+        None
+    );
+}
+
+#[test]
+fn bounded_build_operation_expires_while_output_keeps_arriving() {
+    let started = std::time::Instant::now();
+    let error = run_build_command_with_budget(
+        &Cancel::new(),
+        &mut Vec::new(),
+        None,
+        env!("CARGO_MANIFEST_DIR"),
+        "sh",
+        &[
+            "-c".to_string(),
+            "while :; do printf progress; done".to_string(),
+        ],
+        Some(std::time::Duration::from_millis(50)),
+    )
+    .unwrap_err();
+    assert!(
+        error.0.contains("metadata deadline exceeded"),
+        "{}",
+        error.0
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(3));
+}
+
+#[test]
 fn oracle_build_command_capture_environment_and_failure() {
     // Oracle: Go TestBuildCommandCaptureEnvironmentAndFailure.
     let cancel = Cancel::new();

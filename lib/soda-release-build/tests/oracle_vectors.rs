@@ -152,15 +152,15 @@ STEP Pull and resolve docker.io/tailscale/alpine-base:3.22
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/tailscale/alpine-base:3.22
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 STEP Compile soda-muse
-cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-muse
+cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-muse --bin soda-muse
 STEP Compile soda-identity-compose
-cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-identity-compose
+cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-identity-compose --bin soda-identity-compose
 STEP Compile project-terminal
-cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal
+cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal --bin project-terminal
 STEP Compile project-account
-cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal
+cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal --bin project-account
 STEP Compile project-factory-roles
-cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal
+cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal --bin project-factory-roles
 STEP Build frontend assets
 bun scripts/build-forgejo.ts --out $ROOT/.artifacts/native/x86_64/forgejo-js
 STEP Fetch terminal assets
