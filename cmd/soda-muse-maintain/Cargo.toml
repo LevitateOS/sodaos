@@ -8,5 +8,7 @@ name = "soda-muse-maintain"
 path = "src/main.rs"
 
 [dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
 sha2 = "=0.10.9"
 libc = "0.2"

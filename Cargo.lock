@@ -1201,6 +1201,8 @@ dependencies = [
  "base64",
  "flate2",
  "libc",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-build-tools",
  "soda-json",
@@ -1210,6 +1212,8 @@ dependencies = [
 name = "soda-activate"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "soda-json",
 ]
 
@@ -1225,6 +1229,8 @@ name = "soda-candidate-setup"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1293,6 +1299,8 @@ dependencies = [
 name = "soda-image-import"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-json",
 ]
@@ -1312,6 +1320,8 @@ dependencies = [
  "p384",
  "p521",
  "rsa",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "signature",
  "soda-json",
@@ -1327,6 +1337,8 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "libc",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1334,6 +1346,8 @@ name = "soda-muse-maintain"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
 ]
 
@@ -1354,6 +1368,8 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "libc",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-json",
 ]
@@ -1364,6 +1380,8 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "flate2",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-build-tools",
  "soda-json",
@@ -1377,6 +1395,8 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "libc",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-build-tools",
  "soda-json",
@@ -1391,6 +1411,8 @@ dependencies = [
  "base64",
  "flate2",
  "libc",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-build-tools",
  "soda-json",
@@ -1403,6 +1425,8 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "flate2",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-build-tools",
  "soda-json",
@@ -1414,6 +1438,8 @@ version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "soda-json",
  "soda-release-build",
@@ -1426,6 +1452,8 @@ name = "soda-rotate-lab-creds"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

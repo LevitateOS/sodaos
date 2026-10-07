@@ -11,6 +11,8 @@ name = "soda_release_deliver"
 path = "src/lib.rs"
 
 [dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
 base64 = "=0.22.1"
 soda-json = { path = "../json" }
 soda-build-tools = { path = "../release-inputs", features = ["trust-key"] }
