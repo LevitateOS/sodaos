@@ -279,12 +279,9 @@ func (c *Coordinator) dispatchAfterIntake(ctx context.Context) {
 // completed issue exactly once. Completion arrival retriggers dependent
 // assessment; unchanged dependents replay without recording.
 func (c *Coordinator) assessDispatchDependants(ctx context.Context, repository, issue int64) {
-	dependants, err := c.Store.AcceptanceDependants(ctx, repository, issue)
-	if err != nil {
-		return
-	}
 	visited := map[factory.DependenceRef]bool{{Repository: repository, Issue: issue}: true}
-	for _, dependant := range dependants {
-		_, _ = c.assessCascade(ctx, dependant.Repository, dependant.Issue, visited)
-	}
+	// Completion accounting is already durable. Dependant reassessment stays
+	// best-effort, but each attempt stops at the first incomplete page or
+	// failed assessment rather than implying a complete scan.
+	_ = c.visitDependants(ctx, repository, issue, visited)
 }

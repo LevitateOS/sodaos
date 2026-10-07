@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -137,54 +136,73 @@ func (s *Store) RecordIntakeDelivery(ctx context.Context, delivery string, repos
 	return affected == 0, nil
 }
 
-// AcceptanceDependants returns every repository/issue whose recorded head
-// acceptance declares the referenced endpoint as a prerequisite. The native
-// graph stays canonical; this scans recorded heads only, so unaccepted
-// relations never appear here.
-func (s *Store) AcceptanceDependants(ctx context.Context, repository, issue int64) ([]factory.DependenceRef, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT repository, issue, decision FROM issue_acceptance_heads`)
-	if err != nil {
-		return nil, err
+const acceptanceDependantsPageSize = 64
+
+// VisitAcceptanceDependants visits recorded heads whose typed acceptance
+// declares the endpoint as a prerequisite. Heads are scanned in stable keyset
+// pages; each rows cursor is closed before the next decision query, and the
+// visitor receives matches in repository/issue order. The native graph stays
+// canonical: unaccepted relations never appear here.
+func (s *Store) VisitAcceptanceDependants(ctx context.Context, repository, issue int64, visit func(factory.DependenceRef) error) error {
+	if repository <= 0 || issue <= 0 || visit == nil {
+		return errors.New("invalid acceptance dependant scan")
 	}
-	defer func() { _ = rows.Close() }()
 	type head struct {
 		repository, issue int64
 		decision          string
 	}
-	var heads []head
-	for rows.Next() {
-		var h head
-		if err = rows.Scan(&h.repository, &h.issue, &h.decision); err != nil {
-			return nil, err
-		}
-		heads = append(heads, h)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	var dependants []factory.DependenceRef
-	for _, h := range heads {
-		decision, err := s.AcceptanceDecision(ctx, h.decision)
+	afterRepository, afterIssue := int64(0), int64(0)
+	for {
+		rows, err := s.db.QueryContext(ctx, `SELECT repository, issue, decision
+			FROM issue_acceptance_heads
+			WHERE repository > $1 OR (repository = $1 AND issue > $2)
+			ORDER BY repository, issue LIMIT $3`, afterRepository, afterIssue, acceptanceDependantsPageSize)
 		if err != nil {
-			if errors.Is(err, ErrNotFound) {
-				continue
-			}
-			return nil, err
+			return err
 		}
-		for _, prereq := range decision.Prerequisites {
-			if prereq.EndpointRepo == repository && prereq.EndpointIssue == issue {
-				dependants = append(dependants, factory.DependenceRef{Repository: h.repository, Issue: h.issue})
-				break
+		heads := make([]head, 0, acceptanceDependantsPageSize)
+		for rows.Next() {
+			var h head
+			if err = rows.Scan(&h.repository, &h.issue, &h.decision); err != nil {
+				_ = rows.Close()
+				return err
 			}
+			heads = append(heads, h)
+		}
+		err = rows.Err()
+		closeErr := rows.Close()
+		if err != nil {
+			return err
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		if len(heads) == 0 {
+			return nil
+		}
+		for _, h := range heads {
+			decision, err := s.AcceptanceDecision(ctx, h.decision)
+			if err != nil {
+				if errors.Is(err, ErrNotFound) {
+					continue
+				}
+				return err
+			}
+			for _, prereq := range decision.Prerequisites {
+				if prereq.EndpointRepo == repository && prereq.EndpointIssue == issue {
+					if err := visit(factory.DependenceRef{Repository: h.repository, Issue: h.issue}); err != nil {
+						return err
+					}
+					break
+				}
+			}
+		}
+		last := heads[len(heads)-1]
+		afterRepository, afterIssue = last.repository, last.issue
+		if len(heads) < acceptanceDependantsPageSize {
+			return nil
 		}
 	}
-	sort.Slice(dependants, func(i, j int) bool {
-		if dependants[i].Repository != dependants[j].Repository {
-			return dependants[i].Repository < dependants[j].Repository
-		}
-		return dependants[i].Issue < dependants[j].Issue
-	})
-	return dependants, nil
 }
 
 // ReadinessSweepRevision returns the native revision of one repository's

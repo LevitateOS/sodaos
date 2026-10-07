@@ -116,6 +116,9 @@ func (c *Coordinator) ReconcileReadiness(ctx context.Context, repository int64) 
 			}
 			if skip {
 				sweep.Skipped++
+				if err := c.assessDependants(ctx, repository, index, visited); err != nil {
+					c.sweepFailed(&sweep, index)
+				}
 				continue
 			}
 			outcome, err := c.assessCascade(ctx, repository, index, visited)

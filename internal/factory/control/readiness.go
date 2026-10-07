@@ -108,28 +108,62 @@ func (c *Coordinator) ObserveIssueEvent(ctx context.Context, hint IntakeHint) (f
 	return outcome.control, outcome.changed, nil
 }
 
-// assessCascade assesses one issue and, when its inputs changed,
-// reassesses every recorded dependant exactly once.
+// assessCascade assesses one issue and reassesses every recorded dependant
+// exactly once. It still walks dependants when this issue is unchanged:
+// an earlier dependant scan may have failed after this issue was recorded.
 func (c *Coordinator) assessCascade(ctx context.Context, repository, issue int64, visited map[factory.DependenceRef]bool) (assessOutcome, error) {
 	key := factory.DependenceRef{Repository: repository, Issue: issue}
 	if visited[key] {
 		return assessOutcome{}, nil
 	}
 	visited[key] = true
+	complete := false
+	defer func() {
+		if !complete {
+			delete(visited, key)
+		}
+	}()
 	outcome, err := c.assessOne(ctx, repository, issue)
-	if err != nil || outcome.skip || !outcome.changed {
-		return outcome, err
-	}
-	dependants, err := c.Store.AcceptanceDependants(ctx, repository, issue)
 	if err != nil {
 		return outcome, err
 	}
-	for _, dependant := range dependants {
-		if _, err := c.assessCascade(ctx, dependant.Repository, dependant.Issue, visited); err != nil {
-			return outcome, err
-		}
+	if outcome.skip {
+		complete = true
+		return outcome, nil
 	}
+	if err := c.visitDependants(ctx, repository, issue, visited); err != nil {
+		return outcome, err
+	}
+	complete = true
 	return outcome, nil
+}
+
+// assessDependants retries descendants without rerecording an unchanged
+// sweep root. The root is marked visited so cycles do not re-enter it.
+func (c *Coordinator) assessDependants(ctx context.Context, repository, issue int64, visited map[factory.DependenceRef]bool) error {
+	key := factory.DependenceRef{Repository: repository, Issue: issue}
+	if visited[key] {
+		return nil
+	}
+	visited[key] = true
+	complete := false
+	defer func() {
+		if !complete {
+			delete(visited, key)
+		}
+	}()
+	if err := c.visitDependants(ctx, repository, issue, visited); err != nil {
+		return err
+	}
+	complete = true
+	return nil
+}
+
+func (c *Coordinator) visitDependants(ctx context.Context, repository, issue int64, visited map[factory.DependenceRef]bool) error {
+	return c.Store.VisitAcceptanceDependants(ctx, repository, issue, func(dependant factory.DependenceRef) error {
+		_, err := c.assessCascade(ctx, dependant.Repository, dependant.Issue, visited)
+		return err
+	})
 }
 
 // assessOne assesses one issue against authoritative native evidence,

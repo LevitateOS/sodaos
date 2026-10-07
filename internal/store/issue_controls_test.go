@@ -3,6 +3,9 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -141,13 +144,84 @@ func TestAcceptanceDependants(t *testing.T) {
 	if err := s.AdmitAcceptanceDecision(ctx, unrelated); err != nil {
 		t.Fatal(err)
 	}
-	dependants, err := s.AcceptanceDependants(ctx, 7, 9)
+	var dependants []factory.DependenceRef
+	err := s.VisitAcceptanceDependants(ctx, 7, 9, func(dependant factory.DependenceRef) error {
+		dependants = append(dependants, dependant)
+		return nil
+	})
 	if err != nil || len(dependants) != 1 || dependants[0].Issue != 3 {
 		t.Fatal("dependant scan wrong:", dependants, err)
 	}
-	none, err := s.AcceptanceDependants(ctx, 7, 3)
+	var none []factory.DependenceRef
+	err = s.VisitAcceptanceDependants(ctx, 7, 3, func(dependant factory.DependenceRef) error {
+		none = append(none, dependant)
+		return nil
+	})
 	if err != nil || len(none) != 0 {
 		t.Fatal("empty dependant scan wrong:", none, err)
+	}
+}
+
+func TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure(t *testing.T) {
+	s, ctx := readinessTestStore(t)
+	digest := strings.Repeat("d", 64)
+	for issue := int64(1); issue <= acceptanceDependantsPageSize+1; issue++ {
+		decision := factory.Acceptance{
+			ID: "d" + fmt.Sprintf("%024d", issue), Repository: 7, IssueIndex: strconv.FormatInt(issue, 10),
+			Approver: 5, NativeRev: 9, TitleDigest: digest, ContentDigest: digest,
+		}
+		if issue == 1 || issue == acceptanceDependantsPageSize+1 {
+			decision.Prerequisites = append(decision.Prerequisites, factory.AcceptedPrerequisite{
+				Occurrence: "21", DependsOn: "8", EndpointRepo: 7, EndpointIssue: 9,
+				Outcome: factory.PrereqResult,
+			})
+		}
+		if issue == acceptanceDependantsPageSize+1 {
+			decision.Prerequisites = append(decision.Prerequisites, factory.AcceptedPrerequisite{
+				Occurrence: "23", DependsOn: "8", EndpointRepo: 7, EndpointIssue: 11,
+				Outcome: factory.PrereqResult,
+			})
+		}
+		if issue <= acceptanceDependantsPageSize {
+			decision.Prerequisites = append(decision.Prerequisites, factory.AcceptedPrerequisite{
+				Occurrence: "22", DependsOn: "8", EndpointRepo: 7, EndpointIssue: 10,
+				Outcome: factory.PrereqResult,
+			})
+		}
+		if err := s.AdmitAcceptanceDecision(ctx, decision); err != nil {
+			t.Fatal("admit head", issue, err)
+		}
+	}
+	var found []int64
+	if err := s.VisitAcceptanceDependants(ctx, 7, 9, func(dependant factory.DependenceRef) error {
+		found = append(found, dependant.Issue)
+		return nil
+	}); err != nil {
+		t.Fatal("paged scan:", err)
+	}
+	if !reflect.DeepEqual(found, []int64{1, acceptanceDependantsPageSize + 1}) {
+		t.Fatal("sparse page scan lost or reordered matches:", found)
+	}
+
+	found = nil
+	if err := s.VisitAcceptanceDependants(ctx, 7, 11, func(dependant factory.DependenceRef) error {
+		found = append(found, dependant.Issue)
+		return nil
+	}); err != nil || !reflect.DeepEqual(found, []int64{acceptanceDependantsPageSize + 1}) {
+		t.Fatal("empty matching page must not end the scan:", found, err)
+	}
+
+	lateCtx, cancel := context.WithCancel(ctx)
+	visited := 0
+	err := s.VisitAcceptanceDependants(lateCtx, 7, 10, func(factory.DependenceRef) error {
+		visited++
+		if visited == acceptanceDependantsPageSize {
+			cancel()
+		}
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) || visited != acceptanceDependantsPageSize {
+		t.Fatalf("late page failure must propagate after bounded progress: visited=%d err=%v", visited, err)
 	}
 }
 

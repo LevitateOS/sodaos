@@ -113,6 +113,52 @@ func TestObserveIssueEventUnchangedBlockerSuppresses(t *testing.T) {
 	}
 }
 
+func TestObserveIssueEventRetriesDependantsAfterUnchangedRoot(t *testing.T) {
+	source := &fakeEvidenceSource{
+		evidence: map[string]AcceptanceEvidence{
+			"42/3": readinessEvidence(12, readinessView("3"), nil, nil),
+			"42/5": readinessEvidence(12, readinessView("5"), nil, []AcceptanceEdge{{Occurrence: "21", DependsOn: "8", Visible: true}}),
+		},
+		errs: map[string]error{"42/5": errors.New("temporary dependant read failure")},
+	}
+	c := readinessCoordinator(t, source, &fakeObserver{revision: 12, idle: true})
+	grantFullAuthority(t, c)
+	root := readinessDecision("d"+strings.Repeat("1", 24), 42, "3", 12)
+	dependent := readinessDecision("d"+strings.Repeat("2", 24), 42, "5", 12)
+	dependent.Prerequisites = []factory.AcceptedPrerequisite{{
+		Occurrence: "21", DependsOn: "8", EndpointRepo: 42, EndpointIssue: 3,
+		Outcome: factory.PrereqResult,
+	}}
+	mustAdmit(t, c, root)
+	mustAdmit(t, c, dependent)
+
+	hint := readinessHint("delivery-retry", 42, 3)
+	first, changed, err := c.ObserveIssueEvent(context.Background(), hint)
+	if err == nil || changed || first.Revision != 0 {
+		t.Fatalf("downstream failure should return no successful event outcome: %+v changed=%v err=%v", first, changed, err)
+	}
+	storedRoot, err := c.Store.IssueControl(context.Background(), 42, 3)
+	if err != nil || storedRoot.Revision != 1 {
+		t.Fatalf("root assessment was not retained: %+v %v", storedRoot, err)
+	}
+	if _, err := c.Store.IssueControl(context.Background(), 42, 5); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("failed dependant unexpectedly recorded: %v", err)
+	}
+
+	delete(source.errs, "42/5")
+	second, changed, err := c.ObserveIssueEvent(context.Background(), hint)
+	if err != nil || changed {
+		t.Fatalf("unchanged root retry should complete dependant traversal without changing root: %+v changed=%v err=%v", second, changed, err)
+	}
+	storedRoot, err = c.Store.IssueControl(context.Background(), 42, 3)
+	if err != nil || storedRoot.Revision != 1 {
+		t.Fatalf("unchanged root retry recorded a spurious assessment: %+v %v", storedRoot, err)
+	}
+	if _, err := c.Store.IssueControl(context.Background(), 42, 5); err != nil {
+		t.Fatalf("unchanged root retry did not assess its dependant: %v", err)
+	}
+}
+
 func TestCreationWithoutAuthorityWaitsForAdoption(t *testing.T) {
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 	view := readinessView("3")

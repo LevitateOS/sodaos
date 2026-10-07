@@ -70,6 +70,52 @@ func TestReconcileSkipsUnchanged(t *testing.T) {
 	}
 }
 
+func TestReconcileRetriesDependantsFromPrecheckedRoot(t *testing.T) {
+	source := &fakeEvidenceSource{
+		evidence: map[string]AcceptanceEvidence{
+			"42/3": readinessEvidence(12, readinessView("3"), nil, nil),
+			"42/5": readinessEvidence(12, readinessView("5"), nil, []AcceptanceEdge{{Occurrence: "21", DependsOn: "8", Visible: true}}),
+		},
+		errs: map[string]error{"42/5": errors.New("temporary dependant read failure")},
+	}
+	observer := &fakeObserver{revision: 12, idle: true, pages: map[int]fakeIssuePage{1: {indexes: []int64{3}}}}
+	c := readinessCoordinator(t, source, observer)
+	grantFullAuthority(t, c)
+	root := readinessDecision("d"+strings.Repeat("1", 24), 42, "3", 12)
+	dependent := readinessDecision("d"+strings.Repeat("2", 24), 42, "5", 12)
+	dependent.Prerequisites = []factory.AcceptedPrerequisite{{
+		Occurrence: "21", DependsOn: "8", EndpointRepo: 42, EndpointIssue: 3,
+		Outcome: factory.PrereqResult,
+	}}
+	mustAdmit(t, c, root)
+	mustAdmit(t, c, dependent)
+
+	first, err := c.ReconcileReadiness(context.Background(), 42)
+	if err != nil || first.Failed != 1 || first.Changed != 0 {
+		t.Fatalf("first sweep should record root then report downstream failure: %+v %v", first, err)
+	}
+	rootControl, err := c.Store.IssueControl(context.Background(), 42, 3)
+	if err != nil || rootControl.Revision != 1 {
+		t.Fatalf("root assessment was not retained: %+v %v", rootControl, err)
+	}
+	if _, err := c.Store.IssueControl(context.Background(), 42, 5); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("failed dependant unexpectedly recorded: %v", err)
+	}
+
+	delete(source.errs, "42/5")
+	second, err := c.ReconcileReadiness(context.Background(), 42)
+	if err != nil || second.Failed != 0 || second.Skipped != 1 || second.Assessed != 0 {
+		t.Fatalf("prechecked root should retry descendants without reassessing itself: %+v %v", second, err)
+	}
+	rootControl, err = c.Store.IssueControl(context.Background(), 42, 3)
+	if err != nil || rootControl.Revision != 1 {
+		t.Fatalf("unchanged root retry recorded a spurious assessment: %+v %v", rootControl, err)
+	}
+	if _, err := c.Store.IssueControl(context.Background(), 42, 5); err != nil {
+		t.Fatalf("prechecked root retry did not assess its dependant: %v", err)
+	}
+}
+
 func TestReconcileDetectsNativeChange(t *testing.T) {
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{
 		"42/3": readinessEvidence(12, readinessView("3"), nil, nil),
