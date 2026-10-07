@@ -13,7 +13,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 
 Initial selective adoption update at source `72e4bb9015b6d6a622b45638104c74851a137473`,
 refreshed for completed L04 at `229e9cce`, L08/L09 at `21387814` and
-L05/L06 source adapters at `7d063f15`:
+L05/L06 source adapters at `7d063f15` and L12 custody adapters at `c5cca5e7`:
 this remains the desired application tree, with superseded generic-engine leaves
 removed below. Retained names describe application policy or library adapters,
 not a requirement to recreate their old implementation. The
@@ -32,7 +32,7 @@ the earlier exact-match/delta counts below are historical observations.
 | `lib/release-inputs/src/trust_key.rs` and release trust callers | Shared typed P-256 admission; image/delivery retain role authority and original-DER fingerprints |
 | `lib/wire-time` and URL/IP caller modules | Shared strict wire timestamp gate and time-backed UTC projection; caller-owned typed URL, percent and std IP adapters retain raw literals, admission and expiry. No general calendar/URL/IP engine allocation |
 | Setup Forgejo and host provider adapters | Setup uses ureq with bounded I/O and declared blocking-DNS exception. Provider keeps curl/Executor until resolver-inclusive cancellation/custody fit passes |
-| Release/terminal/acceptance process, file and evidence modules | Existing authority, bounded input/output, cancellation, cleanup and narrow library adapters; no new framework |
+| Release/operator/host/guest/identity file, descriptor and process modules | L12 retains same-FD cap+1 admission, rooted publication, OwnedFd/CLOEXEC, bounded std Child I/O and actual child/unit/container cleanup authority around rustix/libc/std/tempfile adapters. Muse config uses WalkDir with explicit credential/symlink policy. Temp ownership ends only after consumers, cleanup or deliberate evidence/handoff; NSS/PTY/signal and registration traversal remain application policy. Generic PATH/errno/shell diagnostics have no target allocation; N11/TMP02 deletion remains L18 |
 
 Hash/codec engines disappear into selected library calls and existing fingerprint
 recipes. Tests of retained policy remain; grammar-only equivalence tests are

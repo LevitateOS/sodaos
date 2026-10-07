@@ -30,9 +30,9 @@ use rustix::fs::{
 };
 use std::collections::HashMap;
 use std::env;
-use std::fs::{self, File};
 #[cfg(test)]
 use std::fs::Permissions;
+use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};

@@ -616,20 +616,63 @@ transport fit proof stays visible in L10; no task or parked checkpoint is skippe
 
 ### L12 File, FD and process ownership
 
-Scope: FS01/TMP01/PATH01/PROC01/PROC02/FFI01/WALK01/N10 defining/caller tables,
-including installer publication, private provisioning/evidence inputs, host/guest
-FDs and existing release process runners. C leads operator/release changes;
-A owns host/guest and B Go callers. Use selected rustix 1.1.5, existing libc 0.2.190,
-std process/path, tempfile 3.27.0 and walkdir 2.5.0 where the actual contract fits.
+Source adoption is complete through `c5cca5e7`. C is the accountable execution
+owner, with A's host/guest/identity handoffs; B's Go ownership remains unchanged.
+Prerequisites were completed L01 deadline/evidence custody, L00's selected
+dependency admission and L03's fail-closed entropy profile. Luna medium settled
+file/descriptor custody, cancellation and independent review; Luna low transferred
+settled ABI/PATH/temp plumbing. Root owned dependencies, serialized verification
+and incremental commits. Bounded same-opened-file repairs landed in `86ce0875`
+before library temp convenience; later process and release reads retain that order.
 
-Same-FD bounded read and confinement precede tempfile convenience. Preserve
-creation modes, no-follow/inode/owner/link checks, synchronization and exclusive
-publication; process cleanup names its actual child/group/systemd authority.
-Keep the audited SO_PEERPIDFD call and meaningful NSS/signal/PTY policy.
-Acceptance: same admitted bounded file, partial-write cleanup, late cancellation,
-descendant-held pipes, bounded live capture, descriptor close/CLOEXEC and ticker
-join. Delete generic PATH/errno/shell diagnostics and duplicate mechanics only
-after equivalent callers move; no all-policy process/filesystem framework.
+| Finding and remaining owner | Implemented adapter and retained policy |
+| --- | --- |
+| [FS01](../../research/library-reuse-investigation.md#fs01), C/A | Muse config, acceptance inputs, private provisioning and release image/worker metadata use one admitted FD with cap+1 reads; the host agent hash uses the same bounded FD. Installer key directories use typed component-by-component rustix traversal; guest file helpers use typed open/openat/locks. PG fixture roots use openat2 beneath/no-symlink resolution and FD-relative private password creation/readback. Retain regular/owner/mode/link/inode checks, FIFO nohang, the allowed Muse leaf-symlink profile, mount admission, append uncertainty, sync and exclusive publication |
+| [N10](../../research/library-reuse-investigation.md#n10), A | rustix SCM_RIGHTS reception and accept use atomic CLOEXEC and unique OwnedFd custody. Rejected/excess/truncated descriptors close on every exit. Muse retains zero-or-three stdio admission, original-connection SO_PEERPIDFD, credentials and account/cgroup policy; guest connect retains its one-second readiness budget, socket inode/mode/PID/UID and retry policy |
+| [PROC01](../../research/library-reuse-investigation.md#proc01) / [PROC02](../../research/library-reuse-investigation.md#proc02), C/A | Selected std Child capture owners use bounded fair nonblocking I/O, absolute configured budgets and required EOF. Image builds share live cancellation; worker failures stop the exact admitted systemd unit. Direct-child owners kill/reap their child and close their own pipes after a two-second drain grace, reporting inherited pipes as failure. Maintenance owns feeder shutdown/join; installer rejects incomplete stdin delivery; candidate owns ticker stop/join on all returns. Retain pinned executable/environment policy, secret suppression and the shared Linux monotonic origin |
+| [TMP01](../../research/library-reuse-investigation.md#tmp01), C/A | Held tempfile owners use private creation modes and finish child/FD consumers before cleanup or handoff. Installer publication guards precede writes; identity holds enrollment scratch through pumps. Muse verifies size/hash before chmod/persist. Delivery deliberately keeps partial state evidence before writing. Candidate/lab clean authority scratch, and native worker cleanup errors fail the result. PG fixture transfers automatic roots only after success; backup publishes a private synced stage without replacing a timestamp run; restore owns a container-local exclusive stage and checks cleanup before reporting success. Registration keeps its account-traversable 0711 lifecycle |
+| [PATH01](../../research/library-reuse-investigation.md#path01), C/A | std Path/PathBuf and narrowly scoped canonicalize replace generic Go lexical engines. Actual caller admission rejects unclean absolute/relative forms and ParentDir where required; filesystem confinement stays with the FD owner. Native-root and disk alias resolution retain subsequent authority checks |
+| [FFI01](../../research/library-reuse-investigation.md#ffi01), C/A | Locked libc layouts/constants and std exec replace selected hand-declared ABI and foreign shell diagnostics. Activation NSS lookup uses bounded getpwnam_r growth. Meaningful NSS, SIGPIPE/reset/mask, PTY, uid/gid, umask and flock policy remains local |
+| [WALK01](../../research/library-reuse-investigation.md#walk01), C | Muse uses sorted WalkDir with max_open16 and no directory/root symlink following. Native non-UTF8 names, allowed leaf-file symlinks, private destination modes, auth.json-file exclusion and existing auth.json-directory descent remain explicit caller policy |
+
+The selected graph pins rustix 1.1.5, libc 0.2.190, tempfile 3.27.0 and walkdir
+2.5.0 with only required feature edges. No broad filesystem/process service was
+introduced. Existing already-bounded libc/stat/publication adapters remain where
+a library transfer would not reduce policy-bearing code. The old generic PATH,
+errno and shell-diagnostic engines and manual active ancillary parser are retired.
+N11's separate daemon peer duplicate and TMP02's unused migrate temporary remain
+L18 work; L10.N4's transport hold and L16's optional matcher are unchanged.
+
+| Acceptance boundary | Executed local evidence |
+| --- | --- |
+| Same-file bounded admission and confinement | Cap/cap+1, growth and inode substitution; regular/FIFO/symlink profiles; PG root/leaf symlinks, ParentDir, private modes and same-FD password readback; retained installer publication checks |
+| Descriptor ownership | Actual Unix socket checks for accepted/received CLOEXEC, original pidfd, excess/truncated descriptor cleanup and later validation failure cleanup; full host and guest integration suites |
+| Process completion and cancellation | Late shared cancellation, live fair output, capture quotas/read errors, descendant-held pipes, incomplete child input, streamed archive EOF, blocked feeder cancellation/join and ticker error-path join |
+| Temp publication and cleanup | Private custody, existing timestamp collision refusal and sync paths; mock copy/chown/restore failures clean the same container stage, and cleanup failure cannot return success; worker cleanup-error result checks |
+| Native adapters and graph | VM fake SSH/QEMU argv/signal/missing-or-unexecutable status tests, affected CLI suites and locked offline development builds for 20 selected packages |
+
+Final selected suites pass **1,687 test executions**: host 708, guest 213,
+acceptance 133, identity 44, compose 11, Muse 20, maintenance 22, VM 6+18,
+candidate 15+10, lab 7+11, installer 115, PG fixture 6, PG maintenance 5+2+3,
+release image 70/tools 101/delivery 34/assets 85, activation 12/domain 15/setup 21.
+Four unchanged opt-in identity PG tests were ignored. Final receipts are under
+`.artifacts/l12/`: host-guest-integration-test, operator-process-final-test,
+temp-custody-final-test, restore-final-test, release-final-test, vm-cli-final-test,
+delivery-state-test and native-build logs. Earlier mixed-run failures are
+superseded by the named final passing suites; the final warning check recompiles
+host/PG fixture after removing newly unused plumbing. The eight existing
+installer exports, two existing compose test-only helpers and six existing host
+oracle imports remain warnings in their applicable builds/tests.
+
+These are source, local syscall/process fixtures and native development checks.
+They do not qualify real installed systemd/Podman, backup/restore jobs, provider
+services, a booted VM, shipping artifacts or the appliance kernel/toolchain.
+PG fixture openat2 fails closed if unsupported; appliance qualification must
+verify that support alongside existing SO_PEERPIDFD requirements. Actual worker
+Rust/toolchain qualification remains separate. Earlier completed structural work
+and parked restructuring checkpoints remain distinguishable from those limits;
+full tree/count regeneration waits for the later reconciliation step. L13 has
+not started.
 
 ### L13 Archive and release formats
 
