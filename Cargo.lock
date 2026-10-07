@@ -1236,10 +1236,18 @@ dependencies = [
 [[package]]
 name = "soda-console-welcome"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "soda-factory"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "soda-forgejo-domain"
