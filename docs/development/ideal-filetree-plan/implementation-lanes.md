@@ -23,7 +23,11 @@ R03.L retains its original verified scope. Current source responsibility coverag
 is reconciled; full R02.targets desired-tree regeneration follows settled
 replacement boundaries. The [finding allocation](execution-findings.md) supplies
 current scoped subtasks and dependent holds. Refresh affected source/guidance
-before a later authorized dispatch.
+before each dispatch. The owner has now authorized execution through the full
+remaining task list, with local commits early and often. Current implemented
+follow-ups are reconciled at `5794a7d9` in the existing
+[finding allocation](execution-findings.md#implemented-source-follow-ups-2026-10-07);
+prior audit and R03.L receipts keep their original evidence scope.
 
 The retained [tree](proposed-tree.md), [placement](placement.md),
 [ownership](package-ownership.md), [review records](reviews/README.md) and

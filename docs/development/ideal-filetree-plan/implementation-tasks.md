@@ -20,15 +20,17 @@ below; shared duties route through their physical writer in the lane schedule.
 
 ## Current task state (2026-10-07)
 
-Reconciled against canonical HEAD `04286c48`, application source
-`0b0734398f0350d75cc6fdb4dc8129251d8ab308`, preserving existing working plan
-edits and historical receipts. The intervening audit commits change Markdown;
-the latest implementation change is L18 at `eaed66a9`. This is planning upkeep,
-not implementation or runtime verification. Current responsibility accounting
-covers 2,562 tracked paths before this reconciliation's one new document and
-28 declared Cargo members, with no tracked `rust/` subtree. The current
-[coverage](coverage/README.md) replaces the old source inventory; the historical
-27-package desired tree still awaits R02.targets after boundaries settle.
+Implementation is active under the owner's “go”, “commit early and often” and
+subsequent all-tasks goal. Current reconciliation uses source `5794a7d9`;
+`04286c48`/`0caf6b91` remain the pre-implementation planning identities. The
+first twelve selected packets are committed, followed by readiness/artifact
+identity, installed-probe joins, duration cleanup and typed SDK snapshot cuts.
+Completed checks are source/development evidence; no installed, provider or
+native-worker qualification is inferred. Seven pre-existing dirty guidance
+files remain untouched. Current tracked paths total 2,564, including the new
+H06 Cargo-helper regression file. The established responsibility snapshot and
+historical validity reviews retain their original scope; affected owner deltas
+are recorded selectively, with full R02.targets regeneration still pending.
 
 The [finding allocation](execution-findings.md) is the detailed subtask section
 of this same plan: 75 prior canonical dispositions plus the CA profile question,
@@ -52,7 +54,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 | Remaining work | Current disposition and exact next boundary | Owner / task |
 | --- | --- | --- |
 | Current inventory / later target regeneration | Current source responsibility inventory/maps are complete at their recorded snapshot. Keep selective owner/caller deltas with each change; regenerate the full desired tree/decomposition after replacement boundaries settle. Existing task allocation is reconciled here. | Coordinator / R02.inventory complete; R02.targets/joins pending |
-| Operator request bound | Replace the still-current 4 KiB `LimitReader` admission with cap+one/read-error refusal before strict decoding; exact-cap success and principal/actions remain. This specified correction is independent of Q8. | B / B03.C |
+| Operator request bound | Completed in `a1fec662`: cap+one/read-error refusal before strict decoding, with focused production endpoint checks. Remaining B03 authority findings retain Q8. | B / B03.C partial |
 | Aggregate secret inputs | Set the count/byte profile and enforce it before retaining raw/trimmed/Ignition variants and before evidence admission; this remains useful with the retained matcher. | C / L16.G |
 | Host provider HTTP | Held until resolver-inclusive cancellation and native Executor custody are proved; setup HTTPS is already converted. | C, then A handoff / L10.N4 |
 | Effective configuration | Native corpus and candidate assessment are complete; CFG01 cutover is held on parser fit, deployment override evidence and dependency admission. CFG02 remains retained. | C / L17 |
@@ -87,7 +89,7 @@ Lead A; [P01](reviews/P01.md), [P02](reviews/P02.md), [P03](reviews/P03.md), [P0
 - [x] **A01.M** [run 20261005: DONE, integrated d4597974 (11 commits 1d9d38b2..31bf88cf: R100 wholesale host+terminal, account/ssh/project splits, account fold, OS move-follow, reap fix) + R01 859cfb2d (members, project-account bin, lock -account stanza, zerocopy pin kept); 5 conflicts resolved (2 take-deletion, 3 take-A-side)] Retain Go `internal/project`, Project API/Store/client owners; move native creation/profile/OS/connection/account/SSH duties to `lib/host/src/project/` and account/SSH descendants. Fold the existing account binary into `cmd/soda-project-terminal` with C/R01 producer selectors.
 - [x] **A01.V** [run 20261005: DONE on canonical mixed tree (859cfb2d): TestAccount* 12/12 green (11 previously red), terminal 19+92+12+12, host 645/0, image 59/59, build 50/50, Go build clean, successors green, fmt clean, clippy 1 pre-existing (dbackend, byte-identical to base); native transport pumping + provider qualification separate] Preserve reservation reconciliation, immutable profile/login, explicit Join and exact admitted public-key revision/apply through existing real account/Project suites. Optional creation Tailnet intent is gate Q4, not new state.
 
-- [ ] **A01.C-saved-key** B is the accountable Go/frontend/Store owner for P04-F1 mutation-time final saved-key confirmation; native installed-key policy remains separate. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **A01.C-saved-key** [2026-10-07: `ddd2f103`; real PostgreSQL concurrency/API and browser checks passed; independently reviewed] B is the accountable Go/frontend/Store owner for P04-F1 mutation-time final saved-key confirmation; native installed-key policy remains separate. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### A02 Preparation authority and Project lifecycle
 
@@ -105,7 +107,7 @@ Lead A; [P06](reviews/P06.md), [P07](reviews/P07.md). Shared guest-package owner
 - [ ] **A03.C** Source repairs for P07-F1 capture retirement (`368e1842`) and P07-F2 preexisting checkout preservation (`823334ac`) have landed, with later custody changes. Reconcile the complete current supervision/caller chain before closing this combined correction entry; preserve those repairs rather than schedule them again. Broader acceptance remains open.
 - [ ] **A03.V** Use actual compiled role-helper subjects for capture/cleanup and checkout failure, with exact requested binary selection; no Python predecessor recreation.
 
-- [ ] **A03.M-adapters** A owns SIMP-FD-1 typed project-terminal flags with retained no-follow/descriptor/errno contracts. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **A03.M-adapters** [2026-10-07: `fb15e33b`; typed FD/flag callers and actual filesystem checks passed; independently reviewed] A owns SIMP-FD-1 typed project-terminal flags with retained no-follow/descriptor/errno contracts. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### A04 Shared tools, nested services and volumes
 
@@ -123,9 +125,9 @@ Lead A; [I01](reviews/I01.md), [I02](reviews/I02.md), [I03](reviews/I03.md), [I0
 - [x] **A05.V** [run 20261005: DONE, 25 unit + 10 integration executed, 0 skips] Exercise actual same-ID terminal fencing, current grants, encrypted custody and atomic append subjects; coordinate sponsor metadata and fixture rebinding with B01 before shadow-write retirement.
 
 - [ ] **A05.C-custody** New A-owned AUTH-I-ACQ-1/AUTH-I-CLOSE-1 reserve/link and close-observation corrections; completed I06-F1 fence remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **A05.C-bounds** A owns ID-CFG-01 startup, RES-I-PROBE-OUTPUT-1 provider output and RES-I-LEASE-ENUM-1/RES-GO-IDENTITY-CONNECTION-LIST-1 producer bounds; unknown aggregate profiles gate only their own changes. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **A05.C-bounds** ID-CFG-01 startup is complete in `7900a0f2` with four actual settings checks; A retains RES-I-PROBE-OUTPUT-1 provider output and RES-I-LEASE-ENUM-1/RES-GO-IDENTITY-CONNECTION-LIST-1 producer bounds; unknown aggregate profiles gate only their own changes. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [ ] **A05.M-adapters** A owns SIMP-I-PG-1 and profile-gated SIMP-I-JSON-1/REP-HOST-STRICT-1 at their actual identity/host readers. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **A05.M-dependencies** A supplies the exact Identity AEAD feature cut; coordinator owns manifest/lock integration and retains fallible RNG. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **A05.M-dependencies** [2026-10-07: `5c63e6c5`; crypto checks passed, versions unchanged; independently reviewed] A supplies the exact Identity AEAD feature cut; coordinator owns manifest/lock integration and retains fallible RNG. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### A06 Provider adapters
 
@@ -145,14 +147,14 @@ roots once across their P/I/H duties, while A owns host/guest changes.
 - [ ] **A07.V** Exercise actual PTY/relay/attachment and replacement transport subjects for concurrent input/output/close, reservation consumption, exact binding and honest retirement. L09 upgrade/read-ahead/wakeup/close ownership must be proven before its cutover and expensive native runs.
 
 - [ ] **A07.C-muse** New A-owned CON-M01/CON-M02 signal/reap, supervisor joins and aggregate listener custody; completed H01-F3 remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **A07.M-dependencies** A supplies COST-HOST-BUILD-EDGE-1 current iconfig predicate/direct dependency cut; delivery payload authority remains. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **A07.M-dependencies** [2026-10-07: `5c63e6c5`; iconfig checks passed, direct release-build edge removed; independently reviewed] A supplies COST-HOST-BUILD-EDGE-1 current iconfig predicate/direct dependency cut; delivery payload authority remains. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### A08 Spaces browser inventory and viewer
 
 Lead A; [S01](reviews/S01.md), [S02](reviews/S02.md), [S03](reviews/S03.md), [S06](reviews/S06.md). B owns physical Go/browser files; A00 releases workspace descendants.
 
 - [ ] **A08.M** Retain bounded Go inventory/output admission and explicit browser decoder/workspace/layout/view/CSS owners with one actor/epoch/slot definition. Retire the proven-unused widths predecessor after its actual assertions are rebound.
-- [ ] **A08.C** Correct S01-F1 omitted per-row `TailnetState` observation: the actual `spaceItem` decoder reads collection data instead of the row value. Restore bounded row decoding/display without inventing admission or incomplete-inventory policy.
+- [x] **A08.C** S01-F1 is already corrected in the current `spaceItem`→`spaceNetwork(row)` decoder and per-row Store/API observation. Current-source inspection and all 22 actual `spaces-api.test.ts` cases pass, including distinct row values and ignored collection state. The earlier audit finding remains historical; no new implementation patch was needed.
 - [ ] **A08.V** Preserve stale-callback rejection, renderer/slot lifetime, restoration/layout and read-only Factory viewing through existing real browser subjects.
 
 ## B — Factory and Forgejo
@@ -178,7 +180,7 @@ Lead B; [F05](reviews/F05.md), [F06](reviews/F06.md). B01 for shared Store leave
 Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 boundary outputs; serialize current grants/dispatch/Store packet files before leaf handoff.
 
 - [x] **B03.M** [run 20261005: DONE, integrated 1e2de63e (dispatch/assignment/store/lifecycle splits pure; Rust changes as specs to A)] Split actual Go dispatch/occupancy/recovery/packet/queue/settlement and tests; send Rust host run/receipt/launch/finish/stop and neutral model changes to A. Preserve same dashboard/host topology.
-- [ ] **B03.C** Correct F07-F1 authority tuple freshness, F07-F2 recorded prompt context, F08-F1 registration/withdraw capture ordering, F08-F2 fresh retry attempt and F08-F3 stop-owned settlement. Resolve exact grant/quiescence/transaction specifications first; Q3 blocks undecided simultaneous provider-family selection. Separately retain the source-level operator 4 KiB limiter-EOF concern from L15: B owns cap+one/read-error admission before existing strict decode, with exact-cap/overrun checks and unchanged principal/actions. This narrow input follow-up needs no grant/selection decision.
+- [ ] **B03.C** Correct F07-F1 authority tuple freshness, F07-F2 recorded prompt context, F08-F1 registration/withdraw capture ordering, F08-F2 fresh retry attempt and F08-F3 stop-owned settlement. Resolve exact grant/quiescence/transaction specifications first; Q3 blocks undecided simultaneous provider-family selection. The independent operator 4 KiB limiter-EOF correction is complete in `a1fec662`, with cap+one/read-error admission and focused endpoint checks; it does not close the remaining authority findings.
 - [x] **B03.V** [run 20261005: DONE on disposable PG (11 pkgs, -race 4/4, raw logs archived, 0F/0S)] Exercise actual authority/registration/withdraw/retry/stop races with existing real Store and coordinator subjects; preserve historical attribution and usage.
 
 - [ ] **B03.C-lifetime** B owns CON-G01 dashboard admission/drain/flock/DB lifetime and RES-GO-ACCEPTANCE-DEPENDANTS-1 exhaustive traversal bounds; select supported graph/progress profile first. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
@@ -207,8 +209,8 @@ Lead B; [G01](reviews/G01.md), [G02](reviews/G02.md), [G03](reviews/G03.md), [G0
 - [ ] **B06.C** Correct G01-F1 declared/admin scope mismatch only after exact SDK propagation evidence is retained. Cache-refresh/association/redaction hypotheses remain investigation tasks, not presumed fixes.
 - [ ] **B06.V** Verify existing real Go authority/transport/preference subjects and exact dependency correspondence; no adjacent-checkout substitution or new request authority.
 
-- [ ] **B06.C-admission** B owns CON-G02 cancellable bootstrap wait independent of SDK replacement. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **B06.M-adapters** B owns local SIMP-SNAPSHOT-1; broader SIMP-SDK-1 waits on exact upstream capabilities, SIMP-GJSON-1 on actual DTO profiles. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **B06.C-admission** [2026-10-07: `a2a0926d`; actual Unix-socket blocked-waiter and shared-admission checks passed; independently reviewed] B owns CON-G02 cancellable bootstrap wait independent of SDK replacement. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **B06.M-adapters** Local SIMP-SNAPSHOT-1 is complete in `5794a7d9`, independently reviewed with actual snapshot/bracket checks; broader SIMP-SDK-1 waits on exact upstream capabilities, SIMP-GJSON-1 on actual DTO profiles. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### B07 Native Forgejo effect adapters
 
@@ -279,7 +281,7 @@ Lead C; [O01](reviews/O01.md), [O05](reviews/O05.md), [O06](reviews/O06.md). Can
 - [x] **C06.C** O01-F1/O06-F1 source correction landed in `f9db9062`: shared `delivery_exit` refuses failed stdin delivery even with child exit zero, preserves nonzero child errors and is called after one reap by init-roles/restore. The retained regression and L12 package receipts cover their recorded subjects; C06.V and native database qualification remain separate.
 - [ ] **C06.V** Exercise real child/input/caller failure subjects and existing backup/restore contracts; database operations require explicitly disposable or owner-selected scope.
 
-- [ ] **C06.C-rotation** New C-owned O05-F1 exact-publication backup retention correction; completed O01/O06 stdin-delivery repairs remain checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **C06.C-rotation** [2026-10-07: `cd555cfc`; keep-one/keep-two future-stamped publication regressions passed; independently reviewed] New C-owned O05-F1 exact-publication backup retention correction; completed O01/O06 stdin-delivery repairs remain checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C07 Operator recovery and SSH enrollment
 
@@ -289,7 +291,7 @@ Lead C; [O04](reviews/O04.md), [O07](reviews/O07.md). Existing installer/private
 - [x] **C07.C** Named enrollment source corrections landed: `8524cb2c` refuses incomplete writes before publication (O07-F1), and `bc8b818b` revalidates the selected address throughout serve/session lifetime (O07-F2). Current owners retain both repairs and unknown-marker refusal before lift/start mutation. This closes the named source corrections; C07.V and native authentication/window qualification remain open.
 - [ ] **C07.V** Exercise actual publication/address/window/cleanup and marker subjects; root/Cockpit authority and native authentication proof remain distinct.
 
-- [ ] **C07.C-cleanup** New C-owned ENROLL-CLEANUP-RESULT-1 primary/close error join; completed O07 write/address repairs remain checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **C07.C-cleanup** [2026-10-07: `1ac697fd`; actual primary/cleanup error joins passed; independently reviewed] New C-owned ENROLL-CLEANUP-RESULT-1 primary/close error join; completed O07 write/address repairs remain checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C08 Build controllers and candidate production
 
@@ -300,7 +302,7 @@ Lead C; [D01](reviews/D01.md), [D03](reviews/D03.md). Start early on disjoint re
 - [x] **C08.V** [run 20261005: DONE (mirror counts matched, Go pins green, candidate-check no stale pins)] Verify real producer/worker subjects and exact tools/rootfs selectors without a full release first. `soda-candidate-check` is already Rust: rebind its paths, do not schedule another port.
 
 - [ ] **C08.C-evidence** New C-owned OBS-W01 exact-unit/runtime cleanup and OBS-R01 diagnostic byte admission; completed D03 drain/discovery work remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **C08.C-artifact-cleanup** C owns CUST-C-BUTANE-CLEANUP-1 soda-artifacts output/child finalization, separate from installer enrollment. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **C08.C-artifact-cleanup** [2026-10-07: `26071cfc`; actual Butane failures/private output and child-reaping checks passed; independently reviewed] C owns CUST-C-BUTANE-CLEANUP-1 soda-artifacts output/child finalization, separate from installer enrollment. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
 ### C09 Inputs, authenticated media, assets and attribution
 
@@ -332,9 +334,9 @@ Lead C; [D06](reviews/D06.md), [H06](reviews/H06.md). Local driver/gate correcti
 - [ ] **C11.C** Preserve completed L01 child/QMP deadlines, writer/error custody and slashless URL confidentiality, plus L12 read/output/cleanup bounds. L14 CLI/duration adoption is source complete; L16 consideration is complete and optional adoption deferred. L16.G separately owns the open aggregate secret-collection bound. Preserve recorded analyzer/SSH-pin/platform/hash-field corrections. Assess reachable SQLite-native fixture/probe consumers separately; do not schedule a Python port or globally remove their dependency.
 - [ ] **C11.V** Verify the selected driver/evidence/parser/process failures and actual stage/installed bindings after each bounded replacement. No-newline output, split secrets, absolute deadlines and fail-closed finalization precede trusting these observations. Source/build/installed evidence remains separate; R04 alone owns a selected native journey.
 
-- [ ] **C11.C-observers** C owns H06-F1, TEST-CARGO-RESULT-1/TEST-SOURCE-CLI-GATE-1, OBS-D01/OBS-S01 and JOIN-HOST-PROBE-PATH-1/JOIN-INVOKED-IDENTITY-1. OBS-G01 stays B-accountable through an exclusive installed.go/process.go handoff from C. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **C11.C-custody** C owns ACC-SNAPSHOT-FILE-1 opened-file snapshot admission; no atomic filesystem snapshot claim. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
-- [ ] **C11.M-format** C owns REP-ACC-EVIDENCE-ROUNDTRIP-1 and the settled CLI03 precheck cut, preserving evidence custody and duration admission. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C11.C-observers** H06-F1 and TEST-CARGO-RESULT-1/TEST-SOURCE-CLI-GATE-1 are complete in `04ddbff1`; OBS-D01/OBS-S01 in `e2214713`; JOIN-HOST-PROBE-PATH-1/JOIN-INVOKED-IDENTITY-1 in `c5f23dd8`, each independently reviewed with focused source/development checks. OBS-G01 remains pending and B-accountable through an exclusive installed.go/process.go handoff from C. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [x] **C11.C-custody** [2026-10-07: `6ee41013`; actual snapshot checks passed, including metadata-only sparse file; independently reviewed] C owns ACC-SNAPSHOT-FILE-1 opened-file snapshot admission; no atomic filesystem snapshot claim. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
+- [ ] **C11.M-format** CLI03 is complete in `86812b0b` with independent review and the actual duration grammar check. C retains REP-ACC-EVIDENCE-ROUNDTRIP-1, preserving evidence custody and duration admission. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [ ] **C11.M-dependencies** B owns COST-GO-SQLITE-FIXTURE-1 seeder/test-support relocation; preserve acceptance SQLite and current test consumers. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [ ] **C11.M-tests** C owns the narrow TEST-RETIRED-PYTHON-OUTPUT-1/TEST-REL-ORACLE-1/TEST-RETIREMENT-GUARDS-1 consumer/oracle retirement; native-emulator evidence labels and current behavior tests remain. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
@@ -364,7 +366,7 @@ affected build/offline qualification.
 - [x] **L13** C: source scope complete through `46d5c4cd`, using Luna medium for EOF/budget/ownership and low for settled format transfers. Deterministic tar writers, delivery-owned shared bounded OCI scanning, complete gzip, bounded terminal extraction, shared purpose-specific ELF accessor and roxmltree/svgtypes parsing replace the selected engines. Actual pinned terminal outputs, canonical emblem, corrupted/truncated trailers, budgets, overlays and original signed fixtures pass; installed/shipping qualification remains separate. [Defined boundary and evidence](library-adoption.md#l13-archive-and-release-formats).
 - [x] **L14** C: source scope complete through `c82125ee`, using Luna low for settled profiles and medium for metadata custody/independent CLI review. Clap/humantime/Rust formatting replace goflag/duration/fmtx engines; one bounded Cargo metadata inventory replaces TOML scanning and flows through compile/staging. Actual help/refusal exits, false/repeats/literal tails, default-feature admission and unchanged shipping selectors pass. L13/L14 together have 656 selected passing tests and ten affected locked offline development builds; native appliance/worker qualification stays separate. [Defined boundary and evidence](library-adoption.md#l14-cli-and-target-discovery).
 - [x] **L15** B: SDK cap+one input admission complete in Fountain `c92db11c14`; exact-source, regression and retained credential-transport checks pass. [Defined boundary](library-adoption.md#l15-sdk-input-admission).
-- [ ] **L16** C: Luna medium consideration complete; retain the matcher and defer optional Aho-Corasick adoption. Reconsider only after L16.G, demonstrated value, exact dependency admission and construction/streaming proofs. No source cutover is claimed. [Decision, scope and acceptance](library-adoption.md#l16-evidence-matching).
+- [x] **L16** C: Luna medium consideration complete; retain the matcher and defer optional Aho-Corasick adoption. Reconsider only after L16.G, demonstrated value, exact dependency admission and construction/streaming proofs. No source cutover is claimed. [Decision, scope and acceptance](library-adoption.md#l16-evidence-matching).
 - [ ] **L16.G** C: bound aggregate secret collection before retaining raw/trimmed/Ignition copies and before evidence admission. Preserve completed per-file L12 and evidence L01 bounds. Define the count/byte profile, then verify repeated files, derived variants, exact limits and safe refusal before capture/publication. This correctness follow-up remains distinct from optional matcher adoption. [Prerequisites and checks](library-adoption.md#l16-evidence-matching).
 - [ ] **L17** C: 21-case native corpus and exact candidate-source decision complete; rust-ini 0.21.3 fails continuation admission. CFG01 cutover stays held on semantic fit and deployment override/dependency admission; preserve no-guess and marker policy. CFG02 locale scanner is retained independently. [Defined boundary](library-adoption.md#l17-configuration-evidence).
 - [x] **L18** C, with A/B source handoffs: N11/TMP02/DEAD01 retired in `eaed66a9` after current reference closure and retained-duty review. Forty existing tests, eight real-command byte/inode/mode fixtures and three locked offline development entrypoints pass. R02 parked-seam assessment is complete at this scope; full coverage/count regeneration and installed qualification remain separate. [Defined boundary](library-adoption.md#l18-dead-machinery-removal).

@@ -73,6 +73,17 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–181; file scaffold; RepoRoot; Check; Require; ReadFile; ReadJSON; TempDir; WriteFile; ProcResult; RunOpt; Run; SetEnv; CargoBinary; tail | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 14 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="cargo-helper-regressions"></a>
+
+## [tests/build/helpers_test.go](../../../../../tests/build/helpers_test.go)
+
+Selective implementation delta at `04ddbff1`; whole file is H06-owned and retained.
+`writeFakeCargo`, `cargoTestEnv`, `TestCargoBinaryHelperProcess`,
+`runCargoBinaryHelper`, `TestCargoBinaryEmptyStderrFailureIsNotCachedAsSuccess`,
+`TestCargoBinaryUsesAndKeysSelectedTargetDirectory` and `countLines` exercise the
+production Cargo helper's process outcome, caching and selected target path.
+The actual subprocess checks passed; no native shipping identity is inferred.
+
 <a id="coverage-3695dc8b875f"></a>
 
 ## [tests/build/muse_exec_test.go](../../../../../tests/build/muse_exec_test.go)

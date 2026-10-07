@@ -2601,6 +2601,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── forgejo_domain_test.go
 │   │   ├── forgejo_payload_test.go
 │   │   ├── helpers.go
+│   │   ├── helpers_test.go
 │   │   ├── muse_exec_test.go
 │   │   ├── native_support_test.go
 │   │   ├── operator_probe_test.go

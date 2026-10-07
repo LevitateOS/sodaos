@@ -14,8 +14,9 @@ one dependency/architecture-cost chapter, one test/evidence chapter and
 one build/installation/operational join chapter, one total maintenance chapter
 one independent consequential-challenge chapter and one finding-allocation chapter**
 are accounted exactly once in the [tracked-file inventories](inventory/README.md).
-No working source additions were
-present. These eighteen H06 documents are the explicit current documentation delta;
+At that snapshot no working source additions were present. The implementation
+delta adds `tests/build/helpers_test.go` (H06) at `04ddbff1`; its current owner
+and regressions are linked in the tests inventory/map. These eighteen H06 documents are the explicit current documentation delta;
 ignored dependencies, caches, private inputs, failed experiment output and
 `.artifacts/` are excluded from authored-source coverage and are not deletion targets.
 
@@ -29,11 +30,11 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including eighteen authored documents / missing / duplicate rows | 2,563 / 0 / 0 |
+| Current paths including eighteen authored documents and one H06 test addition / missing / duplicate rows | 2,564 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |
-| Existing named duties plus eighteen whole-document H06 duties | 20,117 + 18 = 20,135 |
+| Recorded baseline named duties plus eighteen whole-document H06 duties | 20,117 + 18 = 20,135 |
 | Files with more than one defining slice | 492 |
 | Files carrying explicit unresolved disposition | 24 |
 
@@ -61,7 +62,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `lib` | 429 |
 | `scripts` | 80 |
 | `system` | 64 |
-| `tests` | 140 |
+| `tests` | 141 |
 | `tools` | 193 |
 
 ### Inspection and evidence reuse

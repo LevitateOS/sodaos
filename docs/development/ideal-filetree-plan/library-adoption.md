@@ -854,13 +854,11 @@ historical; release provenance must capture the actual clean Fountain revision.
 These source checks do not close B06's separate authority findings or native
 installed qualification.
 
-A separate source-level concern remains with B03.C: the operator endpoint wraps
-its body in a 4 KiB LimitReader before calling the 1 MiB strict decoder, so the
-outer limiter can still manufacture EOF. This caller is outside SDK01's
-callback/background scope. Its pending repair must collect 4 KiB+one and refuse
-overrun/read failures before the existing schema decoder, preserving operator
-principal/actions and exact-limit success. This does not reopen completed
-structural moves or claim that every Go input boundary is fixed.
+The separate B03.C operator limiter-EOF concern is now repaired in `a1fec662`:
+4 KiB+one is collected and overrun/read failures refuse before the unchanged
+schema decoder. Focused actual endpoint checks and independent review pass.
+This does not reopen completed structural moves or close B03's other authority
+findings; SDK and operator admission remain distinct evidence scopes.
 
 ### L16 Evidence matching
 
@@ -1027,8 +1025,7 @@ not claim installed systemd/container behavior or release qualification.
 
 The scoped R02 retirement maps and parked-seam assessment below are reconciled;
 full historical inventory/count/table regeneration remains pending. L10.N4,
-CFG01 fit, optional L16 and the separate B03.C operator input-cap concern keep
-their existing owners and gates.
+CFG01 fit and optional L16 keep their existing owners and gates.
 
 ## Readiness gates
 

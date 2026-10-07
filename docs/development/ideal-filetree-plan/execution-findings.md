@@ -39,9 +39,40 @@ explicitly removes a bridge. Dispatch reserves the complete literal file list,
 including module roots and fixtures. No global extraction barrier or new package
 is selected. B supplies canonical schema changes and A the broker mirror, together.
 
+## Implemented source follow-ups (2026-10-07)
+
+Current reconciliation is at `5794a7d9`. Each packet below received one
+independent review at its assigned level and focused checks of the actual
+implementation. Historical audit conclusions remain tied to their recorded
+source. Parent tasks containing additional findings remain unchecked.
+
+| Findings / retained owner | Source receipt and evidence limit |
+| --- | --- |
+| B03.C operator bound / B | `a1fec662`; actual endpoint cap/EOF/read-error checks; other B03 findings open |
+| ID-CFG-01 / A | `7900a0f2`; four actual settings checks; provider/enumeration bounds open |
+| O05-F1 / C | `cd555cfc`; actual rotation selection regressions |
+| CON-G02 / B | `a2a0926d`; actual local Unix-socket waiting/cancellation checks |
+| H06-F1, TEST-CARGO-RESULT-1, TEST-SOURCE-CLI-GATE-1 / C | `04ddbff1`; real analyzer/subprocess/cache-helper checks |
+| ENROLL-CLEANUP-RESULT-1 / C | `1ac697fd`; actual production primary/cleanup join checks |
+| P04-F1 / B | `ddd2f103`; actual disposable PostgreSQL/API concurrency and browser checks; saved keys only |
+| SIMP-FD-1 / A | `fb15e33b`; actual filesystem/descriptor checks; no global libc retirement |
+| COST-HOST-BUILD-EDGE-1, COST-IDENTITY-AEAD-FEATURES-1 / A | `5c63e6c5`; actual crypto/iconfig checks; package versions unchanged |
+| ACC-SNAPSHOT-FILE-1 / C | `6ee41013`; actual snapshot and sparse-size checks; no atomic-tree claim |
+| CUST-C-BUTANE-CLEANUP-1 / C | `26071cfc`; actual output/timeout/reaping checks |
+| CLI03 / C | `86812b0b`; actual duration grammar check; evidence serialization cut open |
+| JOIN-HOST-PROBE-PATH-1, JOIN-INVOKED-IDENTITY-1 / C | `c5f23dd8`; source staging, shell syntax and truthful stored-image guide scope; no installed run |
+| OBS-D01, OBS-S01 / C | `e2214713`; actual readiness/reaping and collision/preservation checks; late-attempt success branch source-verified |
+| SIMP-SNAPSHOT-1 / B | `5794a7d9`; actual typed SDK snapshot/bracket checks; wider SDK transport decision open |
+| S01-F1 / B | Already satisfied by current row decoder/API at dispatch; 22 actual frontend decoder cases pass; no invented corrective patch |
+
+These receipts do not claim installed, provider or native-worker qualification.
+The first twelve dispatched packets are complete. The all-tasks goal continues
+through the remaining ready correctness work, profile decisions and caller cuts.
+
 ## Rank 1: correctness and trustworthy evidence
 
-All rows are pending follow-ups. Their exact prerequisites are required outputs,
+Uncompleted rows remain pending follow-ups; the completion table below records
+current source receipts without reopening earlier work. Exact prerequisites are required outputs,
 not completion of an entire parent packet. Established profiles need no new
 product decision; unspecified bounds and transaction designs stay explicit.
 
