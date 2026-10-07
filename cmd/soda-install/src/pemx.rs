@@ -1,9 +1,6 @@
 //! Strict one-certificate PEM framing for the installer's local CA input.
 
-use base64::Engine as _;
-
 const BEGIN: &[u8] = b"-----BEGIN CERTIFICATE-----";
-const END: &[u8] = b"-----END CERTIFICATE-----";
 const MAX_INPUT: usize = 16 * 1024;
 
 pub fn decode_certificate(input: &[u8]) -> Result<Vec<u8>, ()> {
@@ -20,49 +17,14 @@ pub fn decode_certificate(input: &[u8]) -> Result<Vec<u8>, ()> {
         .ok_or(())?
         + 1;
     let input = &input[start..end];
-
-    let mut lines = input.split(|byte| *byte == b'\n');
-    let mut first = true;
-    let mut ended = false;
-    let mut body = Vec::new();
-    while let Some(mut line) = lines.next() {
-        if line.last() == Some(&b'\r') {
-            line = &line[..line.len() - 1];
-        }
-        if first {
-            if line != BEGIN {
-                return Err(());
-            }
-            first = false;
-            continue;
-        }
-        if ended {
-            if !line.iter().all(u8::is_ascii_whitespace) {
-                return Err(());
-            }
-            continue;
-        }
-        if line == END {
-            ended = true;
-            continue;
-        }
-        if !line.iter().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/' | b'=' | b' ' | b'\t')
-        }) {
-            return Err(());
-        }
-        body.extend(
-            line.iter()
-                .copied()
-                .filter(|byte| !matches!(byte, b' ' | b'\t')),
-        );
-    }
-    if first || !ended || body.is_empty() {
+    if !input.starts_with(BEGIN) {
         return Err(());
     }
-    base64::engine::general_purpose::STANDARD
-        .decode(body)
-        .map_err(|_| ())
+    let (label, der) = x509_cert::der::pem::decode_vec(input).map_err(|_| ())?;
+    if label != "CERTIFICATE" || der.is_empty() {
+        return Err(());
+    }
+    Ok(der)
 }
 
 #[cfg(test)]
@@ -79,13 +41,10 @@ mod tests {
             decode_certificate(&pem("CERTIFICATE", "AQID")).unwrap(),
             [1, 2, 3]
         );
-        assert_eq!(
-            decode_certificate(
-                b"-----BEGIN CERTIFICATE-----\nA Q\tI D\n-----END CERTIFICATE-----\n"
-            )
-            .unwrap(),
-            [1, 2, 3]
-        );
+        assert!(decode_certificate(
+            b"-----BEGIN CERTIFICATE-----\nA Q\tI D\n-----END CERTIFICATE-----\n"
+        )
+        .is_err());
         assert_eq!(
             decode_certificate(
                 b" \r\n-----BEGIN CERTIFICATE-----\nAQID\n-----END CERTIFICATE-----\n\t "
@@ -111,5 +70,10 @@ mod tests {
             b"-----BEGIN CERTIFICATE-----\nAQI\n-----END CERTIFICATE-----\n"
         )
         .is_err());
+        assert!(
+            decode_certificate(b"-----BEGIN CERTIFICATE-----\n\n-----END CERTIFICATE-----\n")
+                .is_err()
+        );
+        assert!(decode_certificate(&vec![b' '; MAX_INPUT + 1]).is_err());
     }
 }
