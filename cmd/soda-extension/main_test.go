@@ -59,9 +59,11 @@ func TestSodaContributionPolicyKeepsOperatorPagesNarrow(t *testing.T) {
 		{"spaces page", "99", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 		{"workspace panel", "99", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
 		{"retired runners page", "42", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
-		{"operator tailnet", "42", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, true},
+		{"operator tailnet admin page", "42", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, true},
+		{"other tailnet admin actor", "43", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, false},
+		{"padded tailnet admin actor", "042", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, false},
+		{"tailnet global page", "42", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
 		{"other runners actor", "43", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
-		{"leading zero actor", "042", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
 		{"wrong operator scope", "42", extensions.Contribution{Kind: "page", ID: "runners", Scope: "admin"}, false},
 		{"unknown page", "42", extensions.Contribution{Kind: "page", ID: "unknown", Scope: "global"}, false},
 	} {
@@ -73,5 +75,35 @@ func TestSodaContributionPolicyKeepsOperatorPagesNarrow(t *testing.T) {
 				t.Fatalf("authorize = %+v, %v; want allowed=%t", decision, err, test.want)
 			}
 		})
+	}
+}
+
+func TestSodaContributionPolicyUsesDeclaredTailnetScope(t *testing.T) {
+	manifest, err := extensions.LoadManifest("../../system/containers/extension")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tailnet *extensions.Page
+	for i := range manifest.Pages {
+		if manifest.Pages[i].ID == "tailnet" {
+			tailnet = &manifest.Pages[i]
+			break
+		}
+	}
+	if tailnet == nil {
+		t.Fatal("extension manifest has no Tailnet page")
+	}
+	contribution := extensions.Contribution{Kind: "page", ID: tailnet.ID, Scope: tailnet.Scope}
+	authorize := contributionAuthorizer("42")
+	for _, actor := range []struct {
+		id   string
+		want bool
+	}{{"42", true}, {"43", false}} {
+		decision, err := authorize(context.Background(), extensions.ContributionRequest{
+			ActorID: actor.id, Contribution: contribution,
+		})
+		if err != nil || decision.Allowed != actor.want {
+			t.Fatalf("authorize manifest Tailnet page for actor %s = %+v, %v; want allowed=%t", actor.id, decision, err, actor.want)
+		}
 	}
 }

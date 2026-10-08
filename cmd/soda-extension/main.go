@@ -80,9 +80,15 @@ func contributionAuthorizer(operatorID string) extensions.ContributionAuthorizer
 
 func allowedContribution(request extensions.ContributionRequest, operatorID string) bool {
 	contribution := request.Contribution
-	if contribution.Kind == "page" && contribution.Scope == "global" {
-		return contribution.ID == "spaces" ||
-			(contribution.ID == "tailnet" && request.ActorID == operatorID)
+	if contribution.Kind == "page" {
+		switch contribution.ID {
+		case "spaces":
+			return contribution.Scope == "global"
+		case "tailnet":
+			return contribution.Scope == "admin" && request.ActorID == operatorID
+		default:
+			return false
+		}
 	}
 	return contribution.Kind == "panel" && contribution.Scope == "panel" && contribution.ID == "workspace"
 }
