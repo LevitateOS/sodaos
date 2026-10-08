@@ -5,7 +5,7 @@ use crate::buildx::{is_digest, is_revision, oci_architecture, Image as BuildImag
 use crate::model::path_clean;
 use crate::Error;
 
-use super::schema::{inspect_oci_image, read_oci_blob, read_oci_index};
+use super::schema::{inspect_oci_image, read_oci_blob, read_oci_index, BlobSource};
 use super::{Blob, MANIFEST_TYPE};
 
 // ---------------------------------------------------------------------------
@@ -90,10 +90,14 @@ pub(super) fn read_oci_archive_entries<R: Read>(
             .size()
             .map_err(|e| Error::msg(format!("read OCI archive: {e}")))?;
         let length = i64::try_from(size).map_err(|_| Error::msg("invalid OCI blob size"))?;
-        let mut data = Vec::new();
-        item.read_to_end(&mut data)
-            .map_err(|e| Error::msg(format!("read OCI archive: {e}")))?;
-        read_oci_blob(&mut entries, &name, length, data, &mut json_bytes)?;
+        read_oci_blob(
+            &mut entries,
+            &name,
+            length,
+            &mut item,
+            BlobSource::Archive,
+            &mut json_bytes,
+        )?;
     }
     Ok(entries)
 }

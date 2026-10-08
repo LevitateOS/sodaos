@@ -2,6 +2,7 @@ use serde::de::{DeserializeOwned, Error as DeError, IgnoredAny, MapAccess, Visit
 use serde::{Deserialize, Deserializer};
 use std::collections::BTreeMap;
 use std::fmt;
+use std::io::Read;
 
 use sha2::{Digest as _, Sha256};
 
@@ -393,26 +394,73 @@ fn is_json(data: &[u8]) -> bool {
     serde::de::IgnoredAny::deserialize(&mut decoder).is_ok() && decoder.end().is_ok()
 }
 
-pub(super) fn read_oci_blob(
+pub(super) enum BlobSource {
+    Layout,
+    Archive,
+}
+
+impl BlobSource {
+    fn read_error(&self, name: &str, error: std::io::Error) -> Error {
+        match self {
+            Self::Layout => Error::msg(format!("read {name}: {error}")),
+            Self::Archive => Error::msg(format!("read OCI archive: {error}")),
+        }
+    }
+}
+
+pub(super) fn read_oci_blob<R: Read>(
     entries: &mut BTreeMap<String, Blob>,
     name: &str,
     length: i64,
-    data: Vec<u8>,
+    mut reader: R,
+    source: BlobSource,
     json_bytes: &mut i64,
 ) -> Result<(), Error> {
     if length < 0 || length == i64::MAX {
         return Err(Error::msg("invalid OCI blob size"));
     }
-    if data.len() as i64 != length {
-        return Err(Error::msg("OCI blob size changed"));
-    }
+    const CHUNK_BYTES: usize = 64 * 1024;
+    let retain_candidate = length <= (4 << 20);
+    let mut data = if retain_candidate {
+        Vec::with_capacity(length as usize)
+    } else {
+        Vec::new()
+    };
     let mut hasher = Sha256::new();
-    hasher.update(&data);
+    let mut buffer = [0u8; CHUNK_BYTES];
+    let mut remaining = length as u64;
+    while remaining > 0 {
+        let take = remaining.min(CHUNK_BYTES as u64) as usize;
+        let read = loop {
+            match reader.read(&mut buffer[..take]) {
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                result => break result,
+            }
+        }
+        .map_err(|error| source.read_error(name, error))?;
+        if read == 0 {
+            return Err(Error::msg("OCI blob size changed"));
+        }
+        hasher.update(&buffer[..read]);
+        if retain_candidate {
+            data.extend_from_slice(&buffer[..read]);
+        }
+        remaining -= read as u64;
+    }
+    let mut extra = [0u8; 1];
+    loop {
+        match reader.read(&mut extra) {
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) => return Err(source.read_error(name, error)),
+            Ok(0) => break,
+            Ok(_) => return Err(Error::msg("OCI blob size changed")),
+        }
+    }
     let sum = format!("{:x}", hasher.finalize());
     if name.starts_with("blobs/") && *name != format!("blobs/sha256/{sum}") {
         return Err(Error::msg("OCI blob checksum mismatch"));
     }
-    let body = if (length as usize) <= (4 << 20) && is_json(&data) {
+    let body = if retain_candidate && is_json(&data) {
         Some(data)
     } else {
         None
@@ -446,6 +494,172 @@ pub(super) fn fetch_oci_blob(
     match entries.get(&name) {
         Some(blob) if blob.size == d.size => Ok(blob.clone()),
         _ => Err(Error::msg("missing or wrong-size OCI blob")),
+    }
+}
+
+#[cfg(test)]
+mod streaming_tests {
+    use super::*;
+    use std::io::Cursor;
+
+    struct ProbeReader {
+        available: u64,
+        read: u64,
+        fail_at: Option<u64>,
+        interrupted: bool,
+        largest_request: usize,
+    }
+
+    impl ProbeReader {
+        fn new(available: u64) -> Self {
+            Self {
+                available,
+                read: 0,
+                fail_at: None,
+                interrupted: false,
+                largest_request: 0,
+            }
+        }
+    }
+
+    impl Read for ProbeReader {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            self.largest_request = self.largest_request.max(buffer.len());
+            if self.interrupted {
+                self.interrupted = false;
+                return Err(std::io::ErrorKind::Interrupted.into());
+            }
+            if self.fail_at == Some(self.read) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "injected late read failure",
+                ));
+            }
+            if self.read >= self.available {
+                return Ok(0);
+            }
+            let mut count = (self.available - self.read).min(buffer.len() as u64);
+            if let Some(fail_at) = self.fail_at {
+                count = count.min(fail_at.saturating_sub(self.read));
+                if count == 0 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "injected late read failure",
+                    ));
+                }
+            }
+            let count = count as usize;
+            buffer[..count].fill(b'x');
+            self.read += count as u64;
+            Ok(count)
+        }
+    }
+
+    #[test]
+    fn streaming_collector_hashes_large_bodies_with_fixed_read_requests() {
+        let length = (8 << 20) + 3;
+        let content = vec![b'x'; length];
+        let digest = format!("{:x}", Sha256::digest(&content));
+        let mut reader = ProbeReader::new(length as u64);
+        reader.interrupted = true;
+        let mut entries = BTreeMap::new();
+        let mut json_bytes = 0;
+        let name = format!("blobs/sha256/{digest}");
+        read_oci_blob(
+            &mut entries,
+            &name,
+            length as i64,
+            &mut reader,
+            BlobSource::Layout,
+            &mut json_bytes,
+        )
+        .unwrap();
+        let blob = entries.get(&name).unwrap();
+        assert_eq!(blob.hash, digest);
+        assert_eq!(blob.size, length as i64);
+        assert!(blob.data.is_none());
+        assert!(reader.largest_request <= 64 * 1024);
+    }
+
+    #[test]
+    fn streaming_collector_rejects_short_extra_and_late_read_failure_without_insert() {
+        for (available, fail_at) in [(49, None), (51, None), (50, Some(50))] {
+            let mut reader = ProbeReader::new(available);
+            reader.fail_at = fail_at;
+            let mut entries = BTreeMap::new();
+            let mut json_bytes = 0;
+            assert!(read_oci_blob(
+                &mut entries,
+                "test-entry",
+                50,
+                &mut reader,
+                BlobSource::Layout,
+                &mut json_bytes,
+            )
+            .is_err());
+            assert!(entries.is_empty());
+            assert_eq!(json_bytes, 0);
+        }
+    }
+
+    #[test]
+    fn streaming_collector_keeps_existing_metadata_and_cache_boundaries() {
+        let exact = format!("{{}}{}", " ".repeat((4 << 20) - 2)).into_bytes();
+        let oversized = format!("{} ", String::from_utf8(exact.clone()).unwrap()).into_bytes();
+        let mut entries = BTreeMap::new();
+        let mut json_bytes = 0;
+        read_oci_blob(
+            &mut entries,
+            "exact-metadata",
+            exact.len() as i64,
+            Cursor::new(&exact),
+            BlobSource::Layout,
+            &mut json_bytes,
+        )
+        .unwrap();
+        read_oci_blob(
+            &mut entries,
+            "oversized-metadata",
+            oversized.len() as i64,
+            Cursor::new(&oversized),
+            BlobSource::Layout,
+            &mut json_bytes,
+        )
+        .unwrap();
+        assert_eq!(
+            entries["exact-metadata"].data.as_ref().unwrap().len(),
+            4 << 20
+        );
+        assert!(entries["oversized-metadata"].data.is_none());
+        assert_eq!(json_bytes, 4 << 20);
+
+        for index in 0..7 {
+            let name = format!("cache-{index}");
+            read_oci_blob(
+                &mut entries,
+                &name,
+                exact.len() as i64,
+                Cursor::new(&exact),
+                BlobSource::Layout,
+                &mut json_bytes,
+            )
+            .unwrap();
+        }
+        assert_eq!(json_bytes, 32 << 20);
+        let small = b"{}";
+        assert_eq!(
+            read_oci_blob(
+                &mut entries,
+                "cache-overflow",
+                small.len() as i64,
+                Cursor::new(small),
+                BlobSource::Layout,
+                &mut json_bytes,
+            )
+            .unwrap_err(),
+            Error::msg("OCI JSON metadata limit exceeded")
+        );
+        assert!(!entries.contains_key("cache-overflow"));
     }
 }
 

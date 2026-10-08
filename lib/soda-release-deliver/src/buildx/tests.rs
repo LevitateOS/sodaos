@@ -69,7 +69,7 @@ fn rooted_file_helpers_refuse_intermediate_directory_symlink_escape() {
     let refused = [
         ("hash_at", hash_at(&root, name).is_err()),
         ("read_at", read_at(&root, name, 1024).is_err()),
-        ("read_layout_entry", read_layout_entry(&root, name).is_err()),
+        ("open_layout_entry", open_layout_entry(&root, name).is_err()),
         ("read_json_at", read_json_at(&root, name).is_err()),
     ];
     assert!(
@@ -119,7 +119,9 @@ fn rooted_file_helpers_allow_internal_directory_links_and_preserve_file_contract
     assert_eq!(hash_at(&root, &blob_name).unwrap(), digest);
     assert_eq!(read_at(&root, &blob_name, blob.len() as i64).unwrap(), blob);
     assert!(read_at(&root, &blob_name, blob.len() as i64 - 1).is_err());
-    let (layout_bytes, layout_size) = read_layout_entry(&root, &blob_name).unwrap();
+    let (mut layout_file, layout_size) = open_layout_entry(&root, &blob_name).unwrap();
+    let mut layout_bytes = Vec::new();
+    std::io::Read::read_to_end(&mut layout_file, &mut layout_bytes).unwrap();
     assert_eq!(layout_bytes, blob);
     assert_eq!(layout_size, blob.len() as i64);
 }
@@ -147,7 +149,7 @@ fn rooted_file_helpers_refuse_final_symlinks_and_nonregular_files() {
         assert_eq!(hash_at(&root, name).unwrap_err(), Error::refused());
         assert_eq!(read_at(&root, name, 1024).unwrap_err(), Error::refused());
         assert_eq!(
-            read_layout_entry(&root, name).unwrap_err(),
+            open_layout_entry(&root, name).unwrap_err(),
             Error::refused()
         );
         assert_eq!(read_json_at(&root, name).unwrap_err(), Error::refused());
@@ -159,8 +161,8 @@ fn rooted_file_helpers_refuse_final_symlinks_and_nonregular_files() {
             "read_at accepted {name}"
         );
         assert!(
-            read_layout_entry(&root, name).is_err(),
-            "read_layout_entry accepted {name}"
+            open_layout_entry(&root, name).is_err(),
+            "open_layout_entry accepted {name}"
         );
         assert!(
             read_json_at(&root, name).is_err(),

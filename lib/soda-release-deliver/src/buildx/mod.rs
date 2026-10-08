@@ -13,8 +13,8 @@ pub use soda_build_tools::reader::{is_digest, is_revision, oci_architecture};
 mod filesystem;
 
 pub use filesystem::{
-    decode_build_json, fresh_directory, hash_at, private_destination, read_at, read_json_at,
-    read_layout_entry, write_new, Root,
+    decode_build_json, fresh_directory, hash_at, open_layout_entry, private_destination, read_at,
+    read_json_at, write_new, Root,
 };
 
 pub const FORGEJO_COMPILER_IMAGE: &str =

@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::io::Read;
 
 use crate::buildx::{
-    is_digest, is_revision, oci_architecture, read_layout_entry, Image as BuildImage, Root,
+    is_digest, is_revision, oci_architecture, open_layout_entry, Image as BuildImage, Root,
 };
 use crate::model::path_clean;
 use crate::Error;
@@ -37,7 +37,7 @@ struct Blob {
 mod schema;
 use schema::{
     fetch_oci_blob, inspect_oci_config, inspect_oci_image, parse_oci_manifest, read_oci_blob,
-    read_oci_index, Descriptor, OciManifest,
+    read_oci_index, BlobSource, Descriptor, OciManifest,
 };
 
 mod archive;
@@ -204,8 +204,15 @@ impl LayoutLoader<'_> {
         if self.entries.contains_key(name) {
             return Ok(());
         }
-        let (data, size) = read_layout_entry(self.root, name)?;
-        read_oci_blob(&mut self.entries, name, size, data, &mut self.json_bytes)
+        let (file, size) = open_layout_entry(self.root, name)?;
+        read_oci_blob(
+            &mut self.entries,
+            name,
+            size,
+            file,
+            BlobSource::Layout,
+            &mut self.json_bytes,
+        )
     }
 
     fn fetch(&mut self, d: &Descriptor) -> Result<Blob, Error> {
@@ -292,6 +299,7 @@ fn inspect_layout_images(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest as _, Sha256};
 
     #[test]
     fn member_path_rules() {
@@ -316,5 +324,60 @@ mod tests {
         let err = inspect_oci(&path, "x86_64", "").unwrap_err();
         assert!(err.0.contains("read OCI archive"), "{}", err.0);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn layout_and_tar_blob_callers_stream_large_bodies_without_retention() {
+        let temp = tempfile::tempdir().unwrap();
+        let root_path = temp.path().join("layout");
+        let blob_dir = root_path.join("blobs/sha256");
+        std::fs::create_dir_all(&blob_dir).unwrap();
+        let body = vec![b'x'; (6 << 20) + 19];
+        let digest = format!("{:x}", Sha256::digest(&body));
+        let name = format!("blobs/sha256/{digest}");
+        std::fs::write(root_path.join(&name), &body).unwrap();
+
+        let root = Root::open(root_path.to_str().unwrap()).unwrap();
+        let mut loader = LayoutLoader {
+            root: &root,
+            entries: BTreeMap::new(),
+            json_bytes: 0,
+        };
+        loader.load(&name).unwrap();
+        let layout_blob = &loader.entries[&name];
+        assert_eq!(layout_blob.hash, digest);
+        assert_eq!(layout_blob.size, body.len() as i64);
+        assert!(layout_blob.data.is_none());
+
+        let archive_path = temp.path().join("large.oci");
+        let archive_file = std::fs::File::create(&archive_path).unwrap();
+        let mut archive = tar::Builder::new(archive_file);
+        let mut header = tar::Header::new_gnu();
+        header.set_size(body.len() as u64);
+        header.set_mode(0o644);
+        header.set_cksum();
+        archive
+            .append_data(&mut header, &name, body.as_slice())
+            .unwrap();
+        let layout = br#"{"imageLayoutVersion":"1.0.0"}"#;
+        let mut layout_header = tar::Header::new_gnu();
+        layout_header.set_size(layout.len() as u64);
+        layout_header.set_mode(0o644);
+        layout_header.set_cksum();
+        archive
+            .append_data(&mut layout_header, "oci-layout", layout.as_slice())
+            .unwrap();
+        archive.finish().unwrap();
+
+        let archive_entries =
+            read_oci_archive_entries(std::fs::File::open(archive_path).unwrap()).unwrap();
+        let tar_blob = &archive_entries[&name];
+        assert_eq!(tar_blob.hash, digest);
+        assert_eq!(tar_blob.size, body.len() as i64);
+        assert!(tar_blob.data.is_none());
+        assert_eq!(
+            archive_entries["oci-layout"].data.as_deref(),
+            Some(layout.as_slice())
+        );
     }
 }

@@ -97,7 +97,7 @@ fn confined_reader(root: &Root, name: &str) -> std::io::Result<OwnedFd> {
 
 /// Read one layout entry confined to an open directory, with the OCI
 /// layout loader's error semantics.
-pub fn read_layout_entry(root: &Root, name: &str) -> Result<(Vec<u8>, i64), Error> {
+pub fn open_layout_entry(root: &Root, name: &str) -> Result<(std::fs::File, i64), Error> {
     check_confined(name)?;
     let (_path_fd, st) =
         confined_stat(root, name).map_err(|e| Error::msg(format!("lstat {name}: {e}")))?;
@@ -109,12 +109,7 @@ pub fn read_layout_entry(root: &Root, name: &str) -> Result<(Vec<u8>, i64), Erro
     if actual.st_dev != st.st_dev || actual.st_ino != st.st_ino {
         return Err(Error::msg("OCI layout entry changed"));
     }
-    let mut file = std::fs::File::from(fd);
-    let mut data = Vec::new();
-    use std::io::Read;
-    file.read_to_end(&mut data)
-        .map_err(|e| Error::msg(format!("read {name}: {e}")))?;
-    Ok((data, st.st_size))
+    Ok((std::fs::File::from(fd), st.st_size))
 }
 
 /// `readAt`: bounded regular read confined to an open directory.
