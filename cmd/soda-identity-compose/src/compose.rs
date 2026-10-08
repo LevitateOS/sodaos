@@ -1,10 +1,21 @@
-use super::launch_json::compose_override_json;
 use super::options::Options;
 use super::MUSE_LAUNCH_SOCKET;
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
+
+#[derive(Serialize)]
+struct ComposeOverrideDto {
+    services: BTreeMap<String, ComposeServiceDto>,
+}
+
+#[derive(Serialize)]
+struct ComposeServiceDto {
+    volumes: Vec<String>,
+}
 
 pub(crate) fn launch_compose(o: &Options, root: &str) -> Result<String, String> {
     let override_path = format!("{root}/compose.json");
@@ -60,7 +71,15 @@ pub(crate) fn write_override(path: &str, service: &str, root: &str) -> Result<()
         String::from("/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro"),
         format!("{sock_dir}:{sock_dir}:ro"),
     ];
-    let data = compose_override_json(service, mounts.to_vec());
+    let mut services = BTreeMap::new();
+    services.insert(
+        service.to_string(),
+        ComposeServiceDto {
+            volumes: mounts.to_vec(),
+        },
+    );
+    let data = serde_json::to_string(&ComposeOverrideDto { services })
+        .expect("serializing a Compose override cannot fail");
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
     opts.mode(0o600);

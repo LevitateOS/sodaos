@@ -19,10 +19,10 @@ fn shell_fixture() -> ShellRequest {
 }
 
 #[test]
-fn shell_request_wire_matches_go() {
+fn shell_request_wire_preserves_field_order_and_optional_fields() {
     assert_eq!(
         shell_request_json(&shell_fixture()),
-        "{\"home\":\"/home/u\",\"config_home\":\"/home/u/.config\",\"term\":\"xterm\",\"connection_id\":\"conn1\",\"cwd\":\"/work\",\"args\":[\"a b\",\"c\\u003cd\"],\"tty\":true,\"cols\":80,\"rows\":24}"
+        "{\"home\":\"/home/u\",\"config_home\":\"/home/u/.config\",\"term\":\"xterm\",\"connection_id\":\"conn1\",\"cwd\":\"/work\",\"args\":[\"a b\",\"c<d\"],\"tty\":true,\"cols\":80,\"rows\":24}"
     );
     let empty = ShellRequest {
         cwd: String::from("/w"),
@@ -42,11 +42,13 @@ fn shell_request_wire_matches_go() {
 }
 
 #[test]
-fn shell_request_keeps_go_html_safe_escapes() {
+fn shell_request_roundtrips_html_and_control_characters() {
     let mut request = shell_fixture();
     request.cwd = String::from("/work/<>&\u{2028}\u{2029}");
     let encoded = shell_request_json(&request);
-    assert!(encoded.contains("\"cwd\":\"/work/\\u003c\\u003e\\u0026\\u2028\\u2029\""));
+    let decoded: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(decoded["cwd"], request.cwd);
+    assert_eq!(decoded["args"][1], "c<d");
 }
 
 #[test]

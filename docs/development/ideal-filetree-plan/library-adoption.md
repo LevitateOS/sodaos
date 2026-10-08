@@ -335,6 +335,18 @@ Completed owner packets retain their distinct input and producer policies:
 | Guest | `1350250a`: 19 account, 67 factory and 93 terminal unit tests; 33 integration checks, build and review. Exact control-frame shapes, decoded duplicate policy, ordinary dictionary insertion position and Python producer bytes retained |
 | Acceptance | `747959ed`: 131 tests and three binary builds, static/dynamic review; L01 absolute deadlines, pump/error/close custody, unterminated curl metadata, split redaction and failed-evidence publication checks remain passing |
 
+The later Compose/Muse caller challenge removes both custom Go-escaping
+formatter modules. Their five production outputs are consumed as JSON values;
+no selected caller needs HTML or Unicode-separator escaping bytes. Compose
+retains one canonical registration DTO and moves response admission and Compose
+emission to their existing owners, removing the forwarding functions. Muse
+emits directly from its shell/account/config owners. This scoped simplification
+preserves fields, defaults, `args: null`, ordered maps, parser admission and
+original config bytes; shared host quoting, signed inputs and fingerprints are
+outside it. The [current receipt](execution-findings.md#implemented-source-follow-ups-2026-10-08)
+records 84 selected tests, two development builds and actual compiled config
+emission, with no installed or Podman Compose qualification.
+
 Dynamic guest, image, provisioning and Acceptance trees admit at most **127
 nested containers**; the root container counts as one and scalar roots as zero.
 The guard refuses the 128th container before recursive conversion. This matches

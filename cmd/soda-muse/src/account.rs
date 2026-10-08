@@ -1,4 +1,3 @@
-use super::launch_json::serialize_go;
 use super::paths::path_error;
 use std::ffi::{CStr, CString};
 use std::fs;
@@ -60,13 +59,14 @@ fn account_entry(directory: &str, name: &str, actor: &str) -> Result<bool, Strin
     let (uid, gid, gecos, dir) = lookup_user(name)?;
     let out = format!(
         "{}\n",
-        serialize_go(&AccountRecord {
+        serde_json::to_string(&AccountRecord {
             uid: uid.to_string(),
             gid: gid.to_string(),
             username: name,
             name: &gecos,
             home_dir: &dir,
         })
+        .expect("serializing an account record cannot fail")
     );
     print!("{out}");
     use std::io::Write;

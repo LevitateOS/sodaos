@@ -5,7 +5,6 @@ mod config;
 mod config_tests;
 mod execution;
 mod launch;
-mod launch_json;
 #[cfg(test)]
 mod launch_tests;
 mod launch_wire;

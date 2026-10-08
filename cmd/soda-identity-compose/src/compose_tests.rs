@@ -1,5 +1,5 @@
 use super::compose::{select_compose_child, write_override};
-use super::launch_wire::{json_string, launch_request_json, parse_launch_exit, NestedRegistration};
+use super::launch_wire::{launch_request_json, parse_launch_exit, NestedRegistration};
 use super::options::parse_bool_flag;
 use super::*;
 
@@ -68,25 +68,47 @@ fn compose_muse_mounts_are_explicit() {
     .unwrap();
     let body = fs::read(&path).unwrap();
     let text = String::from_utf8(body).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(
-        text,
-        "{\"services\":{\"development\":{\"volumes\":[\"/run/soda-muse/nested/registration:/run/soda-muse/credentials:ro\",\"/usr/local/bin/muse:/usr/local/bin/muse:ro\",\"/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro\",\"/run/soda-muse-interface:/run/soda-muse-interface:ro\"]}}}"
+        value["services"]["development"]["volumes"],
+        serde_json::json!([
+            "/run/soda-muse/nested/registration:/run/soda-muse/credentials:ro",
+            "/usr/local/bin/muse:/usr/local/bin/muse:ro",
+            "/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro",
+            "/run/soda-muse-interface:/run/soda-muse-interface:ro"
+        ])
     );
     let _ = fs::remove_dir_all(&dir);
 }
 
 #[test]
-fn override_escapes_like_go_encoding_json() {
+fn launch_and_compose_emitters_preserve_special_json_values() {
+    let special = "<>&\"\\\n\t\u{1}\u{2028}\u{2029}";
+    let req = NestedRegistration {
+        child_id: special.to_string(),
+        actor_id: "42".to_string(),
+        registration_id: "r".repeat(32),
+        muse: true,
+    };
+    let wire: serde_json::Value = serde_json::from_str(&launch_request_json(&req)).unwrap();
+    assert_eq!(wire["register"]["child_id"], special);
+
+    let dir = std::env::temp_dir().join(format!("soda-compose-special-{}", std::process::id()));
+    let _ = fs::create_dir_all(&dir);
+    let path = dir.join("compose.json");
+    write_override(
+        path.to_str().unwrap(),
+        special,
+        "/run/soda-muse/nested/special",
+    )
+    .unwrap();
+    let text = fs::read_to_string(&path).unwrap();
+    let wire: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(
-        json_string("a<b>&\"c\\d"),
-        "\"a\\u003cb\\u003e\\u0026\\\"c\\\\d\""
+        wire["services"][special]["volumes"][0],
+        "/run/soda-muse/nested/special:/run/soda-muse/credentials:ro"
     );
-    assert_eq!(json_string("line\ntab\t"), "\"line\\ntab\\t\"");
-    assert_eq!(json_string("\u{1}"), "\"\\u0001\"");
-    assert_eq!(
-        json_string("<>&\u{2028}\u{2029}"),
-        "\"\\u003c\\u003e\\u0026\\u2028\\u2029\""
-    );
+    let _ = fs::remove_dir_all(&dir);
 }
 
 #[test]

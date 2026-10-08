@@ -1,6 +1,7 @@
 use super::*;
 use crate::project::Executor;
 use crate::terminal;
+use base64::Engine;
 use std::os::fd::AsRawFd;
 use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -363,6 +364,14 @@ fn launch_decode_matrix() {
     assert_eq!(req.register.as_ref().unwrap().actor_id, 7);
     assert_eq!((req.cols, req.rows), (80, 24));
     assert!(req.tty);
+    let special = "<>&\u{2028}\u{2029}";
+    let special_body = format!(
+        r#"{{"home":"/home/dev{special}","cwd":"/workspace{special}","args":["arg{special}"]}}"#
+    );
+    let special_request = LaunchRequest::decode(special_body.as_bytes()).unwrap();
+    assert_eq!(special_request.home, format!("/home/dev{special}"));
+    assert_eq!(special_request.cwd, format!("/workspace{special}"));
+    assert_eq!(special_request.args, [format!("arg{special}")]);
     let negative_zero = LaunchRequest::decode(br#"{"cols":-0,"rows":-0}"#).unwrap();
     assert_eq!((negative_zero.cols, negative_zero.rows), (0, 0));
     let negative_zero_control = LaunchControl::decode(br#"{"signal":-0}"#).unwrap();
@@ -901,6 +910,13 @@ fn actor_account_flows() {
     assert_eq!(
         rt.actor_account(CID, 7, deadline()).unwrap(),
         ("dev".to_string(), "/home/dev".to_string())
+    );
+    let special = "<>&\u{2028}\u{2029}";
+    let body = format!(r#"{{"Username":"dev","HomeDir":"/home/dev{special}"}}"#);
+    let rt = runtime(FakeExec::new(vec![ok(&body)]));
+    assert_eq!(
+        rt.actor_account(CID, 7, deadline()).unwrap(),
+        ("dev".to_string(), format!("/home/dev{special}"))
     );
     let calls = rt.exec.calls();
     assert_eq!(
@@ -1528,6 +1544,17 @@ fn config_view_matrix() {
     let view = decode_config_view(br#"{"settings.json":"e30=","trust.json":[123,125]}"#).unwrap();
     assert_eq!(view["settings.json"], b"{}");
     assert_eq!(view["trust.json"], b"{}");
+    let special = "<>&\u{2028}\u{2029}";
+    let settings = format!(r#"{{"label":"{special}"}}"#).into_bytes();
+    let trust = format!(r#"["{special}"]"#).into_bytes();
+    let encoded = format!(
+        r#"{{"settings.json":"{}","trust.json":"{}"}}"#,
+        base64::engine::general_purpose::STANDARD.encode(&settings),
+        base64::engine::general_purpose::STANDARD.encode(&trust),
+    );
+    let decoded = decode_config_view(encoded.as_bytes()).unwrap();
+    assert_eq!(decoded["settings.json"], settings);
+    assert_eq!(decoded["trust.json"], trust);
     assert!(decode_config_view(b"[]").is_err());
     assert!(decode_config_view(br#"{"a":7}"#).is_err());
     assert!(decode_config_view(br#"{"a":"!!!"}"#).is_err());

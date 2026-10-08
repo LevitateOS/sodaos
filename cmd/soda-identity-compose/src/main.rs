@@ -3,7 +3,6 @@
 use std::fs;
 
 mod compose;
-mod launch_json;
 mod launch_wire;
 mod options;
 mod registration;

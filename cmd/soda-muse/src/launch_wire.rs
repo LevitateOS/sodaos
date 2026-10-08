@@ -3,7 +3,6 @@ use serde::de::{IgnoredAny, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use super::launch_json::serialize_go;
 use super::shell::ShellRequest;
 
 #[derive(Serialize)]
@@ -25,7 +24,7 @@ struct ShellLaunchRequest<'a> {
 // shell_request_json emits the exact Go LaunchRequest field order for a
 // shell: empty home/config_home/term omitted, argv always an array.
 pub(crate) fn shell_request_json(r: &ShellRequest) -> String {
-    serialize_go(&ShellLaunchRequest {
+    serde_json::to_string(&ShellLaunchRequest {
         home: (!r.home.is_empty()).then_some(r.home.as_str()),
         config_home: (!r.config_home.is_empty()).then_some(r.config_home.as_str()),
         term: (!r.term.is_empty()).then_some(r.term.as_str()),
@@ -36,6 +35,7 @@ pub(crate) fn shell_request_json(r: &ShellRequest) -> String {
         cols: r.cols,
         rows: r.rows,
     })
+    .expect("serializing a shell launch request cannot fail")
 }
 
 pub(crate) fn base64_encode(data: &[u8]) -> String {

@@ -1,7 +1,5 @@
 use super::account::account_node;
 use super::config::copy_config;
-use super::launch_json::serialize_go;
-use super::launch_wire::base64_encode;
 use super::native_action;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -45,14 +43,6 @@ fn copy_config_skips_credentials_and_copies_tree() {
     )
     .is_err());
     let _ = fs::remove_dir_all(&root);
-}
-
-#[test]
-fn read_config_contract_shapes() {
-    // Pure shape check: base64 values under sorted keys.
-    let encoded = std::collections::BTreeMap::from([("settings.json", base64_encode(b"{}"))]);
-    let out = format!("{}\n", serialize_go(&encoded));
-    assert_eq!(out, "{\"settings.json\":\"e30=\"}\n");
 }
 
 #[test]

@@ -1,4 +1,3 @@
-use super::launch_json::serialize_go;
 use super::launch_wire::base64_encode;
 use super::paths::path_error;
 use std::fs;
@@ -227,7 +226,10 @@ pub(crate) fn read_config(source: &str) -> Result<(), String> {
     for (name, body) in &view {
         encoded.insert(*name, base64_encode(body));
     }
-    let out = format!("{}\n", serialize_go(&encoded));
+    let out = format!(
+        "{}\n",
+        serde_json::to_string(&encoded).expect("serializing a config view cannot fail")
+    );
     print!("{out}");
     use std::io::Write;
     io::stdout().flush().map_err(|e| e.to_string())?;
