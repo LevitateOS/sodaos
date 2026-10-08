@@ -15,8 +15,6 @@ use std::os::unix::ffi::OsStrExt;
 use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 
-use crate::jsonio;
-
 /// Maximum request size, like the Python stdin bound.
 pub const REQUEST_LIMIT: usize = 16384;
 /// Pinned source repository, like the Python owner.
@@ -323,8 +321,7 @@ fn write_receipt(
     receipt: &HashMap<String, String>,
 ) -> Result<(), PayloadFailure> {
     let entries: std::collections::BTreeMap<&String, &String> = receipt.iter().collect();
-    let mut text = String::new();
-    jsonio::write_compact(&mut text, &entries);
+    let text = serde_json::to_string(&entries).expect("native receipt serializes");
     crate::files::write_new(&path.to_string_lossy(), text.as_bytes(), 0o666).map_err(|e| match e {
         crate::error::Error::Io(io) => PayloadFailure::os(io),
         other => value_error(other.to_string()),

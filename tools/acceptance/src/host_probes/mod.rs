@@ -8,12 +8,12 @@
 //! path. Verdict messages (`SystemExit` and assertion texts)
 //! print verbatim; operational failures (I/O, JSON, subprocess)
 //! collapse Python tracebacks to one `host probe failed:` line.
-//! Success output is byte-identical.
+//! Success output is JSON with the same decoded values.
 
 use std::io::Read;
 use std::process::{Command, Stdio};
 
-use crate::structured::{self, Value as JsonValue};
+use crate::structured::Value as JsonValue;
 
 use crate::sha256::{self, Digest, Sha256};
 
@@ -62,12 +62,9 @@ impl std::fmt::Display for ProbeFailure {
 
 impl std::error::Error for ProbeFailure {}
 
-/// Python `json.dumps` rendering: insertion order, `(', ', ': ')`
-/// separators, ASCII-only output with lowercase `\u` escapes.
+/// Compact JSON rendering that preserves the constructed field order.
 pub fn dumps(value: &JsonValue) -> String {
-    let mut out = String::new();
-    structured::write_python(&mut out, value);
-    out
+    serde_json::to_string(value).expect("host-probe JSON serializes")
 }
 
 fn read_file(path: &str, op: &'static str) -> Result<Vec<u8>, ProbeFailure> {

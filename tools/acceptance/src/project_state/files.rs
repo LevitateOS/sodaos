@@ -4,7 +4,9 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
-use crate::structured::{self, Value as JsonValue};
+use crate::structured::Value as JsonValue;
+use serde::ser::{SerializeMap, SerializeSeq};
+use serde::{Serialize, Serializer};
 
 use crate::sha256::{self, Digest, Sha256};
 
@@ -136,13 +138,39 @@ pub(super) fn snapshot_opened_file(
     })
 }
 
-/// Python `json.dumps(sort_keys=True)` rendering: sorted keys,
-/// `(', ', ': ')` separators, ASCII-only output with lowercase `\u`
-/// escapes. Snapshot values are strings, integers, lists, and objects.
+/// Compact JSON with recursively sorted object keys. Snapshot values are
+/// strings, integers, lists, and objects.
 pub fn dumps_sorted(value: &JsonValue) -> String {
-    let mut out = String::new();
-    structured::write_python_sorted(&mut out, value);
-    out
+    value
+        .validate_depth()
+        .expect("constructed project-state JSON stays within Serde depth");
+    serde_json::to_string(&Sorted(value)).expect("project-state JSON serializes")
+}
+
+struct Sorted<'a>(&'a JsonValue);
+
+impl Serialize for Sorted<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self.0 {
+            JsonValue::Array(items) => {
+                let mut seq = serializer.serialize_seq(Some(items.len()))?;
+                for item in items {
+                    seq.serialize_element(&Sorted(item))?;
+                }
+                seq.end()
+            }
+            JsonValue::Object(entries) => {
+                let mut order: Vec<_> = entries.iter().collect();
+                order.sort_by(|a, b| a.0.cmp(&b.0));
+                let mut map = serializer.serialize_map(Some(order.len()))?;
+                for (key, value) in order {
+                    map.serialize_entry(key, &Sorted(value))?;
+                }
+                map.end()
+            }
+            value => value.serialize(serializer),
+        }
+    }
 }
 
 pub(super) fn list_files(dir: &Path) -> Result<Vec<PathBuf>, SnapshotFailure> {

@@ -438,7 +438,7 @@ fn snapshot_command_exit_path_retires_inherited_pipes() {
 }
 
 #[test]
-fn dumps_sorted_matches_python_separators() {
+fn dumps_sorted_emits_sorted_json_values() {
     let mut value = obj();
     set(&mut value, "b", n(1));
     set(
@@ -446,10 +446,17 @@ fn dumps_sorted_matches_python_separators() {
         "a",
         JsonValue::Array(vec![JsonValue::Bool(true), s("x\ny")]),
     );
-    assert_eq!(dumps_sorted(&value), r#"{"a": [true, "x\ny"], "b": 1}"#);
+    let encoded = dumps_sorted(&value);
+    assert!(encoded.find("\"a\"").unwrap() < encoded.find("\"b\"").unwrap());
+    let decoded: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(decoded["a"], serde_json::json!([true, "x\ny"]));
+    assert_eq!(decoded["b"], 1);
     let mut unicode = obj();
     set(&mut unicode, "e", s("é💾"));
-    assert_eq!(dumps_sorted(&unicode), "{\"e\": \"\\u00e9\\ud83d\\udcbe\"}");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&dumps_sorted(&unicode)).unwrap()["e"],
+        "é💾"
+    );
 }
 
 #[test]

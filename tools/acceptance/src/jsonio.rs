@@ -1,14 +1,12 @@
-//! Bounded JSON file custody and Go-compatible JSON formatting.
+//! Bounded JSON file custody for owner-defined JSON records.
 //!
 //! Schema decoding belongs to each owner. Readers return Serde's validated
 //! raw value together with a digest of the exact original bytes.
 
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::Read;
 use std::path::Path;
 
-use serde::Serialize;
-use serde_json::ser::{Formatter, PrettyFormatter};
 use serde_json::value::RawValue;
 
 use crate::error::Error;
@@ -87,131 +85,6 @@ fn fstat_attr(file: &File) -> Result<FileAttr, Error> {
     })
 }
 
-#[derive(Default)]
-struct GoFormatter;
-
-impl Formatter for GoFormatter {
-    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        for ch in fragment.chars() {
-            match ch {
-                '<' => writer.write_all(b"\\u003c")?,
-                '>' => writer.write_all(b"\\u003e")?,
-                '&' => writer.write_all(b"\\u0026")?,
-                '\u{2028}' => writer.write_all(b"\\u2028")?,
-                '\u{2029}' => writer.write_all(b"\\u2029")?,
-                ch => {
-                    let mut bytes = [0; 4];
-                    writer.write_all(ch.encode_utf8(&mut bytes).as_bytes())?;
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-struct GoPrettyFormatter(PrettyFormatter<'static>);
-
-impl Default for GoPrettyFormatter {
-    fn default() -> Self {
-        Self(PrettyFormatter::with_indent(b"  "))
-    }
-}
-
-impl Formatter for GoPrettyFormatter {
-    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        GoFormatter.write_string_fragment(writer, fragment)
-    }
-
-    fn begin_array<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.begin_array(writer)
-    }
-    fn end_array<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.end_array(writer)
-    }
-    fn begin_array_value<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.begin_array_value(writer, first)
-    }
-    fn end_array_value<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.end_array_value(writer)
-    }
-    fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.begin_object(writer)
-    }
-    fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.end_object(writer)
-    }
-    fn begin_object_key<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.begin_object_key(writer, first)
-    }
-    fn end_object_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.end_object_key(writer)
-    }
-    fn begin_object_value<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.begin_object_value(writer)
-    }
-    fn end_object_value<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + io::Write,
-    {
-        self.0.end_object_value(writer)
-    }
-}
-
-/// Compact Go `encoding/json` output. The caller controls DTO or ordered
-/// application-tree field order; map implementations supply their own order.
-pub fn write_compact<T: Serialize>(out: &mut String, value: &T) {
-    let mut bytes = Vec::new();
-    let mut serializer = serde_json::Serializer::with_formatter(&mut bytes, GoFormatter);
-    value
-        .serialize(&mut serializer)
-        .expect("serializing JSON output to memory cannot fail");
-    out.push_str(std::str::from_utf8(&bytes).expect("Serde emits valid UTF-8"));
-}
-
-/// Two-space Go indented output without a terminal newline.
-pub fn write_indent<T: Serialize>(out: &mut String, value: &T) {
-    let mut bytes = Vec::new();
-    let mut serializer =
-        serde_json::Serializer::with_formatter(&mut bytes, GoPrettyFormatter::default());
-    value
-        .serialize(&mut serializer)
-        .expect("serializing JSON output to memory cannot fail");
-    out.push_str(std::str::from_utf8(&bytes).expect("Serde emits valid UTF-8"));
-}
-
 /// Go JSON quote escaping for credential bytes included in a secret set.
 pub fn escape_go(out: &mut String, value: &str) {
     out.push('"');
@@ -233,3 +106,6 @@ pub fn escape_go(out: &mut String, value: &str) {
     }
     out.push('"');
 }
+
+#[cfg(test)]
+mod tests;

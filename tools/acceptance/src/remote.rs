@@ -129,7 +129,6 @@ mod tests {
     }
 
     fn write_request(dir: &std::path::Path, revision: &str, target: &str, phase: &str) -> String {
-        let mut text = String::new();
         #[derive(serde::Serialize)]
         struct Request<'a> {
             #[serde(rename = "Revision")]
@@ -143,16 +142,14 @@ mod tests {
             #[serde(rename = "Phase")]
             phase: &'a str,
         }
-        jsonio::write_compact(
-            &mut text,
-            &Request {
-                revision,
-                architecture: "x86_64",
-                target,
-                work: "/private/fresh",
-                phase,
-            },
-        );
+        let text = serde_json::to_string(&Request {
+            revision,
+            architecture: "x86_64",
+            target,
+            work: "/private/fresh",
+            phase,
+        })
+        .expect("native request serializes");
         let path = dir.join("request.json");
         std::fs::write(&path, &text).unwrap();
         use std::os::unix::fs::PermissionsExt;

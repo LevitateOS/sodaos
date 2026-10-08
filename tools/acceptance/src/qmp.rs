@@ -275,8 +275,7 @@ fn send_message<T: Serialize>(
     phase: &Phase,
 ) -> std::io::Result<()> {
     check_phase(phase)?;
-    let mut out = String::new();
-    crate::jsonio::write_compact(&mut out, value);
+    let mut out = serde_json::to_string(value).expect("QMP message serializes");
     out.push('\n');
     check_phase(phase)?;
     let mut bytes = out.as_bytes();
@@ -480,8 +479,7 @@ mod tests {
             arguments: Some(&arguments),
             id: "status",
         };
-        let mut output = String::new();
-        crate::jsonio::write_compact(&mut output, &request);
+        let output = serde_json::to_string(&request).unwrap();
         assert_eq!(
             output,
             r#"{"execute":"query-status","arguments":{"z":1e2,"a":-0},"id":"status"}"#

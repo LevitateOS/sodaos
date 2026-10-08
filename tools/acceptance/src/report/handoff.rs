@@ -177,8 +177,7 @@ fn handoff_description(o: &Observation) -> String {
         invocation: o.invocation.as_deref(),
         artifacts: o.artifacts.as_ref(),
     };
-    let mut out = String::new();
-    jsonio::write_compact(&mut out, &value);
+    let out = serde_json::to_string(&value).expect("handoff description serializes");
     out
 }
 

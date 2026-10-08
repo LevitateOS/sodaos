@@ -5,7 +5,6 @@
 use serde::de::{MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::ser::Formatter;
 use serde_json::value::RawValue;
 
 /// Maximum number of nested containers admitted by the pinned Serde parser.
@@ -223,110 +222,6 @@ fn serialize_value<S: Serializer>(value: &Value, serializer: S) -> Result<S::Ok,
             map.end()
         }
     }
-}
-
-#[derive(Default)]
-struct PythonFormatter;
-
-impl Formatter for PythonFormatter {
-    fn write_string_fragment<W: ?Sized + std::io::Write>(
-        &mut self,
-        writer: &mut W,
-        fragment: &str,
-    ) -> std::io::Result<()> {
-        for ch in fragment.chars() {
-            match ch {
-                c if (c as u32) < 0x7f => {
-                    let mut bytes = [0; 4];
-                    writer.write_all(c.encode_utf8(&mut bytes).as_bytes())?;
-                }
-                c if (c as u32) < 0x10000 => write!(writer, "\\u{:04x}", c as u32)?,
-                c => {
-                    let code = c as u32 - 0x10000;
-                    write!(
-                        writer,
-                        "\\u{:04x}\\u{:04x}",
-                        0xd800 + (code >> 10),
-                        0xdc00 + (code & 0x3ff)
-                    )?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn begin_array_value<W: ?Sized + std::io::Write>(
-        &mut self,
-        writer: &mut W,
-        first: bool,
-    ) -> std::io::Result<()> {
-        if !first {
-            writer.write_all(b", ")?;
-        }
-        Ok(())
-    }
-
-    fn begin_object_key<W: ?Sized + std::io::Write>(
-        &mut self,
-        writer: &mut W,
-        first: bool,
-    ) -> std::io::Result<()> {
-        if !first {
-            writer.write_all(b", ")?;
-        }
-        Ok(())
-    }
-
-    fn begin_object_value<W: ?Sized + std::io::Write>(
-        &mut self,
-        writer: &mut W,
-    ) -> std::io::Result<()> {
-        writer.write_all(b": ")
-    }
-}
-
-struct Sorted<'a>(&'a Value);
-
-impl Serialize for Sorted<'_> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self.0 {
-            Value::Array(items) => {
-                let mut seq = serializer.serialize_seq(Some(items.len()))?;
-                for item in items {
-                    seq.serialize_element(&Sorted(item))?;
-                }
-                seq.end()
-            }
-            Value::Object(entries) => {
-                let mut order: Vec<_> = entries.iter().collect();
-                order.sort_by(|a, b| a.0.cmp(&b.0));
-                let mut map = serializer.serialize_map(Some(order.len()))?;
-                for (key, value) in order {
-                    map.serialize_entry(key, &Sorted(value))?;
-                }
-                map.end()
-            }
-            value => value.serialize(serializer),
-        }
-    }
-}
-
-/// Python JSON separators and ensure_ascii=True, preserving application order.
-pub fn write_python(out: &mut String, value: &impl Serialize) {
-    let mut bytes = Vec::new();
-    let mut serializer = serde_json::Serializer::with_formatter(&mut bytes, PythonFormatter);
-    value
-        .serialize(&mut serializer)
-        .expect("serializing JSON to memory cannot fail");
-    out.push_str(std::str::from_utf8(&bytes).expect("Serde emits valid UTF-8"));
-}
-
-/// Python sorted-key snapshot output. Only this owner-specific producer sorts.
-pub fn write_python_sorted(out: &mut String, value: &Value) {
-    value
-        .validate_depth()
-        .expect("constructed project-state JSON stays within Serde depth");
-    write_python(out, &Sorted(value));
 }
 
 #[cfg(test)]

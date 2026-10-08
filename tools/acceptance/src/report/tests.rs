@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::evidence::create_evidence;
 use crate::files::TempDir;
-use crate::jsonio;
 
 #[test]
 fn owner_and_shape_gates() {
@@ -94,8 +93,7 @@ fn handoff_preserves_missing_and_failed_scopes() {
         finished: "2026-10-04T00:01:00Z".to_string(),
         ..Observation::default()
     };
-    let mut compact = String::new();
-    jsonio::write_compact(&mut compact, &observation_json(&observation));
+    let compact = serde_json::to_string(&observation_json(&observation)).unwrap();
     evidence
         .write("observation.json", compact.as_bytes())
         .unwrap();
@@ -149,8 +147,7 @@ fn handoff_rejects_unsafe_references() {
         finished: "2026-10-04T00:01:00Z".to_string(),
         ..Observation::default()
     };
-    let mut compact = String::new();
-    jsonio::write_compact(&mut compact, &observation_json(&observation));
+    let compact = serde_json::to_string(&observation_json(&observation)).unwrap();
     evidence
         .write("observation.json", compact.as_bytes())
         .unwrap();

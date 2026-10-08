@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn dumps_keeps_order_and_separators() {
+fn dumps_emits_equivalent_json_values() {
     let value = JsonValue::Object(vec![
         ("b".to_string(), JsonValue::Number("1".to_string())),
         (
@@ -9,14 +9,22 @@ fn dumps_keeps_order_and_separators() {
             JsonValue::Array(vec![JsonValue::Bool(true), JsonValue::Null]),
         ),
     ]);
-    assert_eq!(dumps(&value), r#"{"b": 1, "a": [true, null]}"#);
+    let decoded: serde_json::Value = serde_json::from_str(&dumps(&value)).unwrap();
+    assert_eq!(decoded["b"], 1);
+    assert_eq!(decoded["a"], serde_json::json!([true, null]));
     let value = JsonValue::Object(vec![(
         "e".to_string(),
         JsonValue::Str("é\t\"q\"".to_string()),
     )]);
-    assert_eq!(dumps(&value), "{\"e\": \"\\u00e9\\t\\\"q\\\"\"}");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&dumps(&value)).unwrap()["e"],
+        "é\t\"q\""
+    );
     let value = JsonValue::Str("<>&😀".to_string());
-    assert_eq!(dumps(&value), "\"<>&\\ud83d\\ude00\"");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&dumps(&value)).unwrap(),
+        "<>&😀"
+    );
 }
 
 #[test]
@@ -96,9 +104,17 @@ fn env_files_skip_empty_and_reject_bare_words() {
 fn tailscale_summaries_shape() {
     let out =
         operator_tailscale(r#"{"BackendState": "Running", "Self": {"Expired": false}}"#).unwrap();
-    assert_eq!(out, "{\"BackendState\": \"Running\", \"Expired\": false}\n");
+    assert!(out.ends_with('\n'));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(out.trim_end()).unwrap(),
+        serde_json::json!({"BackendState": "Running", "Expired": false})
+    );
     let out = operator_tailscale(r#"{"BackendState": "Stopped"}"#).unwrap();
-    assert_eq!(out, "{\"BackendState\": \"Stopped\", \"Expired\": null}\n");
+    assert!(out.ends_with('\n'));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(out.trim_end()).unwrap(),
+        serde_json::json!({"BackendState": "Stopped", "Expired": null})
+    );
     assert!(operator_tailscale(r#"{"BackendState": 7}"#).is_err());
     assert_eq!(
         forgejo_tailnet(r#"{"BackendState": "Running", "Self": {"Expired": false}}"#).unwrap(),
@@ -114,6 +130,15 @@ fn tailscale_summaries_shape() {
 fn deployments_summarize_in_order() {
     let out = host_deployments(r#"{"deployments": [{"booted": true, "version": "41", "checksum": "abc", "requested-packages": ["x"], "extra": 1}]}"#)
         .unwrap();
-    assert_eq!(out, "[{\"booted\": true, \"version\": \"41\", \"checksum\": \"abc\", \"requested-packages\": [\"x\"]}]\n");
+    assert!(out.ends_with('\n'));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(out.trim_end()).unwrap(),
+        serde_json::json!([{
+            "booted": true,
+            "version": "41",
+            "checksum": "abc",
+            "requested-packages": ["x"]
+        }])
+    );
     assert!(host_deployments(r#"{"deployments": [7]}"#).is_err());
 }
