@@ -32,7 +32,8 @@ prior audit and R03.L receipts keep their original evidence scope.
 The selective source receipts `f29ff882`, `96dadd55`, `37dc05fd`, `1ee47d0c`,
 `00a2d4a1`, `71cfb075`, `eb83115c`, `8bcaec9c`, `71bb28bd`, `a94edec6`,
 `856c68ee`, `d7d86a38`, `5186c2eb`, `9cea539f`, `274621ce`, `fe220232`,
-`b62d25ea`, `206d262c`, `420db69c`, `8026d9ac`, and `0352f4ba` are recorded in
+`b62d25ea`, `206d262c`, `420db69c`, `8026d9ac`, `0352f4ba`, `8d9485af`, and
+`f8e14d39` are recorded in
 that same table without regenerating the full tree or census. Identity HTTP
 decoder checks are complete in `1a297425`; Settings retains its separate
 decoder profile. A07's child-wait failure-trigger repair completed in

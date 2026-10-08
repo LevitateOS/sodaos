@@ -99,7 +99,7 @@ Lead A; [P01](reviews/P01.md), [P02](reviews/P02.md), [P03](reviews/P03.md), [P0
 Lead A; [P05](reviews/P05.md), [P08](reviews/P08.md), [P09](reviews/P09.md), [P12](reviews/P12.md). B01/B03 grant/Store handoffs; A00 native extraction.
 
 - [ ] **A02.M** Keep Go preparation decisions/Store CAS/API and Rust `lib/host/src/{preparation,prepare,project}` lifecycle definitions with their current processes and distinct heads/markers.
-- [ ] **A02.C** Specify and correct P05-F1 cause-specific Project-stop reopening and P09-F1 actual approval authority only after Q1/Q2 resolve. Preserve independent maintenance holds, other withdrawals and marker-first/CAS failure reporting.
+- [ ] **A02.C** P05-F1 cause-specific Project-stop reopening is complete at source scope in `8d9485af`: only a verified, quiescent Project start clears that cause, preserving other active causes and the first-closure receipt. P09-F1 approval remains open because Q2 has no current native Project-admin attestation; preserve marker-first/CAS failure reporting and independent holds.
 - [ ] **A02.V** Exercise existing real start/stop/preparation/approval subjects, separate head revisions and failure paths; coordinate actual dispatch reopening with B03.
 
 ### A03 Guest role custody and checkout supervision
@@ -193,7 +193,7 @@ Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 bound
 Lead B; [F09](reviews/F09.md), [F10](reviews/F10.md). B03 durable attempt/settlement/registration, B07 native adapters, A07 shared exports; Q3/Q5 apply to dependent loop work.
 
 - [x] **B04.M** [run 20261005: DONE, integrated 6636851f (publication 5-way + 4-way + test splits pure, ZERO added lines)] Extract Go publication hooks/correction/review/allowance leaves and A-owned shared native takeover/output/artifacts, importing their direct defining owners.
-- [ ] **B04.C** F09 correction registration/withdraw serialization is complete at its bounded source/test subcut in `0352f4ba` (31 actual PG17 checks: six Store and 25 coordinator, zero fixture skips; cluster `10ed775e` stopped at zero; two initial fixture failures are retained in the receipt and not counted as passes). The broader F09 common operation capture/cancel and F10-F2 immutable review operation retention still require closure before submission/replay; wire the established finite F10-F1 reviewer/correction loop only after its exact prerequisite specification. No second scheduler or review service.
+- [ ] **B04.C** F09 correction registration/withdraw serialization is complete at its bounded source/test subcut in `0352f4ba` (31 actual PG17 checks: six Store and 25 coordinator, zero fixture skips; cluster `10ed775e` stopped at zero; two initial fixture failures are retained, not counted as passes). F10-F2 immutable review-operation retention is source/owned-PG proven in `f8e14d39`: saved work is authoritative on retry, registration is gated before submit, and cancellation/recovery retain outcomes. B04.C remains open for broader F09 operation capture/cancel, the F10-F1 autonomous reviewer/correction loop and cumulative allowance, and Q5 native producer qualification. No second scheduler or review service.
 - [x] **B04.V** [run 20261005: DONE on disposable PG (13 pkgs, 27+8+12 targeted; 6 SKIP pre-existing native opt-in gate)] Verify the actual registered-operation replay/capture and finite allowance subjects. Qualify same-Project review/fix/new-head/fresh-review separately; primitive snapshots or mocks alone do not prove the loop.
 
 ### B05 Verification and merge completion
@@ -383,7 +383,7 @@ different from a missing correction specification or native equivalence proof.
 
 | Gate | Exact remaining fact/decision | Dependent task only |
 | --- | --- | --- |
-| Q1 | P05-F1 cause-specific withdrawal, grant and quiescence representation must be finalized without clearing other holds. | A02.C and its B03 lifecycle handoff |
+| Q1 | **Resolved for P05-F1 source scope** in `8d9485af`: verified start and quiescence clear only the Project-stop cause; other active causes and first-closure attribution remain. | A02.C remains open for Q2 approval authority and its B03 lifecycle handoff |
 | Q2 | P09-F1 actual native Project-admin/operator authority mapping; owner status alone is insufficient. | A02.C approval correction |
 | Q3 | I05-Q4 terminal-Muse InvocationID applicability; I09/F07-Q4 harness/family selection and F10 loop allowance/harness questions. | A05/A07/B03/B04 dependent enforcement/loop actions; no provider default invented |
 | Q4 | Optional P01/N05 creation intent retention, N04/N06 runtime/selection/retry applicability, I10 public history/retention scope. | Only the corresponding optional behavior, not relocation or established native policy |

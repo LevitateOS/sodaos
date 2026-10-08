@@ -400,8 +400,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–147, 161–238; file scaffold; ErrPendingRuns; Error; PauseRepository; replayPause; withdrawAndStopRuns; projectRuns; ResumeRepository; replayResume | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 148–160; StopProject | [P05](../../slices/projects.md#p05-project-startstop) | retained | Current declaration duty: StopProject — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–147, 193–238; file scaffold; ErrPendingRuns; Error; PauseRepository; replayPause; withdrawAndStopRuns; projectRuns; ResumeRepository; replayResume | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 148–192; StopProject; ClearProjectStopAfterStart | [P05](../../slices/projects.md#p05-project-startstop) | retained | Start clears only the Project-stop cause after validated host verification and unsettled-run checks; independent dispatch causes remain closed. Source subcut `8d9485af`; broader P09 approval authority remains open. |
 
 <a id="coverage-478b12aafffc"></a>
 
@@ -455,6 +455,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–178; file scaffold; lifecycleProject; lifecycleProjectFixture; settleStubs; readyPreparations; TestPauseWithdrawsBeforeStopping; TestPauseKeepsUncertainRunsFenced; TestResumeReopensOnlyAfterSettledRuns; TestResumeRefusesWithdrawnGrants | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 180–206; TestResumePreservesProjectStopUntilVerifiedStart; 208–224; TestStartKeepsProjectStopWhileRunIsUnsettled | [P05](../../slices/projects.md#p05-project-startstop) | retained | These regressions retain `project_stop` across ordinary Resume and unsettled runs, then exercise the verified-start boundary. `8d9485af` source/owned-PG scope; this does not establish native Project-admin approval authority or native-provider qualification. |
 
 <a id="coverage-db65166769d0"></a>
 
