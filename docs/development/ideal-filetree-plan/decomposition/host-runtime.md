@@ -18,7 +18,7 @@ small integration proofs before transport replacement.
 
 | Finding and existing surface | Current target responsibility |
 | --- | --- |
-| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): host daemon and identity clients | Complete at L09 through `21387814`: Hyper owns HTTP/1 parsing/framing and the four clients use the selected Unix HTTP adapter. Host `daemon/{server,http,response,routes,websocket}` and `daemon/broker.rs` retain Soda listener custody, per-socket authority, route/admission limits, status/secrecy and broker request semantics; no generic HTTP engine is a target. The defining server/admission/backend/route module join is complete at source scope; the separate broker/config and installed joins remain pending. |
+| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): host daemon and identity clients | Complete at L09 through `21387814`: Hyper owns HTTP/1 parsing/framing and the four clients use the selected Unix HTTP adapter. Host `daemon/{server,http,response,routes,websocket}` and `daemon/broker.rs` retain Soda listener custody, per-socket authority, route/admission limits, status/secrecy and broker request semantics; no generic HTTP engine is a target. The defining server/admission/backend/route and direct broker-trait source joins are complete; configuration placement and installed qualification remain pending. |
 | [N6](../../../research/library-reuse-investigation.md#n6): `daemon/websocket.rs`, `dbackend.rs`, terminal attachment | Complete at L09 through `21387814`: tungstenite owns WebSocket protocol parsing, with one nonblocking transport owner. Retain route/Origin/query admission, session expiry, inflight/TerminalGate lifetime, bounded child-output queue, readiness wakeup, child close/reap and shutdown. Handshake SHA-1/Base64 and handwritten frame state are retired. |
 | [N4](../../../research/library-reuse-investigation.md#n4), [N7](../../../research/library-reuse-investigation.md#n7): `tcontrol_provider.rs`, native/provider URL helpers | Retain the selected host curl/Executor request policy and URL/form/percent primitives. Preserve credential scope/lifetime, neutral errors, no uncertain replay, the resolver-inclusive deadline and raw lexical admission; generic authority/escape algorithms are superseded. Source selection is complete, with provider/native qualification separate. |
 | [N8](../../../research/library-reuse-investigation.md#n8), [N9](../../../research/library-reuse-investigation.md#n9): Tailnet address/time and terminal/Factory deadline codecs | Use std IP types and the selected time codec. Retain zone/mask, DNS/name and purpose-specific address policy, lease/deadline bounds, zero-time handling and original signed text; calendar/IP engines are superseded. |
@@ -73,25 +73,26 @@ records 32 existing smoke, 19 production-backend and four binary tests passing
 with no failures or ignored cases, both selected host binaries compiling, and
 exact affected-file formatting. All daemon units remain below 500 lines. The
 obsolete `GMUX_PATCHES.md` skeleton checklist is retired; its current duties
-live in source and the existing tests. The remaining `daemon/broker.rs` join
-is the [allocated dbackend broker adapters](../port-assessment.md#host-cutover-integration),
-using the single existing `iclient::BrokerClient`; configuration placement is
-also pending. The client remains one 497-line `lib/host/src/iclient.rs` owner
-in the desired tree, adjacent to the host JSON profile. Broker execution responses now
-deserialize nested bindings through `terminal::Binding`; the duplicate client
-visitor and field projection are retired. `Lease::decode` and
-`Delivery::decode` retain strict whole-document decoding. The separate
-`daemon/broker.rs` destination remains the dbackend seam and concrete adapter
-owner using the existing client; the client is not moved into that module.
-The actual `identity_transport` suite imports the public client and host types.
+live in source and the existing tests. The `daemon/broker.rs` join directly
+implements `FactoryBroker` and `MuseHooks` for the existing
+`iclient::BrokerClient`, with the five shared pfactory/terminal converters and
+the existing lease/binding round-trip test at their defining owner.
+`BrokerSeam` and `HooksSeam` are removed; dbackend and the Muse launch caller
+construct the client directly. `DaemonBackend` still implements `IdentityBroker`
+and keeps its native 180-second deadline policy in dbackend. The client remains
+one 497-line `lib/host/src/iclient.rs` owner in the desired tree, adjacent to
+the host JSON profile. Nested execution bindings use canonical
+`terminal::Binding` deserialization; `Lease::decode` and `Delivery::decode`
+remain strict. The current `identity_transport` suite imports the actual
+public client and host types.
+
 The source/development receipt
-`.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/broker-binding-reuse/verified-checks-receipt.json`
-records 16 `identity_transport` tests, the exact identity-encode golden and
-strict-decode matrix tests passing with no failures or ignored cases, both
-host binaries compiling, and exact three-file formatting. These run the actual
-public client against its scripted broker. Production source shrank by 104
-lines; source and test changes together shrank by 72. Wider R02 allocation,
-full-service/native/installed qualification, and configuration placement
+`.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/broker-trait-join/checks-receipt.json`
+records 39 existing test bodies passing with no failures or ignored cases: one
+moved broker conversion test, 18 backend cases, 16 actual-client cases against
+the scripted broker, and four binary tests. Both host binaries compile and the
+exact four-file format check passes. These checks do not establish full-service,
+native or installed behavior. Wider R02 allocation and configuration placement
 remain open.
 
 ## Current Forgejo Tailnet helper allocation

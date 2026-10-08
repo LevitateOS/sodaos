@@ -272,7 +272,7 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
         let launch = Arc::new(soda_host::muse::MuseLaunch::new(
             soda_host::muse::MuseRuntime::new(
                 project::Native,
-                soda_host::dbackend::HooksSeam::new(&config.identity_socket),
+                soda_host::iclient::BrokerClient::new(&config.identity_socket),
                 config.muse_version.clone(),
                 config.muse_sha256.clone(),
             ),

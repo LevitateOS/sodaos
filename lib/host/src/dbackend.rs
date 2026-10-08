@@ -21,6 +21,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::daemon::backend::{BackendError, ExecBackend, TerminalSession};
+use crate::daemon::broker::{cv_binding_to_pfactory, cv_binding_to_texec, cv_lease_to_texec};
 use crate::{
     domain, json, pfactory, project, tcontrol,
     terminal::{self, factory::tcodex},
@@ -143,28 +144,7 @@ pub struct TerminalSeam {
     muse_harness_sha256: String,
 }
 
-/// Broker side of supervised factory runs. Delegates to the identity
-/// broker client; method names match the lane contract so this impl is
-/// final except for the client type.
-pub struct BrokerSeam {
-    broker: crate::iclient::BrokerClient,
-}
-
-/// Muse lease hooks over the identity broker client.
-pub struct HooksSeam {
-    broker: crate::iclient::BrokerClient,
-}
-
-impl HooksSeam {
-    /// The binary builds launch-time hooks from the same broker socket.
-    pub fn new(broker_socket: &str) -> Self {
-        HooksSeam {
-            broker: crate::iclient::BrokerClient::new(broker_socket),
-        }
-    }
-}
-
-type Factory = pfactory::Factory<project::Native, TerminalSeam, BrokerSeam>;
+type Factory = pfactory::Factory<project::Native, TerminalSeam, crate::iclient::BrokerClient>;
 
 /// The real daemon backend. All runtimes share one native executor; the
 /// factory opens lazily like Go's `factoryRun` so a broken receipt root
@@ -178,7 +158,7 @@ pub struct DaemonBackend {
     companion:
         crate::tailnet_companion::Companion<project::Native, tcontrol::Control<project::Native>>,
     pops: crate::pops::Ops<project::Native>,
-    muse: Option<crate::muse::MuseRuntime<project::Native, HooksSeam>>,
+    muse: Option<crate::muse::MuseRuntime<project::Native, crate::iclient::BrokerClient>>,
     codex_harness: String,
     broker_socket: String,
     factory_state_dir: String,
@@ -218,9 +198,7 @@ impl DaemonBackend {
             muse: cfg.muse.map(|m| {
                 crate::muse::MuseRuntime::new(
                     project::Native,
-                    HooksSeam {
-                        broker: crate::iclient::BrokerClient::new(&broker_socket),
-                    },
+                    crate::iclient::BrokerClient::new(&broker_socket),
                     m.version,
                     m.sha256,
                 )
@@ -272,72 +250,11 @@ impl DaemonBackend {
                         muse_harness_version: self.terminal.muse_harness_version.clone(),
                         muse_harness_sha256: self.terminal.muse_harness_sha256.clone(),
                     },
-                    BrokerSeam {
-                        broker: crate::iclient::BrokerClient::new(&self.broker_socket),
-                    },
+                    crate::iclient::BrokerClient::new(&self.broker_socket),
                 )
             })
             .as_ref()
             .map_err(|_| BackendError::Unavailable)
-    }
-}
-
-// -- twin conversions (pfactory/texec/tcodex mirror the same Go records) --
-//
-// The executor lanes each own identical wire twins. Conversion is field
-// copying; the only semantic step is the RFC 3339 deadline, parsed once
-// via the shared parser. A single conversion site per direction keeps the
-// twins from drifting (the pending restructure unifies them).
-
-fn cv_lease_to_texec(l: &pfactory::Lease) -> terminal::Lease {
-    terminal::Lease {
-        repository_id: l.repository_id,
-        provider_id: l.provider_id.clone(),
-        id: l.id.clone(),
-        connection_id: l.connection_id.clone(),
-        generation: l.generation,
-        actor_id: l.actor_id,
-        project_id: l.project_id.clone(),
-        execution_id: l.execution_id.clone(),
-        kind: l.kind.clone(),
-        role: l.role.clone(),
-        deadline_raw: l.deadline.clone(),
-        deadline: terminal::parse_rfc3339(&l.deadline),
-        grant_id: l.grant_id.clone(),
-        grant_revision: l.grant_revision,
-        binding: l.binding.as_ref().map(cv_binding_to_texec),
-    }
-}
-
-fn cv_binding_to_texec(b: &pfactory::Binding) -> terminal::Binding {
-    terminal::Binding {
-        child_id: b.child_id.clone(),
-        uid: b.uid,
-        gid: b.gid,
-        scope: b.scope.clone(),
-        credential_root: b.credential_root.clone(),
-        invocation_id: b.invocation_id.clone(),
-        kind: b.kind.clone(),
-        id: b.id.clone(),
-        project: b.project.clone(),
-        login: b.login.clone(),
-        generation: b.generation,
-    }
-}
-
-fn cv_binding_to_pfactory(b: &terminal::Binding) -> pfactory::Binding {
-    pfactory::Binding {
-        child_id: b.child_id.clone(),
-        uid: b.uid,
-        gid: b.gid,
-        scope: b.scope.clone(),
-        credential_root: b.credential_root.clone(),
-        invocation_id: b.invocation_id.clone(),
-        kind: b.kind.clone(),
-        id: b.id.clone(),
-        project: b.project.clone(),
-        login: b.login.clone(),
-        generation: b.generation,
     }
 }
 
@@ -355,41 +272,6 @@ fn cv_run_to_tcodex(r: &pfactory::FactoryRun) -> crate::terminal::factory::tcode
         assignment: r.assignment.clone(),
         source_commit: r.source_commit.clone(),
         connection: r.connection.clone(),
-    }
-}
-
-fn cv_acquire_to_texec(r: &pfactory::AcquireRequest) -> terminal::AcquireRequest {
-    let (secs, nanos) = terminal::parse_rfc3339(&r.deadline).unwrap_or((0, 0));
-    terminal::AcquireRequest {
-        repository_id: 0,
-        provider_id: r.provider_id.clone(),
-        execution_id: r.execution_id.clone(),
-        actor_id: r.actor_id,
-        connection_id: r.connection_id.clone(),
-        project_id: r.project_id.clone(),
-        kind: r.kind.clone(),
-        deadline_secs: secs,
-        deadline_nanos: nanos,
-        role: r.role.clone(),
-    }
-}
-
-fn cv_lease_to_pfactory(l: &terminal::Lease) -> pfactory::Lease {
-    pfactory::Lease {
-        repository_id: l.repository_id,
-        provider_id: l.provider_id.clone(),
-        id: l.id.clone(),
-        connection_id: l.connection_id.clone(),
-        generation: l.generation,
-        actor_id: l.actor_id,
-        project_id: l.project_id.clone(),
-        execution_id: l.execution_id.clone(),
-        kind: l.kind.clone(),
-        role: l.role.clone(),
-        deadline: l.deadline_raw.clone(),
-        grant_id: l.grant_id.clone(),
-        grant_revision: l.grant_revision,
-        binding: l.binding.as_ref().map(cv_binding_to_pfactory),
     }
 }
 
@@ -635,109 +517,6 @@ impl TerminalSeam {
         } else {
             pfactory::FACTORY_HARNESS_CODEX
         }
-    }
-}
-
-impl pfactory::FactoryBroker for BrokerSeam {
-    fn acquire(
-        &self,
-        req: &pfactory::AcquireRequest,
-        deadline: Instant,
-    ) -> Result<pfactory::Lease, pfactory::FactoryError> {
-        // The conversion below is final and covered by the round-trip test.
-        let treq = cv_acquire_to_texec(req);
-        self.broker
-            .acquire(&treq, deadline)
-            .map(|lease| cv_lease_to_pfactory(&lease))
-            .map_err(pfactory::FactoryError::Msg)
-    }
-    fn register(
-        &self,
-        lease_id: &str,
-        binding: &pfactory::Binding,
-        deadline: Instant,
-    ) -> Result<Vec<u8>, pfactory::FactoryError> {
-        // Go `factory.go` consumes `delivery.Credential` from Register; a
-        // missing credential decodes as empty, like Go's nil slice.
-        let tbinding = cv_binding_to_texec(binding);
-        self.broker
-            .register(lease_id, &tbinding, deadline)
-            .map(|delivery| delivery.credential.unwrap_or_default())
-            .map_err(pfactory::FactoryError::Msg)
-    }
-    fn return_lease(
-        &self,
-        lease_id: &str,
-        binding: &pfactory::Binding,
-        credential: &[u8],
-        deadline: Instant,
-    ) -> Result<(), pfactory::FactoryError> {
-        let tbinding = cv_binding_to_texec(binding);
-        self.broker
-            .return_lease(lease_id, &tbinding, credential, deadline)
-            .map_err(pfactory::FactoryError::Msg)
-    }
-    fn reconcile_lease(&self, _lease_id: &str, _deadline: Instant) {}
-    fn execution_is_terminal(
-        &self,
-        kind: &str,
-        execution_id: &str,
-        deadline: Instant,
-    ) -> Result<bool, pfactory::FactoryError> {
-        self.broker
-            .get_execution(kind, execution_id, deadline)
-            .map(|exec| crate::iclient::execution_is_terminal(&exec))
-            .map_err(pfactory::FactoryError::Msg)
-    }
-    fn close_execution(
-        &self,
-        kind: &str,
-        execution_id: &str,
-        deadline: Instant,
-    ) -> Result<(), pfactory::FactoryError> {
-        self.broker
-            .close_execution(kind, execution_id, deadline)
-            .map_err(pfactory::FactoryError::Msg)
-    }
-}
-
-impl crate::muse::MuseHooks for HooksSeam {
-    fn acquire(
-        &self,
-        req: &terminal::AcquireRequest,
-        deadline: Instant,
-    ) -> Result<terminal::Lease, String> {
-        self.broker.acquire(req, deadline)
-    }
-    fn attach(
-        &self,
-        lease_id: &str,
-        binding: &terminal::Binding,
-        deadline: Instant,
-    ) -> Result<terminal::Delivery, String> {
-        self.broker.register(lease_id, binding, deadline)
-    }
-    fn end(&self, actor: i64, lease_id: &str, deadline: Instant) -> Result<(), String> {
-        self.broker.end_lease(actor, lease_id, deadline)
-    }
-    fn authorize(&self, actor: i64, project: &str, deadline: Instant) -> Result<(), String> {
-        // Go `museRuntime.Authorize`: a Muse+Ready connection must exist.
-        let available = self.broker.available(actor, project, deadline)?;
-        crate::muse::muse_connection_authorized(&available)
-    }
-    fn nested_authorize(&self, actor: i64, project: &str, deadline: Instant) -> Result<(), String> {
-        // Go `authorizeNested` is the identical check.
-        self.authorize(actor, project, deadline)
-    }
-    fn select(
-        &self,
-        actor: i64,
-        project: &str,
-        selected: &str,
-        deadline: Instant,
-    ) -> Result<String, String> {
-        let available = self.broker.available(actor, project, deadline)?;
-        crate::muse::select_muse_connection(&available, selected)
     }
 }
 
@@ -2331,42 +2110,6 @@ mod tests {
             map_tailnet_err("boom".to_string()),
             BackendError::Internal
         ));
-    }
-
-    // -- twin conversions round-trip losslessly --
-
-    #[test]
-    fn lease_binding_round_trip() {
-        let lease = pfactory::Lease {
-            repository_id: 7,
-            provider_id: "codex".to_string(),
-            id: "l".to_string(),
-            connection_id: "c".to_string(),
-            generation: 3,
-            actor_id: 1001,
-            project_id: "p".to_string(),
-            execution_id: "e".to_string(),
-            kind: "factory".to_string(),
-            role: "coder".to_string(),
-            deadline: "2026-10-05T00:00:00Z".to_string(),
-            grant_id: "g".to_string(),
-            grant_revision: 2,
-            binding: Some(pfactory::Binding {
-                child_id: "child".to_string(),
-                uid: 1001,
-                gid: 1001,
-                scope: "project".to_string(),
-                credential_root: "/run/cred".to_string(),
-                invocation_id: "i".to_string(),
-                kind: "factory".to_string(),
-                id: "b".to_string(),
-                project: "p".to_string(),
-                login: "coder".to_string(),
-                generation: 1,
-            }),
-        };
-        let back = cv_lease_to_pfactory(&cv_lease_to_texec(&lease));
-        assert_eq!(back, lease);
     }
 
     // -- websocket codec over a loopback pair --
