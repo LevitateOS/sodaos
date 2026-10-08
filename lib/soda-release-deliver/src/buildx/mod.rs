@@ -25,27 +25,7 @@ pub const FORGEJO_BUN_SHA256: &str =
 pub const FORGEJO_UPSTREAM_BASE: &str = "15.0.9";
 pub const FORGEJO_COMPAT_TOKEN: &str = "gitea-1.22.0";
 
-/// `build.Image`: verified OCI image identity.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
-pub struct Image {
-    #[serde(deserialize_with = "crate::json_serde::null_default")]
-    pub manifest: String,
-    #[serde(deserialize_with = "crate::json_serde::null_default")]
-    pub config: String,
-    #[serde(deserialize_with = "crate::json_serde::null_default")]
-    pub architecture: String,
-    #[serde(deserialize_with = "crate::json_serde::null_default")]
-    pub revision: String,
-    #[serde(deserialize_with = "crate::json_serde::null_default")]
-    pub source: String,
-    #[serde(deserialize_with = "crate::json_serde::null_default")]
-    pub base_name: String,
-    #[serde(deserialize_with = "crate::json_serde::null_default")]
-    pub base_digest: String,
-}
-
-impl Image {}
+pub use soda_build_tools::reader::Image;
 
 /// `build.ForgejoToolchain`: pinned compiler provenance.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

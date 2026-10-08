@@ -7,13 +7,19 @@ use crate::error::Error;
 use crate::sys;
 
 mod candidate;
-mod images;
 mod payload;
 mod trust;
 mod url;
 
 pub use candidate::{valid_candidate_content, Candidate, ForgejoToolchain};
-pub use images::{Image, ProducedImage};
+pub use soda_build_tools::reader::Image;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ProducedImage {
+    pub manifest: String,
+    pub config: String,
+    pub archive_sha256: String,
+}
 pub use payload::{Payload, PayloadImage};
 pub use trust::{Permit, SecretFiles, Trust};
 pub use url::{https_url, is_loopback_addr, parse_url, UrlParts};

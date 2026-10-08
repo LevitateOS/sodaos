@@ -94,15 +94,30 @@ fn producer_trust_fixture_keeps_its_raw_der_fingerprint() {
 }
 
 #[test]
-fn image_model_uses_exact_then_first_folded_raw_member() {
-    let image = Image::parse(r#"{"mAnIfEsT":"folded","Manifest":"exact"}"#).unwrap();
-    assert_eq!(image.manifest, "exact");
+fn candidate_host_uses_canonical_shared_oci_identity() {
+    let candidate = Candidate {
+        host: Image {
+            manifest: "manifest".to_string(),
+            config: "config".to_string(),
+            architecture: "amd64".to_string(),
+            revision: "revision".to_string(),
+            source: "source".to_string(),
+            base_name: "base".to_string(),
+            base_digest: "digest".to_string(),
+        },
+        ..Candidate::default()
+    };
+    let encoded = serde_json::to_string(&candidate).unwrap();
+    assert!(encoded.contains(
+        r#""Host":{"Manifest":"manifest","Config":"config","Architecture":"amd64","Revision":"revision","Source":"source","BaseName":"base","BaseDigest":"digest"}"#
+    ));
+    assert_eq!(Candidate::parse(&encoded).unwrap().host, candidate.host);
 
-    let image = Image::parse(r#"{"mAnIfEsT":"first","MANIFEST":"second"}"#).unwrap();
-    assert_eq!(image.manifest, "first");
-
-    assert!(Image::parse(r#"{"MANIFEST":false,"Manifest":"exact"}"#).is_ok());
-    assert!(Image::parse(r#"{"Manifest":false,"Manifest":"later"}"#).is_err());
+    let defaults = Candidate::parse(r#"{"Host":{"Manifest":null}}"#).unwrap();
+    assert_eq!(defaults.host, Image::default());
+    assert!(Candidate::parse(r#"{"Host":{"manifest":"alias"}}"#).is_err());
+    assert!(Candidate::parse(r#"{"Host":{"Unknown":"value"}}"#).is_err());
+    assert!(Candidate::parse(r#"{"Host":{"Manifest":"first","Manifest":"second"}}"#).is_err());
 }
 
 #[test]

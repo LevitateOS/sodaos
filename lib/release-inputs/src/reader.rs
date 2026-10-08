@@ -12,11 +12,14 @@
 //! controller-resolved live-input handoff consumed by the isolated build.
 
 pub mod forgejo;
+pub mod image;
 pub mod muse;
 pub mod settings;
 pub mod signature;
 pub mod stream;
 pub mod url;
+
+pub use image::Image;
 
 /// Validation failure; the message matches the Go owner exactly.
 #[derive(Debug, Clone, PartialEq, Eq)]

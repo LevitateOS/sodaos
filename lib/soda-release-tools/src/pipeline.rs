@@ -27,7 +27,6 @@ use soda_release_build::production::{
     ProducedImage as BuildProducedImage, Production as BuildProduction,
 };
 use soda_release_build::Error as BuildError;
-use soda_release_deliver::buildx::Image as BuildImage;
 use soda_release_deliver::model::{Permit as DeliverPermit, Trust as DeliverTrust};
 use soda_release_deliver::native::SecretFiles as DeliverSecrets;
 use soda_release_deliver::payload::{Image as DeliverImage, Payload as DeliverPayload};
@@ -94,18 +93,6 @@ fn deliver_err(e: DeliverError) -> ImageError {
 // ---------------------------------------------------------------------------
 // Model conversions between the independent image and build/deliver domains.
 // ---------------------------------------------------------------------------
-
-fn image_of(image: &BuildImage) -> model::Image {
-    model::Image {
-        manifest: image.manifest.clone(),
-        config: image.config.clone(),
-        architecture: image.architecture.clone(),
-        revision: image.revision.clone(),
-        source: image.source.clone(),
-        base_name: image.base_name.clone(),
-        base_digest: image.base_digest.clone(),
-    }
-}
 
 fn produced_of(produced: &BuildProducedImage) -> model::ProducedImage {
     model::ProducedImage {
@@ -290,9 +277,7 @@ impl ImageProduction for RealProduction {
         arch: &str,
         revision: &str,
     ) -> Result<model::Image, ImageError> {
-        soda_release_deliver::oci::inspect_oci(archive, arch, revision)
-            .map(|image| image_of(&image))
-            .map_err(deliver_err)
+        soda_release_deliver::oci::inspect_oci(archive, arch, revision).map_err(deliver_err)
     }
 
     fn verify_content(
@@ -740,8 +725,8 @@ mod tests {
     }
 
     #[test]
-    fn build_model_conversions() {
-        let image = BuildImage {
+    fn produced_image_mapping_keeps_archive_identity() {
+        let image = soda_release_deliver::buildx::Image {
             manifest: "m".to_string(),
             config: "c".to_string(),
             architecture: "amd64".to_string(),
@@ -750,14 +735,6 @@ mod tests {
             base_name: "b".to_string(),
             base_digest: "d".to_string(),
         };
-        let converted = image_of(&image);
-        assert_eq!(converted.manifest, "m");
-        assert_eq!(converted.config, "c");
-        assert_eq!(converted.architecture, "amd64");
-        assert_eq!(converted.revision, "r");
-        assert_eq!(converted.source, "s");
-        assert_eq!(converted.base_name, "b");
-        assert_eq!(converted.base_digest, "d");
         let produced = produced_of(&BuildProducedImage {
             image: image.clone(),
             archive_sha256: "h".to_string(),
