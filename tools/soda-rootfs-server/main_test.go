@@ -48,7 +48,7 @@ func setupRootfsDir(t *testing.T, text string) string {
 }
 
 func TestSetupAndServerConvergeOnOneHomeDirectory(t *testing.T) {
-	setup, err := os.ReadFile(repoPath(t, "rust", "soda-candidate-setup", "src", "main.rs"))
+	setup, err := os.ReadFile(repoPath(t, "tools", "candidate-setup", "src", "main.rs"))
 	require.NoError(t, err)
 	served := rootDir
 	require.Equal(t, served, setupRootfsDir(t, string(setup)),

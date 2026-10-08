@@ -252,8 +252,16 @@ func TestAccessKeyPreviewApplyAndLastKeyConfirmation(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	keys, _ := s.Store.Keys(t.Context(), 1)
-	_, _ = s.Store.RemoveKey(t.Context(), 1, keys[0].ID, false)
+	keys, err := s.Store.Keys(t.Context(), 1)
+	if err != nil || len(keys) != 1 {
+		t.Fatalf("saved setup keys: %+v %v", keys, err)
+	}
+	if removed, err := s.Store.RemoveKey(t.Context(), 1, keys[0].ID, true); err != nil || !removed {
+		t.Fatalf("confirmed setup key removal: removed=%t err=%v", removed, err)
+	}
+	if keys, err := s.Store.Keys(t.Context(), 1); err != nil || len(keys) != 0 {
+		t.Fatalf("saved keys after confirmed removal: %+v %v", keys, err)
+	}
 	for _, confirm := range []bool{false, true} {
 		n := len(*calls)
 		body := fmt.Sprintf(`{"revision":%q,"saved_fingerprints":[],"confirm_empty":%t}`, strings.Repeat("a", 64), confirm)
@@ -268,6 +276,9 @@ func TestAccessKeyPreviewApplyAndLastKeyConfirmation(t *testing.T) {
 		}
 		if !confirm && n != len(*calls) {
 			t.Fatal("last key removed without confirmation")
+		}
+		if confirm && len(*calls) != n+1 {
+			t.Fatal("confirmed empty key set did not reach native exactly once")
 		}
 	}
 }

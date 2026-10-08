@@ -31,6 +31,11 @@ func publicationStoreFixture(t *testing.T) *Store {
 			t.Fatal(err)
 		}
 	}
+	if err := db.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{
+		Connection: "conn", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.CreateProject(ctx, Project{ID: projectID, Name: "factory", RepositoryID: 7, OwnerID: 7, Repository: "soda-tester/factory"}); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +53,7 @@ func publicationStoreFixture(t *testing.T) *Store {
 
 func publicationTestRecord() factory.Publication {
 	return factory.Publication{
-		Authority:    factory.AuthorityRef{Policy: 1, Operator: 1, Capacity: 1, Environment: 1, Sponsorship: 1, RequirementsID: "d" + strings.Repeat("c", 24), ApprovalID: "d" + strings.Repeat("e", 24)},
+		Authority:    dispatchTestAuthority(),
 		Publish:      factory.PublicationOperation{Kind: factory.OpRefPublish},
 		PRCreate:     factory.PublicationOperation{Kind: factory.OpPRCreate},
 		ID:           factory.NewID(),
