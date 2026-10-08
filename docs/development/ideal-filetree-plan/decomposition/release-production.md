@@ -424,7 +424,7 @@ Open detail: Preserve crate::native public and crate-visible paths used by fetch
 Observed size: 1109 lines, including tests where embedded. Split wire identity, outer archive custody and rootfs layer resolution. Keep whiteouts, ancestor replacement, unsupported zstd blocking and topmost-member resolution in one layer owner; these are one algorithm. The layout loader and public orchestration stay together and consume the same schema/archive/layer internals.
 
 - `lib/soda-release-deliver/src/oci/mod.rs` — OCI constants, OciLayout/shared Blob, three existing public inspect entrypoints, content identity orchestration, confined LayoutLoader/image-set closure, existing focused tests.
-- `lib/soda-release-deliver/src/oci/schema.rs` — Descriptor/OciManifest/OciConfig and exact index/manifest/config decoding; bounded blob hashing, layer/rootfs/attribution checks and inspected image identity.
+- `lib/soda-release-deliver/src/oci/schema.rs` — Descriptor/OciManifest/OciConfig and typed layout/index/manifest/config decoding with borrowed UTF-8 admission before Serde; bounded original-byte blob hashing, layer/rootfs/attribution checks and inspected image identity. The [release architecture](../../../architecture/release.md#oci-metadata-admission) owns the consumed-document policy; opaque layer classification remains separate.
 - `lib/soda-release-deliver/src/oci/archive.rs` — Regular archive admission, safe unique bounded archive-entry collection, archive index selection and outer layer-archive traversal.
 - `lib/soda-release-deliver/src/oci/layers.rs` — LayerMember, exact requested paths, clean layer names, whiteout/opaque/ancestor replacement rules, member hashes, descriptor index, TeeHasher/drain/layer scan and reverse member resolution.
 
