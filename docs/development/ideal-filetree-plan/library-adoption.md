@@ -990,6 +990,42 @@ candidate keeps them and its inline-comment feature only strips comments after
 space/tab outside continuations; duplicate selection alone is a small adapter duty.
 Do not add a preprocessing grammar to manufacture compatibility.
 
+The subsequent configparser 3.2.0 trial compiled its exact default-feature
+source and a field projection directly with rustc, leaving Soda's graph
+unchanged. Its 28,170-byte [published archive](https://static.crates.io/crates/configparser/configparser-3.2.0.crate)
+matched the registry checksum
+`b46dec724fd22199ebde05033a0cbae453bc3b1ecff11eb6a6bb3eec4b90c6a4`.
+Exact-case lookup, multiline off and disabled inline trimming preserve raw
+values. The prototype adds quote/comment handling and percent interpolation;
+all 21 frozen raw/resolved/effective cases pass. That proves this prototype's
+corpus scope, not direct library parity or producer admission.
+
+Independent review identified four source-backed supplemental cases. The
+selected native provider resolves `[DEFAULT] ROOT` from a server interpolation,
+and its actual `EnvironmentToConfig` → `SaveTo` → reparse path preserves
+assigned values containing `#`/`;`, a backtick or a newline. `SaveTo` emits
+backticks for comment symbols and triple quotes for backtick/newline values.
+All four native collections succeed; replaying those exact bytes through the
+unchanged prototype mismatches all four. The default-section mismatch is a
+prototype lookup error; the quoted forms require more value handling, and the
+candidate splits the multiline value before field projection. These are actual
+producer duties, not compatibility obligations from retired Soda experiments.
+
+**Candidate disposition:** this prototype is rejected for cutover;
+configparser remains unadmitted. Ordinary quote preservation alone was not
+enough to reject the library, and the smaller corpus pass was not enough to
+admit it. Reconsider the caller boundary or library before extending a custom
+lexer/interpolator. The current operator contract still requires configurable
+AppDataPath; a deployment-declared alternative awaits the owner's choice. Bounded
+file/expanded-value admission and actual Podman env-file transport remain
+separate prerequisites. The source-backed Quadlet mapping is Podman's
+`--env-file`, not systemd service env-file parsing; the actual wrapper CLI,
+generated service and deployed override were not executed or inspected.
+Detailed prototype, inputs, native outcomes and comparison receipts are retained
+in this configuration decision's commit body; 87 native source/graph files and
+all 30 Soda graph files remain unchanged. No production candidate dependency or
+installed/native-service qualification is claimed.
+
 [Published manifest](https://docs.rs/crate/rust-ini/0.21.3/source/Cargo.toml)
 confirms MIT, Rust 1.64, cfg-if ^1.0 and ordered-multimap ^0.7, with optional
 unicase ^2.6. Its bundled lock is not Soda's dependency closure. With semantic
@@ -1000,8 +1036,9 @@ seconds; fixtures and raw/resolved/effective outputs are bounded synthetic data.
 L17 evidence collection and the candidate disposition are complete; **CFG01
 parser cutover remains held on semantic fit, not missing native evidence**.
 C owns the remaining selection and implementation. Prerequisites: a maintained
-parser/boundary that admits the frozen native corpus without recreating a full
-foreign grammar; actual deployment override evidence; then its selected
+parser/boundary that admits the frozen native corpus and actual producer
+fixtures without recreating a full foreign grammar; actual deployment override
+evidence; then its selected
 license/feature/lock/compiler/offline closure. Scope: only the existing domain
 command's effective-key and bounded file adapters, retaining writer quiescence,
 marker confinement and no-guess policy. Acceptance: replay the native corpus,
