@@ -323,7 +323,11 @@ The candidate verification binary is selected by
 `--forgejo-revision`, parsing/refusal order, quiet success and one-line
 error/exit behavior. `scripts/check-native.sh` uses this Rust binary; retain
 delivery archive verification and exact Soda/Fountain revision binding. The Go
-command is retired.
+command is retired. The current `tests/cli/soda_candidate_check.rs` invokes
+the compiled Rust binary with the delivery golden, verifies the three identity
+refusals precede archive access, and confirms unchanged metadata. This focused
+process proof does not establish a successful complete archive or installed
+command identity; retain C10.V/R04 qualification.
 
 The scoped archive and identity cuts retired the duplicate build OCI engine and
 the seven-field image identity copy. Delivery owns canonical OCI scanning;

@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 mod soda_artifacts;
 mod soda_build;
 mod soda_candidate;
+mod soda_candidate_check;
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -46,6 +47,10 @@ fn candidate_bin() -> PathBuf {
 
 fn artifacts_bin() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_soda-artifacts"))
+}
+
+fn candidate_check_bin() -> PathBuf {
+    PathBuf::from(env!("CARGO_BIN_EXE_soda-candidate-check"))
 }
 
 fn run<S: AsRef<std::ffi::OsStr>>(bin: &Path, cwd: &Path, args: &[S]) -> (i32, String, String) {
