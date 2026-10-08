@@ -87,3 +87,19 @@ func TestIdentityHelpers(t *testing.T) {
 		t.Fatal("ValidContainerID mismatch")
 	}
 }
+
+func TestProjectAccessRequestValidation(t *testing.T) {
+	valid := ProjectAccessRequest{Project: "p0123456789abcdef01234567", Login: "alice", Identity: 42}
+	if err := valid.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, invalid := range []ProjectAccessRequest{
+		{Project: "bad", Login: "alice", Identity: 42},
+		{Project: valid.Project, Login: "root", Identity: 42},
+		{Project: valid.Project, Login: "alice", Identity: 0},
+	} {
+		if err := invalid.Validate(); err == nil {
+			t.Fatalf("accepted invalid request: %+v", invalid)
+		}
+	}
+}

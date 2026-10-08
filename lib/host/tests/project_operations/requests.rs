@@ -4,6 +4,7 @@ use crate::{
     AccessKeysReq, AccountReq, HoldPreparationReq, InspectPreparationReq, PrepareCandidateReq,
     PrepareReq, StopPreparationReq,
 };
+use soda_host::domain::ProjectAccessRequest;
 
 #[test]
 fn access_keys_req_strict_shape() {
@@ -56,6 +57,29 @@ fn account_req_strict_shape() {
     let err = AccountReq::decode(br#"{"project":"p","login":"a","identity":1,"admin":true}"#)
         .unwrap_err();
     assert!(!err.is_empty());
+}
+
+#[test]
+fn project_access_request_has_exact_bound_identity_shape() {
+    let req = ProjectAccessRequest::decode(
+        format!(r#"{{"project":{PID:?},"login":"alice","identity":7}}"#).as_bytes(),
+    )
+    .unwrap();
+    assert_eq!(req.project, PID);
+    assert_eq!(req.login, "alice");
+    assert_eq!(req.identity, 7);
+    assert!(ProjectAccessRequest::decode(
+        format!(r#"{{"project":{PID:?},"login":"alice","identity":7,"extra":true}}"#).as_bytes()
+    )
+    .is_err());
+    assert!(ProjectAccessRequest::decode(
+        format!(r#"{{"project":{PID:?},"login":"alice","identity":1.5}}"#).as_bytes()
+    )
+    .is_err());
+    assert!(ProjectAccessRequest::decode(
+        format!(r#"{{"Project":{PID:?},"login":"alice","identity":7}}"#).as_bytes()
+    )
+    .is_err());
 }
 
 #[test]

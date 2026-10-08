@@ -225,6 +225,18 @@ impl<E: project::Executor> Ops<E> {
         self.runtime().account(&req.0, deadline)
     }
 
+    /// `/project-access`: observe native Project administrator status for
+    /// the identity after binding its running container.
+    pub fn project_access(
+        &self,
+        req: &domain::ProjectAccessRequest,
+        deadline: Instant,
+    ) -> Result<String, String> {
+        let status = crate::account::observe_project_access(&self.runtime(), req, deadline)?;
+        serde_json::to_string(&status)
+            .map_err(|_| "native project privilege observation was not confirmed".to_string())
+    }
+
     /// `/prepare`: approve, clone, verify, resolve tools, record and start
     /// one preparation. Returns the `PrepareState` JSON render.
     pub fn prepare(&self, req: &PrepareReq, deadline: Instant) -> Result<String, String> {

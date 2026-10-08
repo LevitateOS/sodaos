@@ -104,6 +104,20 @@ func (c *Client) Join(ctx context.Context, in project.Account) error {
 	return err
 }
 
+// ProjectAccess observes native Project administrator status for the current
+// project account. False is a confirmed nonadministrator result.
+func (c *Client) ProjectAccess(ctx context.Context, in project.ProjectAccessRequest) (project.ProjectAccessStatus, error) {
+	var out project.ProjectAccessStatus
+	if err := in.Validate(); err != nil {
+		return out, err
+	}
+	err := c.callLimit(ctx, "/project-access", in, &out, 4096)
+	if err == nil && (out.Administrator == nil || out.Project != in.Project || out.Login != in.Login || out.Identity != in.Identity) {
+		err = fmt.Errorf("native project privilege observation did not match the request")
+	}
+	return out, err
+}
+
 func (c *Client) Connection(ctx context.Context, id string) (project.Connection, error) {
 	var result project.Connection
 	err := c.call(ctx, "/connection", project.Create{ID: id}, &result)

@@ -142,6 +142,7 @@ fn dispatch_native<B: ExecBackend + ?Sized>(
         "/lifecycle" => backend.lifecycle(body),
         "/access-keys" => backend.access_keys(body),
         "/account" => backend.account(body),
+        "/project-access" => backend.project_access(body),
         "/prepare" => backend.prepare(body),
         "/prepare-candidate" => backend.prepare_candidate(body),
         "/prepare-inspect" => backend.inspect_preparation(body),

@@ -15,6 +15,7 @@ pub const BODY_LIMIT_IDENTITY: usize = 384 << 10;
 /// (Go: `r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""`).
 pub const NATIVE_CLEAN_PATHS: &[&str] = &[
     "/lifecycle",
+    "/project-access",
     "/access-keys",
     "/profile",
     "/create",

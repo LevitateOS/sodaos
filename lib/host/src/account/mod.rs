@@ -7,12 +7,12 @@
 
 use std::time::Instant;
 
-use crate::domain::{self, AccessKeyState, AccessKeys, Account};
+use crate::domain::{self, AccessKeyState, AccessKeys, Account, ProjectAccessRequest};
 use crate::json::{self, SignedInteger};
 use crate::project::{Executor, Runtime};
 use crate::ssh;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Fixed in-container terminal agent, mirroring Go `terminal.AgentProgram`.
@@ -96,6 +96,67 @@ fn confirm_account(out: &[u8], login: &str, identity: i64) -> Result<(), String>
         return Err(ERR.to_string());
     }
     Ok(())
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProjectPrivilegeConfirmation {
+    login: String,
+    identity: i64,
+    administrator: bool,
+}
+
+#[derive(Serialize)]
+struct GuestPrivilegeRequest<'a> {
+    login: &'a str,
+    identity: i64,
+}
+
+/// Observe native Project administrator status through the fixed read-only
+/// guest helper after binding the running container by its current ID.
+pub(crate) fn observe_project_access<E: Executor>(
+    runtime: &Runtime<E>,
+    input: &ProjectAccessRequest,
+    deadline: Instant,
+) -> Result<domain::ProjectAccessStatus, String> {
+    if !domain::valid_id(&input.project)
+        || !domain::valid_login(&input.login)
+        || input.login == "root"
+        || input.identity <= 0
+    {
+        return Err("invalid project privilege observation".to_string());
+    }
+    let container = runtime.project_container(&input.project, true, deadline)?;
+    let stdin = serde_json::to_vec(&GuestPrivilegeRequest {
+        login: &input.login,
+        identity: input.identity,
+    })
+    .map_err(|_| "invalid project privilege observation".to_string())?;
+    let args = [
+        "exec",
+        "--interactive",
+        container.as_str(),
+        "/usr/libexec/soda/project-account",
+        "--status",
+    ];
+    let out = runtime
+        .exec
+        .run_bounded(&stdin, "/usr/bin/podman", &args, deadline, 4096, 4096)?;
+    const ERR: &str = "native project privilege observation was not confirmed";
+    if out.len() > 4096 {
+        return Err(ERR.to_string());
+    }
+    let observed: ProjectPrivilegeConfirmation =
+        json::decode_strict_as(&out).map_err(|_| ERR.to_string())?;
+    if observed.login != input.login || observed.identity != input.identity {
+        return Err(ERR.to_string());
+    }
+    Ok(domain::ProjectAccessStatus {
+        project: input.project.clone(),
+        login: input.login.clone(),
+        identity: input.identity,
+        administrator: observed.administrator,
+    })
 }
 
 /// `canonicalKeys`: canonical `type base64` lines only, no options, no

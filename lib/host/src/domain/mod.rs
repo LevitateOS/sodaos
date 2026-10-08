@@ -14,7 +14,9 @@ mod profile;
 #[cfg(test)]
 mod tests;
 
-pub use self::account::{AccessKeyState, AccessKeys, Account};
+pub use self::account::{
+    AccessKeyState, AccessKeys, Account, ProjectAccessRequest, ProjectAccessStatus,
+};
 pub use self::os::{valid_os_release, OsObservation, OsRelease};
 pub use self::profile::{decode_profile, Create, Profile};
 

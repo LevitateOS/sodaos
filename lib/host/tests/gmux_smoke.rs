@@ -220,6 +220,9 @@ impl ExecBackend for ScriptBackend {
     fn account(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         self.replay(body)
     }
+    fn project_access(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        self.replay(body)
+    }
     fn prepare(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         self.replay(body)
     }
@@ -320,7 +323,7 @@ impl ExecBackend for ScriptBackend {
 
 #[test]
 fn native_clean_paths_reject_query_and_escapes() {
-    assert_eq!(NATIVE_CLEAN_PATHS.len(), 18);
+    assert_eq!(NATIVE_CLEAN_PATHS.len(), 19);
     for path in NATIVE_CLEAN_PATHS {
         let mut q = head("POST", path);
         q.has_query = true;
@@ -382,6 +385,7 @@ fn mutation_gate_covers_exactly_the_go_paths() {
         "/inspect",
         "/os",
         "/connection",
+        "/project-access",
         "/prepare-inspect",
         "/factory-launch",
         "/factory-harness",
@@ -402,6 +406,7 @@ fn body_limits_match_go() {
     assert_eq!(body_limit_for("/tailnet/host"), BODY_LIMIT_DEFAULT);
     assert_eq!(body_limit_for("/create"), BODY_LIMIT_DEFAULT);
     assert_eq!(body_limit_for("/factory-harness"), BODY_LIMIT_DEFAULT);
+    assert_eq!(body_limit_for("/project-access"), BODY_LIMIT_DEFAULT);
 }
 
 #[test]
@@ -516,7 +521,7 @@ fn terminal_gate_caps_and_releases() {
 
 #[test]
 fn route_table_has_every_go_route() {
-    assert_eq!(ROUTE_TABLE.len(), 33);
+    assert_eq!(ROUTE_TABLE.len(), 34);
     let count = |prefix: &str| {
         ROUTE_TABLE
             .iter()
@@ -541,6 +546,7 @@ fn route_table_has_every_go_route() {
         "/lifecycle",
         "/access-keys",
         "/account",
+        "/project-access",
         "/prepare",
         "/prepare-candidate",
         "/prepare-inspect",
@@ -778,6 +784,19 @@ fn create_and_mutations_reject_busy_gate_reads_do_not() {
     .into_response();
     assert_eq!(status_of(&response), 503);
     assert_eq!(backend.seen_bodies.lock().unwrap().len(), 1);
+    // Project privilege is a read-only observation and bypasses the writer gate.
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/project-access"),
+        b"{}",
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 200);
+    assert_eq!(backend.seen_bodies.lock().unwrap().len(), 2);
     drop(held);
     let response = dispatch(
         &backend,
@@ -790,7 +809,7 @@ fn create_and_mutations_reject_busy_gate_reads_do_not() {
     )
     .into_response();
     assert_eq!(status_of(&response), 200);
-    assert_eq!(backend.seen_bodies.lock().unwrap().len(), 2);
+    assert_eq!(backend.seen_bodies.lock().unwrap().len(), 3);
 }
 
 // -- routes: identity mapping --
@@ -1238,7 +1257,10 @@ fn server_serves_stub_routes_and_parser_rejections() {
     // an unread-input reset as a truncated response body.
     let response = read_http_head(&mut client);
     assert_eq!(status_of(&response), 431);
-    assert_eq!(response.header_value("content-length").as_deref(), Some("0"));
+    assert_eq!(
+        response.header_value("content-length").as_deref(),
+        Some("0")
+    );
 
     // Hyper decodes legal chunked framing; dispatch then applies the normal
     // route behavior to the empty request body.

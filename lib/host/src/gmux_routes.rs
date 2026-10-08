@@ -28,7 +28,7 @@ pub use self::routes::{dispatch, DaemonConfig, RouteOutcome};
 // -- complete route table (method, path) --
 
 /// Every route the mux serves: 5 identity, 6 tailnet, 1 terminal,
-/// 8 project, 5 prepare, 8 factory. The smoke test dispatches each one.
+/// 9 project, 5 prepare, 8 factory. The smoke test dispatches each one.
 pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/identity/launch"),
     ("POST", "/identity/validate"),
@@ -50,6 +50,7 @@ pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/lifecycle"),
     ("POST", "/access-keys"),
     ("POST", "/account"),
+    ("POST", "/project-access"),
     ("POST", "/prepare"),
     ("POST", "/prepare-candidate"),
     ("POST", "/prepare-inspect"),

@@ -73,6 +73,8 @@ pub trait ExecBackend: Send + Sync {
     fn lifecycle(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn access_keys(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn account(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
+    /// Read-only native Project privilege observation.
+    fn project_access(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
 
     // -- prepare routes (daemon.go dispatchPrepare) --
     fn prepare(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
@@ -161,6 +163,9 @@ impl ExecBackend for StubBackend {
         Err(BackendError::Unimplemented)
     }
     fn account(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
+    fn project_access(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
         Err(BackendError::Unimplemented)
     }
     fn prepare(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {

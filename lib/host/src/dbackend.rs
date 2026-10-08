@@ -874,6 +874,14 @@ impl ExecBackend for DaemonBackend {
         Ok(b"{\"ok\":true}".to_vec())
     }
 
+    fn project_access(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let req = domain::ProjectAccessRequest::decode(body).map_err(internal)?;
+        self.pops
+            .project_access(&req, native_deadline())
+            .map(String::into_bytes)
+            .map_err(internal)
+    }
+
     fn prepare(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let req = crate::pops::PrepareReq::decode(body).map_err(internal)?;
         self.pops

@@ -27,6 +27,29 @@ type Account struct {
 	Keys     []string `json:"keys"`
 }
 
+// ProjectAccessRequest asks the native Project helper to observe whether the
+// bound account currently has administrator privileges.
+type ProjectAccessRequest struct {
+	Project  string `json:"project"`
+	Login    string `json:"login"`
+	Identity int64  `json:"identity"`
+}
+
+func (r ProjectAccessRequest) Validate() error {
+	if !ValidID(r.Project) || !ValidLogin(r.Login) || r.Login == "root" || r.Identity <= 0 {
+		return errors.New("invalid project privilege observation")
+	}
+	return nil
+}
+
+// ProjectAccessStatus is a native observation bound to one project account.
+type ProjectAccessStatus struct {
+	Project       string `json:"project"`
+	Login         string `json:"login"`
+	Identity      int64  `json:"identity"`
+	Administrator *bool  `json:"administrator"`
+}
+
 // Environment is the observed live project instance: the project identity
 // plus its running container attachment. It is not the creation profile.
 type Environment struct {

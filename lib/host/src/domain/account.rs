@@ -1,6 +1,6 @@
 use crate::json;
 use serde::de::{self, MapAccess, Visitor};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 // ---- PR20: account DTOs (`Account`, `AccessKeys`, `AccessKeyState`) ----
@@ -12,6 +12,31 @@ pub struct Account {
     pub login: String,
     pub identity: i64,
     pub keys: Vec<String>,
+}
+
+/// Read-only native Project privilege observation bound to a Soda project
+/// login and its current identity.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectAccessRequest {
+    pub project: String,
+    pub login: String,
+    pub identity: i64,
+}
+
+impl ProjectAccessRequest {
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|e| e.0)
+    }
+}
+
+/// Project privilege observation returned to the Go control plane.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProjectAccessStatus {
+    pub project: String,
+    pub login: String,
+    pub identity: i64,
+    pub administrator: bool,
 }
 
 macro_rules! string_field {
