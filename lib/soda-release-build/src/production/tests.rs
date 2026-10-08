@@ -1,7 +1,6 @@
 use super::*;
 use crate::files::{is_digest, write_new};
 use crate::live_inputs::write_live_inputs;
-use crate::oci::inspect_oci;
 use crate::production_inputs::parse_image_repo;
 use crate::test_support::{fixture_live_inputs, fixture_oci_bytes, FIXTURE_REVISION};
 use std::os::unix::fs::PermissionsExt;
@@ -49,7 +48,12 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
     let seed = fixture_oci_bytes("amd64");
     let seed_path = root.join("seed.oci");
     std::fs::write(&seed_path, &seed).unwrap();
-    let image = inspect_oci(&seed_path, "x86_64", FIXTURE_REVISION).unwrap();
+    let image = soda_release_deliver::oci::inspect_oci(
+        seed_path.to_str().unwrap(),
+        "x86_64",
+        FIXTURE_REVISION,
+    )
+    .unwrap();
     let live_path = root.join("live-inputs.json");
     write_live_inputs(&live_path, &fixture_live_inputs()).unwrap();
     let calls: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));

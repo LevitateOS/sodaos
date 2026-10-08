@@ -3,9 +3,9 @@
 //! content; this code never signs, publishes, or installs anything.
 
 use crate::files::{is_revision, oci_architecture};
-use crate::oci::Image;
 use crate::production_inputs::ResolvedInput;
 use crate::{io_error, Error};
+use soda_release_deliver::buildx::Image;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

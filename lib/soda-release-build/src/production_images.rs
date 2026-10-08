@@ -2,7 +2,6 @@
 //! the role sequence, and the lexical relative paths those recipes use.
 
 use crate::files::{is_digest, oci_architecture};
-use crate::oci::inspect_oci;
 use crate::production::{ProducedImage, Production};
 use crate::production_inputs::ResolvedInput;
 use crate::{io_error, Error};
@@ -98,7 +97,9 @@ impl Production {
                 id.to_string(),
             ],
         )?;
-        let image = inspect_oci(&file, &self.arch, revision)?;
+        let image =
+            soda_release_deliver::oci::inspect_oci(&file.to_string_lossy(), &self.arch, revision)
+                .map_err(|error| Error::msg(error.to_string()))?;
         if image.config != id {
             return Err(Error::msg("app archive/config mismatch"));
         }

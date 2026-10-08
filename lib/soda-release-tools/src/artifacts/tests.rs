@@ -367,10 +367,8 @@ fn raw_tar_entry_test(name: &str, body: &[u8]) -> Vec<u8> {
 
 #[test]
 fn inspect_positive_returns_image_identity_json() {
-    // oci.rs fixture builders are #[cfg(test)]-gated inside
-    // soda-release-build, so unavailable to this crate; replicate the
-    // minimal single-layer archive with raw ustar headers (no tar
-    // dependency here).
+    // Keep the CLI output assertion on a small archive fixture; delivery
+    // owns OCI decoding.
     let revision = "a".repeat(40);
     let base = "b".repeat(64);
     let body = b"synthetic layer fixture; never executed";

@@ -2,11 +2,16 @@
 //! resolution against retained ground truth.
 
 use super::{data_path, oracle, scratch, FIXTURE_REVISION};
-use soda_release_build::oci::{inspect_oci, inspect_oci_content};
+use soda_release_deliver::oci::{inspect_oci, inspect_oci_content};
 
 #[test]
 fn oracle_go_fixture_identity() {
-    let image = inspect_oci(&data_path("go-fixture.oci"), "x86_64", FIXTURE_REVISION).unwrap();
+    let image = inspect_oci(
+        data_path("go-fixture.oci").to_str().unwrap(),
+        "x86_64",
+        FIXTURE_REVISION,
+    )
+    .unwrap();
     assert_eq!(image.manifest, oracle::OCI_MANIFEST);
     assert_eq!(image.config, oracle::OCI_CONFIG);
     assert_eq!(image.architecture, oracle::OCI_ARCH);
@@ -20,11 +25,11 @@ fn oracle_go_fixture_identity() {
 fn oracle_go_fixture_rejections() {
     let file = data_path("go-fixture.oci");
     assert!(
-        inspect_oci(&file, "aarch64", FIXTURE_REVISION).is_err(),
+        inspect_oci(file.to_str().unwrap(), "aarch64", FIXTURE_REVISION).is_err(),
         "oci-arch"
     );
     assert!(
-        inspect_oci(&file, "x86_64", &"c".repeat(40)).is_err(),
+        inspect_oci(file.to_str().unwrap(), "x86_64", &"c".repeat(40)).is_err(),
         "oci-revision"
     );
     let dir = scratch("tamper");
@@ -39,7 +44,7 @@ fn oracle_go_fixture_rejections() {
     tampered_bytes[pos..pos + needle.len()].copy_from_slice(b"tampered! layer");
     std::fs::write(&tampered, tampered_bytes).unwrap();
     assert!(
-        inspect_oci(&tampered, "x86_64", FIXTURE_REVISION).is_err(),
+        inspect_oci(tampered.to_str().unwrap(), "x86_64", FIXTURE_REVISION).is_err(),
         "oci-tampered"
     );
 }
@@ -48,7 +53,7 @@ fn oracle_go_fixture_rejections() {
 fn oracle_go_fixture_content() {
     let file = data_path("go-fixture.oci");
     let (image, content) = inspect_oci_content(
-        &file,
+        file.to_str().unwrap(),
         "x86_64",
         FIXTURE_REVISION,
         &[String::from("/fixture.txt")],
@@ -61,7 +66,7 @@ fn oracle_go_fixture_content() {
     );
     assert!(
         inspect_oci_content(
-            &file,
+            file.to_str().unwrap(),
             "x86_64",
             FIXTURE_REVISION,
             &[String::from("/missing")]

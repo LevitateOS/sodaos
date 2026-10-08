@@ -4,7 +4,6 @@
 
 use super::{data_path, oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
 use soda_release_build::live_inputs::write_live_inputs;
-use soda_release_build::oci::inspect_oci;
 use soda_release_build::production::Production;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -55,7 +54,12 @@ fn oracle_production_sequence() {
     let seed_bytes = std::fs::read(data_path("go-fixture.oci")).unwrap();
     let seed_path = root.join("seed.oci");
     std::fs::write(&seed_path, &seed_bytes).unwrap();
-    let seed_image = inspect_oci(&seed_path, "x86_64", FIXTURE_REVISION).unwrap();
+    let seed_image = soda_release_deliver::oci::inspect_oci(
+        seed_path.to_str().unwrap(),
+        "x86_64",
+        FIXTURE_REVISION,
+    )
+    .unwrap();
     assert_eq!(seed_image.config, oracle::OCI_CONFIG);
     let live_path = root.join("live-inputs.json");
     write_live_inputs(&live_path, &oracle_live_inputs()).unwrap();

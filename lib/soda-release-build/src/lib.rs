@@ -1,5 +1,5 @@
-//! Shared native build primitives: OCI inspection, CoreOS inputs, and
-//! production steps. Signing, publication, and installation belong to callers.
+//! Shared native build primitives: CoreOS inputs and production steps.
+//! Signing, publication, and installation belong to callers.
 //!
 //! Producer records use standard Serde JSON with explicit field order and
 //! caller-owned newlines. Consumers validate decoded fields or hash newly
@@ -18,7 +18,6 @@ pub mod forgejo;
 pub mod http;
 pub mod json_input;
 pub mod live_inputs;
-pub mod oci;
 pub mod production;
 pub mod production_assets;
 pub mod production_compile;

@@ -1,12 +1,12 @@
 //! `soda-artifacts` (Go `tools/soda-artifacts` `main.go`): artifact
-//! subcommand dispatch. OCI inspection and CoreOS fetches admit inputs
-//! locally, then delegate to the `soda-release-build` pipeline.
+//! subcommand dispatch. OCI inspection delegates to `soda-release-deliver`;
+//! CoreOS fetches use the `soda-release-build` pipeline.
 
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use crate::digest::{hash_file, is_revision, is_signer, require_native};
+use crate::digest::{hash_file, is_signer, require_native};
 use clap::{Arg, ArgAction, Command as ClapCommand};
 
 pub const USAGE: &str =
@@ -361,24 +361,10 @@ fn admit_coreos_iso_fetch(arch: &str, signer: &str, keyring: &str) -> Result<Str
     Ok(absolute)
 }
 
-fn open_oci_archive(file: &str, arch: &str, revision: &str) -> Result<(), String> {
-    crate::digest::oci_architecture(arch)?;
-    if !revision.is_empty() && !is_revision(revision) {
-        return Err("full source revision required".to_owned());
-    }
-    let st = std::fs::symlink_metadata(file).map_err(|e| e.to_string())?;
-    if !st.file_type().is_file() {
-        return Err("OCI archive must be regular".to_owned());
-    }
-    std::fs::File::open(file).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 pub fn inspect_artifact_oci(source: &str, arch: &str, revision: &str) -> Result<String, String> {
-    open_oci_archive(source, arch, revision)?;
-    let image = soda_release_build::oci::inspect_oci(std::path::Path::new(source), arch, revision)
+    let image = soda_release_deliver::oci::inspect_oci(source, arch, revision)
         .map_err(|e| e.to_string())?;
-    Ok(image.marshal_compact())
+    serde_json::to_string(&image).map_err(|e| e.to_string())
 }
 
 fn run_coreos_artifact(action: &str, f: &ArtifactFlags) -> Result<(), String> {

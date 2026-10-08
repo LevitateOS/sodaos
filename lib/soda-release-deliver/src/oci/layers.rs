@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
 
@@ -283,7 +282,7 @@ fn scan_oci_layer_inner<R: Read + ?Sized>(
 pub fn scan_oci_layer<R: Read + ?Sized>(
     reader: &mut R,
     wanted: &BTreeMap<String, String>,
-) -> Result<HashMap<String, LayerMember>, String> {
+) -> Result<BTreeMap<String, LayerMember>, String> {
     let mut aggregate = 0;
     scan_oci_layer_with_budget(reader, wanted, &mut aggregate)
 }
@@ -293,7 +292,7 @@ pub fn scan_oci_layer_with_budget<R: Read + ?Sized>(
     reader: &mut R,
     wanted: &BTreeMap<String, String>,
     aggregate: &mut u64,
-) -> Result<HashMap<String, LayerMember>, String> {
+) -> Result<BTreeMap<String, LayerMember>, String> {
     let remaining = MAX_OCI_IMAGE_LAYER_BYTES
         .checked_sub(*aggregate)
         .ok_or_else(|| "OCI image decoded limit exceeded".to_string())?;
@@ -308,7 +307,7 @@ pub fn scan_oci_layer_with_budget<R: Read + ?Sized>(
     *aggregate = (*aggregate)
         .checked_add(bounded.read)
         .ok_or_else(|| "OCI image decoded limit exceeded".to_string())?;
-    Ok(found.into_iter().collect())
+    Ok(found)
 }
 
 pub(super) fn layer_archive_indexes(
@@ -403,6 +402,7 @@ fn drain_tar_padding(reader: &mut dyn Read) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use flate2::write::GzEncoder;
+    use sha2::{Digest as _, Sha256};
     use std::io::Write;
 
     fn tar_bytes(name: &str, body: &[u8]) -> Vec<u8> {
@@ -428,6 +428,127 @@ mod tests {
             media_type: LAYER_GZIP.to_string(),
             ..Descriptor::default()
         }
+    }
+
+    fn raw_tar_entry(name: &str, body: &[u8]) -> Vec<u8> {
+        let mut header = [0u8; 512];
+        header[..name.len()].copy_from_slice(name.as_bytes());
+        header[100..108].copy_from_slice(b"0000644\0");
+        header[108..116].copy_from_slice(b"0000000\0");
+        header[116..124].copy_from_slice(b"0000000\0");
+        let size = format!("{:011o}\0", body.len());
+        header[124..136].copy_from_slice(size.as_bytes());
+        header[136..148].copy_from_slice(b"00000000000\0");
+        header[148..156].copy_from_slice(b"        ");
+        header[156] = b'0';
+        header[257..262].copy_from_slice(b"ustar");
+        let sum: u32 = header.iter().map(|byte| *byte as u32).sum();
+        let checksum = format!("{:06o}\0 ", sum);
+        header[148..156].copy_from_slice(checksum.as_bytes());
+        let mut out = Vec::new();
+        out.extend_from_slice(&header);
+        out.extend_from_slice(body);
+        out.resize(out.len() + (512 - body.len() % 512) % 512, 0);
+        out.extend_from_slice(&[0u8; 1024]);
+        out
+    }
+
+    #[test]
+    fn oracle_layer_scanner_vectors() {
+        let layer_bytes = |names: &[&str]| -> Vec<u8> {
+            let mut out = Vec::new();
+            let mut writer = tar::Builder::new(&mut out);
+            for name in names {
+                let mut header = tar::Header::new_ustar();
+                header.set_size(name.len() as u64);
+                header.set_mode(0o644);
+                header.set_cksum();
+                writer
+                    .append_data(&mut header, *name, name.as_bytes())
+                    .unwrap();
+            }
+            writer.into_inner().unwrap();
+            out
+        };
+        let wanted = BTreeMap::from([("wanted".to_string(), "/wanted".to_string())]);
+        let dup = layer_bytes(&["wanted", "wanted"]);
+        assert_eq!(
+            scan_oci_layer(&mut &dup[..], &wanted).unwrap_err().as_str(),
+            "duplicate OCI layer entry"
+        );
+        let evil = raw_tar_entry("../wanted", b"evil");
+        assert_eq!(
+            scan_oci_layer(&mut &evil[..], &wanted)
+                .unwrap_err()
+                .as_str(),
+            "unsafe OCI layer path"
+        );
+        let benign = layer_bytes(&[".", "wanted"]);
+        let members = scan_oci_layer(&mut &benign[..], &wanted).unwrap();
+        assert!(members.get("wanted").unwrap().present);
+
+        let lower = BTreeMap::from([(
+            "wanted".to_string(),
+            LayerMember {
+                hash: "a".repeat(64),
+                present: true,
+                blocked: false,
+            },
+        )]);
+        let upper_bytes = layer_bytes(&[".wh.wanted"]);
+        let upper = scan_oci_layer(&mut &upper_bytes[..], &wanted).unwrap();
+        assert_eq!(
+            resolve_oci_members(&[lower, upper], &[false, false], &wanted)
+                .unwrap_err()
+                .0,
+            "requested OCI member was removed"
+        );
+    }
+
+    #[test]
+    fn oracle_gzip_and_zstd_layers() {
+        let content = b"verified member";
+        let layer = tar_bytes("wanted", content);
+        let compressed = gzip(&layer);
+        let wanted = BTreeMap::from([("wanted".to_string(), "/wanted".to_string())]);
+        for (media_type, data, blocked) in [
+            (LAYER_TAR, layer, false),
+            (LAYER_GZIP, compressed.clone(), false),
+            (LAYER_ZSTD, compressed.clone(), true),
+        ] {
+            let descriptor = Descriptor {
+                digest: format!("sha256:{:x}", Sha256::digest(&data)),
+                size: data.len() as i64,
+                media_type: media_type.to_string(),
+                ..Descriptor::default()
+            };
+            let mut aggregate = 0;
+            let (found, unsupported) = scan_archive_layer_with_budget(
+                &mut &data[..],
+                &descriptor,
+                &wanted,
+                &mut aggregate,
+            )
+            .unwrap();
+            assert_eq!(unsupported, blocked);
+            if !blocked {
+                assert_eq!(
+                    found.get("wanted").unwrap().hash,
+                    format!("{:x}", Sha256::digest(content))
+                );
+            }
+        }
+
+        let mut corrupt = compressed;
+        let last = corrupt.len() - 1;
+        corrupt[last] ^= 0xff;
+        let descriptor = Descriptor {
+            digest: format!("sha256:{:x}", Sha256::digest(&corrupt)),
+            size: corrupt.len() as i64,
+            media_type: LAYER_GZIP.to_string(),
+            ..Descriptor::default()
+        };
+        assert!(scan_archive_layer(&mut &corrupt[..], &descriptor, &wanted).is_err());
     }
 
     #[test]
@@ -522,16 +643,10 @@ pub(super) fn scan_archive_layer_with_budget<R: Read>(
         return Ok((BTreeMap::new(), true));
     }
     let members: BTreeMap<String, LayerMember> = match descriptor.media_type.as_str() {
-        LAYER_TAR => scan_oci_layer_with_budget(&mut tee, wanted, aggregate)
-            .map_err(Error::msg)?
-            .into_iter()
-            .collect(),
+        LAYER_TAR => scan_oci_layer_with_budget(&mut tee, wanted, aggregate).map_err(Error::msg)?,
         LAYER_GZIP => {
             let mut gz = MultiGzDecoder::new(&mut tee);
-            scan_oci_layer_with_budget(&mut gz, wanted, aggregate)
-                .map_err(Error::msg)?
-                .into_iter()
-                .collect()
+            scan_oci_layer_with_budget(&mut gz, wanted, aggregate).map_err(Error::msg)?
         }
         _ => return Err(Error::msg("unsupported OCI layer media type")),
     };

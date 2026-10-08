@@ -1,12 +1,15 @@
 //! Shared cfg(test) fixtures with production-test consumers in more
 //! than one module. Each fixture keeps its current bytes and owner.
 
-use crate::oci::{CONFIG_MEDIA_TYPE, LAYER_TAR, MANIFEST_MEDIA_TYPE};
 use crate::sha256_hex;
 use soda_build_tools::reader::stream::{CoreOSImage, LiveInputs, ResolvedCoreOS, TailnetInputs};
 use std::collections::BTreeMap;
 
 pub const FIXTURE_REVISION: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+const CONFIG_MEDIA_TYPE: &str = "application/vnd.oci.image.config.v1+json";
+const LAYER_TAR: &str = "application/vnd.oci.image.layer.v1.tar";
+const MANIFEST_MEDIA_TYPE: &str = "application/vnd.oci.image.manifest.v1+json";
 
 /// Builds the Go `fixtureOCI` archive: one tar layer with fixture.txt,
 /// config with soda attribution, manifest, index.

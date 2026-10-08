@@ -812,6 +812,81 @@ mod json_admission_tests {
         ])
     }
 
+    const MEDIA_TYPE_DIGEST: &str =
+        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    fn index_doc(media_type: Option<&str>) -> Vec<u8> {
+        let media = media_type
+            .map(|value| format!(r#","mediaType":{value}"#))
+            .unwrap_or_default();
+        format!(
+            r#"{{"schemaVersion":2{media},"manifests":[{{"digest":"{MEDIA_TYPE_DIGEST}","size":1,"mediaType":"application/vnd.oci.image.manifest.v1+json"}}]}}"#
+        )
+        .into_bytes()
+    }
+
+    fn manifest_doc(media_type: Option<&str>) -> Vec<u8> {
+        let media = media_type
+            .map(|value| format!(r#","mediaType":{value}"#))
+            .unwrap_or_default();
+        format!(
+            r#"{{"schemaVersion":2{media},"config":{{"digest":"{MEDIA_TYPE_DIGEST}","size":1,"mediaType":"application/vnd.oci.image.config.v1+json"}},"layers":[]}}"#
+        )
+        .into_bytes()
+    }
+
+    #[test]
+    fn index_gate_refuses_wrong_type_outer_media_type() {
+        for fragment in ["7", "{}", "[]", "true"] {
+            let entries = index_entries(
+                br#"{"imageLayoutVersion":"1.0.0"}"#.to_vec(),
+                index_doc(Some(fragment)),
+            );
+            assert!(
+                read_oci_index(&entries).is_err(),
+                "outer mediaType {fragment} must refuse"
+            );
+        }
+    }
+
+    #[test]
+    fn manifest_gate_refuses_wrong_type_outer_media_type() {
+        for fragment in ["7", "{}", "[]", "true"] {
+            assert!(
+                parse_oci_manifest(&manifest_doc(Some(fragment))).is_err(),
+                "outer mediaType {fragment} must refuse"
+            );
+        }
+    }
+
+    #[test]
+    fn outer_media_type_absence_keeps_lenient_behavior() {
+        let layout = br#"{"imageLayoutVersion":"1.0.0"}"#.to_vec();
+        for media_type in [
+            None,
+            Some("null"),
+            Some(r#""""#),
+            Some("\"application/vnd.oci.image.index.v1+json\""),
+        ] {
+            let entries = index_entries(layout.clone(), index_doc(media_type));
+            assert!(
+                read_oci_index(&entries).is_ok(),
+                "index mediaType {media_type:?}"
+            );
+        }
+        for media_type in [
+            None,
+            Some("null"),
+            Some(r#""""#),
+            Some("\"application/vnd.oci.image.manifest.v1+json\""),
+        ] {
+            assert!(
+                parse_oci_manifest(&manifest_doc(media_type)).is_ok(),
+                "manifest mediaType {media_type:?}"
+            );
+        }
+    }
+
     #[test]
     fn oci_raw_slots_validate_only_the_last_known_value() {
         let descriptor: Descriptor = serde_json::from_str(

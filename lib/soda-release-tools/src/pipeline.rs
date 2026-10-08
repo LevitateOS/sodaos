@@ -23,11 +23,11 @@ use std::path::Path;
 
 use soda_build_tools::reader::stream::{LiveInputs, ResolvedCoreOS};
 use soda_release_build::coreos_stream;
-use soda_release_build::oci::{self, Image as BuildImage};
 use soda_release_build::production::{
     ProducedImage as BuildProducedImage, Production as BuildProduction,
 };
 use soda_release_build::Error as BuildError;
+use soda_release_deliver::buildx::Image as BuildImage;
 use soda_release_deliver::model::{Permit as DeliverPermit, Trust as DeliverTrust};
 use soda_release_deliver::native::SecretFiles as DeliverSecrets;
 use soda_release_deliver::payload::{Image as DeliverImage, Payload as DeliverPayload};
@@ -290,9 +290,9 @@ impl ImageProduction for RealProduction {
         arch: &str,
         revision: &str,
     ) -> Result<model::Image, ImageError> {
-        oci::inspect_oci(Path::new(archive), arch, revision)
+        soda_release_deliver::oci::inspect_oci(archive, arch, revision)
             .map(|image| image_of(&image))
-            .map_err(build_err)
+            .map_err(deliver_err)
     }
 
     fn verify_content(
