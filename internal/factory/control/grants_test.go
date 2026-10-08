@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"strings"
 	"testing"
@@ -115,58 +114,6 @@ func TestApplyPolicyReplaysAndClosesDispatch(t *testing.T) {
 	changed := factory.OperatorGrant{Repository: 42, Revision: 1, GrantedBy: 1, Active: true, MaxConcurrent: 4}
 	if _, err = c.ApplyOperatorGrant(ctx, command, "os-uid:0", 1, changed); !errors.Is(err, store.ErrCommandConflict) {
 		t.Fatal("changed payload reused the command identity", err)
-	}
-}
-
-func TestApplyPolicyReceiptFailureDoesNotCommitPartialWithdrawal(t *testing.T) {
-	ctx := context.Background()
-	db, dsn := postgresFixture(t, nil)
-	c := NewCoordinator(db, nil, nil)
-	grantFullAuthority(t, c)
-
-	triggerDB, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal("open isolated PostgreSQL fixture", err)
-	}
-	defer func() { _ = triggerDB.Close() }()
-	_, err = triggerDB.ExecContext(ctx, `CREATE FUNCTION refuse_factory_command_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.finished <> '' THEN
-    RAISE EXCEPTION 'injected command receipt write failure';
-  END IF;
-  RETURN NEW;
-END $$;`)
-	if err != nil {
-		t.Fatal("install isolated command receipt failure trigger", err)
-	}
-	_, err = triggerDB.ExecContext(ctx, `CREATE TRIGGER refuse_factory_command_receipt BEFORE INSERT OR UPDATE ON factory_commands FOR EACH ROW EXECUTE FUNCTION refuse_factory_command_receipt()`)
-	if err != nil {
-		t.Fatal("install isolated command receipt failure trigger", err)
-	}
-
-	commandID := factory.NewID()
-	paused := grantPolicy()
-	paused.Revision, paused.Paused = 1, true
-	if _, err = c.ApplyPolicy(ctx, commandID, "native:7", 1, paused); err == nil {
-		t.Fatal("policy withdrawal succeeded despite command receipt failure")
-	}
-
-	storedPolicy, err := db.RepositoryPolicy(ctx, 42)
-	if err != nil {
-		t.Fatal("read policy after failed withdrawal", err)
-	}
-	if storedPolicy.Revision != 1 || storedPolicy.Paused || !storedPolicy.Enabled {
-		t.Errorf("policy changed without a durable command receipt: %+v", storedPolicy)
-	}
-	open, _, _, err := db.DispatchState(ctx, 42)
-	if err != nil {
-		t.Fatal("read dispatch after failed withdrawal", err)
-	}
-	if !open {
-		t.Error("dispatch closed without a durable command receipt")
-	}
-	if _, err = db.FactoryCommand(ctx, commandID); !errors.Is(err, store.ErrNotFound) {
-		t.Errorf("failed atomic command remained recorded: err=%v", err)
 	}
 }
 

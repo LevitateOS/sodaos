@@ -3,7 +3,6 @@ package control
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"strings"
 	"testing"
@@ -423,33 +422,7 @@ func TestSubmitReviewForRunRefusesStaleHead(t *testing.T) {
 func TestReviewRegistrationRefusesClosedDispatchBeforeSubmit(t *testing.T) {
 	ctx := context.Background()
 	fx, a, _, run := reviewRunSeed(t, "")
-	triggerDB, err := sql.Open("pgx", fx.dsn)
-	if err != nil {
-		t.Fatal("open isolated PostgreSQL fixture")
-	}
-	defer func() { _ = triggerDB.Close() }()
-	_, err = triggerDB.ExecContext(ctx, `CREATE FUNCTION close_dispatch_after_review_registration() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE previous_count integer; next_count integer;
-BEGIN
-  previous_count := jsonb_array_length(COALESCE(OLD.data->'review_operations','[]'::jsonb));
-  next_count := jsonb_array_length(COALESCE(NEW.data->'review_operations','[]'::jsonb));
-  IF next_count > previous_count THEN
-    UPDATE factory_dispatch SET revision=revision+1, open=FALSE,
-      data=jsonb_build_object(
-        'active_causes',jsonb_build_array('test_review_close'),
-        'publications',jsonb_build_object('publications',jsonb_build_array(),'operations',jsonb_build_array(),'pending',FALSE),
-        'merges',jsonb_build_object('merges',jsonb_build_array(),'operations',jsonb_build_array(),'pending',FALSE),
-        'captured',jsonb_build_array(),'repository',NEW.repository::text,'revision',factory_dispatch.revision+1,
-        'cause','test_review_close','closed_by','test:review-boundary')
-    WHERE repository=NEW.repository;
-  END IF;
-  RETURN NEW;
-END $$;`)
-	if err != nil {
-		t.Fatal("install isolated post-registration gate trigger")
-	}
-	_, err = triggerDB.ExecContext(ctx, `CREATE TRIGGER close_dispatch_after_review_registration AFTER UPDATE ON factory_publications FOR EACH ROW EXECUTE FUNCTION close_dispatch_after_review_registration()`)
-	if err != nil {
+	if err := store.CloseDispatchAfterReviewRegistration(ctx, fx.dsn); err != nil {
 		t.Fatal("install isolated post-registration gate trigger")
 	}
 	exec := &fakeReviewer{observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()}}

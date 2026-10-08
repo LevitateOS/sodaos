@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -295,6 +296,70 @@ func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T)
 	replay, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime().Add(time.Minute))
 	if err != nil || created || replay.Outcome != stored.Outcome || replay.Finished != stored.Finished {
 		t.Fatalf("command replay changed immutable receipt: %+v created=%t err=%v", replay, created, err)
+	}
+}
+
+func TestPolicyReceiptFailureDoesNotCommitPartialWithdrawal(t *testing.T) {
+	db := grantStoreFixture(t)
+	ctx := context.Background()
+	if err := db.SaveRepositoryPolicy(ctx, grantTestPolicy()); err != nil {
+		t.Fatal("save initial policy", err)
+	}
+	registration := factory.DispatchRegistration{
+		ID: factory.NewID(), Repository: 42, Authority: factory.AuthorityRef{Policy: 1},
+	}
+	if err := db.RegisterDispatch(ctx, registration); err != nil {
+		t.Fatal("register dispatch", err)
+	}
+	_, err := db.db.ExecContext(ctx, `CREATE FUNCTION refuse_factory_command_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.finished <> '' THEN
+    RAISE EXCEPTION 'injected command receipt write failure';
+  END IF;
+  RETURN NEW;
+END $$;`)
+	if err != nil {
+		t.Fatal("install isolated command receipt failure trigger", err)
+	}
+	_, err = db.db.ExecContext(ctx, `CREATE TRIGGER refuse_factory_command_receipt BEFORE INSERT OR UPDATE ON factory_commands FOR EACH ROW EXECUTE FUNCTION refuse_factory_command_receipt()`)
+	if err != nil {
+		t.Fatal("install isolated command receipt failure trigger", err)
+	}
+
+	commandID := factory.NewID()
+	paused := grantTestPolicy()
+	paused.Revision, paused.Paused = 1, true
+	payload, err := json.Marshal(paused)
+	if err != nil {
+		t.Fatal("marshal paused policy", err)
+	}
+	target := "repository/42/policy"
+	cmd := factory.Command{
+		ID: commandID, Type: factory.CommandPolicy, Target: target, Principal: "native:7",
+		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
+	}
+	_, _, err = db.ApplyRepositoryPolicyCommand(ctx, cmd, paused, grantTestTime())
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Message != "injected command receipt write failure" {
+		t.Fatalf("policy withdrawal did not reach the injected receipt failure: %v", err)
+	}
+
+	storedPolicy, err := db.RepositoryPolicy(ctx, 42)
+	if err != nil {
+		t.Fatal("read policy after failed withdrawal", err)
+	}
+	if storedPolicy.Revision != 1 || storedPolicy.Paused || !storedPolicy.Enabled {
+		t.Errorf("policy changed without a durable command receipt: %+v", storedPolicy)
+	}
+	open, _, _, err := db.DispatchState(ctx, 42)
+	if err != nil {
+		t.Fatal("read dispatch after failed withdrawal", err)
+	}
+	if !open {
+		t.Error("dispatch closed without a durable command receipt")
+	}
+	if _, err := db.FactoryCommand(ctx, commandID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("failed atomic command remained recorded: err=%v", err)
 	}
 }
 
