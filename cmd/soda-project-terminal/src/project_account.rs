@@ -9,7 +9,7 @@
 //! unconfirmed line (see `main`).
 
 use serde::de::{MapAccess, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::value::RawValue;
 use std::ffi::{CStr, CString};
 use std::fs::File;
@@ -35,14 +35,32 @@ pub struct Response {
     pub identity: i64,
 }
 
+/// Exact read-only privilege status request. Unlike the legacy provisioning
+/// contract, this new mode rejects unknown and duplicate fields.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PrivilegeRequest {
+    pub login: String,
+    pub identity: i64,
+}
+
+/// Confirmed native administrator status for one managed project account.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PrivilegeResponse {
+    pub login: String,
+    pub identity: i64,
+    pub administrator: bool,
+}
+
 /// Native command runner (`useradd`/`usermod` argv, `check=True` semantics).
 pub type RunCommand = dyn Fn(&[String]) -> std::io::Result<()>;
 /// Durability sync for created files and their parent directories.
 pub type SyncFile = dyn Fn(&File) -> std::io::Result<()>;
 
 /// Execution environment. [`Config::production`] is the fixed guest
-/// behavior; [`Config::test_root`] redirects paths, the passwd source, and
-/// the ownership root under one directory so tests never touch real state.
+/// behavior; [`Config::test_root`] redirects provisioning paths and its
+/// passwd-home fixture. The read-only privilege mode always consults native
+/// NSS for the actual uid/group binding.
 pub struct Config {
     pub accounts: PathBuf,
     pub keys: PathBuf,
@@ -228,6 +246,224 @@ pub fn parse_request(text: &str) -> Option<Request> {
         identity,
         admin,
         keys: out,
+    })
+}
+
+/// Parse the fixed read-only status request. This stays separate from the
+/// historical provisioning decoder and its JSON compatibility behavior.
+pub fn parse_privilege_request(text: &str) -> Option<PrivilegeRequest> {
+    let request: PrivilegeRequest = serde_json::from_str(text).ok()?;
+    if request.identity <= 0 || request.login == "root" || !valid_login(&request.login) {
+        return None;
+    }
+    Some(request)
+}
+
+fn open_accounts_directory(config: &Config) -> Result<File, String> {
+    let directory = open_nofollow(&config.accounts, libc::O_RDONLY | libc::O_DIRECTORY, 0)
+        .map_err(|_| "managed account directory unavailable".to_string())?;
+    let directory_meta = directory
+        .metadata()
+        .map_err(|_| "managed account directory unavailable".to_string())?;
+    if directory_meta.mode() & libc::S_IFMT != libc::S_IFDIR
+        || directory_meta.uid() != config.expect_uid
+        || directory_meta.mode() & 0o022 != 0
+    {
+        return Err("unsafe managed account directory".to_string());
+    }
+    Ok(directory)
+}
+
+/// Read and confirm one root-managed marker relative to its already-open
+/// accounts directory. The marker is the exact identity written by
+/// `provision`; no pathname re-resolution is used for the marker itself.
+fn read_account_marker(
+    directory: &File,
+    expect_uid: u32,
+    login: &str,
+    identity: i64,
+) -> Result<(), String> {
+    let name = CString::new(login).map_err(|_| "invalid account identity".to_string())?;
+    let fd = unsafe {
+        libc::openat(
+            directory.as_raw_fd(),
+            name.as_ptr(),
+            libc::O_RDONLY | libc::O_NONBLOCK | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            0,
+        )
+    };
+    if fd < 0 {
+        return Err("managed account marker unavailable".to_string());
+    }
+    let marker = unsafe { File::from_raw_fd(fd) };
+    let meta = marker
+        .metadata()
+        .map_err(|_| "managed account marker unavailable".to_string())?;
+    if meta.mode() & libc::S_IFMT != libc::S_IFREG
+        || meta.uid() != expect_uid
+        || meta.nlink() != 1
+        || meta.mode() & 0o7777 != 0o600
+        || meta.len() > 64
+    {
+        return Err("unsafe managed account marker".to_string());
+    }
+    let mut contents = Vec::with_capacity(64);
+    marker
+        .take(65)
+        .read_to_end(&mut contents)
+        .map_err(|_| "managed account marker unavailable".to_string())?;
+    if contents.len() > 64 || contents != identity.to_string().as_bytes() {
+        return Err("managed account identity was not confirmed".to_string());
+    }
+    Ok(())
+}
+
+fn confirm_account_marker(config: &Config, login: &str, identity: i64) -> Result<(), String> {
+    if config.require_root && unsafe { libc::geteuid() } != 0 {
+        return Err("project-local root required".to_string());
+    }
+    let directory = open_accounts_directory(config)?;
+    read_account_marker(&directory, config.expect_uid, login, identity)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NativeAccountIDs {
+    uid: libc::uid_t,
+    primary_gid: libc::gid_t,
+}
+
+const NSS_BUFFER_LIMIT: usize = 65536;
+// Linux's kernel supplementary-group ceiling. Soda-created accounts receive
+// their primary group plus `soda-project`, and the existing creator path may
+// append `wheel`; project administrators can retain other real NSS groups.
+// `sysconf(_SC_NGROUPS_MAX)` supplies the active platform value, so this
+// ceiling bounds lookup memory without truncating a list the kernel accepts.
+const LINUX_GROUP_HARD_LIMIT: usize = 65536;
+
+/// Resolve the current passwd entry through libc NSS with a fixed buffer.
+/// Any missing entry, NSS error, or oversized entry is unknown and refuses.
+fn lookup_native_account(login: &str) -> Result<NativeAccountIDs, String> {
+    let name = CString::new(login).map_err(|_| "native account unavailable".to_string())?;
+    let mut entry: libc::passwd = unsafe { std::mem::zeroed() };
+    let mut result: *mut libc::passwd = std::ptr::null_mut();
+    let mut buffer = vec![0u8; NSS_BUFFER_LIMIT];
+    let rc = unsafe {
+        libc::getpwnam_r(
+            name.as_ptr(),
+            &mut entry,
+            buffer.as_mut_ptr() as *mut libc::c_char,
+            buffer.len(),
+            &mut result,
+        )
+    };
+    if rc != 0
+        || result.is_null()
+        || entry.pw_name.is_null()
+        || unsafe { CStr::from_ptr(entry.pw_name).to_bytes() } != login.as_bytes()
+    {
+        return Err("native account unavailable".to_string());
+    }
+    Ok(NativeAccountIDs {
+        uid: entry.pw_uid,
+        primary_gid: entry.pw_gid,
+    })
+}
+
+/// Resolve the current `wheel` group and complete supplementary group list.
+/// The NSS buffers are fixed-size and the complete list is limited by the
+/// platform's `_SC_NGROUPS_MAX` result, with the Linux kernel maximum as a
+/// secondary bound.
+fn lookup_wheel_gid() -> Result<libc::gid_t, String> {
+    let wheel_name = CString::new("wheel").expect("fixed group name");
+    let mut entry: libc::group = unsafe { std::mem::zeroed() };
+    let mut result: *mut libc::group = std::ptr::null_mut();
+    let mut buffer = vec![0u8; NSS_BUFFER_LIMIT];
+    let rc = unsafe {
+        libc::getgrnam_r(
+            wheel_name.as_ptr(),
+            &mut entry,
+            buffer.as_mut_ptr() as *mut libc::c_char,
+            buffer.len(),
+            &mut result,
+        )
+    };
+    if rc != 0
+        || result.is_null()
+        || entry.gr_name.is_null()
+        || unsafe { CStr::from_ptr(entry.gr_name).to_bytes() } != b"wheel"
+    {
+        return Err("native wheel group unavailable".to_string());
+    }
+    Ok(entry.gr_gid)
+}
+
+fn native_group_limit() -> Result<usize, String> {
+    let maximum = unsafe { libc::sysconf(libc::_SC_NGROUPS_MAX) };
+    if maximum <= 0 || maximum as usize > LINUX_GROUP_HARD_LIMIT {
+        return Err("native group limit unavailable".to_string());
+    }
+    Ok(maximum as usize)
+}
+
+fn lookup_native_groups(login: &str, primary_gid: libc::gid_t) -> Result<Vec<libc::gid_t>, String> {
+    let login =
+        CString::new(login).map_err(|_| "native group membership unavailable".to_string())?;
+    let limit = native_group_limit()?;
+    let mut groups = vec![0 as libc::gid_t; limit];
+    let mut count = limit as libc::c_int;
+    let result =
+        unsafe { libc::getgrouplist(login.as_ptr(), primary_gid, groups.as_mut_ptr(), &mut count) };
+    let count = checked_native_group_count(result, count, groups.len())?;
+    groups.truncate(count);
+    if !groups.contains(&primary_gid) {
+        return Err("native primary group unavailable".to_string());
+    }
+    Ok(groups)
+}
+
+fn checked_native_group_count(
+    result: libc::c_int,
+    count: libc::c_int,
+    capacity: usize,
+) -> Result<usize, String> {
+    if result < 0 || count <= 0 || count as usize > capacity {
+        return Err("native group membership unavailable".to_string());
+    }
+    Ok(count as usize)
+}
+
+fn is_project_administrator(
+    uid: libc::uid_t,
+    wheel_gid: libc::gid_t,
+    groups: &[libc::gid_t],
+) -> bool {
+    uid == 0 || groups.contains(&wheel_gid)
+}
+
+/// Read-only status mode. It never provisions users, changes groups, or
+/// touches authorized keys.
+pub fn project_privilege_status(
+    config: &Config,
+    request: &PrivilegeRequest,
+) -> Result<PrivilegeResponse, String> {
+    if request.identity <= 0 || request.login == "root" || !valid_login(&request.login) {
+        return Err("invalid project account identity".to_string());
+    }
+    confirm_account_marker(config, &request.login, request.identity)?;
+    let account = lookup_native_account(&request.login)?;
+    if account.uid == 0 {
+        return Ok(PrivilegeResponse {
+            login: request.login.clone(),
+            identity: request.identity,
+            administrator: true,
+        });
+    }
+    let wheel_gid = lookup_wheel_gid()?;
+    let groups = lookup_native_groups(&request.login, account.primary_gid)?;
+    Ok(PrivilegeResponse {
+        login: request.login.clone(),
+        identity: request.identity,
+        administrator: is_project_administrator(account.uid, wheel_gid, &groups),
     })
 }
 

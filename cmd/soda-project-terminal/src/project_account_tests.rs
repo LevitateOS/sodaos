@@ -6,7 +6,8 @@ use std::sync::{Arc, Mutex};
 static TEST_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Unique per-test root with `accounts`/`keys` dirs (tests run in
-/// parallel threads). Never touches real accounts or the real passwd db.
+/// parallel threads). Marker tests stay inside it; one separate NSS test
+/// performs read-only lookup of the current process account/groups.
 fn test_root(tag: &str) -> PathBuf {
     let n = TEST_SEQ.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(
@@ -213,6 +214,147 @@ fn request_shape_matrix() {
         r#"{"login":7,"identity":1,"admin":false,"keys":[]}"#,
     ] {
         assert!(parse_doc(doc).is_none(), "must refuse {doc}");
+    }
+}
+
+#[test]
+fn privilege_request_is_exact_and_bounded_by_identity_fields() {
+    let good = parse_privilege_request(r#"{"login":"alice","identity":17}"#);
+    assert_eq!(
+        good,
+        Some(PrivilegeRequest {
+            login: "alice".to_string(),
+            identity: 17,
+        })
+    );
+    for invalid in [
+        r#"{"login":"alice","identity":0}"#,
+        r#"{"login":"root","identity":17}"#,
+        r#"{"login":"alice","identity":17,"admin":true}"#,
+        r#"{"login":"alice","identity":17,"identity":18}"#,
+        r#"{"login":"alice","identity":1.0}"#,
+        r#"{"login":"alice","identity":9223372036854775808}"#,
+        "[]",
+        "null",
+    ] {
+        assert!(
+            parse_privilege_request(invalid).is_none(),
+            "accepted {invalid}"
+        );
+    }
+}
+
+fn write_status_marker(root: &Path, name: &str, contents: &[u8], mode: u32) -> PathBuf {
+    let marker = root.join("accounts").join(name);
+    std::fs::write(&marker, contents).expect("write status marker");
+    std::fs::set_permissions(&marker, std::fs::Permissions::from_mode(mode))
+        .expect("set marker mode");
+    marker
+}
+
+#[test]
+fn privilege_marker_is_bound_to_open_managed_directory_and_exact_identity() {
+    let root = test_root("status-marker");
+    let config = Config::test_root(&root);
+    let marker = write_status_marker(&root, "alice", b"17", 0o600);
+    confirm_account_marker(&config, "alice", 17).expect("exact managed identity");
+    assert!(confirm_account_marker(&config, "alice", 18).is_err());
+
+    // Exercise the marker-owner check independently from the directory-owner
+    // check while using a real root-owned-by-test-process inode.
+    let directory = open_accounts_directory(&config).expect("open managed directory");
+    assert!(
+        read_account_marker(&directory, config.expect_uid.wrapping_add(1), "alice", 17).is_err()
+    );
+
+    std::fs::set_permissions(&marker, std::fs::Permissions::from_mode(0o640))
+        .expect("make marker group-readable");
+    assert!(confirm_account_marker(&config, "alice", 17).is_err());
+    std::fs::set_permissions(&marker, std::fs::Permissions::from_mode(0o600))
+        .expect("restore marker mode");
+
+    let linked = root.join("linked-marker");
+    std::fs::hard_link(&marker, &linked).expect("hard-link marker");
+    assert!(confirm_account_marker(&config, "alice", 17).is_err());
+    std::fs::remove_file(&linked).expect("remove marker hard link");
+
+    std::fs::remove_file(&marker).expect("remove marker");
+    let target = root.join("target-marker");
+    std::fs::write(&target, b"17").expect("write symlink target");
+    std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600))
+        .expect("set symlink target mode");
+    std::os::unix::fs::symlink(&target, &marker).expect("symlink marker");
+    assert!(confirm_account_marker(&config, "alice", 17).is_err());
+
+    std::fs::remove_file(&marker).expect("remove symlink marker");
+    write_status_marker(&root, "alice", &vec![b'1'; 65], 0o600);
+    assert!(confirm_account_marker(&config, "alice", 17).is_err());
+}
+
+#[test]
+fn privilege_marker_refuses_unsafe_accounts_directory() {
+    let root = test_root("status-directory");
+    let config = Config::test_root(&root);
+    write_status_marker(&root, "alice", b"17", 0o600);
+    std::fs::set_permissions(
+        root.join("accounts"),
+        std::fs::Permissions::from_mode(0o777),
+    )
+    .expect("make accounts directory writable");
+    assert!(confirm_account_marker(&config, "alice", 17).is_err());
+}
+
+#[test]
+fn privilege_decision_and_group_count_fail_closed() {
+    let wheel = 10 as libc::gid_t;
+    let ordinary = 1000 as libc::uid_t;
+    assert!(is_project_administrator(0, wheel, &[]));
+    assert!(is_project_administrator(ordinary, wheel, &[1000, wheel]));
+    assert!(!is_project_administrator(ordinary, wheel, &[1000]));
+    // Removing wheel from the current NSS result revokes the positive result.
+    assert!(!is_project_administrator(ordinary, wheel, &[1000, 1001]));
+
+    assert_eq!(checked_native_group_count(2, 2, 2).unwrap(), 2);
+    for (result, count, capacity) in [(-1, 300, 256), (0, 0, 256), (0, 257, 256)] {
+        assert!(checked_native_group_count(result, count, capacity).is_err());
+    }
+    let limit = native_group_limit().expect("native group limit");
+    assert!((1..=LINUX_GROUP_HARD_LIMIT).contains(&limit));
+}
+
+#[test]
+fn current_process_passwd_and_groups_are_resolved_through_nss() {
+    let uid = unsafe { libc::geteuid() };
+    let mut entry: libc::passwd = unsafe { std::mem::zeroed() };
+    let mut result: *mut libc::passwd = std::ptr::null_mut();
+    let mut buffer = vec![0u8; NSS_BUFFER_LIMIT];
+    let rc = unsafe {
+        libc::getpwuid_r(
+            uid,
+            &mut entry,
+            buffer.as_mut_ptr() as *mut libc::c_char,
+            buffer.len(),
+            &mut result,
+        )
+    };
+    assert_eq!(rc, 0);
+    assert!(!result.is_null());
+    assert!(!entry.pw_name.is_null());
+    let login = unsafe { CStr::from_ptr(entry.pw_name) }
+        .to_str()
+        .expect("native login")
+        .to_string();
+    let account = lookup_native_account(&login).expect("lookup current passwd account");
+    assert_eq!(account.uid, uid);
+    let groups = lookup_native_groups(&login, account.primary_gid)
+        .expect("lookup current NSS supplementary groups");
+    assert!(groups.contains(&account.primary_gid));
+    if let Ok(wheel) = lookup_wheel_gid() {
+        let expected = groups.contains(&wheel);
+        assert_eq!(
+            is_project_administrator(account.uid, wheel, &groups),
+            uid == 0 || expected
+        );
     }
 }
 

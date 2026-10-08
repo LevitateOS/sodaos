@@ -1,8 +1,10 @@
 //! Binary contract tests: exact stdin/stdout/stderr/exit bytes plus
 //! filesystem effects, driven against the compiled `project-account` with
 //! `SODA_PROJECT_ACCOUNT_TEST_ROOT` and PATH doubles for useradd/usermod.
-//! Never touches real accounts, the real passwd database, or real tools.
+//! Provisioning tests never touch real accounts; the status test performs a
+//! read-only NSS query for the current process account/groups.
 
+use std::ffi::{CStr, CString};
 use std::io::Write;
 use std::os::unix::fs::{MetadataExt as _, PermissionsExt};
 use std::os::unix::io::AsRawFd;
@@ -12,6 +14,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 const FAILURE_LINE: &[u8] =
     b"account provisioning unconfirmed; inspect native account and managed files\n";
+const STATUS_FAILURE_LINE: &[u8] =
+    b"account privilege unconfirmed; inspect native account and managed files\n";
 
 fn bin_path() -> PathBuf {
     if let Some(path) = option_env!("CARGO_BIN_EXE_project_account") {
@@ -402,9 +406,128 @@ fn malformed_stdin_refuses() {
 }
 
 #[test]
-fn argv_is_ignored_like_the_python() {
+fn unsupported_argument_tail_refuses_before_provisioning() {
     let env = Env::setup("argv");
-    let (code, stdout, _) = env.run(&["--whatever", "else"], &doc("alice", 1, false, &[]), &[]);
-    assert_eq!(code, 0);
-    assert_eq!(stdout, b"{\"login\": \"alice\", \"identity\": 1}\n");
+    let (code, stdout, stderr) =
+        env.run(&["--whatever", "else"], &doc("alice", 1, false, &[]), &[]);
+    assert_eq!(code, 1);
+    assert!(stdout.is_empty());
+    assert_eq!(stderr, FAILURE_LINE);
+    assert!(env.commands().is_empty());
+    assert!(!env.root.join("accounts/alice").exists());
+}
+
+fn native_account_uid(login: &str) -> Option<u32> {
+    let Ok(name) = CString::new(login) else {
+        return None;
+    };
+    let mut entry: libc::passwd = unsafe { std::mem::zeroed() };
+    let mut result: *mut libc::passwd = std::ptr::null_mut();
+    let mut buffer = vec![0u8; 65536];
+    let rc = unsafe {
+        libc::getpwnam_r(
+            name.as_ptr(),
+            &mut entry,
+            buffer.as_mut_ptr() as *mut libc::c_char,
+            buffer.len(),
+            &mut result,
+        )
+    };
+    if rc == 0
+        && !result.is_null()
+        && !entry.pw_name.is_null()
+        && unsafe { CStr::from_ptr(entry.pw_name).to_bytes() } == login.as_bytes()
+    {
+        Some(entry.pw_uid)
+    } else {
+        None
+    }
+}
+
+fn wheel_group_resolves_through_nss() -> bool {
+    let name = CString::new("wheel").expect("fixed group name");
+    let mut entry: libc::group = unsafe { std::mem::zeroed() };
+    let mut result: *mut libc::group = std::ptr::null_mut();
+    let mut buffer = vec![0u8; 65536];
+    unsafe {
+        libc::getgrnam_r(
+            name.as_ptr(),
+            &mut entry,
+            buffer.as_mut_ptr() as *mut libc::c_char,
+            buffer.len(),
+            &mut result,
+        ) == 0
+            && !result.is_null()
+            && !entry.gr_name.is_null()
+            && CStr::from_ptr(entry.gr_name).to_bytes() == b"wheel"
+    }
+}
+
+#[test]
+fn status_mode_reads_current_native_nss_without_provisioning() {
+    // Use a fixed neutral system account, never the local runner's username.
+    // Rocky supplies `nobody`; other systems may refuse if the account or
+    // target `wheel` group is absent, which is distinct from guest qualification.
+    let login = "nobody";
+    let env = Env::setup("status-nss");
+    let identity = 17;
+    let marker = env.root.join("accounts").join(&login);
+    std::fs::write(&marker, identity.to_string()).expect("write test identity marker");
+    std::fs::set_permissions(&marker, std::fs::Permissions::from_mode(0o600))
+        .expect("protect test identity marker");
+    let request = format!(r#"{{"login":{login:?},"identity":{identity}}}"#);
+    let (code, stdout, stderr) = env.run(&["--status"], request.as_bytes(), &[]);
+    let native_uid = native_account_uid(login);
+    let privilege_sources_resolve = match native_uid {
+        Some(0) => true,
+        Some(_) => wheel_group_resolves_through_nss(),
+        None => false,
+    };
+    if native_uid.is_some() && privilege_sources_resolve {
+        assert_eq!(
+            code,
+            0,
+            "status failed: {}",
+            String::from_utf8_lossy(&stderr)
+        );
+        assert!(stderr.is_empty());
+        let response: serde_json::Value =
+            serde_json::from_slice(&stdout).expect("typed status response");
+        assert_eq!(response.as_object().map(|o| o.len()), Some(3));
+        assert_eq!(response["login"], login);
+        assert_eq!(response["identity"], identity);
+        assert!(response["administrator"].is_boolean());
+    } else {
+        let reason = if native_uid.is_none() {
+            "fixed nobody account is absent from host NSS"
+        } else {
+            "fixed wheel group is absent from host NSS"
+        };
+        assert_eq!(code, 1, "status did not fail closed: {reason}");
+        assert!(stdout.is_empty());
+        assert_eq!(stderr, STATUS_FAILURE_LINE);
+    }
+    assert!(
+        env.commands().is_empty(),
+        "status invoked a mutating command"
+    );
+    assert_eq!(
+        std::fs::read(&marker).expect("marker unchanged"),
+        identity.to_string().as_bytes()
+    );
+}
+
+#[test]
+fn status_mode_refuses_oversized_request_before_account_or_nss_effects() {
+    let env = Env::setup("status-oversized");
+    let body = vec![b' '; 4097];
+    let (code, stdout, stderr) = env.run(&["--status"], &body, &[]);
+    assert_eq!(code, 1);
+    assert!(stdout.is_empty());
+    assert_eq!(stderr, STATUS_FAILURE_LINE);
+    assert!(env.commands().is_empty());
+    assert!(std::fs::read_dir(env.root.join("accounts"))
+        .expect("managed directory")
+        .next()
+        .is_none());
 }
