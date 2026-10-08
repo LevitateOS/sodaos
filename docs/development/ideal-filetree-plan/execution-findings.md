@@ -277,3 +277,15 @@ retain actual target/shipping/installed scope. Missing one parser, provider or
 native profile holds only its dependent action. This reconciliation completes
 planning allocation and independent scope challenge, not code corrections or
 qualification. Implementation still requires the matching scoped instruction.
+
+## A08 browser verification allocation
+
+A08.V retains its original stale-callback, renderer/slot lifetime, restoration/layout
+and read-only Factory viewing scope. The existing workspace driver compiles the
+production workspace/Lit/xterm into Chromium with synthetic HTTP/socket peers.
+The current Factory tests exercise decoders and watch-list helpers; they do not
+mount the Factory viewer.
+
+| Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
+| --- | --- | --- | --- |
+| TEST-A08-FACTORY-BROWSER-1 → A08.V / B | Luna low writes only `tests/frontend/fixtures/workspace-model.ts` and `tests/frontend/workspace-navigation.test.ts`; coordinator owns checks/docs/commits, independent Luna medium reviews. Add opt-in synthetic Factory responses matching the actual Go inventory/detail/status/output producers, using the existing browser driver and production viewer. | Locked terminal digests match; official `build:forgejo` and the real exact-selection restoration subject pass. Chromium sandbox remains enabled; loopback permission is required. Preserve all existing fixture defaults and production code. | Actual UI mounts the Factory view and renders status/output; exact run/repository/generation/cursor bind the sole client handshake. Keyboard/paste and presentation resize send no input/resize frames or HTTP writes. Refresh/hide retain the owner; closing detaches without mutating the run, and stale callbacks cannot resurrect it. Run the existing stale-callback, lifetime and restoration/layout subjects and independently assess the whole original A08.V scope. Local Chromium over synthetic peers does not prove installed/native authority or output; R04 remains separate. |
