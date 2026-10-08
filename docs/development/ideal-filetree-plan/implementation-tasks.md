@@ -64,7 +64,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 | Forgejo data directory | The owner-selected fixed appliance directory replaces configurable AppDataPath and the host parser. Startup and recovery use the same tracked declaration; native save/reparse and actual source/staging checks pass. CFG02 remains retained; installed generator/service identity remains R04. | C / L17 source complete |
 | Optional matcher conversion | Consideration complete; adoption deferred. Reconsider only after L16.G and demonstrated value plus construction/streaming admission. | C / L16 |
 | Other correctness and caller cuts | Follow the current [finding allocation](execution-findings.md), then remaining unchecked A/B/C scopes with precise Q gates. Parked A34/C41/browser seams are optional; B27 is integrated and is not replayed. | Named accountable finding owner; exclusive physical handoffs |
-| Wider verification | R03.L covers completed adoption source checks. Broader R03 checks and selected R04 native/installed/provider qualification remain open at their own scopes. | Coordinator |
+| Wider verification | R03.L preserves its completed adoption scope. Broader R03 implemented-source verification is complete at `6f1f9354` using combined passing receipts and affected-check reruns; gated native cases are not claimed as passes. Selected R04 native/installed/provider qualification remains open. | Coordinator |
 
 The coordinator's [R03.L source verification](implementation-lanes.md#coordinator-checklist)
 is complete for the implemented adoption scopes at `d7eca882`. Fresh focused
@@ -73,6 +73,16 @@ unchanged-source packet receipts and independent reviews retain their scope.
 The owning Go fixture row is reconciled in `93b50615`. L17 source completion
 supersedes the CFG01 parser hold; R02.targets/joins and selected R04 qualification remain open; none is
 reclassified by this source-verification result.
+
+The broader [R03 source verification](implementation-lanes.md#coordinator-checklist)
+now covers current implemented source at `6f1f9354`. Its follow-up fixtures
+preserve explicit final saved-key confirmation and Store SQL ownership; the
+rollback regression requires the exact injected PostgreSQL error, while the
+control review regression retains the durable unsent intent and no-submit
+assertions. The old failed composite stays recorded, and independent evidence
+review supports reuse plus focused reruns. Missing native browser inputs,
+installed workflows, open product decisions and full R02 reconciliation remain
+separate; this does not close their parent tasks.
 
 ## A — Projects, identity and Spaces
 

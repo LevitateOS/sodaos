@@ -268,7 +268,7 @@ Open detail: Update current callers directly. JSON01 specifies duplicate/fold/nu
 
 Observed size: 451 lines, including tests where embedded. JSON01 replaces the custom JSON grammar and recursive byte emitter with locked serde/serde_json. Keep narrow strict/lenient DTO profiles where actual callers need duplicate, folded-name, null and unknown-field rules. Preserve original authenticated input bytes and the explicitly required producer representation; do not recreate a general Go JSON API around serde.
 
-- `lib/soda-release-build/src/json_emit.rs` — Serde producer formatting for required compact/pretty Go output; concrete records and sorted maps remain with their callers.
+No shared emitter target remains: the complete release-build `json_emit` engine was retired in `5186c2eb`; current producers use standard Serde at their actual owners ([SIMP-REL-EMIT-1 source disposition](../execution-findings.md#implemented-source-follow-ups-2026-10-08)). Bounded input remains in `lib/soda-release-build/src/json_input.rs` under the preceding `files.rs` allocation.
 
 Evidence: 14-122: FieldError/Fields lenient extraction;125-312: Strict/json_kind/type and unknown-field diagnostics; 315-389: Emit/sorted_object/marshal_indent/emit_indent/emit_value; 390-451: four existing unit cases; coreos.rs,coreos_stream.rs,files.rs,forgejo.rs,production.rs import these real semantics
 

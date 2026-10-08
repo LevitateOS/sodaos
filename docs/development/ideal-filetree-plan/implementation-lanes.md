@@ -204,10 +204,19 @@ hunk editing of a shared file as a substitute for ownership.
     installed-selector mappings and remaining target collisions; retain old
     audit/runtime receipts at their original identities. Task-status upkeep does
     not itself complete these joins or native qualification.
-- [ ] **R03 — Integrated source verification.** On a stable agreed snapshot,
-  run the applicable existing Go/Rust/Bun/source/architecture checks. Reuse a
-  passing result only for unchanged exercised source. Repeat an affected check
-  for new changes or unresolved failures, not automatically for every worker.
+- [x] **R03 — Integrated source verification.** Current implemented source
+  `6f1f9354` is verified by combined passing receipts: all Go packages and module
+  verification at `8813f8fd`, the exact later Store/control regressions and
+  architecture checks, SQL locality, no-npm/no-Python, TypeScript, affected
+  Chromium tests, prepared Forgejo source tests, and locked offline all-target
+  compilation for all 28 Rust workspace members. Unchanged exercised source is
+  reused; the failed composite and initial fixture failures remain recorded.
+  This is not one all-green composite invocation. The prepared Forgejo suite
+  has 39 passes and 29 prerequisite-gated skips; the full Go log establishes
+  package passes, not a per-test skip census. Existing Rust warnings remain
+  recorded. Independent Luna low evidence review passed. R04 and other pending
+  correctness/verification tasks remain open. Repeat affected checks when source
+  or the review question changes; do not automatically rerun every suite.
 - [x] **R03.L — Completed library-adoption source scope.** Verified source:
   `d7eca882b5ce18f25ea3287dce578366d769deda`, with documentation-only
   integration upkeep in `93b50615`.
