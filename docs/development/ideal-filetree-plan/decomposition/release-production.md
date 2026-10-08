@@ -29,7 +29,7 @@ Evidence: resolveStreamBuild at 232; ResolveCoreOSISO at 359; ResolveCoreOSQEMU 
 Observed size: 711 lines, including tests where embedded.
 
 Disposition: retire this predecessor and tests belonging only to it at the
-decided cutover. Its surviving responsibilities belong to `lib/soda-release-build`.
+decided cutover. Its surviving inspection responsibilities belong to `lib/soda-release-deliver/src/oci`; build retains export and raw archive hashing.
 No decomposition leaves for this obsolete implementation appear in the
 target tree. Preserve its actual behavior through the retained owner and
 update real callers, payloads and verification together.
@@ -282,21 +282,20 @@ The historical ranges above remain allocation evidence. All 48 library checks,
 12 integration oracles and the development build passed with medium review;
 image and delivery retain their separate pending profiles.
 
-## rust/soda-release-build/src/oci.rs
+## OCI archive and content inspection
 
-Observed historical size: 1286 lines, including tests where embedded. Keep one OCI inspection owner. Separate bounded outer archive/blob admission, index/manifest/config identity validation, single-layer whiteout/path semantics and multi-layer compressed-content resolution. The directory-layout caller was retired at `34479f48`; Descriptor/Blob/Image remain with the active archive paths. Preserve two-pass archive verification, requested-file regularity, whiteout/opaque/ancestor behavior, trailer drain and conservative zstd refusal. Unit fixtures shared by current OCI and production tests stay test-only.
+The historical build inspector measured 1286 lines before L13 and subsequent retirements. The duplicate build archive engine and private tests are now retired at `2cba04d1`; its earlier planned splits are superseded by direct caller adoption. Delivery owns the remaining OCI inspection duties. Build exports images, compares the inspected config ID with the built ID and hashes the untouched saved archive. Tools calls the same canonical APIs; the image-domain DTO conversion remains a separate boundary.
 
-- `lib/soda-release-build/src/oci.rs` — Image/Descriptor/Blob/LoadBlobs and existing inspect_oci/inspect_oci_content archive entrypoints. Unconsumed descriptor annotations use syntax-only extension handling; their retired storage/accessor is not recreated. Config labels retain their separate consumed string-map policy.
-- `lib/soda-release-build/src/oci/archive.rs` — Archive input admission, tar entry uniqueness/path/type gates, bounded blob copy/hash and outer archive collection.
-- `lib/soda-release-build/src/oci/manifest.rs` — Layout/index/descriptor/manifest/config parsing, local bounded blob resolution, rootfs/layer/media/platform/source/base validation and image identity construction.
-- Retired by L13: `lib/soda-release-build/src/oci/layers.rs`. Current `oci/content.rs` consumes delivery's `scan_oci_layer_with_budget` and canonical `LayerMember`; requested-member, whiteout and bounded layer-scan duties stay with that defining owner.
-- `lib/soda-release-build/src/oci/content.rs` — Descriptor-to-archive indexes, hash tee, gzip drain/zstd block handling, archive-layer collection and reverse overlay member resolution.
-- `lib/soda-release-build/src/oci/tests.rs` — Existing identity/platform, content-member, scanner and gzip/zstd cases with their tar helper; preserve unit access to actual layer implementations.
-- `lib/soda-release-build/src/test_support.rs` — Existing cfg(test) fixture_oci_bytes/FIXTURE_REVISION used by current `oci/tests.rs` and `production/tests.rs`; one shared fixture owner. Retired layout tests are not current consumers.
+- `lib/soda-release-deliver/src/oci/mod.rs` — Existing archive identity/content and directory-layout entrypoints; requested-member lookup and image sets. Identity inspection verifies metadata and compressed blobs; it does not decompress layers.
+- `lib/soda-release-deliver/src/oci/archive.rs` — Archive admission, safe unique entry handling, bounded streaming blob collection and raw hash/size custody.
+- `lib/soda-release-deliver/src/oci/schema.rs` — UTF-8 metadata admission, exact-key typed profiles, descriptor/index/manifest/config/rootfs/attribution policy and bounded local blob resolution. Three relocated outer media-type policy tests live in its existing admission module.
+- `lib/soda-release-deliver/src/oci/layers.rs` — Bounded complete layer scans, gzip/tar EOF, zstd refusal, whiteout/opaque/ancestor semantics and overlay resolution; native BTreeMap results have no intermediate HashMap conversion. Two relocated layer policy tests stay with the actual implementation.
+- `lib/soda-release-deliver/src/buildx/mod.rs` — Canonical inspected `Image` record, also used directly by build `ProducedImage`.
+- `lib/soda-release-build/src/test_support.rs` — Test-only fixture generator and MIME constants used by retained production unit tests. The three archive integration subjects retain the unchanged `go-fixture.oci` and exercise delivery's actual APIs.
 
-Historical baseline evidence (before L13 and directory-layout retirement): 26-84: Image/Descriptor/Blob/LayerMember/LoadBlobs;85-294: archive/blob admission and read_oci_archive_entries; 295-548: read_oci_index/parse_oci_manifest/fetch_oci_blob/config/rootfs/attribution/inspect_oci_image;549-573: archive identity entrypoint; 574-782: requested_oci_paths/clean_layer_name/whiteout_target/record_* and scan_oci_layer; 783-952: layer_archive_indexes/HashReader/scan_layer_reader/scan_archive_layer/scan_oci_archive_layers/resolve_oci_members;953-1001: content inspection entrypoint; 1002-1286: shared OCI fixture and four current test groups; oci_layout.rs:5-6 reuses inspect_oci_image/read_oci_blob/read_oci_index/Blob/Image/LoadBlobs
+Historical baseline evidence (before L13 and directory-layout retirement): 26-84: Image/Descriptor/Blob/LayerMember/LoadBlobs;85-294: archive/blob admission and read_oci_archive_entries; 295-548: read_oci_index/parse_oci_manifest/fetch_oci_blob/config/rootfs/attribution/inspect_oci_image;549-573: archive identity entrypoint; 574-782: requested_oci_paths/clean_layer_name/whiteout_target/record_* and scan_oci_layer; 783-952: layer_archive_indexes/HashReader/scan_layer_reader/scan_archive_layer/scan_oci_archive_layers/resolve_oci_members;953-1001: content inspection entrypoint; 1002-1286: shared OCI fixture and four then-current test groups; oci_layout.rs:5-6 reuses inspect_oci_image/read_oci_blob/read_oci_index/Blob/Image/LoadBlobs
 
-Open detail: REL02 consolidates the overlapping scanner into the existing acyclic build-to-deliver owner after comparing actual callers and fixing deliver's decompressed trailer-drain guarantee. Existing tar/flate2/sha2 libraries own format mechanics. Keep requested-path/regularity, whiteout/opaque/ancestor semantics, raw digest/size admission, conservative zstd refusal and bounded complete decoder drain; do not preserve two scanners or create another OCI package.
+REL02 and SIMP-REL-OCI-ARCHIVE-1 source consolidation are complete. Existing tar/flate2/sha2 libraries retain format mechanics; no second OCI package or facade is selected. The 30 focused source/development cases and independent review support this cut; native Podman producer/import/installation qualification remains under C10.V/R04. The full desired-tree refresh remains R02 after implemented boundaries are reconciled.
 
 ## rust/soda-release-build/src/production.rs
 
