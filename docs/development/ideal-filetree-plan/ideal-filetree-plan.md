@@ -14,22 +14,24 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
-The [current task state](implementation-tasks.md#current-task-state-2026-10-07)
-is reconciled at canonical HEAD `04286c48`, application source `0b073439`, on
-**2026-10-07**, preserving the existing working plan edits.
+The [current task state](implementation-tasks.md#current-task-state-2026-10-08)
+was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
+on **2026-10-07**; those pins remain historical snapshots.
 The selected [library adoption](library-adoption.md) is largely source complete:
-L00–L09, L11–L15 and L18, plus L10.N3. Remaining work includes L10.N4's provider
-transport fit, L16.G aggregate secret collection and CFG01 parser fit; optional
-L16 matcher adoption is deferred. The [finding allocation](execution-findings.md)
+L00–L09, L11–L15 and L18, plus L10.N3. Later scoped receipts record L10.N4's
+retained curl source choice and L16.G's completed aggregate secret collection;
+CFG01 remains held, and optional L16 matcher adoption remains deferred. The
+[finding allocation](execution-findings.md)
 assigns all 76 challenged dispositions to existing subtasks with exact owner,
 scope, prerequisites and acceptance; older slice findings remain in their parent
 records. Correctness precedes costly boundary decisions and settled caller cuts.
 Current responsibility coverage is reconciled; full R02.targets desired-tree
 regeneration follows settled replacement boundaries. Broader R03/R04 verification
 retains its separate gates.
-The verified adoption source `d7eca882` differs from this checkout only in
-Markdown, so its recorded checks retain their original scope. No fresh runtime
-verification was performed for this documentation refresh.
+The adoption source `d7eca882` is a historical pin. Subsequent source changes
+and their receipts are recorded separately; the historical “Markdown only”
+comparison does not describe the current checkout. This scoped documentation
+reconciliation makes no new runtime or native qualification claim.
 
 Further unrelated restructuring dispatch remains parked. Completed work and
 parked checkpoint branches remain preserved; superseded generic-engine splits
@@ -40,7 +42,9 @@ The non-normative
 [investigation](../../research/library-reuse-investigation.md) supports the
 selected direction; product/trust owners remain authoritative.
 
-Last maintained: **2026-10-07**. The task refresh also accounts for already-landed
+Last maintained: **2026-10-08**. This scoped currentness pass also accounts for
+the later source receipts noted above; it does not refresh historical path or
+line counts. The task refresh also accounts for already-landed
 B07 publication/merge placement, C06 stdin-delivery and C07 enrollment corrections,
 rootfs-server placement and H04 `root_chain` retirement. The scoped L18 retirement maps and
 A34/B27/C41 assessment remain complete at their recorded scope. The execution

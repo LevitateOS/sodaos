@@ -43,6 +43,7 @@ target allocation or refresh R02 counts.
 
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
+| Host helper binary and host daemon entrypoint | The Tailnet helper binary is current at `cmd/soda-forgejo-tailnet/main.rs`, selected from `lib/host/Cargo.toml`. `cmd/soda-host/main.rs` remains a proposed same-package placement; current `soda-host` selection is `lib/host/src/main.rs`. |
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
 | A-owned `lib/unix-http/{Cargo.toml,src/lib.rs}` | Shared bounded Hyper Unix client and driver/deadline custody; callers retain socket, status and credential policy |
 | Host `daemon/{http,response,websocket}`, `json/{mod,number}`, `ssh/mod` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
@@ -2204,12 +2205,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── process.rs
 │   │   │   ├── files/
 │   │   │   │   └── tests.rs
-│   │   │   ├── json_go/
-│   │   │   │   └── tests.rs
-│   │   │   ├── oci/
-│   │   │   │   ├── content.rs
-│   │   │   │   ├── manifest.rs
-│   │   │   │   └── tests.rs
 │   │   │   ├── production/
 │   │   │   │   └── tests.rs
 │   │   │   ├── confined_files.rs
@@ -2224,8 +2219,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── json_input.rs
 │   │   │   ├── lib.rs
 │   │   │   ├── live_inputs.rs
-│   │   │   ├── oci.rs
-│   │   │   ├── oci_layout.rs
 │   │   │   ├── production.rs
 │   │   │   ├── production_assets.rs
 │   │   │   ├── production_compile.rs
@@ -2235,18 +2228,9 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   └── test_support.rs
 │   │   ├── tests/
 │   │   │   ├── data/
-│   │   │   │   ├── go-layout/
-│   │   │   │   │   ├── blobs/
-│   │   │   │   │   │   └── sha256/
-│   │   │   │   │   │       ├── 098b60ba449c4b81d38cca87e08b16ff83522b9edb36bdb36025d9d370a99295
-│   │   │   │   │   │       ├── 9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-│   │   │   │   │   │       └── 973a9bd7fe238b1604434f944e1ad4bff0629795321210dc11fcecf853ad3dce
-│   │   │   │   │   ├── index.json
-│   │   │   │   │   └── oci-layout
 │   │   │   │   └── go-fixture.oci
 │   │   │   ├── oracle/
 │   │   │   │   ├── inputs.rs
-│   │   │   │   ├── oci.rs
 │   │   │   │   └── production.rs
 │   │   │   ├── oracle.rs
 │   │   │   └── oracle_vectors.rs

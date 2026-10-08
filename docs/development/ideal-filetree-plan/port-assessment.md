@@ -2,16 +2,18 @@
 
 ## Current remaining implementation ports
 
-The task schedule was reconciled against `de65ff68` on 2026-10-06; its source
-delta from the audit pin is documentation only. **One Go→Rust implementation
-port remains**, the native `soda-forgejo-tailnet` helper and its exclusive
-configuration rewrite, specified by [N07](reviews/N07.md) and
-[C04](implementation-tasks.md#c04-project-tailnet-and-forgejo-helper-port).
-**No Rust→Go implementation port is selected.** Package moves, concern splits,
-consolidations and retirement of already-ported predecessors are separate tasks.
+The original task schedule and audit pin remain historical source snapshots;
+later cutover receipts record current source changes separately. **No Go→Rust or
+Rust→Go implementation port remains.** The `soda-forgejo-tailnet` implementation
+and exclusive configuration rewrite have moved to Rust; the current helper is
+`cmd/soda-forgejo-tailnet/main.rs`, selected as an additional binary by
+`lib/host/Cargo.toml`, with behavior defined in
+`lib/host/src/tailnet/forgejo.rs`. N07 and C04 remain useful historical
+allocation records. Package moves, concern splits and native qualification are
+separate tasks.
 
 `soda-candidate-check` is already declared in
-`rust/soda-release-tools/Cargo.toml` and calls the current Rust `check_cli`
+`lib/soda-release-tools/Cargo.toml` and calls the current Rust `check_cli`
 implementation; its old Go source is absent. Current Rust host Tailnet controls
 also exist. Do not derive additional port tasks from historical predecessor rows.
 The [Python cutover reconciliation](#python-cutover-closure) below records current
@@ -27,25 +29,25 @@ including comments and tests; they do not measure performance or safety.
 
 | Port | What the current source establishes | Recommendation for this refactor |
 | --- | --- | --- |
-| Host project/preparation/Tailnet daemon | Current `f7e9cf9d` source has Rust daemon, native adapters, binary manifest and Rust release compile selection; Go daemon/executor directories are absent | Retain at `lib/host` with the same-package entrypoint under `cmd/soda-host`. Assess real behavior and remaining source debt in slice records; do not recreate predecessors or treat source wiring as installed proof. |
+| Host project/preparation/Tailnet daemon | Historical `f7e9cf9d` source has Rust daemon, native adapters, binary manifest and Rust release compile selection; Go daemon/executor directories are absent | Retain `lib/host`, whose current binary is `src/main.rs`; `cmd/soda-host/main.rs` remains proposed same-package placement. Assess real behavior and remaining source debt in slice records; do not recreate predecessors or treat source wiring as installed proof. |
 | Project terminal | Replaces four embedded Python programs at one existing installed helper boundary; native file descriptors, PTY and process handling stay inside the Project | Retain one helper and split its real terminal/subscription/key concerns. This is the strongest current boundary for a selective native port; benefit still needs runtime evidence. |
 | Identity broker | Real replacement of the former Go broker; retains an established custody service | Consolidate provider packages. Reassess handwritten PostgreSQL transport/codecs and cross-language schema/wire maintenance before expanding them. The separate service predates the language change. |
-| Installer + image import | Rust release-build/deliver and native installer/import owners are current; predecessor Go release code is absent. D05/D11 compare their actual guarantees and caller contracts. | Retain both native commands. Select existing release-deliver payload/content as the delivered wire/admission owner and existing release-build OCI/layout as the pure OCI/content owner, as recorded in D11-T3/E8. Rebind only after exact null/duplicate/error/result/confinement/compression and dependency cutover checks. Preserve native installer authority and cancelled importer lifecycle; no FFI, RPC, extra crate or service. |
+| Installer + image import | Rust release-build/deliver and native installer/import owners are current; predecessor Go release code is absent. D05/D11 compare their actual guarantees and caller contracts. | Retain both native commands. Delivery owns payload/content admission and canonical OCI archive/content inspection; release-build production callers retain export, config-ID and raw-hash policy. The importer keeps its independent native lifecycle and layout result. The allocated source cutovers are complete; installed/native authority remains separately gated. No FFI, RPC, extra crate or service. |
 | Acceptance | Rust owns outside driver/remote handling; Go installed probe orchestration and the personal-Git shell payload remain live | Retain real owners and remote binary; reconcile actual probe assumptions and old guidance. Python predecessors are absent in the inspected current source; no new Python port is scheduled. Preserve live probe input support. |
 | Factory CLI + Muse wrappers | Actual thin client/helper duties; Rust adds manual flag, transport and Go compatibility parsing | Retain the recorded Rust owners and assess maintenance/primitive consolidation against actual callers. A language-change recommendation requires an explicit owner decision; it cannot silently override the selected target. The coordinator remains Go. |
 | Asset fetch/render/locales | Actual build-time replacements under release orchestration (Rust after cutover); several recreate Python parsing/CLI behavior | Consolidate the seven binaries into one build-tools package. The language decision is made; no alternative-stack migration follows. |
 | Release pipeline + tools (new) | Four Rust crates landed (#30/#32/#33/#34) and cut over: tools → image → build/deliver is wired, candidate-check and payload data preserved, Go removed | Retain the four crates under `lib/` and split their actual concerns in the [release decomposition reviews](decomposition/release-production.md). |
 
-The installer contains **17,697 Rust source lines**, including comments,
-blank lines and embedded tests. The previous installer at the parent of
+The historical installer source snapshot contained **17,697 Rust source lines**,
+including comments, blank lines and embedded tests. The previous installer at the parent of
 `977ebe55` had **3,590 lines in production Go files** and **2,184 in Go test
 files**. Scope differs: the Rust tree copied shared release code and recreated
-upstream/standard-library behavior. This is evidence of retained implementation
-cost, not a like-for-like production statement ratio. In particular,
-`rust/soda-install/src/x509.rs` is 3,624 lines and explains its Go DER/error
-fidelity at lines 1-27; its local-CA caller is
-`rust/soda-install/src/setup.rs:602-619`. Smaller files
-would leave that emulation cost intact.
+upstream/standard-library behavior. These historical counts and paths are
+evidence of retained implementation cost, not a current line-count census or a
+like-for-like production statement ratio. In that pinned tree,
+`rust/soda-install/src/x509.rs` was 3,624 lines and explained its Go DER/error
+fidelity at lines 1-27; its local-CA caller was
+`rust/soda-install/src/setup.rs:602-619`. No new count is inferred here.
 
 Historical installer/import duplication was explicit in
 `rust/soda-image-import/src/main.rs:1-10,550-669,1078-1200` and
@@ -67,31 +69,28 @@ Go pipeline: Rust orchestrates the release producer.
 
 The selected reuse defining owners are `lib/soda-release-deliver/src/payload.rs`
 and `content.rs` for delivered payload wire/load/admission and six-image binding,
-and `lib/soda-release-deliver/src/oci/` for live layout and shared layer scanning.
-Build retains `lib/soda-release-build/src/oci.rs` and its archive/manifest/content
-submodules. `DEAD-REL-OCI-LAYOUT-1` supersedes the earlier selection of build’s
-uncalled `oci_layout.rs`; its exclusive oracle/fixture does not make it a current
-product owner. The four Rust crate and native command owners remain. C's actual
-guarantee comparison and A's independent source-fit challenge establish that
-direction; they do not prove the private copies equivalent. D11-A3 retains the
-exact decoder, error, null, duplicate, result, no-follow/confinement and decoded
-gzip EOF gates before copy retirement. The present importer is std plus
-soda-json while build has HTTP acquisition dependencies: specify that dependency
-and footprint cutover without importing acquisition behavior into an installed
-operation. Root/native platform, signal/deadline and Podman execution stay with
-`cmd/soda-image-import/src/{context,platform,import}.rs`; the generic delivered
-NativeEngine adapter does not replace that lifecycle. Disk/authentication and
-single-attempt installation remain with `cmd/soda-install`.
+and `lib/soda-release-deliver/src/oci/{mod,archive,layers,schema}.rs` for
+canonical archive inspection, live layout and shared layer scanning.
+`lib/soda-release-build/src/production_images.rs` calls delivery inspection
+directly and retains export/config-ID refusal and raw-hash ordering policy. The
+build-owned OCI implementation and its exclusive layout parser/fixture have
+been retired under the scoped archive/layout cuts. Their source receipts record
+the selected current-profile checks; they do not prove native qualification.
+The importer uses its current `serde_json` reader and independent OCI layout
+result; release-build `ureq` acquisition remains with the build owner. No
+acquisition behavior is imported into an installed operation. Root/native
+platform, signal/deadline and Podman execution stay with
+`cmd/soda-image-import/src/{context,platform,import}.rs`; delivery inspection
+does not replace that lifecycle. Disk/authentication and single-attempt
+installation remain with `cmd/soda-install`.
 
 ### Ownership decisions before further splitting
 
-The live Go Forgejo Tailnet helper has a decided Rust successor, independently
-challenged by A: `cmd/soda-forgejo-tailnet/main.rs` is an additional binary in
-the existing `soda-host` package; `lib/host/src/tailnet/forgejo.rs` defines its
-native behavior and private tests. [Exact cutover](decomposition/host-runtime.md#current-forgejo-tailnet-helper-allocation)
-preserves the installed helper identity and listener guard, with explicit
-package/binary compile selection. The target excludes its exclusive Go
-entrypoint and environment rewrite implementation after that cutover.
+The Go Forgejo Tailnet helper cutover is complete: `cmd/soda-forgejo-tailnet/main.rs`
+is an additional binary selected by the existing `soda-host` package, and
+`lib/host/src/tailnet/forgejo.rs` owns its implementation. The exact cutover
+preserves the installed helper identity and listener guard. This source status
+does not qualify the installed native helper or close R04.
 
 | Current code | Observed consumers | Required disposition decision |
 | --- | --- | --- |
@@ -108,16 +107,12 @@ decided language choices.
 
 ### Current source integration concern
 
-`rust/soda-acceptance/src/driver.rs:476-485` reads
-`soda-acceptance-remote` beside the current driver executable, and native action
-uses those bytes at lines 528–536. Current Rust candidate assembly in
-`rust/soda-release-image/src/build.rs:671–707` compiles only the driver at693–697;
-it has no companion selector there. The previous Go image path is absent at the
-review baseline. [D03-F3](reviews/D03.md#concrete-findings) records the conditional
-missing-sibling integration finding, independently challenged by A. Compile the
-existing soda-acceptance package's soda-acceptance-remote binary into the same
-artifacts/tools set before its recorded inventory, preserving its current target
-binding. No new binary/service or reproduced candidate failure is claimed.
+The earlier D03-F3 source finding recorded a missing acceptance companion
+selector. The current `lib/soda-release-image/src/build_compile.rs` selects both
+`soda-acceptance` and `soda-acceptance-remote` from the existing package and
+places the companion alongside its driver. This closes that source selector
+gap; it is not evidence of installed/native qualification or a reproduced
+candidate failure.
 
 ### Host cutover integration
 
@@ -134,10 +129,10 @@ closing their allocation dimensions. No installed cutover proof is claimed.
 The current Rust host has a library and real daemon binary. The earlier inspected
 `pr/26` revision, `b306756d00c6801278bb205ea0c8bc9de1d0456a`, lacked that
 entrypoint and concrete backend; those limitations describe that historical
-revision, not the current pinned source. The target carries one
-`lib/host/Cargo.toml`, with a `soda-host` binary declared at
-`../../cmd/soda-host/main.rs`. That entry imports the same library, not copied
-modules; `cmd/soda-host` has no second manifest.
+revision, not the current pinned source. The current package still has one
+`lib/host/Cargo.toml` and selects `lib/host/src/main.rs` as the `soda-host`
+binary. The proposed `cmd/soda-host/main.rs` entrypoint remains a same-package
+placement target, not a current source path or a second manifest.
 
 Keep these Go client files whole: access_keys.go, client.go,
 factory_candidate.go, factory_client.go, lifecycle.go, os.go, prepare.go,
@@ -314,34 +309,29 @@ guards that require obsolete files to remain.
 
 ### Release cutover integration
 
-The four release crates are retained source owners, but the current Rust CLI
-is not a connected replacement producer. `build_cli.rs:305-318` stops at
-unimplemented isolated-worker dispatch, and `349-353` stops at unimplemented
-worker image execution. The image crate accepts a production factory from its
-caller (`build.rs:185-198`); the tools manifest currently has no build/image/
-deliver dependencies. Connect these existing crates and CLI phases directly,
-preserving worker identity, source admission, exact outputs and cleanup. Do not
-delete Go merely because the standalone Rust oracle suites pass.
+The release pipeline is connected in the current source: `lib/soda-release-tools`
+depends on the existing build, image and delivery crates, and its `pipeline.rs`
+constructs the image production runner and invokes the selected build path.
+The earlier unimplemented CLI/worker checkpoints describe a predecessor source
+snapshot, not current pending wiring. Source connection and focused cutover
+receipts do not establish installed/native execution.
 
-The candidate verification port is already present: the current
-`rust/soda-release-tools/src/bin/soda-candidate-check.rs` calls `check_cli::main`,
-and its manifest already declares the binary and release-deliver dependency.
-The desired concern owner is `lib/soda-release-tools/src/candidate_check.rs`
-with the retained `src/bin/soda-candidate-check.rs` entrypoint. Rebind the
-existing implementation/imports as part of the move/split. Keep `--candidate`, `--arch`,
-`--soda-revision`, `--forgejo-revision`, current parsing/refusal order, quiet
-success and one-line error/exit behavior. Preserve `scripts/check-native.sh`
-through this already-Rust binary; retain delivered archive verification and exact Soda/Fountain
-revision binding. Its existing CLI suite gains `soda_candidate_check.rs` rather
-than another test harness or package. The Go command is absent from the target.
+The candidate verification binary is selected by
+`lib/soda-release-tools/Cargo.toml` at `src/bin/soda-candidate-check.rs` and calls
+`check_cli::main`. Preserve `--candidate`, `--arch`, `--soda-revision`,
+`--forgejo-revision`, parsing/refusal order, quiet success and one-line
+error/exit behavior. `scripts/check-native.sh` uses this Rust binary; retain
+delivery archive verification and exact Soda/Fountain revision binding. The Go
+command is retired.
 
-The new concern splits expose remaining duplication rather than certify it
-removed. Build and deliver already own identities, payload/trust admission and
-OCI reads; image mirrors several of those models. Compare actual binding and
-byte emission before reusing the existing owner: image currently represents
-`upgrade_from` as a vector while deliver preserves optional-vector `null`
-semantics (`image/model.rs:416,520-525`, `deliver/payload.rs:73-75`). Do not treat
-matching type names as equivalent APIs. The repeated host sealing sequence in
+The scoped archive and identity cuts retired the duplicate build OCI engine and
+the seven-field image identity copy. Delivery owns canonical OCI scanning;
+build keeps export/config-ID/raw-hash policy. A separate payload-profile question
+remains: image `UpgradeFrom` is a vector while delivery retains optional-vector
+`null` semantics (`lib/soda-release-image/src/model/payload.rs` and
+`lib/soda-release-deliver/src/payload.rs`). Do not infer that the identity cut
+resolves this difference. Other payload/trust representations remain distinct
+where their actual wire profiles differ. The repeated host sealing sequence in
 `image/build.rs:711-771,1059-1121` can have one implementation with the existing
 phase callback. Consolidate matching settings and HTTP helpers at their real
 owners; no facade crate, FFI, RPC or additional service follows from this work.
