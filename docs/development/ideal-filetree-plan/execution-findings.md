@@ -335,3 +335,20 @@ nonzero Muse selections. Independent Luna medium scope, source and final receipt
 reviews passed. Native forced cleanup, activation and systemd group retirement
 remain unqualified; A07.C-muse, A07.V and R04 stay open. Supervisor panic before
 its final signal is not covered by this signal-error receipt.
+
+## C02 development verification and C03 caller framing
+
+C02.V's original development scope is complete at `b9befda4` after independent
+source/receipt review. The [scope receipt](../../../.artifacts/luna-batch-20261007-0caf6b91/c02-v-scope-receipt.json)
+pins the current owners and reused evidence: L00 preceded cutover; later actual
+PostgreSQL fixtures cover transaction exclusion, cancellation/discard/reconnect
+and typed Store changes; current HTTP/host receipts cover listener admission,
+upgrade read-ahead and owned bounded WS/pump close/reap. The new Muse failure
+propagation has its separate current receipt. No dedicated WriteBufferFull or
+descendant-retained-stdout regression is claimed, and no installed activation,
+native forced cleanup, installed PG auth/HBA or appliance qualification follows.
+R04 and the broader native subjects remain open.
+
+| Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
+| --- | --- | --- | --- |
+| TEST-C03-CALLER-FRAMING-1 → C03.V / A | Luna low owns only `lib/host/tests/tcontrol_oracle.rs`, extending the existing real Unix-socket `native_local_request_over_real_socket` subject across Content-Length, legal chunked and close-delimited EOF replies. Coordinator owns checks/docs/commits; independent Luna medium reviews. | Existing fixed native status/preferences fixtures, production `native::observe`→`local_request`→selected Hyper client, established 64 KiB and deadline profile. Existing framing/error/cap/trickle checks and unchanged Go capture receipt remain separate evidence. No source engine or new test driver. | Each framing mode delivers both native documents into the actual observation parser and preserves the admitted view and authentication URL; non-success status and expired/missing endpoint refusal remain. Existing shared-client malformed/cap/deadline subjects stay green. Assess the whole original C03.V scope after execution; this fixture alone does not establish actual route availability, installed native output fit or provider qualification. Keep C03.V open until that assessment. |
