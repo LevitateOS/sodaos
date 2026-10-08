@@ -4,7 +4,7 @@ use std::io::Read;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
-use crate::sha256::{hex_lower, Sha256};
+use crate::sha256::Sha256;
 use sha2::Digest;
 
 use super::super::is_digest;
@@ -128,7 +128,7 @@ fn read_blob_bytes(
     if size != length {
         return Err("OCI blob size changed".to_string());
     }
-    let sum = hex_lower(&hasher.finalize());
+    let sum = format!("{:x}", hasher.finalize());
     if name.starts_with("blobs/") && name != format!("blobs/sha256/{sum}").as_str() {
         return Err("OCI blob checksum mismatch".to_string());
     }
