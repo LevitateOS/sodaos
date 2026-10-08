@@ -255,7 +255,7 @@ Lead C; [H01](reviews/H01.md), [H02](reviews/H02.md). A owns Rust host/broker; B
 
 Lead C; [N02](reviews/N02.md), [N03](reviews/N03.md). A physical host writer; C02 HTTP/private IPC fit.
 
-- [ ] **C03.M** Retain host Tailnet controls/domain/fixtures and Go status/DTO/client/browser authority. Pending LocalAPI framing, custom IP and calendar extraction is superseded by L09/N2 and L10/L11 library adapters; preserve unavailable/unconfirmed routing and provider execution policy.
+- [ ] **C03.M** Allocate `DEAD-GO-TAILNET-RUNTIME-1` to retire the uncalled Go Tailnet control/enrollment/policy/project-status runtime and implementation-only tests; retain Go DTOs/enums/errors, pure validation, `ProjectSelection`, read-only status/Endpoint client, and host/API/browser consumers. Rust remains the current provider/enrollment/policy/RunBinding owner. LocalAPI framing, custom IP and calendar extraction is superseded by L09/N2 and L10/L11 library adapters. C03.V and R04 remain separate.
 - [x] **C03.C** N03-F1 LocalAPI transfer engine replaced through L09/N2 in `6b18ee1b`. Complete Hyper framing preserves bounded responses, endpoint status/deadline/no-replay contracts and unavailable outcomes; actual socket/client oracles pass. Provider curl recipes remain with L10/N4 separately; no installed-provider qualification is claimed.
 - [ ] **C03.V** Exercise current peers and complete-driver response fixtures for chunked/length/EOF framing, truncation, caps and deadline/cancellation. L11 covers purpose-specific URL/IP/time admission; successful parsing does not prove route availability.
 
