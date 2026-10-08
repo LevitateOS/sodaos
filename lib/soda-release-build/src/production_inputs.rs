@@ -1,12 +1,13 @@
 //! Production resolved inputs: the frozen record, pull and digest
 //! admission, recipe references, live Tailnet inputs, and resolve_inputs.
 
-use crate::coreos_stream::{read_live_inputs, TailnetInputs};
 use crate::files::{is_digest, oci_architecture, write_new};
+use crate::live_inputs::read_live_inputs;
 use crate::production::Production;
 use crate::{io_error, Error};
 use serde::Serialize;
 use soda_build_tools::reader::settings::{recipe_base, unit_image};
+use soda_build_tools::reader::stream::TailnetInputs;
 use std::path::{Path, PathBuf};
 
 /// One frozen upstream input: requested ref, pinned ref, config ID.

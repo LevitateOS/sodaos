@@ -1,14 +1,15 @@
 //! Read-only release/build validators (lane R, PR04 release-reader).
 //!
-//! Dependency-free port of the pure read/validate surface of
+//! Mostly dependency-free port of the pure read/validate surface of
 //! `internal/release/build`: architecture names, digest shapes, strict HTTPS
 //! metadata URLs, GnuPG status parsing, recipe/unit-file readers, and the
 //! CoreOS/Tailnet/Muse/Forgejo metadata shapes. It performs no network
 //! fetches, builds, or writes beyond reading the caller's files, and every
 //! error message matches the Go owner byte for byte.
 //!
-//! The Go package remains the owner of record; this crate is the offline
-//! Rust mirror used by later lane-R build-tool ports.
+//! The Go package remains the broader release-domain owner. The selected
+//! `stream` records are the canonical Rust wire and validation owner for the
+//! controller-resolved live-input handoff consumed by the isolated build.
 
 pub mod forgejo;
 pub mod muse;

@@ -11,4 +11,5 @@ trust-key = ["dep:p256"]
 
 [dependencies]
 p256 = { version = "=0.13.2", default-features = false, features = ["arithmetic", "ecdsa", "pem", "std"], optional = true }
+serde = { version = "=1.0.229", features = ["derive"] }
 url = "=2.5.8"

@@ -1,11 +1,10 @@
 //! Shared cfg(test) fixtures with production-test consumers in more
 //! than one module. Each fixture keeps its current bytes and owner.
 
-use crate::coreos::CoreOSImage;
-use crate::live_inputs::{LiveInputs, ResolvedCoreOS, TailnetInputs};
 use crate::oci::{CONFIG_MEDIA_TYPE, LAYER_TAR, MANIFEST_MEDIA_TYPE};
 use crate::sha256_hex;
-use std::collections::HashMap;
+use soda_build_tools::reader::stream::{CoreOSImage, LiveInputs, ResolvedCoreOS, TailnetInputs};
+use std::collections::BTreeMap;
 
 pub const FIXTURE_REVISION: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -80,14 +79,14 @@ pub fn fixture_live_inputs() -> LiveInputs {
         sha256: "a".repeat(64),
         uncompressed_sha256: "b".repeat(64),
     };
-    let mut container = HashMap::new();
+    let mut container = BTreeMap::new();
     container.insert(
         "x86_64".to_string(),
         format!("quay.io/fedora/fedora-coreos@sha256:{}", "c".repeat(64)),
     );
-    let mut iso = HashMap::new();
+    let mut iso = BTreeMap::new();
     iso.insert("x86_64".to_string(), img.clone());
-    let mut qemu = HashMap::new();
+    let mut qemu = BTreeMap::new();
     qemu.insert("x86_64".to_string(), img);
     LiveInputs {
         coreos: ResolvedCoreOS {

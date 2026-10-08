@@ -5,10 +5,10 @@
 use crate::coreos_stream::{tailnet_base_tags_url, tailnet_index_url};
 use crate::files::oci_architecture;
 use crate::http::{fetch_capped_json, fetch_capped_text, HttpTransport, UreqTransport};
-use crate::live_inputs::{valid_tailnet_inputs, TailnetInputs};
 use crate::Error;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
+use soda_build_tools::reader::stream::{valid_tailnet_inputs, TailnetInputs};
 
 /// Resolves the floating Tailnet toolchain: newest stable release, its
 /// archive checksum, and the newest upstream alpine-base tag.

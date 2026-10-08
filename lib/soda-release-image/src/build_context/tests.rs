@@ -92,10 +92,15 @@ fn oracle_link_prepared_assets_runs_no_commands() {
         ) -> Result<(HashMap<String, String>, u64), Error> {
             Ok(Default::default())
         }
-        fn resolve_core_os(&self) -> Result<model::ResolvedCoreOS, Error> {
+        fn resolve_core_os(
+            &self,
+        ) -> Result<soda_build_tools::reader::stream::ResolvedCoreOS, Error> {
             Ok(Default::default())
         }
-        fn read_live_inputs(&self, _: &str) -> Result<model::LiveInputs, Error> {
+        fn read_live_inputs(
+            &self,
+            _: &str,
+        ) -> Result<soda_build_tools::reader::stream::LiveInputs, Error> {
             Ok(Default::default())
         }
         fn check_native(&self, _: &str) -> Result<(), Error> {

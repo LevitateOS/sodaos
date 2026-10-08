@@ -3,16 +3,15 @@
 
 use super::{oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
 use soda_build_tools::reader::settings::soda_commands;
+use soda_build_tools::reader::stream::{valid_live_inputs, valid_tailnet_inputs, TailnetInputs};
 use soda_release_build::confined_files::Root;
 use soda_release_build::coreos::https_url;
-use soda_release_build::coreos_stream::{
-    read_live_inputs, valid_live_inputs, valid_tailnet_inputs, write_live_inputs, TailnetInputs,
-};
 use soda_release_build::files::{is_digest, File};
 use soda_release_build::forgejo::{forgejo_build_args, ForgejoToolchain, FORGEJO_COMPILER_IMAGE};
 use soda_release_build::json_input::{read_json, read_json_at};
+use soda_release_build::live_inputs::{read_live_inputs, write_live_inputs};
 use soda_release_build::production::Production;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[test]
 fn oracle_live_inputs_write_and_read() {
@@ -25,19 +24,19 @@ fn oracle_live_inputs_write_and_read() {
     let mut bad = inputs.clone();
     bad.tailnet.version = "yesterday".to_string();
     assert_eq!(
-        valid_live_inputs(&bad).unwrap_err().message(),
+        valid_live_inputs(&bad).unwrap_err().0,
         oracle::LIVE_ERR_TAILNET
     );
     let mut bad = inputs.clone();
     bad.coreos.release = "tomorrow".to_string();
     assert_eq!(
-        valid_live_inputs(&bad).unwrap_err().message(),
+        valid_live_inputs(&bad).unwrap_err().0,
         oracle::LIVE_ERR_RELEASE
     );
     let mut bad = inputs;
-    bad.coreos.container = HashMap::new();
+    bad.coreos.container = BTreeMap::new();
     assert_eq!(
-        valid_live_inputs(&bad).unwrap_err().message(),
+        valid_live_inputs(&bad).unwrap_err().0,
         oracle::LIVE_ERR_CONTAINER
     );
 }
@@ -87,7 +86,7 @@ fn oracle_misc_vectors() {
             base: "z".to_string(),
         })
         .unwrap_err()
-        .message(),
+        .0,
         oracle::MISC_TAILNET
     );
     assert!(soda_commands(&scratch("missing-cmds").join("cmd")).is_err());

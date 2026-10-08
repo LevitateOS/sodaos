@@ -9,9 +9,8 @@
 mod oracle_vectors;
 
 use oracle_vectors as oracle;
-use soda_release_build::coreos::CoreOSImage;
-use soda_release_build::coreos_stream::{LiveInputs, ResolvedCoreOS, TailnetInputs};
-use std::collections::HashMap;
+use soda_build_tools::reader::stream::{CoreOSImage, LiveInputs, ResolvedCoreOS, TailnetInputs};
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 #[path = "oracle/inputs.rs"]
@@ -51,14 +50,14 @@ fn oracle_live_inputs() -> LiveInputs {
         sha256: "a".repeat(64),
         uncompressed_sha256: "b".repeat(64),
     };
-    let mut container = HashMap::new();
+    let mut container = BTreeMap::new();
     container.insert(
         "x86_64".to_string(),
         format!("quay.io/fedora/fedora-coreos@sha256:{}", "c".repeat(64)),
     );
-    let mut iso = HashMap::new();
+    let mut iso = BTreeMap::new();
     iso.insert("x86_64".to_string(), img.clone());
-    let mut qemu = HashMap::new();
+    let mut qemu = BTreeMap::new();
     qemu.insert("x86_64".to_string(), img);
     LiveInputs {
         coreos: ResolvedCoreOS {

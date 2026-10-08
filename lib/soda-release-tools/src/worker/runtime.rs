@@ -432,9 +432,9 @@ pub fn live_inputs_paths(
 // fully denied outbound HTTPS. Keep this comment and the policy rule in
 // sync; if P2 moves to the controller, remove the http_port_t grant.
 pub fn resolve_live_inputs(c: &WorkerConfig, r: &mut Request) -> Result<(), String> {
-    use soda_release_build::coreos_stream::{
-        resolve_coreos, resolve_tailnet_inputs, write_live_inputs, LiveInputs,
-    };
+    use soda_build_tools::reader::stream::LiveInputs;
+    use soda_release_build::coreos_stream::{resolve_coreos, resolve_tailnet_inputs};
+    use soda_release_build::live_inputs::write_live_inputs;
     let coreos = resolve_coreos().map_err(|e| e.to_string())?;
     let tailnet = resolve_tailnet_inputs(&r.arch).map_err(|e| e.to_string())?;
     let (controller, worker) = live_inputs_paths(&c.source, &c.output_parent, &r.out)?;

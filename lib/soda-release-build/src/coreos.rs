@@ -5,76 +5,14 @@
 use crate::files::{fresh_directory, hash_file, require_native, write_new};
 use crate::http::{get_follow, HttpTransport, UreqTransport};
 use crate::{io_error, look_path, Error};
-use serde::de::{self, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::Serialize;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 mod process;
 
-/// Verified download triple: image, detached signature, checksums.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-pub struct CoreOSImage {
-    #[serde(rename = "URL")]
-    pub url: String,
-    #[serde(rename = "SignatureURL")]
-    pub signature_url: String,
-    #[serde(rename = "SHA256")]
-    pub sha256: String,
-    #[serde(rename = "UncompressedSHA256")]
-    pub uncompressed_sha256: String,
-}
-
-impl<'de> Deserialize<'de> for CoreOSImage {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct ImageVisitor;
-        impl<'de> Visitor<'de> for ImageVisitor {
-            type Value = CoreOSImage;
-            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str("CoreOS image object")
-            }
-            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let (mut url, mut signature_url, mut sha256, mut uncompressed_sha256) =
-                    (None, None, None, None);
-                while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("URL") {
-                        url = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
-                    } else if key.eq_ignore_ascii_case("SignatureURL") {
-                        signature_url = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
-                    } else if key.eq_ignore_ascii_case("SHA256") {
-                        sha256 = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
-                    } else if key.eq_ignore_ascii_case("UncompressedSHA256") {
-                        uncompressed_sha256 =
-                            Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
-                    } else {
-                        return Err(de::Error::unknown_field(
-                            &key,
-                            &["URL", "SignatureURL", "SHA256", "UncompressedSHA256"],
-                        ));
-                    }
-                }
-                fn string<E: de::Error>(
-                    raw: Option<Box<serde_json::value::RawValue>>,
-                ) -> Result<String, E> {
-                    match raw {
-                        None => Ok(String::new()),
-                        Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
-                            .map(Option::unwrap_or_default)
-                            .map_err(E::custom),
-                    }
-                }
-                Ok(CoreOSImage {
-                    url: string(url)?,
-                    signature_url: string(signature_url)?,
-                    sha256: string(sha256)?,
-                    uncompressed_sha256: string(uncompressed_sha256)?,
-                })
-            }
-        }
-        deserializer.deserialize_map(ImageVisitor)
-    }
-}
+use soda_build_tools::reader::stream::CoreOSImage;
 
 /// Retained verified base and its identity record.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]

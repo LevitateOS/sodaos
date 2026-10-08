@@ -2,7 +2,7 @@
 //! observations against Go ground truth.
 
 use super::{data_path, oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
-use soda_release_build::coreos_stream::write_live_inputs;
+use soda_release_build::live_inputs::write_live_inputs;
 use soda_release_build::oci::inspect_oci;
 use soda_release_build::production::Production;
 use std::os::unix::fs::PermissionsExt;

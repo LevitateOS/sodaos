@@ -4,20 +4,17 @@
 //! current stable build at build time and record it; no stored version is
 //! consulted.
 
-use crate::coreos::{https_url, CoreOSImage};
+use crate::coreos::https_url;
 use crate::files::oci_architecture;
 use crate::http::{fetch_capped_json, HttpTransport, UreqTransport};
 use crate::Error;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::coreos_registry::resolve_registry_digests_with;
-pub use crate::live_inputs::{
-    read_live_inputs, valid_live_inputs, valid_resolved_coreos, valid_tailnet_inputs,
-    write_live_inputs, LiveInputs, ResolvedCoreOS, TailnetInputs,
-};
 pub use crate::tailnet_inputs::{resolve_tailnet_inputs, resolve_tailnet_inputs_with};
+use soda_build_tools::reader::stream::{CoreOSImage, ResolvedCoreOS};
 
 type RawJson = Box<serde_json::value::RawValue>;
 
@@ -213,11 +210,7 @@ fn resolve_stream_build(data: &[u8]) -> Result<(String, CoreOSImage, CoreOSImage
     let release = stream_release_from_location(&iso.url)
         .ok_or_else(|| Error::msg("stable stream x86_64 ISO location names no release"))?;
     let qemu = disk("qemu", "qcow2.xz")?;
-    let mut iso_map = HashMap::new();
-    iso_map.insert("x86_64".to_string(), iso.clone());
-    let mut qemu_map = HashMap::new();
-    qemu_map.insert("x86_64".to_string(), qemu.clone());
-    valid_stream_images_local(&release, &iso_map, &qemu_map)?;
+    soda_build_tools::reader::stream::valid_stream_images(&release, &iso, &qemu)?;
     Ok((release, iso, qemu))
 }
 
@@ -244,35 +237,6 @@ fn stream_release_from_location(location: &str) -> Option<String> {
         search = &search[idx + 1..];
     }
     None
-}
-
-fn valid_stream_images_local(
-    release: &str,
-    iso: &HashMap<String, CoreOSImage>,
-    qemu: &HashMap<String, CoreOSImage>,
-) -> Result<(), Error> {
-    let iso_img = iso.get("x86_64");
-    let qemu_img = qemu.get("x86_64");
-    if iso_img.is_none() {
-        return Err(Error::msg("stable stream x86_64 live ISO is malformed"));
-    }
-    if qemu_img.is_none() {
-        return Err(Error::msg("stable stream x86_64 qemu image is malformed"));
-    }
-    let reader_iso = soda_build_tools::reader::stream::CoreOSImage {
-        url: iso_img.unwrap().url.clone(),
-        signature_url: iso_img.unwrap().signature_url.clone(),
-        sha256: iso_img.unwrap().sha256.clone(),
-        uncompressed_sha256: iso_img.unwrap().uncompressed_sha256.clone(),
-    };
-    let reader_qemu = soda_build_tools::reader::stream::CoreOSImage {
-        url: qemu_img.unwrap().url.clone(),
-        signature_url: qemu_img.unwrap().signature_url.clone(),
-        sha256: qemu_img.unwrap().sha256.clone(),
-        uncompressed_sha256: qemu_img.unwrap().uncompressed_sha256.clone(),
-    };
-    soda_build_tools::reader::stream::valid_stream_images(release, &reader_iso, &reader_qemu)?;
-    Ok(())
 }
 
 /// Current stable live ISO for one architecture.
@@ -324,14 +288,14 @@ pub fn resolve_coreos_with<T: HttpTransport>(transport: &T) -> Result<ResolvedCo
     let (release, iso, qemu) = resolve_stream_build(&data)?;
     let digests = resolve_registry_digests_with(transport, &coreos_registry())?;
     let meta: String = soda_build_tools::reader::stream::stream_release_url(&stream_url, &release)?;
-    let mut iso_map = HashMap::new();
+    let mut iso_map = BTreeMap::new();
     iso_map.insert("x86_64".to_string(), iso);
-    let mut qemu_map = HashMap::new();
+    let mut qemu_map = BTreeMap::new();
     qemu_map.insert("x86_64".to_string(), qemu);
     Ok(ResolvedCoreOS {
         release,
         metadata_url: meta,
-        container: digests,
+        container: digests.into_iter().collect(),
         iso: iso_map,
         qemu: qemu_map,
     })

@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use crate::error::Error;
 use crate::media::MediaLock;
 use crate::model;
+use soda_build_tools::reader::stream::{LiveInputs, ResolvedCoreOS};
 
 /// Ordered typed record written into the signed auxiliary-input inventory.
 #[derive(Serialize)]
@@ -70,9 +71,9 @@ pub trait Production {
         dir: &str,
     ) -> Result<(HashMap<String, String>, u64), Error>;
     /// `build.ResolveCoreOS`: resolve the current stable CoreOS build.
-    fn resolve_core_os(&self) -> Result<model::ResolvedCoreOS, Error>;
+    fn resolve_core_os(&self) -> Result<ResolvedCoreOS, Error>;
     /// `build.ReadLiveInputs`: admit controller-resolved live inputs.
-    fn read_live_inputs(&self, path: &str) -> Result<model::LiveInputs, Error>;
+    fn read_live_inputs(&self, path: &str) -> Result<LiveInputs, Error>;
 
     /// `deliver.CheckNative`: verify the native signing toolchain.
     fn check_native(&self, trust_home: &str) -> Result<(), Error>;

@@ -24,11 +24,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use soda_release_build::coreos::CoreOSImage as BuildCoreOSImage;
-use soda_release_build::coreos_stream::{
-    self, LiveInputs as BuildLiveInputs, ResolvedCoreOS as BuildResolvedCoreOS,
-    TailnetInputs as BuildTailnetInputs,
-};
+use soda_build_tools::reader::stream::{LiveInputs, ResolvedCoreOS};
+use soda_release_build::coreos_stream;
 use soda_release_build::oci::{self, Image as BuildImage};
 use soda_release_build::production::{
     ProducedImage as BuildProducedImage, Production as BuildProduction,
@@ -98,10 +95,7 @@ fn deliver_err(e: DeliverError) -> ImageError {
 }
 
 // ---------------------------------------------------------------------------
-// Model conversions: the image `model` mirrors and the build/deliver owners
-// derive from the same Go structs, so every conversion is field-wise. The
-// image mirrors use sorted `Vec` pairs where the owners use maps; conversions
-// sort keys to keep the mapping deterministic.
+// Model conversions between the independent image and build/deliver domains.
 // ---------------------------------------------------------------------------
 
 fn image_of(image: &BuildImage) -> model::Image {
@@ -121,55 +115,6 @@ fn produced_of(produced: &BuildProducedImage) -> model::ProducedImage {
         manifest: produced.image.manifest.clone(),
         config: produced.image.config.clone(),
         archive_sha256: produced.archive_sha256.clone(),
-    }
-}
-
-fn coreos_image_of(image: &BuildCoreOSImage) -> model::CoreOSImage {
-    model::CoreOSImage {
-        url: image.url.clone(),
-        signature_url: image.signature_url.clone(),
-        sha256: image.sha256.clone(),
-        uncompressed_sha256: image.uncompressed_sha256.clone(),
-    }
-}
-
-fn sorted_pairs(map: &HashMap<String, String>) -> Vec<(String, String)> {
-    let mut out: Vec<(String, String)> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-    out.sort_by(|a, b| a.0.cmp(&b.0));
-    out
-}
-
-fn sorted_images(map: &HashMap<String, BuildCoreOSImage>) -> Vec<(String, model::CoreOSImage)> {
-    let mut out: Vec<(String, model::CoreOSImage)> = map
-        .iter()
-        .map(|(k, v)| (k.clone(), coreos_image_of(v)))
-        .collect();
-    out.sort_by(|a, b| a.0.cmp(&b.0));
-    out
-}
-
-fn resolved_coreos_of(resolved: &BuildResolvedCoreOS) -> model::ResolvedCoreOS {
-    model::ResolvedCoreOS {
-        release: resolved.release.clone(),
-        metadata_url: resolved.metadata_url.clone(),
-        container: sorted_pairs(&resolved.container),
-        iso: sorted_images(&resolved.iso),
-        qemu: sorted_images(&resolved.qemu),
-    }
-}
-
-fn tailnet_of(tailnet: &BuildTailnetInputs) -> model::TailnetInputs {
-    model::TailnetInputs {
-        version: tailnet.version.clone(),
-        sha256: tailnet.sha256.clone(),
-        base: tailnet.base.clone(),
-    }
-}
-
-fn live_inputs_of(inputs: &BuildLiveInputs) -> model::LiveInputs {
-    model::LiveInputs {
-        core_os: resolved_coreos_of(&inputs.coreos),
-        tailnet: tailnet_of(&inputs.tailnet),
     }
 }
 
@@ -367,16 +312,12 @@ impl ImageProduction for RealProduction {
             .map_err(deliver_err)
     }
 
-    fn resolve_core_os(&self) -> Result<model::ResolvedCoreOS, ImageError> {
-        coreos_stream::resolve_coreos()
-            .map(|resolved| resolved_coreos_of(&resolved))
-            .map_err(build_err)
+    fn resolve_core_os(&self) -> Result<ResolvedCoreOS, ImageError> {
+        coreos_stream::resolve_coreos().map_err(build_err)
     }
 
-    fn read_live_inputs(&self, path: &str) -> Result<model::LiveInputs, ImageError> {
-        coreos_stream::read_live_inputs(Path::new(path))
-            .map(|inputs| live_inputs_of(&inputs))
-            .map_err(build_err)
+    fn read_live_inputs(&self, path: &str) -> Result<LiveInputs, ImageError> {
+        soda_release_build::live_inputs::read_live_inputs(Path::new(path)).map_err(build_err)
     }
 
     fn check_native(&self, trust_home: &str) -> Result<(), ImageError> {
@@ -847,47 +788,66 @@ mod tests {
         assert_eq!(produced.config, "c");
         assert_eq!(produced.archive_sha256, "h");
 
-        let mut container = HashMap::new();
-        container.insert("x86_64".to_string(), "pinned".to_string());
-        let mut iso = HashMap::new();
-        iso.insert(
-            "x86_64".to_string(),
-            BuildCoreOSImage {
-                url: "https://example.invalid/f.iso".to_string(),
-                signature_url: "https://example.invalid/f.iso.sig".to_string(),
-                sha256: "s".to_string(),
-                uncompressed_sha256: "u".to_string(),
-            },
-        );
-        let resolved = resolved_coreos_of(&BuildResolvedCoreOS {
-            release: "1.2.3.4".to_string(),
-            metadata_url: "https://example.invalid/m".to_string(),
-            container,
-            iso,
-            qemu: HashMap::new(),
-        });
-        assert_eq!(resolved.release, "1.2.3.4");
-        assert_eq!(
-            resolved.container,
-            vec![("x86_64".to_string(), "pinned".to_string())]
-        );
-        assert_eq!(resolved.iso.len(), 1);
-        assert_eq!(resolved.iso[0].1.url, "https://example.invalid/f.iso");
-        assert!(resolved.qemu.is_empty());
-        let live = live_inputs_of(&BuildLiveInputs {
-            coreos: BuildResolvedCoreOS {
+        let image = soda_build_tools::reader::stream::CoreOSImage {
+            url: "https://example.invalid/f.iso".to_string(),
+            signature_url: "https://example.invalid/f.iso.sig".to_string(),
+            sha256: "a".repeat(64),
+            uncompressed_sha256: "b".repeat(64),
+        };
+        let inputs = LiveInputs {
+            coreos: ResolvedCoreOS {
                 release: "1.2.3.4".to_string(),
-                ..BuildResolvedCoreOS::default()
+                metadata_url: "https://example.invalid/builds/1.2.3.4/release.json".to_string(),
+                container: std::collections::BTreeMap::from([(
+                    "x86_64".to_string(),
+                    format!("quay.io/fedora/fedora-coreos@sha256:{}", "c".repeat(64)),
+                )]),
+                iso: std::collections::BTreeMap::from([
+                    ("x86_64".to_string(), image.clone()),
+                    ("aarch64".to_string(), image.clone()),
+                ]),
+                qemu: std::collections::BTreeMap::from([
+                    ("x86_64".to_string(), image.clone()),
+                    ("aarch64".to_string(), image),
+                ]),
             },
-            tailnet: BuildTailnetInputs {
+            tailnet: soda_build_tools::reader::stream::TailnetInputs {
                 version: "1.2.3".to_string(),
-                sha256: "s".to_string(),
+                sha256: "d".repeat(64),
                 base: "docker.io/tailscale/alpine-base:1.2".to_string(),
             },
-        });
-        assert_eq!(live.core_os.release, "1.2.3.4");
-        assert_eq!(live.tailnet.version, "1.2.3");
-        assert_eq!(live.tailnet.base, "docker.io/tailscale/alpine-base:1.2");
+        };
+        let dir = std::env::temp_dir().join(format!(
+            "release-wire-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("live-inputs.json");
+        soda_release_build::live_inputs::write_live_inputs(&path, &inputs).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let text = std::str::from_utf8(&bytes).unwrap();
+        assert!(bytes.ends_with(b"\n"));
+        let iso = &text[text.find("\"ISO\"").unwrap()..];
+        assert!(iso.find("\"aarch64\"").unwrap() < iso.find("\"x86_64\"").unwrap());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o644
+            );
+        }
+        let mut inner = BuildProduction::default();
+        inner.live_inputs = path.to_string_lossy().into_owned();
+        let production = RealProduction::new(inner);
+        let admitted =
+            ImageProduction::read_live_inputs(&production, path.to_str().unwrap()).unwrap();
+        assert_eq!(admitted, inputs);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

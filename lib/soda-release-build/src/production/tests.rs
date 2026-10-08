@@ -1,6 +1,6 @@
 use super::*;
-use crate::coreos_stream::write_live_inputs;
 use crate::files::{is_digest, write_new};
+use crate::live_inputs::write_live_inputs;
 use crate::oci::inspect_oci;
 use crate::production_inputs::parse_image_repo;
 use crate::test_support::{fixture_live_inputs, fixture_oci_bytes, FIXTURE_REVISION};

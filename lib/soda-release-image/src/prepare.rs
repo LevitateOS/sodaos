@@ -15,6 +15,7 @@ use crate::jsonio;
 use crate::model;
 use crate::packages;
 use crate::sys;
+use soda_build_tools::reader::stream::{valid_resolved_coreos, ResolvedCoreOS};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Base {
@@ -53,16 +54,20 @@ pub fn load_base_from_file(
     arch: &str,
 ) -> Result<Base, Error> {
     let inputs = production.read_live_inputs(path)?;
-    base_from_resolved(arch, &inputs.core_os)
+    base_from_resolved(arch, &inputs.coreos)
 }
 
-pub fn base_from_resolved(arch: &str, resolved: &model::ResolvedCoreOS) -> Result<Base, Error> {
+pub fn base_from_resolved(arch: &str, resolved: &ResolvedCoreOS) -> Result<Base, Error> {
     model::oci_architecture(arch)?;
-    model::valid_resolved_core_os(resolved)?;
+    valid_resolved_coreos(resolved).map_err(|error| Error(error.0))?;
     Ok(Base {
         release: resolved.release.clone(),
         metadata_url: resolved.metadata_url.clone(),
-        images: resolved.container.clone(),
+        images: resolved
+            .container
+            .iter()
+            .map(|(arch, image)| (arch.clone(), image.clone()))
+            .collect(),
     })
 }
 

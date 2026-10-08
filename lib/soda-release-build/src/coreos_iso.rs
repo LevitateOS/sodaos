@@ -1,10 +1,11 @@
 //! Signature-verified CoreOS ISO fetching (`coreos_iso.go`). No
 //! customization, boot, key import, or disk installation is implicit.
 
-use crate::coreos::{download_http, CoreOSImage, VerifiedBase};
+use crate::coreos::{download_http, VerifiedBase};
 use crate::files::{fresh_directory, hash_file, require_native, write_new};
 use crate::http::{HttpTransport, UreqTransport};
 use crate::{look_path, Error};
+use soda_build_tools::reader::stream::CoreOSImage;
 use std::path::{Path, PathBuf};
 
 fn admit_coreos_iso_fetch(arch: &str, signer: &str, keyring: &str) -> Result<String, Error> {

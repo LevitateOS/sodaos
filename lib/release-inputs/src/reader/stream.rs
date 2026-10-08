@@ -1,16 +1,24 @@
 //! Live-input metadata shapes (`coreos_stream.go`).
 //!
-//! Validates controller-resolved CoreOS stream images, Tailnet toolchain
-//! pins, and digest-pinned container refs. The JSON parsing stays with the
-//! Go owner; these checks apply the same shape rules to admitted structs.
+//! Owns the Rust wire records and validation for resolved CoreOS and Tailnet
+//! inputs. Upstream stream-document parsing and network resolution stay in
+//! the build crate; these records define its validated handoff to consumers.
 
 use super::url::https_url;
 use super::{is_digest, non_empty_digits, Error};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CoreOSImage {
+    #[serde(rename = "URL")]
     pub url: String,
+    #[serde(rename = "SignatureURL")]
     pub signature_url: String,
+    #[serde(rename = "SHA256")]
     pub sha256: String,
+    #[serde(rename = "UncompressedSHA256")]
     pub uncompressed_sha256: String,
 }
 
@@ -79,9 +87,14 @@ pub fn stream_release_url(stream_url: &str, release: &str) -> Result<String, Err
     Ok(meta)
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TailnetInputs {
+    #[serde(rename = "Version")]
     pub version: String,
+    #[serde(rename = "SHA256")]
     pub sha256: String,
+    #[serde(rename = "Base")]
     pub base: String,
 }
 
@@ -122,16 +135,31 @@ pub fn valid_tailnet_inputs(tailnet: &TailnetInputs) -> Result<(), Error> {
     Ok(())
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ResolvedCoreOS {
+    #[serde(rename = "Release")]
     pub release: String,
+    #[serde(rename = "MetadataURL")]
     pub metadata_url: String,
-    pub container: Vec<(String, String)>,
-    pub iso: CoreOSImage,
-    pub qemu: CoreOSImage,
+    #[serde(rename = "Container")]
+    pub container: BTreeMap<String, String>,
+    #[serde(rename = "ISO")]
+    pub iso: BTreeMap<String, CoreOSImage>,
+    #[serde(rename = "QEMU")]
+    pub qemu: BTreeMap<String, CoreOSImage>,
 }
 
 pub fn valid_resolved_coreos(resolved: &ResolvedCoreOS) -> Result<(), Error> {
-    valid_stream_images(&resolved.release, &resolved.iso, &resolved.qemu)?;
+    let iso = resolved
+        .iso
+        .get("x86_64")
+        .ok_or_else(|| Error("stable stream x86_64 live ISO is malformed".to_string()))?;
+    let qemu = resolved
+        .qemu
+        .get("x86_64")
+        .ok_or_else(|| Error("stable stream x86_64 qemu image is malformed".to_string()))?;
+    valid_stream_images(&resolved.release, iso, qemu)?;
     if !https_url(&resolved.metadata_url)
         || !resolved
             .metadata_url
@@ -148,9 +176,8 @@ pub fn valid_resolved_coreos(resolved: &ResolvedCoreOS) -> Result<(), Error> {
     // "" and fails the cut below.
     let entry = resolved
         .container
-        .iter()
-        .find(|(key, _)| key == "x86_64")
-        .map(|(_, value)| value.as_str())
+        .get("x86_64")
+        .map(String::as_str)
         .unwrap_or("");
     let (host, digest) = match entry.split_once("/fedora/fedora-coreos@sha256:") {
         Some(pair) => pair,
@@ -162,6 +189,20 @@ pub fn valid_resolved_coreos(resolved: &ResolvedCoreOS) -> Result<(), Error> {
         return Err(Error("digest-pinned CoreOS base required".to_string()));
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LiveInputs {
+    #[serde(rename = "CoreOS")]
+    pub coreos: ResolvedCoreOS,
+    #[serde(rename = "Tailnet")]
+    pub tailnet: TailnetInputs,
+}
+
+pub fn valid_live_inputs(inputs: &LiveInputs) -> Result<(), Error> {
+    valid_resolved_coreos(&inputs.coreos)?;
+    valid_tailnet_inputs(&inputs.tailnet)
 }
 
 #[cfg(test)]
@@ -190,12 +231,12 @@ mod tests {
         ResolvedCoreOS {
             release: "41.20250101.3.0".to_string(),
             metadata_url: "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/41.20250101.3.0/release.json".to_string(),
-            container: vec![(
+            container: BTreeMap::from([(
                 "x86_64".to_string(),
                 format!("quay.io/fedora/fedora-coreos@sha256:{}", "a".repeat(64)),
-            )],
-            iso: iso(),
-            qemu: qemu(),
+            )]),
+            iso: BTreeMap::from([("x86_64".to_string(), iso())]),
+            qemu: BTreeMap::from([("x86_64".to_string(), qemu())]),
         }
     }
 
@@ -280,6 +321,10 @@ mod tests {
     #[test]
     fn resolved_coreos_requires_metadata_and_pinned_base() {
         assert!(valid_resolved_coreos(&resolved()).is_ok());
+        let mut extra_arch = resolved();
+        extra_arch.iso.insert("aarch64".to_string(), iso());
+        extra_arch.qemu.insert("aarch64".to_string(), qemu());
+        assert!(valid_resolved_coreos(&extra_arch).is_ok());
         let mut bad_meta = resolved();
         bad_meta.metadata_url = "https://example.test/other.json".to_string();
         assert_eq!(
@@ -287,22 +332,27 @@ mod tests {
             Error("resolved CoreOS metadata URL is malformed".to_string())
         );
         let mut two_entries = resolved();
-        two_entries.container.push((
+        two_entries.container.insert(
             "aarch64".to_string(),
             "quay.io/fedora/fedora-coreos@sha256:".to_string() + &"a".repeat(64),
-        ));
+        );
         assert_eq!(
             valid_resolved_coreos(&two_entries).unwrap_err(),
             Error("x86_64 base digest required".to_string())
         );
         let mut wrong_key = resolved();
-        wrong_key.container[0].0 = "aarch64".to_string();
+        wrong_key.container.remove("x86_64");
+        wrong_key.container.insert(
+            "aarch64".to_string(),
+            "quay.io/fedora/fedora-coreos@sha256:".to_string() + &"a".repeat(64),
+        );
         assert_eq!(
             valid_resolved_coreos(&wrong_key).unwrap_err(),
             Error("digest-pinned CoreOS base required".to_string())
         );
         let mut bad_digest = resolved();
-        bad_digest.container[0].1 = "quay.io/fedora/fedora-coreos@sha256:short".to_string();
+        *bad_digest.container.get_mut("x86_64").unwrap() =
+            "quay.io/fedora/fedora-coreos@sha256:short".to_string();
         assert_eq!(
             valid_resolved_coreos(&bad_digest).unwrap_err(),
             Error("digest-pinned CoreOS base required".to_string())

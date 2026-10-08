@@ -8,17 +8,12 @@ use crate::sys;
 
 mod candidate;
 mod images;
-mod live_inputs;
 mod payload;
 mod trust;
 mod url;
 
 pub use candidate::{valid_candidate_content, Candidate, ForgejoToolchain};
 pub use images::{Image, ProducedImage};
-pub use live_inputs::{
-    valid_live_inputs, valid_resolved_core_os, valid_stream_images, valid_tailnet_inputs,
-    CoreOSImage, LiveInputs, ResolvedCoreOS, TailnetInputs,
-};
 pub use payload::{Payload, PayloadImage};
 pub use trust::{Permit, SecretFiles, Trust};
 pub use url::{https_url, is_loopback_addr, parse_url, UrlParts};

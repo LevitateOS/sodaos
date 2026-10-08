@@ -35,6 +35,7 @@ clap = { version = "=4.6.7", default-features = false, features = ["std", "help"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 getrandom = { version = "=0.4.3", features = ["std"] }
+soda-build-tools = { path = "../release-inputs" }
 soda-release-build = { path = "../soda-release-build" }
 soda-release-deliver = { path = "../soda-release-deliver" }
 soda-release-image = { path = "../soda-release-image" }

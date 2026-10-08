@@ -144,13 +144,17 @@ impl soda_release_image::foreign::Production for Stub {
     {
         unreachable!()
     }
-    fn resolve_core_os(&self) -> Result<model::ResolvedCoreOS, soda_release_image::error::Error> {
+    fn resolve_core_os(
+        &self,
+    ) -> Result<soda_build_tools::reader::stream::ResolvedCoreOS, soda_release_image::error::Error>
+    {
         unreachable!()
     }
     fn read_live_inputs(
         &self,
         _: &str,
-    ) -> Result<model::LiveInputs, soda_release_image::error::Error> {
+    ) -> Result<soda_build_tools::reader::stream::LiveInputs, soda_release_image::error::Error>
+    {
         unreachable!()
     }
     fn check_native(&self, _: &str) -> Result<(), soda_release_image::error::Error> {
