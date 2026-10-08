@@ -79,9 +79,9 @@ func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 	if err = db.FinishAssignment(ctx, finished); err == nil {
 		t.Fatal("second finish accepted")
 	}
-	list, err := db.IssueAssignments(ctx, 7, 3)
-	if err != nil || len(list) != 1 || list[0].Stage != factory.AssignmentFinished {
-		t.Fatalf("issue assignments wrong: %+v %v", list, err)
+	stored, err := db.Assignment(ctx, a.ID)
+	if err != nil || stored.Stage != factory.AssignmentFinished {
+		t.Fatalf("finished assignment wrong: %+v %v", stored, err)
 	}
 }
 

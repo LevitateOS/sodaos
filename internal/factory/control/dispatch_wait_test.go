@@ -264,9 +264,8 @@ func TestDispatchWaitsWhenPolicyChangesAfterPlanning(t *testing.T) {
 		t.Fatalf("host launches = %d, want 0", len(fx.host.launches))
 	}
 
-	assignments, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(assignments) != 0 {
-		t.Fatalf("issue assignments = %+v, %v; want no packet", assignments, err)
+	if _, err := db.LatestIssueAssignment(ctx, fx.repo, 3); err != store.ErrNotFound {
+		t.Fatalf("latest issue assignment = %v; want no packet", err)
 	}
 	assigned, err := db.AssignedAssignments(ctx, 10)
 	if err != nil || len(assigned) != 0 {
@@ -346,9 +345,8 @@ func TestDispatchWithdrawnGateRecordsNothing(t *testing.T) {
 	if len(report.Launched) != 0 || len(report.Waits) != 1 || report.Waits[0].Reason != WaitDispatchClosed {
 		t.Fatalf("report = %+v %+v %+v", report.Launched, report.Waits, report.Errors)
 	}
-	list, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(list) != 0 {
-		t.Fatalf("assignments = %+v %v", list, err)
+	if _, err := db.LatestIssueAssignment(ctx, fx.repo, 3); err != store.ErrNotFound {
+		t.Fatalf("latest issue assignment = %v; want no packet", err)
 	}
 	if len(fx.host.launches) != 0 {
 		t.Fatal("host launched behind a closed gate")

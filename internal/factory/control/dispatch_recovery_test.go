@@ -72,8 +72,10 @@ func TestCompletionTriggersDependantReassessment(t *testing.T) {
 			Revision:     41,
 		},
 		"7/3": {
-			Issue: AcceptanceIssueView{Index: "3", TitleDigest: endpoint.TitleDigest, ContentDigest: endpoint.ContentDigest,
-				ContentVer: endpoint.ContentVersion, Visible: true},
+			Issue: AcceptanceIssueView{
+				Index: "3", TitleDigest: endpoint.TitleDigest, ContentDigest: endpoint.ContentDigest,
+				ContentVer: endpoint.ContentVersion, Visible: true,
+			},
 			Comments: []AcceptanceComment{{ID: "11", Digest: endpoint.Sources[0].Digest, ContentVer: 0, Visible: true}},
 			Revision: 41,
 		},
@@ -154,9 +156,9 @@ func TestIntakeTriggersAutomaticDispatch(t *testing.T) {
 	if len(fx.host.launches) != 1 {
 		t.Fatalf("automatic launches = %d", len(fx.host.launches))
 	}
-	list, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(list) != 1 || list[0].Stage != factory.AssignmentAssigned {
-		t.Fatalf("assignments = %+v %v", list, err)
+	assignment, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil || assignment.Run != fx.host.launches[0].Run.ID || assignment.Stage != factory.AssignmentAssigned {
+		t.Fatalf("latest assignment = %+v %v", assignment, err)
 	}
 	// A duplicate delivery replays without dispatching again.
 	again, changed, err := coord.ObserveIssueEvent(ctx, IntakeHint{Delivery: "st08-intake-1", Repository: fx.repo, Issue: 3})

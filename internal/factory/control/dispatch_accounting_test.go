@@ -136,18 +136,18 @@ func TestDispatchInterruptionReleasesOnlyUnused(t *testing.T) {
 	if len(first.Launched) != 0 || len(first.Waits) != 1 || first.Waits[0].Reason != WaitLaunchRefused {
 		t.Fatalf("first pass = %+v %+v %+v", first.Launched, first.Waits, first.Errors)
 	}
-	list, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(list) != 1 {
-		t.Fatalf("assignments = %+v %v", list, err)
+	assignment, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatalf("latest assignment: %v", err)
 	}
-	if list[0].Attempts != 1 || list[0].Stage != factory.AssignmentAssigned {
-		t.Fatalf("assignment = %+v", list[0])
+	if assignment.Attempts != 1 || assignment.Stage != factory.AssignmentAssigned {
+		t.Fatalf("assignment = %+v", assignment)
 	}
-	run, err := db.FactoryRun(ctx, list[0].Run)
+	run, err := db.FactoryRun(ctx, assignment.Run)
 	if err != nil || !run.Reconciled || run.Outcome != factory.Failed {
 		t.Fatalf("run = %+v %v", run, err)
 	}
-	reservation, err := db.Reservation(ctx, list[0].ID)
+	reservation, err := db.Reservation(ctx, assignment.ID)
 	if err != nil || reservation.State != factory.ReservationReleased {
 		t.Fatalf("reservation = %+v %v", reservation, err)
 	}
@@ -163,7 +163,7 @@ func TestDispatchInterruptionReleasesOnlyUnused(t *testing.T) {
 	if len(third.Launched) != 0 || waitReason(third, 3) != WaitLaunchExhausted {
 		t.Fatalf("third pass = %+v %+v %+v", third.Launched, third.Waits, third.Errors)
 	}
-	done, err := db.Assignment(ctx, list[0].ID)
+	done, err := db.Assignment(ctx, assignment.ID)
 	if err != nil || done.Stage != factory.AssignmentFinished || done.Outcome != factory.Failed || done.Attempts != 3 {
 		t.Fatalf("assignment = %+v %v", done, err)
 	}
@@ -192,11 +192,10 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 			t.Fatalf("failed unused attempt %d: %+v", i+1, report.Errors)
 		}
 	}
-	settled, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(settled) != 1 {
-		t.Fatalf("settled assignment: %+v %v", settled, err)
+	old, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatalf("settled assignment: %v", err)
 	}
-	old := settled[0]
 	if old.Stage != factory.AssignmentFinished || old.Outcome != factory.Failed || old.Attempts != factory.MaxDispatchAttempts || len(old.RunHistory) != factory.MaxDispatchAttempts {
 		t.Fatalf("old attempts did not settle at their bound: %+v", old)
 	}
@@ -227,15 +226,9 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	if len(report.Launched) != 1 || len(fx.host.launches) != launchesBeforeRetry+1 {
 		t.Fatalf("fresh explicit retry was not launched once: launched=%+v waits=%+v errors=%+v calls=%d", report.Launched, report.Waits, report.Errors, len(fx.host.launches))
 	}
-	assignments, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(assignments) != 2 {
-		t.Fatalf("retry assignments: %+v %v", assignments, err)
-	}
-	var fresh factory.Assignment
-	for _, assignment := range assignments {
-		if assignment.ID != old.ID {
-			fresh = assignment
-		}
+	fresh, err := db.Assignment(ctx, commandID)
+	if err != nil {
+		t.Fatalf("fresh retry assignment: %v", err)
 	}
 	if fresh.ID != commandID || fresh.Run == old.Run || fresh.Acceptance != head.ID || fresh.Repository != fx.repo || fresh.Issue != 3 || fresh.Attempts != 1 || len(fresh.RunHistory) != 1 || fresh.RunHistory[0] != fresh.Run {
 		t.Fatalf("fresh retry assignment did not bind current accepted work: %+v", fresh)
@@ -290,11 +283,12 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 		t.Fatalf("replayed retry launched again: %+v calls=%d", again, len(fx.host.launches))
 	}
 
-	// Grow real command and assignment history past the bounded issue-list
-	// window. Each retry uses the ordinary command, dispatch and accounting
-	// paths, so targeted reads still work after the old page fills.
+	// Grow real command and assignment history beyond the former issue-list
+	// page. Each retry uses the ordinary command, dispatch and accounting
+	// paths, so targeted reads still work after substantial history growth.
 	currentRun := freshRun
 	currentCommand := commandID
+	retainedAssignmentIDs := []string{old.ID, commandID}
 	for i := 0; i < factory.MaxDispatchAttempts+8; i++ {
 		settledRun := currentRun
 		settledRun.Outcome, settledRun.Summary, settledRun.Reconciled = factory.Failed, "worker failed", true
@@ -305,6 +299,7 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 			t.Fatalf("account history run %d", i)
 		}
 		currentCommand = factory.NewID()
+		retainedAssignmentIDs = append(retainedAssignmentIDs, currentCommand)
 		if _, err := coord.RetryRun(ctx, currentCommand, "native:7", settledRun.ID); err != nil {
 			t.Fatalf("queue history retry %d: %v", i, err)
 		}
@@ -321,9 +316,14 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	if err != nil || latest.ID != currentCommand {
 		t.Fatalf("latest assignment after bounded history growth: %+v %v", latest, err)
 	}
-	boundedHistory, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(boundedHistory) != factory.MaxDispatchAttempts+8 || boundedHistory[len(boundedHistory)-1].ID == latest.ID {
-		t.Fatalf("history page no longer demonstrates its bound: count=%d latest=%s err=%v", len(boundedHistory), latest.ID, err)
+	if len(retainedAssignmentIDs) != 13 {
+		t.Fatalf("history rows = %d, want 13", len(retainedAssignmentIDs))
+	}
+	for _, id := range retainedAssignmentIDs {
+		assignment, err := db.Assignment(ctx, id)
+		if err != nil || assignment.ID != id {
+			t.Fatalf("historical assignment %s was not retained: %+v %v", id, assignment, err)
+		}
 	}
 	publication = factory.Publication{AssignmentID: latest.ID, Repository: fx.repo, Issue: 3}
 	linked, err = coord.assignmentForPublication(ctx, publication)
@@ -403,11 +403,11 @@ func TestDispatchApprovedReceiptReleasesWhenBrokerUnknown(t *testing.T) {
 	if len(report.Launched) != 0 || waitReason(report, 3) != WaitLaunchRefused {
 		t.Fatalf("report = %+v %+v %+v", report.Launched, report.Waits, report.Errors)
 	}
-	list, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(list) != 1 {
-		t.Fatalf("assignments = %+v %v", list, err)
+	assignment, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatalf("latest assignment: %v", err)
 	}
-	if reservation, _ := db.Reservation(ctx, list[0].ID); reservation.State != factory.ReservationReleased {
+	if reservation, _ := db.Reservation(ctx, assignment.ID); reservation.State != factory.ReservationReleased {
 		t.Fatalf("reservation = %+v", reservation)
 	}
 	if total, _ := db.UsageTotal(ctx, fx.repo, "conn"); total != 0 {
@@ -434,11 +434,11 @@ func TestDispatchApprovedReceiptFencesWhenBrokerHolds(t *testing.T) {
 	if len(report.Errors) != 1 || report.Errors[0].Reason != DispatchErrFence {
 		t.Fatalf("report = %+v %+v %+v", report.Launched, report.Waits, report.Errors)
 	}
-	list, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(list) != 1 {
-		t.Fatalf("assignments = %+v %v", list, err)
+	assignment, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatalf("latest assignment: %v", err)
 	}
-	if reservation, _ := db.Reservation(ctx, list[0].ID); reservation.State != factory.ReservationHeld {
+	if reservation, _ := db.Reservation(ctx, assignment.ID); reservation.State != factory.ReservationHeld {
 		t.Fatalf("reservation = %+v", reservation)
 	}
 }
@@ -459,15 +459,15 @@ func TestDispatchFencedLaunchStaysHeld(t *testing.T) {
 	if len(report.Launched) != 0 || len(report.Errors) != 1 || report.Errors[0].Reason != DispatchErrFence {
 		t.Fatalf("report = %+v %+v %+v", report.Launched, report.Waits, report.Errors)
 	}
-	list, err := db.IssueAssignments(ctx, fx.repo, 3)
-	if err != nil || len(list) != 1 {
-		t.Fatalf("assignments = %+v %v", list, err)
+	assignment, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatalf("latest assignment: %v", err)
 	}
-	run, err := db.FactoryRun(ctx, list[0].Run)
+	run, err := db.FactoryRun(ctx, assignment.Run)
 	if err != nil || run.Reconciled {
 		t.Fatalf("fenced run settled: %+v %v", run, err)
 	}
-	reservation, err := db.Reservation(ctx, list[0].ID)
+	reservation, err := db.Reservation(ctx, assignment.ID)
 	if err != nil || reservation.State != factory.ReservationHeld {
 		t.Fatalf("reservation = %+v %v", reservation, err)
 	}

@@ -34,30 +34,6 @@ func (s *Store) AssignmentByRun(ctx context.Context, runID string) (factory.Assi
 	return a, err
 }
 
-// IssueAssignments lists every recorded assignment for one native issue,
-// oldest first.
-func (s *Store) IssueAssignments(ctx context.Context, repository, issue int64) ([]factory.Assignment, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2 ORDER BY seq LIMIT $3`,
-		repository, issue, factory.MaxDispatchAttempts+8)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	var out []factory.Assignment
-	for rows.Next() {
-		var data []byte
-		var a factory.Assignment
-		if err = rows.Scan(&data); err != nil {
-			return nil, err
-		}
-		if err = json.Unmarshal(data, &a); err != nil {
-			return nil, err
-		}
-		out = append(out, a)
-	}
-	return out, rows.Err()
-}
-
 // FinishAssignment stores one assignment's terminal outcome exactly once.
 // Only an assigned assignment at its recorded revision finishes; anything
 // else reports stale instead of overwriting a concurrent finish.
