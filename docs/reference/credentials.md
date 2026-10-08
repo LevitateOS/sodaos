@@ -177,9 +177,9 @@ Systemd preserves the socket identity across service restarts and kills the full
 broker service cgroup, including enrollment children. Neither socket enters a
 project.
 
-`/etc/soda/identity.json` selects these paths, the host socket, a separate broker
-PostgreSQL `database`, private base64 32-byte `key_file`, and `codex` fields `binary`,
-`version`, `sha256`, `root`. Store broker state and private key under
+`/etc/soda/identity.json` selects service paths, the broker database secret file,
+encryption key file and provider settings. Exact fields and JSON admission belong
+to [Service configuration](configuration.md#identity-broker-fields). Store broker state and private key under
 `/home/soda-identity`; keep the key mode `0600` and outside dashboard mounts.
 Both providers require a private tmpfs enrollment root. `codex.root` is a private tmpfs directory under `/run/soda-identity`. CLI credentials,
 logs and enrollment state remain in that tmpfs. Completed credentials are opaque
