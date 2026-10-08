@@ -441,7 +441,12 @@ warnings remain; no installed/native-worker qualification is claimed. The
 [development receipt](../../../.artifacts/l05-l06/verification.md) records scope,
 producer provenance and failed diagnostics separately. CA did not wait for SSH;
 A34's checkpoint is preserved; B27 is integrated and retained only as provenance.
-Full inventory/count regeneration remains pending.
+Full inventory/count regeneration remains pending. A separate source assessment
+of CA algorithm narrowing retains the current verifier integration and defers
+optional narrowing: the guide defines RSA, named-curve ECDSA, Ed25519 and SHA-2
+support, while the pinned Caddy 2.10.2 specimen proves only P-256. No code,
+guide, manifest or qualification change follows from that assessment; synthetic
+curve tests remain implementation coverage rather than producer evidence.
 
 ### L07 Native SQL parameters
 
