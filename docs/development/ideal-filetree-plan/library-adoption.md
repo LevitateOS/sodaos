@@ -1047,26 +1047,46 @@ configuration authority. The old INI/interpolation reader, runtime config fields
 and obsolete parser tests are removed together. CFG02's byte-preserving locale
 set/cap/hash/collision policy stays independent.
 
-L17 is complete at this source scope. Sixteen actual domain checks cover fixed
-mapping, misplaced/duplicate/missing declarations, marker custody and lifecycle
-refusal. One selected native Forgejo proof derives the same tracked assignment,
-overrides conflicting synthetic INI, then uses actual SaveTo → bounded checked
-read/close → reparse → server settings; the effective path is `/data/gitea`.
-The existing actual image-owner staging test preserves the fixed declaration
-and volume through local image binding. Locked offline command build and exact
-formatting pass. Build source inspection traces the selected Git archive
-snapshot through command compilation and unit staging; no live-checkout reread
-supplies either declaration. No dependency graph change is needed.
+The first fixed-directory cut (`832e7976`) passed sixteen actual domain checks,
+one actual Quadlet staging check, locked offline command build and formatting.
+Its native provider/save/reparse/settings proof covered the canonical assignment
+against conflicting INI. A later native challenge reproduced four aliases that
+can overwrite that assignment: `GITEA__`, case-folded section, encoded key and
+`__FILE`. The canonical-only proof did not establish complete startup enforcement.
+
+L17 source scope is now complete with the startup correction. A small sourced
+setup overlay retains native initialization and its ordinary configuration
+handling, then removes both native configuration namespaces and reasserts only
+the declared path through the native helper. The unmodified native run inherits
+that environment, including during the installer's later configuration rewrite.
+The stopped-host extension installer also invokes the native helper with the
+same fixed declaration before its existing command, ordered after migration to
+exclude competing app.ini writes. Its bind-mounted config is the same file as
+the image custom-directory symlink. No host INI/env grammar or new service is
+introduced; the existing explicit extensions-path policy remains separate.
+
+The byte-identical overlay executes against the selected native helper with four
+synthetic aliases. Ordinary database settings survive, the final config reparses
+through actual server settings as `/data/gitea`, and missing declaration/helper
+failure prevents continuation. Two actual image-owner checks cover source
+snapshot bytes/modes and extension payload binding, path agreement and ordering.
+The selected native helper/config/setup/run sources match upstream tag
+`v15.0.9`; this establishes the tested source contract, not deployed image bytes.
+Earlier unchanged domain/custody checks are reused at their recorded scope.
+Build inspection traces the selected Git snapshot through binary compilation,
+image input staging and unit staging. No dependency graph change is needed.
 
 [Podman run](https://docs.podman.io/en/latest/markdown/podman-run.1.html#environment)
-documents explicit environment assignments taking precedence over env files;
+documents explicit assignments taking precedence over env files;
 [Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
-maps the selected Environment and EnvironmentFile options to those flags.
-This is source/documentation evidence, not execution of the deployed generator,
-service startup or installed executable/unit identity. Those joins remain R04.
-Earlier candidate failures and the first fixed-path run's four obsolete-fixture
-failures keep their original limits in the commit receipt. Independent Luna
-medium review challenges the complete source packet before commit.
+maps the selected Environment and EnvironmentFile options to those flags. This
+same-key precedence alone does not prevent decoded aliases; the overlay handles
+those. The extension command receives no operator env file, and selected image
+source has no native configuration aliases. The helper lookup retains upstream
+PATH behavior. Independent Luna medium review covers the final source packet.
+Deployed generator, actual web/extension installation and installed executable,
+image and unit identity remain R04. All earlier candidate, obsolete-fixture and
+alias failures retain their original evidence scope in commit history.
 
 ### L18 Dead machinery removal
 

@@ -255,6 +255,43 @@ mod tests {
     }
 
     #[test]
+    fn extension_binding_preserves_fixed_data_repair_before_install() {
+        let dir = std::env::temp_dir().join(format!("sri-fixed-extension-{}", std::process::id()));
+        fs::create_dir_all(dir.join("usr/lib/systemd/system")).unwrap();
+        let unit = dir.join("usr/lib/systemd/system/soda-extension-install.service");
+        let source = include_str!("../../../system/host/services/soda-extension-install.service");
+        fs::write(&unit, source).unwrap();
+        let mut payload = model::Payload::default();
+        payload.images.push((
+            "extension".to_string(),
+            model::PayloadImage {
+                config: "sha256:selected-extension".to_string(),
+                ..Default::default()
+            },
+        ));
+        bind_extension_install_image(dir.to_str().unwrap(), &payload).unwrap();
+        let staged = fs::read_to_string(&unit).unwrap();
+        assert_eq!(
+            staged,
+            source.replace("localhost/soda-extension:dev", "sha256:selected-extension")
+        );
+        let forgejo = include_str!("../../../system/host/services/forgejo.container");
+        let declaration = forgejo
+            .lines()
+            .find_map(|line| line.strip_prefix("Environment=FORGEJO__server__APP_DATA_PATH="))
+            .unwrap();
+        assert!(staged.contains(&format!(
+            "--env=FORGEJO__server__APP_DATA_PATH={declaration} "
+        )));
+        assert!(staged.lines().any(|line| line.starts_with("After=")
+            && line
+                .split_whitespace()
+                .any(|word| word == "soda-forgejo-migrate.service")));
+        assert!(staged.contains("--entrypoint=/bin/sh sha256:selected-extension -ec 'environment-to-ini --config /data/gitea/conf/app.ini; exec /usr/local/bin/gitea --config /data/gitea/conf/app.ini extensions install"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn quadlets_read_new_layout() {
         // CORR-C-005: units live under system/host/services/.
         let dir = std::env::temp_dir().join(format!("sri-cq-{}", std::process::id()));

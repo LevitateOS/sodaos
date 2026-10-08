@@ -3,6 +3,8 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 RUN rm /usr/local/bin/gitea
 COPY --chmod=0755 forgejo-bin /usr/local/bin/gitea
+RUN mv /etc/s6/gitea/setup /etc/s6/gitea/setup-upstream
+COPY --chmod=0755 setup /etc/s6/gitea/setup
 COPY forgejo/ /usr/share/soda/forgejo/
 COPY presentation.json /usr/share/soda/presentation.json
 # The upstream s6 setup and environment-to-ini keep writing their normal app.ini

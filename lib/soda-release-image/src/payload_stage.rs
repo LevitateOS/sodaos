@@ -39,18 +39,18 @@ pub fn stage_candidate_forgejo(
     production.stage_fork_binary(&forgejo_context)?;
     production.assets(context, &forgejo_context)?;
     payload.presentation_sha256 = complete::stage_presentation(&forgejo_context, context)?;
-    let recipe = fs::read(sys::join(&[
-        source,
-        "system/containers/forgejo/Containerfile",
-    ]))?;
-    sys::write_new(
-        &sys::join(&[forgejo_context.as_str(), "Containerfile"]),
-        &recipe,
-        0o644,
-    )?;
+    stage_forgejo_container_inputs(source, &forgejo_context)?;
     stage_extension_package(source, context, out, production.native())?;
     crate::build::link_prepared_assets(production)?;
     Ok(forgejo_context)
+}
+
+fn stage_forgejo_container_inputs(source: &str, context: &str) -> Result<(), Error> {
+    for (name, mode) in [("Containerfile", 0o644), ("setup", 0o755)] {
+        let data = fs::read(sys::join(&[source, "system/containers/forgejo", name]))?;
+        sys::write_new(&sys::join(&[context, name]), &data, mode)?;
+    }
+    Ok(())
 }
 
 pub fn stage_extension_package(
@@ -317,6 +317,59 @@ pub fn complete_candidate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn forgejo_container_inputs_stage_from_one_source_snapshot_with_modes() {
+        let dir = std::env::temp_dir().join(format!("sri-forgejo-stage-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let source = dir.join("source/system/containers/forgejo");
+        let context = dir.join("context");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&context).unwrap();
+        fs::write(
+            source.join("Containerfile"),
+            include_bytes!("../../../system/containers/forgejo/Containerfile"),
+        )
+        .unwrap();
+        fs::write(
+            source.join("setup"),
+            include_bytes!("../../../system/containers/forgejo/setup"),
+        )
+        .unwrap();
+
+        stage_forgejo_container_inputs(
+            dir.join("source").to_str().unwrap(),
+            context.to_str().unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs::read(context.join("Containerfile")).unwrap(),
+            fs::read(source.join("Containerfile")).unwrap()
+        );
+        assert_eq!(
+            fs::read(context.join("setup")).unwrap(),
+            fs::read(source.join("setup")).unwrap()
+        );
+        assert_eq!(
+            fs::metadata(context.join("Containerfile"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o644
+        );
+        assert_eq!(
+            fs::metadata(context.join("setup"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o755
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn oracle_record_candidate_images_binds_references() {

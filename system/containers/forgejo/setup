@@ -1,0 +1,17 @@
+#!/bin/bash
+
+readonly SODA_FORGEJO_APP_DATA_PATH="${FORGEJO__server__APP_DATA_PATH-}"
+if [[ -z "$SODA_FORGEJO_APP_DATA_PATH" ]]; then
+	echo "Forgejo app data path is not configured" >&2
+	exit 1
+fi
+
+source ./setup-upstream || exit $?
+
+for name in ${!FORGEJO__@} ${!GITEA__@}; do
+	unset "$name" || exit $?
+done
+
+export FORGEJO__server__APP_DATA_PATH="$SODA_FORGEJO_APP_DATA_PATH"
+export FORGEJO_CUSTOM="$GITEA_CUSTOM"
+environment-to-ini --config "$GITEA_CUSTOM/conf/app.ini" || exit $?

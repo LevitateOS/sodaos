@@ -74,12 +74,12 @@ fenced for intervention.
 5. Lift inhibition by removing the marker, then restart the native writers.
 
 The durable service/domain controls for steps 1, 2 and 5 are the
-`soda-forgejo-domain` host operator command (`appliance/bin/soda-forgejo-domain`,
+`soda-forgejo-domain` host operator command (`cmd/soda-forgejo-domain`,
 staged to `/usr/bin` alongside `soda-activate`): `stop` stops
 `forgejo.service` and verifies
 no container or unit survivor remains; `inhibit` runtime-masks the unit and
 creates the offline marker in the fixed appliance data directory. The Forgejo
-container declaration enforces `AppDataPath=/data/gitea`, mapped to
+startup and pre-start extension installation enforce `AppDataPath=/data/gitea`, mapped to
 `/var/lib/soda/forgejo/gitea` on the host; recovery uses that same declaration.
 Changes to `app.ini` or `/etc/soda/forgejo.env` cannot relocate this directory;
 `status` reports unit, mask, container and marker state only, never native

@@ -10,7 +10,8 @@ for replacement are superseded. The canonical
 records completed L00–L15, L17 and L18 source scopes, completed L16.G and deferred
 optional L16 adoption. L10.N4 retains curl at source scope; its shipped-image,
 TLS and provider qualification remain with R04. L17 completes the fixed
-Forgejo directory at source scope; its installed joins remain R04.
+Forgejo directory at source scope, including native config-alias filtering and
+pre-start extension repair ordered after migration; its installed joins remain R04.
 Installed/native-worker qualification remains with the wider owner packets.
 
 Prepared on **2026-10-06** against clean checkout
