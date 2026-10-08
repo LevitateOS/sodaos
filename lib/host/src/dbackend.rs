@@ -13,9 +13,6 @@
 // pre-limited by the mux; over-limit bodies fail here as decode errors,
 // exactly like Go's `MaxBytesReader` surfacing through strict decode.
 //
-// All lane modules are integrated (iclient, tcontrol, mserve, pops,
-// tcodex); no scaffold remains. `HAS_SCAFFOLDS` reads false and the
-// `scaffold:` error mapping below is defensive only: no producer remains.
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::os::unix::net::UnixStream;
@@ -29,21 +26,11 @@ use crate::{
     terminal::{self, factory::tcodex},
 };
 
-/// False: every lane module is integrated, no scaffold remains.
-pub const HAS_SCAFFOLDS: bool = false;
-
-const SCAFFOLD_PREFIX: &str = "scaffold:";
-
 // -- error mapping (daemon.go ServeHTTP + subsystem handlers) --
 
-/// Go maps every unrecognized dispatch error to 500. The `scaffold:` prefix
-/// still maps to 501 defensively, though no producer remains.
-fn internal(err: String) -> BackendError {
-    if err.starts_with(SCAFFOLD_PREFIX) {
-        BackendError::Unimplemented
-    } else {
-        BackendError::Internal
-    }
+/// Map an unclassified executor error to Go's default internal failure.
+fn internal(_err: String) -> BackendError {
+    BackendError::Internal
 }
 
 /// `strictjson.Decode` failure inside a native dispatch: Go returns the
@@ -1109,9 +1096,6 @@ fn decode_tailnet_empty(body: &[u8]) -> Result<(), BackendError> {
 /// `ExportStale` as 409 and `ExportCandidate` as 422, so conflict and
 /// unsupported reuse those variants behind this subsystem only.
 fn map_tailnet_err(err: String) -> BackendError {
-    if err.starts_with(SCAFFOLD_PREFIX) {
-        return BackendError::Unimplemented;
-    }
     if err.contains("invalid request") {
         return BackendError::Invalid;
     }
@@ -2318,13 +2302,6 @@ mod tests {
         ));
         assert!(matches!(
             map_factory_err(
-                FactoryError::Msg("scaffold:x".to_string()),
-                BackendError::OutputStale
-            ),
-            BackendError::Unimplemented
-        ));
-        assert!(matches!(
-            map_factory_err(
                 FactoryError::Msg("boom".to_string()),
                 BackendError::OutputStale
             ),
@@ -2334,10 +2311,6 @@ mod tests {
 
     #[test]
     fn tailnet_error_mapping() {
-        assert!(matches!(
-            map_tailnet_err("scaffold:x".to_string()),
-            BackendError::Unimplemented
-        ));
         assert!(matches!(
             map_tailnet_err("tailscale: invalid request".to_string()),
             BackendError::Invalid
