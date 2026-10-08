@@ -298,10 +298,11 @@ real native binding before executor deletion. Client-only candidate/export/
 prepare/Tailnet refusal tests stay with the Go client, with server cases removed.
 Smoke tests or stub backends do not prove installed host cutover.
 
-Retire `internal/platform/platform.go` with its Go native callers: all actual
-imports belong to the removed daemon, project lifecycle or Tailnet Control.
-Keep its fixed installed paths at the corresponding Rust configuration/unit
-admission owners, without an unused Go constants package. Also retire
+The unused `internal/platform/platform.go` constants package is retired after
+its Go native callers. Current source has no imports/member consumers; its fixed
+installed path duties remain with Rust configuration, image staging and unit
+admission owners. The H04 retention rows belong to the pinned historical review;
+that record remains unchanged. Also retire
 `tests/build/{project_os_observation,project_keys,terminal}_test.go`: these are
 source-existence guards for superseded Go/Python subjects, not behavior tests.
 The Rust OS/key/terminal owners retain the actual behavior coverage; do not port
@@ -352,7 +353,8 @@ below; do not schedule ports of deleted programs:
 | --- | --- |
 | `internal/acceptance/personal_git.go` | Current `gitRemoteTemplate` is POSIX shell piped to `sh -se`, with a real no-Python assertion. Keep Go prepare/exercise/unlock orchestration and preserve the actual key/agent flow. The selected existing Rust remote payload may be rebound only after exact caller equivalence; this is reuse/cutover, not a new Python port. Preserve SSH identity, protected passphrase input, public-key-only output, live-agent refusal and encrypted-key lifetime. |
 | Former `internal/acceptance/lifecycle_state.go` | Retired with its exclusive fixtures and CLI selector in `8b10ab14` after independent current-caller review: no installed journey selected the obsolete dashboard SQLite observer. Current PostgreSQL/lifecycle and Rust project-state owners remain; their native qualification is separate. Retain the staged Forgejo SQLite test fixture/module. No replacement observer, query translation or second database is selected. |
-| `tools/soda-installed-probes/{cockpit_account,project_state}_test.go`, `tests/build/u08_state_test.go` | Current native test subjects are retained. Rebind moved actual Rust cockpit/project-state/remote owners and preserve PAM denial/error distinction, root/native admission, private-file refusal and snapshot bounds. Do not schedule removal of already-absent Python import drivers. |
+| `tools/soda-installed-probes/{cockpit_account,project_state}_test.go` | Retain the actual Go command-admission subjects and their Rust command bindings, preserving PAM denial/error distinction and root/native admission. Source checks do not establish installed/native behavior. |
+| Former `tests/build/u08_state_test.go` | Retired in `31cd5949` with the Python entrypoint it exercised. Current byte/hash/mode/type/error and descriptor/bounds cases remain in `tools/acceptance/src/project_state/tests.rs`. The distinct real native U08 journey remains `tests/installed/shared-tools.sh`, requiring selected real projects; it was not executed here. Do not restore the old guard or schedule removal of already-absent Python import drivers. |
 | Historical `project-os/rootfs/usr/libexec/soda/{project-account,project-factory-roles}` | Python sources are absent; current compiled Rust helper crates and tests exist. Fold those existing implementations into the Project-terminal package and preserve both installed executable identities, explicit build/hash selectors and real tests. Do not track generated outputs or add wrappers. |
 | `tests/build/{project_account,project_factory_roles}_test.go` | Current Rust compiled-helper drivers remain active. Preserve their actual assertions and explicit requested binary selection during Project-terminal package consolidation; historical Python SourceFileLoader disposition is obsolete. Exact current production/test seams are recorded in project-runtime.md and P03/P07. |
 | `tests/build/{source_checks,workload_probe,project_foundation}_test.go`, `tests/build/helpers.go` | Current Go/shell fixtures replace the old Python doubles. Rebind actual command/environment/status/ordering assertions; the stale driveModule/Python3 comment is not a live helper. Preserve real admitted helper environment and no-replayed-mutation evidence. |

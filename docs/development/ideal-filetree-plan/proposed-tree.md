@@ -584,7 +584,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── interface.rs
 │   │   │   ├── interface_admission.rs
 │   │   │   ├── interface_tests.rs
-│   │   │   ├── json.rs
 │   │   │   ├── main.rs
 │   │   │   ├── network.rs
 │   │   │   ├── network_tests.rs
@@ -2286,7 +2285,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── check.rs
 │   │   │   ├── content.rs
 │   │   │   ├── document.rs
-│   │   │   ├── finalize.rs
 │   │   │   ├── lib.rs
 │   │   │   ├── payload.rs
 │   │   │   └── prepare.rs
@@ -2421,7 +2419,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── portcontracts/
 │   │   │   ├── cli_surface.json
 │   │   │   ├── dashboard_config_vectors.json
-│   │   │   ├── host_config_bytes.json
 │   │   │   ├── operator_wire.json
 │   │   │   ├── strictjson_vectors.json
 │   │   │   └── systemd_wiring.json
@@ -2623,7 +2620,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── source_checks_test.go
 │   │   ├── tailnet_image_test.go
 │   │   ├── terminal_assets_test.go
-│   │   ├── u08_state_test.go
 │   │   └── workload_probe_test.go
 │   ├── fixtures/
 │   │   └── workload/
