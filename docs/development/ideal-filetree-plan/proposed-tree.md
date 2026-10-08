@@ -2188,6 +2188,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── elf.rs
 │   │   │   ├── reader/
 │   │   │   │   ├── forgejo.rs
+│   │   │   │   ├── image.rs
 │   │   │   │   ├── muse.rs
 │   │   │   │   ├── settings.rs
 │   │   │   │   ├── signature.rs
@@ -2312,7 +2313,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── tests.rs
 │   │   │   ├── model/
 │   │   │   │   ├── candidate.rs
-│   │   │   │   ├── images.rs
 │   │   │   │   ├── live_inputs.rs
 │   │   │   │   ├── payload.rs
 │   │   │   │   ├── tests.rs

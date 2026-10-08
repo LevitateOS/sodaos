@@ -514,7 +514,7 @@ Observed size: 1475 lines, including tests where embedded. Keep artifact records
 
 - `lib/soda-release-image/src/model.rs` — Current format/source/schema and image-role constants plus shared digest/revision/architecture/repository/CoreOS identity primitives; schema remains derived from the real store owner.
 - `lib/soda-release-image/src/model/url.rs` — Purpose-specific HTTPS/media/loopback admission over url and std::net, preserving authenticated literal text without a URL/IP grammar port.
-- `lib/soda-release-image/src/model/images.rs` — Current Image/ProducedImage records and their JSON interface for foreign OCI/production operations.
+- Deleted by SIMP-REL-OCI-IDENTITY-1 (`e98bbb0e`): `lib/soda-release-image/src/model/images.rs`. The duplicate Image record/unused alias parser are removed; model root retains the distinct ProducedImage with archive SHA. `lib/release-inputs/src/reader/image.rs` owns the shared build/image OCI identity, consumed directly through existing model/buildx exports; pipeline field copying is gone. Candidate policy, raw payload/candidate bytes and hashes remain local. The installer directory-layout result remains separate, without introducing a foundation runtime edge.
 - `lib/soda-release-image/src/model/payload.rs` — Current PayloadImage/Payload parse/emit/load and exact identity/base/independent-image/no-upgrade admission closure.
 - `lib/soda-release-image/src/model/candidate.rs` — Current ForgejoToolchain/package provenance and Candidate parsing/emission/payload/source/host/content binding.
 - `lib/soda-release-image/src/model/trust.rs` — Trust role/timing/minimum-sequence policy, library-validated P-256 key/raw-DER fingerprint, Permit and SecretFiles models; no custom DER/SPKI reader.
