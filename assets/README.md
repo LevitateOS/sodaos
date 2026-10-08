@@ -11,7 +11,7 @@ Imported from `~/Projects/soda-os` (source HEAD `bc1d3e0dbec48dfaa6a20f9d0453ad3
 | `branding/web/` | Web favicons and Apple touch icon |
 | `branding/icons/hicolor/` | System icons from 16px to 512px |
 | `branding/installer/` | Raster logo variants, export manifest, and Anaconda CSS |
-| `branding/cockpit/` | Light/dark login backgrounds, ICO/PNG icons, offline preview, and Cockpit/PatternFly styles |
+| `branding/cockpit/` | Stock Cockpit branding/theme CSS, retained images/static preview, and the retired workspace's upstream provenance archive |
 | `branding/fonts/` | Self-hosted Barlow Condensed, Barlow and IBM Plex Mono, plus retained Fraunces WOFF2 faces, CSS, exact-version provenance and OFL licenses |
 | `branding/forgejo/` | Four PNG exports, native theme review sheet, manifest and light/dark/automatic themes; no decorative artwork |
 | `branding/theme/palette.css` | Shared light/dark semantic color tokens and control ramps |
@@ -31,7 +31,7 @@ Open these files directly in a browser:
 
 ## Application-specific styles
 
-These adapters are retained for reuse/reference, not globally applied to the new dashboard:
+These styles have application-specific owners; they are not globally applied to the dashboard. Stock Cockpit staging selects `branding.css` and `theme.css`. The TypeScript/Sass sources and license texts under `branding/cockpit/provenance/` are historical references and are not compiled or staged:
 
 - `branding/cockpit/theme.css`: semantic roles and PatternFly mappings, originally from `cockpit/src/cockpit/theme.css`.
 - `branding/cockpit/soda.css`: small Soda page utility styles from the same source directory.

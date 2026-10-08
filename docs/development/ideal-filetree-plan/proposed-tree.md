@@ -108,6 +108,11 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── provenance/
 │   │   │   │   ├── LICENSES.txt
 │   │   │   │   ├── README.md
+│   │   │   │   ├── _global-variables.scss
+│   │   │   │   ├── cockpit-dark-theme.ts
+│   │   │   │   ├── patternfly/
+│   │   │   │   │   ├── _fonts.scss
+│   │   │   │   │   └── patternfly-6-cockpit.scss
 │   │   │   │   ├── patternfly-MIT.txt
 │   │   │   │   ├── patternfly-react-MIT.txt
 │   │   │   │   └── redhat-fonts-OFL.txt
@@ -239,7 +244,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── theme-preview.html
 │   │   │   └── webhooks.css
 │   │   ├── host/
-│   │   │   └── README.md
+│   │   │   ├── README.md
+│   │   │   └── os-release
 │   │   ├── icons/
 │   │   │   ├── hicolor/
 │   │   │   │   ├── 128x128/

@@ -63,8 +63,10 @@ page and Workspace panel on the configured Forgejo origin.
 
 ## Superseded mockup
 
-`index.html`, `preview.css`, `preview.ts`, `review.ts` and their older compiler/capture
-records belong to the **superseded `8fe3468` mockup**, not this redesign or a product
-implementation candidate. Do not use its grid selector, fake state machine or
-`--serve`/33450 path as the current design/review workflow. Source and historical
-captures are retained so prior observations are not erased or relabelled.
+The `index.html`, `preview.css`, `preview.ts`, `review.ts` and `tsconfig.json`
+prototype sources belonged to the **superseded `8fe3468` mockup**, not this redesign
+or a product implementation candidate. Those files have been retired from the
+working tree. Their source review and historical observations remain recorded in
+the H06 review; the mockup's grid, fake lifecycle state and browser assertions are
+not product requirements. Do not use its `--serve`/33450 workflow for current
+design review. The retained workflow above renders the static design sheets only.

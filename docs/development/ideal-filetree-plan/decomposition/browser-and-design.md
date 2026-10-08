@@ -80,25 +80,27 @@ Current `f7e9cf9d` allocation: browser owns 3–194, 288–324 and 401–465; ed
 
 Retain relative imports, native selectors and installed payload paths. Rebind existing fixtures to the actual defining stylesheet closure. This allocation changes ownership only; rendered equivalence remains a later cutover check.
 
-## docs/design/spaces/preview.css
+## Retired docs/design/spaces interactive mockup
 
-Observed size: 1025 lines, including tests where embedded. The owning README identifies this as superseded 8fe3468 history rather than a current product/design candidate. Do not convert an obsolete fake state machine into a newly maintained module graph.
+The superseded `8fe3468` prototype group (`index.html`, `preview.css`,
+`preview.ts`, `review.ts` and `tsconfig.json`) is retired from the working tree.
+It was a self-contained, local-only mockup with simulated tabs, layouts, creation,
+retention and end/cancel states. Those interactions and its browser assertions are
+historical design evidence, not current product contracts or acceptance tests.
 
-- **Retirement disposition:** no implementation leaf or replacement module graph in the ideal target; retain historical attribution/evidence separately.
+- **Current ownership:** no product source or replacement preview. Static design
+  intent remains in the hand-authored SVG sheets and `sheets.css`; `render-sheets.ts`
+  is the retained renderer. Current behavior belongs to the existing owners under
+  `frontend/spaces/` and their product tests.
+- **Retained behavior contract:** [Spaces product behavior](../../../product/spaces.md)
+  defines session identity, presentation-only Hide, explicit End, persistent panel
+  ownership and splits as views. Do not import prototype-only lifecycle semantics.
 
-Evidence: docs/design/spaces/README.md:64-70 superseded mockup and historical retention; preview.ts:1-2 design-only/no API/socket/auth/storage/shell; review.ts:19-27 current historical source loading.
-
-Open detail: Retire the superseded preview/review/compiler group coherently when implementation is authorized. Update retained [tsconfig.tools.json:3](../../../design/spaces/tsconfig.tools.json#L3) to remove `review.ts` while keeping `render-sheets.ts`; its old capture driver and historical README must not imply an active design candidate. Source deletion is deferred.
-
-## docs/design/spaces/preview.ts
-
-Observed size: 706 lines, including tests where embedded. The owning README identifies this as superseded 8fe3468 history rather than a current product/design candidate. Do not convert an obsolete fake state machine into a newly maintained module graph.
-
-- **Retirement disposition:** no implementation leaf or replacement module graph in the ideal target; retain historical attribution/evidence separately.
-
-Evidence: docs/design/spaces/README.md:64-70 superseded mockup and historical retention; preview.ts:1-2 design-only/no API/socket/auth/storage/shell; review.ts:19-27 current historical source loading.
-
-Open detail: Retire the superseded preview/review/compiler group coherently when implementation is authorized. Update retained [tsconfig.tools.json:3](../../../design/spaces/tsconfig.tools.json#L3) to remove `review.ts` while keeping `render-sheets.ts`; its old capture driver and historical README must not imply an active design candidate. Source deletion is deferred.
+Evidence: [Spaces design README](../../../design/spaces/README.md#superseded-mockup)
+and H06-E13/E14/E20/E27 preserve the prototype's historical scope and its
+non-product limits. The old review selector has been removed from the retained
+`tsconfig.tools.json`; its `render-sheets.ts` entry remains. Historical H06 review
+records are unchanged.
 
 ## frontend/spaces/sodaspaces-api.ts
 

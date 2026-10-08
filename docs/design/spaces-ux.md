@@ -75,6 +75,7 @@ view with accessible navigation.
 
 ## Sheets and tooling
 
-Hand-authored SVG sheets under `docs/design/spaces/` are design source. Preview and
-render TypeScript tools compile with Bun; rendered PNGs belong in ignored
-`.artifacts/`. Sheets are not runtime UI or installed screenshots.
+Hand-authored SVG sheets under `docs/design/spaces/` are design source. The retained
+`render-sheets.ts` tool compiles with Bun and writes rendered PNGs to ignored
+`.artifacts/`. The superseded interactive mockup and its preview tool are retired;
+the sheets are not runtime UI or installed screenshots.

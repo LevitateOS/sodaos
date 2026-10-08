@@ -1,7 +1,0 @@
-FROM quay.io/rockylinux/rockylinux:10.2
-RUN dnf -y install git-core python3 curl ca-certificates \
-    && dnf clean all \
-    && groupadd --gid 1000 soda-agent \
-    && useradd --uid 1000 --gid 1000 --no-create-home soda-agent
-USER 1000:1000
-WORKDIR /workspace
