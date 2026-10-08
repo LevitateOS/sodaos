@@ -180,11 +180,22 @@ test('private key input is rejected before a native request', async (t) => {
 test('saved-key removal does not apply keys to the environment', async (t) => {
   const page = await fixture(t);
   await refresh(page);
+  page.once('dialog', (dialog) => {
+    assert.match(dialog.message(), /may remove your final saved development key/);
+    void dialog.dismiss();
+  });
+  await click(page, 'Remove saved key');
+  assert.deepEqual(await writes(page), []);
+  page.once('dialog', (dialog) => {
+    assert.match(dialog.message(), /may remove your final saved development key/);
+    void dialog.accept();
+  });
   await click(page, 'Remove saved key');
   const sent = await writes(page);
   assert.equal(sent.length, 1);
   assert.equal(sent[0]?.method, 'DELETE');
   assert(sent[0]?.url.endsWith('/me/development-keys/1'));
+  assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {confirm_last: true});
   assert.match(await page.locator('[data-control=result]').innerText(), /Existing project SSH access is unchanged/);
 });
 
