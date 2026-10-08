@@ -17,10 +17,11 @@ diary. Maintaining it does not authorize executing the refactor.
 The [current task state](implementation-tasks.md#current-task-state-2026-10-08)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
 on **2026-10-07**; those pins remain historical snapshots.
-The selected [library adoption](library-adoption.md) is largely source complete:
-L00–L09, L11–L15 and L18, plus L10.N3. Later scoped receipts record L10.N4's
-retained curl source choice and L16.G's completed aggregate secret collection;
-CFG01 remains held, and optional L16 matcher adoption remains deferred. The
+The selected [library adoption](library-adoption.md) is complete at its recorded
+source scopes: L00–L15, L17 and L18. L10.N4 retains curl, L16.G aggregate secret
+collection is complete, and optional L16 matcher adoption remains deferred.
+L17 uses the owner-selected fixed startup/recovery directory in `832e7976`;
+its installed generator/service identity remains R04. The
 [finding allocation](execution-findings.md)
 assigns all 76 challenged dispositions to existing subtasks with exact owner,
 scope, prerequisites and acceptance; older slice findings remain in their parent
