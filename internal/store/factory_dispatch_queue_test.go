@@ -58,21 +58,28 @@ func TestReservationTransitions(t *testing.T) {
 func TestRunUsageFirstWriteWins(t *testing.T) {
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)
-	u := factory.Usage{RunID: factory.NewID(), Repository: 7, Connection: "conn", Minutes: 4, RecordedUnix: 1700000000}
+	u := factory.Usage{
+		RunID: factory.NewID(), Repository: 7, Connection: "conn", Minutes: 4,
+		StartedAt: time.Unix(1699999760, 0).UTC(), EndedAt: time.Unix(1700000000, 0).UTC(),
+	}
 	if err := db.RecordRunUsage(ctx, u); err != nil {
 		t.Fatal(err)
 	}
 	dup := u
 	dup.Minutes = 9
+	dup.EndedAt = dup.StartedAt.Add(9 * time.Minute)
 	if err := db.RecordRunUsage(ctx, dup); err != nil {
 		t.Fatalf("usage replay refused: %v", err)
 	}
-	other := factory.Usage{RunID: factory.NewID(), Repository: 7, Connection: "conn", Minutes: 3, RecordedUnix: 1700000001}
+	other := factory.Usage{
+		RunID: factory.NewID(), Repository: 7, Connection: "conn", Minutes: 3,
+		StartedAt: time.Unix(1699999821, 0).UTC(), EndedAt: time.Unix(1700000001, 0).UTC(),
+	}
 	if err := db.RecordRunUsage(ctx, other); err != nil {
 		t.Fatal(err)
 	}
 	got, err := db.RunUsage(ctx, u.RunID)
-	if err != nil || got.Minutes != 4 {
+	if err != nil || got.Minutes != 4 || !got.StartedAt.Equal(u.StartedAt) || !got.EndedAt.Equal(u.EndedAt) {
 		t.Fatalf("run usage = %+v %v", got, err)
 	}
 	total, err := db.UsageTotal(ctx, 7, "conn")

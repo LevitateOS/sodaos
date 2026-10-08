@@ -120,13 +120,15 @@ func (fx *st15Fixture) settleDirect(run factory.Run, assignmentID string) string
 	if err := fx.coord.Broker.CloseExecution(ctx, identity.Factory, run.ID); err != nil {
 		fx.t.Fatal(err)
 	}
+	endedAt := time.Now().UTC()
+	startedAt := run.Started.UTC()
 	minutes := 0
-	if elapsed := time.Since(run.Started); elapsed > 0 {
+	if elapsed := endedAt.Sub(startedAt); elapsed > 0 {
 		minutes = int((elapsed + time.Minute - time.Nanosecond) / time.Minute)
 	}
 	if err := fx.db.RecordRunUsage(ctx, factory.Usage{
 		RunID: run.ID, Repository: fx.cfg.Repository, Connection: "st15-muse",
-		Minutes: minutes, RecordedUnix: time.Now().Unix(),
+		Minutes: minutes, StartedAt: startedAt, EndedAt: endedAt,
 	}); err != nil {
 		fx.t.Fatal(err)
 	}
@@ -154,8 +156,10 @@ func (fx *st15Fixture) stopSettled(runID string) control.StopReceipt {
 	fx.t.Helper()
 	var receipt control.StopReceipt
 	for attempt := 0; ; attempt++ {
-		cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandStop, Target: runID,
-			Principal: "soda-maintainer", Digest: factory.CommandDigest(factory.CommandStop, runID)}
+		cmd := factory.Command{
+			ID: factory.NewID(), Type: factory.CommandStop, Target: runID,
+			Principal: "soda-maintainer", Digest: factory.CommandDigest(factory.CommandStop, runID),
+		}
 		var err error
 		receipt, err = fx.coord.Stop(fx.ctx, cmd)
 		if err != nil {

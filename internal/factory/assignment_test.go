@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -225,12 +226,26 @@ func TestReservationAndUsageValidate(t *testing.T) {
 	if err := r.Validate(); err == nil {
 		t.Fatal("unknown reservation state accepted")
 	}
-	u := Usage{RunID: NewID(), Repository: 7, Connection: "c", Minutes: 4, RecordedUnix: 1700000000}
+	u := Usage{
+		RunID: NewID(), Repository: 7, Connection: "c", Minutes: 4,
+		StartedAt: time.Unix(1699999760, 0).UTC(), EndedAt: time.Unix(1700000000, 0).UTC(),
+	}
 	if err := u.Validate(); err != nil {
 		t.Fatalf("usage refused: %v", err)
 	}
 	u.Minutes = -1
 	if err := u.Validate(); err == nil {
 		t.Fatal("negative usage accepted")
+	}
+	u.Minutes = 4
+	u.StartedAt, u.EndedAt = u.EndedAt, u.StartedAt
+	if err := u.Validate(); err == nil {
+		t.Fatal("reversed usage interval accepted")
+	}
+	u.StartedAt = time.Unix(1699999760, 0).UTC()
+	u.EndedAt = time.Unix(1700000000, 0).UTC()
+	u.Minutes = 3
+	if err := u.Validate(); err == nil {
+		t.Fatal("usage amount inconsistent with interval accepted")
 	}
 }

@@ -39,7 +39,7 @@ func recordConfirmedUsage(ctx context.Context, db *store.Store, a factory.Assign
 	}
 	return db.RecordRunUsage(ctx, factory.Usage{
 		RunID: run.ID, Repository: a.Repository, Connection: a.Connection,
-		Minutes: minutes, RecordedUnix: now.Unix(),
+		Minutes: minutes, StartedAt: run.Started.UTC(), EndedAt: now.UTC(),
 	})
 }
 

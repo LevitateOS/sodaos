@@ -2,6 +2,7 @@ package factory
 
 import (
 	"errors"
+	"time"
 )
 
 // Reservation states. Held capacity counts against every applicable
@@ -53,15 +54,16 @@ func (r Reservation) Validate() error {
 	return nil
 }
 
-// Usage is one settled run's confirmed provider consumption in whole
-// minutes. Rows are append-only: edits and resume never rewrite them, so
-// allowances only shrink until the sponsor grants a new revision.
+// Usage is one settled run's confirmed provider consumption. The interval
+// records the instants used to derive its rounded-up whole-minute charge.
+// Rows are append-only: edits and resume never rewrite them.
 type Usage struct {
-	RunID        string `json:"run_id"`
-	Repository   int64  `json:"repository,string"`
-	Connection   string `json:"connection"`
-	Minutes      int    `json:"minutes"`
-	RecordedUnix int64  `json:"recorded_unix"`
+	RunID      string    `json:"run_id"`
+	Repository int64     `json:"repository,string"`
+	Connection string    `json:"connection"`
+	Minutes    int       `json:"minutes"`
+	StartedAt  time.Time `json:"started_at"`
+	EndedAt    time.Time `json:"ended_at"`
 }
 
 // Validate rejects malformed usage rows.
@@ -72,8 +74,16 @@ func (u Usage) Validate() error {
 	if u.Connection == "" || len(u.Connection) > 128 {
 		return errors.New("invalid usage connection")
 	}
-	if u.Minutes < 0 || u.Minutes > 10080 || u.RecordedUnix <= 0 {
+	if u.Minutes < 0 || u.Minutes > 10080 || u.StartedAt.IsZero() || u.EndedAt.IsZero() || u.EndedAt.Before(u.StartedAt) {
 		return errors.New("invalid usage amount")
+	}
+	elapsed := u.EndedAt.Sub(u.StartedAt)
+	wantMinutes := 0
+	if elapsed > 0 {
+		wantMinutes = int((elapsed + time.Minute - time.Nanosecond) / time.Minute)
+	}
+	if u.Minutes != wantMinutes {
+		return errors.New("usage minutes do not match interval")
 	}
 	return nil
 }

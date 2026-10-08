@@ -99,6 +99,29 @@ func TestDispatchAccountingNeverRefreshes(t *testing.T) {
 	}
 }
 
+func TestRecordConfirmedUsagePreservesFractionalIntervalAndFirstWrite(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	start := time.Date(2026, 10, 1, 0, 0, 0, 123456789, time.FixedZone("test", 2*60*60))
+	run := factory.Run{ID: factory.NewID(), Started: start}
+	a := factory.Assignment{Repository: fx.repo, Connection: "conn"}
+	end := start.Add(time.Minute + time.Nanosecond)
+	if err := recordConfirmedUsage(ctx, db, a, run, end); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordConfirmedUsage(ctx, db, a, run, end.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.RunUsage(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Minutes != 2 || !got.StartedAt.Equal(start) || !got.EndedAt.Equal(end) || got.StartedAt.Location() != time.UTC || got.EndedAt.Location() != time.UTC {
+		t.Fatalf("usage interval lost precision or replay changed first write: %+v", got)
+	}
+}
+
 func TestDispatchInterruptionReleasesOnlyUnused(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
