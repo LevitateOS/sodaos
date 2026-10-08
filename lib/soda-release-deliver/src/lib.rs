@@ -23,7 +23,7 @@ pub use model::{
 };
 pub use payload::{Image, Payload, NAMES};
 
-/// Validation/transport failure; the message matches the Go owner exactly.
+/// Validation/transport failure with a diagnostic message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub String);
 

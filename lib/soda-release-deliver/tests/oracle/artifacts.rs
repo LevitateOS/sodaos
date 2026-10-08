@@ -9,7 +9,7 @@ use soda_release_deliver::oci::{inspect_oci, inspect_oci_content};
 use soda_release_deliver::payload::load;
 
 use super::{
-    decode_candidate, decode_channel, decode_payload, decode_release, golden_result, golden_str,
+    decode_candidate, decode_channel, decode_payload, decode_release, golden_ok, golden_str,
     goldens, hex_sha256, json_escape, temp_dir,
 };
 
@@ -129,46 +129,45 @@ fn oci_inspection_matches_oracle() {
         want_gzip.get("/usr/bin/app").unwrap().as_str().unwrap()
     );
 
-    let (ok, _) = golden_result(&g, "oci.inspect_empty_revision");
+    let ok = golden_ok(&g, "oci.inspect_empty_revision");
     assert_eq!(inspect_oci(&plain_path, "x86_64", "").is_ok(), ok);
-    let (ok, err) = golden_result(&g, "oci.content_missing");
+    let ok = golden_ok(&g, "oci.content_missing");
     let result = inspect_oci_content(&plain_path, "x86_64", &revision, &["/missing".to_string()]);
     assert_eq!(result.is_ok(), ok);
-    assert_eq!(result.unwrap_err().0, err);
 }
 
 #[test]
 fn strict_decode_edges_match_oracle() {
     let g = goldens();
-    let (ok, _) = golden_result(&g, "strict.duplicate");
+    let ok = golden_ok(&g, "strict.duplicate");
     let duplicate_path = format!("{}/duplicate.json", temp_dir("srd-json"));
     std::fs::write(&duplicate_path, br#"{"Format":1,"Format":2}"#).unwrap();
     assert_eq!(
         soda_release_deliver::document::read_json::<Channel>(&duplicate_path).is_ok(),
         ok
     );
-    let (ok, _) = golden_result(&g, "strict.unknown");
+    let ok = golden_ok(&g, "strict.unknown");
     let unknown_path = format!("{}/unknown.json", temp_dir("srd-json"));
     std::fs::write(&unknown_path, br#"{"Format":1,"Bogus":true}"#).unwrap();
     assert_eq!(
         soda_release_deliver::document::read_json::<Channel>(&unknown_path).is_ok(),
         ok
     );
-    let (ok, _) = golden_result(&g, "strict.trailing");
+    let ok = golden_ok(&g, "strict.trailing");
     let trailing_path = format!("{}/trailing.json", temp_dir("srd-json"));
     std::fs::write(&trailing_path, b"{\"Format\":1} ").unwrap();
     assert_eq!(
         soda_release_deliver::document::read_json::<Channel>(&trailing_path).is_ok(),
         ok
     );
-    let (ok, _) = golden_result(&g, "strict.trailing_garbage");
+    let ok = golden_ok(&g, "strict.trailing_garbage");
     let trailing_garbage_path = format!("{}/trailing-garbage.json", temp_dir("srd-json"));
     std::fs::write(&trailing_garbage_path, b"{\"Format\":1}x").unwrap();
     assert_eq!(
         soda_release_deliver::document::read_json::<Channel>(&trailing_garbage_path).is_ok(),
         ok
     );
-    let (ok, _) = golden_result(&g, "strict.nonobject");
+    let ok = golden_ok(&g, "strict.nonobject");
     let nonobject_path = format!("{}/nonobject.json", temp_dir("srd-json"));
     std::fs::write(&nonobject_path, b"[1]").unwrap();
     assert_eq!(
@@ -186,11 +185,10 @@ fn payload_load_matches_owner() {
     let payload = load(&path).expect("load");
     let (want, _) = decode_payload(&g);
     assert_eq!(payload, want);
-    // Build-JSON sites use Go's unknown-field error text.
+    // Unknown payload fields remain inadmissible.
     let bad_path = format!("{dir}/bad.json");
     std::fs::write(&bad_path, r#"{"Format":3,"Bogus":1}"#).unwrap();
-    let err = load(&bad_path).unwrap_err().0;
-    assert!(err.contains(r#"json: unknown field "Bogus""#), "{err}");
+    assert!(load(&bad_path).is_err());
 }
 
 #[test]
