@@ -74,7 +74,8 @@ func (c *Coordinator) ReopenDispatch(ctx context.Context, commandID, principal s
 	if !created {
 		return replayGrant(stored)
 	}
-	if err = c.Store.ReopenDispatch(bounded, repository, expected); err != nil {
+	_, revision, err = c.Store.ReopenDispatch(bounded, repository, expected)
+	if err != nil {
 		if errors.Is(err, store.ErrStaleRevision) {
 			_ = c.Store.FinishFactoryCommand(bounded, cmd.ID, `{"error":"stale_revision"}`, time.Now())
 		}
@@ -84,7 +85,7 @@ func (c *Coordinator) ReopenDispatch(ctx context.Context, commandID, principal s
 	if err != nil {
 		return GrantReceipt{}, err
 	}
-	receipt := GrantReceipt{CommandID: cmd.ID, Revision: expected + 1, Effective: after}
+	receipt := GrantReceipt{CommandID: cmd.ID, Revision: revision, Effective: after}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return GrantReceipt{}, err

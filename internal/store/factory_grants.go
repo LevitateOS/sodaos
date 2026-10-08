@@ -175,6 +175,13 @@ func (s *Store) DispatchState(ctx context.Context, repository int64) (bool, int6
 	if err == nil {
 		err = json.Unmarshal(data, &withdrawal)
 	}
+	if err == nil && !open {
+		if err = withdrawal.Validate(); err == nil && len(withdrawal.ActiveCauses) == 0 {
+			err = errors.New("closed dispatch has no active cause")
+		}
+	} else if err == nil && len(withdrawal.ActiveCauses) != 0 {
+		err = errors.New("open dispatch has active closure causes")
+	}
 	return open, revision, withdrawal, err
 }
 
@@ -277,6 +284,44 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 		return factory.Withdrawal{}, err
 	}
 	if !open {
+		if err = recorded.Validate(); err != nil || len(recorded.ActiveCauses) == 0 {
+			if err == nil {
+				err = errors.New("closed dispatch has no active cause")
+			}
+			return factory.Withdrawal{}, err
+		}
+		for _, active := range recorded.ActiveCauses {
+			if active == cause {
+				if err = tx.Commit(); err != nil {
+					return factory.Withdrawal{}, err
+				}
+				return recorded, nil
+			}
+		}
+		if len(recorded.ActiveCauses) >= factory.MaxActiveDispatchCauses {
+			return factory.Withdrawal{}, errors.New("too many active dispatch causes")
+		}
+		recorded.ActiveCauses = append(recorded.ActiveCauses, cause)
+		if err = recorded.Validate(); err != nil {
+			return factory.Withdrawal{}, err
+		}
+		nextRevision := revision + 1
+		data, marshalErr := json.Marshal(recorded)
+		if marshalErr != nil {
+			return factory.Withdrawal{}, marshalErr
+		}
+		result, updateErr := tx.ExecContext(ctx, `UPDATE factory_dispatch SET revision=$1,data=$2
+			WHERE repository=$3 AND revision=$4 AND NOT open`, nextRevision, string(data), repository, revision)
+		if updateErr != nil {
+			return factory.Withdrawal{}, fmt.Errorf("dispatch cause update failed: %w", updateErr)
+		}
+		n, affectedErr := result.RowsAffected()
+		if affectedErr != nil {
+			return factory.Withdrawal{}, affectedErr
+		}
+		if n != 1 {
+			return factory.Withdrawal{}, ErrStaleRevision
+		}
 		if err = tx.Commit(); err != nil {
 			return factory.Withdrawal{}, err
 		}
@@ -301,7 +346,7 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 	if len(captured) > factory.MaxCapturedDispatch {
 		return factory.Withdrawal{}, errors.New("too many outstanding dispatches to withdraw")
 	}
-	withdrawal := factory.Withdrawal{Repository: repository, Revision: revision + 1, Cause: cause, ClosedBy: closedBy, Captured: captured}
+	withdrawal := factory.Withdrawal{Repository: repository, Revision: revision + 1, Cause: cause, ClosedBy: closedBy, Captured: captured, ActiveCauses: []string{cause}}
 	if err = withdrawal.Validate(); err != nil {
 		return factory.Withdrawal{}, err
 	}
@@ -327,24 +372,86 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 	return withdrawal, nil
 }
 
-// ReopenDispatch reopens a withdrawn gate under CAS revision after an
-// authorized control revalidated every grant. Outstanding registrations
-// stay recorded; new dispatches bind fresh authority.
-func (s *Store) ReopenDispatch(ctx context.Context, repository, expectedRevision int64) error {
+// ReopenDispatch clears non-Project-stop causes under the locked dispatch
+// row. A Project stop remains in force until a verified Project start clears it.
+func (s *Store) ReopenDispatch(ctx context.Context, repository, expectedRevision int64) (bool, int64, error) {
+	return s.clearDispatchCauses(ctx, repository, expectedRevision, true)
+}
+
+// ClearProjectStop removes only the Project lifecycle cause after verified
+// start and run quiescence. First-closure attribution remains a receipt.
+func (s *Store) ClearProjectStop(ctx context.Context, repository, expectedRevision int64) (bool, int64, error) {
+	return s.clearDispatchCauses(ctx, repository, expectedRevision, false)
+}
+
+// clearDispatchCauses is the single row-lock/CAS transaction for the two
+// authorized cause-clear operations. Resume retains project_stop; verified
+// Start removes only project_stop.
+func (s *Store) clearDispatchCauses(ctx context.Context, repository, expectedRevision int64, retainProjectStop bool) (bool, int64, error) {
 	if repository <= 0 || expectedRevision < 0 {
-		return errors.New("invalid dispatch reopen")
+		return false, 0, errors.New("invalid dispatch cause clear")
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_dispatch SET revision=revision+1,open=TRUE WHERE repository=$1 AND revision=$2 AND NOT open`,
-		repository, expectedRevision)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("dispatch reopen failed: %w", err)
+		return false, 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var open bool
+	var revision int64
+	var raw []byte
+	if err = tx.QueryRowContext(ctx, `SELECT open,revision,data FROM factory_dispatch WHERE repository=$1 FOR UPDATE`, repository).Scan(&open, &revision, &raw); err != nil {
+		return false, 0, err
+	}
+	if open || revision != expectedRevision {
+		return false, revision, ErrStaleRevision
+	}
+	var withdrawal factory.Withdrawal
+	if err = json.Unmarshal(raw, &withdrawal); err != nil {
+		return false, revision, err
+	}
+	if err = withdrawal.Validate(); err != nil || len(withdrawal.ActiveCauses) == 0 {
+		if err == nil {
+			err = errors.New("closed dispatch has no active cause")
+		}
+		return false, revision, err
+	}
+	remaining := make([]string, 0, len(withdrawal.ActiveCauses))
+	for _, active := range withdrawal.ActiveCauses {
+		keep := active == factory.CauseProjectStop
+		if !retainProjectStop {
+			keep = active != factory.CauseProjectStop
+		}
+		if keep {
+			remaining = append(remaining, active)
+		}
+	}
+	if len(remaining) == len(withdrawal.ActiveCauses) {
+		if err = tx.Commit(); err != nil {
+			return false, revision, err
+		}
+		return false, revision, nil
+	}
+	withdrawal.ActiveCauses = remaining
+	nextRevision := revision + 1
+	data, err := json.Marshal(withdrawal)
+	if err != nil {
+		return false, revision, fmt.Errorf("dispatch cause clear failed: %w", err)
+	}
+	nextOpen := len(remaining) == 0
+	result, err := tx.ExecContext(ctx, `UPDATE factory_dispatch SET revision=$1,open=$2,data=$3 WHERE repository=$4 AND revision=$5 AND NOT open`,
+		nextRevision, nextOpen, string(data), repository, revision)
+	if err != nil {
+		return false, revision, err
 	}
 	n, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return false, revision, err
 	}
 	if n != 1 {
-		return ErrStaleRevision
+		return false, revision, ErrStaleRevision
 	}
-	return nil
+	if err = tx.Commit(); err != nil {
+		return false, revision, err
+	}
+	return nextOpen, nextRevision, nil
 }

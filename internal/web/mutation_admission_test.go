@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/project"
@@ -139,6 +141,71 @@ func TestMutationAdmissionAfterNativeCallbackIO(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestStartAdmissionRefusesOverlappingStopAndKeepsPeer(t *testing.T) {
+	s, _ := managementWebFixture(t)
+	peerCtx, cancelPeer := context.WithCancel(t.Context())
+	defer cancelPeer()
+	peerRequest := apiTestRequest("POST", "/unused", "", "alice")
+	s.API.TerminalPeers = map[*http.Request]*api.TerminalPeer{
+		peerRequest: {Project: webTerminalProject, Cancel: cancelPeer},
+	}
+	defer func() { delete(s.API.TerminalPeers, peerRequest) }()
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
+	var hostCalls atomic.Int32
+	s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		hostCalls.Add(1)
+		if r.URL.Path != "/lifecycle" {
+			return &http.Response{StatusCode: http.StatusInternalServerError, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("unexpected helper call"))}, nil
+		}
+		var body struct {
+			Action string `json:"action"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Action != "start" {
+			return &http.Response{StatusCode: http.StatusInternalServerError, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("unexpected lifecycle action"))}, nil
+		}
+		close(entered)
+		<-release
+		response := `{"environment":{"id":"` + webTerminalProject + `","running":true},"boot_enabled":true}`
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(response))}, nil
+	})}
+	startResponse := httptest.NewRecorder()
+	startDone := make(chan struct{})
+	go func() {
+		nativeAPIServe(t, s, startResponse, apiTestRequest("POST", "/api/environments/"+webTerminalProject+"/lifecycle", `{"action":"start"}`, "alice"))
+		close(startDone)
+	}()
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not reach the host while holding lifecycle admission")
+	}
+	stop := httptest.NewRecorder()
+	nativeAPIServe(t, s, stop, apiTestRequest("POST", "/api/environments/"+webTerminalProject+"/lifecycle", `{"action":"stop","confirm_stop":true}`, "alice"))
+	if stop.Code != http.StatusConflict || !strings.Contains(stop.Body.String(), "lifecycle_pending") {
+		t.Fatalf("overlapping Stop was not reported as lifecycle busy: %d %s", stop.Code, stop.Body.String())
+	}
+	if peerCtx.Err() != nil {
+		t.Fatal("Start cancelled an existing human terminal peer")
+	}
+	close(release)
+	select {
+	case <-startDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not finish after host response")
+	}
+	if startResponse.Code != http.StatusOK || hostCalls.Load() != 1 {
+		t.Fatalf("Start failed or overlapping Stop reached the host: status=%d host calls=%d body=%s", startResponse.Code, hostCalls.Load(), startResponse.Body.String())
 	}
 }
 

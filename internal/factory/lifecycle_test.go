@@ -38,7 +38,7 @@ func pauseFixture() PauseReceipt {
 	return PauseReceipt{
 		CommandID:  NewID(),
 		Paused:     true,
-		Withdrawal: Withdrawal{Repository: 7, Revision: 1, Cause: CauseControlPaused, ClosedBy: "native:1", Captured: []string{}},
+		Withdrawal: Withdrawal{Repository: 7, Revision: 1, Cause: CauseControlPaused, ClosedBy: "native:1", Captured: []string{}, ActiveCauses: []string{CauseControlPaused}},
 		Runs:       []RunStopOutcome{},
 	}
 }
@@ -88,8 +88,10 @@ func TestResumeReceiptValidates(t *testing.T) {
 	}
 	closed := receipt
 	closed.Reopened = false
-	if closed.Validate() == nil {
-		t.Fatal("unreopened resume admitted")
+	closed.Effective.DispatchOpen = false
+	closed.Effective.Effective = false
+	if err := closed.Validate(); err != nil {
+		t.Fatal("honest still-closed resume rejected", err)
 	}
 }
 

@@ -67,20 +67,22 @@ func (s *API) checkLifecycleSession(w http.ResponseWriter, r *http.Request, v st
 	return true
 }
 
-func (s *API) acquireLifecycleStop(w http.ResponseWriter, projectID string) (func(), bool) {
+func (s *API) acquireLifecycleMutation(w http.ResponseWriter, projectID, action string) (func(), bool) {
 	s.terminalMu.Lock()
 	if s.TerminalStopping == nil {
 		s.TerminalStopping = make(map[string]bool)
 	}
 	if s.TerminalStopping[projectID] {
 		s.terminalMu.Unlock()
-		auth.JSONError(w, 409, "stop_pending", "A Stop is already pending; inspect its outcome.")
+		auth.JSONError(w, 409, "lifecycle_pending", "A lifecycle change is already pending; inspect its outcome.")
 		return nil, false
 	}
 	s.TerminalStopping[projectID] = true
-	for _, peer := range s.TerminalPeers {
-		if peer.Project == projectID {
-			peer.Cancel()
+	if action == "stop" {
+		for _, peer := range s.TerminalPeers {
+			if peer.Project == projectID {
+				peer.Cancel()
+			}
 		}
 	}
 	s.terminalMu.Unlock()
@@ -109,14 +111,11 @@ func (s *API) handleLifecycleMutation(w http.ResponseWriter, r *http.Request, v 
 	if !s.checkLifecycleSession(w, r, v) {
 		return "", nil, false
 	}
-	if action == "stop" {
-		cleanup, ok := s.acquireLifecycleStop(w, p.ID)
-		if !ok {
-			return "", nil, false
-		}
-		return action, cleanup, true
+	cleanup, ok := s.acquireLifecycleMutation(w, p.ID, action)
+	if !ok {
+		return "", nil, false
 	}
-	return action, nil, true
+	return action, cleanup, true
 }
 
 func (s *API) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Session) {
@@ -267,5 +266,11 @@ func (s *API) apiLifecycleStart(w http.ResponseWriter, r *http.Request, v store.
 		}
 		return
 	}
+	dispatchOpen, err := s.Coordinator.ClearProjectStopAfterStart(opCtx, p.ID, verification)
+	if err != nil {
+		auth.JSONError(w, 503, "dispatch_state_unconfirmed", "Project started, but dispatch state could not be confirmed; inspect before relying on dispatch.")
+		return
+	}
+	verification.DispatchOpen = dispatchOpen
 	auth.JSONResponse(w, 200, lifecycleStartView{LifecycleState: result, Verification: verification})
 }

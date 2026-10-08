@@ -142,7 +142,7 @@ func TestEvaluateAuthority(t *testing.T) {
 }
 
 func TestWithdrawalValidation(t *testing.T) {
-	good := Withdrawal{Repository: 42, Cause: "policy_paused", ClosedBy: "native:7", Captured: []string{NewID()}}
+	good := Withdrawal{Repository: 42, Cause: "policy_paused", ClosedBy: "native:7", Captured: []string{NewID()}, ActiveCauses: []string{"policy_paused"}}
 	if err := good.Validate(); err != nil {
 		t.Fatal(err)
 	}

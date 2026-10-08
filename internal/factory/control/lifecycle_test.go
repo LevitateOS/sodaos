@@ -176,3 +176,50 @@ func TestResumeRefusesWithdrawnGrants(t *testing.T) {
 		t.Fatalf("resume without grants: %v", err)
 	}
 }
+
+func TestResumePreservesProjectStopUntilVerifiedStart(t *testing.T) {
+	c := coordinatorFixture(t, &stubHost{}, &stubBroker{})
+	lifecycleProjectFixture(t, c, 42)
+	grantFullAuthority(t, c)
+	readyPreparations(t, c, lifecycleProject)
+	if _, err := c.Store.WithdrawDispatch(context.Background(), 42, factory.CauseProjectStop, "native:7"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.PauseRepository(context.Background(), factory.NewID(), "native:7", 42); err != nil {
+		t.Fatal(err)
+	}
+	resumed, err := c.ResumeRepository(context.Background(), factory.NewID(), "native:7", 42)
+	if err != nil || resumed.Reopened || resumed.Effective.DispatchOpen {
+		t.Fatalf("resume cleared Project stop: %+v %v", resumed, err)
+	}
+	if err = resumed.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	open, _, withdrawal, err := c.Store.DispatchState(context.Background(), 42)
+	if err != nil || open || len(withdrawal.ActiveCauses) != 1 || withdrawal.ActiveCauses[0] != factory.CauseProjectStop {
+		t.Fatalf("Project stop cause not retained: %v %+v %v", open, withdrawal, err)
+	}
+	open, err = c.ClearProjectStopAfterStart(context.Background(), lifecycleProject, factory.StartVerification{Started: true})
+	if err != nil || !open {
+		t.Fatalf("verified start did not clear final cause: %v %v", open, err)
+	}
+}
+
+func TestStartKeepsProjectStopWhileRunIsUnsettled(t *testing.T) {
+	c := coordinatorFixture(t, &stubHost{}, &stubBroker{})
+	lifecycleProjectFixture(t, c, 42)
+	if _, err := c.Store.WithdrawDispatch(context.Background(), 42, factory.CauseProjectStop, "native:7"); err != nil {
+		t.Fatal(err)
+	}
+	if r := recordRun(t, c, nil); r.ID == "" {
+		t.Fatal("fixture did not record run")
+	}
+	open, err := c.ClearProjectStopAfterStart(context.Background(), lifecycleProject, factory.StartVerification{Started: true})
+	if err != nil || open {
+		t.Fatalf("clean verification cleared a stop with unsettled work: %v %v", open, err)
+	}
+	open, _, withdrawal, err := c.Store.DispatchState(context.Background(), 42)
+	if err != nil || open || len(withdrawal.ActiveCauses) != 1 || withdrawal.ActiveCauses[0] != factory.CauseProjectStop {
+		t.Fatalf("unsettled run lost its Project stop fence: %v %+v %v", open, withdrawal, err)
+	}
+}

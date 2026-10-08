@@ -307,10 +307,16 @@ func (d DispatchRegistration) Validate() error {
 // MaxCapturedDispatch bounds the outstanding IDs one withdrawal reports.
 const MaxCapturedDispatch = 1024
 
+// MaxActiveDispatchCauses bounds the cause labels retained on one gate.
+// Labels remain bounded strings because grant withdrawal callers own their
+// vocabulary; lifecycle controls do not reinterpret grant causes.
+const MaxActiveDispatchCauses = 16
+
 // Withdrawal is the durable record of one dispatch closure: the cause, the
 // closing principal and every outstanding ID captured in order. Local
 // withdrawal acknowledges requested cancellation, not a won native race.
 type Withdrawal struct {
+	ActiveCauses []string              `json:"active_causes"`
 	Publications PublicationWithdrawal `json:"publications"`
 	Merges       MergeWithdrawal       `json:"merges"`
 	Captured     []string              `json:"captured"`
@@ -326,6 +332,19 @@ func (w Withdrawal) Validate() error {
 	}
 	if len(w.Captured) > MaxCapturedDispatch {
 		return errors.New("withdrawal captures too many outstanding dispatches")
+	}
+	if len(w.ActiveCauses) > MaxActiveDispatchCauses {
+		return errors.New("dispatch has too many active closure causes")
+	}
+	seenCauses := make(map[string]struct{}, len(w.ActiveCauses))
+	for _, cause := range w.ActiveCauses {
+		if cause == "" || len(cause) > 256 {
+			return errors.New("invalid active dispatch cause")
+		}
+		if _, exists := seenCauses[cause]; exists {
+			return errors.New("duplicate active dispatch cause")
+		}
+		seenCauses[cause] = struct{}{}
 	}
 	for _, id := range w.Captured {
 		if !ValidID(id) {

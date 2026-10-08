@@ -141,14 +141,72 @@ func TestDispatchWithdrawalOrdering(t *testing.T) {
 	if err != nil || len(replay.Captured) != 2 || replay.Revision != 1 {
 		t.Fatalf("withdrawal replay: %+v %v", replay, err)
 	}
-	if err = db.ReopenDispatch(ctx, 42, 0); !errors.Is(err, ErrStaleRevision) {
+	if _, _, err = db.ReopenDispatch(ctx, 42, 0); !errors.Is(err, ErrStaleRevision) {
 		t.Fatal("stale reopen accepted", err)
 	}
-	if err = db.ReopenDispatch(ctx, 42, 1); err != nil {
-		t.Fatal(err)
+	if opened, revision, reopenErr := db.ReopenDispatch(ctx, 42, 1); reopenErr != nil || !opened || revision != 2 {
+		t.Fatal(opened, revision, reopenErr)
 	}
 	if err = db.RegisterDispatch(ctx, late); err != nil {
 		t.Fatal("registration refused after reopen", err)
+	}
+}
+
+func TestDispatchCausesComposeAndClearIndependently(t *testing.T) {
+	db := grantStoreFixture(t)
+	ctx := context.Background()
+	first, err := db.WithdrawDispatch(ctx, 42, factory.CauseProjectStop, "native:7")
+	if err != nil || first.Revision != 1 || len(first.ActiveCauses) != 1 {
+		t.Fatalf("first cause: %+v %v", first, err)
+	}
+	second, err := db.WithdrawDispatch(ctx, 42, factory.CauseControlPaused, "native:8")
+	if err != nil || second.Revision != first.Revision || second.Cause != first.Cause || second.ClosedBy != first.ClosedBy || len(second.ActiveCauses) != 2 {
+		t.Fatalf("second cause changed first-closure receipt: %+v %v", second, err)
+	}
+	open, revision, state, err := db.DispatchState(ctx, 42)
+	if err != nil || open || revision != 2 || len(state.Captured) != 0 || len(state.ActiveCauses) != 2 {
+		t.Fatalf("composed state: %v %d %+v %v", open, revision, state, err)
+	}
+	duplicate, err := db.WithdrawDispatch(ctx, 42, factory.CauseControlPaused, "different-principal")
+	if err != nil || len(duplicate.ActiveCauses) != 2 {
+		t.Fatalf("duplicate cause changed state: %+v %v", duplicate, err)
+	}
+	open, revision, err = db.ClearProjectStop(ctx, 42, revision)
+	if err != nil || open || revision != 3 {
+		t.Fatalf("clearing Project stop cleared independent pause: %v %d %v", open, revision, err)
+	}
+	open, revision, err = db.ReopenDispatch(ctx, 42, revision)
+	if err != nil || !open || revision != 4 {
+		t.Fatalf("resume did not clear final cause: %v %d %v", open, revision, err)
+	}
+	open, revision, state, err = db.DispatchState(ctx, 42)
+	if err != nil || !open || revision != 4 || len(state.ActiveCauses) != 0 || state.Cause != factory.CauseProjectStop {
+		t.Fatalf("open state lost first-closure receipt or retained causes: %v %d %+v %v", open, revision, state, err)
+	}
+}
+
+func TestProjectStopCauseComposesAfterExistingPause(t *testing.T) {
+	db := grantStoreFixture(t)
+	ctx := context.Background()
+	first, err := db.WithdrawDispatch(ctx, 42, factory.CauseControlPaused, "native:7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := db.WithdrawDispatch(ctx, 42, factory.CauseProjectStop, "native:8")
+	if err != nil || second.Cause != first.Cause || second.ClosedBy != first.ClosedBy || len(second.ActiveCauses) != 2 {
+		t.Fatalf("Project stop overwrote the first pause receipt: %+v %v", second, err)
+	}
+	open, revision, err := db.ClearProjectStop(ctx, 42, 2)
+	if err != nil || open || revision != 3 {
+		t.Fatalf("Start cleared the independent pause: %v %d %v", open, revision, err)
+	}
+	open, revision, _, err = db.DispatchState(ctx, 42)
+	if err != nil || open || revision != 3 {
+		t.Fatalf("pause did not remain active: %v %d %v", open, revision, err)
+	}
+	open, revision, err = db.ReopenDispatch(ctx, 42, revision)
+	if err != nil || !open || revision != 4 {
+		t.Fatalf("authorized Resume did not clear the final pause: %v %d %v", open, revision, err)
 	}
 }
 

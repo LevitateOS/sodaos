@@ -314,6 +314,32 @@ func TestLifecycleStopAndStartCoordinate(t *testing.T) {
 	if !started.Verification.Hold {
 		t.Fatalf("hold released by start: %+v", started.Verification)
 	}
+	open, _, withdrawal, err := s.Store.DispatchState(t.Context(), 7)
+	if err != nil || open || len(withdrawal.ActiveCauses) != 1 || withdrawal.ActiveCauses[0] != factory.CauseProjectStop {
+		t.Fatalf("uncertain start cleared Project stop: %v %+v %v", open, withdrawal, err)
+	}
+}
+
+func TestLifecycleStartClearsProjectStopAfterQuiescence(t *testing.T) {
+	s := lifecycleWebFixture(t)
+	if _, err := s.Store.WithdrawDispatch(t.Context(), 7, factory.CauseProjectStop, "native:1"); err != nil {
+		t.Fatal(err)
+	}
+	started := lifecycleAction(t, s, "POST", "/api/environments/"+webTerminalProject+"/lifecycle", `{"action":"start"}`, "alice")
+	if started.Code != 200 {
+		t.Fatal(started.Code, started.Body.String())
+	}
+	var view struct {
+		Verification factory.StartVerification `json:"verification"`
+	}
+	decodeBody(t, started, &view)
+	if !view.Verification.DispatchOpen || !view.Verification.Started {
+		t.Fatalf("start did not report reopened dispatch: %+v", view)
+	}
+	open, _, withdrawal, err := s.Store.DispatchState(t.Context(), 7)
+	if err != nil || !open || len(withdrawal.ActiveCauses) != 0 || withdrawal.Cause != factory.CauseProjectStop {
+		t.Fatalf("Project start did not clear only active cause: %v %+v %v", open, withdrawal, err)
+	}
 }
 
 func TestSpacesShowsFactoryControl(t *testing.T) {

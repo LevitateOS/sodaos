@@ -126,6 +126,10 @@ func (c *Coordinator) VerifyProjectStart(ctx context.Context, projectID string) 
 		return factory.StartVerification{}, err
 	}
 	verification.Hold = err == nil && held.Hold
+	verification.DispatchOpen, _, _, err = c.Store.DispatchState(bounded, p.RepositoryID)
+	if err != nil {
+		return factory.StartVerification{}, err
+	}
 	return verification, nil
 }
 

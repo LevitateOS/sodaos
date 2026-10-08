@@ -155,6 +155,42 @@ func (c *Coordinator) StopProject(ctx context.Context, principal, projectID stri
 	return c.withdrawAndStopRuns(bounded, p.RepositoryID, factory.CauseProjectStop, principal)
 }
 
+// ClearProjectStopAfterStart releases only the Project lifecycle cause after
+// host start verification and confirmation that no unsettled Project run
+// remains. Independent repository and grant causes stay closed.
+func (c *Coordinator) ClearProjectStopAfterStart(ctx context.Context, projectID string, verification factory.StartVerification) (bool, error) {
+	if err := verification.Validate(); err != nil {
+		return false, err
+	}
+	p, err := c.Store.Project(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	open, revision, withdrawal, err := c.Store.DispatchState(ctx, p.RepositoryID)
+	if err != nil || open {
+		return open, err
+	}
+	hasProjectStop := false
+	for _, cause := range withdrawal.ActiveCauses {
+		if cause == factory.CauseProjectStop {
+			hasProjectStop = true
+			break
+		}
+	}
+	if !hasProjectStop || len(verification.Revived) != 0 || len(verification.Unverified) != 0 {
+		return false, nil
+	}
+	unsettled, err := c.Store.ProjectUnsettledRuns(ctx, p.ID, 1)
+	if err != nil {
+		return false, err
+	}
+	if len(unsettled) != 0 {
+		return false, nil
+	}
+	open, _, err = c.Store.ClearProjectStop(ctx, p.RepositoryID, revision)
+	return open, err
+}
+
 // ResumeRepository reopens a paused gate after every recorded run settles
 // and every grant revalidates. It consumes the coordinator-only reopen
 // hook and launches nothing; queued work stays queued.
@@ -212,7 +248,7 @@ func (c *Coordinator) ResumeRepository(ctx context.Context, commandID, principal
 	if err != nil {
 		return factory.ResumeReceipt{}, err
 	}
-	receipt := factory.ResumeReceipt{Effective: reopened.Effective, CommandID: cmd.ID, Revision: reopened.Revision, Reopened: true}
+	receipt := factory.ResumeReceipt{Effective: reopened.Effective, CommandID: cmd.ID, Revision: reopened.Revision, Reopened: reopened.Effective.DispatchOpen}
 	if err = receipt.Validate(); err != nil {
 		return factory.ResumeReceipt{}, err
 	}

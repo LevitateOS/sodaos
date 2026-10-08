@@ -102,7 +102,7 @@ type ResumeReceipt struct {
 }
 
 func (r ResumeReceipt) Validate() error {
-	if !ValidID(r.CommandID) || !r.Reopened || r.Revision < 0 {
+	if !ValidID(r.CommandID) || r.Revision < 0 || (r.Reopened && !r.Effective.DispatchOpen) {
 		return errors.New("invalid resume receipt")
 	}
 	return nil
@@ -162,10 +162,11 @@ func (r TakeoverRecord) Validate() error {
 // recorded. Leases stay closed, grants and readiness are untouched, and
 // the maintenance hold keeps whatever state it had.
 type StartVerification struct {
-	Revived    []string `json:"revived"`
-	Unverified []string `json:"unverified"`
-	Hold       bool     `json:"hold"`
-	Started    bool     `json:"started"`
+	Revived      []string `json:"revived"`
+	Unverified   []string `json:"unverified"`
+	Hold         bool     `json:"hold"`
+	Started      bool     `json:"started"`
+	DispatchOpen bool     `json:"dispatch_open"`
 }
 
 func (v StartVerification) Validate() error {

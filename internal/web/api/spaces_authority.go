@@ -67,7 +67,9 @@ func (s *API) inspectSpaceControl(ctx context.Context, runs []factory.Run, runsK
 	}
 	view.DispatchOpen = open
 	if !open {
-		view.WithdrawalCause = withdrawal.Cause
+		if len(withdrawal.ActiveCauses) > 0 {
+			view.WithdrawalCause = withdrawal.ActiveCauses[0]
+		}
 	}
 	for _, run := range runs {
 		if run.ProjectID == projectID && !run.Reconciled {
