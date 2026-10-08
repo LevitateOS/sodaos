@@ -454,10 +454,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── primitives.rs
 │   │   │   ├── context.rs
 │   │   │   ├── import.rs
-│   │   │   ├── json_binding.rs
 │   │   │   ├── main.rs
 │   │   │   ├── payload.rs
-│   │   │   └── platform.rs
+│   │   │   ├── platform.rs
+│   │   │   └── json.rs
 │   │   └── Cargo.toml
 │   ├── soda-install/
 │   │   ├── src/
@@ -552,7 +552,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── main.rs
 │   │   │   ├── pemx.rs
 │   │   │   ├── run.rs
-│   │   │   └── signal.rs
+│   │   │   ├── signal.rs
+│   │   │   └── pathx.rs
 │   │   └── Cargo.toml
 │   ├── soda-muse/
 │   │   ├── src/
@@ -596,7 +597,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── release_validation.rs
 │   │   │   ├── release_wire.rs
 │   │   │   ├── stage.rs
-│   │   │   └── test_support.rs
+│   │   │   ├── test_support.rs
+│   │   │   └── sha256.rs
 │   │   └── Cargo.toml
 │   ├── soda-pg-maintenance/
 │   │   ├── src/
@@ -626,7 +628,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── sha_tests.rs
 │   │   │   │   ├── tests.rs
 │   │   │   │   ├── validate.rs
-│   │   │   │   └── validate_tests.rs
+│   │   │   │   ├── validate_tests.rs
+│   │   │   │   ├── b64.rs
+│   │   │   │   ├── emit.rs
+│   │   │   │   └── sha.rs
 │   │   │   ├── account.rs
 │   │   │   ├── broker.rs
 │   │   │   ├── broker_tests.rs
@@ -672,7 +677,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── term_status.rs
 │   │   │   ├── timex.rs
 │   │   │   ├── timex_tests.rs
-│   │   │   └── tmux.rs
+│   │   │   ├── tmux.rs
+│   │   │   ├── b64.rs
+│   │   │   ├── pyemit.rs
+│   │   │   └── sha.rs
 │   │   ├── tests/
 │   │   │   ├── cli.rs
 │   │   │   ├── factory_roles_oracle.rs
@@ -974,7 +982,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── python.md
 │   │   ├── release.md
 │   │   ├── testing.md
-│   │   └── typescript.md
+│   │   ├── typescript.md
+│   │   └── canlang-soda-os-implementation-plan.md
 │   ├── factory/
 │   │   └── decision-gate.md
 │   ├── guides/
@@ -984,7 +993,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── media.md
 │   │   ├── operator-setup.md
 │   │   ├── project-clis.md
-│   │   └── project-services.md
+│   │   ├── project-services.md
+│   │   └── soda-candidate.md
 │   ├── operator/
 │   │   └── enroll-key.md
 │   ├── ops/
@@ -1696,7 +1706,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── terminal.go
 │   │   ├── terminal_boundary_native_test.go
 │   │   ├── terminal_client.go
-│   │   └── terminal_native_test.go
+│   │   ├── terminal_native_test.go
+│   │   └── doc.go
 │   ├── identity/
 │   │   ├── client/
 │   │   │   ├── broker_compat_test.go
@@ -1791,7 +1802,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── control_validation.go
 │   │   ├── project_runtime.go
 │   │   ├── tailnet.go
-│   │   └── tailnet_test.go
+│   │   ├── tailnet_test.go
+│   │   └── control_validation_test.go
 │   └── web/
 │       ├── api/
 │       │   ├── access_keys.go
@@ -1898,7 +1910,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       ├── spaces_test.go
 │       ├── tailnet_test.go
 │       ├── terminal_test.go
-│       └── test_helpers_test.go
+│       ├── test_helpers_test.go
+│       └── identity_stub_test.go
 ├── lib/
 │   ├── unix-http/
 │   │   ├── src/
@@ -2182,7 +2195,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── requests.rs
 │   │   │   ├── daemon.rs
 │   │   │   └── terminal_transport.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── GMUX_PATCHES.md
 │   ├── release-inputs/
 │   │   ├── src/
 │   │   │   ├── elf.rs
@@ -2273,7 +2287,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── content.rs
 │   │   │   ├── document.rs
 │   │   │   ├── finalize.rs
-│   │   │   ├── import.rs
 │   │   │   ├── lib.rs
 │   │   │   ├── payload.rs
 │   │   │   └── prepare.rs
@@ -2289,14 +2302,14 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   ├── soda-release-image/
 │   │   ├── src/
 │   │   │   ├── build_context/
-│   │   │   │   └── tests.rs
+│   │   │   │   ├── tests.rs
+│   │   │   │   └── mod.rs
 │   │   │   ├── build_runner/
 │   │   │   │   └── tests.rs
 │   │   │   ├── media/
 │   │   │   │   └── tests.rs
 │   │   │   ├── model/
 │   │   │   │   ├── candidate.rs
-│   │   │   │   ├── live_inputs.rs
 │   │   │   │   ├── payload.rs
 │   │   │   │   ├── tests.rs
 │   │   │   │   ├── trust.rs
@@ -2306,7 +2319,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── build.rs
 │   │   │   ├── build_candidate.rs
 │   │   │   ├── build_compile.rs
-│   │   │   ├── build_context.rs
 │   │   │   ├── build_media.rs
 │   │   │   ├── build_runner.rs
 │   │   │   ├── build_source.rs
@@ -2330,7 +2342,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── media_container.rs
 │   │   │   ├── media_installer.rs
 │   │   │   ├── model.rs
-│   │   │   ├── ordered_json.rs
 │   │   │   ├── packages.rs
 │   │   │   ├── payload_stage.rs
 │   │   │   ├── prepare.rs
@@ -2347,59 +2358,64 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── staging.rs
 │   │   │   └── oracle.rs
 │   │   └── Cargo.toml
-│   └── soda-release-tools/
-│       ├── src/
-│       │   ├── artifacts/
-│       │   │   └── tests.rs
-│       │   ├── bin/
-│       │   │   ├── soda-artifacts.rs
-│       │   │   ├── soda-build.rs
-│       │   │   ├── soda-candidate-check.rs
-│       │   │   └── soda-candidate.rs
-│       │   ├── build_cli/
-│       │   │   └── tests.rs
-│       │   ├── candidate/
-│       │   │   ├── mod.rs
-│       │   │   ├── options.rs
-│       │   │   └── tests.rs
-│       │   ├── candidate_display/
-│       │   │   ├── events.rs
-│       │   │   ├── mod.rs
-│       │   │   └── tests.rs
-│       │   ├── candidate_fixture/
-│       │   │   └── tests.rs
-│       │   ├── candidate_prompts/
-│       │   │   ├── defaults.rs
-│       │   │   ├── mod.rs
-│       │   │   └── tests.rs
-│       │   ├── progress/
-│       │   │   └── tests.rs
-│       │   ├── worker/
-│       │   │   ├── config.rs
-│       │   │   ├── execution.rs
-│       │   │   ├── mod.rs
-│       │   │   ├── runtime.rs
-│       │   │   └── tests.rs
-│       │   ├── artifacts.rs
-│       │   ├── build_cli.rs
-│       │   ├── build_spec.rs
-│       │   ├── candidate_check.rs
-│       │   ├── candidate_controller.rs
-│       │   ├── candidate_fixture.rs
-│       │   ├── candidate_hints.rs
-│       │   ├── digest.rs
-│       │   ├── exitcode.rs
-│       │   ├── lib.rs
-│       │   └── progress.rs
-│       ├── tests/
-│       │   └── cli/
-│       │       ├── main.rs
-│       │       ├── soda_artifacts.rs
-│       │       ├── soda_build.rs
-│       │       ├── soda_candidate.rs
-│       │       └── soda_candidate_check.rs
+│   ├── soda-release-tools/
+│   │   ├── src/
+│   │   │   ├── artifacts/
+│   │   │   │   └── tests.rs
+│   │   │   ├── bin/
+│   │   │   │   ├── soda-artifacts.rs
+│   │   │   │   ├── soda-build.rs
+│   │   │   │   ├── soda-candidate-check.rs
+│   │   │   │   └── soda-candidate.rs
+│   │   │   ├── build_cli/
+│   │   │   │   └── tests.rs
+│   │   │   ├── candidate/
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── options.rs
+│   │   │   │   └── tests.rs
+│   │   │   ├── candidate_display/
+│   │   │   │   ├── events.rs
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tests.rs
+│   │   │   ├── candidate_fixture/
+│   │   │   │   └── tests.rs
+│   │   │   ├── candidate_prompts/
+│   │   │   │   ├── defaults.rs
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tests.rs
+│   │   │   ├── progress/
+│   │   │   │   └── tests.rs
+│   │   │   ├── worker/
+│   │   │   │   ├── config.rs
+│   │   │   │   ├── execution.rs
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── runtime.rs
+│   │   │   │   └── tests.rs
+│   │   │   ├── artifacts.rs
+│   │   │   ├── build_cli.rs
+│   │   │   ├── build_spec.rs
+│   │   │   ├── candidate_controller.rs
+│   │   │   ├── candidate_fixture.rs
+│   │   │   ├── candidate_hints.rs
+│   │   │   ├── digest.rs
+│   │   │   ├── exitcode.rs
+│   │   │   ├── lib.rs
+│   │   │   ├── progress.rs
+│   │   │   ├── check_cli.rs
+│   │   │   └── pipeline.rs
+│   │   ├── tests/
+│   │   │   └── cli/
+│   │   │       ├── main.rs
+│   │   │       ├── soda_artifacts.rs
+│   │   │       ├── soda_build.rs
+│   │   │       ├── soda_candidate.rs
+│   │   │       └── soda_candidate_check.rs
+│   │   ├── Cargo.toml
+│   │   └── build.rs
+│   └── wire-time/
 │       ├── Cargo.toml
-│       └── build.rs
+│       └── src/
+│           └── lib.rs
 ├── scripts/
 │   ├── fixtures/
 │   │   ├── portcontracts/
@@ -2617,7 +2633,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   ├── forgejo/
 │   │   ├── fixtures/
 │   │   │   ├── component-browser.ts
-│   │   │   └── lit-smoke.ts
+│   │   │   ├── lit-smoke.ts
+│   │   │   └── component-browser-lifecycle.probe.ts
 │   │   ├── presentation/
 │   │   │   ├── dashboard-sidebar-browser.test.ts
 │   │   │   ├── form-browser.test.ts
@@ -2662,7 +2679,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── repository-actions.test.ts
 │   │   ├── repository-container.test.ts
 │   │   ├── repository-switcher.test.ts
-│   │   └── work-item-lists.test.ts
+│   │   ├── work-item-lists.test.ts
+│   │   └── component-browser-lifecycle.test.ts
 │   ├── frontend/
 │   │   ├── fixtures/
 │   │   │   ├── drawer-fixture.ts
@@ -2704,7 +2722,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── workspace-recovery.test.ts
 │   │   ├── workspace-responsive.test.ts
 │   │   ├── workspace-setup.test.ts
-│   │   └── workspace.test.ts
+│   │   ├── workspace.test.ts
+│   │   └── workspace-factory.test.ts
 │   └── installed/
 │       ├── cockpit-types.ts
 │       ├── forgejo-advertisement.sh
@@ -2774,7 +2793,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── mod.rs
 │   │   │   │   ├── owned_process.rs
 │   │   │   │   ├── phase.rs
-│   │   │   │   └── tests.rs
+│   │   │   │   ├── tests.rs
+│   │   │   │   └── raw.rs
 │   │   │   ├── project_state/
 │   │   │   │   ├── command.rs
 │   │   │   │   ├── files.rs
@@ -2814,7 +2834,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── qmp.rs
 │   │   │   ├── remote.rs
 │   │   │   ├── structured.rs
-│   │   │   └── timestamps.rs
+│   │   │   ├── timestamps.rs
+│   │   │   └── sha256.rs
 │   │   ├── Cargo.toml
 │   │   └── build.rs
 │   ├── candidate-setup/
@@ -2868,10 +2889,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   ├── png-equal/
 │   │   ├── main.go
 │   │   └── main_test.go
-│   ├── postgres-fixture/
-│   │   ├── src/
-│   │   │   └── main.rs
-│   │   └── Cargo.toml
 │   ├── release-assets/
 │   │   ├── src/
 │   │   │   ├── bin/
@@ -2891,7 +2908,9 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── muse.rs
 │   │   │   │   ├── tea.rs
 │   │   │   │   ├── terminal.rs
-│   │   │   │   └── test_server.rs
+│   │   │   │   ├── test_server.rs
+│   │   │   │   └── terminal/
+│   │   │   │       └── tests.rs
 │   │   │   ├── locales/
 │   │   │   │   ├── merge/
 │   │   │   │   │   └── tests.rs
@@ -2915,33 +2934,34 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   │   ├── mod.rs
 │   │   │   │   │   ├── svg.rs
 │   │   │   │   │   └── tests.rs
-│   │   │   │   └── mod.rs
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tests.rs
 │   │   │   └── lib.rs
 │   │   ├── tests/
 │   │   │   ├── fixtures/
 │   │   │   │   └── prov-root/
-│   │   │   │   │   ├── assets/
-│   │   │   │   │   │   └── branding/
-│   │   │   │   │   │       └── source/
-│   │   │   │   │   │           └── soda-symbol.svg
-│   │   │   │   │   ├── frontend/
-│   │   │   │   │   │   └── forgejo/
-│   │   │   │   │   │       └── payload.json
-│   │   │   │   │   └── system/
-│   │   │   │   │       └── host/
-│   │   │   │   │           └── provisioning/
-│   │   │   │   │               └── base.json
+│   │   │   │       ├── assets/
+│   │   │   │       │   └── branding/
+│   │   │   │       │       └── source/
+│   │   │   │       │           └── soda-symbol.svg
+│   │   │   │       ├── frontend/
+│   │   │   │       │   └── forgejo/
+│   │   │   │       │       └── payload.json
+│   │   │   │       └── system/
+│   │   │   │           └── host/
+│   │   │   │               └── provisioning/
+│   │   │   │                   └── base.json
 │   │   │   ├── locales_support/
 │   │   │   │   └── mod.rs
 │   │   │   ├── render_support/
 │   │   │   │   └── mod.rs
-│   │   │   ├── fetch_cli.rs
 │   │   │   ├── locales_cli.rs
 │   │   │   ├── locales_locked_input.rs
 │   │   │   ├── locales_native_merge.rs
 │   │   │   ├── render_provisioning.rs
 │   │   │   ├── render_staging.rs
-│   │   │   └── render_terminal_logo.rs
+│   │   │   ├── render_terminal_logo.rs
+│   │   │   └── fetchers_cli.rs
 │   │   ├── Cargo.toml
 │   │   └── terminal-assets.lock.json
 │   ├── soda-avatars/
@@ -2957,23 +2977,27 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── main.go
 │   │   ├── main_test.go
 │   │   └── soda-rootfs-server.service
-│   └── test-vm/
-│       ├── src/
-│       │   ├── main.rs
-│       │   ├── process.rs
-│       │   ├── start.rs
-│       │   ├── state.rs
-│       │   ├── tests.rs
-│       │   └── transport.rs
-│       ├── tests/
-│       │   ├── support/
-│       │   │   └── mod.rs
-│       │   ├── cli.rs
-│       │   ├── start.rs
-│       │   ├── status.rs
-│       │   └── transport.rs
+│   ├── test-vm/
+│   │   ├── src/
+│   │   │   ├── main.rs
+│   │   │   ├── process.rs
+│   │   │   ├── start.rs
+│   │   │   ├── state.rs
+│   │   │   ├── tests.rs
+│   │   │   └── transport.rs
+│   │   ├── tests/
+│   │   │   ├── support/
+│   │   │   │   └── mod.rs
+│   │   │   ├── cli.rs
+│   │   │   ├── start.rs
+│   │   │   ├── status.rs
+│   │   │   └── transport.rs
+│   │   ├── Cargo.toml
+│   │   └── README.md
+│   └── pg-fixture/
 │       ├── Cargo.toml
-│       └── README.md
+│       └── src/
+│           └── main.rs
 ├── .containerignore
 ├── .gitignore
 ├── .oxfmtrc.json
