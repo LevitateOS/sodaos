@@ -74,9 +74,8 @@ type preparationInspectView struct {
 }
 
 // apiPreparationActions coordinates preparation holds, inspection and
-// privileged-effect approval. Approval requires the current Project
-// administrator or operator; it records reviewed effects without running
-// installation commands through HTTP.
+// privileged-effect approval. Approval records reviewed effects without
+// running installation commands through HTTP.
 func (s *API) apiPreparationActions(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
@@ -147,9 +146,6 @@ func (s *API) apiPreparationActionInspect(w http.ResponseWriter, r *http.Request
 }
 
 func (s *API) apiPreparationActionApprove(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, in preparationActionRequest) {
-	if !s.authorizeLifecycleOperator(w, r, v, p.RepositoryID) || !s.checkLifecycleSession(w, r, v) {
-		return
-	}
 	if !settingsCommandID(w, in.CommandID) {
 		return
 	}
@@ -161,6 +157,44 @@ func (s *API) apiPreparationActionApprove(w http.ResponseWriter, r *http.Request
 	if decision.Validate() != nil {
 		auth.JSONError(w, 400, "invalid_approval", "Approval must bind the current requirement and reviewed effects.")
 		return
+	}
+	if !s.checkLifecycleSession(w, r, v) {
+		return
+	}
+	if v.User.ID != s.Config.OperatorID {
+		login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			auth.JSONError(w, 403, "project_membership_required", "Current project membership is required for privileged-effect approval.")
+			return
+		}
+		if err != nil {
+			auth.JSONError(w, 503, "store_unavailable", "Could not verify current project membership.")
+			return
+		}
+		status, err := s.Host.ProjectAccess(r.Context(), project.ProjectAccessRequest{
+			Project: p.ID, Login: login, Identity: v.User.ID,
+		})
+		if err != nil {
+			auth.JSONError(w, 502, "native_outcome_unconfirmed", "Current native project authority was not confirmed.")
+			return
+		}
+		if status.Project != p.ID || status.Login != login || status.Identity != v.User.ID {
+			auth.JSONError(w, 502, "native_outcome_unconfirmed", "Current native project authority was not confirmed.")
+			return
+		}
+		if status.Administrator == nil {
+			auth.JSONError(w, 502, "native_outcome_unconfirmed", "Current native project authority was not confirmed.")
+			return
+		}
+		if !*status.Administrator {
+			auth.JSONError(w, 403, "project_administrator_required", "Current native project administrator authority is required.")
+			return
+		}
+		// The native observation may take time. Recheck the admitting session
+		// immediately before recording the approval receipt.
+		if !s.checkLifecycleSession(w, r, v) {
+			return
+		}
 	}
 	receipt, err := s.Coordinator.AdmitApproval(r.Context(), in.CommandID, factoryPrincipal(v), decision)
 	if err != nil {

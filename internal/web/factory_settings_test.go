@@ -31,6 +31,41 @@ func factorySettingsServer(t *testing.T) *Server {
 	return s
 }
 
+func approvalProjectAccessHost(s *Server, calls *int, administrator *bool, statusCode *int, malformed *bool) {
+	s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path != "/project-access" {
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte(`{"active":true,"revision":1}`))), Header: make(http.Header)}, nil
+		}
+		(*calls)++
+		var in struct {
+			Project  string `json:"project"`
+			Login    string `json:"login"`
+			Identity int64  `json:"identity"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			return nil, err
+		}
+		code := *statusCode
+		if code == 0 {
+			code = http.StatusOK
+		}
+		response := struct {
+			Project       string `json:"project"`
+			Login         string `json:"login"`
+			Identity      int64  `json:"identity"`
+			Administrator bool   `json:"administrator"`
+		}{in.Project, in.Login, in.Identity, *administrator}
+		if *malformed {
+			response.Identity++
+		}
+		body, err := json.Marshal(response)
+		if err != nil {
+			return nil, err
+		}
+		return &http.Response{StatusCode: code, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
+	})}
+}
+
 func factoryEncryptedServer(t *testing.T) *Server {
 	t.Helper()
 	db := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
@@ -319,6 +354,10 @@ func TestPreparationAcceptanceJourney(t *testing.T) {
 
 func TestPreparationApprovalJourney(t *testing.T) {
 	s := factorySettingsServer(t)
+	s.Config.OperatorID = 99 // exercise current native member authority, not the operator exception
+	if err := s.Store.Join(t.Context(), factorySettingsProject, 1, "alice"); err != nil {
+		t.Fatal(err)
+	}
 	digest := strings.Repeat("d", 64)
 	commit := strings.Repeat("e", 40)
 	accept := `{"command_id":"` + factory.NewID() + `","decision_id":"d123456789012345678901234",` +
@@ -332,18 +371,75 @@ func TestPreparationApprovalJourney(t *testing.T) {
 		return `{"command_id":"` + command + `","action":"approve","decision_id":"d223456789012345678901234",` +
 			`"requirement":"` + requirement + `","effects_digest":"` + digest + `","readiness_digest":"` + digest + `","verified":true}`
 	}
+	accessCalls, statusCode := 0, 0
+	administrator, malformed := true, false
+	approvalProjectAccessHost(s, &accessCalls, &administrator, &statusCode, &malformed)
 	wrong := httptest.NewRecorder()
 	nativeAPIServe(t, s, wrong, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d999999999999999999999999"), "alice"))
 	if wrong.Code != 409 {
 		t.Fatal("approval bound a superseded requirement", wrong.Code, wrong.Body.String())
 	}
+	if accessCalls != 1 {
+		t.Fatalf("member approval did not use exact native project observation: calls=%d", accessCalls)
+	}
+	// Bob has a current native session but no Project membership, so no host
+	// privilege observation or approval mutation is allowed.
 	denied := httptest.NewRecorder()
 	nativeAPIServe(t, s, denied, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "bob"))
 	if denied.Code != 403 {
-		t.Fatal("non-administrator approved privileged effects", denied.Code, denied.Body.String())
+		t.Fatal("nonmember reached privileged-effect approval", denied.Code, denied.Body.String())
 	}
+	if accessCalls != 1 {
+		t.Fatalf("nonmember triggered native authority lookup: calls=%d", accessCalls)
+	}
+	// Repository owner Alice is not a Project administrator: repository
+	// ownership cannot substitute for the current guest-native result.
+	administrator = false
+	ownerDenied := httptest.NewRecorder()
+	nativeAPIServe(t, s, ownerDenied, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "alice"))
+	if ownerDenied.Code != 403 {
+		t.Fatal("repository owner without native Project privilege was admitted", ownerDenied.Code, ownerDenied.Body.String())
+	}
+	inspectBefore := httptest.NewRecorder()
+	nativeAPIServe(t, s, inspectBefore, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", `{"action":"inspect"}`, "alice"))
+	var before struct {
+		Approval string `json:"approval"`
+	}
+	decodeBody(t, inspectBefore, &before)
+	if before.Approval != "" {
+		t.Fatalf("denied request changed approval state: %+v", before)
+	}
+	// Native errors and mismatched echoes remain unconfirmed, not authority.
+	statusCode = http.StatusServiceUnavailable
+	uncertain := httptest.NewRecorder()
+	nativeAPIServe(t, s, uncertain, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "alice"))
+	if uncertain.Code != 502 {
+		t.Fatal("unavailable native authority was admitted", uncertain.Code, uncertain.Body.String())
+	}
+	statusCode = 0
+	malformed = true
+	badEcho := httptest.NewRecorder()
+	nativeAPIServe(t, s, badEcho, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "alice"))
+	if badEcho.Code != 502 {
+		t.Fatal("mismatched native authority echo was admitted", badEcho.Code, badEcho.Body.String())
+	}
+	malformed = false
+	inspectUnconfirmed := httptest.NewRecorder()
+	nativeAPIServe(t, s, inspectUnconfirmed, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", `{"action":"inspect"}`, "alice"))
+	var unconfirmedView struct {
+		Approval string `json:"approval"`
+	}
+	decodeBody(t, inspectUnconfirmed, &unconfirmedView)
+	if unconfirmedView.Approval != "" {
+		t.Fatalf("uncertain native result changed approval state: %+v", unconfirmedView)
+	}
+	if err := s.Store.Join(t.Context(), factorySettingsProject, 2, "bob"); err != nil {
+		t.Fatal(err)
+	}
+	// Bob is a non-owner Project member with the positive native stub result.
+	administrator = true
 	w := httptest.NewRecorder()
-	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "bob"))
 	if w.Code != 201 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -359,5 +455,30 @@ func TestPreparationApprovalJourney(t *testing.T) {
 	decodeBody(t, inspect, &view)
 	if view.Requirements != "d123456789012345678901234" || view.Approval != "d223456789012345678901234" {
 		t.Fatalf("inspect view: %+v", view)
+	}
+}
+
+func TestPreparationApprovalFixedOperatorSkipsNativeLookup(t *testing.T) {
+	s := factorySettingsServer(t)
+	digest := strings.Repeat("d", 64)
+	accept := `{"command_id":"` + factory.NewID() + `","decision_id":"d123456789012345678901234",` +
+		`"source_commit":"` + strings.Repeat("e", 40) + `","setup_digest":"` + digest + `","inputs_digest":"` + digest + `"}`
+	accepted := httptest.NewRecorder()
+	nativeAPIServe(t, s, accepted, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/acceptances", accept, "alice"))
+	if accepted.Code != 201 {
+		t.Fatal(accepted.Code, accepted.Body.String())
+	}
+	calls, statusCode := 0, http.StatusServiceUnavailable
+	administrator, malformed := false, true
+	approvalProjectAccessHost(s, &calls, &administrator, &statusCode, &malformed)
+	approve := `{"command_id":"` + factory.NewID() + `","action":"approve","decision_id":"d223456789012345678901234",` +
+		`"requirement":"d123456789012345678901234","effects_digest":"` + digest + `","readiness_digest":"` + digest + `","verified":true}`
+	w := httptest.NewRecorder()
+	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve, "alice"))
+	if w.Code != 201 {
+		t.Fatal("fixed operator exception failed", w.Code, w.Body.String())
+	}
+	if calls != 0 {
+		t.Fatalf("fixed operator queried Project access: calls=%d", calls)
 	}
 }
