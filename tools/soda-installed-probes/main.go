@@ -12,7 +12,7 @@ import (
 )
 
 // toolUsage names every installed client probe.
-const toolUsage = "developer-access|lifecycle-state|personal-git|service-https|workload-access|workload-exec"
+const toolUsage = "developer-access|personal-git|service-https|workload-access|workload-exec"
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
@@ -37,8 +37,6 @@ func run(args []string, stdout io.Writer) error {
 	switch args[0] {
 	case "developer-access":
 		return acceptance.RunDeveloperAccess(args[1:], stdout)
-	case "lifecycle-state":
-		return acceptance.RunLifecycleState(args[1:], stdout)
 	case "personal-git":
 		return acceptance.RunPersonalGit(args[1:], stdout)
 	case "service-https":

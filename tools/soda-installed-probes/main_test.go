@@ -24,7 +24,7 @@ func TestDispatch(t *testing.T) {
 		t.Errorf("unknown subcommand exit = %d", exitCode(err))
 	}
 	// Every probe rejects empty args without side effects.
-	for _, probe := range []string{"developer-access", "lifecycle-state", "personal-git", "workload-access", "workload-exec"} {
+	for _, probe := range []string{"developer-access", "personal-git", "workload-access", "workload-exec"} {
 		if err := run([]string{probe}, &bytes.Buffer{}); err == nil {
 			t.Errorf("%s accepted empty args", probe)
 		} else if exitCode(err) != 1 {

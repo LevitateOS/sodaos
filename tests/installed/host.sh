@@ -36,10 +36,6 @@ for file in /etc/cockpit/cockpit.conf /etc/pam.d/cockpit; do
   matchpathcon -V "$file"
 done
 [[ ! -e /usr/local/share/cockpit/soda-runners && ! -L /usr/local/share/cockpit/soda-runners ]]
-for page in soda-tailscale; do
-  [[ -r /usr/local/share/cockpit/$page/index.html ]]
-  [[ -r /usr/local/share/cockpit/$page/manifest.json ]]
-done
 if [[ "$phase" == activated ]]; then
   for unit in soda-dashboard.service soda-proxy.service; do systemctl is-active --quiet "$unit"; done
   pid=$(podman inspect --format '{{.State.Pid}}' soda-dashboard)
@@ -55,4 +51,4 @@ fi
 printf 'Observed phase: %s. Native listeners (not routed-client proof):\n' "$phase"
 ss -lnt
 /usr/libexec/soda/soda-host-probes host-listeners "$phase"
-printf 'First-install services, ownership, labels and page files checked on %s. Dashboard/project/provider journeys remain separate.\n' "$(hostname)"
+printf 'First-install services, ownership, labels and retained Cockpit configuration checked on %s. Dashboard/project/provider journeys remain separate.\n' "$(hostname)"
