@@ -153,11 +153,17 @@ The schema source remains `internal/store/schema.go`. Rust identity's schema
 copy explicitly follows that source and has a drift assertion
 (`rust/soda-identity/src/schema.rs:1-6,190-196`) (`cmd/soda-identity/src/schema.rs:1-6,190-196` **[run 20261005:** path moved by A05; drift assertion intact.]). Current storage is PostgreSQL;
 older SQLite wording in credentials/development documentation is stale.
-Go metadata reads remain live in `internal/web/api/factory_settings.go:467-485`.
-IdentitySaveConnection/IdentitySaveGrant now have test callers only, but moving
-them into a package-local test file would break fixtures in other packages.
-Any retirement must preserve the real cross-package fixture/broker boundary;
-it does not justify a second production broker store or schema.
+Current sponsorship metadata admission in
+`internal/web/api/factory_sponsorship.go` uses the existing private
+`internal/identity/client` broker-admin connection and grant readers. Rust broker
+routes/controller/Store remain the production metadata owner; the dashboard's
+former `Identity*` metadata methods and `internal/store/identity.go` are retired.
+Cross-package tests and native-demo fixtures use `SeedIdentityConnection` and
+`SeedIdentityGrant` in the single `internal/store/identity_fixture.go` owner,
+retaining canonical sealing and atomic append. Keep that real fixture boundary;
+it does not introduce a second production broker store or schema. Separate
+factory execution actor and Project attribution remains a product/correctness
+question, independent of this completed metadata cutover.
 
 `lib/json` had twelve direct Cargo dependents at the investigation pin.
 That caller count does not justify keeping its custom syntax engine. Under L04,
