@@ -34,8 +34,15 @@ impl SecretCollector {
     }
 
     pub(crate) fn check_candidates(&self, count: usize, bytes: usize) -> Result<(), Error> {
-        if self.values.len().checked_add(count).is_none_or(|n| n > SECRET_COLLECTION_COUNT)
-            || self.bytes.checked_add(bytes).is_none_or(|n| n > SECRET_COLLECTION_BYTES)
+        if self
+            .values
+            .len()
+            .checked_add(count)
+            .is_none_or(|n| n > SECRET_COLLECTION_COUNT)
+            || self
+                .bytes
+                .checked_add(bytes)
+                .is_none_or(|n| n > SECRET_COLLECTION_BYTES)
         {
             return Err(Error::msg("evidence redaction pattern limit exceeded"));
         }
@@ -80,7 +87,7 @@ pub(crate) fn collect_provisioning_secrets(
     }
     if let Some(JsonValue::Array(users)) = parsed.get("passwd").and_then(|p| p.get("users")) {
         for user in users {
-            if let Some(hash) = user.get("PasswordHash").and_then(|v| v.as_str()) {
+            if let Some(hash) = user.get("passwordHash").and_then(|v| v.as_str()) {
                 if !hash.is_empty() {
                     secrets.push(hash.as_bytes())?;
                 }
@@ -205,7 +212,7 @@ mod tests {
             crate::trust::encode_base64(key.as_bytes())
         );
         let body = format!(
-            "{{\"ignition\":{{\"version\":\"3.5.0\"}},\"passwd\":{{\"users\":[{{\"PasswordHash\":\"$6$salt$hash\"}},{{}}]}},\"storage\":{{\"files\":[{{\"path\":\"/etc/motd\",\"contents\":{{\"source\":\"data:,hi\"}}}},{{\"path\":\"/etc/ssh/ssh_host_ed25519_key\",\"contents\":{{\"source\":\"{source}\"}}}}]}}}}"
+            "{{\"ignition\":{{\"version\":\"3.5.0\"}},\"passwd\":{{\"users\":[{{\"passwordHash\":\"$6$salt$hash\"}},{{}}]}},\"storage\":{{\"files\":[{{\"path\":\"/etc/motd\",\"contents\":{{\"source\":\"data:,hi\"}}}},{{\"path\":\"/etc/ssh/ssh_host_ed25519_key\",\"contents\":{{\"source\":\"{source}\"}}}}]}}}}"
         );
         let input = write_input(&dir, "input.ign", body.as_bytes());
         let secrets = provisioning_secrets(&input).unwrap();

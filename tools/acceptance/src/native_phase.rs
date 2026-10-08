@@ -239,7 +239,7 @@ pub fn phase_request(
         return Err(value_error("full revision required"));
     }
     if request.architecture != "x86_64"
-        || platform.os != "Linux"
+        || platform.os != "linux"
         || platform.arch != request.architecture
     {
         return Err(value_error("matching-native Linux required"));

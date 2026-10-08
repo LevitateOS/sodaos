@@ -1,10 +1,11 @@
 use super::*;
 use std::cell::RefCell;
+use std::os::unix::fs::PermissionsExt;
 
 #[test]
 fn phase_request_checks_every_duplicate_occurrence_before_last_wins() {
     let platform = Platform {
-        os: "Linux".to_string(),
+        os: "linux".to_string(),
         arch: "x86_64".to_string(),
         hostname: "synthetic-builder".to_string(),
     };
@@ -19,6 +20,32 @@ fn phase_request_checks_every_duplicate_occurrence_before_last_wins() {
         r#"{{"Revision":"wrong","Revision":"{revision}","Architecture":"x86_64","Target":"synthetic-builder","Work":"{work}","Phase":"prepare"}}"#
     );
     assert!(phase_request(&valid, &platform).is_ok());
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn actual_native_platform_fields_admit_a_matching_phase_request() {
+    let platform = native_platform().unwrap();
+    assert_eq!(platform.os, "linux");
+    assert_eq!(platform.arch, "x86_64");
+
+    let harness = Harness::new();
+    std::fs::set_permissions(&harness.dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let request = harness.request(
+        "prepare",
+        &[
+            ("Architecture", &platform.arch),
+            ("Target", &platform.hostname),
+        ],
+    );
+    assert!(phase_request(&request, &platform).is_ok());
+
+    let non_linux = Platform {
+        os: "freebsd".to_string(),
+        arch: platform.arch.clone(),
+        hostname: platform.hostname.clone(),
+    };
+    assert!(phase_request(&request, &non_linux).is_err());
 }
 
 const REVISION: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -65,7 +92,7 @@ impl Harness {
             dir,
             work,
             platform: Platform {
-                os: "Linux".to_string(),
+                os: "linux".to_string(),
                 arch: "x86_64".to_string(),
                 hostname: "synthetic-builder".to_string(),
             },
