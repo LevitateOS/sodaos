@@ -7,7 +7,8 @@ use super::receipt::{receipt_state, receipt_stop_owned, FactoryReceipt};
 use super::run::FACTORY_DEADLINE_BOUND_NANOS;
 use super::{
     AcquireRequest, Factory, FactoryBroker, FactoryError, FactoryLaunch, FactoryState,
-    FactoryTerminal, Secret, FACTORY_APPROVED, FACTORY_RUNNING, IDENTITY_FACTORY,
+    FactoryTerminal, Secret, FACTORY_APPROVED, FACTORY_COMPLETED, FACTORY_FAILED, FACTORY_RUNNING,
+    IDENTITY_FACTORY,
 };
 
 impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
@@ -193,14 +194,19 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         if !exists {
             return Ok(());
         }
-        current.delivered = receipt.delivered;
-        current.output = receipt.output.clone();
-        current.exit_code = receipt.exit_code;
-        current.credential_returned = receipt.credential_returned;
-        current.retirement = receipt.retirement.clone();
-        current.reason = receipt.reason.clone();
-        if !receipt.phase.is_empty() {
-            current.phase = receipt.phase.clone();
+        let stop_owned = receipt_stop_owned(&current.phase);
+        current.delivered |= receipt.delivered;
+        current.credential_returned |= receipt.credential_returned;
+        if matches!(receipt.phase.as_str(), FACTORY_COMPLETED | FACTORY_FAILED) {
+            current.output = receipt.output.clone();
+            current.exit_code = receipt.exit_code;
+        }
+        if !stop_owned {
+            current.retirement = receipt.retirement.clone();
+            current.reason = receipt.reason.clone();
+            if !receipt.phase.is_empty() {
+                current.phase = receipt.phase.clone();
+            }
         }
         self.store_receipt(&current)?;
         *receipt = current;

@@ -108,7 +108,7 @@ production API exposed solely for tests is required.
 | `lib/host/src/factory/tests/wire.rs` | Validators/deadline/error assertions at 3767–3978 and open_factory/harness-pin assertions at 4276–4374. |
 | `lib/host/src/factory/tests/receipt.rs` | Real receipt encoding, private file/mode, tombstone and decoder assertions at 4065–4275; retain one receipt implementation. |
 | `lib/host/src/factory/tests/launch.rs` | Launch success/provider/duplicate/precheck/acquire/abandon cases at 4393–4611 and tombstone replay at 4791–4811. |
-| `lib/host/src/factory/tests/finish.rs` | Failed-start, timeout and finish-state cases at 4625–4790, against real Factory transitions. |
+| `lib/host/src/factory/tests/finish.rs` | Failed-start, timeout and finish-state cases at 4625–4790, against real Factory transitions. Current F08-F3 regressions apply stale finish/progress snapshots after actual confirmed/uncertain `Factory::stop`, preserving its disposition and known custody/output facts; scripted seams prove deterministic receipt-write ordering, not a native race. |
 | `lib/host/src/factory/tests/stop.rs` | Stop/closure/uncertainty cases and stop-local receipt helpers at 4812–4978 and 4998–5080, including stop-owned launch and pre-delivery regressions at 4882–4978. Import shared write_running from the one common fixture owner. |
 | `lib/host/src/factory/inspect.rs` | Keep inspect assertions 5081–5150 as an inline private test descendant of this 69-line production owner; use existing common/mocks and the single real receipt fixture. |
 | `lib/host/src/factory/tests/artifacts.rs` | Human takeover, output cursor and export cases at 5151–5524. |
