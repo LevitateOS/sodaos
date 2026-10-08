@@ -174,16 +174,24 @@ apply these source/test changes.
 ## Profile-dependent oracle cleanup and evidence labels
 
 **TEST-REL-ORACLE-1 / C** refines **SIMP-REL-WIRE-1** and the representation review.
-[delivery oracle tests](../../../lib/soda-release-deliver/tests/oracle/main.rs)
-require future Rust writes/error text to equal captured removed Go output; related
-build/image vectors retain the same differential assumption. Inspect each actual
-consumer/profile before dropping an assertion. Recast unsupported emitter parity
-as current schema/admission, semantic transition, read-back and repeated-write
-determinism checks. Preserve consumed error identities, original supplied signed
-bytes/digests and raw fingerprints. Where a supported current Go SDK producer is
-identified, retain its actual contract; these captured internal-emitter fixtures
-do not establish that producer. Profile decisions, not the
-word “oracle,” govern readiness. No new emitter/compatibility model is selected.
+The source/test cuts in the [finding allocation](execution-findings.md) now
+replace unsupported captured-Go emitter/error equality with current schema,
+admission, semantic transition, read-back and deterministic-write checks in the
+[delivery](../../../lib/soda-release-deliver/tests/oracle/main.rs), build and
+image tests. Original signed inputs/digests and raw fingerprints remain exact;
+delivery also retains current candidate binding-stage and nonqualifying-evidence
+refusal assertions. Rendering an error through `Display` does not establish a
+requirement for the old Go message.
+
+The production oracle's command vector remains a current fake-runner assertion:
+it records the production caller's tool/argument text and ordering, including
+current Rust build selectors. This comparison does not preserve formatter output
+or prove general argv boundaries, native command execution or installation.
+Synthetic ELF and replayed OCI inputs are explicit in its source label. A
+supported current Go SDK producer still owns its actual contract; historical
+internal-emitter fixtures do not establish that producer. No new compatibility
+model or test framework is introduced. C11.M-tests is complete at its allocated
+source/test maintenance scope; C11.V/R04 qualification remains separate.
 
 **TEST-RETIRED-PYTHON-OUTPUT-1 / B** similarly refines the existing Go probe
 representation cut. Acceptance [workload tests](../../../internal/acceptance/workload_exec_test.go)

@@ -1,4 +1,6 @@
-//! Production oracle: current native command sequence and emitted artifacts.
+//! Current production command plan exercised through fake capture/execute hooks.
+//! Hooks write synthetic ELF files and replay the retained OCI input. Command
+//! text/order and staged records are checked; this does not run native builds.
 
 use super::{data_path, oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
 use soda_release_build::live_inputs::write_live_inputs;
