@@ -2,9 +2,12 @@ package tailnet
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,6 +93,19 @@ func TestStatusRejectsMalformedOutputAndPreservesAuthPending(t *testing.T) {
 	require.True(t, status.AuthPending)
 }
 
+func TestStatusOutputLimitAcceptsExactSizeAndRejectsOverflow(t *testing.T) {
+	base := `{"BackendState":"Running"}`
+	exact := base + strings.Repeat(" ", statusOutputLimit-len(base))
+	status, err := statusClient(t, exact).Status(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, "Running", status.BackendState)
+
+	status, err = statusClient(t, exact+" ").Status(t.Context())
+	require.Empty(t, status)
+	require.ErrorIs(t, err, ErrUnavailable)
+	require.ErrorContains(t, err, "status output exceeds")
+}
+
 func TestStatusCommandFailureAndCancellation(t *testing.T) {
 	cli := filepath.Join(t.TempDir(), "tailscale")
 	client := New(Options{CLI: cli})
@@ -116,4 +132,57 @@ func TestStatusCommandFailureAndCancellation(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnavailable)
 	require.ErrorIs(t, ctx.Err(), context.DeadlineExceeded)
 	require.Less(t, time.Since(start), 5*time.Second)
+}
+
+func TestStatusBoundsExitDiagnostics(t *testing.T) {
+	cli := filepath.Join(t.TempDir(), "tailscale")
+	client := New(Options{CLI: cli})
+	require.NoError(t, os.WriteFile(cli, []byte("#!/bin/sh\nprintf '%s' '{\"BackendState\":\"Running\"}'\nprintf 'diagnostic-prefix' >&2\nhead -c 65536 /dev/zero >&2\nexit 7\n"), 0o700))
+
+	_, err := client.Status(t.Context())
+	require.ErrorIs(t, err, ErrUnavailable)
+	var exitError *exec.ExitError
+	require.ErrorAs(t, err, &exitError)
+	require.Equal(t, 7, exitError.ExitCode())
+	require.LessOrEqual(t, len(exitError.Stderr), statusStderrLimit)
+	require.True(t, strings.HasPrefix(string(exitError.Stderr), "diagnostic-prefix"))
+}
+
+func TestStatusWaitDelayBoundsDescendantHeldPipes(t *testing.T) {
+	cli := filepath.Join(t.TempDir(), "tailscale")
+	pidPath := cli + ".pid"
+	client := New(Options{CLI: cli})
+	script := "#!/bin/sh\nsleep 60 &\nprintf '%s\\n' \"$!\" > \"$0.pid\"\nprintf '%s' '{\"BackendState\":\"Running\"}'\nexit 0\n"
+	require.NoError(t, os.WriteFile(cli, []byte(script), 0o700))
+	t.Cleanup(func() {
+		pidBytes, err := os.ReadFile(pidPath)
+		if err != nil {
+			return
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(string(pidBytes)))
+		if err != nil {
+			t.Errorf("read held-pipe child PID during cleanup: %v", err)
+			return
+		}
+		process, err := os.FindProcess(pid)
+		if err != nil {
+			t.Errorf("find held-pipe child during cleanup: %v", err)
+			return
+		}
+		if err := process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			t.Errorf("clean up held-pipe child: %v", err)
+		}
+	})
+
+	start := time.Now()
+	status, err := client.Status(context.Background())
+	require.Empty(t, status, "a valid prefix cannot replace completed capture")
+	require.ErrorIs(t, err, ErrUnavailable)
+	require.ErrorIs(t, err, exec.ErrWaitDelay)
+	require.Less(t, time.Since(start), 4*time.Second)
+
+	pidBytes, readErr := os.ReadFile(pidPath)
+	require.NoError(t, readErr)
+	_, parseErr := strconv.Atoi(strings.TrimSpace(string(pidBytes)))
+	require.NoError(t, parseErr)
 }

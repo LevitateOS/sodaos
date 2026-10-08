@@ -10,9 +10,15 @@ import (
 	"net/netip"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 const DefaultCLI = "/usr/bin/tailscale"
+
+const (
+	statusOutputLimit = 64 << 10
+	statusStderrLimit = 32 << 10
+)
 
 var (
 	ErrUnavailable         = errors.New("tailscale status is unavailable")
@@ -46,6 +52,28 @@ type Options struct {
 	CLI string
 }
 
+type statusCapture struct {
+	data     []byte
+	limit    int
+	overflow bool
+}
+
+func newStatusCapture(limit int) *statusCapture {
+	return &statusCapture{data: make([]byte, 0, limit), limit: limit}
+}
+
+func (c *statusCapture) Write(p []byte) (int, error) {
+	remaining := c.limit - len(c.data)
+	if remaining > 0 {
+		keep := min(len(p), remaining)
+		c.data = append(c.data, p[:keep]...)
+	}
+	if len(p) > remaining {
+		c.overflow = true
+	}
+	return len(p), nil
+}
+
 func New(options Options) *Client {
 	if options.CLI == "" {
 		options.CLI = DefaultCLI
@@ -55,15 +83,28 @@ func New(options Options) *Client {
 
 // Status reads the local node's authoritative Tailscale status.
 func (c *Client) Status(ctx context.Context) (Status, error) {
-	output, err := exec.CommandContext(ctx, c.cli, "status", "--json").Output()
+	cmd := exec.CommandContext(ctx, c.cli, "status", "--json")
+	cmd.WaitDelay = time.Second
+	stdout := newStatusCapture(statusOutputLimit)
+	stderr := newStatusCapture(statusStderrLimit)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	err := cmd.Run()
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
+			exitError.Stderr = stderr.data
 			err = fmt.Errorf("%w: %s", err, strings.TrimSpace(string(exitError.Stderr)))
 		}
 		return Status{}, fmt.Errorf("%w: %s status --json: %w", ErrUnavailable, c.cli, err)
 	}
-	status, err := parseStatus(output)
+	if err := ctx.Err(); err != nil {
+		return Status{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
+	}
+	if stdout.overflow {
+		return Status{}, fmt.Errorf("%w: status output exceeds %d bytes", ErrUnavailable, statusOutputLimit)
+	}
+	status, err := parseStatus(stdout.data)
 	if err != nil {
 		return Status{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
