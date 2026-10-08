@@ -54,19 +54,21 @@ pub fn probe_ssh_key(phase: &Phase, remote: &Remote) -> Result<String, Error> {
     if !meta.is_file() || meta.mode() & 0o022 != 0 {
         return Err(Error::msg("trusted regular known_hosts required"));
     }
-    // `knownhosts.New` equivalent: refuse an unparsable pin file before
-    // any connection attempt.
-    let parsed = std::process::Command::new("ssh-keygen")
-        .args(["-l", "-f", &remote.known_hosts])
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map_err(Error::from)?;
-    if !parsed.success() {
-        return Err(Error::msg("invalid pinned known_hosts file"));
-    }
     let inner = phase.child(EXCHANGE_TIMEOUT);
+    // `knownhosts.New` equivalent: refuse an unparsable pin file before
+    // any connection attempt. Keep this child in the same phase as the
+    // exchange so preflight cannot outlive the caller's budget.
+    let preflight = CommandSpec {
+        name: "ssh-keygen".to_string(),
+        args: vec![
+            "-l".to_string(),
+            "-f".to_string(),
+            remote.known_hosts.clone(),
+        ],
+        dir: None,
+        stdin: StdinSpec::Null,
+        env: Vec::new(),
+    };
     let argv = [
         "-F".to_string(),
         "/dev/null".to_string(),
@@ -108,14 +110,43 @@ pub fn probe_ssh_key(phase: &Phase, remote: &Remote) -> Result<String, Error> {
         stdin: StdinSpec::Null,
         env: Vec::new(),
     };
-    let fingerprint = run_exchange(&inner, &spec)?;
+    let fingerprint = run_pinned_exchange(&inner, &preflight, &spec)?;
     inner.check()?;
     Ok(fingerprint)
 }
 
-fn run_exchange(phase: &Phase, spec: &CommandSpec) -> Result<String, Error> {
+fn run_pinned_exchange(
+    phase: &Phase,
+    preflight: &CommandSpec,
+    exchange: &CommandSpec,
+) -> Result<String, Error> {
+    let checked = run_owned_capture(phase, preflight, 0, 0)?;
+    if checked.exit_code != Some(0) || checked.wait.is_err() {
+        return Err(Error::msg("invalid pinned known_hosts file"));
+    }
+
+    run_exchange(phase, exchange)
+}
+
+struct OwnedCapture {
+    exit_code: Option<i32>,
+    wait: Result<(), Error>,
+    stdout: Vec<u8>,
+    stdout_overflow: bool,
+    stderr: Vec<u8>,
+    stderr_overflow: bool,
+}
+
+/// Run and retire one child through the shared process owner. Exit status and
+/// bounded bytes are returned only after cleanup and both pumps are confirmed.
+fn run_owned_capture(
+    phase: &Phase,
+    spec: &CommandSpec,
+    stdout_cap: usize,
+    stderr_cap: usize,
+) -> Result<OwnedCapture, Error> {
     phase.check()?;
-    let (process, stdout, stderr) = start_raw_process(phase, spec, 0, OUTPUT_LIMIT)?;
+    let (process, stdout, stderr) = start_raw_process(phase, spec, stdout_cap, stderr_cap)?;
     let wait = process.wait(phase);
     if !process.is_done() {
         let stop = process.stop();
@@ -134,27 +165,42 @@ fn run_exchange(phase: &Phase, spec: &CommandSpec) -> Result<String, Error> {
     let stderr_cancelled = stderr.cancelled();
     let (stdout, stdout_overflow) = stdout.take();
     let (stderr, stderr_overflow) = stderr.take();
-
-    let expected_exit = match outcome.exit_code {
-        Some(0) => wait.is_ok(),
-        Some(255) => wait.is_err(),
-        _ => false,
-    };
     let phase_error = phase.check().err();
     if phase_error.is_some()
-        || !expected_exit
         || outcome.cleanup_message.is_some()
         || pump_error.is_some()
         || stdout_cancelled
         || stderr_cancelled
-        || stdout_overflow
-        || stderr_overflow
-        || !stdout.is_empty()
     {
         return Err(phase_error.unwrap_or_else(exchange_failed));
     }
 
-    verified_server_host_key(&stderr).ok_or_else(exchange_failed)
+    Ok(OwnedCapture {
+        exit_code: outcome.exit_code,
+        wait,
+        stdout,
+        stdout_overflow,
+        stderr,
+        stderr_overflow,
+    })
+}
+
+fn run_exchange(phase: &Phase, spec: &CommandSpec) -> Result<String, Error> {
+    let captured = run_owned_capture(phase, spec, 0, OUTPUT_LIMIT)?;
+    let expected_exit = match captured.exit_code {
+        Some(0) => captured.wait.is_ok(),
+        Some(255) => captured.wait.is_err(),
+        _ => false,
+    };
+    if !expected_exit
+        || captured.stdout_overflow
+        || captured.stderr_overflow
+        || !captured.stdout.is_empty()
+    {
+        return Err(exchange_failed());
+    }
+
+    verified_server_host_key(&captured.stderr).ok_or_else(exchange_failed)
 }
 
 fn verified_server_host_key(stderr: &[u8]) -> Option<String> {
@@ -403,6 +449,72 @@ mod tests {
             &exchange_command("sleep 5"),
         );
         assert!(timed_out.is_err());
+        assert!(start.elapsed() < Duration::from_secs(3));
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn preflight_uses_the_exchange_phase_and_must_be_owned() {
+        let key = "debug1: Server host key: ssh-ed25519 SHA256:fixture-pin";
+        let marker = SSH_SERVICE_ACCEPT;
+        let result = run_pinned_exchange(
+            &Phase::timeout(Duration::from_secs(3)),
+            &exchange_command("printf keygen-output; printf keygen-diagnostic >&2; exit 0"),
+            &exchange_command(&format!(
+                "printf '%s\\n%s\\n' '{key}' '{marker}' >&2; exit 255"
+            )),
+        );
+        assert_eq!(result.as_deref().ok(), Some("SHA256:fixture-pin"));
+
+        assert_eq!(
+            run_pinned_exchange(
+                &Phase::timeout(Duration::from_secs(3)),
+                &exchange_command("exit 1"),
+                &exchange_command("exit 0"),
+            )
+            .unwrap_err()
+            .to_string(),
+            "invalid pinned known_hosts file"
+        );
+
+        let dir = fixture_dir("preflight-not-started");
+        let marker_file = dir.join("started");
+        let script = format!("touch '{}'", marker_file.display());
+        for phase in [Phase::timeout(Duration::ZERO), {
+            let phase = Phase::background();
+            phase.cancel();
+            phase
+        }] {
+            assert!(run_pinned_exchange(
+                &phase,
+                &exchange_command(&script),
+                &exchange_command("exit 0"),
+            )
+            .is_err());
+            assert!(!marker_file.exists());
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn preflight_stall_consumes_the_same_absolute_deadline() {
+        let start = std::time::Instant::now();
+        let result = run_pinned_exchange(
+            &Phase::timeout(Duration::from_millis(150)),
+            &exchange_command("sleep 5"),
+            &exchange_command("exit 0"),
+        );
+        assert!(result.is_err());
+        assert!(start.elapsed() < Duration::from_secs(3));
+
+        let start = std::time::Instant::now();
+        let result = run_pinned_exchange(
+            &Phase::timeout(Duration::from_millis(400)),
+            &exchange_command("sleep 0.2"),
+            &exchange_command("sleep 5"),
+        );
+        assert!(result.is_err());
         assert!(start.elapsed() < Duration::from_secs(3));
     }
 }
