@@ -230,7 +230,7 @@ Lead B; [G04](reviews/G04.md), [G05](reviews/G05.md), [G06](reviews/G06.md), [G0
 Lead B; [G08](reviews/G08.md). Physical writer C; C09/H05/H06 payload/build/stage/locales joins. Can start early on reserved presentation files.
 
 - [ ] **B08.M** Retain all deliberate page overrides and Soda design under `frontend/forgejo`; implement the reviewed Go-template context/form/CSRF, CSS cascade and TS enhancement splits. Rebind all four payload-manifest importers together through R01.
-- [ ] **B08.C** Correct G08-F1 stale validator expectations against the current retained design. Unreproduced switcher timing remains a bounded investigation; no stock-page replacement or recoloring.
+- [ ] **B08.C** Correct G08-F1 stale validator expectations against the current retained design. B accountable, C physical writer. The unreproduced switcher timing remains a bounded investigation; it is outside this literal correction. Scope, prerequisites, existing checks, and separate native preview gates: [finding allocation](execution-findings.md).
 - [ ] **B08.V** Use existing real template/native-form/source/browser tests with honest upstream parity limits; preserve installed destination keys and distinct extension payloads.
 
 ## C — Platform, release and verification
