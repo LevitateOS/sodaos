@@ -100,6 +100,7 @@ func (c *Coordinator) PublishPass(ctx context.Context) PublishReport {
 func publicationError(report *PublishReport, id, reason string) {
 	report.Errors = append(report.Errors, PublishError{ID: id, Reason: reason})
 }
+
 func publicationWait(report *PublishReport, id, reason string) {
 	report.Waits = append(report.Waits, PublishWait{ID: id, Reason: reason})
 }
@@ -143,16 +144,14 @@ func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, repo
 }
 
 func (c *Coordinator) assignmentForPublication(ctx context.Context, p factory.Publication) (factory.Assignment, error) {
-	assignments, err := c.Store.IssueAssignments(ctx, p.Repository, p.Issue)
+	a, err := c.Store.Assignment(ctx, p.AssignmentID)
 	if err != nil {
 		return factory.Assignment{}, err
 	}
-	for _, a := range assignments {
-		if a.ID == p.AssignmentID {
-			return a, nil
-		}
+	if a.Repository != p.Repository || a.Issue != p.Issue {
+		return factory.Assignment{}, store.ErrNotFound
 	}
-	return factory.Assignment{}, store.ErrNotFound
+	return a, nil
 }
 
 func (c *Coordinator) completePublication(ctx context.Context, p *factory.Publication, report *PublishReport) {

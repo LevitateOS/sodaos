@@ -37,27 +37,33 @@ type attemptPlan struct {
 // same reason; waits hold nothing and release nothing.
 func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, report *DispatchReport) {
 	repository, issue := control.Repository, control.Issue
-	assignments, err := deps.Store.IssueAssignments(ctx, repository, issue)
-	if err != nil {
+	latest, err := deps.Store.LatestIssueAssignment(ctx, repository, issue)
+	hasAssignment := err == nil
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "assignments unreadable"})
 		return
 	}
-	for _, a := range assignments {
-		if a.Stage != factory.AssignmentFinished {
-			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAssigned})
-			return
-		}
+	if hasAssignment && latest.Stage != factory.AssignmentFinished {
+		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAssigned})
+		return
 	}
 	head, err := deps.Store.AcceptanceHead(ctx, repository, issue)
 	if err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "acceptance head unreadable"})
 		return
 	}
-	for _, a := range assignments {
-		if a.Acceptance == head {
+	var retry *factory.RetryDecision
+	if hasAssignment && latest.Acceptance == head {
+		pending, retryErr := deps.Store.PendingExplicitRetry(ctx, repository, issue, head)
+		if errors.Is(retryErr, store.ErrNotFound) {
 			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAttemptRecorded})
 			return
 		}
+		if retryErr != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "explicit retry unreadable"})
+			return
+		}
+		retry = &pending
 	}
 	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head)
 	if failed != nil {
@@ -68,7 +74,7 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
 		return
 	}
-	executeFreshAttempt(ctx, deps, occupancy, plan, repository, issue, report)
+	executeFreshAttempt(ctx, deps, occupancy, plan, repository, issue, report, retry)
 }
 
 // planWait is one non-launch outcome: either a retryable wait or an

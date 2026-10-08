@@ -12,7 +12,7 @@ import (
 
 func TestReservationTransitions(t *testing.T) {
 	ctx := context.Background()
-	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
 	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {

@@ -46,6 +46,21 @@ var (
 // transaction. Concurrent passes serialize here, so only room that
 // actually exists is admitted; the losers wait instead of launching.
 func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err = registerDispatchTx(ctx, tx, d); err != nil {
+		return err
+	}
+	if err = recordDispatchPacketTx(ctx, tx, d, a, r, run, view); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
@@ -88,14 +103,6 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 	if err != nil {
 		return err
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-	if err = registerDispatchTx(ctx, tx, d); err != nil {
-		return err
-	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`,
 		a.ID, a.Repository, a.Issue, a.Run, a.Stage, a.Revision, string(adata)); err != nil {
 		return dispatchPacketError(err)
@@ -121,7 +128,7 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 	if err = checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 type admissionGrants struct {

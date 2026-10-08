@@ -3,16 +3,17 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
-// RetryRun records an explicit retry as a queued decision after the prior
-// run is reconciled and current authority revalidates. Remaining
-// allowances cannot be established without usage records, so the retry
-// stays queued instead of launching; a later scheduler consumes it.
+// RetryRun records an explicit retry request after the prior run is
+// reconciled and current authority revalidates. The next dispatch pass
+// rechecks current policy, accepted inputs and allowance before launching.
 func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID string) (factory.RetryDecision, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
@@ -46,12 +47,15 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	if err = cmd.Validate(); err != nil {
 		return factory.RetryDecision{}, err
 	}
-	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
-	if err != nil {
-		return factory.RetryDecision{}, err
+	prior, err := c.Store.FactoryCommand(bounded, cmd.ID)
+	if err == nil {
+		if prior.Digest != cmd.Digest {
+			return factory.RetryDecision{}, store.ErrCommandConflict
+		}
+		return replayRetry(prior)
 	}
-	if !created {
-		return replayRetry(stored)
+	if !errors.Is(err, store.ErrNotFound) {
+		return factory.RetryDecision{}, err
 	}
 	// The retry enters the real dispatch lifecycle when it can: a failed
 	// coder run re-queues its issue for the next dispatch pass. Succeeded
@@ -64,6 +68,40 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	}
 	if err = decision.Validate(); err != nil {
 		return factory.RetryDecision{}, err
+	}
+	if run.Role == project.RoleCoder && (run.Outcome == factory.Failed || run.Outcome == factory.Cancelled) {
+		view, viewErr := c.Store.FactoryRunView(bounded, run.ID)
+		if viewErr != nil && !errors.Is(viewErr, store.ErrNotFound) {
+			return factory.RetryDecision{}, viewErr
+		}
+		if viewErr == nil {
+			assignment, assignmentErr := c.Store.Assignment(bounded, view.Attempt)
+			if assignmentErr != nil && !errors.Is(assignmentErr, store.ErrNotFound) {
+				return factory.RetryDecision{}, assignmentErr
+			}
+			if assignmentErr != nil || assignment.Run != run.ID || assignment.Role != project.RoleCoder || view.RunID != run.ID || view.Repository <= 0 || view.Issue <= 0 {
+				return factory.RetryDecision{}, store.ErrNotFound
+			}
+			head, headErr := c.Store.AcceptanceHead(bounded, view.Repository, view.Issue)
+			if headErr != nil {
+				return factory.RetryDecision{}, headErr
+			}
+			stored, created, retryErr := c.Store.RecordExplicitRetryCommand(bounded, cmd, decision, view.Repository, view.Issue, head, time.Now())
+			if retryErr != nil {
+				return factory.RetryDecision{}, retryErr
+			}
+			if !created {
+				return replayRetry(stored)
+			}
+			return decision, nil
+		}
+	}
+	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
+	if err != nil {
+		return factory.RetryDecision{}, err
+	}
+	if !created {
+		return replayRetry(stored)
 	}
 	outcome, err := json.Marshal(decision)
 	if err != nil {

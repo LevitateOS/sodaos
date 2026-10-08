@@ -52,18 +52,6 @@ func TestFactoryAssignmentDTORendersInputsAndResult(t *testing.T) {
 	}
 }
 
-func TestCurrentIssueAssignmentSelectsLatest(t *testing.T) {
-	if _, ok := currentIssueAssignment(nil); ok {
-		t.Fatal("empty selection accepted")
-	}
-	first := factory.Assignment{ID: factory.NewID(), Stage: factory.AssignmentFinished}
-	second := factory.Assignment{ID: factory.NewID(), Stage: factory.AssignmentAssigned}
-	got, ok := currentIssueAssignment([]factory.Assignment{first, second})
-	if !ok || got.ID != second.ID {
-		t.Fatalf("selected = %+v %v", got, ok)
-	}
-}
-
 func TestFactoryAssignmentDTOPreservesIncompletePublication(t *testing.T) {
 	view := factoryAssignmentDTO(factory.Assignment{}, nil, &factory.Publication{
 		Publish:  factory.PublicationOperation{Effect: factory.OpEffectCommitted, Completion: factory.OpCompletionComplete, Cancellation: factory.OpCancelTooLate},

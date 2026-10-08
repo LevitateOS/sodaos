@@ -16,9 +16,12 @@ import (
 // limit recheck land in one transaction before any host call, so a
 // concurrent pass either wins the issue or consumes the room first; the
 // loser waits on a refreshed snapshot instead of admitting stale work.
-func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, repository, issue int64, report *DispatchReport) {
+func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, repository, issue int64, report *DispatchReport, retry *factory.RetryDecision) {
 	now := time.Now()
 	assignmentID, runID := factory.NewID(), factory.NewID()
+	if retry != nil {
+		assignmentID = retry.CommandID
+	}
 	authority := plan.effective.Authority
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
 	assignment := factory.Assignment{
@@ -49,7 +52,13 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		Image: plan.pin.Image, Harness: assignment.Harness, Model: assignment.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: repository, Issue: issue, Attempt: assignmentID}
-	if err := deps.Store.RecordDispatchPacket(ctx, registration, assignment, reservation, run, view); err != nil {
+	var packetErr error
+	if retry == nil {
+		packetErr = deps.Store.RecordDispatchPacket(ctx, registration, assignment, reservation, run, view)
+	} else {
+		packetErr = deps.Store.RecordExplicitRetryPacket(ctx, *retry, registration, assignment, reservation, run, view)
+	}
+	if err := packetErr; err != nil {
 		if errors.Is(err, store.ErrDispatchClosed) {
 			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitDispatchClosed, Detail: "dispatch gate closed during dispatch"})
 			return

@@ -136,15 +136,6 @@ func factoryAssignmentDTO(a factory.Assignment, reservation *factory.Reservation
 	return view
 }
 
-// currentIssueAssignment selects the latest recorded assignment for one
-// native issue. Assignments list oldest first; the last one is current.
-func currentIssueAssignment(assignments []factory.Assignment) (factory.Assignment, bool) {
-	if len(assignments) == 0 {
-		return factory.Assignment{}, false
-	}
-	return assignments[len(assignments)-1], true
-}
-
 // apiFactoryAssignment shows the current dispatch assignment for one
 // native issue: its exact bound inputs, staged prompt, recorded result
 // and held capacity. Visibility of the repository authorizes the read;
@@ -159,14 +150,13 @@ func (s *API) apiFactoryAssignment(w http.ResponseWriter, r *http.Request, v sto
 		return
 	}
 	index, _ := strconv.ParseInt(issue, 10, 64)
-	assignments, err := s.Store.IssueAssignments(r.Context(), repository, index)
+	current, err := s.Store.LatestIssueAssignment(r.Context(), repository, index)
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			auth.JSONError(w, 404, "not_found", "No dispatch assignment recorded this issue.")
+			return
+		}
 		auth.JSONError(w, 503, "store_unavailable", "Could not read issue assignments.")
-		return
-	}
-	current, ok := currentIssueAssignment(assignments)
-	if !ok {
-		auth.JSONError(w, 404, "not_found", "No dispatch assignment recorded this issue.")
 		return
 	}
 	var reservation *factory.Reservation

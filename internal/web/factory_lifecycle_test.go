@@ -92,6 +92,9 @@ func lifecycleWebGrants(t *testing.T, s *Server, repository int64, paused bool) 
 	if err := s.Store.SaveSponsorship(ctx, factory.Sponsorship{Repository: repository, GrantedBy: 1, Connection: "conn-1", GrantID: "grant-1", Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true}); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.Store.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{Connection: "conn-1", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes}); err != nil {
+		t.Fatal(err)
+	}
 	profile := &project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6", Interface: "headless", Architecture: "amd64", Image: "sha256:" + strings.Repeat("b", 64), Revision: strings.Repeat("c", 40)}
 	if err := s.Store.SaveEnvironmentGrant(ctx, project.EnvironmentGrant{Repository: repository, Owner: 1, Profile: profile, Active: true}); err != nil {
 		t.Fatal(err)

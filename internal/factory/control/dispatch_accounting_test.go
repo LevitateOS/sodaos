@@ -177,6 +177,216 @@ func TestDispatchInterruptionReleasesOnlyUnused(t *testing.T) {
 	}
 }
 
+func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	head := fx.accept(t, 3, "d333333333333333333333333")
+	fx.queue(t, 3, head.ID)
+	fx.host.launch = func(project.FactoryLaunch) (project.FactoryState, error) {
+		return project.FactoryState{}, errors.New("host down")
+	}
+	for i := 0; i < factory.MaxDispatchAttempts; i++ {
+		report := DispatchPass(ctx, fx.deps())
+		if len(report.Errors) != 0 {
+			t.Fatalf("failed unused attempt %d: %+v", i+1, report.Errors)
+		}
+	}
+	settled, err := db.IssueAssignments(ctx, fx.repo, 3)
+	if err != nil || len(settled) != 1 {
+		t.Fatalf("settled assignment: %+v %v", settled, err)
+	}
+	old := settled[0]
+	if old.Stage != factory.AssignmentFinished || old.Outcome != factory.Failed || old.Attempts != factory.MaxDispatchAttempts || len(old.RunHistory) != factory.MaxDispatchAttempts {
+		t.Fatalf("old attempts did not settle at their bound: %+v", old)
+	}
+	fourth := DispatchPass(ctx, fx.deps())
+	if len(fourth.Waits) != 1 || fourth.Waits[0].Reason != WaitAttemptRecorded {
+		t.Fatalf("settled retry remained dispatchable before explicit retry: %+v %+v", fourth.Launched, fourth.Waits)
+	}
+	oldHistory := append([]string(nil), old.RunHistory...)
+	priorRun, err := db.FactoryRun(ctx, old.Run)
+	if err != nil || !priorRun.Reconciled || priorRun.Outcome != factory.Failed {
+		t.Fatalf("latest failed run: %+v %v", priorRun, err)
+	}
+
+	var retriedRun string
+	fx.host.launch = func(in project.FactoryLaunch) (project.FactoryState, error) {
+		retriedRun = in.Run.ID
+		return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+	}
+	coord := &Coordinator{Store: db}
+	commandID := factory.NewID()
+	decision, err := coord.RetryRun(ctx, commandID, "native:7", priorRun.ID)
+	if err != nil || !decision.Queued || decision.Prior != priorRun.ID {
+		t.Fatalf("explicit retry: %+v %v", decision, err)
+	}
+
+	launchesBeforeRetry := len(fx.host.launches)
+	report := DispatchPass(ctx, fx.deps())
+	if len(report.Launched) != 1 || len(fx.host.launches) != launchesBeforeRetry+1 {
+		t.Fatalf("fresh explicit retry was not launched once: launched=%+v waits=%+v errors=%+v calls=%d", report.Launched, report.Waits, report.Errors, len(fx.host.launches))
+	}
+	assignments, err := db.IssueAssignments(ctx, fx.repo, 3)
+	if err != nil || len(assignments) != 2 {
+		t.Fatalf("retry assignments: %+v %v", assignments, err)
+	}
+	var fresh factory.Assignment
+	for _, assignment := range assignments {
+		if assignment.ID != old.ID {
+			fresh = assignment
+		}
+	}
+	if fresh.ID != commandID || fresh.Run == old.Run || fresh.Acceptance != head.ID || fresh.Repository != fx.repo || fresh.Issue != 3 || fresh.Attempts != 1 || len(fresh.RunHistory) != 1 || fresh.RunHistory[0] != fresh.Run {
+		t.Fatalf("fresh retry assignment did not bind current accepted work: %+v", fresh)
+	}
+	freshRun, err := db.FactoryRun(ctx, fresh.Run)
+	if err != nil || freshRun.Reconciled || freshRun.Outcome != "" {
+		t.Fatalf("fresh retry run: %+v %v", freshRun, err)
+	}
+	reservation, err := db.Reservation(ctx, fresh.ID)
+	if err != nil || reservation.State != factory.ReservationHeld || reservation.Connection != "conn" || reservation.PlannedMinutes <= 0 {
+		t.Fatalf("fresh retry allowance reservation: %+v %v", reservation, err)
+	}
+	if currentOld, err := db.Assignment(ctx, old.ID); err != nil || currentOld.Stage != factory.AssignmentFinished || len(currentOld.RunHistory) != len(oldHistory) {
+		t.Fatalf("old attempt history changed: %+v %v", currentOld, err)
+	} else {
+		for i := range oldHistory {
+			if currentOld.RunHistory[i] != oldHistory[i] {
+				t.Fatalf("old run history changed: %v", currentOld.RunHistory)
+			}
+		}
+	}
+	publication := factory.Publication{AssignmentID: old.ID, Repository: fx.repo, Issue: 3}
+	linked, err := coord.assignmentForPublication(ctx, publication)
+	if err != nil || linked.ID != old.ID {
+		t.Fatalf("publication lookup did not return its exact older assignment: %+v %v", linked, err)
+	}
+	publication.Issue++
+	if _, err = coord.assignmentForPublication(ctx, publication); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("publication lookup accepted mismatched issue: %v", err)
+	}
+	if total, err := db.UsageTotal(ctx, fx.repo, "conn"); err != nil || total != 0 {
+		t.Fatalf("confirmed-unused attempts consumed allowance: total=%d err=%v", total, err)
+	}
+
+	fx.host.inspect = func(in project.FactoryInspect) (project.FactoryState, error) {
+		if in.ID != retriedRun {
+			return project.FactoryState{}, errors.New("unexpected run inspection")
+		}
+		return project.FactoryState{ID: in.ID, Project: in.Project, Role: project.RoleCoder, Phase: project.FactoryRunning}, nil
+	}
+	launchCount := len(fx.host.launches)
+	replay, err := coord.RetryRun(ctx, commandID, "native:7", priorRun.ID)
+	if err != nil || replay != decision || len(fx.host.launches) != launchCount {
+		t.Fatalf("retry replay duplicated fresh launch: replay=%+v err=%v launches=%d/%d", replay, err, len(fx.host.launches), launchCount)
+	}
+	latest, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil || latest.ID != commandID {
+		t.Fatalf("retry replay replaced the consumed assignment: %+v %v", latest, err)
+	}
+	again := DispatchPass(ctx, fx.deps())
+	if len(again.Launched) != 0 || len(fx.host.launches) != launchCount {
+		t.Fatalf("replayed retry launched again: %+v calls=%d", again, len(fx.host.launches))
+	}
+
+	// Grow real command and assignment history past the bounded issue-list
+	// window. Each retry uses the ordinary command, dispatch and accounting
+	// paths, so targeted reads still work after the old page fills.
+	currentRun := freshRun
+	currentCommand := commandID
+	for i := 0; i < factory.MaxDispatchAttempts+8; i++ {
+		settledRun := currentRun
+		settledRun.Outcome, settledRun.Summary, settledRun.Reconciled = factory.Failed, "worker failed", true
+		if err := db.SaveFactoryRun(ctx, settledRun); err != nil {
+			t.Fatalf("settle history run %d: %v", i, err)
+		}
+		if _, ok := AccountSettledRun(ctx, db, settledRun, "", time.Now()); !ok {
+			t.Fatalf("account history run %d", i)
+		}
+		currentCommand = factory.NewID()
+		if _, err := coord.RetryRun(ctx, currentCommand, "native:7", settledRun.ID); err != nil {
+			t.Fatalf("queue history retry %d: %v", i, err)
+		}
+		retryReport := DispatchPass(ctx, fx.deps())
+		if len(retryReport.Launched) != 1 {
+			t.Fatalf("launch history retry %d: %+v %+v", i, retryReport.Launched, retryReport.Waits)
+		}
+		currentRun, err = db.FactoryRun(ctx, retryReport.Launched[0].RunID)
+		if err != nil || currentRun.ID == settledRun.ID {
+			t.Fatalf("history retry run %d: %+v %v", i, currentRun, err)
+		}
+	}
+	latest, err = db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil || latest.ID != currentCommand {
+		t.Fatalf("latest assignment after bounded history growth: %+v %v", latest, err)
+	}
+	boundedHistory, err := db.IssueAssignments(ctx, fx.repo, 3)
+	if err != nil || len(boundedHistory) != factory.MaxDispatchAttempts+8 || boundedHistory[len(boundedHistory)-1].ID == latest.ID {
+		t.Fatalf("history page no longer demonstrates its bound: count=%d latest=%s err=%v", len(boundedHistory), latest.ID, err)
+	}
+	publication = factory.Publication{AssignmentID: latest.ID, Repository: fx.repo, Issue: 3}
+	linked, err = coord.assignmentForPublication(ctx, publication)
+	if err != nil || linked.ID != latest.ID {
+		t.Fatalf("publication lookup missed assignment beyond bounded page: %+v %v", linked, err)
+	}
+	publication.Repository++
+	if _, err = coord.assignmentForPublication(ctx, publication); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("publication lookup accepted mismatched repository: %v", err)
+	}
+}
+
+func TestExplicitRetryRejectsPartialAccounting(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	head := fx.accept(t, 3, "d333333333333333333333333")
+	fx.queue(t, 3, head.ID)
+	launched := DispatchPass(ctx, fx.deps())
+	if len(launched.Launched) != 1 {
+		t.Fatalf("initial attempt: %+v %+v", launched.Launched, launched.Waits)
+	}
+	prior, err := db.FactoryRun(ctx, launched.Launched[0].RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignment, err := db.AssignmentByRun(ctx, prior.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prior.Outcome, prior.Summary, prior.Reconciled = factory.Failed, "worker failed", true
+	if err = db.SaveFactoryRun(ctx, prior); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.RecordRunUsage(ctx, factory.Usage{
+		RunID: prior.ID, Repository: fx.repo, Connection: "conn", StartedAt: prior.Started, EndedAt: prior.Started,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	coord := &Coordinator{Store: db}
+	commandID := factory.NewID()
+	if _, err = coord.RetryRun(ctx, commandID, "native:7", prior.ID); err == nil {
+		t.Fatal("explicit retry accepted an unsettled linked assignment")
+	}
+	if _, err = db.FactoryCommand(ctx, commandID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("unsettled retry left a durable command: %v", err)
+	}
+	if err = finishFromRun(ctx, db, assignment, prior, "", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	reservation, err := db.Reservation(ctx, assignment.ID)
+	if err != nil || reservation.State != factory.ReservationHeld {
+		t.Fatalf("partial accounting setup: %+v %v", reservation, err)
+	}
+	commandID = factory.NewID()
+	if _, err = coord.RetryRun(ctx, commandID, "native:7", prior.ID); err == nil {
+		t.Fatal("explicit retry accepted usage without the matching consumed reservation")
+	}
+	if _, err = db.FactoryCommand(ctx, commandID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("partial retry left a durable command: %v", err)
+	}
+}
+
 func TestDispatchApprovedReceiptReleasesWhenBrokerUnknown(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
