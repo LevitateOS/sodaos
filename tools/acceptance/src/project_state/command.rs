@@ -47,7 +47,7 @@ pub fn command_with_timeout(
             .collect(),
     };
     let (process, stdout, stderr) =
-        start_raw_process(&phase, &spec, MAX_OUTPUT).map_err(map_launch)?;
+        start_raw_process(&phase, &spec, MAX_OUTPUT, 0).map_err(map_launch)?;
     let clean = match process.wait(&phase) {
         Ok(()) => process.outcome().and_then(|o| o.exit_code) == Some(0),
         Err(_) if process.is_done() => {

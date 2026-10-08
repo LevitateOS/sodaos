@@ -163,6 +163,7 @@ fn raw_capture_keeps_bounded_bytes_and_discards_stderr() {
         &Phase::background(),
         &shell_command("echo hello; echo noise >&2"),
         4,
+        0,
     )
     .unwrap();
     process
@@ -171,8 +172,13 @@ fn raw_capture_keeps_bounded_bytes_and_discards_stderr() {
     process.join_pumps();
     assert_eq!(out.take(), (b"hell".to_vec(), true));
     assert_eq!(err.take(), (Vec::new(), true));
-    let (exact, bytes, _) =
-        start_raw_process(&Phase::background(), &shell_command("printf 'a\\tb'"), 64).unwrap();
+    let (exact, bytes, _) = start_raw_process(
+        &Phase::background(),
+        &shell_command("printf 'a\\tb'"),
+        64,
+        0,
+    )
+    .unwrap();
     exact.wait(&Phase::timeout(Duration::from_secs(5))).unwrap();
     exact.join_pumps();
     assert_eq!(bytes.take(), (b"a\tb".to_vec(), false));
@@ -200,6 +206,7 @@ fn phased_pumps_exit_on_deadline_without_detaching() {
         &Phase::timeout(Duration::from_millis(300)),
         &shell_command(script.as_str()),
         64,
+        0,
     )
     .unwrap();
     process

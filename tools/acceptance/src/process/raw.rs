@@ -71,18 +71,19 @@ impl PumpSink for RawState {
 }
 
 /// Start an owned process capturing raw stdout/stderr bytes, like
-/// [`super::start_process`] but with in-memory bounded sinks instead of
-/// redacting writers. The stderr sink discards everything. Pumps follow
-/// the phase: they exit (marked cancelled) at its deadline instead of
-/// hanging on pipes an escaped writer holds past group retirement.
+/// [`super::start_process`] but with independently bounded in-memory sinks
+/// instead of redacting writers. Pumps follow the phase: they exit (marked
+/// cancelled) at its deadline instead of hanging on pipes an escaped writer
+/// holds past group retirement.
 pub fn start_raw_process(
     phase: &Phase,
     spec: &CommandSpec,
-    cap: usize,
+    stdout_cap: usize,
+    stderr_cap: usize,
 ) -> Result<(Arc<Process>, RawCapture, RawCapture), Error> {
     phase.check()?;
-    let out = RawCapture::new(cap);
-    let err = RawCapture::new(0);
+    let out = RawCapture::new(stdout_cap);
+    let err = RawCapture::new(stderr_cap);
     let process = start_inner(
         spec,
         out.state.clone(),
