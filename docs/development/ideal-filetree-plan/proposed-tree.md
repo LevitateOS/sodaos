@@ -50,6 +50,7 @@ target allocation or refresh R02 counts.
 | Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar and setup urlx grammar are retired; setup retains a narrow typed origin/display adapter |
 | Release `json*`, Compose/Muse/guest wire and Acceptance structured data | Concrete Serde admission/emission and bounded ordered/raw application data; `lib/json` is retired with no target allocation |
 | Release/build/import OCI adapters | Delivery owns low-level scanning; callers retain admitted content/layout/descriptor policy and original blob custody |
+| Identity provider `sha256.rs` / A; image-import `sha256.rs` / C | Retain the two current local profiles over sha2: provider pin/fingerprint hashing and streamed OCI blob identity with lowercase digest spelling. These contain no SHA compression engine; callers retain original-byte, file and admission policy. No additional shared package or merge is selected |
 | Release formats, terminal assets and emblem | tar/flate2 adapters retain deterministic metadata, exact-size streaming and complete bounded gzip; roxmltree/svgtypes own token parsing, while Soda retains namespace/geometry admission and its narrow byte-stable renderer |
 | Release/acceptance CLI and image target discovery | Per-command Clap schemas and positive humantime timeout admission retain action/owner/signing/secret policy and literal command tails. One bounded, canonical Cargo metadata inventory flows through compilation and payload linking; fixed shipping tables retain destination authority. No flag/duration/TOML emulator allocation |
 | Installer literal output and `lib/release-inputs/src/elf.rs` | Rust formatting retains escaping/secrecy/write-error policy; one 64-byte ELF accessor serves purpose-specific build/host/Tea gates |
@@ -392,6 +393,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   │   ├── mod.rs
 │   │   │   │   │   └── tests.rs
 │   │   │   │   ├── mod.rs
+│   │   │   │   ├── sha256.rs
 │   │   │   │   └── types.rs
 │   │   │   ├── acquisition.rs
 │   │   │   ├── control.rs
@@ -463,6 +465,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── main.rs
 │   │   │   ├── payload.rs
 │   │   │   ├── platform.rs
+│   │   │   ├── sha256.rs
 │   │   │   └── json.rs
 │   │   └── Cargo.toml
 │   ├── soda-install/

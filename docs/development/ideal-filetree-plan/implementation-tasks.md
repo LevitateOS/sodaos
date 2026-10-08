@@ -31,7 +31,7 @@ native-worker qualification is inferred. Seven pre-existing dirty guidance
 files remain untouched. The full path comparison at `81ea7b5e` counts 2,524
 tracked paths and 2,498 then-desired leaves, with 190 differing paths classified
 separately. The supported leaf corrections, including the fixed-path startup owner, bring
-the desired tree to 2,522 leaves (including the fresh-packet authority regression and five owner-required provenance records); unresolved mappings keep R02.targets/joins open. The established responsibility snapshot and
+the desired tree to 2,524 leaves (including the fresh-packet authority regression, five owner-required provenance records and the two live sha2 provider/import profiles). The two former omitted Compose/Muse formatter leaves are now deleted at their last callers; their remaining application duties live with launch, Compose, account and config owners. This selective correction does not close the full R02.targets/joins census. The established responsibility snapshot and
 historical validity reviews retain their original scope; affected owner deltas
 are recorded selectively, with full R02.targets regeneration still pending.
 
