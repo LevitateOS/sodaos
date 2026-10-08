@@ -50,6 +50,13 @@ experimental selectors do not establish Soda support.
 Qualification requires native Linux x86_64 evidence. Cross-compilation, emulation
 and development checks on another host architecture do not qualify the appliance.
 
+## OCI metadata admission
+
+Consumed OCI layout, index, manifest and image-config documents must be valid
+UTF-8 JSON. Unknown extension fields may be ignored, but their bytes must still
+be valid UTF-8. Content identifiers use the original bytes. Layer bodies retain
+their format-specific binary admission rules.
+
 ## Media
 
 ISO is the primary installation medium. Prepared cloud disk images may follow the

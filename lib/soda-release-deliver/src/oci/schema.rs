@@ -335,8 +335,10 @@ pub(super) fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Des
         .get("oci-layout")
         .and_then(|b| b.data.as_deref())
         .ok_or_else(|| Error::msg("missing OCI layout"))?;
+    let layout_text =
+        std::str::from_utf8(layout_data).map_err(|_| Error::msg("missing OCI layout"))?;
     let layout: LayoutDocument =
-        serde_json::from_slice(layout_data).map_err(|_| Error::msg("missing OCI layout"))?;
+        serde_json::from_str(layout_text).map_err(|_| Error::msg("missing OCI layout"))?;
     if layout.image_layout_version != "1.0.0" {
         return Err(Error::msg("missing OCI layout"));
     }
@@ -344,7 +346,8 @@ pub(super) fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Des
         .get("index.json")
         .and_then(|b| b.data.as_deref())
         .ok_or_else(invalid)?;
-    let index: IndexDocument = serde_json::from_slice(index_data).map_err(|_| invalid())?;
+    let index_text = std::str::from_utf8(index_data).map_err(|_| invalid())?;
+    let index: IndexDocument = serde_json::from_str(index_text).map_err(|_| invalid())?;
     if index.schema_version != 2 || (!index.media_type.is_empty() && index.media_type != INDEX_TYPE)
     {
         return Err(invalid());
@@ -354,7 +357,8 @@ pub(super) fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Des
 
 pub(super) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifest, Error> {
     let invalid = || Error::msg("invalid OCI image manifest");
-    let manifest: ManifestDocument = serde_json::from_slice(data).map_err(|_| invalid())?;
+    let text = std::str::from_utf8(data).map_err(|_| invalid())?;
+    let manifest: ManifestDocument = serde_json::from_str(text).map_err(|_| invalid())?;
     if manifest.schema_version != 2
         || (!manifest.media_type.is_empty() && manifest.media_type != MANIFEST_TYPE)
     {
@@ -379,7 +383,8 @@ struct OciConfig {
 
 fn parse_oci_config(data: &[u8]) -> Result<OciConfig, Error> {
     let invalid = || Error::msg("invalid OCI image config");
-    let config: ConfigDocument = serde_json::from_slice(data).map_err(|_| invalid())?;
+    let text = std::str::from_utf8(data).map_err(|_| invalid())?;
+    let config: ConfigDocument = serde_json::from_str(text).map_err(|_| invalid())?;
     Ok(OciConfig {
         os: config.os,
         arch: config.architecture,
@@ -785,7 +790,27 @@ pub(super) fn inspect_oci_image(
 
 #[cfg(test)]
 mod json_admission_tests {
-    use super::{Descriptor, IndexDocument};
+    use super::{parse_oci_config, parse_oci_manifest, read_oci_index, Descriptor, IndexDocument};
+    use std::collections::BTreeMap;
+
+    fn index_entries(layout: Vec<u8>, index: Vec<u8>) -> BTreeMap<String, super::super::Blob> {
+        BTreeMap::from([
+            (
+                "oci-layout".to_string(),
+                super::super::Blob {
+                    data: Some(layout),
+                    ..super::super::Blob::default()
+                },
+            ),
+            (
+                "index.json".to_string(),
+                super::super::Blob {
+                    data: Some(index),
+                    ..super::super::Blob::default()
+                },
+            ),
+        ])
+    }
 
     #[test]
     fn oci_raw_slots_validate_only_the_last_known_value() {
@@ -808,5 +833,125 @@ mod json_admission_tests {
         .unwrap();
         assert_eq!(index.schema_version, 2);
         assert_eq!(index.manifests.len(), 1);
+    }
+
+    #[test]
+    fn consumed_layout_decoder_accepts_utf8_extensions_and_rejects_invalid_utf8() {
+        let layout = r#"{"imageLayoutVersion":"1.0.0","extension":{"note":"café"}}"#.as_bytes();
+        let index = r#"{"schemaVersion":2,"manifests":[],"extension":{"note":"café"}}"#.as_bytes();
+        assert!(
+            read_oci_index(&index_entries(layout.to_vec(), index.to_vec()))
+                .unwrap()
+                .is_empty()
+        );
+
+        let mut invalid_layout = br#"{"imageLayoutVersion":"1.0.0","extension":{"note":""#.to_vec();
+        invalid_layout.push(0xff);
+        invalid_layout.extend_from_slice(br#""}}"#);
+        assert!(read_oci_index(&index_entries(invalid_layout, index.to_vec())).is_err());
+    }
+
+    #[test]
+    fn consumed_index_decoder_accepts_utf8_extensions_and_rejects_invalid_utf8() {
+        let layout = r#"{"imageLayoutVersion":"1.0.0","extension":{"note":"café"}}"#.as_bytes();
+        let index = r#"{"schemaVersion":2,"manifests":[],"extension":{"note":"café"}}"#.as_bytes();
+        assert!(
+            read_oci_index(&index_entries(layout.to_vec(), index.to_vec()))
+                .unwrap()
+                .is_empty()
+        );
+
+        let mut invalid_index =
+            br#"{"schemaVersion":2,"manifests":[],"extension":{"note":""#.to_vec();
+        invalid_index.push(0xff);
+        invalid_index.extend_from_slice(br#""}}"#);
+        assert!(read_oci_index(&index_entries(layout.to_vec(), invalid_index)).is_err());
+    }
+
+    #[test]
+    fn consumed_manifest_decoder_accepts_utf8_extensions_and_rejects_invalid_utf8() {
+        let valid = r#"{"schemaVersion":2,"config":{"mediaType":"application/vnd.oci.image.config.v1+json"},"layers":[],"extension":{"note":"café"}}"#.as_bytes();
+        assert!(parse_oci_manifest(valid).is_ok());
+
+        let mut invalid = br#"{"schemaVersion":2,"config":{"mediaType":"application/vnd.oci.image.config.v1+json"},"layers":[],"extension":{"note":""#.to_vec();
+        invalid.push(0xff);
+        invalid.extend_from_slice(br#""}}"#);
+        assert!(parse_oci_manifest(&invalid).is_err());
+    }
+
+    #[test]
+    fn consumed_config_decoder_accepts_utf8_extensions_and_rejects_invalid_utf8() {
+        let valid = r#"{"os":"linux","architecture":"amd64","rootfs":{"type":"layers","diff_ids":[]},"config":{"Labels":{}},"extension":{"note":"café"}}"#.as_bytes();
+        assert!(parse_oci_config(valid).is_ok());
+
+        let mut invalid = br#"{"os":"linux","architecture":"amd64","rootfs":{"type":"layers","diff_ids":[]},"config":{"Labels":{}},"extension":{"nested":{"note":""#.to_vec();
+        invalid.push(0xff);
+        invalid.extend_from_slice(br#""}}}"#);
+        assert!(parse_oci_config(&invalid).is_err());
+    }
+
+    #[test]
+    fn directory_layout_reader_validates_index_utf8_and_hashes_original_bytes() {
+        let temp = tempfile::tempdir().unwrap();
+        let fixture = include_bytes!("../../../soda-release-build/tests/data/go-fixture.oci");
+        tar::Archive::new(std::io::Cursor::new(&fixture[..]))
+            .unpack(temp.path())
+            .unwrap();
+
+        let index_path = temp.path().join("index.json");
+        let mut index: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&index_path).unwrap()).unwrap();
+        let manifest_digest = index["manifests"][0]["digest"].as_str().unwrap();
+        let manifest_path = temp
+            .path()
+            .join("blobs/sha256")
+            .join(manifest_digest.strip_prefix("sha256:").unwrap());
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(manifest_path).unwrap()).unwrap();
+        let config_digest = manifest["config"]["digest"].as_str().unwrap();
+        let config_path = temp
+            .path()
+            .join("blobs/sha256")
+            .join(config_digest.strip_prefix("sha256:").unwrap());
+        let config: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(config_path).unwrap()).unwrap();
+        let revision = config["config"]["Labels"]["org.opencontainers.image.revision"]
+            .as_str()
+            .unwrap();
+        assert_eq!(revision, "a".repeat(40));
+
+        let config_reference = config_digest.to_string();
+        index["manifests"][0]["annotations"]["org.opencontainers.image.ref.name"] =
+            serde_json::json!(config_reference);
+        index["extension"] = serde_json::json!({"note": "café"});
+        let index_bytes = serde_json::to_vec(&index).unwrap();
+        std::fs::write(&index_path, &index_bytes).unwrap();
+
+        let selection = BTreeMap::from([(config_reference.clone(), revision.to_string())]);
+        let layout =
+            crate::oci::inspect_oci_layout(temp.path().to_str().unwrap(), "x86_64", &selection)
+                .unwrap();
+        assert_eq!(layout.images.len(), 1);
+        assert_eq!(
+            layout.files["index.json"],
+            crate::hash_bytes(&index_bytes)
+                .strip_prefix("sha256:")
+                .unwrap()
+        );
+
+        let mut invalid_index = index_bytes.clone();
+        let cafe = "café".as_bytes();
+        let at = invalid_index
+            .windows(cafe.len())
+            .position(|window| window == cafe)
+            .unwrap();
+        invalid_index[at + 3] = 0xff;
+        std::fs::write(index_path, invalid_index).unwrap();
+        assert!(crate::oci::inspect_oci_layout(
+            temp.path().to_str().unwrap(),
+            "x86_64",
+            &selection,
+        )
+        .is_err());
     }
 }
