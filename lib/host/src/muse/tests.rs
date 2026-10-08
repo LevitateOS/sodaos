@@ -2303,7 +2303,7 @@ fn serve_shutdown_and_listener_setup() {
     let shutdown = Arc::new(AtomicBool::new(false));
     let peer = service.clone();
     let flag = shutdown.clone();
-    let worker = std::thread::spawn(move || peer.serve(listen_fd, &flag));
+    let worker = std::thread::spawn(move || peer.serve(listen_fd, flag));
     std::thread::sleep(Duration::from_millis(50));
     shutdown.store(true, Ordering::SeqCst);
     assert!(worker.join().unwrap().is_ok());
@@ -2315,6 +2315,7 @@ fn serve_shutdown_and_listener_setup() {
 
 #[test]
 fn pidfd_signal_stays_bound_after_child_reap() {
+    let shutdown = AtomicBool::new(false);
     let mut finished = std::process::Command::new("/bin/sh")
         .args(["-c", "exit 0"])
         .spawn()
@@ -2322,18 +2323,54 @@ fn pidfd_signal_stays_bound_after_child_reap() {
     let identity = super::launch::pidfd_open(finished.id()).unwrap();
     assert!(finished.wait().unwrap().success());
 
-    let mut later = std::process::Command::new("/bin/sh")
-        .args(["-c", "sleep 5"])
+    let mut later = std::process::Command::new("/bin/sleep")
+        .arg("5")
         .spawn()
         .unwrap();
-    let error = super::launch::pidfd_send_signal(identity.as_raw_fd(), libc::SIGKILL).unwrap_err();
-    assert_eq!(error.raw_os_error(), Some(libc::ESRCH));
-    assert!(
-        later.try_wait().unwrap().is_none(),
-        "reaped identity signaled a later child"
+    // ESRCH for the already-exited identity is benign and cannot start host
+    // shutdown or signal a later process that reuses the numeric PID.
+    super::launch::signal_supervised_child(identity.as_raw_fd(), &shutdown).unwrap();
+    assert!(!shutdown.load(Ordering::SeqCst));
+    assert!(later.try_wait().unwrap().is_none());
+
+    let later_identity = super::launch::pidfd_open(later.id()).unwrap();
+    super::launch::signal_supervised_child(later_identity.as_raw_fd(), &shutdown).unwrap();
+    assert!(!shutdown.load(Ordering::SeqCst));
+    assert!(!later.wait().unwrap().success());
+}
+
+#[test]
+fn failed_supervisor_signal_sets_shared_shutdown_and_refuses_success() {
+    use std::sync::Arc;
+
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker_shutdown = shutdown.clone();
+    let supervisor = std::thread::spawn(move || {
+        // An invalid pidfd deterministically exercises a non-benign signal
+        // failure through the same production helper used by the supervisor.
+        super::launch::signal_supervised_child(-1, &worker_shutdown)
+    });
+    let result = super::launch::finish_supervisor(
+        LaunchExit {
+            code: 0,
+            error: String::new(),
+        },
+        supervisor.join(),
     );
-    let _ = later.kill();
-    let _ = later.wait();
+    assert!(shutdown.load(Ordering::SeqCst));
+    assert_eq!(result, LaunchExit::cleanup_unconfirmed());
+}
+
+#[test]
+fn terminal_listener_failure_sets_the_main_shared_shutdown_flag() {
+    use std::sync::Arc;
+
+    let service = Arc::new(MuseLaunch::new(runtime(FakeExec::new(vec![]))));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let invalid_listener = std::fs::File::open("/dev/null").unwrap();
+    let error = service.serve(invalid_listener.as_raw_fd(), shutdown.clone());
+    assert!(error.is_err());
+    assert!(shutdown.load(Ordering::SeqCst));
 }
 
 #[test]
@@ -2384,7 +2421,7 @@ fn listener_reclaims_completed_workers_during_churn() {
     let shutdown = Arc::new(AtomicBool::new(false));
     let worker_service = service.clone();
     let worker_shutdown = shutdown.clone();
-    let worker = std::thread::spawn(move || worker_service.serve(listener, &worker_shutdown));
+    let worker = std::thread::spawn(move || worker_service.serve(listener, worker_shutdown));
 
     // More than the worker cap of short-lived malformed requests must keep
     // succeeding; stale completed handles would otherwise fill admission.
@@ -2431,7 +2468,7 @@ fn listener_caps_silent_peers_and_joins_them_on_shutdown() {
     let shutdown = Arc::new(AtomicBool::new(false));
     let worker_service = service.clone();
     let worker_shutdown = shutdown.clone();
-    let worker = std::thread::spawn(move || worker_service.serve(listener, &worker_shutdown));
+    let worker = std::thread::spawn(move || worker_service.serve(listener, worker_shutdown));
 
     let mut peers = Vec::new();
     for _ in 0..128 {

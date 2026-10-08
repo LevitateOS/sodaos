@@ -282,7 +282,7 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
         // The listener outlives the serve loop: it is dropped after the
         // join below while `serve` borrows only the fd.
         std::thread::spawn(move || {
-            let result = launch.serve(fd, flag.as_ref());
+            let result = launch.serve(fd, flag);
             drop(listener);
             result
         })
@@ -297,7 +297,10 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
         drop(listener);
         result
     });
-    while !SHUTDOWN.load(Ordering::SeqCst) && !server.is_shutdown() {
+    while !SHUTDOWN.load(Ordering::SeqCst)
+        && !server.is_shutdown()
+        && !muse_shutdown.load(Ordering::SeqCst)
+    {
         if serve_handle.is_finished() {
             break;
         }

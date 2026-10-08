@@ -34,7 +34,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
     pub fn serve(
         self: &std::sync::Arc<Self>,
         listen_fd: RawFd,
-        shutdown: &AtomicBool,
+        shutdown: std::sync::Arc<AtomicBool>,
     ) -> Result<(), String> {
         // Non-blocking accept with a stop poll, mirroring Go's
         // context-cancelled `AcceptUnix`.
@@ -45,7 +45,6 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             }
         }
         let mut handles: Vec<std::thread::JoinHandle<()>> = Vec::new();
-        let worker_cancel = std::sync::Arc::new(AtomicBool::new(false));
         let mut worker_panicked = false;
         let outcome = loop {
             // Completed workers are joined while the listener is live, so
@@ -100,7 +99,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
                 continue;
             }
             let service = self.clone();
-            let cancel = worker_cancel.clone();
+            let cancel = shutdown.clone();
             match std::thread::Builder::new()
                 .spawn(move || service.serve_one(conn, &service, cancel))
             {
@@ -108,7 +107,10 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
                 Err(error) => break Err(format!("muse worker start failed: {error}")),
             }
         };
-        worker_cancel.store(true, Ordering::SeqCst);
+        // Notify main before joining workers after a terminal listener error.
+        if outcome.is_err() {
+            shutdown.store(true, Ordering::SeqCst);
+        }
         for handle in handles {
             worker_panicked |= handle.join().is_err();
         }
@@ -274,10 +276,11 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             );
             // The pidfd remains the same task identity after wait/reap; this
             // cannot signal a newly reused numeric PID.
-            let _ = pidfd_send_signal(pidfd.as_raw_fd(), libc::SIGKILL);
+            let result = signal_supervised_child(pidfd.as_raw_fd(), &shutdown);
             drop(conn_dup);
             drop(stdin_control);
             drop(pidfd);
+            result
         });
         let supervisor = match supervisor {
             Ok(supervisor) => supervisor,
@@ -291,9 +294,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         };
         let mut result = muse_command_exit(child.wait());
         control_cancel.store(true, Ordering::SeqCst);
-        if supervisor.join().is_err() {
-            result = LaunchExit::cleanup_unconfirmed();
-        }
+        result = finish_supervisor(result, supervisor.join());
         let cleanup = Instant::now() + Duration::from_secs(30);
         if self
             .runtime
@@ -431,6 +432,30 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             }
         }
     }
+}
+
+pub(super) fn signal_supervised_child(
+    pidfd: RawFd,
+    shutdown: &AtomicBool,
+) -> Result<(), std::io::Error> {
+    match pidfd_send_signal(pidfd, libc::SIGKILL) {
+        Ok(()) => Ok(()),
+        Err(error) if error.raw_os_error() == Some(libc::ESRCH) => Ok(()),
+        Err(error) => {
+            shutdown.store(true, Ordering::SeqCst);
+            Err(error)
+        }
+    }
+}
+
+pub(super) fn finish_supervisor(
+    mut result: LaunchExit,
+    supervisor: std::thread::Result<Result<(), std::io::Error>>,
+) -> LaunchExit {
+    if !matches!(supervisor, Ok(Ok(()))) {
+        result = LaunchExit::cleanup_unconfirmed();
+    }
+    result
 }
 
 pub(super) fn pidfd_open(pid: u32) -> std::io::Result<OwnedFd> {

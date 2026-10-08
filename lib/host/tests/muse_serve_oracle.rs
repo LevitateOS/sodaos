@@ -584,10 +584,7 @@ fn spawn_existing_serve(
     listen_fd: RawFd,
     shutdown: Arc<AtomicBool>,
 ) -> std::thread::JoinHandle<Result<(), String>> {
-    std::thread::spawn(move || {
-        let flag = shutdown.clone();
-        svc.serve(listen_fd, &flag)
-    })
+    std::thread::spawn(move || svc.serve(listen_fd, shutdown))
 }
 
 fn launch_wire() -> Vec<u8> {
