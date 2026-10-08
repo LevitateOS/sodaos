@@ -33,10 +33,12 @@ Evidence: TestValidateAccessUser at 58; TestAccessSSHOptions at 140; TestLoadAcc
 Observed size: 466 lines, including tests where embedded. Retire the obsolete
 Evidence/Execute/Remote/Command closure and its tests. Its remaining production
 use is PrivateFile, called by installed probes; preserve that real operation
-in probe input support before removing the rest. No permanent Go process
-package or replacement evidence facade is proposed.
+in probe input support before removing the rest. The current caller census
+retains Go StartCommand/Process in this same acceptance package for live
+bounded installed probes; only the uncalled StartProcess adapter retires.
+No new process package or replacement evidence facade is proposed.
 
-- `internal/acceptance/installed.go` — Existing restricted regular-file input operation folded into its actual private-input caller; preserve the present mode, path and size checks and existing probe tests.
+- `internal/acceptance/installed.go` — Existing restricted regular-file input operation folded into its actual private-input caller; retain absolute-path/regular/restricted-mode and effective min(caller cap, 1 MiB) admission on the same opened descriptor; refuse final links/FIFOs, bound reads before growth, check read/close errors and retain existing probe tests.
 
 Evidence: CreateEvidence at 30; WriteJSON at 188; PublishObservation at 241; Hashes at 217; scanEvidenceBytes at 277; CheckSecrets at 327; PrivateFile at 454; RedactError at 361; redactingWriter at 370; redactPendingSecrets at 409.
 

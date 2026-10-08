@@ -7,7 +7,9 @@ Each entry distinguishes direct upstream API use from the retained application s
 Selective source deltas: `5794a7d9` replaces SDK snapshot wire projections with
 matching upstream typed values; `c84d242c` moves the staged SQLite writer into
 existing factory `control_test` support. The dashboard's actual dependency list
-now contains no modernc packages; acceptance SQLite remains. Earlier numeric
+now contains no modernc packages. `8b10ab14` retires the obsolete acceptance
+lifecycle observer and its exclusive tests/dispatcher; SQLite remains only for
+the two staged fixture callers. Earlier numeric
 selectors and findings keep their original source scope.
 
 Numeric selectors refer to the pinned source. Multiple duties in one file remain separate responsibilities in the [coverage maps](../coverage/maps/README.md); this integration map does not transfer their defining owner.
@@ -283,15 +285,14 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 
 ## modernc.org/sqlite
 
-**Selected:** v1.58.0. **Upstream capability used:** SQLite database/sql driver registration. Current Soda use is a developer acceptance reader over copied legacy dashboard.db bytes plus a test-only staged fixture writer.
+**Selected:** v1.58.0. **Upstream capability used:** SQLite database/sql driver registration. Current Soda use is the test-only staged fixture writer; the legacy dashboard reader was retired in `8b10ab14`.
 
 **Dependency admission:** go.mod selected module requirement; actual import sites listed below.
 
-**Primary-source evidence:** v1.58.0 selected in go.mod. Tracked source shows imports at internal/acceptance/lifecycle_state.go and internal/factory/control/staged_seed_test.go. dumpHostSoda reads a fetched private copy; seedStagedDependencyEdge callers are only two tracked factory test fixtures.
+**Primary-source evidence:** v1.58.0 selected in go.mod. Current source has the SQLite import in internal/factory/control/staged_seed_test.go. seedStagedDependencyEdge has two tracked factory test callers; the former acceptance reader/fixtures are absent.
 
 | Current source | Function / upstream API selectors | Remaining types, conversions and policy | Reverse callers / hosting targets |
 | --- | --- | --- | --- |
-| [internal/acceptance/lifecycle_state.go](../../../../internal/acceptance/lifecycle_state.go) | blank import registers database/sql driver "sqlite"; queryHostSoda; dumpHostSoda; runSnapshotAt; RunLifecycleState; blank import driver registration | **role:** Developer acceptance/probe path. queryHostSoda fetches configured dashboard.db bytes; dumpHostSoda writes a private temporary copy, runs PRAGMA integrity_check and reads selected legacy tables. Observations are serialized to JSON snapshots; SQLite is not used to persist lifecycle observations.; **public types:** hostSodaTables; **conversions:** copied legacy dashboard.db bytes -&gt; bounded table observations -&gt; acceptance snapshot JSON; **consumers:** tools/soda-installed-probes/main.go::main -&gt; acceptance.RunLifecycleState -&gt; runSnapshotAt -&gt; queryHostSoda -&gt; dumpHostSoda | none |
 | [internal/factory/control/staged_seed_test.go](../../../../internal/factory/control/staged_seed_test.go) | blank import registers database/sql driver "sqlite"; seedStagedDependencyEdge; blank import driver registration | **role:** Private test-package helper for writing one staged Forgejo SQLite fixture edge.; **test helper:** seedStagedDependencyEdge; **conversions:** test fixture edge arguments -&gt; external staged SQLite issue_dependency row; **test callers:** internal/factory/control/st15_demo_seed_test.go::(*st15Fixture).insertEdge; internal/factory/control/merge_native_setup_test.go::nativeMergeInsertEdge | none |
 
 ### Test and fixture uses
@@ -300,11 +301,10 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | --- | --- | --- |
 | [internal/factory/control/st15_demo_seed_test.go](../../../../internal/factory/control/st15_demo_seed_test.go) | (*st15Fixture).insertEdge -&gt; seedStagedDependencyEdge | Current test-only caller of staged fixture writer. |
 | [internal/factory/control/merge_native_setup_test.go](../../../../internal/factory/control/merge_native_setup_test.go) | nativeMergeInsertEdge -&gt; seedStagedDependencyEdge | Current test-only caller of staged fixture writer. |
-| [internal/acceptance/lifecycle_state_test.go](../../../../internal/acceptance/lifecycle_state_test.go) | dumpHostSoda tests over copied DB bytes; RunLifecycleState CLI tests | Test support for developer acceptance reader. |
 
-**Transfer / predecessor evidence:** No product SQLite persistence path identified. The staged writer is test-only; lifecycle state snapshots are JSON and SQLite is a read-only temporary-copy adapter.
+**Transfer / predecessor evidence:** No product SQLite persistence path identified. The staged writer is test-only. The former lifecycle-state temporary-copy reader had no current installed journey consumer and was retired with its exclusive tests/CLI selector; current persistence qualification remains separate.
 
-**developer consumers:** **path:** [tools/soda-installed-probes/main.go](../../../../tools/soda-installed-probes/main.go); **symbols:** main; acceptance.RunLifecycleState; **role:** Developer acceptance/probe CLI, not product runtime.; **chain:** main -&gt; RunLifecycleState -&gt; runSnapshotAt -&gt; queryHostSoda -&gt; dumpHostSoda; reads copied legacy dashboard.db; emits JSON snapshot.
+**developer consumers:** No current acceptance SQLite consumer. The two control test fixture callers above retain the selected module.
 
 <a id="integration-9"></a>
 
@@ -533,7 +533,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | [internal/acceptance/developer_access_transfer.go](../../../../internal/acceptance/developer_access_transfer.go) | MarshalIndent | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** writeAccessResults; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/developer_access_users.go](../../../../internal/acceptance/developer_access_users.go) | RawMessage; Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** checkAccessUserAdmin; loadAccessBrowser; validateAccessUser; validateAccessUsers; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/evidence.go](../../../../internal/acceptance/evidence.go) | Marshal; MarshalIndent; NewDecoder | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** CreateEvidence; encodeScrubbedJSON; **chain:** Developer acceptance/evidence support integration. |
-| [internal/acceptance/lifecycle_state.go](../../../../internal/acceptance/lifecycle_state.go) | Marshal; NewEncoder; RawMessage; Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** dumpHostTable; execProjectSnapshot; loadSnapshotInputs; observeProjectEndpoint; projectSnapshotIP; queryHostSoda; runCompare; snapshotEntries; writeSnapshot; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/personal_git.go](../../../../internal/acceptance/personal_git.go) | MarshalIndent; RawMessage; Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** loadExerciseRepo; loadGitTarget; parseGitTarget; writeGitOutcomes; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_access.go](../../../../internal/acceptance/workload_access.go) | MarshalIndent; RawMessage; Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** finishAccessResults; loadAccessTarget; parseAccessTarget; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_exec.go](../../../../internal/acceptance/workload_exec.go) | Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** loadExecTarget; **chain:** Developer acceptance/evidence support integration. |
@@ -603,7 +602,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | [internal/acceptance/developer_access_request_test.go](../../../../internal/acceptance/developer_access_request_test.go) | Marshal | Developer acceptance/evidence support integration. |
 | [internal/acceptance/developer_access_test.go](../../../../internal/acceptance/developer_access_test.go) | RawMessage | Developer acceptance/evidence support integration. |
 | [internal/acceptance/evidence_finalize_test.go](../../../../internal/acceptance/evidence_finalize_test.go) | Marshal; Number; RawMessage; Unmarshal | Developer acceptance/evidence support integration. |
-| [internal/acceptance/lifecycle_state_test.go](../../../../internal/acceptance/lifecycle_state_test.go) | RawMessage; Unmarshal; dump | Developer acceptance/evidence support integration. |
 | [internal/acceptance/personal_git_test.go](../../../../internal/acceptance/personal_git_test.go) | MarshalIndent; RawMessage; Unmarshal | Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_access_test.go](../../../../internal/acceptance/workload_access_test.go) | MarshalIndent | Developer acceptance/evidence support integration. |
 | [internal/avatar/avatar_test.go](../../../../internal/avatar/avatar_test.go) | RawMessage; Unmarshal | Avatar rendering facade. |
@@ -701,7 +699,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 
 | Test/helper source | Named selectors | Purpose |
 | --- | --- | --- |
-| [internal/acceptance/lifecycle_state_test.go](../../../../internal/acceptance/lifecycle_state_test.go) | StdEncoding | Developer acceptance/evidence support integration. |
 | [internal/config/grant_key_test.go](../../../../internal/config/grant_key_test.go) | StdEncoding | Direct package consumer. |
 | [internal/factory/control/publication_fixture_test.go](../../../../internal/factory/control/publication_fixture_test.go) | StdEncoding | Factory coordinator composition or runtime service. |
 | [internal/factory/control/publication_native_fixture_test.go](../../../../internal/factory/control/publication_native_fixture_test.go) | StdEncoding | Factory coordinator composition or runtime service. |
@@ -845,7 +842,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | [internal/acceptance/developer_access_transfer.go](../../../../internal/acceptance/developer_access_transfer.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** checkAccessSudo; checkCrossUserDenial; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/evidence.go](../../../../internal/acceptance/evidence.go) | Time | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** CheckSecrets; Close; CreateEvidence; Error; Hashes; Path; PrivateFile; PublishObservation; RedactError; RedactString; Unwrap; Write; WriteJSON; Writer; encodeScrubbedJSON; ensureEvidenceParents; flush; hashAt; longestSecret; matchingSecretLen; mkdirEvidenceParent; open; redactPendingSecrets; redactURLs; retainSecretOverlap; scanEvidenceBytes; scanEvidencePath; scanRegularEvidence; scrubJSON; secretOverlapsBlock; urlRedactionEnd; validEvidenceName; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/installed.go](../../../../internal/acceptance/installed.go) | Duration | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** Error; RestrictUmask; Unwrap; fail; failDetail; failParen; machineArch; ownedByCaller; privateDir; privateFile; runBounded; runBoundedDirEnv; runBoundedEnv; uuidHex; **chain:** Developer acceptance/evidence support integration. |
-| [internal/acceptance/lifecycle_state.go](../../../../internal/acceptance/lifecycle_state.go) | RFC3339Nano; Second; Time | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** dumpHostTable; lifecycleRun; repoRoot; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/personal_git.go](../../../../internal/acceptance/personal_git.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** gitChecked; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/process.go](../../../../internal/acceptance/process.go) | After; Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** StartCommand; Stop; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/service_https.go](../../../../internal/acceptance/service_https.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** httpsClient; **chain:** Developer acceptance/evidence support integration. |

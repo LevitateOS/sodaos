@@ -85,10 +85,11 @@ that binary. No linked-byte saving was measured.
 
 Move the exact helper and SQLite import to existing factory/control `_test.go`
 support and update those two callers. Do not introduce a forwarding fixture
-package. Retain modernc.org/sqlite for the independent
-[acceptance lifecycle probe](../../../internal/acceptance/lifecycle_state.go) and
-its fixtures; this is not a whole-module deletion. Local working evidence's
-`DEP-G-SQLITE-LINK-1` is this same packet, not another defect.
+package. This move is complete in `c84d242c`. The obsolete acceptance lifecycle
+observer was subsequently retired in `8b10ab14`; retain modernc.org/sqlite for
+the two staged fixture callers through existing control test support. The
+module remains unchanged. `DEP-G-SQLITE-LINK-1` is this same packet, not another
+defect; no binary-size or native fixture execution claim is implied.
 
 ### COST-HOST-BUILD-EDGE-1 — native policy pulls in a build library
 
