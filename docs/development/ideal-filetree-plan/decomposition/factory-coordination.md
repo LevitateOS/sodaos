@@ -68,8 +68,11 @@ package and Coordinator/Store/host/broker subjects; rebind imports per leaf.
 | `dispatch_recovery.go` | 300–600: recoverAssigned through recoverOutput, including history, host miss sentinel, custody fence, retry/finish and held-reservation recovery. |
 | `dispatch_result.go` | 601–701: finishFromRun, confirmed usage, result derivation/summary and AccountSettledRun. |
 
-These are source-fit allocations. Workflow defects and correction requirements
-remain in F07/F08; moving definitions does not resolve them or prove execution.
+These are source-fit allocations. Moving definitions does not resolve workflow
+defects or prove execution. The later F07-F1 source correction remains at the
+existing Store packet owner, with `factory_dispatch_authority_test.go` and the
+controller wait test; the other F07/F08 findings retain their separate scope
+and prerequisites in [the execution allocation](../execution-findings.md).
 
 Observed size: 742 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
 

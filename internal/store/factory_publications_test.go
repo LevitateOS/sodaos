@@ -48,7 +48,7 @@ func publicationStoreFixture(t *testing.T) *Store {
 
 func publicationTestRecord() factory.Publication {
 	return factory.Publication{
-		Authority:    factory.AuthorityRef{Policy: 1, Operator: 1, Environment: 1, Sponsorship: 1, RequirementsID: "d" + strings.Repeat("c", 24), ApprovalID: "d" + strings.Repeat("e", 24)},
+		Authority:    factory.AuthorityRef{Policy: 1, Operator: 1, Capacity: 1, Environment: 1, Sponsorship: 1, RequirementsID: "d" + strings.Repeat("c", 24), ApprovalID: "d" + strings.Repeat("e", 24)},
 		Publish:      factory.PublicationOperation{Kind: factory.OpRefPublish},
 		PRCreate:     factory.PublicationOperation{Kind: factory.OpPRCreate},
 		ID:           factory.NewID(),
@@ -133,8 +133,7 @@ func finishedPublishableAssignment(t *testing.T, now time.Time, issue int64, rep
 		Summary: "done", Candidate: strings.Repeat("2", 40),
 		Findings: []string{}, Reported: reported, RecordedUnix: now.Unix(),
 	}
-	a.Stage, a.Outcome, a.Reason, a.Result, a.FinishedUnix =
-		factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, &result, now.Unix()
+	a.Stage, a.Outcome, a.Reason, a.Result, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, &result, now.Unix()
 	return a, r, run, view
 }
 
@@ -143,8 +142,7 @@ func recordFinishedAssignment(t *testing.T, db *Store, now time.Time, issue int6
 	ctx := context.Background()
 	a, r, run, view := finishedPublishableAssignment(t, now, issue, reported, status)
 	assigned := a
-	assigned.Stage, assigned.Outcome, assigned.Reason, assigned.Result, assigned.FinishedUnix =
-		factory.AssignmentAssigned, "", "", nil, 0
+	assigned.Stage, assigned.Outcome, assigned.Reason, assigned.Result, assigned.FinishedUnix = factory.AssignmentAssigned, "", "", nil, 0
 	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(assigned), assigned, r, run, view); err != nil {
 		t.Fatal(err)
 	}
@@ -203,8 +201,7 @@ func TestOutstandingPublicationsListsOpenAndFenced(t *testing.T) {
 	if err := db.RecordPublication(ctx, fenced); err != nil {
 		t.Fatalf("record fenced: %v", err)
 	}
-	fenced.Stage, fenced.Outcome, fenced.Reason, fenced.FinishedUnix =
-		factory.PublicationFenced, factory.NeedsHuman, factory.PublishReasonFenced, 1200
+	fenced.Stage, fenced.Outcome, fenced.Reason, fenced.FinishedUnix = factory.PublicationFenced, factory.NeedsHuman, factory.PublishReasonFenced, 1200
 	fenced.Revision++
 	if err := db.UpdatePublication(ctx, fenced); err != nil {
 		t.Fatalf("fence: %v", err)
@@ -215,8 +212,7 @@ func TestOutstandingPublicationsListsOpenAndFenced(t *testing.T) {
 	if err := db.RecordPublication(ctx, done); err != nil {
 		t.Fatalf("record done: %v", err)
 	}
-	done.Stage, done.Outcome, done.Reason, done.FinishedUnix =
-		factory.PublicationFailed, factory.Failed, factory.PublishReasonRefused, 1200
+	done.Stage, done.Outcome, done.Reason, done.FinishedUnix = factory.PublicationFailed, factory.Failed, factory.PublishReasonRefused, 1200
 	done.Revision++
 	if err := db.UpdatePublication(ctx, done); err != nil {
 		t.Fatalf("fail: %v", err)
@@ -445,8 +441,10 @@ func publishedStoreOperation(p factory.Publication, kind string, ordinal int, re
 	if kind == factory.OpPRCreate {
 		intent.ExpectedOld = p.Candidate
 	}
-	return factory.PublicationOperation{Work: intent, OperationID: id, Kind: kind, Effect: factory.OpEffectCommitted,
-		Completion: factory.OpCompletionComplete, Receipt: receipt, Attempts: 1, UpdatedUnix: 1150}
+	return factory.PublicationOperation{
+		Work: intent, OperationID: id, Kind: kind, Effect: factory.OpEffectCommitted,
+		Completion: factory.OpCompletionComplete, Receipt: receipt, Attempts: 1, UpdatedUnix: 1150,
+	}
 }
 
 func appendPendingCorrection(p *factory.Publication) {

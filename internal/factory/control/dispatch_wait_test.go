@@ -224,6 +224,64 @@ func TestDispatchWaitReasons(t *testing.T) {
 	}
 }
 
+func TestDispatchWaitsWhenPolicyChangesAfterPlanning(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	head := fx.accept(t, 3, "d333333333333333333333333")
+	fx.queue(t, 3, head.ID)
+
+	harnessRead := false
+	fx.host.harness = func() (project.FactoryHarnessPin, error) {
+		// Planning has already captured authority and policy by this point;
+		// withdraw dispatch authority before the Store records the packet.
+		harnessRead = true
+		policy, err := db.RepositoryPolicy(ctx, fx.repo)
+		if err != nil {
+			return project.FactoryHarnessPin{}, err
+		}
+		policy.Paused = true
+		if err := db.SaveRepositoryPolicy(ctx, policy); err != nil {
+			return project.FactoryHarnessPin{}, err
+		}
+		return project.FactoryHarnessPin{
+			Harness: project.FactoryHarnessCodex, Version: fx.harness,
+			SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64),
+		}, nil
+	}
+
+	report := DispatchPass(ctx, fx.deps())
+	if !harnessRead {
+		t.Fatal("dispatch did not reach the post-capture harness boundary")
+	}
+	if len(report.Waits) != 1 || report.Waits[0].Issue != 3 || report.Waits[0].Reason != WaitAuthority {
+		t.Fatalf("waits = %+v, want issue 3 waiting for authority", report.Waits)
+	}
+	if len(report.Errors) != 0 || len(report.Launched) != 0 {
+		t.Fatalf("report errors/launched = %+v / %+v", report.Errors, report.Launched)
+	}
+	if len(fx.host.launches) != 0 {
+		t.Fatalf("host launches = %d, want 0", len(fx.host.launches))
+	}
+
+	assignments, err := db.IssueAssignments(ctx, fx.repo, 3)
+	if err != nil || len(assignments) != 0 {
+		t.Fatalf("issue assignments = %+v, %v; want no packet", assignments, err)
+	}
+	assigned, err := db.AssignedAssignments(ctx, 10)
+	if err != nil || len(assigned) != 0 {
+		t.Fatalf("assigned packets = %+v, %v; want none", assigned, err)
+	}
+	runs, err := db.FactoryRuns(ctx, 10)
+	if err != nil || len(runs) != 0 {
+		t.Fatalf("factory runs = %+v, %v; want none", runs, err)
+	}
+	views, err := db.FactoryRunViews(ctx, 10)
+	if err != nil || len(views) != 0 {
+		t.Fatalf("factory run views = %+v, %v; want none", views, err)
+	}
+}
+
 func TestDispatchNeverFallsBackToAnotherConnection(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)

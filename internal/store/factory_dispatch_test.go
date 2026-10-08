@@ -20,9 +20,8 @@ func dispatchStoreFixture(t *testing.T) *Store {
 	return db
 }
 
-// seedDispatchLimits records the capacity, policy, operator grant and
-// sponsorship the atomic admission gate requires: repository 7 on
-// connection "conn" with room for two concurrent runs.
+// seedDispatchLimits records current dispatch authority and room for two
+// concurrent runs on repository 7 and connection "conn".
 func seedDispatchLimits(t *testing.T, db *Store) {
 	t.Helper()
 	ctx := context.Background()
@@ -37,6 +36,104 @@ func seedDispatchLimits(t *testing.T, db *Store) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+	projectID := dispatchTestProjectID()
+	if err := db.UpsertUser(ctx, User{ID: 7, Login: "soda-tester"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.CreateProject(ctx, Project{ID: projectID, Name: "factory", RepositoryID: 7, OwnerID: 7, Repository: "soda/factory"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveEnvironmentGrant(ctx, project.EnvironmentGrant{
+		Project: projectID, Repository: 7, Owner: 7, Active: true,
+		Profile: &project.Profile{
+			ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6",
+			Interface: "headless", Architecture: "amd64",
+			Image: "sha256:" + strings.Repeat("b", 64), Revision: strings.Repeat("c", 40),
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	requirementID := dispatchTestRequirementID()
+	if err := db.AdmitRequirementDecision(ctx, project.RequirementDecision{
+		ID: requirementID, Project: projectID, Approver: 7,
+		SourceCommit: strings.Repeat("1", 40), SetupDigest: strings.Repeat("a", 64), InputsDigest: strings.Repeat("b", 64),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AdmitApprovalDecision(ctx, project.ApprovalDecision{
+		ID: dispatchTestApprovalID(), Project: projectID, Requirement: requirementID,
+		Approver: 7, EffectsDigest: strings.Repeat("a", 64), ReadinessDigest: strings.Repeat("b", 64), Verified: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func dispatchTestProjectID() string     { return "p" + strings.Repeat("d", 24) }
+func dispatchTestRequirementID() string { return "d" + strings.Repeat("c", 24) }
+func dispatchTestApprovalID() string    { return "d" + strings.Repeat("e", 24) }
+
+func dispatchTestAuthority() factory.AuthorityRef {
+	return factory.AuthorityRef{
+		Policy: 1, Operator: 1, Capacity: 1, Sponsorship: 1, Environment: 1,
+		RequirementsID: dispatchTestRequirementID(), ApprovalID: dispatchTestApprovalID(),
+	}
+}
+
+func assertDispatchPacketAbsent(t *testing.T, db *Store, a factory.Assignment) {
+	t.Helper()
+	for _, check := range []struct{ table, key, value string }{
+		{"factory_dispatch_regs", "id", a.ID},
+		{"factory_assignments", "id", a.ID},
+		{"factory_reservations", "assignment", a.ID},
+		{"factory_runs", "id", a.Run},
+		{"factory_run_views", "run", a.Run},
+	} {
+		var count int
+		query := "SELECT count(*) FROM " + check.table + " WHERE " + check.key + "=$1"
+		if err := db.db.QueryRowContext(context.Background(), query, check.value).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatalf("dispatch packet left %d rows in %s", count, check.table)
+		}
+	}
+}
+
+func dispatchCurrentAuthority(t *testing.T, db *Store, a factory.Assignment) factory.AuthorityRef {
+	t.Helper()
+	policy, err := db.RepositoryPolicy(context.Background(), a.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operator, err := db.OperatorGrant(context.Background(), a.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capacity, err := db.Capacity(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sponsorship, err := db.Sponsorship(context.Background(), a.Repository, a.Connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment, err := db.EnvironmentGrant(context.Background(), a.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirement, err := db.RequirementHead(context.Background(), a.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approval, err := db.ApprovalHead(context.Background(), a.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return factory.AuthorityRef{
+		Policy: policy.Revision, Operator: operator.Revision, Capacity: capacity.Revision,
+		Sponsorship: sponsorship.Revision, Environment: environment.Revision,
+		RequirementsID: requirement, ApprovalID: approval,
 	}
 }
 
@@ -66,14 +163,14 @@ func dispatchTestPacket(t *testing.T, now time.Time) (factory.Assignment, factor
 	sum := sha256.Sum256(prompt)
 	runID := factory.NewID()
 	a := factory.Assignment{
-		ID: factory.NewID(), ProjectID: "p" + strings.Repeat("d", 24), Role: project.RoleCoder,
+		ID: factory.NewID(), ProjectID: dispatchTestProjectID(), Role: project.RoleCoder,
 		Repository: 7, Issue: 3, Revision: 0, NativeRev: 5,
 		Acceptance: "d" + strings.Repeat("a", 24), Preparation: "f" + strings.Repeat("b", 24),
 		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "m",
 		Connection: "conn", SourceCommit: strings.Repeat("c", 40),
 		Prompt: prompt, PromptSHA: hex.EncodeToString(sum[:]),
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned, Attempts: 1,
-		CreatedUnix: now.Unix(),
+		CreatedUnix: now.Unix(), Authority: dispatchTestAuthority(),
 	}
 	r := factory.Reservation{AssignmentID: a.ID, Repository: 7, Connection: "conn", State: factory.ReservationHeld, PlannedMinutes: 30}
 	run := factory.Run{
@@ -134,11 +231,13 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 			t.Fatal(err)
 		}
 		a, r, run, view := dispatchTestPacket(t, now)
+		a.Authority.Capacity = 2
 		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
 			t.Fatal(err)
 		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		b.Authority.Capacity = 2
 		r2.AssignmentID = b.ID
 		view2.Issue, view2.Attempt = 4, b.ID
 		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
@@ -160,11 +259,13 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 			t.Fatal(err)
 		}
 		a, r, run, view := dispatchTestPacket(t, now)
+		a.Authority.Sponsorship = 2
 		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
 			t.Fatal(err)
 		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		b.Authority.Sponsorship = 2
 		r2.AssignmentID = b.ID
 		view2.Issue, view2.Attempt = 4, b.ID
 		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrAllowanceExhausted) {
@@ -177,5 +278,6 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); !errors.Is(err, ErrAdmissionChanged) {
 			t.Fatalf("unlimited packet accepted: %v", err)
 		}
+		assertDispatchPacketAbsent(t, db, a)
 	})
 }

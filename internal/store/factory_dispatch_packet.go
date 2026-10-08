@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // ErrAssignmentActive reports a dispatch packet for an issue that already
@@ -108,10 +109,93 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
 	}
-	if err = checkAdmissionTx(ctx, tx, a.Repository, a.Connection, a.ProjectID); err != nil {
+	grants, err := loadAdmissionGrantsTx(ctx, tx, a.Repository, a.Connection)
+	if err != nil {
+		return err
+	}
+	if err = checkDispatchAuthorityTx(ctx, tx, d, a, grants); err != nil {
+		return err
+	}
+	if err = checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+type admissionGrants struct {
+	capacity    factory.Capacity
+	policy      factory.RepositoryPolicy
+	operator    factory.OperatorGrant
+	sponsorship factory.Sponsorship
+}
+
+func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, connection string) (admissionGrants, error) {
+	var grants admissionGrants
+	var cdata, pdata, gdata, sdata []byte
+	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&cdata); err != nil {
+		return admissionGrants{}, admissionChanged(err)
+	}
+	if err := json.Unmarshal(cdata, &grants.capacity); err != nil {
+		return admissionGrants{}, err
+	}
+	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_policies WHERE repository=$1 FOR UPDATE`, repository).Scan(&pdata); err != nil {
+		return admissionGrants{}, admissionChanged(err)
+	}
+	if err := json.Unmarshal(pdata, &grants.policy); err != nil {
+		return admissionGrants{}, err
+	}
+	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_operator_grants WHERE repository=$1 FOR UPDATE`, repository).Scan(&gdata); err != nil {
+		return admissionGrants{}, admissionChanged(err)
+	}
+	if err := json.Unmarshal(gdata, &grants.operator); err != nil {
+		return admissionGrants{}, err
+	}
+	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_sponsorships WHERE repository=$1 AND connection=$2 FOR UPDATE`, repository, connection).Scan(&sdata); err != nil {
+		return admissionGrants{}, admissionChanged(err)
+	}
+	if err := json.Unmarshal(sdata, &grants.sponsorship); err != nil {
+		return admissionGrants{}, err
+	}
+	return grants, nil
+}
+
+func checkDispatchAuthorityTx(ctx context.Context, t *sql.Tx, d factory.DispatchRegistration, a factory.Assignment, grants admissionGrants) error {
+	if d.Authority != a.Authority {
+		return ErrAdmissionChanged
+	}
+	var environment project.EnvironmentGrant
+	var edata []byte
+	if err := t.QueryRowContext(ctx, `SELECT data FROM project_environment_grants WHERE repository=$1 FOR UPDATE`, a.Repository).Scan(&edata); err != nil {
+		return admissionChanged(err)
+	}
+	if err := json.Unmarshal(edata, &environment); err != nil {
+		return err
+	}
+	var requirement, approval string
+	if err := t.QueryRowContext(ctx, `SELECT decision FROM project_requirement_heads WHERE project_id=$1 FOR UPDATE`, a.ProjectID).Scan(&requirement); err != nil {
+		return admissionChanged(err)
+	}
+	if err := t.QueryRowContext(ctx, `SELECT decision FROM project_approval_heads WHERE project_id=$1 FOR UPDATE`, a.ProjectID).Scan(&approval); err != nil {
+		return admissionChanged(err)
+	}
+
+	coder := false
+	for _, role := range grants.sponsorship.Roles {
+		coder = coder || role == project.RoleCoder
+	}
+	if !grants.policy.Enabled || grants.policy.Paused || !grants.operator.Active ||
+		!grants.sponsorship.Active || !coder || !environment.Active {
+		return ErrAdmissionChanged
+	}
+	current := factory.AuthorityRef{
+		Policy: grants.policy.Revision, Operator: grants.operator.Revision,
+		Capacity: grants.capacity.Revision, Sponsorship: grants.sponsorship.Revision,
+		Environment: environment.Revision, RequirementsID: requirement, ApprovalID: approval,
+	}
+	if current != a.Authority {
+		return ErrAdmissionChanged
+	}
+	return nil
 }
 
 // checkAdmissionTx enforces appliance, repository, sponsorship and
@@ -122,49 +206,28 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 // would exceed a limit. Count reads are capped just past each limit,
 // which decides exact admission without scanning settled history.
 func checkAdmissionTx(ctx context.Context, t *sql.Tx, repository int64, connection, projectID string) error {
-	var cdata, pdata, gdata, sdata []byte
-	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&cdata); err != nil {
-		return admissionChanged(err)
-	}
-	var capacity factory.Capacity
-	if err := json.Unmarshal(cdata, &capacity); err != nil {
-		return err
-	}
-	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_policies WHERE repository=$1 FOR UPDATE`, repository).Scan(&pdata); err != nil {
-		return admissionChanged(err)
-	}
-	var policy factory.RepositoryPolicy
-	if err := json.Unmarshal(pdata, &policy); err != nil {
-		return err
-	}
-	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_operator_grants WHERE repository=$1 FOR UPDATE`, repository).Scan(&gdata); err != nil {
-		return admissionChanged(err)
-	}
-	var grant factory.OperatorGrant
-	if err := json.Unmarshal(gdata, &grant); err != nil {
-		return err
-	}
-	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_sponsorships WHERE repository=$1 AND connection=$2 FOR UPDATE`, repository, connection).Scan(&sdata); err != nil {
-		return admissionChanged(err)
-	}
-	var sponsorship factory.Sponsorship
-	if err := json.Unmarshal(sdata, &sponsorship); err != nil {
-		return err
-	}
-	heldTotal, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held'`, capacity.MaxConcurrentRuns+1)
+	grants, err := loadAdmissionGrantsTx(ctx, t, repository, connection)
 	if err != nil {
 		return err
 	}
-	unattributed, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_runs WHERE active AND id NOT IN (SELECT run FROM factory_assignments WHERE run!='')`, capacity.MaxConcurrentRuns+1)
+	return checkAdmissionLimitsTx(ctx, t, repository, connection, projectID, grants)
+}
+
+func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, connection, projectID string, grants admissionGrants) error {
+	heldTotal, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held'`, grants.capacity.MaxConcurrentRuns+1)
 	if err != nil {
 		return err
 	}
-	if heldTotal+unattributed > capacity.MaxConcurrentRuns {
+	unattributed, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_runs WHERE active AND id NOT IN (SELECT run FROM factory_assignments WHERE run!='')`, grants.capacity.MaxConcurrentRuns+1)
+	if err != nil {
+		return err
+	}
+	if heldTotal+unattributed > grants.capacity.MaxConcurrentRuns {
 		return ErrCapacityFull
 	}
-	repoLimit := policy.MaxConcurrent
-	if grant.MaxConcurrent < repoLimit {
-		repoLimit = grant.MaxConcurrent
+	repoLimit := grants.policy.MaxConcurrent
+	if grants.operator.MaxConcurrent < repoLimit {
+		repoLimit = grants.operator.MaxConcurrent
 	}
 	heldRepo, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1`, repoLimit+1, repository)
 	if err != nil {
@@ -177,11 +240,11 @@ func checkAdmissionTx(ctx context.Context, t *sql.Tx, repository int64, connecti
 	if heldRepo+unattributedProject > repoLimit {
 		return ErrRepositoryFull
 	}
-	slots, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`, sponsorship.MaxConcurrent+1, repository, connection)
+	slots, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`, grants.sponsorship.MaxConcurrent+1, repository, connection)
 	if err != nil {
 		return err
 	}
-	if slots > sponsorship.MaxConcurrent {
+	if slots > grants.sponsorship.MaxConcurrent {
 		return ErrSponsorshipFull
 	}
 	var planned int
@@ -196,7 +259,7 @@ func checkAdmissionTx(ctx context.Context, t *sql.Tx, repository int64, connecti
 	if err != nil {
 		return err
 	}
-	if sponsorship.AllowanceMinutes-used-planned < 0 {
+	if grants.sponsorship.AllowanceMinutes-used-planned < 0 {
 		return ErrAllowanceExhausted
 	}
 	return nil
