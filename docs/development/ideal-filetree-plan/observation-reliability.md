@@ -73,21 +73,23 @@ is held, not added to the correction queue.
 
 ## Findings and correction boundaries
 
-### B03.C — operator body limiter creates an artificial EOF
+### B03.C — historical operator body limiter, repaired
 
-[Operator handling](../../../internal/factory/control/operator.go) wraps the body
-in `io.LimitReader(..., 4096)` before the strict decoder. A valid authorized
-command followed by whitespace filling the first 4 KiB can be admitted even when
-additional bytes or a later reader error follow. The decoder sees the limiter's
-EOF. Malformed or incomplete prefixes still fail. The optional endpoint retains
-its private socket, peer UID/principal and action checks; no tracked current
-service enabling it was established in this bounded trace.
+At the inspected historical revision, [operator handling](../../../internal/factory/control/operator.go)
+gave the strict decoder an artificial EOF at 4 KiB. Commit `a1fec662` repaired
+that boundary: current source reads cap+one, refuses overflow and read failures,
+then decodes the admitted bytes. The production-handler regression covers exact
+cap, an oversized whitespace-padded valid prefix and a late reader error.
 
-Carry forward the [recorded L15 concern](library-adoption.md#l15-sdk-input-admission)
-under **B / B03.C**. Read at most cap+one and refuse overrun/read failure before
-the existing schema decoder. Preserve exact-cap success, request ID, principal
-and status/stop/reconcile behavior. This narrow repair does not wait for the
-separate factory authority/transaction decisions in B03.C.
+Current-source Luna low inspection and independent Luna medium challenge also
+trace the protected extension/proxy and public intake callers: body-consuming
+API routes retain their 64 KiB envelopes; the exceptions are GET WebSocket
+streams with separate frame admission. No remaining request-size defect was
+found in these callers. This is source review with reuse of the operator's
+original executed receipt, not a new test run or installed-wiring proof.
+The [recorded L15 concern](library-adoption.md#l15-sdk-input-admission) is complete
+at this bounded request-size scope. Broader **B / B03.C** authority findings and
+**B03.C-lifetime** graph admission remain separate and open.
 
 ### L16.G — secret variants accumulate before aggregate admission
 
