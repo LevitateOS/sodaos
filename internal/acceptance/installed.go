@@ -58,18 +58,65 @@ func failDetail(prefix, detail string, err error) error {
 	return &probeFailure{prefix: prefix, cause: err, detail: detail}
 }
 
-// privateFile reads a restricted regular file with an explicit size bound.
-// PrivateFile already enforces absolute path, regular non-symlink, 0600-style
-// modes and a 1 MiB ceiling; the limit preserves each probe's tighter bound.
-func privateFile(path string, limit int) ([]byte, error) {
-	data, err := PrivateFile(path)
+const maxPrivateInputBytes = 1 << 20
+
+// privateFile reads one restricted regular file from the same no-follow
+// descriptor it validates. Each caller keeps its tighter bound; the common
+// ceiling prevents a future caller from admitting an unbounded private input.
+func privateFile(path string, limit int) (data []byte, resultErr error) {
+	file, effectiveLimit, err := openPrivateInput(path, limit)
 	if err != nil {
 		return nil, err
 	}
-	if len(data) > limit {
+	defer func() {
+		if err := file.Close(); err != nil {
+			resultErr = errors.Join(resultErr, err)
+			data = nil
+		}
+	}()
+	return readPrivateInput(file, effectiveLimit, path)
+}
+
+func openPrivateInput(path string, limit int) (*os.File, int, error) {
+	if !filepath.IsAbs(path) {
+		return nil, 0, errors.New("absolute private input required")
+	}
+	if limit < 0 {
+		return nil, 0, errors.New("restricted input bound required")
+	}
+	if limit > maxPrivateInputBytes {
+		limit = maxPrivateInputBytes
+	}
+	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return nil, 0, errors.Join(err, file.Close())
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+		return nil, 0, errors.Join(fmt.Errorf("restricted regular input required: %s", filepath.Base(path)), file.Close())
+	}
+	if info.Size() > int64(limit) {
+		return nil, 0, errors.Join(fmt.Errorf("restricted input exceeds bound: %s", path), file.Close())
+	}
+	return file, limit, nil
+}
+
+func readPrivateInput(file *os.File, limit int, path string) ([]byte, error) {
+	// Allocate only the effective limit plus the single byte needed to detect
+	// file growth after fstat. ReadFull also accounts for short reads and
+	// propagates all non-EOF read errors.
+	buffer := make([]byte, limit+1)
+	n, err := io.ReadFull(file, buffer)
+	if n > limit {
 		return nil, fmt.Errorf("restricted input exceeds bound: %s", path)
 	}
-	return data, nil
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return nil, err
+	}
+	return buffer[:n:n], nil
 }
 
 // privateDir validates a probe fixture directory: absolute, a real directory
