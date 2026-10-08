@@ -45,15 +45,16 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/host/client.go](../../../../../internal/host/client.go)
 
-exact-blob current maintained map; full spans retained
+Current selectors are maintained here; earlier unaffected intervals are historical hints pending R02.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–77; whole file; (declaration group); nativeHTTPError.Error; NewClient; decodeNativeResponseLimit; readNativeResponseLimit; Client.call; Client.callLimit | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 8 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 78–86; Client.Create | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Project creation native operation; declarations/fields: `Client.Create` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 87–95, 116–119; Client.Inspect, validAddress | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Observed Project runtime identity/address; declarations/fields: `Client.Inspect`, `validAddress` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 96–106; Client.Join | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human Project account creation native operation; declarations/fields: `Client.Join` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 107–115; Client.Connection | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Own native development connection observation; declarations/fields: `Client.Connection` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 1–77; package/import and shared bounded HTTP response helpers | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Shared bounded HTTP response helpers. Earlier unchanged selectors are historical hints pending R02. |
+| 78–86; Client.Create | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Project creation native operation; prior selector interval is a historical hint pending R02. |
+| 87–95; Client.Inspect | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Observed Project runtime identity/address; prior selector interval is a historical hint pending R02. |
+| 96–106; Client.Join | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human Project account creation native operation; prior selector interval is a historical hint pending R02. |
+| 107–119; Client.ProjectAccess | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Read-only Project privilege observation; 4 KiB reply cap, required administrator value, and project/login/identity echo validation. — Current source method and caller. |
+| 121–128; Client.Connection; 130–133; validAddress | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Own native development connection observation and its address validator. — Current selectors verified. |
 
 <a id="coverage-1c74cc0c7a7e"></a>
 
@@ -149,7 +150,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–45; file scaffold; TestPrepareClientConfirmsIdentity; TestStopClientRequiresConfirmedStop; roundTripFunc; RoundTrip; jsonResponse | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–37; file scaffold; TestPrepareClientConfirmsIdentity; TestStopClientRequiresConfirmedStop; roundTripFunc; RoundTrip; jsonResponse | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold and shared fixture helpers; existing preparation/stop client checks. — Current source declarations and callers. |
+| 38–79; TestProjectAccessClientRequiresBoundCompleteObservation | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Confirms matching binding, explicit false, and refusal on missing/null/mismatch/malformed/oversized/error responses. — Current client caller regression. |
 
 <a id="coverage-84fde3dff37f"></a>
 

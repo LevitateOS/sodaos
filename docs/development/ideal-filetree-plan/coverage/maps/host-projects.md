@@ -23,11 +23,12 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 ## [lib/host/src/account/mod.rs](../../../../../lib/host/src/account/mod.rs)
 
-current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+Current P03 selectors in this section verified; unaffected prior intervals are historical hints pending R02.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–351; current module/import/attribute shell; declaration AGENT_PROGRAM; declaration valid_key_revision; declaration canonicalize_account_keys; declaration AccountConfirmation; fields login, identity; declaration deserialize; declaration ConfirmationVisitor; declaration Value; declaration expecting; declaration visit_map; declaration confirm_account; declaration ERR; declaration canonical_keys; declaration valid_access_keys_request; declaration AccountKeyList; declaration ListVisitor; declaration visit_unit; declaration visit_seq; declaration AccessKeyStateWire; fields revision, keys; declaration StateVisitor; declaration decode_access_key_state; declaration account; declaration access_keys; declaration access_keys_tests; declaration tests | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Imports and module declarations wire lib/host/src/account/mod.rs into its current native target.; 33 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 101–160; GuestPrivilegeRequest; ProjectPrivilegeConfirmation; observe_project_access | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | The read-only observation binds status to the selected running private-userns container and uses the existing deadline/capped executor; typed guest status requires the echoed login/identity and boolean. — Current P03 source selectors. |
+| 1–100, 161–412; account and access-key functions/tests | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Existing account and access-key responsibilities; prior selector intervals are historical hints pending R02. |
 
 <a id="coverage-05efeb0fc8c5"></a>
 
@@ -43,22 +44,24 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 ## [lib/host/src/domain/account.rs](../../../../../lib/host/src/domain/account.rs)
 
-current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+Current ProjectAccess DTO declarations verified; prior account/access-key intervals are historical hints pending R02.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–179; current module/import/attribute shell; declaration Account; fields project, login, identity, keys; declaration deserialize; declaration AccountVisitor; declaration Value; declaration expecting; declaration visit_map; declaration decode; declaration AccessKeys; fields project, login, identity, revision, keys, apply; declaration AccessKeysVisitor; declaration AccessKeyState; fields revision, keys; declaration encode | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/domain/account.rs into its current native target.; 17 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 17–40; ProjectAccessRequest; ProjectAccessStatus | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Direct typed, required-field request/status boundary for the read-only native privilege observation. — Current source types. |
+| 1–16, 42–204; current module/import/attribute shell; declaration Account; fields project, login, identity, keys; declaration deserialize; declaration AccountVisitor; declaration Value; declaration expecting; declaration visit_map; declaration decode; declaration AccessKeys; fields project, login, identity, revision, keys, apply; declaration AccessKeysVisitor; declaration AccessKeyState; fields revision, keys; declaration encode | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing account/access-key IPC shapes; earlier intervals are historical hints pending R02. |
 
 <a id="coverage-4263fb98abf4"></a>
 <a id="coverage-f89f906a2051"></a>
 
 ## [lib/host/src/pops.rs](../../../../../lib/host/src/pops.rs)
 
-current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+Current P03 selectors in this section verified; unaffected prior intervals are historical hints pending R02.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–277; current module/import/attribute shell; declaration AccessKeysReq; declaration decode; declaration AccountReq; declaration PrepareReq; declaration PrepareCandidateReq; declaration InspectPreparationReq; declaration StopPreparationReq; declaration HoldPreparationReq; declaration Ops; fields exec, config; declaration runtime; declaration access_keys; declaration account; declaration prepare; declaration prepare_candidate; declaration inspect_preparation; declaration stop_preparation; declaration hold_preparation | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/pops.rs into its current native target.; 24 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 228–238; Ops.project_access | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Read-only project access observation calls the guest confirmation path and returns the typed bound status. — Current caller. |
+| 1–227; current module/import/attribute shell; declaration AccessKeysReq; declaration decode; declaration AccountReq; declaration PrepareReq; declaration PrepareCandidateReq; declaration InspectPreparationReq; declaration StopPreparationReq; declaration HoldPreparationReq; declaration Ops; fields exec, config; declaration runtime; declaration access_keys; declaration account; declaration prepare; declaration prepare_candidate; declaration inspect_preparation; declaration stop_preparation; declaration hold_preparation | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing operation declarations; earlier intervals are historical hints pending R02. |
 
 <a id="coverage-6501cae87408"></a>
 
@@ -199,11 +202,12 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 ## [lib/host/tests/project_operations/accounts.rs](../../../../../lib/host/tests/project_operations/accounts.rs)
 
-current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+Current P03 selectors in this section verified; unaffected prior intervals are historical hints pending R02.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–47; current module/import/attribute shell; declaration account_provisions_login; declaration account_refuses_stopped_and_root | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/tests/project_operations/accounts.rs into its current native target.; account_provisions_login: implement the current Unix-socket service and process lifetime duty in accounts.rs.; account_refuses_stopped_and_root: implement the current Unix-socket service and process lifetime duty in accounts.rs. — Current named units/source consumers; retained normalized source evidence records each selector |
+| 53–114; project_access_uses_bound_container_and_confirms_false; project_access_refuses_unconfirmed_or_invalid_observations | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Read-only route tests cover bound running-container selection, confirmed false, and refusal on unconfirmed/invalid observations. — Current source selectors. |
+| 1–52; account_provisions_login; account_refuses_stopped_and_root | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing account-operation tests. — Current source selectors. |
 
 <a id="coverage-aea250dcca40"></a>
 
@@ -249,8 +253,9 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 ## [lib/host/tests/project_operations/requests.rs](../../../../../lib/host/tests/project_operations/requests.rs)
 
-current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+Current P03 selectors in this section verified; unaffected prior intervals are historical hints pending R02.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–139; current module/import/attribute shell; declaration access_keys_req_strict_shape; declaration account_req_strict_shape; declaration prepare_req_strict_shape; declaration prepare_candidate_req_strict_shape; declaration inspect_stop_hold_req_shapes; declaration oversize_body_rejected_before_shape | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/tests/project_operations/requests.rs into its current native target.; 7 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 63–83; project_access_request_has_exact_bound_identity_shape | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Canonical required-field request decoding test. — Current source selector. |
+| 1–139; current module/import/attribute shell; declaration access_keys_req_strict_shape; declaration account_req_strict_shape; declaration prepare_req_strict_shape; declaration prepare_candidate_req_strict_shape; declaration inspect_stop_hold_req_shapes; declaration oversize_body_rejected_before_shape | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing request-shape checks. — Current source selectors. |

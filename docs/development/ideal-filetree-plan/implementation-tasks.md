@@ -99,7 +99,7 @@ Lead A; [P01](reviews/P01.md), [P02](reviews/P02.md), [P03](reviews/P03.md), [P0
 Lead A; [P05](reviews/P05.md), [P08](reviews/P08.md), [P09](reviews/P09.md), [P12](reviews/P12.md). B01/B03 grant/Store handoffs; A00 native extraction.
 
 - [ ] **A02.M** Keep Go preparation decisions/Store CAS/API and Rust `lib/host/src/{preparation,prepare,project}` lifecycle definitions with their current processes and distinct heads/markers.
-- [ ] **A02.C** P05-F1 cause-specific Project-stop reopening is complete at source scope in `8d9485af`: only a verified, quiescent Project start clears that cause, preserving other active causes and the first-closure receipt. P09-F1 approval remains open because Q2 has no current native Project-admin attestation; preserve marker-first/CAS failure reporting and independent holds.
+- [x] **A02.C** Source scope complete: P05-F1 in `8d9485af` clears only the Project-stop cause after verified quiescence, preserving other active causes and the first-closure receipt. P09-F1 in `97100abd`/`228e8d06`/`b143808f` adds bounded guest-native root/wheel observation, exact running-container binding, and current-session/member-bound approval with the fixed-operator exception. Current web tests prove repo ownership alone is insufficient and uncertain observations do not admit approval. No Podman Project, installed appliance, or native provider qualification was run; A02.V and R04 remain open.
 - [ ] **A02.V** Exercise existing real start/stop/preparation/approval subjects, separate head revisions and failure paths; coordinate actual dispatch reopening with B03.
 
 ### A03 Guest role custody and checkout supervision
@@ -383,8 +383,8 @@ different from a missing correction specification or native equivalence proof.
 
 | Gate | Exact remaining fact/decision | Dependent task only |
 | --- | --- | --- |
-| Q1 | **Resolved for P05-F1 source scope** in `8d9485af`: verified start and quiescence clear only the Project-stop cause; other active causes and first-closure attribution remain. | A02.C remains open for Q2 approval authority and its B03 lifecycle handoff |
-| Q2 | P09-F1 actual native Project-admin/operator authority mapping; owner status alone is insufficient. | A02.C approval correction |
+| Q1 | **Resolved for P05-F1 source scope** in `8d9485af`: verified start and quiescence clear only the Project-stop cause; other active causes and first-closure attribution remain. | A02.C source scope complete; A02.V and B03 lifecycle handoff remain separate |
+| Q2 | **Resolved for P09-F1 source scope** in `97100abd`, `228e8d06`, and `b143808f`: current member login and identity are bound to a read-only guest NSS root/wheel observation; the fixed operator remains the explicit exception. Repository ownership is not native Project authority. | A02.C source scope complete; installed/native qualification remains open under A02.V/R04 |
 | Q3 | I05-Q4 terminal-Muse InvocationID applicability; I09/F07-Q4 harness/family selection and F10 loop allowance/harness questions. | A05/A07/B03/B04 dependent enforcement/loop actions; no provider default invented |
 | Q4 | Optional P01/N05 creation intent retention, N04/N06 runtime/selection/retry applicability, I10 public history/retention scope. | Only the corresponding optional behavior, not relocation or established native policy |
 | Q5 | Exact external Fountain/SDK scope propagation, producer bytes, review/merge/reachability/read correspondence and native qualification. Retain the exact approved dependency identity; no alternate Soda read path. Local F09/F10 operation registration is governed by Q8, not blanket-held by missing native qualification. | G01-F1 in B06.C; B02/B04/B05/B07 native-dependent actions only |

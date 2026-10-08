@@ -195,7 +195,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–89; file scaffold; validProfile; TestProfileValidation; TestCreateValidation; TestWireShapeFrozen; TestIdentityHelpers | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–89; file scaffold; validProfile; TestProfileValidation; TestCreateValidation; TestWireShapeFrozen; TestIdentityHelpers | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Existing validation and test support. — Current source declarations. |
+| 91–105; TestProjectAccessRequestValidation | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Validates the canonical Project privilege observation request. — Current source selector. |
 
 <a id="coverage-7a4270c54f54"></a>
 
@@ -221,13 +222,14 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/project/types.go](../../../../../internal/project/types.go)
 
-exact-blob current maintained map; full spans retained
+Current changed DTO section verified; earlier unaffected intervals are historical hints pending R02.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–22; whole file; Create; Create.Validate | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Record, DTO or interface contract Create for Repository association and creation; declarations/fields: `Create`; Create.Validate — Repository association and creation; declarations/fields: `Create.Validate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 23–26, 28–31; Account | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human membership/account creation contract; declarations/fields: `Account` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 27, 41–47, 60–75; Account.Keys; Connection, AccessKeys, AccessKeyState | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Explicit authorized-key input for new human account; declarations/fields: `Account.Keys`; Own development SSH address/key contract; declarations/fields: `Connection`, `AccessKeys`, `AccessKeyState` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 32–35, 37–40, 76–87; Environment, OSRelease, OSObservation | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Observed native runtime and Project OS DTO; declarations/fields: `Environment`, `OSRelease`, `OSObservation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 36; Environment.IP | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Observed native Project LAN IP field; declarations/fields: `Environment.IP` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 48–59; Lifecycle, LifecycleState | [P05](../../slices/projects.md#p05-project-startstop) | retained | Project Start/Stop contract; declarations/fields: `Lifecycle`, `LifecycleState` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 7–20; Create; Create.Validate | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Repository association and creation contract; prior interval is a historical hint pending R02. |
+| 22–28; Account | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human membership/account creation contract. — Current source selector. |
+| 30–51; ProjectAccessRequest; ProjectAccessStatus | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Canonical required-field request/status DTOs; the status has a required administrator observation. — Current source types and callers. |
+| 27, 63–68, 82–96; Account.Keys; Connection, AccessKeys, AccessKeyState | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Explicit authorized-key input and native development SSH contract; earlier intervals are historical hints pending R02. |
+| 53–61, 98–110; Environment, OSRelease, OSObservation | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Observed native runtime and Project OS DTO; earlier intervals are historical hints pending R02. |
+| 59; Environment.IP | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Observed native Project LAN IP field; prior selector is a historical hint pending R02. |
+| 70–80; Lifecycle, LifecycleState | [P05](../../slices/projects.md#p05-project-startstop) | retained | Project Start/Stop contract; prior interval is a historical hint pending R02. |

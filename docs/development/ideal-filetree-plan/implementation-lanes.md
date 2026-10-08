@@ -96,6 +96,11 @@ alone edits each file**. For example, C02 leads H01/H02 but sends host changes t
 A and Go Store/client changes to B. A02 sends factory grant/Store changes to B.
 The handoff is part of the packet, not another untracked implementation.
 
+For A02/P09, A owns the guest and privileged-host observation path; B owns the
+Go Store member lookup and approval API/client handoff. That source handoff is
+complete, while actual Project/installed qualification remains with A02.V and
+R04.
+
 Queues are not fixed personnel assignments. After a packet releases its files,
 an available worker can take another lane's ready packet through an explicit
 whole-file handoff. Prefer the longest remaining dependency chain and critical
