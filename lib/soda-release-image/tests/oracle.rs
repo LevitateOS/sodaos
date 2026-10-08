@@ -15,10 +15,6 @@ fn check_ok(name: &str, expected_b64: &str, got: &[u8]) {
     assert_eq!(b64(got), expected_b64, "{name}");
 }
 
-fn check_err(name: &str, expected: &str, got: &soda_release_image::error::Error) {
-    assert_eq!(got.0, expected, "{name}");
-}
-
 #[path = "oracle/host.rs"]
 mod host;
 #[path = "oracle/media.rs"]

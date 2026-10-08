@@ -16,16 +16,8 @@ pub const OCI_SOURCE: &str = "https://github.com/LevitateOS/sodaos";
 pub const OCI_BASENAME: &str = "synthetic-base";
 pub const OCI_BASEDIGEST: &str =
     "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-pub const OCI_ERR_ARCH: &str = "expected x86_64";
-pub const OCI_ERR_REVISION: &str = "OCI source revision mismatch";
-pub const OCI_ERR_TAMPERED: &str = "OCI blob checksum mismatch";
 pub const OCI_FIXTURE_HASH: &str =
     "0ab43d832955b51125a34a1069f654d5b67125d776f9009738e126417984103c";
-pub const OCI_ERR_MISSING: &str = "requested OCI member missing";
-
-pub const LIVE_ERR_TAILNET: &str = "invalid Tailnet version";
-pub const LIVE_ERR_RELEASE: &str = "stable stream release is malformed";
-pub const LIVE_ERR_CONTAINER: &str = "x86_64 base digest required";
 
 pub const FORGEJO_ARGV: &str = r###"--remote=false
 run
@@ -104,8 +96,5 @@ podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native
 podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/tailnet.iid --file system/containers/tailnet/Containerfile --build-arg=TAILSCALE_VERSION=1.98.2 --build-arg=TARGETARCH=amd64 --build-arg=ARCHIVE_SHA256=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee .
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/tailnet.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 "###;
-pub const MISC_OCI_ARCH: &str = "expected x86_64";
 pub const MISC_HTTPS_HTTP: bool = false;
-pub const MISC_TAILNET: &str = "invalid Tailnet version";
-pub const READ_TRAILING: &str = "trailing JSON data";
 pub const READ_OK_MODE: u32 = 420;

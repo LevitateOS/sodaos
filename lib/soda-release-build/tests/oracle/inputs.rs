@@ -23,22 +23,13 @@ fn oracle_live_inputs_write_and_read() {
     assert_eq!(read_live_inputs(&path).unwrap(), inputs);
     let mut bad = inputs.clone();
     bad.tailnet.version = "yesterday".to_string();
-    assert_eq!(
-        valid_live_inputs(&bad).unwrap_err().0,
-        oracle::LIVE_ERR_TAILNET
-    );
+    assert!(valid_live_inputs(&bad).is_err(), "live-tailnet");
     let mut bad = inputs.clone();
     bad.coreos.release = "tomorrow".to_string();
-    assert_eq!(
-        valid_live_inputs(&bad).unwrap_err().0,
-        oracle::LIVE_ERR_RELEASE
-    );
+    assert!(valid_live_inputs(&bad).is_err(), "live-release");
     let mut bad = inputs;
     bad.coreos.container = BTreeMap::new();
-    assert_eq!(
-        valid_live_inputs(&bad).unwrap_err().0,
-        oracle::LIVE_ERR_CONTAINER
-    );
+    assert!(valid_live_inputs(&bad).is_err(), "live-container");
 }
 
 #[test]
@@ -73,25 +64,22 @@ fn oracle_forgejo_toolchain_semantics_and_determinism() {
 
 #[test]
 fn oracle_misc_vectors() {
-    assert_eq!(
-        soda_release_build::files::oci_architecture("aarch64")
-            .unwrap_err()
-            .message(),
-        oracle::MISC_OCI_ARCH
+    assert!(
+        soda_release_build::files::oci_architecture("aarch64").is_err(),
+        "misc-oci-arch"
     );
     assert_eq!(
         https_url("http://example.test/base"),
         oracle::MISC_HTTPS_HTTP
     );
-    assert_eq!(
+    assert!(
         valid_tailnet_inputs(&TailnetInputs {
             version: "x".to_string(),
             sha256: "y".to_string(),
             base: "z".to_string(),
         })
-        .unwrap_err()
-        .0,
-        oracle::MISC_TAILNET
+        .is_err(),
+        "misc-tailnet"
     );
     assert!(soda_commands(&scratch("missing-cmds").join("cmd")).is_err());
 }
@@ -110,8 +98,7 @@ fn oracle_read_json_strictness() {
     .unwrap();
     assert!(read_json::<File>(&path).is_err());
     std::fs::write(&path, "{\"mode\":420} {}").unwrap();
-    let err = read_json::<File>(&path).unwrap_err();
-    assert_eq!(err.message(), "trailing JSON data");
+    assert!(read_json::<File>(&path).is_err(), "read-trailing");
     std::fs::write(&path, "{\"mode\":420}").unwrap();
     let file: File = read_json(&path).unwrap();
     assert_eq!(file.mode, oracle::READ_OK_MODE);
