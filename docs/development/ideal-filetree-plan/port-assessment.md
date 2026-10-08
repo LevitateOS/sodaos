@@ -149,10 +149,11 @@ because their filenames mention a privileged operation.
 
 Go `internal/tailnet` retains control_types.go, control_validation.go,
 ProjectSelection/Validate from project_runtime.go, and the actual status/
-Endpoint client plus its tests. Protected native control, policy publication,
-provider/enrollment and RunBinding execution move to Rust. The ProjectStatus
-parser has no surviving Go production caller after companion retirement and
-already has a Rust counterpart; it retires too.
+Endpoint client plus its tests. The Go native control, policy publication,
+provider/enrollment and RunBinding implementations are retired; Rust remains
+their defining owner. The ProjectStatus parser had no surviving Go production
+caller after companion retirement and already had a Rust counterpart; it was
+retired with the same source cut.
 
 These integration leaves retain existing callers. The daemon rows describe the
 historical PR26 gaps; the Tailnet rows below now record the current Rust source

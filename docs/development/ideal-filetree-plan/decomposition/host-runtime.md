@@ -50,7 +50,10 @@ L11 implemented the existing privileged one-shot helper in
 of `soda-host`; release-image selects that package/bin and preserves installed
 `/usr/libexec/soda/soda-forgejo-tailnet`. Current `tcontrol_native.rs` invokes the
 helper through its Executor. The exclusive Go helper/rewrite predecessors are
-retired; live Go Tailnet DTO/status and remaining Forgejo clients stay.
+retired. C03.M also retired the uncalled Go privileged
+control/enrollment/policy/project-status runtime; live Go Tailnet DTOs, direct
+admission validation, read-only status/Endpoint client and remaining Forgejo
+clients stay.
 
 Retain root admission, the 90-second deadline, Endpoint observation, bounded
 Podman decoding, actual listener guard, SSH_DOMAIN-only rewrite, private
