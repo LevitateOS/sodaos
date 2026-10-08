@@ -1,5 +1,15 @@
 use super::*;
+use serde_json::value::RawValue;
 use soda_release_image::media;
+use std::collections::BTreeMap;
+
+fn image_config(text: &str) -> BTreeMap<String, Box<RawValue>> {
+    serde_json::from_str(text).unwrap()
+}
+
+fn rootfs_options(config: &BTreeMap<String, Box<RawValue>>) -> String {
+    serde_json::from_str(config["live-rootfs-fsoptions"].get()).unwrap()
+}
 
 #[test]
 fn oracle_media_base_url() {
@@ -96,54 +106,47 @@ fn oracle_media_base_url() {
 #[test]
 fn oracle_media_compression() {
     let def = r"-zlzma,level=6 -Efragments -C1048576 --quiet";
-    let mut cfg_prod = compression::ImageConfig::parse(&format!(
+    let mut cfg_prod = image_config(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        serde_json::to_string(&serde_json::Value::String(def.to_string())).unwrap()
-    ))
-    .unwrap();
+        serde_json::to_string(def).unwrap()
+    ));
     compression::set_media_compression(&mut cfg_prod, "").unwrap();
-    let rendered_prod =
-        serde_json::to_string(&serde_json::Value::String(cfg_prod.settings().unwrap().1)).unwrap();
+    let rendered_prod = serde_json::to_string(&rootfs_options(&cfg_prod)).unwrap();
     check_ok(
         "E-comp-prod",
         r"Ii16bHptYSxsZXZlbD02IC1FZnJhZ21lbnRzIC1DMTA0ODU3NiAtLXF1aWV0Ig==",
         rendered_prod.as_bytes(),
     );
-    let mut cfg_fast = compression::ImageConfig::parse(&format!(
+    let mut cfg_fast = image_config(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        serde_json::to_string(&serde_json::Value::String(def.to_string())).unwrap()
-    ))
-    .unwrap();
+        serde_json::to_string(def).unwrap()
+    ));
     compression::set_media_compression(&mut cfg_fast, "fast").unwrap();
-    let rendered_fast =
-        serde_json::to_string(&serde_json::Value::String(cfg_fast.settings().unwrap().1)).unwrap();
+    let rendered_fast = serde_json::to_string(&rootfs_options(&cfg_fast)).unwrap();
     check_ok(
         "E-comp-fast",
         r"Ii16bHptYSxsZXZlbD0xIC1FZnJhZ21lbnRzIC1DMTA0ODU3NiAtLXF1aWV0Ig==",
         rendered_fast.as_bytes(),
     );
-    let mut cfg_turbo = compression::ImageConfig::parse(&format!(
+    let mut cfg_turbo = image_config(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
-        serde_json::to_string(&serde_json::Value::String(def.to_string())).unwrap()
-    ))
-    .unwrap();
+        serde_json::to_string(def).unwrap()
+    ));
     check_err(
         "E-comp-turbo",
         r"fast media requires the reviewed upstream EROFS/LZMA defaults",
         &compression::set_media_compression(&mut cfg_turbo, "turbo").unwrap_err(),
     );
-    let mut cfg_xfs = compression::ImageConfig::parse(&format!(
+    let mut cfg_xfs = image_config(&format!(
         "{{\"live-rootfs-fstype\":\"xfs\",\"live-rootfs-fsoptions\":{}}}",
-        serde_json::to_string(&serde_json::Value::String(def.to_string())).unwrap()
-    ))
-    .unwrap();
+        serde_json::to_string(def).unwrap()
+    ));
     check_err(
         "E-comp-xfs",
         r"fast media requires the reviewed upstream EROFS/LZMA defaults",
         &compression::set_media_compression(&mut cfg_xfs, "fast").unwrap_err(),
     );
-    let mut cfg_missing =
-        compression::ImageConfig::parse("{\"live-rootfs-fstype\":\"erofs\"}").unwrap();
+    let mut cfg_missing = image_config("{\"live-rootfs-fstype\":\"erofs\"}");
     check_err(
         "E-comp-missing",
         r"fast media requires the reviewed upstream EROFS/LZMA defaults",

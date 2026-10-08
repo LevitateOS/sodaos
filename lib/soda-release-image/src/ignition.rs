@@ -22,23 +22,40 @@ pub fn verify_live_ignition(data: &[u8], expected: &[u8]) -> Result<(), Error> {
         std::str::from_utf8(&raw).map_err(|_| Error::msg("invalid Ignition readback"))?;
     let expected_text =
         std::str::from_utf8(expected).map_err(|_| Error::msg("invalid Ignition readback"))?;
-    let mut got = crate::ordered_json::OrderedValue::parse(raw_text)
-        .map_err(|_| Error::msg("invalid Ignition readback"))?;
-    let mut want = crate::ordered_json::OrderedValue::parse(expected_text)
-        .map_err(|_| Error::msg("invalid Ignition readback"))?;
-    got.prune_null_members();
-    want.prune_null_members();
+    let mut got: serde_json::Value =
+        serde_json::from_str(raw_text).map_err(|_| Error::msg("invalid Ignition readback"))?;
+    let mut want: serde_json::Value =
+        serde_json::from_str(expected_text).map_err(|_| Error::msg("invalid Ignition readback"))?;
+    prune_null_object_members(&mut got);
+    prune_null_object_members(&mut want);
     if got != want {
         return Err(Error::msg("embedded live Ignition differs"));
     }
     Ok(())
 }
 
+fn prune_null_object_members(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            object.retain(|_, value| !value.is_null());
+            for value in object.values_mut() {
+                prune_null_object_members(value);
+            }
+        }
+        serde_json::Value::Array(values) => {
+            for value in values {
+                prune_null_object_members(value);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn live_ignition_bytes(data: &[u8]) -> Result<Vec<u8>, Error> {
     let text =
         std::str::from_utf8(data).map_err(|_| Error::msg("unexpected native live Ignition"))?;
     let wrapper: serde_json::Value =
-        jsonio::parse(text).map_err(|_| Error::msg("unexpected native live Ignition"))?;
+        serde_json::from_str(text).map_err(|_| Error::msg("unexpected native live Ignition"))?;
     let merge = wrapper
         .get("ignition")
         .and_then(|ignition| ignition.get("config"))
@@ -337,7 +354,7 @@ mod tests {
     }
 
     #[test]
-    fn live_ignition_equality_keeps_object_order_duplicates_and_number_tokens() {
+    fn live_ignition_equality_uses_object_values_and_preserves_array_order() {
         fn wrapped(fragment: &[u8]) -> String {
             let compressed = gzip_bytes(fragment);
             format!(
@@ -345,15 +362,36 @@ mod tests {
                 base64::engine::general_purpose::STANDARD.encode(compressed)
             )
         }
-        let expected = br#"{"a":1e2,"a":2,"storage":{}}"#;
+        let expected =
+            br#"{"a":100.0,"storage":{"nullable":null},"array":[null,{"field":null,"value":1}]}"#;
         let same = wrapped(expected);
         assert!(verify_live_ignition(same.as_bytes(), expected).is_ok());
 
-        let different_order = wrapped(br#"{"storage":{},"a":1e2,"a":2}"#);
-        assert!(verify_live_ignition(different_order.as_bytes(), expected).is_err());
-        let different_duplicate = wrapped(br#"{"a":1e2,"storage":{}}"#);
-        assert!(verify_live_ignition(different_duplicate.as_bytes(), expected).is_err());
-        let different_number = wrapped(br#"{"a":100,"a":2,"storage":{}}"#);
+        let reordered = wrapped(
+            br#"{"array":[null,{"value":1,"field":null}],"storage":{"nullable":null},"a":100.0}"#,
+        );
+        assert!(verify_live_ignition(reordered.as_bytes(), expected).is_ok());
+        let different_array_order = wrapped(
+            br#"{"a":100.0,"storage":{"nullable":null},"array":[{"field":null,"value":1},null]}"#,
+        );
+        assert!(verify_live_ignition(different_array_order.as_bytes(), expected).is_err());
+        let different_number = wrapped(br#"{"a":101.0,"storage":{},"array":[null,{"value":1}]}"#);
         assert!(verify_live_ignition(different_number.as_bytes(), expected).is_err());
+
+        let nested =
+            |depth: usize| format!("{{\"opaque\":{}0{}}}", "[".repeat(depth), "]".repeat(depth));
+        let within_value_depth = nested(126);
+        let wrapped_within = wrapped(within_value_depth.as_bytes());
+        assert!(
+            verify_live_ignition(wrapped_within.as_bytes(), within_value_depth.as_bytes()).is_ok()
+        );
+        let beyond_value_depth = nested(127);
+        let wrapped_beyond = wrapped(beyond_value_depth.as_bytes());
+        assert_eq!(
+            verify_live_ignition(wrapped_beyond.as_bytes(), beyond_value_depth.as_bytes())
+                .unwrap_err()
+                .0,
+            "invalid Ignition readback"
+        );
     }
 }

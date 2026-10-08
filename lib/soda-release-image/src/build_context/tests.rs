@@ -2,22 +2,41 @@ use super::*;
 use std::collections::HashMap;
 
 #[test]
-fn freezing_image_config_preserves_raw_duplicates_order_and_numeric_tokens() {
-    let input = r#"{"z":1e2,"container-imgref":"old","duplicate":1,"duplicate":2,"bootc-install-to-fs":true,"a":-0}"#;
-    let got = freeze_image_config(input, "ghcr.io/example/sodaos", "").unwrap();
-    assert_eq!(
-        got,
-        concat!(
-            "{\n",
-            "  \"a\": -0,\n",
-            "  \"bootc-install-to-fs\": false,\n",
-            "  \"container-imgref\": \"ostree-image-signed:docker://ghcr.io/example/sodaos-host:candidate\",\n",
-            "  \"duplicate\": 1,\n",
-            "  \"duplicate\": 2,\n",
-            "  \"z\": 1e2\n",
-            "}\n"
-        )
+fn freezing_image_config_preserves_unknown_values_and_replaces_selected_fields() {
+    let opaque = format!(
+        "{}{{\"extreme\":1e400,\"wide\":18446744073709551616}}{}",
+        "{\"deep\":".repeat(140),
+        "}".repeat(140)
     );
+    let input = format!(
+        r#"{{"z":1e2,"container-imgref":"old","unknown":{{"number":1e2,"negative_zero":-0,"items":[1.0]}},"opaque":{opaque},"bootc-install-to-fs":true,"a":-0}}"#
+    );
+    let got = freeze_image_config(&input, "ghcr.io/example/sodaos", "").unwrap();
+    assert!(got.ends_with('\n'));
+    let key_positions = [
+        "\"a\":",
+        "\"bootc-install-to-fs\":",
+        "\"container-imgref\":",
+        "\"opaque\":",
+        "\"unknown\":",
+        "\"z\":",
+    ]
+    .map(|key| got.find(key).unwrap());
+    assert!(key_positions.windows(2).all(|pair| pair[0] < pair[1]));
+    let parsed: BTreeMap<String, Box<RawValue>> = serde_json::from_str(got.trim_end()).unwrap();
+    assert_eq!(parsed.len(), 6);
+    assert_eq!(parsed["a"].get(), "-0");
+    assert_eq!(parsed["z"].get(), "1e2");
+    assert_eq!(parsed["opaque"].get(), opaque.as_str());
+    assert_eq!(
+        parsed["unknown"].get(),
+        r#"{"number":1e2,"negative_zero":-0,"items":[1.0]}"#
+    );
+    assert_eq!(
+        serde_json::from_str::<String>(parsed["container-imgref"].get()).unwrap(),
+        "ostree-image-signed:docker://ghcr.io/example/sodaos-host:candidate"
+    );
+    assert_eq!(parsed["bootc-install-to-fs"].get(), "false");
 }
 
 #[test]

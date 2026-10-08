@@ -11,6 +11,8 @@ use crate::foreign::Production;
 use crate::model;
 use crate::prepare;
 use crate::sys;
+use serde_json::value::{to_raw_value, RawValue};
+use std::collections::BTreeMap;
 
 pub fn freeze_base_image_config(
     snapshot: &str,
@@ -60,26 +62,27 @@ pub fn freeze_base_image_config(
 }
 
 fn freeze_image_config(metadata: &str, prefix: &str, mode: &str) -> Result<String, Error> {
-    let mut image_config = compression::ImageConfig::parse(metadata)?;
-    if !image_config.is_nonempty_object() {
+    let mut image_config: BTreeMap<String, Box<RawValue>> =
+        serde_json::from_str(metadata).map_err(|_| Error::msg("invalid JSON"))?;
+    if image_config.is_empty() {
         return Err(Error::msg("missing upstream image configuration"));
     }
-    if let Some(entries) = image_config.ordered_mut().object_mut() {
-        entries.retain(|(key, _)| key != "container-imgref" && key != "bootc-install-to-fs");
-        entries.push((
-            "container-imgref".to_string(),
-            crate::ordered_json::OrderedValue::String(format!(
-                "ostree-image-signed:docker://{prefix}-host:candidate"
-            )),
-        ));
-        entries.push((
-            "bootc-install-to-fs".to_string(),
-            crate::ordered_json::OrderedValue::Bool(false),
-        ));
-        entries.sort_by(|a, b| a.0.cmp(&b.0));
-    }
+    image_config.remove("container-imgref");
+    image_config.remove("bootc-install-to-fs");
+    image_config.insert(
+        "container-imgref".to_string(),
+        to_raw_value(&format!(
+            "ostree-image-signed:docker://{prefix}-host:candidate"
+        ))
+        .expect("serializing a string cannot fail"),
+    );
+    image_config.insert(
+        "bootc-install-to-fs".to_string(),
+        to_raw_value(&false).expect("serializing a boolean cannot fail"),
+    );
     compression::set_media_compression(&mut image_config, mode)?;
-    let mut output = image_config.to_pretty_json();
+    let mut output = serde_json::to_string_pretty(&image_config)
+        .expect("serializing image configuration cannot fail");
     output.push('\n');
     Ok(output)
 }
