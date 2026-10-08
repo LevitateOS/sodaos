@@ -220,7 +220,10 @@ hunk editing of a shared file as a substitute for ownership.
   repeated SSH cases, daemon compilation and exact formatting; unchanged source
   keeps its earlier scoped receipts. This adds source/development evidence, with
   no installed/native claim. Repeat affected checks when source or the review
-  question changes; do not automatically rerun every suite.
+  question changes; do not automatically rerun every suite. The subsequent
+  A05 raw-state projection repair passes 26 focused checks (15 PG-backed integration,
+  11 local), with the owned cluster stopped and the
+  Identity production bin compiled; this adds no native qualification.
 - [x] **R03.L — Completed library-adoption source scope.** Verified source:
   `d7eca882b5ce18f25ea3287dce578366d769deda`, with documentation-only
   integration upkeep in `93b50615`.

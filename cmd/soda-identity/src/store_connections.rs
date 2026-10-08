@@ -90,7 +90,7 @@ impl Store {
         let mut after: Option<String> = None;
         loop {
             let (rows, _) = self.query(
-                "SELECT CASE WHEN octet_length(id)<=$3 THEN id ELSE NULL END, owner_id, state, CASE WHEN octet_length(id)<=$3 AND octet_length(data::text)<=$4 AND data->>'id'=id AND data->>'owner_id'=owner_id::text AND data->>'state'=state THEN data ELSE NULL END FROM identity_connections WHERE owner_id=$1 AND ($2::text IS NULL OR id>$2) ORDER BY id LIMIT $5",
+                "SELECT CASE WHEN octet_length(id)<=$3 THEN id ELSE NULL END, owner_id, CASE WHEN octet_length(id)<=$3 AND octet_length(data::text)<=$4 AND data->>'id'=id AND data->>'owner_id'=owner_id::text AND data->>'state'=state THEN data ELSE NULL END FROM identity_connections WHERE owner_id=$1 AND ($2::text IS NULL OR id>$2) ORDER BY id LIMIT $5",
                 &[
                     &owner as &(dyn ToSql + Sync),
                     &after as &(dyn ToSql + Sync),
@@ -104,10 +104,9 @@ impl Store {
                 let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity list incomplete"))?;
                 let owner = row.try_get::<_, i32>(1).map_err(pg_error)?;
-                let state = row.try_get::<_, String>(2).map_err(pg_error)?;
-                let value = row.try_get::<_, Option<Json<Connection>>>(3).map_err(pg_error)?
+                let value = row.try_get::<_, Option<Json<Connection>>>(2).map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity list incomplete"))?;
-                if value.0.id != id || value.0.owner_id != owner as i64 || value.0.state != state {
+                if value.0.id != id || value.0.owner_id != owner as i64 {
                     return Err(Error::internal("identity list incomplete"));
                 }
                 output.push(&value.0)?;
@@ -124,7 +123,7 @@ impl Store {
         let mut after: Option<String> = None;
         loop {
             let (rows, _) = self.query(
-                "SELECT CASE WHEN octet_length(c.id)<=$4 THEN c.id ELSE NULL END, c.owner_id, c.state, CASE WHEN octet_length(c.id)<=$4 AND octet_length(c.data::text)<=$5 AND c.data->>'id'=c.id AND c.data->>'owner_id'=c.owner_id::text AND c.data->>'state'=c.state THEN c.data ELSE NULL END FROM identity_connections c WHERE c.state='ready' AND (c.owner_id=$1 OR EXISTS(SELECT 1 FROM identity_grants g WHERE g.connection_id=c.id AND g.user_id=$2 AND g.project_id=$3 AND NOT g.revoked)) AND ($6::text IS NULL OR c.id>$6) ORDER BY c.id LIMIT $7",
+                "SELECT CASE WHEN octet_length(c.id)<=$4 THEN c.id ELSE NULL END, c.owner_id, CASE WHEN octet_length(c.id)<=$4 AND octet_length(c.data::text)<=$5 AND c.data->>'id'=c.id AND c.data->>'owner_id'=c.owner_id::text AND c.data->>'state'=c.state THEN c.data ELSE NULL END FROM identity_connections c WHERE c.state='ready' AND (c.owner_id=$1 OR EXISTS(SELECT 1 FROM identity_grants g WHERE g.connection_id=c.id AND g.user_id=$2 AND g.project_id=$3 AND NOT g.revoked)) AND ($6::text IS NULL OR c.id>$6) ORDER BY c.id LIMIT $7",
                 &[
                     &actor as &(dyn ToSql + Sync),
                     &actor as &(dyn ToSql + Sync),
@@ -140,10 +139,9 @@ impl Store {
                 let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity list incomplete"))?;
                 let owner = row.try_get::<_, i32>(1).map_err(pg_error)?;
-                let state = row.try_get::<_, String>(2).map_err(pg_error)?;
-                let value = row.try_get::<_, Option<Json<Connection>>>(3).map_err(pg_error)?
+                let value = row.try_get::<_, Option<Json<Connection>>>(2).map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity list incomplete"))?;
-                if value.0.id != id || value.0.owner_id != owner as i64 || value.0.state != state {
+                if value.0.id != id || value.0.owner_id != owner as i64 {
                     return Err(Error::internal("identity list incomplete"));
                 }
                 let mut connection = value.0;

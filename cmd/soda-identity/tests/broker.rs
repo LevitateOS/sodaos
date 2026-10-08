@@ -629,4 +629,19 @@ fn connection_lists_refuse_relational_json_owner_and_state_mismatch() {
 
     assert!(fixture.exec("UPDATE identity_connections SET data=jsonb_set(jsonb_set(data,'{owner_id}','\"1\"'::jsonb),'{state}','\"revoked\"'::jsonb) WHERE id='malformed-connection-owner'"));
     assert!(store.available(2, "shared").is_err(), "available listing must reject inconsistent state metadata");
+
+    assert!(fixture.exec("UPDATE identity_connections SET state=repeat('x',530000) WHERE id='malformed-connection-owner'"));
+    assert!(store.connections(1).is_err(), "owner listing must refuse an inconsistent raw state instead of returning a partial list");
+    assert!(listed_connections(store.available(2, "shared").unwrap()).is_empty(), "available listing must retain the ready-state filter");
+
+    assert!(fixture.exec("UPDATE identity_connections SET state='7',data=jsonb_set(data,'{state}','7'::jsonb) WHERE id='malformed-connection-owner'"));
+    assert!(store.connections(1).is_err(), "owner listing must reject malformed JSON state metadata");
+    assert!(listed_connections(store.available(2, "shared").unwrap()).is_empty(), "available listing must retain the ready-state filter for malformed JSON state metadata");
+
+    assert!(fixture.exec("UPDATE identity_connections SET state='ready' WHERE id='malformed-connection-owner'"));
+    assert!(store.available(2, "shared").is_err(), "available listing must reject JSON state that disagrees with ready relational state");
+
+    assert!(fixture.exec("UPDATE identity_connections SET data=jsonb_set(data,'{state}','\"ready\"'::jsonb) WHERE id='malformed-connection-owner'"));
+    assert_eq!(listed_connections(store.connections(1).unwrap()).len(), 1);
+    assert_eq!(listed_connections(store.available(2, "shared").unwrap()).len(), 1);
 }

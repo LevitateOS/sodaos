@@ -1,10 +1,11 @@
 # Resource bounds before allocation and expansion
 
-Four producer-side gaps remain: complete lease enumeration, complete connection
-list construction, provider version-probe capture and factory dependant traversal.
-The earlier aggregate secret-collection, installed-probe and diagnostic-ring
-findings also remain open. Downstream byte limits protect their consumers after
-some of these allocations have already happened.
+At the inspected snapshot, four producer-side gaps remained: complete lease
+enumeration, complete connection list construction, provider version-probe
+capture and factory dependant traversal. The earlier aggregate secret-collection,
+installed-probe and diagnostic-ring findings were also open. The ledger and
+findings below preserve that source identity; later dispositions belong to the
+[finding allocation](execution-findings.md).
 
 Source: `88a40b5df6c146fa568e46bc97e6bcb39cab16e5`, tree
 `22829c7af775066f65e9dcd4620e64d1ffdaa745`, inspected 2026-10-07. The intervening
@@ -24,6 +25,17 @@ The later [file/descriptor/process custody audit](file-and-process-custody.md)
 at `1d8c4e11` adds Identity settings admission before its existing cap and
 Project snapshot stream-bound enforcement. These have separate IDs and owners;
 the four producer-side packets here retain their original scope.
+
+The selected A05 settings, provider-probe and lease/connection list corrections
+are now source complete. Their final follow-up removes the unscreened relational
+state result column from connection queries; the existing guarded JSON projection
+retains relational state equality and strict typed decoding. The complete-list
+API and existing 512 KiB response budget remain, with visible all-or-error refusal
+and complete internal authority scans. The current 26-check receipt and its
+limits are recorded in the [finding allocation](execution-findings.md). This
+selects no population ceiling or continuation API and claims no global heap,
+installed/native or live-provider bound. Factory total-visited/depth/query
+admission remains the separate RES-GO-ACCEPTANCE-DEPENDANTS-1 profile decision.
 
 ## Boundary ledger
 
