@@ -190,34 +190,20 @@ do not establish a missing port or current validity. Whole test cases and
 fixtures remain coherent. These allocations do not create additional source
 coverage beyond the catalog and its explicit review receipts:
 
-**rust/soda-host/src/gmux_admission.rs** (403 lines on the inspected branch).
+**Current daemon defining join after L09.** The former root gmux modules are
+removed. `lib/host/src/daemon/mod.rs` directly declares admission, backend,
+response, routes and server, with private HTTP/WebSocket helpers. The existing
+`main.rs`, `dbackend.rs` and smoke-test callers bind directly to those definitions.
 
-- `lib/host/src/daemon/admission.rs` — 1-289: path/body/action validators, AdmissionGate/Guard and TerminalGate/Slot.
-- `lib/host/src/daemon/peer.rs` — 290-403: PeerCred/MusePeer, peer_cred, muse_peer and close_pidfd; existing Unix attestation.
+- `daemon/admission.rs` (271 lines) retains path/body/action validation and mutation/terminal gates. Muse peer attestation remains at its separate live socket owner; the obsolete daemon peer duplicate stays retired.
+- `daemon/backend.rs` (221 lines) retains BackendError/TerminalSession, ExecBackend and the route-test StubBackend. The production implementation is `dbackend::DaemonBackend`.
+- `daemon/routes.rs` (340 lines) owns the exact 34-route table and native/identity/tailnet/terminal dispatch. `response.rs` (50 lines) owns response envelopes; its internal helpers stay private to daemon siblings.
+- `daemon/server.rs` (435 lines) owns bounded connections/backend work, cancellation/task joins, terminal-upgrade lifetime and listener custody. `http.rs` (102 lines) retains head/path/body conversion, while Hyper owns HTTP/1 parsing/framing. `websocket.rs` (14 lines) retains the tungstenite upgrade adapter.
 
-**rust/soda-host/src/gmux_backend.rs** (222 lines on the inspected branch).
-
-- `lib/host/src/daemon/backend.rs` — 1-128: BackendError/TerminalSession and ExecBackend trait; concrete production adapter remains pending.
-
-**rust/soda-host/src/gmux_routes.rs** (523 lines on the inspected branch).
-
-- `lib/host/src/daemon/routes.rs` — 1-341: current 33-route table, DaemonConfig/RouteOutcome and native/identity/tailnet/terminal dispatch.
-- `lib/host/src/daemon/response.rs` — 342-425: status reasons, error/not-found/JSON/Tailnet response wire.
-- `lib/host/src/daemon/websocket.rs` — 426-523: upgrade/accept key and inline RFC6455 SHA-1/base64; pending terminal pumping belongs this same transport owner.
-
-**Historical allocation, superseded by the current target join:** the inspected
-`rust/soda-host/src/gmux_server.rs` snapshot had 364 lines and assigned the
-whole source to `lib/host/src/daemon/http.rs` (accept loop, connection handler,
-request parsing, drain and systemd listener). Current selected source is
-`lib/host/src/gmux_server.rs` 1–439: Soda server/lifetime, bounded backend and
-connection admission, cancellation/task joins and listener custody now target
-`lib/host/src/daemon/server.rs`. The separate current
-`lib/host/src/daemon/http.rs` 1–102 owns path/head/body conversion. L09 is
-complete through `21387814`: Hyper owns HTTP/1 parsing/framing, so no custom
-HTTP engine is planned. The source-path move still requires rebinding current
-callers, imports and tests together: `lib/host/src/lib.rs` declarations 11–14,
-`main.rs` imports 17–18, listener selection 240–242, `Server::new` 246–254,
-and root-gate test 440–448. This plan records no installed/native qualification.
+The obsolete `GMUX_PATCHES.md` skeleton instructions are retired. The focused
+[source receipt and remaining joins](decomposition/host-runtime.md#current-host-adapter-destinations-after-l03-and-l09)
+keep this cutover distinct from broader target reconciliation and installed/native
+qualification; no generic HTTP/WebSocket engine is allocated.
 
 **rust/soda-host/src/pfactory.rs** (6081 lines at 0d8d3b8e).
 

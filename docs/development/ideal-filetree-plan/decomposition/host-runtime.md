@@ -18,7 +18,7 @@ small integration proofs before transport replacement.
 
 | Finding and existing surface | Current target responsibility |
 | --- | --- |
-| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): host daemon and identity clients | Complete at L09 through `21387814`: Hyper owns HTTP/1 parsing/framing and the four clients use the selected Unix HTTP adapter. Host `daemon/{server,http,response,routes,websocket}` and `daemon/broker.rs` retain Soda listener custody, per-socket authority, route/admission limits, status/secrecy and broker request semantics; no generic HTTP engine is a target. Physical source reallocation remains pending the scoped caller/path cutover. |
+| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): host daemon and identity clients | Complete at L09 through `21387814`: Hyper owns HTTP/1 parsing/framing and the four clients use the selected Unix HTTP adapter. Host `daemon/{server,http,response,routes,websocket}` and `daemon/broker.rs` retain Soda listener custody, per-socket authority, route/admission limits, status/secrecy and broker request semantics; no generic HTTP engine is a target. The defining server/admission/backend/route module join is complete at source scope; the separate broker/config and installed joins remain pending. |
 | [N6](../../../research/library-reuse-investigation.md#n6): `daemon/websocket.rs`, `dbackend.rs`, terminal attachment | Complete at L09 through `21387814`: tungstenite owns WebSocket protocol parsing, with one nonblocking transport owner. Retain route/Origin/query admission, session expiry, inflight/TerminalGate lifetime, bounded child-output queue, readiness wakeup, child close/reap and shutdown. Handshake SHA-1/Base64 and handwritten frame state are retired. |
 | [N4](../../../research/library-reuse-investigation.md#n4), [N7](../../../research/library-reuse-investigation.md#n7): `tcontrol_provider.rs`, native/provider URL helpers | Retain the selected host curl/Executor request policy and URL/form/percent primitives. Preserve credential scope/lifetime, neutral errors, no uncertain replay, the resolver-inclusive deadline and raw lexical admission; generic authority/escape algorithms are superseded. Source selection is complete, with provider/native qualification separate. |
 | [N8](../../../research/library-reuse-investigation.md#n8), [N9](../../../research/library-reuse-investigation.md#n9): Tailnet address/time and terminal/Factory deadline codecs | Use std IP types and the selected time codec. Retain zone/mask, DNS/name and purpose-specific address policy, lease/deadline bounds, zero-time handling and original signed text; calendar/IP engines are superseded. |
@@ -53,7 +53,7 @@ together.
 | --- | --- |
 | `lib/host/src/sha256.rs` 1–45: selected `sha2::Sha256` digest plus canonical lowercase hex | Retain as `lib/host/src/sha256.rs`. It is the single host profile used by SSH fingerprints, Tailnet revisions, preparation inputs, Factory assignments, terminal/Muse harness pins, and broker/native identities. Callers keep each raw-byte recipe, admission rule and error/custody boundary; no SHA rounds or generic hash package return. |
 | Former `lib/host/src/nist.rs` 9–53 and tests 55–162 | Source join complete in existing `lib/host/src/ssh/mod.rs` and `lib/host/src/ssh/tests.rs`. The private predicate takes upstream `ssh_key::EcdsaCurve`, retains explicit 32/48/66-byte exact-length and uncompressed-prefix gates, then validates with the typed p256/p384/p521 parsers. All SSH ECDSA call sites now use that predicate; no custom `Curve`, name dispatch, `Option<Vec<u8>>` re-encoding or `nist` module remains. The moved matrix plus existing SSH/SK caller cases preserve the original malformed, compressed/hybrid, wrong-curve, infinity and off-curve coverage. |
-| `lib/host/src/gmux_server.rs` 1–439: `Server`, accept/connection handling, backend and connection permits, shutdown/task joins, systemd fd3 and explicit bind listener | Reallocate to `lib/host/src/daemon/server.rs`. Keep the 128-connection/16-callback gates, per-socket/route admission, cancellation and shutdown joins, terminal-upgrade lifetime, listener authority and current error policy. Existing `lib/host/src/daemon/http.rs` 1–102 remains the request/path/body adapter; it is not merged with the server cohort. Hyper remains responsible for HTTP framing/parsing. Bind `lib/host/src/lib.rs` module declarations 11–14 and `main.rs` imports 17–18, construction 246–254, listener selection 240–242 and root-gate test 440–448 in the same physical cutover. |
+| `lib/host/src/daemon/{mod,admission,backend,routes,server}.rs` | Source join complete: one module root directly defines the admission, backend, route and server owners, with private HTTP/WebSocket helpers. The 34-route table lives with dispatch; public response types come from their defining response module. `main.rs`, `dbackend.rs` and the existing smoke test use those modules directly. No gmux forwarding modules remain. The 128-connection/16-callback gates, authority, cancellation/shutdown joins and terminal lifetime are unchanged; HTTP head/body conversion stays separate from the server. |
 
 The NIST caller/test join is complete at source scope. After rustfmt,
 `ssh/mod.rs` is 195 lines and `ssh/tests.rs` is 499 lines, within the per-file
@@ -67,12 +67,15 @@ increase is claimed. These checks establish source/development behavior only;
 broader R02 allocation, installed/native qualification and provider evidence
 remain open.
 
-The other planned daemon joins remain application adapters: `gmux_admission.rs`
-maps to `daemon/admission.rs`; `gmux_backend.rs` to `daemon/backend.rs`;
-`gmux_routes.rs` to existing `daemon/{response,routes,websocket}.rs`; and
-`iclient.rs` to `daemon/broker.rs`. Their current route, error, identity-wire,
-credential and response contracts remain with the Soda owners. These are
-physical rebindings, not additional library-engine work or native qualification.
+The daemon source receipt
+`.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/daemon-source-join/checks-receipt.json`
+records 32 existing smoke, 19 production-backend and four binary tests passing
+with no failures or ignored cases, both selected host binaries compiling, and
+exact affected-file formatting. All daemon units remain below 500 lines. The
+obsolete `GMUX_PATCHES.md` skeleton checklist is retired; its current duties
+live in source and the existing tests. `iclient.rs` to `daemon/broker.rs` and
+configuration placement remain separate pending joins. These checks do not
+close wider R02 allocation or installed/native qualification.
 
 ## Current Forgejo Tailnet helper allocation
 

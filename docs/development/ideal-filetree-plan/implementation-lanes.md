@@ -50,6 +50,12 @@ checkout-failure qualification at the installed Project/native privilege
 boundary remain open (see the receipt in the
 [finding allocation](execution-findings.md#implemented-source-follow-ups-2026-10-08)).
 
+The daemon defining-module join is complete at source scope: root gmux
+forwarders and obsolete skeleton instructions are removed, and callers import
+the actual daemon owners. The [scoped receipt](decomposition/host-runtime.md#current-host-adapter-destinations-after-l03-and-l09)
+records 55 focused tests and compilation/formatting; R02.targets/R02.joins and
+installed/native obligations remain open.
+
 The retained [tree](proposed-tree.md), [placement](placement.md),
 [ownership](package-ownership.md), [review records](reviews/README.md) and
 [responsibility maps](coverage/maps/README.md) remain the authorities for exact

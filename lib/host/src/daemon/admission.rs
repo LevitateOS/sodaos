@@ -185,11 +185,8 @@ pub fn valid_terminal_request(head: &RequestHead) -> bool {
 /// Globally serialized mutation gate with a const constructor, so mux
 /// structs stay usable without a constructor like Go's lazy `sync.Once`.
 ///
-/// Go lets cancelled waiters leave the queue; the skeleton offers a
-/// blocking `acquire` plus a non-blocking `try_acquire` and documents the
-/// timeout wiring for the integrator (GMUX_PATCHES.md): the server applies
-/// per-request deadlines around dispatch, so a stuck holder cannot wedge
-/// the mux past the request horizon.
+/// Routes use `try_acquire` and immediately refuse a busy mutation with
+/// 503; `acquire` blocks until the holder releases its guard.
 #[derive(Debug, Default)]
 pub struct AdmissionGate {
     held: Mutex<()>,

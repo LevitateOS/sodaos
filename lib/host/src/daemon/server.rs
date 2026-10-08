@@ -7,9 +7,10 @@
 // binary main obtains the listener from fd 3 (see `systemd_listener`),
 // mounts one `Server`, and stops it through the shutdown flag. Terminal
 // upgrades retain a joined pump task for the full admitted session.
-use crate::gmux_admission::{AdmissionGate, TerminalGate};
-use crate::gmux_backend::ExecBackend;
-use crate::gmux_routes::{dispatch, error_response, DaemonConfig, HttpResponse, RouteOutcome};
+use super::admission::{AdmissionGate, TerminalGate, TERMINAL_FRAME_LIMIT};
+use super::backend::ExecBackend;
+use super::response::{error_response, HttpResponse};
+use super::routes::{dispatch, DaemonConfig, RouteOutcome};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::Request;
@@ -21,13 +22,10 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-#[path = "daemon/http.rs"]
-mod http;
+use super::http::{read_body, request_head, HEADER_TIMEOUT, MAX_HEADER};
 
-use self::http::{read_body, request_head, HEADER_TIMEOUT, MAX_HEADER};
-
-/// The mux server. Generic over the executor so tests mount the stub and
-/// the integrator mounts the real adapter without touching this file.
+/// The mux server. The binary mounts `DaemonBackend`; route tests can mount
+/// `StubBackend` without changing the server.
 pub struct Server<B> {
     backend: Arc<B>,
     config: DaemonConfig,
@@ -317,10 +315,8 @@ async fn handle_connection<B: ExecBackend + 'static>(
                                     websocket_config.read_buffer_size = 8192;
                                     websocket_config.write_buffer_size = 8192;
                                     websocket_config.max_write_buffer_size = 262_144;
-                                    websocket_config.max_message_size =
-                                        Some(crate::gmux_admission::TERMINAL_FRAME_LIMIT);
-                                    websocket_config.max_frame_size =
-                                        Some(crate::gmux_admission::TERMINAL_FRAME_LIMIT);
+                                    websocket_config.max_message_size = Some(TERMINAL_FRAME_LIMIT);
+                                    websocket_config.max_frame_size = Some(TERMINAL_FRAME_LIMIT);
                                     let ws = tungstenite::protocol::WebSocket::from_partially_read(
                                         stream,
                                         read_buf,

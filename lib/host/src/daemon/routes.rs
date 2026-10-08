@@ -1,15 +1,54 @@
-use crate::gmux_admission::{
+use super::admission::{
     is_admitted_mutation_path, valid_identity_request, valid_terminal_request,
     validate_native_request, validate_tailnet_request, AdmissionGate, RequestHead, TerminalGate,
     TerminalSlot, IDENTITY_ACTIONS,
 };
-use crate::gmux_backend::{BackendError, ExecBackend, TerminalSession};
+use super::backend::{BackendError, ExecBackend, TerminalSession};
 
 use super::response::{
     error_response, json_response, not_found_response, tailnet_json_response, tailnet_response,
     HttpResponse,
 };
 use super::websocket::websocket_upgrade_response;
+
+/// Every route the daemon serves: 5 identity, 6 tailnet, 1 terminal,
+/// 9 project, 5 prepare, and 8 factory.
+pub const ROUTE_TABLE: &[(&str, &str)] = &[
+    ("POST", "/identity/launch"),
+    ("POST", "/identity/validate"),
+    ("POST", "/identity/stop"),
+    ("POST", "/identity/start"),
+    ("POST", "/identity/finish"),
+    ("POST", "/tailnet/settings"),
+    ("POST", "/tailnet/host"),
+    ("POST", "/tailnet/enrollment"),
+    ("POST", "/tailnet/options"),
+    ("POST", "/tailnet/project"),
+    ("POST", "/tailnet/policy"),
+    ("GET", "/terminal"),
+    ("POST", "/profile"),
+    ("POST", "/create"),
+    ("POST", "/inspect"),
+    ("POST", "/os"),
+    ("POST", "/connection"),
+    ("POST", "/lifecycle"),
+    ("POST", "/access-keys"),
+    ("POST", "/account"),
+    ("POST", "/project-access"),
+    ("POST", "/prepare"),
+    ("POST", "/prepare-candidate"),
+    ("POST", "/prepare-inspect"),
+    ("POST", "/prepare-stop"),
+    ("POST", "/prepare-hold"),
+    ("POST", "/factory-launch"),
+    ("POST", "/factory-inspect"),
+    ("POST", "/factory-stop"),
+    ("POST", "/factory-takeover"),
+    ("POST", "/factory-output"),
+    ("POST", "/factory-harness"),
+    ("POST", "/factory-export"),
+    ("POST", "/factory-candidate-inspect"),
+];
 
 // -- daemon config surface the mux needs --
 

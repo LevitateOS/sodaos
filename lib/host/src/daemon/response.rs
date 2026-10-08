@@ -25,24 +25,24 @@ pub fn error_response(status: u16, message: &str) -> HttpResponse {
     out
 }
 
-pub fn not_found_response() -> HttpResponse {
+pub(super) fn not_found_response() -> HttpResponse {
     error_response(404, "404 page not found")
 }
 
-pub fn json_response(json: &[u8]) -> HttpResponse {
+pub(super) fn json_response(json: &[u8]) -> HttpResponse {
     let mut body = json.to_vec();
     body.push(b'\n');
     response(200, "application/json", body)
 }
 
-pub fn tailnet_json_response(json: &[u8]) -> HttpResponse {
+pub(super) fn tailnet_json_response(json: &[u8]) -> HttpResponse {
     let mut out = response(200, "application/json", json.to_vec());
     out.headers_mut()
         .insert("cache-control", "no-store".parse().expect("static header"));
     out
 }
 
-pub fn tailnet_response(mut response: HttpResponse) -> HttpResponse {
+pub(super) fn tailnet_response(mut response: HttpResponse) -> HttpResponse {
     response
         .headers_mut()
         .insert("cache-control", "no-store".parse().expect("static header"));

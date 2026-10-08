@@ -1,7 +1,7 @@
 // Real daemon backend: `ExecBackend` over the ported executors (PR26).
 //
-// This is the integrator wiring from GMUX_PATCHES.md §2: each trait method
-// strict-decodes its JSON body (replacing `strictjson.Decode`), enforces the
+// Each trait method strict-decodes its JSON body (replacing
+// `strictjson.Decode`), enforces the
 // daemon-level pre-checks from `dispatch*` in internal/host/daemon.go, calls
 // the executor, and encodes the response. Mutation gating lives in the mux,
 // which holds the admission guard across backend calls: this backend MUST
@@ -23,7 +23,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use crate::gmux_backend::{BackendError, ExecBackend, TerminalSession};
+use crate::daemon::backend::{BackendError, ExecBackend, TerminalSession};
 use crate::{
     domain, json, pfactory, project, tcontrol,
     terminal::{self, factory::tcodex},
@@ -1392,7 +1392,7 @@ fn pump_terminal(
     mut ws: tungstenite::protocol::WebSocket<UnixStream>,
     shutdown: Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<(), String> {
-    use crate::gmux_admission::{TERMINAL_FRAME_LIMIT, TERMINAL_REQUEST_LIMIT};
+    use crate::daemon::admission::{TERMINAL_FRAME_LIMIT, TERMINAL_REQUEST_LIMIT};
     use std::os::fd::AsRawFd;
     use std::sync::atomic::Ordering;
     use tungstenite::{Error as WsError, Message};
@@ -1499,7 +1499,7 @@ fn pump_attached<S>(
 where
     S: std::io::Read + std::io::Write + std::os::fd::AsRawFd + Send + 'static,
 {
-    use crate::gmux_admission::TERMINAL_FRAME_LIMIT;
+    use crate::daemon::admission::TERMINAL_FRAME_LIMIT;
     use std::io::Read;
     use std::io::Write;
     use std::os::fd::AsRawFd;
@@ -1788,7 +1788,7 @@ fn wake_reader_read(stream: &UnixStream, buf: &mut [u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gmux_backend::ExecBackend;
+    use crate::daemon::backend::ExecBackend;
 
     fn test_config() -> BackendConfig {
         BackendConfig {

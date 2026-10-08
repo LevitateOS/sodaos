@@ -1,4 +1,4 @@
-use crate::gmux_admission::{body_limit_for, RequestHead};
+use super::admission::{body_limit_for, RequestHead};
 use hyper::{body::Incoming, Request};
 use percent_encoding::percent_decode_str;
 use std::time::Duration;

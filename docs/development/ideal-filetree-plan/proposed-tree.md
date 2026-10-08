@@ -46,7 +46,7 @@ target allocation or refresh R02 counts.
 | Host helper binary and host daemon entrypoint | The Tailnet helper binary is current at `cmd/soda-forgejo-tailnet/main.rs`, selected from `lib/host/Cargo.toml`. `cmd/soda-host/main.rs` remains a proposed same-package placement; current `soda-host` selection is `lib/host/src/main.rs`. |
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
 | A-owned `lib/unix-http/{Cargo.toml,src/lib.rs}` | Shared bounded Hyper Unix client and driver/deadline custody; callers retain socket, status and credential policy |
-| Host `daemon/{admission,backend,broker,http,response,routes,server,websocket}`, `json/{mod,number}`, `sha256.rs`, `ssh/mod` | Soda-owned listener/server lifetime, request admission, route and broker contracts, one upgrade/pump lifecycle, Serde schemas, ssh-key algorithm/fingerprint policy, and the shared sha2-backed raw digest/lowercase-hex profile |
+| Host `daemon/{admission,backend,broker,http,response,routes,server,websocket}`, `json/{mod,number}`, `sha256.rs`, `ssh/mod` | The admission/backend/response/routes/server source join is complete under one defining daemon module, with private HTTP/WebSocket helpers and direct callers; broker/config placement remains pending. Retain listener custody, request policy, one upgrade/pump lifetime, Serde schemas, ssh-key fingerprint policy and raw sha2 digest recipes |
 | Host SSH NIST point gate | Source join complete: existing `ssh/mod.rs` owns exact-width uncompressed SEC1 admission before typed p256/p384/p521 validation; `ssh/tests.rs` owns the three-curve matrix and SSH caller cases. `nist.rs` is removed from the module/target; no standalone curve engine or leaf remains |
 | Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar and setup urlx grammar are retired; setup retains a narrow typed origin/display adapter |
 | Release `json*`, Compose/Muse/guest wire and Acceptance structured data | Concrete Serde admission/emission and bounded ordered/raw application data; `lib/json` is retired with no target allocation |
@@ -2210,8 +2210,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── requests.rs
 │   │   │   ├── daemon.rs
 │   │   │   └── terminal_transport.rs
-│   │   ├── Cargo.toml
-│   │   └── GMUX_PATCHES.md
+│   │   └── Cargo.toml
 │   ├── release-inputs/
 │   │   ├── src/
 │   │   │   ├── elf.rs

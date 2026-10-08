@@ -1,10 +1,4 @@
-// Daemon-mux executor boundary for the Rust soda-host daemon (PR26).
-//
-// The terminal executor (texec) and project executor (pfactory) are written
-// by sibling agents and their APIs do not exist yet, so this module defines
-// the locally-owned `ExecBackend` trait that route handlers program against.
-// The integrator adapts the real executors onto this trait (see
-// GMUX_PATCHES.md); the mux itself never guesses sibling paths.
+// Runtime contract between the daemon route layer and its executor.
 //
 // Bodies cross this boundary as opaque JSON bytes: the mux owns
 // transport-level admission (method, path, query, origin, body limits, the
@@ -16,7 +10,7 @@ use tungstenite::protocol::WebSocket;
 
 /// Backend failure modes, one per distinct HTTP mapping in daemon.go.
 //
-// The mux maps each variant per subsystem (see gmux_routes); messages never
+// The route layer maps each variant per subsystem; messages never
 // carry input or provider text, mirroring the Go handlers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackendError {
@@ -36,9 +30,8 @@ pub enum BackendError {
     Invalid,
     /// Operation refused: native 500, identity 409.
     Denied,
-    /// Skeleton only: no real executor wired yet. Every subsystem maps this
-    /// to 501 so integration gaps are visible instead of masquerading as
-    /// runtime failures. Real backends MUST never return it.
+    /// Stub-only result for intentionally unimplemented calls. Every
+    /// subsystem maps it to 501; production backends must not return it.
     Unimplemented,
     /// Anything else: native 500, tailnet 502, identity 409.
     Internal,
@@ -131,12 +124,10 @@ pub trait ExecBackend: Send + Sync {
     ) -> Result<(), BackendError>;
 }
 
-/// Pre-integration backend: every operation reports unimplemented.
+/// Test backend: every operation reports unimplemented.
 //
-// The route layer maps `Unimplemented` to 501 in every subsystem so smoke
-// tests and operators can tell "no executor wired" apart from runtime
-// failures. Delete the stub's users at cutover, not the stub itself: it
-// stays as the compile-time contract check for the trait.
+// The route layer maps `Unimplemented` to 501 in every subsystem. Tests use
+// this stub to exercise routing without running the native executors.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct StubBackend;
 

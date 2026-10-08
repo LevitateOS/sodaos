@@ -5,13 +5,10 @@
 //! and exit statuses match the Go implementation byte for byte.
 
 pub mod account;
+pub mod daemon;
 pub mod dbackend;
 pub mod domain;
 pub mod factory;
-pub mod gmux_admission;
-pub mod gmux_backend;
-pub mod gmux_routes;
-pub mod gmux_server;
 pub mod iclient;
 pub mod iconfig;
 pub mod json;

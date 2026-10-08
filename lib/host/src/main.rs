@@ -13,9 +13,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use soda_host::daemon::routes::DaemonConfig;
+use soda_host::daemon::server::{self, Server};
 use soda_host::dbackend::{BackendConfig, DaemonBackend, MuseConfig};
-use soda_host::gmux_routes::DaemonConfig;
-use soda_host::gmux_server::{self, Server};
 use soda_host::{iconfig, muse_serve, project, tailnet_domain};
 
 const DEFAULT_CONFIG: &str = "/etc/soda/host.json";
@@ -237,9 +237,9 @@ fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), M
                 "requires root and the soda-host systemd Unix socket".to_string(),
             ));
         }
-        gmux_server::systemd_listener().map_err(|e| MainError::Other(e.to_string()))?
+        server::systemd_listener().map_err(|e| MainError::Other(e.to_string()))?
     } else {
-        gmux_server::bind_listener(listen_path).map_err(|e| MainError::Other(e.to_string()))?
+        server::bind_listener(listen_path).map_err(|e| MainError::Other(e.to_string()))?
     };
 
     let backend = Arc::new(open_backend(&config));
@@ -443,7 +443,7 @@ mod tests {
         if unsafe { libc::geteuid() } == 0 {
             return;
         }
-        let err = gmux_server::bind_listener("/nonexistent-dir-xyz/st15.sock").unwrap_err();
+        let err = server::bind_listener("/nonexistent-dir-xyz/st15.sock").unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
     }
 
