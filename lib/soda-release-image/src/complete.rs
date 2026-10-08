@@ -262,17 +262,29 @@ mod tests {
         let source = dir.join("src");
         let units = source.join("system/host/services");
         fs::create_dir_all(&units).unwrap();
-        let body =
-            "[Unit]\nDescription=x\n[Container]\nImage=localhost/x:dev\nPull=newer\nExec=a\n";
         for name in [
             "forgejo.container",
             "soda-dashboard.container",
             "soda-proxy.container",
         ] {
+            let body = if name == "forgejo.container" {
+                include_str!("../../../system/host/services/forgejo.container")
+            } else {
+                "[Unit]\nDescription=x\n[Container]\nImage=localhost/x:dev\nPull=newer\nExec=a\n"
+            };
             fs::write(units.join(name), body).unwrap();
         }
         let root = dir.join("root");
-        let payload = model::Payload::default();
+        let image_config =
+            "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let mut payload = model::Payload::default();
+        payload.images.push((
+            "forgejo".to_string(),
+            model::PayloadImage {
+                config: image_config.to_string(),
+                ..model::PayloadImage::default()
+            },
+        ));
         write_complete_quadlets(source.to_str().unwrap(), root.to_str().unwrap(), &payload)
             .unwrap();
         for name in [
@@ -285,6 +297,13 @@ mod tests {
                 .join(name)
                 .is_file());
         }
+        let forgejo =
+            fs::read_to_string(root.join("usr/share/containers/systemd/forgejo.container"))
+                .unwrap();
+        assert!(forgejo.contains(&format!("Image={image_config}")));
+        assert!(forgejo.contains("Pull=never"));
+        assert!(forgejo.contains("Environment=FORGEJO__server__APP_DATA_PATH=/data/gitea"));
+        assert!(forgejo.contains("Volume=/var/lib/soda/forgejo:/data:Z"));
         let _ = fs::remove_dir_all(&dir);
     }
 }

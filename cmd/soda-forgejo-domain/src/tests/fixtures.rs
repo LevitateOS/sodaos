@@ -74,31 +74,15 @@ pub(crate) struct Fixture {
     pub(crate) paths: Paths,
 }
 
-pub(crate) fn fixture(app_ini: Option<&str>, env: Option<&str>) -> Fixture {
+pub(crate) fn fixture() -> Fixture {
     let seq = TEST_SEQ.fetch_add(1, Ordering::SeqCst);
     let temp = std::env::temp_dir().join(format!("soda-domain-test-{}-{seq}", std::process::id()));
-    let app_ini_path = temp.join("app.ini");
-    let env_path = temp.join("forgejo.env");
     let data_root = temp.join("data");
     fs::create_dir_all(&data_root).expect("data");
-    if let Some(text) = app_ini {
-        fs::write(&app_ini_path, text).expect("ini");
-    }
-    if let Some(text) = env {
-        fs::write(&env_path, text).expect("env");
-    }
     Fixture {
         temp,
-        paths: Paths {
-            env_file: env_path,
-            app_ini: app_ini_path,
-            data_root,
-        },
+        paths: Paths { data_root },
     }
-}
-
-pub(crate) fn valid_ini() -> Fixture {
-    fixture(Some("[server]\nAPP_DATA_PATH = /data/soda\n"), None)
 }
 
 pub(crate) fn run_verb(

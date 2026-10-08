@@ -11,11 +11,11 @@ historical source counts and domain/support owners remain recorded. Prioritize
 the named correctness repairs and dependency admission before adoption; use
 existing focused checks rather than another qualification framework.
 
-CFG01 remains a precise configuration-selection gate: the native Forgejo
-effective server.APP_DATA_PATH, including supported INI inputs and environment
-precedence, must match without guessing. A Python ConfigParser oracle or the
-locale catalog's values-ignored tokenizer cannot establish that contract.
-Defer this parser selection only; it does not block unrelated JSON or CLI work.
+CFG01's configurable INI-selection gate is superseded by the owner's fixed
+appliance-directory decision. L17 verifies one tracked startup/recovery
+declaration, native environment → save/reparse/settings and actual unit staging.
+No foreign grammar adapter remains. Locale catalog custody stays independent;
+deployed generator/service and installed identity remain R04.
 See [finding allocation and readiness](../library-adoption.md#readiness-gates).
 
 ## internal/acceptance/developer_access_test.go

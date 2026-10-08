@@ -23,6 +23,7 @@ Volume=/etc/soda/postgres/forgejo.passwd:/etc/forgejo/db_passwd:ro,Z
 GroupAdd=2100
 Environment=USER_UID=1000
 Environment=USER_GID=1000
+Environment=FORGEJO__server__APP_DATA_PATH=/data/gitea
 Environment=FORGEJO__database__DB_TYPE=postgres
 Environment=FORGEJO__database__HOST=soda-postgres:5432
 Environment=FORGEJO__database__NAME=forgejo

@@ -8,8 +8,8 @@
 //! Verbs: stop, inhibit, status, lift, start. Run as root.
 
 mod cli;
-mod config;
 mod domain;
+mod marker;
 mod system;
 #[cfg(test)]
 mod tests;

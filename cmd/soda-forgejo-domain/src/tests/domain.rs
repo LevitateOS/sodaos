@@ -3,11 +3,11 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
 use super::fixtures::*;
 
-use crate::config::marker_path;
+use crate::marker::marker_path;
 
 #[test]
 fn stop_verifies_quiescence_before_returning() {
-    let fx = valid_ini();
+    let fx = fixture();
     let mut sys = FakeSys::new();
     let (result, stdout) = run_verb("stop", &fx, &mut sys);
     assert!(result.is_ok(), "{result:?}");
@@ -23,7 +23,7 @@ fn stop_verifies_quiescence_before_returning() {
 
 #[test]
 fn stop_reports_survivors_after_timeout() {
-    let fx = valid_ini();
+    let fx = fixture();
     let mut sys = FakeSys::new();
     sys.active = true;
     sys.podman_out = "soda-forgejo\n".to_string();
@@ -39,7 +39,7 @@ fn stop_reports_survivors_after_timeout() {
 
 #[test]
 fn inhibit_requires_quiescence_then_masks_and_marks() {
-    let fx = valid_ini();
+    let fx = fixture();
     let mut sys = FakeSys::new();
     sys.active = true;
     let (result, _) = run_verb("inhibit", &fx, &mut sys);
@@ -70,7 +70,7 @@ fn inhibit_requires_quiescence_then_masks_and_marks() {
 
 #[test]
 fn status_reads_all_four_signals() {
-    let fx = valid_ini();
+    let fx = fixture();
     let mut sys = FakeSys::new();
     sys.enabled_out = "masked\n".to_string();
     sys.podman_out = "other\nsoda-forgejo\n".to_string();
@@ -90,7 +90,7 @@ fn status_reads_all_four_signals() {
 
 #[test]
 fn lift_removes_marker_and_unmasks() {
-    let fx = valid_ini();
+    let fx = fixture();
     let marker = marker_path(&fx.paths).expect("marker").path().to_path_buf();
     fs::create_dir_all(marker.parent().expect("parent")).expect("parent");
     fs::write(&marker, "offline recovery\n").expect("marker");
@@ -105,7 +105,7 @@ fn lift_removes_marker_and_unmasks() {
 
 #[test]
 fn start_refuses_inhibited_and_masked() {
-    let fx = valid_ini();
+    let fx = fixture();
     let marker = marker_path(&fx.paths).expect("marker").path().to_path_buf();
     fs::create_dir_all(marker.parent().expect("parent")).expect("parent");
     fs::write(&marker, "offline recovery\n").expect("marker");
@@ -134,109 +134,9 @@ fn start_refuses_inhibited_and_masked() {
 }
 
 #[test]
-fn lift_refuses_unknown_marker_before_unmask() {
-    // O04-F1: an unresolvable marker mapping must refuse before any
-    // unmask mutation; it must not read as "already absent".
-    let fx = fixture(Some("APP_NAME = Soda\n"), None);
-    let mut sys = FakeSys::new();
-    let (result, stdout) = run_verb("lift", &fx, &mut sys);
-    let err = result.expect_err("lift refuses unknown marker");
-    assert!(err.contains("app.ini"), "{err}");
-    assert!(sys.calls.is_empty(), "no mutation: {:?}", sys.calls);
-    assert!(!stdout.contains("already absent"), "{stdout}");
-    assert!(!stdout.contains("unmasked"), "{stdout}");
-}
-
-#[test]
-fn start_refuses_unknown_marker_before_start() {
-    // O04-F1: an unresolvable marker mapping must refuse before any
-    // start mutation; it must not skip the inhibited precondition.
-    let fx = fixture(Some("APP_NAME = Soda\n"), None);
-    let mut sys = FakeSys::new();
-    let (result, stdout) = run_verb("start", &fx, &mut sys);
-    let err = result.expect_err("start refuses unknown marker");
-    assert!(err.contains("app.ini"), "{err}");
-    assert!(sys.calls.is_empty(), "no mutation: {:?}", sys.calls);
-    assert!(!stdout.contains("started:"), "{stdout}");
-}
-
-#[test]
-fn inhibit_and_lift_refuse_marker_paths_that_escape_data_root() {
-    let fx = fixture(Some("[server]\nAPP_DATA_PATH = /data/../outside\n"), None);
-    let outside = fx.temp.join("outside");
-    fs::create_dir_all(&outside).expect("outside directory");
-    let marker = outside.join(crate::system::MARKER_NAME);
-    fs::write(&marker, "preserve outside marker\n").expect("outside marker");
-
-    let mut sys = FakeSys::new();
-    let (result, _) = run_verb("inhibit", &fx, &mut sys);
-    assert!(
-        result.is_err(),
-        "inhibit must refuse an escaping marker path"
-    );
-    assert_eq!(
-        fs::read(&marker).expect("outside marker remains"),
-        b"preserve outside marker\n"
-    );
-
-    let mut sys = FakeSys::new();
-    let (result, _) = run_verb("lift", &fx, &mut sys);
-    assert!(result.is_err(), "lift must refuse an escaping marker path");
-    assert!(
-        !sys.calls.iter().any(|call| {
-            call.first().map(String::as_str) == Some("systemctl")
-                && call.get(1).map(String::as_str) == Some("unmask")
-        }),
-        "lift must not unmask: {:?}",
-        sys.calls
-    );
-    assert_eq!(
-        fs::read(&marker).expect("outside marker remains"),
-        b"preserve outside marker\n"
-    );
-}
-
-#[test]
-fn inhibit_and_lift_refuse_marker_paths_through_intermediate_symlink() {
-    let fx = fixture(Some("[server]\nAPP_DATA_PATH = /data/link/subdir\n"), None);
-    let outside = fx.temp.join("outside");
-    fs::create_dir_all(outside.join("subdir")).expect("outside subdir");
-    std::os::unix::fs::symlink(&outside, fx.paths.data_root.join("link")).expect("link");
-    let marker = outside.join("subdir").join(crate::system::MARKER_NAME);
-    fs::write(&marker, "preserve outside marker\n").expect("outside marker");
-
-    let mut sys = FakeSys::new();
-    let (result, _) = run_verb("inhibit", &fx, &mut sys);
-    assert!(result.is_err(), "inhibit must refuse an ancestor symlink");
-    assert_eq!(
-        fs::read(&marker).expect("outside marker remains"),
-        b"preserve outside marker\n"
-    );
-
-    let mut sys = FakeSys::new();
-    let (result, _) = run_verb("lift", &fx, &mut sys);
-    assert!(result.is_err(), "lift must refuse an ancestor symlink");
-    assert!(
-        !sys.calls.iter().any(|call| {
-            call.first().map(String::as_str) == Some("systemctl")
-                && call.get(1).map(String::as_str) == Some("unmask")
-        }),
-        "lift must not unmask: {:?}",
-        sys.calls
-    );
-    assert_eq!(
-        fs::read(&marker).expect("outside marker remains"),
-        b"preserve outside marker\n"
-    );
-}
-
-#[test]
 fn marker_status_and_lifecycle_refuse_unobservable_parent() {
-    let fx = fixture(
-        Some("[server]\nAPP_DATA_PATH = /data/parent/subdir\n"),
-        None,
-    );
-    fs::write(fx.paths.data_root.join("parent"), "not a directory").expect("file parent");
+    let fx = fixture();
+    fs::write(fx.paths.data_root.join("gitea"), "not a directory").expect("file parent");
 
     let mut inhibit_sys = FakeSys::new();
     let (inhibit, _) = run_verb("inhibit", &fx, &mut inhibit_sys);
@@ -283,8 +183,8 @@ fn marker_status_and_lifecycle_refuse_unobservable_parent() {
 
 #[test]
 fn marker_symlink_refuses_all_marker_lifecycle_verbs() {
-    let fx = fixture(Some("[server]\nAPP_DATA_PATH = /data/soda\n"), None);
-    let data_dir = fx.paths.data_root.join("soda");
+    let fx = fixture();
+    let data_dir = fx.paths.data_root.join("gitea");
     fs::create_dir_all(&data_dir).expect("data directory");
     let outside = fx.temp.join("outside-marker");
     fs::write(&outside, "preserve symlink target\n").expect("outside marker target");
@@ -335,11 +235,11 @@ fn marker_symlink_refuses_all_marker_lifecycle_verbs() {
 
 #[test]
 fn nonregular_marker_refuses_lifecycle_verbs() {
-    let fx = fixture(Some("[server]\nAPP_DATA_PATH = /data/soda\n"), None);
+    let fx = fixture();
     let marker = fx
         .paths
         .data_root
-        .join("soda")
+        .join("gitea")
         .join(crate::system::MARKER_NAME);
     fs::create_dir_all(&marker).expect("nonregular marker directory");
 
@@ -379,11 +279,11 @@ fn nonregular_marker_refuses_lifecycle_verbs() {
 
 #[test]
 fn existing_regular_marker_is_left_untouched_by_inhibit() {
-    let fx = valid_ini();
+    let fx = fixture();
     let marker = fx
         .paths
         .data_root
-        .join("soda")
+        .join("gitea")
         .join(crate::system::MARKER_NAME);
     fs::create_dir_all(marker.parent().expect("marker parent")).expect("parent");
     let outside = fx.temp.join("hardlink-target");
@@ -417,11 +317,11 @@ fn existing_regular_marker_is_left_untouched_by_inhibit() {
 
 #[test]
 fn missing_marker_parent_is_absent_for_readers_but_cannot_be_created() {
-    let fx = valid_ini();
+    let fx = fixture();
     let marker = fx
         .paths
         .data_root
-        .join("soda")
+        .join("gitea")
         .join(crate::system::MARKER_NAME);
 
     let mut inhibit_sys = FakeSys::new();

@@ -86,28 +86,29 @@ Completed JSON01 in `c8997d1d`: the config owner captures only listen/forgejo_ur
 
 ## rust/soda-forgejo-domain/src/main.rs
 
-Observed size: 1021 lines, including tests where embedded. Separate the existing native-writer control verbs from deployment app.ini/env parsing and host marker mapping. Retain native offline-marker name and quiescence/inhibition semantics. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
+Historical observed size: 1021 lines, including tests where embedded. Retain native-writer control verbs and descriptor-based host marker custody. The owner-selected fixed directory supersedes deployment app.ini/env parsing; remove that reader and its tests. Retain native offline-marker name and quiescence/inhibition semantics. Keep extracted unit tests as cfg(test) descendants of their owning module; do not make production helpers public for test access.
 
 - `cmd/soda-forgejo-domain/src/main.rs`
 - `cmd/soda-forgejo-domain/src/cli.rs`
 - `cmd/soda-forgejo-domain/src/system.rs`
-- `cmd/soda-forgejo-domain/src/config.rs`
+- `cmd/soda-forgejo-domain/src/marker.rs`
 - `cmd/soda-forgejo-domain/src/domain.rs`
 - `cmd/soda-forgejo-domain/src/tests/mod.rs`
 - `cmd/soda-forgejo-domain/src/tests/fixtures.rs`
-- `cmd/soda-forgejo-domain/src/tests/config.rs`
+- `cmd/soda-forgejo-domain/src/tests/marker.rs`
 - `cmd/soda-forgejo-domain/src/tests/domain.rs`
 - `cmd/soda-forgejo-domain/src/tests/cli.rs`
 
 Evidence: rust/soda-forgejo-domain/src/main.rs:80-187 CLI, Paths and Sys; rust/soda-forgejo-domain/src/main.rs:237-493 INI interpolation, AppDataPath and marker mapping; rust/soda-forgejo-domain/src/main.rs:495-625 stop/inhibit/status/lift/start; rust/soda-forgejo-domain/src/main.rs:628-1021 fake system and configuration/control tests.
 
 Library boundary: [L17](../library-adoption.md#l17-configuration-evidence)
-collected the native configuration corpus and withdrew rust-ini 0.21.3 after
-its continuation semantics failed admission. C owns revised fit and deployment
-override/dependency checks before CFG01 cutover; no Python equivalence oracle
-or new grammar split follows. This is distinct from the retained locale catalog
-scanner. Native writer quiescence, no-guess and /data mapping, offline markers,
-inhibition and lift/start ordering remain domain policy.
+completes the owner-selected fixed-directory source boundary. The failed parser
+candidates remain historical evidence; the host INI/env reader and pending
+parser split are superseded. The marker owner derives the single tracked startup
+declaration and retains descriptor custody. Native writer quiescence, offline
+markers, inhibition and lift/start ordering remain domain policy. The locale
+catalog scanner remains independent; deployed generator/service and installed
+identity stay under R04.
 
 ## rust/soda-image-import/src/main.rs
 

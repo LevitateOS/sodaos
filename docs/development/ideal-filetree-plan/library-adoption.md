@@ -11,7 +11,8 @@ source scopes. L10 source scope is complete: N3 uses ureq for setup,
 while N4 retains curl through the owned Executor. N4's shipped-image/RPM, TLS
 and provider qualification remains open under R04. Optional L16 adoption is
 deferred; L16.G aggregate input collection is complete in `7334f36b`.
-L17 evidence and candidate assessment are complete; CFG01 cutover remains held.
+L17 source scope is complete under the owner-selected fixed Forgejo directory;
+its installed generator/service identity remains R04.
 Later cutovers retain their scoped authorization and admission checks.
 
 The post-adoption [finding allocation](execution-findings.md) at `04286c48`
@@ -70,7 +71,7 @@ qualification duties.
 | L14 CLI and target discovery | C | C05/C08/C09/C11 | Complete through `c82125ee` after CLI/metadata profile and dependency admission |
 | L15 SDK input admission | B | B06, C01 | Complete at `c92db11c14` in the exact sibling checkout; retain meaningful per-dial credential transport |
 | L16 Evidence matching | C | C11 | Consideration complete; optional adoption deferred. L16.G aggregate secret collection is complete in `7334f36b`; preserve completed L01/L12 repairs |
-| L17 Configuration evidence | C | C05/C09 | Native evidence and candidate assessment complete; rust-ini 0.21.3 fails continuation admission, so CFG01 cutover is held; CFG02 retained independently |
+| L17 Configuration evidence | C | C05/C09 | Owner-selected fixed appliance directory replaces host INI parsing; source/native-provider/staging checks complete; CFG02 retained independently and R04 installed qualification remains separate |
 | L18 Dead machinery removal | C | C05/C11, A/B handoffs | Complete in `eaed66a9`: N11/TMP02/DEAD01 retired after current reference and retained-duty checks |
 
 ### L00 Admission and boundary preparation
@@ -827,8 +828,8 @@ The locked admission added eleven cached dependency nodes without changing
 existing pins. Clap uses std/help/usage/error-context only; the highest declared
 new MSRV is Rust 1.85, and cached manifests/licenses plus the actual affected
 feature closure were checked. L15 input admission and L18 cleanup subsequently
-completed at their defined source scopes. CFG01 fit and optional L16 remain
-separately scoped; L10.N4 source scope is complete, with R04 provider
+completed at their defined source scopes. L17 fixed-directory source completion
+and optional L16 remain separately scoped; L10.N4 source scope is complete, with R04 provider
 qualification still open.
 
 Final passing receipts are `muse-writer-test`, `oci-writer-test`,
@@ -953,9 +954,10 @@ Unquoted inline `#`/`;` comments are stripped with or without preceding spaces.
 An explicit `[DEFAULT]` does not supply the server key. Same-section percent
 interpolation resolves, while an unresolved token remains literal. Native
 missing/empty paths default to the work-path data directory and relative paths
-are joined to the work path. Soda still refuses absent/relative paths and keeps
-its `/data` host mapping under the [operator contract](../../guides/operator-setup.md).
-Those intentional policy differences are not parser equivalence failures.
+are joined to the work path. The earlier Soda reader refused absent/relative paths and kept its `/data` host
+mapping. Those policy differences were not parser equivalence failures. The
+subsequent owner-selected fixed directory in the
+[operator contract](../../guides/operator-setup.md) supersedes configurable-path admission.
 
 CUSTODY-CFG-MARKER-1 repairs the independent host marker boundary. The retained
 directory descriptor uses the existing rustix selection for observation,
@@ -965,14 +967,15 @@ mode. Five new regressions failed against unchanged production source; all 26
 package tests and the locked offline development binary build now pass, with
 independent Luna medium source review. These local filesystem/FakeSys checks
 do not establish installed service behavior, parser fit or deployment override
-admission. The whole L17 task remains open.
+admission. That receipt left the whole L17 task open; the fixed-directory source
+cut below subsequently completes it without changing the custody owner.
 
 The process-environment override wins even when the server section is absent.
 Quote characters supplied in an actual process environment remain literal;
 that fixture does not prove how Quadlet/container environment-file quoting is
 processed. Production startup runs environment-to-ini before Forgejo reads
-app.ini. Preserve the deployment override contract and qualify environment-file
-admission separately from this native provider evidence. No installed app.ini,
+app.ini. That evidence concerned the previous configurable deployment contract;
+the fixed declaration below supersedes AppDataPath env-file admission. No installed app.ini,
 credentials, running service or private provisioning state was inspected.
 
 **Decision:** withdraw rust-ini 0.21.3 as the preferred replacement; it is not admitted.
@@ -1015,10 +1018,10 @@ producer duties, not compatibility obligations from retired Soda experiments.
 configparser remains unadmitted. Ordinary quote preservation alone was not
 enough to reject the library, and the smaller corpus pass was not enough to
 admit it. Reconsider the caller boundary or library before extending a custom
-lexer/interpolator. The current operator contract still requires configurable
-AppDataPath; a deployment-declared alternative awaits the owner's choice. Bounded
-file/expanded-value admission and actual Podman env-file transport remain
-separate prerequisites. The source-backed Quadlet mapping is Podman's
+lexer/interpolator. The owner has now selected one deployment-declared fixed
+directory, superseding that configurable AppDataPath obligation and its pending
+file/expanded-value/parser/dependency admission. The other environment-file
+settings keep their current duties. The source-backed Quadlet mapping is Podman's
 `--env-file`, not systemd service env-file parsing; the actual wrapper CLI,
 generated service and deployed override were not executed or inspected.
 Detailed prototype, inputs, native outcomes and comparison receipts are retained
@@ -1033,21 +1036,37 @@ admission failed, no production dependency/lock mutation or candidate build was
 needed. Public archive/index downloads were bounded to 256/128 KiB and 30
 seconds; fixtures and raw/resolved/effective outputs are bounded synthetic data.
 
-L17 evidence collection and the candidate disposition are complete; **CFG01
-parser cutover remains held on semantic fit, not missing native evidence**.
-C owns the remaining selection and implementation. Prerequisites: a maintained
-parser/boundary that admits the frozen native corpus and actual producer
-fixtures without recreating a full foreign grammar; actual deployment override
-evidence; then its selected
-license/feature/lock/compiler/offline closure. Scope: only the existing domain
-command's effective-key and bounded file adapters, retaining writer quiescence,
-marker confinement and no-guess policy. Acceptance: replay the native corpus,
-prove bounded same-file input and override admission, preserve absent/relative
-refusal and `/data` mapping, and remove the Python clone with its last caller.
-The clone's lowercase/default/strict-duplicate/quote behavior is not an oracle.
-This held cutover does not hold other packets. CFG02's byte-preserving locale
-set/cap/hash/collision policy remains retained independently and needs no parser
-cutover. No configuration production code changed in this evidence packet.
+The owner selected the fixed appliance directory on 2026-10-08. Startup declares
+`FORGEJO__server__APP_DATA_PATH=/data/gitea` in the tracked Quadlet's
+`[Container]` section; host recovery embeds that same declaration rather than
+reading INI or environment files. The retained volume maps it to
+`/var/lib/soda/forgejo/gitea`. Exactly one correctly placed declaration is
+required. Descriptor custody, quiescence, mask-before-marker and
+remove-before-unmask policy remain; there is no guessed fallback or alternate
+configuration authority. The old INI/interpolation reader, runtime config fields
+and obsolete parser tests are removed together. CFG02's byte-preserving locale
+set/cap/hash/collision policy stays independent.
+
+L17 is complete at this source scope. Sixteen actual domain checks cover fixed
+mapping, misplaced/duplicate/missing declarations, marker custody and lifecycle
+refusal. One selected native Forgejo proof derives the same tracked assignment,
+overrides conflicting synthetic INI, then uses actual SaveTo → bounded checked
+read/close → reparse → server settings; the effective path is `/data/gitea`.
+The existing actual image-owner staging test preserves the fixed declaration
+and volume through local image binding. Locked offline command build and exact
+formatting pass. Build source inspection traces the selected Git archive
+snapshot through command compilation and unit staging; no live-checkout reread
+supplies either declaration. No dependency graph change is needed.
+
+[Podman run](https://docs.podman.io/en/latest/markdown/podman-run.1.html#environment)
+documents explicit environment assignments taking precedence over env files;
+[Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
+maps the selected Environment and EnvironmentFile options to those flags.
+This is source/documentation evidence, not execution of the deployed generator,
+service startup or installed executable/unit identity. Those joins remain R04.
+Earlier candidate failures and the first fixed-path run's four obsolete-fixture
+failures keep their original limits in the commit receipt. Independent Luna
+medium review challenges the complete source packet before commit.
 
 ### L18 Dead machinery removal
 
@@ -1091,8 +1110,8 @@ not claim installed systemd/container behavior or release qualification.
 
 The scoped R02 retirement maps and parked-seam assessment below are reconciled;
 full historical inventory/count/table regeneration remains pending. L10.N4
-source scope is complete; CFG01 fit, R04 provider qualification and optional
-L16 keep their existing owners and gates.
+source scope is complete; L17 fixed-directory source scope is complete, while
+R04 provider qualification and optional L16 keep their existing owners and gates.
 
 ## Readiness gates
 
@@ -1102,7 +1121,7 @@ L16 keep their existing owners and gates.
 | LA-G2 Driver fit | L08 source acceptance complete in `6b18ee1b`: deadline/cancel/discard/reconnect/exclusion and actual Store/Tx integration checked locally; preserve admitted auth/DSN/transport for changed boundaries | Any new driver cutover; no remaining L08 source hold, and native qualification stays separate |
 | LA-G3 Transport fit | L09 source acceptance complete through `21387814`: Unix client/server/backend/shutdown/read-ahead, WS custody and production bounds checked locally; preserve affected framing/caps/lifetime and graph checks | Any new server/upgrade cutover; no remaining L09 source hold, and native qualification stays separate |
 | LA-G4 Encoding/trust profiles | Actual producer semantics, original signed bytes, Caddy roots and critical-extension choice | Corresponding L04/L05/L06 boundary only |
-| LA-G5 Native configuration | Native corpus collected; selected parser must pass continuation/quote/comment/effective-key and deployment override admission plus dependency closure | CFG01 parser cutover only |
+| LA-G5 Native configuration | Completed source scope under the owner-selected fixed directory: shared declaration, native save/reparse/settings and actual staging verified; configurable parser-fit/dependency gate superseded | Only any changed configuration boundary; deployed generator/service and installed identity remain R04 |
 | LA-G6 External SDK | L15 exact pin/scope and cap+one source repair proved at Fountain `c92db11c14`; native authority findings retain their own gates | No remaining L15 input-repair hold |
 | LA-G7 Evidence input collection | L16.G bounds aggregate raw/trimmed/Ignition collection in `7334f36b`; automaton construction budgets remain unproved | Current collection correctness and any optional L16 cutover; matcher choice does not gate this repair. Completed L01/L12 scopes remain complete |
 
@@ -1156,7 +1175,7 @@ caller/profile tables and evidence limits; packet scope includes those tables.
 | [FMT01](../../research/library-reuse-investigation.md#fmt01) | DELETE | L14 | C |
 | [CLI01](../../research/library-reuse-investigation.md#cli01) | RETAIN | L14 retained | C |
 | [WALK01](../../research/library-reuse-investigation.md#walk01) | REPLACE | L12 | C |
-| [CFG01](../../research/library-reuse-investigation.md#cfg01) | HOLD: candidate semantic fit | L17 native evidence complete; parser cutover held | C |
+| [CFG01](../../research/library-reuse-investigation.md#cfg01) | Complete source scope: owner-selected fixed directory; configurable parser replacement superseded | L17 shared startup/recovery declaration and focused proofs; installed qualification remains R04 | C |
 | [SQLITE01](../../research/library-reuse-investigation.md#sqlite01) | RETAIN | Existing Store/probe duties retained | B |
 | [RED01](../../research/library-reuse-investigation.md#red01) | REPAIR complete in L01; matcher DEFER | L16 consideration complete; L16.G collection bound complete; optional cutover deferred | C |
 | [CLI03](../../research/library-reuse-investigation.md#cli03) | REPLACE | L14 | C |

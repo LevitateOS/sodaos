@@ -11,16 +11,12 @@ pub(crate) const MARKER_NAME: &str = "nativeop-offline";
 pub(crate) const STOP_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub(crate) struct Paths {
-    pub(crate) env_file: PathBuf,
-    pub(crate) app_ini: PathBuf,
     pub(crate) data_root: PathBuf,
 }
 
 impl Paths {
     pub(crate) fn production() -> Paths {
         Paths {
-            env_file: PathBuf::from("/etc/soda/forgejo.env"),
-            app_ini: PathBuf::from("/var/lib/soda/forgejo/gitea/conf/app.ini"),
             data_root: PathBuf::from("/var/lib/soda/forgejo"),
         }
     }

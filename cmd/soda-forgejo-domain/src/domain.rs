@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::config::marker_path;
+use crate::marker::marker_path;
 use crate::system::{Paths, Sys, CONTAINER, STOP_TIMEOUT, UNIT};
 
 pub(crate) fn dispatch(
@@ -122,7 +122,10 @@ fn cmd_status(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Resul
     let marker = match marker_path(paths) {
         Ok(marker) => marker,
         Err(err) => {
-            let _ = writeln!(stdout, "marker: unknown (AppDataPath unresolved)");
+            let _ = writeln!(
+                stdout,
+                "marker: unknown (fixed unit declaration unavailable)"
+            );
             return Err(err);
         }
     };

@@ -7,9 +7,10 @@ and A00, with L00–L18 adoption subpackets defined in the
 remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. The canonical
 [current task state](implementation-tasks.md#current-task-state-2026-10-08)
-records completed L00–L15 and L18 source scopes, completed L16.G and deferred
+records completed L00–L15, L17 and L18 source scopes, completed L16.G and deferred
 optional L16 adoption. L10.N4 retains curl at source scope; its shipped-image,
-TLS and provider qualification remain with R04. CFG01 remains held.
+TLS and provider qualification remain with R04. L17 completes the fixed
+Forgejo directory at source scope; its installed joins remain R04.
 Installed/native-worker qualification remains with the wider owner packets.
 
 Prepared on **2026-10-06** against clean checkout
@@ -39,8 +40,8 @@ decoder checks are complete in `1a297425`; Settings retains its separate
 decoder profile. A07's child-wait failure-trigger repair completed in
 `a94edec6` with 39 host checks and daemon compilation; installed activation and
 native-shell qualification remain open. REP-CFG-1 is complete at its command
-projection scope; CFG01 and C10's remaining actual emission profiles remain
-open. Store traversal still needs its supported total-progress/resource profile.
+projection scope; L17 subsequently completes the fixed Forgejo directory; C10's
+remaining actual emission profiles remain open. Store traversal still needs its supported total-progress/resource profile.
 A03's current helper supervision and package-fold source scope is complete at
 `2978c4de`; six production-function regressions plus one compiled-binary
 lifecycle oracle pass with zero ignored. Compiled-helper capture/cleanup and
@@ -171,7 +172,7 @@ hunk editing of a shared file as a substitute for ownership.
   Existing normal-mode restrictions
   still apply; L00 preparation and proofs are complete at their recorded scope.
   Refresh this state from the completed adoption scopes and the remaining
-  remaining CFG01 gate before dispatching new work; L10.N4 source selection is
+  changed-boundary gates before dispatching new work; L10.N4 source selection is
   complete and its R04 qualification remains separate.
 - [ ] **R01 — Integrate each coherent packet.** Complete module/import/manifest,
   compiler, payload, source-check and caller joins in the same reviewable change.
@@ -251,7 +252,7 @@ remaining work are in the adoption chapter.
 | 7. External/network adapters — source complete | L10 / C; L11 / A with C acceptance handoff | Luna medium settled URL/HTTP boundary questions; Luna low transferred settled HTTP/URL/IP/time callers | Setup HTTP and L11 source/selected checks are complete. L10.N4 retains curl through the owned Executor after the source-fit review; curl is declared in generated host package inputs. Shipped-image/RPM inventory, TLS and live provider qualification remain open under R04. Raw literals, bounds and unavailable/unconfirmed outcomes stay with callers |
 | 8. Consolidate file/FD/process mechanics — source complete | L12 / C, A host/guest/identity handoffs; B Go ownership unchanged | Luna medium for custody/cancellation and independent review; Luna low for settled repetitive plumbing | `c5cca5e7` completes same-FD bounds before temp convenience, rooted admission, owned CLOEXEC descriptors, bounded capture/cancellation, feeder/ticker joins and checked native cleanup. 1,687 selected tests and 20 package development builds pass; installed qualification remains separate |
 | 9. Replace release format and CLI emulators — source complete | L13/L14 / C | Luna low after declared format/CLI profiles; Luna medium for EOF/budget/metadata ownership and independent CLI review | 656 selected tests and ten affected offline development builds pass; complete gzip, bounded extraction/shared OCI, deterministic new output, original signed bytes, actual CLI help/refusals/tails and unchanged shipping selectors are verified. Installed/shipping qualification remains separate |
-| 10. Close bounded external/configuration questions — evidence complete; CFG01 cutover held | L15 / B; L17 / C | Luna low for pinned census/corpus collection; Luna medium for demonstrated semantic mismatch | SDK input repair and retained transport checks complete at Fountain `c92db11c14`. Twenty-one native configuration cases are recorded; rust-ini 0.21.3 fails continuation admission. C owns revised fit/override/dependency checks before CFG01 cutover; CFG02 and unrelated work remain independent |
+| 10. Close external/configuration questions — source complete | L15 / B; L17 / C | Luna low removed settled host parser/test plumbing; Luna medium proved startup/staging and reviewed the boundary | SDK input repair complete at Fountain `c92db11c14`. The owner-selected fixed `/data/gitea` replaces configurable-path admission. Startup and recovery derive one declaration; native save/reparse, actual staging, marker checks and command build pass. Failed candidates retain their evidence limits; CFG02 and R04 installed joins remain separate |
 | 11. Remove dead machinery and assess parked seams — complete at scoped source/assessment boundary | L18 / C with A/B handoffs; R02 | Luna low | `eaed66a9` retires N11/TMP02/DEAD01; 40 existing tests, eight command byte/inode/mode fixtures and three offline entrypoint builds pass. A34/C41 retained duties and optional seams are assigned to C04/A07; B27 is integrated and not replayed. Full R02 census and installed qualification remain separate |
 | 12. Consider optional matcher adoption — consideration complete; adoption deferred | L16 / C | Luna medium | Retain the matcher. L01/L12 completed scopes stand; L16.G aggregate input collection is complete in `7334f36b`. Reconsider only after that bound, demonstrated value and construction/streaming admission; no Aho-Corasick change gates step 1 or independent work |
 | 13. Qualify the integrated changed subjects — adoption source pass complete | R03.L / Coordinator; R04 remains pending | Luna low for commands/receipts; Luna medium for unresolved consequential results | Focused evidence16/16 and all-target offline Rust workspace checks pass at `d7eca882`; final unchanged-source packet receipts are reused. Native qualification requires a ready matching candidate, demonstrated producer/caller prerequisites and scoped operations; no native qualification is claimed |
