@@ -131,6 +131,21 @@ Evidence: sodaspaces-factory.ts:40-42 read-only ownership contract; 123-188 view
 
 Open detail: Keep generation/cursor/retirement in the same owner. Screen helpers receive the existing owner callbacks/resources; no generic terminal/factory lifecycle abstraction is implied.
 
+Current S06 source-to-target joins (physical reallocation remains proposed):
+
+| Current defining source | Existing target responsibility | Retained caller/authority |
+| --- | --- | --- |
+| `sodaspaces-factory-display.ts` 1–101: `FactoryWatchState`, `DisplayInput`, status/title/presentation and menu-command projection | `sodaspaces-factory-view.ts`, the existing stateless view target | `factory.ts` supplies `displayInput()` callbacks; `factory-request.ts` shares `statusText`; `factory-screen.ts` imports the watch-state type. Rebind directly to the defining view owner with the cutover. |
+| `sodaspaces-factory-request.ts` 1–216: `RequestInput`, recorded-run inspection, attach/handshake/frame/watch helpers | `sodaspaces-factory.ts`, the existing generation/cursor/lifetime/watch target | Current `factory.ts` supplies `requestInput()` callbacks and owns the immutable run binding, generation, abort/socket/timer/render state. The helper observes and attaches read-only output; it does not own launch or End authority. |
+
+These are S06-T5's existing view and watch duties, not missing target roles or
+additional controllers. Current defining modules remain until an inspected
+cutover. Literal concatenation of the 216-line request helper and 350-line
+controller would exceed the 500-line ceiling; assess caller/interface
+simplification and actual target size before implementing that proposal. This
+mapping preserves completed S06 work and leaves physical placement and installed
+joins separate.
+
 ## frontend/spaces/sodaspaces-project.ts
 
 Observed size: 1895 lines, including tests where embedded. Separate the current journey/settings projections and existing request/read/mutation capabilities. Keep original-target identity, epoch cancellation and dispatch admission in the same component; reuse environment/project/network view modules.
