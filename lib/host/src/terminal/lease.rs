@@ -22,6 +22,17 @@ pub struct Binding {
     pub generation: i64,
 }
 
+impl<'de> Deserialize<'de> for Binding {
+    /// Decode a binding nested in a tolerant wire object. Whole-lease decoding
+    /// continues through the strict `Lease::decode` entry point.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        BindingWire::deserialize(deserializer).map(binding_from_wire)
+    }
+}
+
 #[derive(Default)]
 struct BindingWire {
     child_id: Option<String>,

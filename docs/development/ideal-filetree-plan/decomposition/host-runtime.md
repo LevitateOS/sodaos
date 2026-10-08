@@ -76,13 +76,23 @@ obsolete `GMUX_PATCHES.md` skeleton checklist is retired; its current duties
 live in source and the existing tests. The remaining `daemon/broker.rs` join
 is the [allocated dbackend broker adapters](../port-assessment.md#host-cutover-integration),
 using the single existing `iclient::BrokerClient`; configuration placement is
-also pending. The client is 612 lines of production code, with no embedded
-tests: its API/transport cohort (1–72 and 480–612) and request/wire cohort
-(73–479) need a separate target allocation before any client relocation.
-Do not combine that client with the broker adapters in one file. The current
-`identity_transport` suite already imports the actual public client and host
-types; the former copied-module oracle is retired. These source joins do not
-close wider R02 allocation or installed/native qualification.
+also pending. The client remains one 497-line `lib/host/src/iclient.rs` owner
+in the desired tree, adjacent to the host JSON profile. Broker execution responses now
+deserialize nested bindings through `terminal::Binding`; the duplicate client
+visitor and field projection are retired. `Lease::decode` and
+`Delivery::decode` retain strict whole-document decoding. The separate
+`daemon/broker.rs` destination remains the dbackend seam and concrete adapter
+owner using the existing client; the client is not moved into that module.
+The actual `identity_transport` suite imports the public client and host types.
+The source/development receipt
+`.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/broker-binding-reuse/verified-checks-receipt.json`
+records 16 `identity_transport` tests, the exact identity-encode golden and
+strict-decode matrix tests passing with no failures or ignored cases, both
+host binaries compiling, and exact three-file formatting. These run the actual
+public client against its scripted broker. Production source shrank by 104
+lines; source and test changes together shrank by 72. Wider R02 allocation,
+full-service/native/installed qualification, and configuration placement
+remain open.
 
 ## Current Forgejo Tailnet helper allocation
 

@@ -119,7 +119,7 @@ fn strict_response_decode() {
             r#"{"id":"l","connection_id":"c","generation":1,"actor_id":"2","project_id":"p","execution_id":"e","kind":"factory","provider_id":"x","deadline":"not-a-time"}"#,
             "deadline",
         ),
-        (r#"[]"#, "object"),
+        (r#"[]"#, ""),
     ];
     for (body, needle) in cases {
         let owned = body.to_string();
@@ -131,8 +131,8 @@ fn strict_response_decode() {
         };
         let err = client.acquire(&req, deadline()).unwrap_err();
         if needle.is_empty() {
-            // Numeric syntax is rejected; Serde's parser wording is not a
-            // caller contract for this malformed response.
+            // Malformed numeric and object shapes are rejected; Serde's
+            // diagnostic wording is not a caller contract.
             assert_ne!(err, "identity broker unavailable", "{body:?} -> {err:?}");
         } else {
             assert!(err.contains(needle), "{body:?} -> {err:?}");
@@ -163,6 +163,38 @@ fn strict_response_decode() {
             assert!(err.contains(needle), "{body:?} -> {err:?}");
         }
     }
+}
+
+#[test]
+fn execution_binding_reuses_terminal_wire_decode() {
+    let broker = FakeBroker::start("binding-wire", |_| {
+        json_reply(
+            200,
+            "OK",
+            r#"{"binding":{"CHILD_ID":"first","child_id":"second","Child_Id":null,"UID":7,"uid":null,"kind":"factory","id":"exec-9","generation":1},"kind":"factory"}"#,
+        )
+    });
+    let execution = BrokerClient::new(&broker.path)
+        .get_execution("factory", "exec-9", deadline())
+        .unwrap();
+    let binding = execution.binding.unwrap();
+    assert_eq!(binding.child_id, "second");
+    assert_eq!(binding.uid, 7);
+
+    let broker = FakeBroker::start("binding-unknown", |_| {
+        json_reply(
+            200,
+            "OK",
+            r#"{"binding":{"kind":"factory","unknown":1},"kind":"factory"}"#,
+        )
+    });
+    assert!(BrokerClient::new(&broker.path)
+        .get_execution("factory", "exec-9", deadline())
+        .is_err());
+
+    // Whole-document lease decoding stays strict even though broker response
+    // decoding accepts case-folded duplicates with the last non-null value.
+    assert!(terminal::Lease::decode(br#"{"binding":{"id":"first","id":"second"}}"#).is_err());
 }
 
 #[test]

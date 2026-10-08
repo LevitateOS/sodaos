@@ -278,110 +278,8 @@ fn decode_connections(body: &[u8]) -> Result<Vec<MuseConnection>, String> {
 }
 
 #[derive(Default)]
-struct BindingWire {
-    child_id: String,
-    uid: i64,
-    gid: i64,
-    scope: String,
-    credential_root: String,
-    invocation_id: String,
-    kind: String,
-    id: String,
-    project: String,
-    login: String,
-    generation: i64,
-}
-
-impl<'de> Deserialize<'de> for BindingWire {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct BindingVisitor;
-        impl<'de> Visitor<'de> for BindingVisitor {
-            type Value = BindingWire;
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("an identity binding object")
-            }
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut out = BindingWire::default();
-                while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("child_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.child_id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("uid") {
-                        if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                            out.uid = v.0;
-                        }
-                    } else if key.eq_ignore_ascii_case("gid") {
-                        if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                            out.gid = v.0;
-                        }
-                    } else if key.eq_ignore_ascii_case("scope") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.scope = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("credential_root") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.credential_root = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("invocation_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.invocation_id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("kind") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.kind = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("project") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.project = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("login") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.login = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("generation") {
-                        if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                            out.generation = v.0;
-                        }
-                    } else {
-                        return Err(de::Error::unknown_field(
-                            &key,
-                            &[
-                                "child_id",
-                                "uid",
-                                "gid",
-                                "scope",
-                                "credential_root",
-                                "invocation_id",
-                                "kind",
-                                "id",
-                                "project",
-                                "login",
-                                "generation",
-                            ],
-                        ));
-                    }
-                }
-                Ok(out)
-            }
-        }
-        deserializer.deserialize_map(BindingVisitor)
-    }
-}
-
-#[derive(Default)]
 struct ExecutionWire {
-    binding: Option<BindingWire>,
+    binding: Option<Binding>,
     kind: String,
     execution_id: String,
     digest: String,
@@ -407,7 +305,7 @@ impl<'de> Deserialize<'de> for ExecutionWire {
                 let mut out = ExecutionWire::default();
                 while let Some(key) = map.next_key::<String>()? {
                     if key.eq_ignore_ascii_case("binding") {
-                        if let Some(v) = map.next_value::<Option<BindingWire>>()? {
+                        if let Some(v) = map.next_value::<Option<Binding>>()? {
                             out.binding = Some(v);
                         }
                     } else if key.eq_ignore_ascii_case("kind") {
@@ -454,21 +352,8 @@ impl<'de> Deserialize<'de> for ExecutionWire {
 fn decode_execution(body: &[u8]) -> Result<Execution, String> {
     check_response_limit(body)?;
     let wire: ExecutionWire = json::decode_tolerant_as(body).map_err(|e| e.0)?;
-    let binding = wire.binding.map(|b| Binding {
-        child_id: b.child_id,
-        uid: b.uid,
-        gid: b.gid,
-        scope: b.scope,
-        credential_root: b.credential_root,
-        invocation_id: b.invocation_id,
-        kind: b.kind,
-        id: b.id,
-        project: b.project,
-        login: b.login,
-        generation: b.generation,
-    });
     Ok(Execution {
-        binding,
+        binding: wire.binding,
         kind: wire.kind,
         execution_id: wire.execution_id,
         digest: wire.digest,
