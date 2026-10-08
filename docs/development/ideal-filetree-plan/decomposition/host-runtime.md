@@ -1,6 +1,6 @@
 # Host runtime
 
-L11 leaves caller-owned IP, URL/percent and timestamp admission adapters around std, url/percent-encoding and `lib/wire-time`; calendar/IP grammar engines have no further split allocation. N4 provider curl remains held at the owned resolver/deadline and Executor custody boundary described in [L10](../library-adoption.md#l10-external-http-adapters). Completed host structural checkpoints retain their original scope.
+L11 leaves caller-owned IP, URL/percent and timestamp admission adapters around std, url/percent-encoding and `lib/wire-time`; calendar/IP grammar engines have no further split allocation. L10.N4 retains provider curl/Executor at its proved resolver-inclusive deadline and custody boundary, as described in [L10](../library-adoption.md#l10-external-http-adapters); installed/provider qualification remains separate. Completed host structural checkpoints retain their original scope.
 
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
@@ -20,7 +20,7 @@ small integration proofs before transport replacement.
 | --- | --- |
 | [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): `daemon/{http,response}.rs`, `gmux_server.rs`, `iclient.rs`, `tcontrol_native.rs` | Adopt complete Hyper HTTP engines inside the existing processes. Retain systemd listener custody, each socket's actual authority, route admission, request/response limits, status/secrecy mapping and bounded synchronous backend adapters. Preserve the existing Go library-backed clients. |
 | [N6](../../../research/library-reuse-investigation.md#n6): `daemon/websocket.rs`, `dbackend.rs`, terminal attachment | Adopt tungstenite with one nonblocking protocol owner, bounded child-output queue and readiness wakeup. Retain route/Origin/query admission, session expiry, inflight/TerminalGate lifetime, child close/reap and shutdown. Handshake SHA-1/Base64 and handwritten frame state disappear with this engine. |
-| [N4](../../../research/library-reuse-investigation.md#n4), [N7](../../../research/library-reuse-investigation.md#n7): `tcontrol_provider.rs`, native/provider URL helpers | Use the selected blocking HTTPS engine and URL/form/percent primitives. Retain credential scope/lifetime, neutral errors, no uncertain replay and raw lexical admission; generic curl recipes and authority/escape algorithms are superseded. |
+| [N4](../../../research/library-reuse-investigation.md#n4), [N7](../../../research/library-reuse-investigation.md#n7): `tcontrol_provider.rs`, native/provider URL helpers | Retain the selected host curl/Executor request policy and URL/form/percent primitives. Preserve credential scope/lifetime, neutral errors, no uncertain replay, the resolver-inclusive deadline and raw lexical admission; generic authority/escape algorithms are superseded. Source selection is complete, with provider/native qualification separate. |
 | [N8](../../../research/library-reuse-investigation.md#n8), [N9](../../../research/library-reuse-investigation.md#n9): Tailnet address/time and terminal/Factory deadline codecs | Use std IP types and the selected time codec. Retain zone/mask, DNS/name and purpose-specific address policy, lease/deadline bounds, zero-time handling and original signed text; calendar/IP engines are superseded. |
 | [CF-01](../../../research/library-reuse-investigation.md#cf-01)–[CF-04](../../../research/library-reuse-investigation.md#cf-04): SHA, NIST, SSH and Base64 helpers | Adopt RustCrypto, ssh-key and explicit Base64 profiles. Retain admitted algorithms/options, uncompressed curve gates, canonical public-key output, raw-byte digest recipes and managed-key revision/ownership policy. Do not extract separate crypto/SSH engines. |
 | [N10](../../../research/library-reuse-investigation.md#n10), [N11](../../../research/library-reuse-investigation.md#n11): Muse packet/peer helpers and obsolete daemon peer adapter | Use typed descriptor/socket mechanics where they simplify the active owner. Retain exact stdio-FD admission, kernel peer/pidfd pinning, cgroup/account custody and cleanup. L18/N11 retired the unused daemon peer duplicate at `eaed66a9`; active Muse attestation tests remain. HTTP does not replace the Muse packet channel. |
@@ -62,13 +62,16 @@ atomic publication, conditional restart and diagnostics. Existing private
 and affected development builds are complete; installed listener/restart/helper
 qualification remains separate.
 
-R02/A34 assigns remaining Tailnet project/run-binding/enroll-run, policy and
-optional caller/test seams to C04.M; host/companion lifecycle remains A07.M/V.
-L09/L11 adapters are already the implementation. A34 module reshuffling is not
-missing behavior or permission to restore snapshot protocol bodies. R02/C41's
-Muse caller/account/connection and cleanup-order duties remain A07.M/V around
-L12's FD/process mechanics; caller/cleanup splits are optional until a concrete
-owner benefit is established.
+R02/A34's current Tailnet project/run-binding/enroll-run and policy allocation
+is complete under C04.M; A07.M now completes source ownership of host/companion
+binding/lifetime, distinct Codex/Muse Factory adapters and terminal broker/stream
+duties. R02/C41's argument, connection, account/caller and ordered cleanup duties
+remain at the existing Muse owners. L09/L11 and L12 supply the current protocol
+and FD/process adapters. Preserve both checkpoints; an optional caller/cleanup
+split still needs a concrete ownership benefit and current-source diff. Native
+lifecycle, supervisor and forced-cleanup evidence stays under A07.C-muse/A07.V/R04,
+including installed Bash/Podman, activation and the outer HTTP join. The current
+ownership allocation does not establish forced in-process reap.
 
 ## Current terminal predecessor retirement
 
