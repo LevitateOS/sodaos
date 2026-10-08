@@ -249,8 +249,8 @@ impl ImageProduction for RealProduction {
         self.inner.dependencies().map_err(build_err)
     }
 
-    fn compile(&self, name: &str, pkg: &str, dest: &str) -> Result<(), ImageError> {
-        self.inner.compile(name, pkg, dest).map_err(build_err)
+    fn compile(&self, _name: &str, pkg: &str, dest: &str) -> Result<(), ImageError> {
+        self.inner.compile(pkg, dest).map_err(build_err)
     }
 
     fn compile_rust(&self, crate_name: &str, bin: &str, dest: &str) -> Result<(), ImageError> {

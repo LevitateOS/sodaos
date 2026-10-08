@@ -275,7 +275,7 @@ fn oracle_compile_recipes() {
     // TestProductionCompileRustKeepsLayoutAndVerifiesELF.
     let (prod, calls, _root) = production_fixture();
     let dest = PathBuf::from(&prod.out).join("program");
-    prod.compile("soda-host", "./cmd/soda-host", &dest.to_string_lossy())
+    prod.compile("./cmd/soda-host", &dest.to_string_lossy())
         .unwrap();
     let text = calls.lock().unwrap().join("\n");
     assert!(text.contains("-buildvcs=false") && !text.contains("-tags="));

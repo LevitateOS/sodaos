@@ -44,7 +44,7 @@ impl Production {
     /// The sole Go command recipe for runtime programs and support tools.
     /// Binaries use archive-safe VCS mode; the single image layout owns
     /// every install path.
-    pub fn compile(&self, name: &str, pkg: &str, dest: &str) -> Result<(), Error> {
+    pub fn compile(&self, pkg: &str, dest: &str) -> Result<(), Error> {
         self.validate()?;
         self.call_execute(
             &self.source,

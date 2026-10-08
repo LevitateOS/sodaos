@@ -61,7 +61,6 @@ pub(crate) struct Descriptor {
     pub size: i64,
     pub media_type: String,
     pub urls: Vec<String>,
-    pub annotations: Vec<(String, String)>,
 }
 
 impl<'de> Deserialize<'de> for Descriptor {
@@ -73,8 +72,7 @@ impl<'de> Deserialize<'de> for Descriptor {
                 f.write_str("OCI descriptor object")
             }
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let (mut digest, mut size, mut media_type, mut urls, mut annotations) =
-                    (None, None, None, None, None);
+                let (mut digest, mut size, mut media_type, mut urls) = (None, None, None, None);
                 while let Some(key) = map.next_key::<String>()? {
                     if key.eq_ignore_ascii_case("digest") {
                         digest = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
@@ -84,8 +82,6 @@ impl<'de> Deserialize<'de> for Descriptor {
                         media_type = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
                     } else if key.eq_ignore_ascii_case("urls") {
                         urls = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
-                    } else if key.eq_ignore_ascii_case("annotations") {
-                        annotations = Some(map.next_value::<Box<serde_json::value::RawValue>>()?);
                     } else {
                         map.next_value::<de::IgnoredAny>()?;
                     }
@@ -95,7 +91,6 @@ impl<'de> Deserialize<'de> for Descriptor {
                     size: raw_integer_field(size)?,
                     media_type: raw_field(media_type)?,
                     urls: raw_field(urls)?,
-                    annotations: raw_field::<StringPairs, A::Error>(annotations)?.0,
                 })
             }
         }
@@ -150,16 +145,6 @@ impl<'de> Deserialize<'de> for StringPairs {
             }
         }
         deserializer.deserialize_map(PairsVisitor)
-    }
-}
-
-impl Descriptor {
-    pub fn annotation(&self, key: &str) -> Option<&str> {
-        self.annotations
-            .iter()
-            .rev()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| v.as_str())
     }
 }
 
