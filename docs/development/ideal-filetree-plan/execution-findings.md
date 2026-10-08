@@ -368,3 +368,16 @@ routes, native output fit and provider qualification remain with C04.V/R04.
 | Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
 | --- | --- | --- | --- |
 | TEST-C06-CHILD-DELIVERY-1 → C06.V / C | Luna low owns only `scripts/pg_backup_test.go`: use its existing maintenance-binary builder to invoke actual init-roles and restore `--globals` against a child-local PATH executable fixture named `podman`. One fixed bounded SQL input exceeds the local pipe capacity; no database/container or production refactor. Coordinator owns checks/docs/commits; independent Luna medium reviews. | Current O01/O06 `delivery_exit` repair and actual stdin/write/close/wait callers. Fixture alone handles readiness and psql: successful child drains to EOF, early-closing child exits zero or a selected nonzero code. Task-owned synthetic inputs and paths under `/home`; no global environment mutation or new test driver. | Both actual binaries succeed after complete delivery and reap; incomplete delivery with exit zero fails; the nonzero child code is preserved. Keep existing disposable `TestPostgresBackupRoundTrip` as the separate backup/restore contract proof. Its Podman prerequisite remains failed, so no skip or fake command establishes database/native behavior and C06.V stays open. |
+
+TEST-C06-CHILD-DELIVERY-1 completed in `32cc1a94`: the [caller receipt](../../../.artifacts/luna-batch-20261007-0caf6b91/c06-child-pass-receipt.json)
+binds the actual init-roles and globals-restore development binaries to current
+source and graph. The original pre-repair writers fail both exit-zero early-close
+subtests; after exact source restoration, the parent test and four failure
+subtests pass, with both successful drain subjects inside the parent. Inputs
+exceed the observed 1 MiB pipe bound; roughly 2 MiB of globals reaches the child
+byte-for-byte. The three bins build locked/offline, exact formatting passes,
+and independent Luna medium source and final receipt review passed. Each unique
+fixture directory is removed. A process-local command fixture establishes child
+delivery and reap, not Podman/database behavior. The existing disposable backup/
+restore round trip remains unexecuted after its failed Podman prerequisite; no
+skip, installed qualification or whole C06.V completion is claimed.
