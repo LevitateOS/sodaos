@@ -1,6 +1,7 @@
 package scripts
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"os/exec"
@@ -270,5 +271,177 @@ INSERT INTO soda_probe(note) VALUES ('first'), ('it''s quoted'), ('third');`
 	)
 	if out, err := keep.CombinedOutput(); err == nil {
 		t.Fatalf("backup with KEEP=0 succeeded: %s", out)
+	}
+}
+
+func TestPostgresChildSQLDelivery(t *testing.T) {
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	scratchRoot := filepath.Join(root, "target", "pg-child-delivery")
+	if err := os.MkdirAll(scratchRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp(scratchRoot, "case-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Errorf("remove test scratch: %v", err)
+		}
+	})
+
+	binDir := filepath.Join(dir, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	callsPath := filepath.Join(dir, "calls")
+	fixture := `#!/bin/sh
+printf '%s\n' "$*" >> "$SODA_FAKE_CALLS"
+case "$*" in
+  "exec -u postgres fixture-container pg_isready -q") exit 0 ;;
+  "exec -i -u postgres fixture-container psql -v ON_ERROR_STOP=1 -f -")
+    case "$SODA_FAKE_MODE" in
+      drain) exec /bin/cat > "$SODA_FAKE_CAPTURE" ;;
+      close) exec 0<&-; exit "$SODA_FAKE_EXIT" ;;
+      *) exit 91 ;;
+    esac ;;
+  *) exit 92 ;;
+esac
+`
+	podman := filepath.Join(binDir, "podman")
+	if err := os.WriteFile(podman, []byte(fixture), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	baseEnv := []string{
+		"PATH=" + binDir,
+		"SODA_PG_CONTAINER=fixture-container",
+		"SODA_FAKE_CALLS=" + callsPath,
+	}
+	run := func(binary string, args []string, extra ...string) ([]byte, error) {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, binary, args...)
+		cmd.Env = append(append([]string{}, baseEnv...), extra...)
+		return cmd.CombinedOutput()
+	}
+	clearCalls := func(t *testing.T) {
+		t.Helper()
+		if err := os.WriteFile(callsPath, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertCalls := func(t *testing.T, want string) {
+		t.Helper()
+		got, err := os.ReadFile(callsPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != want {
+			t.Fatalf("podman calls = %q, want %q", got, want)
+		}
+	}
+
+	passwordDir := filepath.Join(dir, "passwords")
+	if err := os.Mkdir(passwordDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	password := []byte("bounded-synthetic-password\n")
+	if err := os.WriteFile(filepath.Join(passwordDir, "soda.passwd"), password, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	databases := strings.Repeat("soda ", 12_000)
+	if len(databases) >= 64<<10 || len(password) >= 64<<10 {
+		t.Fatal("synthetic SQL inputs exceed the bounded fixture profile")
+	}
+	initEnv := []string{
+		"SODA_PG_PASSWORD_DIR=" + passwordDir,
+		"SODA_PG_DATABASES=" + databases,
+		"SODA_FAKE_MODE=drain",
+		"SODA_FAKE_CAPTURE=" + filepath.Join(dir, "init.sql"),
+	}
+	clearCalls(t)
+	out, err := run(pgMaintenanceBinary(t, "soda-pg-init-roles"), nil, initEnv...)
+	if err != nil {
+		t.Fatalf("soda-pg-init-roles success delivery: %v: %s", err, out)
+	}
+	assertCalls(t, "exec -u postgres fixture-container pg_isready -q\nexec -i -u postgres fixture-container psql -v ON_ERROR_STOP=1 -f -\n")
+	initSQL, err := os.ReadFile(filepath.Join(dir, "init.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(initSQL) <= 1<<20 || !bytes.Contains(initSQL, []byte(`ALTER ROLE "soda" WITH LOGIN PASSWORD 'bounded-synthetic-password';`)) {
+		t.Fatalf("captured init SQL size/content = %d bytes", len(initSQL))
+	}
+
+	globalsSize := 2 << 20
+	pattern := []byte("-- synthetic globals\nSELECT 1;\n")
+	globals := bytes.Repeat(pattern, globalsSize/len(pattern)+1)
+	globalsPath := filepath.Join(dir, "globals.sql")
+	if err := os.WriteFile(globalsPath, globals, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	clearCalls(t)
+	restoreCapture := filepath.Join(dir, "restored-globals.sql")
+	out, err = run(pgMaintenanceBinary(t, "soda-pg-restore"), []string{"--yes", "--globals", dir},
+		"SODA_FAKE_MODE=drain", "SODA_FAKE_CAPTURE="+restoreCapture)
+	if err != nil {
+		t.Fatalf("soda-pg-restore success delivery: %v: %s", err, out)
+	}
+	assertCalls(t, "exec -i -u postgres fixture-container psql -v ON_ERROR_STOP=1 -f -\n")
+	restored, err := os.ReadFile(restoreCapture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(restored, globals) {
+		t.Fatalf("restored globals differ: got %d bytes, want %d", len(restored), len(globals))
+	}
+
+	failureCases := []struct {
+		name  string
+		bin   string
+		args  []string
+		extra []string
+		calls string
+	}{
+		{
+			name:  "init-roles",
+			bin:   "soda-pg-init-roles",
+			extra: initEnv[:2],
+			calls: "exec -u postgres fixture-container pg_isready -q\nexec -i -u postgres fixture-container psql -v ON_ERROR_STOP=1 -f -\n",
+		},
+		{
+			name:  "restore-globals",
+			bin:   "soda-pg-restore",
+			args:  []string{"--yes", "--globals", dir},
+			calls: "exec -i -u postgres fixture-container psql -v ON_ERROR_STOP=1 -f -\n",
+		},
+	}
+	for _, test := range failureCases {
+		for _, code := range []string{"0", "23"} {
+			t.Run(test.name+"-exit"+code, func(t *testing.T) {
+				clearCalls(t)
+				failureEnv := append(append([]string{}, test.extra...),
+					"SODA_FAKE_MODE=close", "SODA_FAKE_EXIT="+code,
+					"SODA_FAKE_CAPTURE="+filepath.Join(dir, "unused.sql"))
+				out, err := run(pgMaintenanceBinary(t, test.bin), test.args, failureEnv...)
+				exit, ok := err.(*exec.ExitError)
+				if !ok {
+					t.Fatalf("close mode: err = %v, output %s", err, out)
+				}
+				want := 1
+				if code == "23" {
+					want = 23
+				}
+				if exit.ExitCode() != want {
+					t.Fatalf("close mode exited %d, want %d", exit.ExitCode(), want)
+				}
+				assertCalls(t, test.calls)
+			})
+		}
 	}
 }
