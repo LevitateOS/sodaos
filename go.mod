@@ -6,12 +6,11 @@ require (
 	forgejo.org/extension-sdk v0.0.0
 	github.com/coder/websocket v1.8.15
 	github.com/dicebear/dicebear-go/v10 v10.7.0
+	github.com/jackc/pgx/v5 v5.10.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.55.0
-	golang.org/x/oauth2 v0.34.0
 	golang.org/x/sys v0.47.0
 	modernc.org/sqlite v1.58.0
-	tailscale.com/client/tailscale/v2 v2.10.1
 )
 
 require (
@@ -28,7 +27,6 @@ require (
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.10.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/kisielk/errcheck v1.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
@@ -37,7 +35,6 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
-	github.com/tailscale/hujson v0.0.0-20220506213045-af5ed07155e5 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
 	golang.org/x/mod v0.38.0 // indirect

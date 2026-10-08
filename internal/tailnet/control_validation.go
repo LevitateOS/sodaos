@@ -1,6 +1,10 @@
 package tailnet
 
-import "strings"
+import (
+	"net/netip"
+	"net/url"
+	"strings"
+)
 
 func validEnrollmentIdentity(v EnrollmentView) bool {
 	if !validRevision(v.Revision) || v.Tags == nil || v.EnrollmentVerified {
@@ -30,8 +34,7 @@ func (v EnrollmentView) Validate() error {
 	if !revisionPattern.MatchString(v.Revision) || !revisionPattern.MatchString(v.Binding) || !v.CredentialChecked {
 		return ErrUnavailable
 	}
-	probe := EnrollmentRequest{Action: "save", Revision: v.Revision, Tailnet: v.Tailnet, Tags: v.Tags, Preauthorized: &v.Preauthorized, ClientID: "validation", ClientSecret: "tskey-client-validation-only"} // slop-audit-allow: synthetic probe that must pass credentialPattern to exercise the real validation path
-	if probe.Validate() != nil {
+	if validateEnrollmentPolicy(v.Tailnet, v.Tags, &v.Preauthorized) != nil {
 		return ErrUnavailable
 	}
 	return nil
@@ -57,8 +60,8 @@ func validHostBackendState(state string) bool {
 }
 
 func validHostPeers(v HostView) error {
-	if _, e := peerView(nativePeer{DNSName: v.DNSName, TailscaleIPs: v.Addresses}); e != nil {
-		return e
+	if validatePeer(v.DNSName, v.Addresses) != nil {
+		return ErrUnavailable
 	}
 	seen := map[string]bool{}
 	for _, p := range v.Peers {
@@ -66,8 +69,8 @@ func validHostPeers(v HostView) error {
 			return ErrUnavailable
 		}
 		seen[p.ID] = true
-		if _, e := peerView(nativePeer{ID: p.ID, DNSName: p.DNSName, TailscaleIPs: p.Addresses}); e != nil {
-			return e
+		if len(p.ID) > 128 || strings.ContainsAny(p.ID, "\r\n\x00") || validatePeer(p.DNSName, p.Addresses) != nil {
+			return ErrUnavailable
 		}
 	}
 	return nil
@@ -78,8 +81,8 @@ func validHostExitNode(v HostView) error {
 		return ErrUnavailable
 	}
 	if v.Preferences.ExitNodeIP != "" {
-		if _, e := addresses([]string{v.Preferences.ExitNodeIP}); e != nil {
-			return e
+		if !validTailnetAddresses([]string{v.Preferences.ExitNodeIP}) {
+			return ErrUnavailable
 		}
 	}
 	return nil
@@ -114,7 +117,7 @@ func (v HostResult) Validate() error {
 	if (v.Host == nil) != v.ReadbackUnavailable {
 		return ErrUnavailable
 	}
-	if v.AuthURL != "" && authenticationURL(v.AuthURL) != v.AuthURL {
+	if v.AuthURL != "" && !validAuthenticationURL(v.AuthURL) {
 		return ErrUnavailable
 	}
 	if v.Outcome == "pending" && v.AuthURL == "" {
@@ -179,10 +182,46 @@ func validConnectedProjectState(v ProjectView) error {
 	if !v.Enabled || len(v.Addresses) == 0 {
 		return ErrUnavailable
 	}
-	if _, e := peerView(nativePeer{DNSName: v.DNSName, TailscaleIPs: v.Addresses}); e != nil {
-		return e
+	if !validPeerDNSName(v.DNSName) || !validTailnetAddresses(v.Addresses) {
+		return ErrUnavailable
 	}
 	return nil
+}
+
+func validTailnetAddresses(values []string) bool {
+	if len(values) > 16 {
+		return false
+	}
+	for _, value := range values {
+		address, err := netip.ParseAddr(value)
+		if err != nil || !address.IsGlobalUnicast() || address.String() != value {
+			return false
+		}
+	}
+	return true
+}
+
+func validPeerDNSName(value string) bool {
+	if value == "" {
+		return true
+	}
+	_, err := CanonicalMagicDNSName(value)
+	return err == nil
+}
+
+func validatePeer(dnsName string, addresses []string) error {
+	if !validPeerDNSName(dnsName) || !validTailnetAddresses(addresses) {
+		return ErrUnavailable
+	}
+	return nil
+}
+
+func validAuthenticationURL(raw string) bool {
+	if len(raw) > 2048 {
+		return false
+	}
+	u, err := url.Parse(raw)
+	return err == nil && u.Scheme == "https" && u.Host == "login.tailscale.com" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && u.RawPath == "" && strings.HasPrefix(u.Path, "/a/") && clientPattern.MatchString(strings.TrimPrefix(u.Path, "/a/")) && u.String() == raw
 }
 
 func validProjectRuntime(v ProjectView) error {
