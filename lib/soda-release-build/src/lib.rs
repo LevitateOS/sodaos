@@ -19,7 +19,6 @@ pub mod http;
 pub mod json_input;
 pub mod live_inputs;
 pub mod oci;
-pub mod oci_layout;
 pub mod production;
 pub mod production_assets;
 pub mod production_compile;

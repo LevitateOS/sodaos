@@ -22,12 +22,6 @@ pub const OCI_ERR_TAMPERED: &str = "OCI blob checksum mismatch";
 pub const OCI_FIXTURE_HASH: &str =
     "0ab43d832955b51125a34a1069f654d5b67125d776f9009738e126417984103c";
 pub const OCI_ERR_MISSING: &str = "requested OCI member missing";
-pub const LAYOUT_IMAGES: usize = 1;
-pub const LAYOUT_FILES: usize = 5;
-pub const LAYOUT_BYTES: u64 = 3222;
-pub const LAYOUT_INDEXHASH: &str =
-    "da95ff130c78dc61e49e1588584f917244d46d747c5a4c2f46ae8d05fbc62371";
-pub const LAYOUT_ERR_ARCH: &str = "expected x86_64";
 
 pub const LIVE_ERR_TAILNET: &str = "invalid Tailnet version";
 pub const LIVE_ERR_RELEASE: &str = "stable stream release is malformed";
