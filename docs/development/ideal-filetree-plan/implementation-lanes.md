@@ -41,6 +41,12 @@ decoder profile. A07's child-wait failure-trigger repair completed in
 native-shell qualification remain open. REP-CFG-1 is complete at its command
 projection scope; CFG01 and C10's remaining actual emission profiles remain
 open. Store traversal still needs its supported total-progress/resource profile.
+A03's current helper supervision and package-fold source scope is complete at
+`2978c4de`; six production-function regressions plus one compiled-binary
+lifecycle oracle pass with zero ignored. Compiled-helper capture/cleanup and
+checkout-failure qualification at the installed Project/native privilege
+boundary remain open (see the receipt in the
+[finding allocation](execution-findings.md#implemented-source-follow-ups-2026-10-08)).
 
 The retained [tree](proposed-tree.md), [placement](placement.md),
 [ownership](package-ownership.md), [review records](reviews/README.md) and
