@@ -196,11 +196,6 @@ pub fn path_clean(path: &str) -> String {
     joined
 }
 
-/// Like Go's `filepath.ToSlash` on unix: paths already use slashes.
-pub fn to_slash(path: &std::path::Path) -> String {
-    path.to_string_lossy().into_owned()
-}
-
 /// Serializes tests that mutate process environment (Rust runs tests in
 /// threads sharing one environment).
 #[cfg(test)]
