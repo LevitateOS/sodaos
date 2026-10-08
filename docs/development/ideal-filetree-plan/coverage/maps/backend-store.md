@@ -12,6 +12,11 @@ explicit retry leaf is mapped below. `Store.IssueAssignments` is retired in
 `5e3d4825`; its original `519b76bd` spans remain historical baseline evidence.
 `storeAssignedLimit` and `AssignedAssignments` still own bounded recovery.
 
+Selective source delta at `6f1f9354`: the atomic grant-command leaf and current
+receipt/review failure selectors below are mapped separately. Original
+`519b76bd` spans remain historical; this does not refresh the whole map or
+establish native qualification.
+
 <a id="coverage-fa3146f813f8"></a>
 
 ## [internal/store/corruption.go](../../../../../internal/store/corruption.go)
@@ -22,6 +27,13 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–17; file scaffold | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 18–45; InjectCorruptFactoryRun; DropFactoryRunViews | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: InjectCorruptFactoryRun; Current declaration duty: DropFactoryRunViews — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+Current selective selector at `6f1f9354`, SHA256
+`eea52c7a04d46ad0d4c200a3b26b7ff3db686a81b80d8600f70abec3d93c6532`:
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 46–80; CloseDispatchAfterReviewRegistration | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Fixed-purpose PostgreSQL fixture for the control test's durable unsent intent and refusal before native submission; not a production dispatch implementation. |
 
 <a id="coverage-01de9d0ef58e"></a>
 
@@ -69,6 +81,30 @@ Current source at `df05b6cf`; selective mixed-responsibility map.
 | 1–14; file scaffold; errExplicitRetryIneligible | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Explicit retry admission refusal and shared file scaffold. |
 | 16–26; LatestIssueAssignment | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Indexed sequence-ordered single-row selection for dispatch and current assignment views. |
 | 28–249; RecordExplicitRetryCommand; PendingExplicitRetry; RecordExplicitRetryPacket; validateExplicitRetryFactsTx | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Atomic retry intent/receipt, dispatch consumer, current packet admission and prior head/run/accounting facts. Source correction `cf5fb2ff`; full target and native joins remain separate. |
+
+## [internal/store/factory_grant_commands.go](../../../../../internal/store/factory_grant_commands.go)
+
+Current source at `6f1f9354`, SHA256
+`32477b5413eb2a6eac911796511c339f2176f5d2e19d25fc99ae06a5a4b59ef1`;
+445 lines. The production callers are control `grants.go` and
+`grant_authority.go`. Shared mechanics and disjoint fields/type cases have one
+owner each; grouping below does not change physical Store ownership.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15, 30–35, 142–145, 166–191, 206–255, 264–282, 288–305, 311–319, 368–371, 409–445; scaffold; policy field/cases; ApplyRepositoryPolicyCommand; shared applyFactoryGrantCommand driver; grantCommandTarget; recordFactoryCommandTx; finishFactoryCommandTx | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Policy state and shared atomic grant-command/receipt driver: envelope and target admission, gate locking, idempotency, typed save, withdrawal/capture and cancellation intents, immutable bounded receipt and commit. Semantic grant cases below remain distinct; the command-record/finalization helpers also serve F08 explicit retry. |
+| 22–29, 134–139, 283–287; FactoryAuthorityInput; authority assembly declaration; dispatch gate field; effective authority evaluation | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Shared current authority assembly and dispatch-gate projection used by visible reads and atomic grant receipts. |
+| 36–41, 150–153, 197–199, 327–333; operator field; ApplyOperatorGrantCommand; OperatorGrant admission/save cases | [F02](../../slices/factory-coordination.md#f02-operator-execution-grants) | retained | Operator execution-grant target, revision, validation and withdrawal condition. |
+| 42–47, 61–74, 146–149, 158–161, 192–196, 307–309, 320–326, 343–351, 354–360; capacity/budget fields; ApplyCapacityCommand; ApplyConnectionUsageBudgetCommand; Capacity/ConnectionUsageBudget admission/save cases; grantCommandConnectionBudgetTarget; initial budget creation | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Capacity and connection-wide usage allowance; active sponsorship creates its initial budget in the same transaction. |
+| 48–60, 154–157, 200–202, 256–263, 334–342, 352–353, 384–394; sponsorship selection; ApplySponsorshipCommand; Sponsorship admission/save cases; sibling check; saveSponsorshipQuery | [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) | retained | Sponsorship revision and projection; only last-active-sponsorship withdrawal removes repository authority. Actor/Project attribution remains an open finding. |
+| 75–86, 162–164, 203–205, 361–367; environment and Project association fields; ApplyEnvironmentGrantCommand; EnvironmentGrant admission/save cases | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Repository-linked Project association and environment grant. |
+| 87–101; maintenanceHeld | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Project maintenance hold suppresses preparation-ready admission. |
+| 102–132; project_preparations query; PreparationReady | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Bounded current coder/reviewer preparation readiness. |
+| 16–20, 373–383, 395–407; grantCommandSQL; saveRevisionedGrantQuery; checkGrantRowsAffected | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Private database/transaction executor used by grant, authority and reservation queries; shared revision compare-and-swap and affected-row/stale-revision mechanics. No exported SQL escape hatch. |
+
+F01-F1 (`d85da70d`) and F03-F1 (`d9f30704`) retain their existing source and
+owned-PostgreSQL evidence scopes. This allocation does not close F04-F1, B01.C,
+other correctness findings or installed/native/provider qualification.
 
 <a id="coverage-082686001ffc"></a>
 
@@ -166,6 +202,13 @@ exact-blob current maintained map; full spans retained
 | 85–108; TestSponsorships | [F04](../../slices/factory-coordination.md#f04-connection-sponsorship) | retained | Connection sponsorship revision/visibility persistence assertions; declarations/fields: `TestSponsorships` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 109–154, 213–235; TestDispatchWithdrawalOrdering, TestSettingsCommandReplay | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Withdrawal ordering and immutable command replay assertions; declarations/fields: `TestDispatchWithdrawalOrdering`, `TestSettingsCommandReplay` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 155–212; TestDispatchCausesComposeAndClearIndependently; TestProjectStopCauseComposesAfterExistingPause | [P05](../../slices/projects.md#p05-project-startstop) | retained | Store regressions prove active causes compose without replacing the first-closure receipt, and verified Start clears only the Project-stop cause. Source/test scope `8d9485af`; owned PostgreSQL checks passed. |
+
+Current selective selector at `6f1f9354`, SHA256
+`dbef4277adc7e054576d9026bf459dd2f284bbbfaf1644d908bbbb5cad46784a`:
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 302–364; TestPolicyReceiptFailureDoesNotCommitPartialWithdrawal | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Actual PostgreSQL receipt-finalization failure must match the injected error before the test asserts policy, dispatch and command-record rollback. The regression now lives with its Store subject; the original spans above remain historical. |
 
 <a id="coverage-957843a7f1f0"></a>
 

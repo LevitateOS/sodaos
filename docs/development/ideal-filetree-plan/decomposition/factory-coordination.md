@@ -3,6 +3,25 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
+## internal/store/factory_grant_commands.go
+
+Current source at `6f1f9354`: 445 lines, SHA256
+`32477b5413eb2a6eac911796511c339f2176f5d2e19d25fc99ae06a5a4b59ef1`.
+Retain this Store owner for typed grant commands and their atomic decision/receipt
+transaction. Current authority assembly is shared by visible reads and the
+transaction; the six typed entrypoints preserve their separate policy, operator,
+capacity, sponsorship, connection-budget and environment duties. Private SQL
+helpers reuse the database/transaction executor without exporting raw SQL.
+
+The [current responsibility map](../coverage/maps/backend-store.md#internalstorefactory_grant_commandsgo)
+assigns disjoint fields/cases and shared mechanics to their existing slices.
+Control retains principal admission and external cancellation after commit.
+No extra package, runtime, generic Store API or split is selected merely to
+lower this file's size. At 445 lines it exceeds the guide's under-400 preference
+but remains below its hard 500-line production ceiling; the shared transaction
+provides a cohesive defining responsibility. F01/F03 source receipts remain scoped evidence; F04 attribution,
+native/provider qualification and full R02 reconciliation remain open.
+
 ## internal/factory/assignment.go
 
 Observed size: 442 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
