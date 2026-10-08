@@ -10,7 +10,6 @@ pub mod check;
 pub mod content;
 pub mod document;
 pub mod fetch;
-pub mod import;
 pub(crate) mod json_serde;
 pub mod model;
 pub mod native;
