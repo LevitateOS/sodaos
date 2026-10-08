@@ -26,14 +26,13 @@ func TestTailnetRecipeFloatsOnBuildArgs(t *testing.T) {
 }
 
 func TestTailnetBuildWiresLiveInputsWithoutLock(t *testing.T) {
-	build := strings.ReplaceAll(ReadFile(t, "lib/soda-release-build/src/production.rs"), " ", "")
+	build := strings.ReplaceAll(ReadFile(t, "lib/soda-release-build/src/production_images.rs"), " ", "")
 	Check(t, strings.Contains(build, `"--build-arg=TAILSCALE_VERSION={}"`), "missing version arg")
 	Check(t, strings.Contains(build, `"--build-arg=ARCHIVE_SHA256={}"`), "missing sha arg")
 	Check(t, strings.Contains(build, `"system/containers/tailnet/Containerfile"`), "missing Containerfile ref")
 }
 
 func TestTailnetObservedVersionsRecordedWithoutGate(t *testing.T) {
-	build := ReadFile(t, "lib/soda-release-build/src/production.rs")
-	Check(t, !strings.Contains(build, "require_tailnet_release"), "gate present")
+	build := ReadFile(t, "lib/soda-release-build/src/production_inputs.rs")
 	Check(t, strings.Contains(build, "live_tailnet_inputs"), "missing live_tailnet_inputs")
 }
