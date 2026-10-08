@@ -124,18 +124,21 @@ Evidence: 13-117,576-587,704-710,729-772: placeholder bind, Store/Tx query/trans
 
 ## rust/soda-identity/src/strict.rs
 
-Observed size: 402 lines, including tests where embedded. JSON01 replaces the lexical/recursive duplicate scanner with serde-backed admission and small record/profile adapters. strict.rs retains the request object/full-consumption, decoded-duplicate, unknown-field, alias/null, size and depth policy; do not erase duplicates or choose alias precedence through a Value map before enforcing the profile. The historical request codec was 314 lines and its test module had 86 lines. Keep real policy cases with the replacement subject; exact Go diagnostics and scanner offsets do not justify retaining another lexer.
+Historical observed size: 402 lines, including tests where embedded. JSON01 retired the lexical scanner; SIMP-I-SETTINGS-1 removes the final record-remapping helpers. strict.rs owns bounded one-object, UTF-8/full-consumption, decoded-duplicate and depth admission. The owning Settings/HTTP DTOs enforce exact fields, unknown-field refusal and their distinct default/null policies. The historical request codec was 314 lines and its test module had 86 lines. Keep real policy cases with the replacement subject; exact Go diagnostics and scanner offsets do not justify retaining another lexer.
 
 - `cmd/soda-identity/src/strict.rs`
 - `cmd/soda-identity/src/strict_tests.rs`
 
 Evidence: 1-86: decode/remap_case/check_known_fields and declared strict request semantics; 87-314: Scanner lexical handling/check_unique_keys/check_value recursion; 315-402: strict shape/size/casefold/decoded-Unicode duplicate vectors -> strict_tests.rs.
 
-JSON01 completed scanner retirement in `ae09f634`. Serde owns grammar, while
-the local admission seed and schema remapping retain recursive decoded-key
-uniqueness, depth, size, aliases and unknown-field policy. The four strict
-boundary checks and development build passed; the historical ranges above do
-not describe an unresolved extraction.
+JSON01 completed scanner retirement in `ae09f634`. The later HTTP transfer
+and final Settings transfer in `35630138` use direct typed Serde decoding;
+field tables, Value remapping and the old decoder are removed. The local seed
+retains recursive decoded-key uniqueness and depth, now requiring a root map;
+`main.rs::load` owns same-FD cap+one file admission and service-path validation.
+Twenty-eight focused strict/wire/HTTP-wire/load checks and binary compilation
+passed. These source checks do not establish installed provider operation; the
+historical ranges above describe completed predecessor work.
 
 ## rust/soda-identity/src/wire.rs
 
