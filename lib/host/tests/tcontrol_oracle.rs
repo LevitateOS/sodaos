@@ -1791,7 +1791,9 @@ fn native_local_request_over_real_socket() {
     let path = dir.join("s");
     let listener = UnixListener::bind(&path).unwrap();
     let server = std::thread::spawn(move || {
-        for _ in 0..4 {
+        let mut framing = 0;
+        let mut boom_requests = 0;
+        for _ in 0..9 {
             let (mut conn, _) = listener.accept().unwrap();
             let mut head = vec![0u8; 4096];
             let mut total = Vec::new();
@@ -1806,23 +1808,51 @@ fn native_local_request_over_real_socket() {
                 }
             }
             let text = String::from_utf8_lossy(&total).into_owned();
-            let (code, body) = if text.contains("GET /localapi/v0/status ") {
-                ("200 OK", NATIVE_STATUS)
-            } else if text.contains("GET /localapi/v0/prefs ") {
-                ("200 OK", NATIVE_PREFS)
+            let is_status = text.contains("GET /localapi/v0/status ");
+            let is_prefs = text.contains("GET /localapi/v0/prefs ");
+            let response = if is_status || is_prefs {
+                let body = if is_status {
+                    NATIVE_STATUS
+                } else {
+                    NATIVE_PREFS
+                };
+                let response = match framing {
+                    0 => format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    ),
+                    1 => format!(
+                        "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n{:x}\r\n{}\r\n0\r\n\r\n",
+                        body.len(),
+                        body
+                    ),
+                    3 if is_status => format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len() + 1,
+                        body
+                    ),
+                    _ => format!(
+                        "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n{}",
+                        body
+                    ),
+                };
+                if is_prefs {
+                    framing += 1;
+                }
+                response
             } else if text.contains("GET /localapi/v0/boom ") {
-                ("500 Internal Server Error", "")
+                boom_requests += 1;
+                if boom_requests == 1 {
+                    "HTTP/1.1 500 Internal Server Error\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n0\r\n\r\n".to_string()
+                } else {
+                    "HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\nsynthetic"
+                        .to_string()
+                }
             } else {
-                ("200 OK", "not json")
+                "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nnot json".to_string()
             };
-            conn.write_all(
-                format!(
-                    "HTTP/1.1 {code}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                )
-                .as_bytes(),
-            )
-            .unwrap();
+            conn.write_all(response.as_bytes()).unwrap();
         }
     });
     let t: Box<native::Transport> = Box::new({
@@ -1831,12 +1861,16 @@ fn native_local_request_over_real_socket() {
             native::local_request(&path, method, p, body, d)
         }
     });
-    let (view, auth) = native::observe(&t, soon(5000)).unwrap();
-    assert_eq!(view.revision, GO_REVISION);
-    assert_eq!(auth, "https://login.tailscale.com/a/synthetic");
+    for _ in 0..3 {
+        let (view, auth) = native::observe(&t, soon(5000)).unwrap();
+        assert_eq!(view.revision, GO_REVISION);
+        assert_eq!(auth, "https://login.tailscale.com/a/synthetic");
+    }
+    assert!(native::observe(&t, soon(5000)).is_err());
     assert!(native::local_request(&path, "GET", "boom", None, soon(5000)).is_ok());
-    let (status, _) = native::local_request(&path, "GET", "boom", None, soon(5000)).unwrap();
+    let (status, body) = native::local_request(&path, "GET", "boom", None, soon(5000)).unwrap();
     assert_eq!(status, 500);
+    assert_eq!(body, b"synthetic");
     server.join().unwrap();
     assert!(
         native::local_request(&dir.join("missing"), "GET", "status", None, soon(5000)).is_err()
