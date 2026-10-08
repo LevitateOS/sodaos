@@ -157,6 +157,7 @@ func publicationTestOutcome(w factory.PublicationWork, kind string, outcome fact
 type publishFixture struct {
 	reads *fakeEvidenceSource
 	db    *store.Store
+	dsn   string
 	seed  dispatchFixture
 	host  *fakePublishHost
 	exec  *fakePublisher
@@ -165,13 +166,13 @@ type publishFixture struct {
 
 func publishSeed(t *testing.T) *publishFixture {
 	t.Helper()
-	db, _ := publicationTestDB(t)
+	db, dsn := publicationTestDB(t)
 	fx := dispatchSeed(t, db)
 	fh := &fakePublishHost{bundle: []byte("bundle-bytes")}
 	coord := NewCoordinator(db, fh, &fakeDispatchBroker{})
 	reads := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 	coord.AcceptanceReads = reads
-	return &publishFixture{db: db, seed: fx, host: fh, coord: coord, reads: reads}
+	return &publishFixture{db: db, dsn: dsn, seed: fx, host: fh, coord: coord, reads: reads}
 }
 
 func (fx *publishFixture) wire(exec *fakePublisher) {
@@ -233,8 +234,7 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 		Summary: "done", Candidate: strings.Repeat("2", 40),
 		Findings: []string{}, Reported: true, RecordedUnix: now.Unix(),
 	}
-	a.Stage, a.Outcome, a.Reason, a.Result, a.FinishedUnix =
-		factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, &result, now.Unix()
+	a.Stage, a.Outcome, a.Reason, a.Result, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, &result, now.Unix()
 	if err := fx.db.FinishAssignment(ctx, a); err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,9 @@
 package factory
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -107,6 +110,89 @@ func publishedPublication() Publication {
 func TestPublicationValidatesPublished(t *testing.T) {
 	if err := publishedPublication().Validate(); err != nil {
 		t.Fatalf("published publication refused: %v", err)
+	}
+}
+
+func TestPublicationBoundsReviewHistoryAdmission(t *testing.T) {
+	makeReviews := func(count, bodyBytes int) Publication {
+		p := publishedPublication()
+		for i := 0; i < count; i++ {
+			runID := fmt.Sprintf("%032x", i+1)
+			p.ReviewOperations = append(p.ReviewOperations, ReviewOperation{
+				RunID: runID,
+				Work: ReviewWork{
+					OperationID: "review-" + runID, AuthRevision: ReviewAuthRevision(p.AssignmentID, runID),
+					Repository: p.Repository, ActorID: 6, PRNumber: p.PRNumber, PRID: p.PRID,
+					IssueID: p.PRCreate.IssueID, PRAuthorID: p.PRCreate.Work.ActorID,
+					HeadRef: p.PRCreate.HeadRef, BaseRef: p.PRCreate.BaseRef,
+					HeadOID: p.Publish.Work.Candidate, BaseOID: p.PRCreate.BaseOID,
+					NativeRev: 1, NotAfter: 1300, Event: "APPROVED", Body: strings.Repeat("x", bodyBytes),
+				},
+			})
+		}
+		return p
+	}
+	if err := makeReviews(MaxPublicationReviewOperations, 0).Validate(); err != nil {
+		t.Fatalf("history at record bound refused: %v", err)
+	}
+	if err := makeReviews(MaxPublicationReviewOperations+1, 0).Validate(); err == nil {
+		t.Fatal("history above record bound accepted")
+	}
+	// Pending work reserves the largest permitted receipt before native
+	// submission. Even when every operation later receives a maximum-sized
+	// receipt, that already-admitted publication remains persistable.
+	perOperationAtBound := MaxPublicationReviewBytes / MaxPublicationReviewOperations
+	maxPending := makeReviews(MaxPublicationReviewOperations, perOperationAtBound-MaxPublicationReceipt)
+	if err := maxPending.Validate(); err != nil {
+		t.Fatalf("pending history with maximum receipt reservations refused: %v", err)
+	}
+	for i := range maxPending.ReviewOperations {
+		op := &maxPending.ReviewOperations[i]
+		op.Outcome = OperationOutcome{
+			OperationID: op.Work.OperationID, InstallationID: "install",
+			Kind: OpReviewSubmit, ActorID: op.Work.ActorID,
+			RepositoryID: maxPending.Repository, Receipt: bytes.Repeat([]byte{0xff}, MaxPublicationReceipt),
+			Effect: OpEffectCommitted, Cancellation: OpCancelNone, Completion: OpCompletionComplete,
+		}
+	}
+	if err := maxPending.Validate(); err != nil {
+		t.Fatalf("maximum receipts made admitted history unpersistable: %v", err)
+	}
+
+	// A 127-operation pending history leaves 8192 bytes. One more body byte
+	// than that permits, including its reserved receipt, must be rejected by
+	// the same pre-submit admission used by the coordinator.
+	nearBound := makeReviews(MaxPublicationReviewOperations-1, perOperationAtBound-MaxPublicationReceipt)
+	nextID := fmt.Sprintf("%032x", MaxPublicationReviewOperations)
+	next := ReviewOperation{RunID: nextID, Work: ReviewWork{
+		OperationID: "review-" + nextID, AuthRevision: ReviewAuthRevision(nearBound.AssignmentID, nextID),
+		Repository: nearBound.Repository, ActorID: 6, PRNumber: nearBound.PRNumber, PRID: nearBound.PRID,
+		IssueID: nearBound.PRCreate.IssueID, PRAuthorID: nearBound.PRCreate.Work.ActorID,
+		HeadRef: nearBound.PRCreate.HeadRef, BaseRef: nearBound.PRCreate.BaseRef,
+		HeadOID: nearBound.Publish.Work.Candidate, BaseOID: nearBound.PRCreate.BaseOID,
+		NativeRev: 1, NotAfter: 1300, Event: "APPROVED",
+		Body: strings.Repeat("x", perOperationAtBound-MaxPublicationReceipt+1),
+	}}
+	if err := nearBound.CanAppendReviewOperation(next); err == nil {
+		t.Fatal("review admission accepted body plus reserved receipt one byte over aggregate bound")
+	}
+	withReceipt := makeReviews(1, 0)
+	withReceipt.ReviewOperations[0].Outcome = OperationOutcome{
+		OperationID: withReceipt.ReviewOperations[0].Work.OperationID, InstallationID: "install",
+		Kind: OpReviewSubmit, ActorID: withReceipt.ReviewOperations[0].Work.ActorID,
+		RepositoryID: withReceipt.Repository, Receipt: []byte{0, 0xff, 0x80, 1},
+		Effect: OpEffectCommitted, Cancellation: OpCancelNone, Completion: OpCompletionComplete,
+	}
+	serialized, err := json.Marshal(withReceipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored Publication
+	if err := json.Unmarshal(serialized, &restored); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(restored.ReviewOperations[0].Outcome.Receipt, withReceipt.ReviewOperations[0].Outcome.Receipt) {
+		t.Fatal("review receipt bytes changed in publication storage encoding")
 	}
 }
 

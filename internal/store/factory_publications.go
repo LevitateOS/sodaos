@@ -80,7 +80,8 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	}
 	registering := previous.Publish.Work == nil && p.Publish.Work != nil ||
 		previous.PRCreate.Work == nil && p.PRCreate.Work != nil ||
-		len(p.Corrections) > len(previous.Corrections)
+		len(p.Corrections) > len(previous.Corrections) ||
+		len(p.ReviewOperations) > len(previous.ReviewOperations)
 	if registering && (previous.WithdrawRequested || p.WithdrawRequested) {
 		return ErrDispatchClosed
 	}
@@ -160,6 +161,14 @@ func publicationUpdateAllowed(old, next factory.Publication) error {
 			return ErrPublicationConflict
 		}
 	}
+	if len(next.ReviewOperations) < len(old.ReviewOperations) {
+		return ErrPublicationConflict
+	}
+	for i := range old.ReviewOperations {
+		if !reviewOperationUpdateAllowed(old.ReviewOperations[i], next.ReviewOperations[i]) {
+			return ErrPublicationConflict
+		}
+	}
 	switch {
 	case old.Stage == factory.PublicationOpen || old.Stage == factory.PublicationFenced:
 	case old.Stage == factory.PublicationPublished &&
@@ -189,6 +198,32 @@ func publicationOperationUpdateAllowed(old, next factory.PublicationOperation) b
 	return true
 }
 
+func reviewOperationUpdateAllowed(old, next factory.ReviewOperation) bool {
+	if old.RunID != next.RunID || old.Work != next.Work {
+		return false
+	}
+	prior, updated := old.Outcome, next.Outcome
+	if prior.OperationID != "" && prior.OperationID != updated.OperationID ||
+		prior.InstallationID != "" && prior.InstallationID != updated.InstallationID ||
+		prior.Kind != "" && prior.Kind != updated.Kind || prior.ActorID != 0 && prior.ActorID != updated.ActorID ||
+		prior.RepositoryID != 0 && prior.RepositoryID != updated.RepositoryID {
+		return false
+	}
+	if len(prior.Receipt) > 0 && string(prior.Receipt) != string(updated.Receipt) {
+		return false
+	}
+	if (prior.Effect == factory.OpEffectCommitted || prior.Effect == factory.OpEffectNotCommitted) && prior.Effect != updated.Effect {
+		return false
+	}
+	if prior.Cancellation == factory.OpCancelCancelled && updated.Cancellation != prior.Cancellation {
+		return false
+	}
+	if prior.Completion == factory.OpCompletionComplete && updated.Completion != prior.Completion {
+		return false
+	}
+	return true
+}
+
 // OutstandingPublications lists every open or fenced publication and each
 // published record with an unresolved correction for one repository, oldest
 // first. Recovery reconciles each one against native state; withdrawal
@@ -203,12 +238,17 @@ func (s *Store) OutstandingPublications(ctx context.Context, repository int64, l
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_publications
 		WHERE repository=$1 AND (
 			stage IN ('open','fenced') OR
-			(stage='published' AND EXISTS (
+			(stage='published' AND (EXISTS (
 				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'corrections','[]'::jsonb)) AS correction
 				WHERE COALESCE(correction->>'effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(correction->>'cancellation','') IN ('pending','indeterminate')
 				   OR (correction->>'effect'='committed' AND COALESCE(correction->>'completion','') <> 'complete')
-			))
+			) OR EXISTS (
+				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'review_operations','[]'::jsonb)) AS review_op
+				WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
+				   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
+				   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
+			)))
 		) ORDER BY seq LIMIT $2`, repository, limit)
 	if err != nil {
 		return nil, err
@@ -237,12 +277,17 @@ func (s *Store) OpenPublications(ctx context.Context, limit int) ([]factory.Publ
 		return nil, errors.New("invalid publication listing limit")
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_publications
-		WHERE stage IN ('open','fenced') OR (stage='published' AND EXISTS (
+		WHERE stage IN ('open','fenced') OR (stage='published' AND (EXISTS (
 			SELECT 1 FROM jsonb_array_elements(COALESCE(data->'corrections','[]'::jsonb)) AS correction
 			WHERE COALESCE(correction->>'effect','') IN ('','pending','indeterminate')
 			   OR COALESCE(correction->>'cancellation','') IN ('pending','indeterminate')
 			   OR (correction->>'effect'='committed' AND COALESCE(correction->>'completion','') <> 'complete')
-		)) ORDER BY seq LIMIT $1`, limit)
+		) OR EXISTS (
+			SELECT 1 FROM jsonb_array_elements(COALESCE(data->'review_operations','[]'::jsonb)) AS review_op
+			WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
+			   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
+			   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
+		))) ORDER BY seq LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}

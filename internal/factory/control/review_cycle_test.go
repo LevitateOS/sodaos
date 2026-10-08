@@ -1,7 +1,10 @@
 package control
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +12,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestCheckPassUnavailableWithoutAssessor(t *testing.T) {
@@ -113,10 +117,16 @@ func TestCheckPassOpensMergeOnFreshPass(t *testing.T) {
 }
 
 type fakeReviewer struct {
-	observed factory.ReviewObservation
-	outcome  factory.OperationOutcome
-	adopted  factory.ReviewOutcome
-	works    []factory.ReviewWork
+	observed     factory.ReviewObservation
+	outcome      factory.OperationOutcome
+	adopted      factory.ReviewOutcome
+	works        []factory.ReviewWork
+	submitted    []factory.ReviewWork
+	lookups      []string
+	results      map[string]factory.OperationOutcome
+	submitErr    error
+	beforeSubmit func(factory.ReviewWork)
+	cancelled    []string
 }
 
 func (f *fakeReviewer) ObserveReview(ctx context.Context, w factory.ReviewWork) (factory.ReviewObservation, error) {
@@ -125,19 +135,43 @@ func (f *fakeReviewer) ObserveReview(ctx context.Context, w factory.ReviewWork) 
 }
 
 func (f *fakeReviewer) SubmitReview(ctx context.Context, w factory.ReviewWork) (factory.OperationOutcome, error) {
-	return f.outcome, nil
+	f.submitted = append(f.submitted, w)
+	if f.beforeSubmit != nil {
+		f.beforeSubmit(w)
+	}
+	outcome := f.outcome
+	outcome.OperationID, outcome.InstallationID, outcome.Kind = w.OperationID, "test-installation", factory.OpReviewSubmit
+	outcome.ActorID, outcome.RepositoryID = w.ActorID, w.Repository
+	if f.results == nil {
+		f.results = make(map[string]factory.OperationOutcome)
+	}
+	f.results[w.OperationID] = outcome
+	return outcome, f.submitErr
 }
 
 func (f *fakeReviewer) LookupOp(ctx context.Context, operationID string) (factory.OperationOutcome, error) {
-	return f.outcome, nil
+	f.lookups = append(f.lookups, operationID)
+	if outcome, ok := f.results[operationID]; ok {
+		return outcome, nil
+	}
+	return factory.OperationOutcome{NotObserved: true}, nil
 }
 
 func (f *fakeReviewer) CancelOp(ctx context.Context, operationID string) (factory.OperationOutcome, error) {
-	return f.outcome, nil
+	f.cancelled = append(f.cancelled, operationID)
+	outcome, ok := f.results[operationID]
+	if !ok {
+		return factory.OperationOutcome{NotObserved: true}, nil
+	}
+	outcome.Effect, outcome.Cancellation = factory.OpEffectNotCommitted, factory.OpCancelCancelled
+	f.results[operationID] = outcome
+	return outcome, nil
 }
 
 func (f *fakeReviewer) AdoptReview(w factory.ReviewWork, outcome factory.OperationOutcome) (factory.ReviewOutcome, error) {
-	return f.adopted, nil
+	adopted := f.adopted
+	adopted.Operation = outcome
+	return adopted, nil
 }
 
 func reviewRunSeed(t *testing.T, head string) (*publishFixture, factory.Assignment, factory.Publication, factory.Run) {
@@ -199,6 +233,12 @@ func TestSubmitReviewForRunSubmitsExactHead(t *testing.T) {
 		adopted:  factory.ReviewOutcome{ReviewID: 3, CommentID: 4, ReviewerID: 6, PRID: p.PRID, PRNumber: p.PRNumber, IssueID: p.PRCreate.IssueID, HeadOID: p.Candidate, BaseOID: p.PRCreate.BaseOID, CommitID: p.Candidate, Event: "APPROVED"},
 	}
 	exec.adopted.Operation = exec.outcome
+	exec.beforeSubmit = func(work factory.ReviewWork) {
+		stored, err := fx.db.PublicationByAssignment(context.Background(), a.ID)
+		if err != nil || len(stored.ReviewOperations) != 1 || stored.ReviewOperations[0].Work != work {
+			t.Fatalf("review work was not stored before native submission: %+v %v", stored.ReviewOperations, err)
+		}
+	}
 	fx.coord.Reviews = exec
 	output := "notes\n```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
 	adopted, err := fx.coord.SubmitReviewForRun(context.Background(), run.ID, output)
@@ -218,6 +258,152 @@ func TestSubmitReviewForRunSubmitsExactHead(t *testing.T) {
 	if w.AuthRevision != factory.ReviewAuthRevision(a.ID, run.ID) {
 		t.Fatalf("review auth revision: %q", w.AuthRevision)
 	}
+	stored, err := fx.db.PublicationByAssignment(context.Background(), a.ID)
+	if err != nil || len(stored.ReviewOperations) != 1 || !bytes.Equal(stored.ReviewOperations[0].Outcome.Receipt, exec.results[w.OperationID].Receipt) {
+		t.Fatalf("native review receipt not retained byte-exactly: %+v %v", stored.ReviewOperations, err)
+	}
+}
+
+func TestReviewRetryUsesSavedWorkAfterHeadAndPolicyChange(t *testing.T) {
+	ctx := context.Background()
+	fx, a, p, run := reviewRunSeed(t, "")
+	exec := &fakeReviewer{
+		observed:  factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
+		outcome:   committedOutcome(`{"review_id":3}`),
+		adopted:   factory.ReviewOutcome{ReviewID: 3, CommentID: 4, ReviewerID: 6, PRID: p.PRID, PRNumber: p.PRNumber, IssueID: p.PRCreate.IssueID, HeadOID: p.Candidate, BaseOID: p.PRCreate.BaseOID, CommitID: p.Candidate, Event: "APPROVED"},
+		submitErr: errors.New("lost review response"),
+	}
+	fx.coord.Reviews = exec
+	output := "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
+	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID, output); err == nil {
+		t.Fatal("lost review response was reported as complete")
+	}
+	stored, err := fx.db.PublicationByAssignment(ctx, a.ID)
+	if err != nil || len(stored.ReviewOperations) != 1 {
+		t.Fatalf("review intent not persisted: %+v %v", stored.ReviewOperations, err)
+	}
+	saved := stored.ReviewOperations[0].Work
+	for _, mutate := range []struct {
+		name string
+		work func(*factory.ReviewWork)
+	}{
+		{"native revision", func(work *factory.ReviewWork) { work.NativeRev++ }},
+		{"deadline", func(work *factory.ReviewWork) { work.NotAfter++ }},
+		{"actor", func(work *factory.ReviewWork) {
+			work.ActorID++
+			if work.ActorID == work.PRAuthorID {
+				work.ActorID++
+			}
+		}},
+		{"body", func(work *factory.ReviewWork) { work.Body += " changed" }},
+	} {
+		changed := stored
+		changed.ReviewOperations = append([]factory.ReviewOperation(nil), stored.ReviewOperations...)
+		changed.ReviewOperations[0].Work = saved
+		mutate.work(&changed.ReviewOperations[0].Work)
+		changed.Revision++
+		if err := fx.db.UpdatePublication(ctx, changed); !errors.Is(err, store.ErrPublicationConflict) {
+			t.Fatalf("store accepted changed immutable review %s: %v", mutate.name, err)
+		}
+		unchanged, err := fx.db.PublicationByAssignment(ctx, a.ID)
+		if err != nil || unchanged.ReviewOperations[0].Work != saved {
+			t.Fatalf("rejected %s mutation changed saved review: %+v %v", mutate.name, unchanged.ReviewOperations, err)
+		}
+	}
+	for name, list := range map[string]func() ([]factory.Publication, error){
+		"repository recovery": func() ([]factory.Publication, error) { return fx.db.OutstandingPublications(ctx, a.Repository, 16) },
+		"global recovery":     func() ([]factory.Publication, error) { return fx.db.OpenPublications(ctx, 16) },
+	} {
+		publications, err := list()
+		found := false
+		for _, publication := range publications {
+			found = found || publication.ID == p.ID
+		}
+		if err != nil || !found {
+			t.Fatalf("unresolved review omitted from %s: found=%t err=%v", name, found, err)
+		}
+	}
+
+	correction := correctionRun(t, fx, a)
+	candidate := strings.Repeat("d", 40)
+	report := fx.coord.PublishCorrection(ctx, a.ID, correction.ID, correctionOutput(candidate))
+	if len(report.Corrected) != 1 || report.Corrected[0].HeadOID != candidate {
+		t.Fatalf("correction did not advance published head: %+v", report)
+	}
+	policy, err := fx.db.RepositoryPolicy(ctx, a.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy.Review.ActorID = 7
+	if err := fx.db.SaveRepositoryPolicy(ctx, policy); err != nil {
+		t.Fatal(err)
+	}
+	exec.observed.NativeRev = 19
+	exec.submitErr = nil
+	adopted, err := fx.coord.SubmitReviewForRun(ctx, run.ID, "malformed output must not replace saved work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adopted.ReviewerID != saved.ActorID || adopted.HeadOID != saved.HeadOID || len(exec.lookups) != 1 || len(exec.submitted) != 1 || len(exec.works) != 1 {
+		t.Fatalf("retry rebuilt or resubmitted saved review: adopted=%+v lookups=%v submitted=%+v observed=%+v", adopted, exec.lookups, exec.submitted, exec.works)
+	}
+	expectedObservation := saved
+	expectedObservation.NativeRev = 0
+	expectedObservation.NotAfter = 0
+	if exec.lookups[0] != saved.OperationID || exec.submitted[0] != saved || exec.works[0] != expectedObservation {
+		t.Fatalf("retry did not reconcile the original tuple: saved=%+v lookup=%v submit=%+v observe=%+v", saved, exec.lookups, exec.submitted, exec.works)
+	}
+	for name, list := range map[string]func() ([]factory.Publication, error){
+		"repository recovery": func() ([]factory.Publication, error) { return fx.db.OutstandingPublications(ctx, a.Repository, 16) },
+		"global recovery":     func() ([]factory.Publication, error) { return fx.db.OpenPublications(ctx, 16) },
+	} {
+		publications, err := list()
+		for _, publication := range publications {
+			if publication.ID == p.ID {
+				t.Fatalf("completed review remains in %s: %+v", name, publication.ReviewOperations)
+			}
+		}
+		if err != nil {
+			t.Fatalf("list %s after review completion: %v", name, err)
+		}
+	}
+}
+
+func TestWithdrawalCancelsRecordedReviewOperation(t *testing.T) {
+	ctx := context.Background()
+	fx, a, p, run := reviewRunSeed(t, "")
+	exec := &fakeReviewer{
+		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
+		outcome:  pendingOutcome(),
+		adopted:  factory.ReviewOutcome{ReviewerID: 6, PRID: p.PRID, PRNumber: p.PRNumber, IssueID: p.PRCreate.IssueID, HeadOID: p.Candidate, BaseOID: p.PRCreate.BaseOID, Event: "APPROVED"},
+	}
+	fx.coord.Reviews = exec
+	output := "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
+	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID, output); err == nil {
+		t.Fatal("pending review incorrectly reported complete")
+	}
+	if _, err := fx.db.WithdrawDispatch(ctx, a.Repository, "pause", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	withdrawal := fx.coord.cancelRepositoryPublications(ctx, a.Repository)
+	found := false
+	for _, operationID := range withdrawal.Operations {
+		found = found || operationID == "review-"+run.ID
+	}
+	if !found {
+		t.Fatalf("review operation omitted from withdrawal result: %+v", withdrawal)
+	}
+	if len(exec.cancelled) != 1 || exec.cancelled[0] != "review-"+run.ID {
+		t.Fatalf("recorded review was not cancelled exactly once: %v", exec.cancelled)
+	}
+	stored, err := fx.db.PublicationByAssignment(ctx, a.ID)
+	if err != nil || len(stored.ReviewOperations) != 1 {
+		t.Fatalf("review cancellation not retained: %+v %v", stored.ReviewOperations, err)
+	}
+	result := stored.ReviewOperations[0].Outcome
+	if result.Effect != factory.OpEffectNotCommitted || result.Cancellation != factory.OpCancelCancelled {
+		t.Fatalf("review cancellation outcome lost: %+v", result)
+	}
 }
 
 func TestSubmitReviewForRunRefusesStaleHead(t *testing.T) {
@@ -232,6 +418,60 @@ func TestSubmitReviewForRunRefusesStaleHead(t *testing.T) {
 		t.Fatal("stale review observed native state")
 	}
 	_ = p
+}
+
+func TestReviewRegistrationRefusesClosedDispatchBeforeSubmit(t *testing.T) {
+	ctx := context.Background()
+	fx, a, _, run := reviewRunSeed(t, "")
+	triggerDB, err := sql.Open("pgx", fx.dsn)
+	if err != nil {
+		t.Fatal("open isolated PostgreSQL fixture")
+	}
+	defer func() { _ = triggerDB.Close() }()
+	_, err = triggerDB.ExecContext(ctx, `CREATE FUNCTION close_dispatch_after_review_registration() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE previous_count integer; next_count integer;
+BEGIN
+  previous_count := jsonb_array_length(COALESCE(OLD.data->'review_operations','[]'::jsonb));
+  next_count := jsonb_array_length(COALESCE(NEW.data->'review_operations','[]'::jsonb));
+  IF next_count > previous_count THEN
+    UPDATE factory_dispatch SET revision=revision+1, open=FALSE,
+      data=jsonb_build_object(
+        'active_causes',jsonb_build_array('test_review_close'),
+        'publications',jsonb_build_object('publications',jsonb_build_array(),'operations',jsonb_build_array(),'pending',FALSE),
+        'merges',jsonb_build_object('merges',jsonb_build_array(),'operations',jsonb_build_array(),'pending',FALSE),
+        'captured',jsonb_build_array(),'repository',NEW.repository::text,'revision',factory_dispatch.revision+1,
+        'cause','test_review_close','closed_by','test:review-boundary')
+    WHERE repository=NEW.repository;
+  END IF;
+  RETURN NEW;
+END $$;`)
+	if err != nil {
+		t.Fatal("install isolated post-registration gate trigger")
+	}
+	_, err = triggerDB.ExecContext(ctx, `CREATE TRIGGER close_dispatch_after_review_registration AFTER UPDATE ON factory_publications FOR EACH ROW EXECUTE FUNCTION close_dispatch_after_review_registration()`)
+	if err != nil {
+		t.Fatal("install isolated post-registration gate trigger")
+	}
+	exec := &fakeReviewer{observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()}}
+	fx.coord.Reviews = exec
+	output := "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
+	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID, output); err == nil {
+		t.Fatal("review submitted after dispatch closed at the registration boundary")
+	}
+	if len(exec.submitted) != 0 {
+		t.Fatalf("closed dispatch reached native review submit: %+v", exec.submitted)
+	}
+	stored, err := fx.db.PublicationByAssignment(ctx, a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.ReviewOperations) != 1 || stored.ReviewOperations[0].RunID != run.ID || stored.ReviewOperations[0].Outcome.OperationID != "" {
+		t.Fatalf("post-registration refusal did not retain its unsent intent: %+v", stored.ReviewOperations)
+	}
+	open, _, withdrawal, err := fx.db.DispatchState(ctx, a.Repository)
+	if err != nil || open || len(withdrawal.ActiveCauses) != 1 || withdrawal.ActiveCauses[0] != "test_review_close" {
+		t.Fatalf("trigger did not close dispatch after registration: open=%t withdrawal=%+v err=%v", open, withdrawal, err)
+	}
 }
 
 func TestStopSubmitsSettledReview(t *testing.T) {
@@ -255,13 +495,17 @@ func TestStopSubmitsSettledReview(t *testing.T) {
 	host := &stubHost{}
 	broker := &stubBroker{}
 	host.stop = func(in project.FactoryStop) (project.FactoryState, error) {
-		return project.FactoryState{ID: in.ID, Project: in.Project, Phase: project.FactoryCompleted, Output: output,
-			Retirement: "confirmed", LeaseID: "lease-" + in.ID, Generation: 3, CredentialReturned: true}, nil
+		return project.FactoryState{
+			ID: in.ID, Project: in.Project, Phase: project.FactoryCompleted, Output: output,
+			Retirement: "confirmed", LeaseID: "lease-" + in.ID, Generation: 3, CredentialReturned: true,
+		}, nil
 	}
 	broker.close = func(string, string) error { return nil }
 	broker.get = func(kind, id string) (identity.Execution, error) {
-		return identity.Execution{Kind: kind, ExecutionID: id, State: identity.ExecutionTerminal,
-			LeaseID: "lease-" + id, Binding: &identity.Binding{Kind: identity.Factory, ID: id, Generation: 3}}, nil
+		return identity.Execution{
+			Kind: kind, ExecutionID: id, State: identity.ExecutionTerminal,
+			LeaseID: "lease-" + id, Binding: &identity.Binding{Kind: identity.Factory, ID: id, Generation: 3},
+		}, nil
 	}
 	fx.coord.Host, fx.coord.Broker = host, broker
 	exec := &fakeReviewer{
@@ -271,8 +515,10 @@ func TestStopSubmitsSettledReview(t *testing.T) {
 	}
 	exec.adopted.Operation = exec.outcome
 	fx.coord.Reviews = exec
-	receipt, err := fx.coord.Stop(ctx, factory.Command{ID: factory.NewID(), Type: factory.CommandStop,
-		Target: run.ID, Principal: "native:7", Digest: factory.CommandDigest(factory.CommandStop, run.ID)})
+	receipt, err := fx.coord.Stop(ctx, factory.Command{
+		ID: factory.NewID(), Type: factory.CommandStop,
+		Target: run.ID, Principal: "native:7", Digest: factory.CommandDigest(factory.CommandStop, run.ID),
+	})
 	if err != nil || !receipt.Confirmed {
 		t.Fatalf("review stop: %+v %v", receipt, err)
 	}

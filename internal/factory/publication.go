@@ -93,16 +93,30 @@ func ValidOpCompletion(state string) bool {
 // inspectable without carrying unbounded native content.
 const MaxPublicationReceipt = 4096
 
+// Review admission bounds the append-only native review history retained in
+// one publication: at most 128 records and 1 MiB summed across each
+// ReviewWork.Body plus the maximum raw receipt capacity reserved for that
+// operation. Reserving receipt capacity keeps admitted pending work
+// persistable when its native outcome arrives. These resource ceilings do
+// not limit configured review or correction cycles; callers refuse a new
+// review before native dispatch when either ceiling is reached, preserving
+// history.
+const (
+	MaxPublicationReviewOperations = 128
+	MaxPublicationReviewBytes      = 1 << 20
+)
+
 // Publication is one assignment's durable publication: the exact bound
-// candidate and target, the two separately persisted conditional
-// operations, the fresh observations the current attempt bound, and the
-// exact linked PR once creation commits. Finished work is terminal and
-// keeps its receipts for inspection.
+// candidate and target, the separately persisted branch and PR operations,
+// any immutable review work and its native outcome, the fresh observations
+// the current attempt bound, and the exact linked PR once creation commits.
+// Finished work keeps its receipts for inspection.
 type Publication struct {
 	WithdrawRequested bool                 `json:"withdraw_requested,omitempty"`
 	Publish           PublicationOperation `json:"publish"`
 	PRCreate          PublicationOperation `json:"pr_create"`
 	Corrections       CorrectionOps        `json:"corrections,omitempty"`
+	ReviewOperations  []ReviewOperation    `json:"review_operations,omitempty"`
 	Authority         AuthorityRef         `json:"authority"`
 	ID                string               `json:"id"`
 	AssignmentID      string               `json:"assignment_id"`
@@ -218,6 +232,9 @@ func (p Publication) Validate() error {
 			return errors.New("publication head differs from its committed corrections")
 		}
 	}
+	if err := p.validateReviewOperations(nil); err != nil {
+		return err
+	}
 	for _, op := range []PublicationOperation{p.Publish, p.PRCreate} {
 		if op.Work != nil && (op.Work.Candidate != initial || op.Work.Repository != p.Repository || op.Work.TargetBranch != p.TargetBranch) {
 			return errors.New("publication operation intent differs from its publication")
@@ -278,6 +295,50 @@ func (p Publication) Validate() error {
 		}
 	default:
 		return errors.New("invalid publication stage")
+	}
+	return nil
+}
+
+// CanAppendReviewOperation performs the domain admission check before the
+// coordinator retains a new work item or reaches the native submit call.
+func (p Publication) CanAppendReviewOperation(op ReviewOperation) error {
+	return p.validateReviewOperations(&op)
+}
+
+func (p Publication) validateReviewOperations(additional *ReviewOperation) error {
+	count := len(p.ReviewOperations)
+	if additional != nil {
+		count++
+	}
+	if count == 0 {
+		return nil
+	}
+	if (p.Stage != PublicationPublished && p.Stage != PublicationFenced) || p.PRCreate.Work == nil || p.PRCreate.Effect != OpEffectCommitted {
+		return errors.New("review operations require a linked publication")
+	}
+	if count > MaxPublicationReviewOperations {
+		return errors.New("publication review history exceeds its record bound")
+	}
+	seen := make(map[string]bool, count)
+	retained := 0
+	for i := 0; i < count; i++ {
+		var op ReviewOperation
+		if i < len(p.ReviewOperations) {
+			op = p.ReviewOperations[i]
+		} else {
+			op = *additional
+		}
+		if err := op.ValidateForPublication(p); err != nil {
+			return err
+		}
+		retained += len(op.Work.Body) + MaxPublicationReceipt
+		if retained > MaxPublicationReviewBytes {
+			return errors.New("publication review history exceeds its byte bound")
+		}
+		if seen[op.RunID] {
+			return errors.New("duplicate review run operation")
+		}
+		seen[op.RunID] = true
 	}
 	return nil
 }

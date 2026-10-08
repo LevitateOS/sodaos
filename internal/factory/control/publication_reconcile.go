@@ -31,6 +31,7 @@ func (c *Coordinator) reconcilePublication(ctx context.Context, p factory.Public
 			c.withdrawPublication(ctx, a, &p, run, report)
 			return
 		}
+		c.reconcileRecordedReviews(ctx, &p, report)
 		corrections := CorrectionReport{}
 		c.reconcileRecordedCorrection(ctx, &p, a, &corrections)
 		for _, wait := range corrections.Waits {

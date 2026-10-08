@@ -1,6 +1,7 @@
 package control
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -125,6 +126,48 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID, output stri
 	if err != nil {
 		return empty, err
 	}
+	for i := range p.ReviewOperations {
+		op := p.ReviewOperations[i]
+		if op.RunID != run.ID {
+			continue
+		}
+		if err := op.ValidateForPublication(p); err != nil {
+			return empty, err
+		}
+		// A retry always looks up the saved immutable tuple before reading the
+		// caller's output, current policy, head or native observation. Absence
+		// cannot prove an earlier request will not arrive, so it never submits
+		// again or rebuilds the operation identity.
+		outcome, err := c.Reviews.LookupOp(ctx, op.Work.OperationID)
+		if err != nil {
+			return empty, err
+		}
+		if outcome.NotObserved {
+			return empty, errors.New("recorded review outcome remains unresolved")
+		}
+		updated, err := op.WithOutcome(outcome)
+		if err != nil {
+			return empty, err
+		}
+		if !sameReviewOperationOutcome(op.Outcome, updated.Outcome) {
+			p.ReviewOperations[i] = updated
+			p.Revision++
+			if err := c.Store.UpdatePublication(ctx, p); err != nil {
+				return empty, err
+			}
+		}
+		if outcome.Effect != factory.OpEffectCommitted || outcome.Completion != factory.OpCompletionComplete {
+			return empty, errors.New("recorded review submission is not complete")
+		}
+		adopted, err := c.Reviews.AdoptReview(op.Work, outcome)
+		if err != nil {
+			return empty, err
+		}
+		if adopted.ReviewerID != op.Work.ActorID || adopted.Event != op.Work.Event || adopted.HeadOID != op.Work.HeadOID {
+			return empty, errors.New("review receipt differs from its recorded work")
+		}
+		return adopted, nil
+	}
 	if p.Stage != factory.PublicationPublished || p.PRNumber <= 0 || p.PRID <= 0 || p.PRCreate.Work == nil {
 		return empty, errors.New("review target is not published")
 	}
@@ -163,18 +206,105 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID, output stri
 		return empty, err
 	}
 	w.NativeRev, w.NotAfter = observed.NativeRev, time.Now().Unix()+600
+	if err := w.Validate(); err != nil {
+		return empty, err
+	}
+	reviewOperation := factory.ReviewOperation{RunID: run.ID, Work: w}
+	if err := p.CanAppendReviewOperation(reviewOperation); err != nil {
+		return empty, err
+	}
+	// Persist the exact authorization before the only submission call. The
+	// store transaction shares the withdrawal gate, so a refused registration
+	// has no native effect.
+	p.ReviewOperations = append(p.ReviewOperations, reviewOperation)
+	p.Revision++
+	if err := c.Store.UpdatePublication(ctx, p); err != nil {
+		return empty, err
+	}
+	open, _, _, err := c.Store.DispatchState(ctx, p.Repository)
+	if err != nil {
+		return empty, errors.New("review dispatch state is unconfirmed after registration")
+	}
+	if !open {
+		return empty, errors.New("review dispatch closed after registration")
+	}
 	outcome, err := c.Reviews.SubmitReview(ctx, w)
 	if err != nil {
+		return empty, err
+	}
+	updated, err := p.ReviewOperations[len(p.ReviewOperations)-1].WithOutcome(outcome)
+	if err != nil {
+		return empty, err
+	}
+	p.ReviewOperations[len(p.ReviewOperations)-1] = updated
+	p.Revision++
+	if err := c.Store.UpdatePublication(ctx, p); err != nil {
 		return empty, err
 	}
 	adopted, err := c.Reviews.AdoptReview(w, outcome)
 	if err != nil {
 		return empty, err
 	}
-	if outcome.Completion != factory.OpCompletionComplete || adopted.ReviewerID != policy.Review.ActorID {
+	if outcome.Completion != factory.OpCompletionComplete || adopted.ReviewerID != w.ActorID || adopted.Event != w.Event || adopted.HeadOID != w.HeadOID {
 		return empty, errors.New("review submission incomplete")
 	}
 	return adopted, nil
+}
+
+func sameReviewOperationOutcome(a, b factory.OperationOutcome) bool {
+	return a.OperationID == b.OperationID && a.InstallationID == b.InstallationID && a.Kind == b.Kind &&
+		a.ActorID == b.ActorID && a.RepositoryID == b.RepositoryID && bytes.Equal(a.Receipt, b.Receipt) &&
+		a.Effect == b.Effect && a.Cancellation == b.Cancellation && a.Completion == b.Completion &&
+		a.Reason == b.Reason && a.NotObserved == b.NotObserved
+}
+
+func (c *Coordinator) reconcileRecordedReviews(ctx context.Context, p *factory.Publication, report *PublishReport) {
+	for i := range p.ReviewOperations {
+		op := p.ReviewOperations[i]
+		prior := op.Outcome
+		if prior.Effect == factory.OpEffectCommitted && prior.Completion == factory.OpCompletionComplete ||
+			prior.Effect == factory.OpEffectNotCommitted && prior.Cancellation == factory.OpCancelCancelled {
+			continue
+		}
+		if c.Reviews == nil {
+			publicationWait(report, op.Work.OperationID, "review_reconciliation_unavailable")
+			continue
+		}
+		outcome, err := c.Reviews.LookupOp(ctx, op.Work.OperationID)
+		if err != nil {
+			c.publicationCallError(report, op.Work.OperationID, err)
+			continue
+		}
+		if outcome.NotObserved {
+			publicationWait(report, op.Work.OperationID, "review_outcome_unresolved")
+			continue
+		}
+		updated, err := op.WithOutcome(outcome)
+		if err != nil {
+			publicationError(report, op.Work.OperationID, "review_outcome_unattributed")
+			continue
+		}
+		if !sameReviewOperationOutcome(prior, updated.Outcome) {
+			p.ReviewOperations[i] = updated
+			p.Revision++
+			if err := c.Store.UpdatePublication(ctx, *p); err != nil {
+				publicationError(report, op.Work.OperationID, "store_unavailable")
+				return
+			}
+		}
+		if outcome.Effect == factory.OpEffectCommitted {
+			adopted, err := c.Reviews.AdoptReview(op.Work, outcome)
+			if err != nil || adopted.ReviewerID != op.Work.ActorID || adopted.Event != op.Work.Event || adopted.HeadOID != op.Work.HeadOID {
+				publicationError(report, op.Work.OperationID, "review_receipt_unattributed")
+				continue
+			}
+			if outcome.Completion != factory.OpCompletionComplete {
+				publicationWait(report, op.Work.OperationID, "review_completion_pending")
+			}
+		} else if outcome.Effect != factory.OpEffectNotCommitted {
+			publicationWait(report, op.Work.OperationID, "review_effect_pending")
+		}
+	}
 }
 
 // correctAfterSettle advances one completed coder run beyond its

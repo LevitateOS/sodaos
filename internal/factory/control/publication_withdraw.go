@@ -34,6 +34,11 @@ func (c *Coordinator) cancelPublications(ctx context.Context, repository, issue 
 				result.Operations = append(result.Operations, op.OperationID)
 			}
 		}
+		for _, op := range p.ReviewOperations {
+			if op.Work.OperationID != "" {
+				result.Operations = append(result.Operations, op.Work.OperationID)
+			}
+		}
 		a, err := c.assignmentForPublication(ctx, p)
 		if err != nil {
 			result.Pending = true
@@ -134,6 +139,33 @@ func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignm
 			}
 		}
 	}
+	for i := range p.ReviewOperations {
+		op := &p.ReviewOperations[i]
+		if c.Reviews == nil {
+			confirmed = false
+			continue
+		}
+		outcome, err := c.Reviews.CancelOp(ctx, op.Work.OperationID)
+		if err != nil || outcome.NotObserved {
+			confirmed = false
+			continue
+		}
+		updated, err := op.WithOutcome(outcome)
+		if err != nil {
+			confirmed = false
+			continue
+		}
+		*op = updated
+		if outcome.Effect != factory.OpEffectCommitted && outcome.Effect != factory.OpEffectNotCommitted {
+			confirmed = false
+		}
+		if outcome.Effect == factory.OpEffectCommitted {
+			adopted, err := c.Reviews.AdoptReview(op.Work, outcome)
+			if err != nil || adopted.ReviewerID != op.Work.ActorID || adopted.Event != op.Work.Event || adopted.HeadOID != op.Work.HeadOID {
+				confirmed = false
+			}
+		}
+	}
 	if !c.storePublication(ctx, p, report) {
 		return
 	}
@@ -143,6 +175,12 @@ func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignm
 	for _, op := range p.Corrections {
 		if op.Effect == factory.OpEffectCommitted && op.Completion != factory.OpCompletionComplete {
 			publicationWait(report, p.ID, "branch_completion_pending")
+			return
+		}
+	}
+	for _, op := range p.ReviewOperations {
+		if op.Outcome.Effect == factory.OpEffectCommitted && op.Outcome.Completion != factory.OpCompletionComplete {
+			publicationWait(report, op.Work.OperationID, "review_completion_pending")
 			return
 		}
 	}
@@ -183,10 +221,14 @@ func (c *Coordinator) adoptObserved(op *factory.PublicationOperation, outcome fa
 	op.InstallationID, op.ActorID, op.RepositoryID = outcome.InstallationID, outcome.ActorID, outcome.RepositoryID
 	return true
 }
+
 func operationOutcomeOf(op factory.PublicationOperation) factory.OperationOutcome {
-	return factory.OperationOutcome{Receipt: []byte(op.Receipt), Effect: op.Effect, Cancellation: op.Cancellation, Completion: op.Completion, Reason: op.Reason,
-		OperationID: op.OperationID, InstallationID: op.InstallationID, Kind: op.Kind, ActorID: op.ActorID, RepositoryID: op.RepositoryID}
+	return factory.OperationOutcome{
+		Receipt: []byte(op.Receipt), Effect: op.Effect, Cancellation: op.Cancellation, Completion: op.Completion, Reason: op.Reason,
+		OperationID: op.OperationID, InstallationID: op.InstallationID, Kind: op.Kind, ActorID: op.ActorID, RepositoryID: op.RepositoryID,
+	}
 }
+
 func (c *Coordinator) storePublication(ctx context.Context, p *factory.Publication, report *PublishReport) bool {
 	p.Revision++
 	if err := c.Store.UpdatePublication(ctx, *p); err != nil {
@@ -195,6 +237,7 @@ func (c *Coordinator) storePublication(ctx context.Context, p *factory.Publicati
 	}
 	return true
 }
+
 func (c *Coordinator) finishPublication(ctx context.Context, p factory.Publication, stage string, outcome factory.Outcome, reason string, report *PublishReport) {
 	p.Stage, p.Outcome, p.Reason, p.FinishedUnix = stage, outcome, reason, time.Now().Unix()
 	if !c.storePublication(ctx, &p, report) {
