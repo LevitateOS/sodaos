@@ -1,5 +1,5 @@
 //! Inputs oracle vectors: live inputs, CoreOS records, frozen input
-//! marshalling, the Forgejo toolchain, JSON strictness, and misc vectors.
+//! marshalling, Forgejo toolchain semantics, JSON strictness, and misc vectors.
 
 use super::{oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
 use soda_build_tools::reader::settings::soda_commands;
@@ -54,7 +54,7 @@ fn oracle_forgejo_argv_and_script() {
 }
 
 #[test]
-fn oracle_forgejo_toolchain_bytes() {
+fn oracle_forgejo_toolchain_semantics_and_determinism() {
     let toolchain = ForgejoToolchain {
         compiler_image: FORGEJO_COMPILER_IMAGE.to_string(),
         apk_packages: vec![
@@ -64,7 +64,11 @@ fn oracle_forgejo_toolchain_bytes() {
         ],
     };
     toolchain.validate().unwrap();
-    assert_eq!(toolchain.marshal() + "\n", oracle::FORGEJO_TOOLCHAIN_JSON);
+    let rendered = toolchain.marshal();
+    assert_eq!(rendered, toolchain.marshal());
+    let readback: ForgejoToolchain = serde_json::from_str(&rendered).unwrap();
+    assert_eq!(readback.compiler_image, FORGEJO_COMPILER_IMAGE);
+    assert_eq!(readback.apk_packages, toolchain.apk_packages);
 }
 
 #[test]

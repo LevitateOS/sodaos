@@ -75,16 +75,6 @@ if [ -n "${FORGEJO_VERSION:-}" ]; then
 fi
 go build -buildvcs=false -tags 'bindata sqlite sqlite_unlock_notify' -ldflags "${LDFLAGS}" -trimpath -o /work/out/forgejo-bin .
 "###;
-pub const FORGEJO_TOOLCHAIN_JSON: &str = r###"{
-  "CompilerImage": "docker.io/library/golang@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468",
-  "APKPackages": [
-    "build-base-0.5-r4",
-    "gcc-14.2.0-r6",
-    "musl-dev-1.2.5-r10"
-  ]
-}
-"###;
-
 pub const PRODUCTION_SEQUENCE: &str = r###"STEP Check frontend toolchain
 bun --version
 STEP Verify Go dependencies

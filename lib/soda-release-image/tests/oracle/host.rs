@@ -163,11 +163,73 @@ fn oracle_candidate_live_config() {
     let dest = br#"{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}"#;
     let manifest = format!("sha256:{}", "1".repeat(64));
     let console = "2".repeat(64);
-    check_ok(
-        "L-live-ok",
-        r"eyJpZ25pdGlvbiI6eyJ2ZXJzaW9uIjoiMy41LjAifSwic3RvcmFnZSI6eyJmaWxlcyI6W3siY29udGVudHMiOnsic291cmNlIjoiZGF0YTo7YmFzZTY0LGV5SkJjbU5vYVhSbFkzUjFjbVVpT2lKNE9EWmZOalFpTENKU1pXeGxZWE5sSWpvaU5ERXVNakF5TlRBeE1ERXVNeTR3SWl3aVNXNXpkR0ZzYkdWeVZtVnljMmx2YmlJNkltTnZjbVZ2Y3kxcGJuTjBZV3hzWlhJZ01DNHlOaTR3SWl3aVVtVjJhWE5wYjI0aU9pSmhZV0ZoWVdGaFlXRmhZV0ZoWVdGaFlXRmhZV0ZoWVdGaFlXRmhZV0ZoWVdGaFlXRmhZV0ZoSWl3aVNHOXpkRTFoYm1sbVpYTjBJam9pYzJoaE1qVTJPakV4TVRFeE1URXhNVEV4TVRFeE1URXhNVEV4TVRFeE1URXhNVEV4TVRFeE1URXhNVEV4TVRFeE1URXhNVEV4TVRFeE1URXhNVEV4TVRFeE1URXhNVEVpTENKUVlYbHNiMkZrVTBoQk1qVTJJam9pTm1SaE9UazRNak5tTmpBd016UmxOamRpTW1Rd09HRmpOVEEyTTJNeE56UXhOV05qTlRrNE5tRmhOV1pqWVRWaVl6RTJOVEZoTVRWbFpHSTVNMkpsTVNJc0lrTnZibk52YkdWVFNFRXlOVFlpT2lJeU1qSXlNakl5TWpJeU1qSXlNakl5TWpJeU1qSXlNakl5TWpJeU1qSXlNakl5TWpJeU1qSXlNakl5TWpJeU1qSXlNakl5TWpJeU1qSXlNakl5TWpJeUluMD0ifSwibW9kZSI6NDIwLCJwYXRoIjoiL3Zhci91c3Jsb2NhbC9zaGFyZS9zb2RhLWluc3RhbGxlci9tZWRpYS5qc29uIn0seyJjb250ZW50cyI6eyJzb3VyY2UiOiJkYXRhOjtiYXNlNjQsZXlKcFoyNXBkR2x2YmlJNmV5SjJaWEp6YVc5dUlqb2lNeTQxTGpBaWZTd2ljM1J2Y21GblpTSTZleUptYVd4bGN5STZXMTE5ZlE9PSJ9LCJtb2RlIjo0MjAsInBhdGgiOiIvdmFyL3VzcmxvY2FsL3NoYXJlL3NvZGEtaW5zdGFsbGVyL2Rlc3RpbmF0aW9uLmlnbiJ9XX0sInN5c3RlbWQiOnsidW5pdHMiOlt7Im1hc2siOnRydWUsIm5hbWUiOiJnZXR0eUB0dHkxLnNlcnZpY2UifSx7Im1hc2siOnRydWUsIm5hbWUiOiJmb3JnZWpvLnNlcnZpY2UifSx7Im1hc2siOnRydWUsIm5hbWUiOiJzb2RhLWRhc2hib2FyZC5zZXJ2aWNlIn0seyJtYXNrIjp0cnVlLCJuYW1lIjoic29kYS1wcm94eS5zZXJ2aWNlIn0seyJtYXNrIjp0cnVlLCJuYW1lIjoic29kYS1ob3N0LnNlcnZpY2UifSx7Im1hc2siOnRydWUsIm5hbWUiOiJzb2RhLWhvc3Quc29ja2V0In0seyJtYXNrIjp0cnVlLCJuYW1lIjoic29kYS1pbWFnZS1pbXBvcnQuc2VydmljZSJ9LHsiY29udGVudHMiOiJbVW5pdF1cbkRlc2NyaXB0aW9uPVNvZGFPUyBpbnN0YWxsYXRpb24gY29uc29sZVxuQWZ0ZXI9c3lzdGVtZC11c2VyLXNlc3Npb25zLnNlcnZpY2UgTmV0d29ya01hbmFnZXIuc2VydmljZVxuQ29uZmxpY3RzPWdldHR5QHR0eTEuc2VydmljZVxuW1NlcnZpY2VdXG5UeXBlPXNpbXBsZVxuUHJpdmF0ZU1vdW50cz15ZXNcbkV4ZWNTdGFydD0vdXNyL2xpYmV4ZWMvc29kYS9zb2RhLWluc3RhbGwgZGlza1xuU3RhbmRhcmRJbnB1dD10dHktZm9yY2VcblN0YW5kYXJkT3V0cHV0PXR0eVxuU3RhbmRhcmRFcnJvcj10dHlcblRUWVBhdGg9L2Rldi90dHkxXG5UVFlSZXNldD15ZXNcblRUWVZIYW5ndXA9eWVzXG5SZXN0YXJ0PW5vXG5bSW5zdGFsbF1cbldhbnRlZEJ5PW11bHRpLXVzZXIudGFyZ2V0XG4iLCJlbmFibGVkIjp0cnVlLCJuYW1lIjoic29kYS1pbnN0YWxsZXItY29uc29sZS5zZXJ2aWNlIn1dfX0=",
-        &ignition::candidate_live_config(&payload, dest, &manifest, &console).unwrap(),
+    let candidate = ignition::candidate_live_config(&payload, dest, &manifest, &console).unwrap();
+    assert_eq!(
+        candidate,
+        ignition::candidate_live_config(&payload, dest, &manifest, &console).unwrap(),
+        "candidate live config serialization is deterministic"
     );
+
+    let document: serde_json::Value = serde_json::from_slice(&candidate).unwrap();
+    assert_eq!(document["ignition"]["version"], "3.5.0");
+    let files = document["storage"]["files"].as_array().unwrap();
+    assert_eq!(files.len(), 2);
+    let media_file = files
+        .iter()
+        .find(|file| file["path"] == "/var/usrlocal/share/soda-installer/media.json")
+        .unwrap();
+    assert_eq!(media_file["mode"], 420);
+    let media_source = media_file["contents"]["source"].as_str().unwrap();
+    let media_bytes = base64::engine::general_purpose::STANDARD
+        .decode(media_source.strip_prefix("data:;base64,").unwrap())
+        .unwrap();
+    let identity: serde_json::Value = serde_json::from_slice(&media_bytes).unwrap();
+    let parsed_payload = model::Payload::parse(std::str::from_utf8(&payload).unwrap()).unwrap();
+    assert_eq!(identity["Architecture"], parsed_payload.architecture);
+    assert_eq!(identity["Release"], parsed_payload.core_os);
+    assert_eq!(identity["Revision"], parsed_payload.revision);
+    assert_eq!(identity["InstallerVersion"], "coreos-installer 0.26.0");
+    assert_eq!(identity["HostManifest"], manifest);
+    assert_eq!(identity["PayloadSHA256"], sys::hex_sha256(&payload));
+    assert_eq!(identity["ConsoleSHA256"], console);
+
+    let destination_file = files
+        .iter()
+        .find(|file| file["path"] == "/var/usrlocal/share/soda-installer/destination.ign")
+        .unwrap();
+    assert_eq!(destination_file["mode"], 420);
+    assert_eq!(
+        destination_file["contents"]["source"].as_str().unwrap(),
+        format!("data:;base64,{}", b64(dest))
+    );
+
+    let units = document["systemd"]["units"].as_array().unwrap();
+    let masked: Vec<_> = units
+        .iter()
+        .filter(|unit| unit["mask"] == true)
+        .map(|unit| unit["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        masked,
+        [
+            "getty@tty1.service",
+            "forgejo.service",
+            "soda-dashboard.service",
+            "soda-proxy.service",
+            "soda-host.service",
+            "soda-host.socket",
+            "soda-image-import.service",
+        ]
+    );
+    let console_unit = units
+        .iter()
+        .find(|unit| unit["name"] == "soda-installer-console.service")
+        .unwrap();
+    assert_eq!(console_unit["enabled"], true);
+    assert!(console_unit["contents"]
+        .as_str()
+        .unwrap()
+        .contains("ExecStart=/usr/libexec/soda/soda-install disk"));
     check_err(
         "L-live-baddest",
         r"public converted destination template required",

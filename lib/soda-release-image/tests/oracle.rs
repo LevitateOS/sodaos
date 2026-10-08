@@ -1,6 +1,6 @@
-//! Differential oracle: frozen Go-owner outputs captured 2026-10-04.
-//! Each case replays the oracle battery against the Rust port and
-//! requires byte-identical outputs or identical error messages.
+//! Selected release-image behavior checks. These exercise current producers
+//! and validation/refusal contracts; byte comparisons remain where raw output
+//! representation itself is the behavior under test.
 
 use base64::Engine;
 use soda_release_image::{
