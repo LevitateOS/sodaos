@@ -957,6 +957,16 @@ are joined to the work path. Soda still refuses absent/relative paths and keeps
 its `/data` host mapping under the [operator contract](../../guides/operator-setup.md).
 Those intentional policy differences are not parser equivalence failures.
 
+CUSTODY-CFG-MARKER-1 repairs the independent host marker boundary. The retained
+directory descriptor uses the existing rustix selection for observation,
+exclusive creation and removal; traversal, symlinks, nonregular entries and
+non-NotFound errors refuse. Existing regular markers retain their bytes and
+mode. Five new regressions failed against unchanged production source; all 26
+package tests and the locked offline development binary build now pass, with
+independent Luna medium source review. These local filesystem/FakeSys checks
+do not establish installed service behavior, parser fit or deployment override
+admission. The whole L17 task remains open.
+
 The process-environment override wins even when the server section is absent.
 Quote characters supplied in an actual process environment remain literal;
 that fixture does not prove how Quadlet/container environment-file quoting is

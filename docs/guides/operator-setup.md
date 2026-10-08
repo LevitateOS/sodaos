@@ -84,3 +84,11 @@ creates the offline marker, resolving the deployment `AppDataPath` from its
 reservation rows; `lift` removes the marker and unmasks; `start` refuses
 while the marker exists. Reservation diagnostics stay behind Forgejo's own
 `admin native-operation status`. There is no force-unlock verb.
+
+The marker mapping stays inside the selected host data volume: parent traversal,
+symlinked path components and nonregular marker entries are refused. Marker
+observation, creation and removal use the admitted directory descriptor. A new
+marker has mode `0600`; an existing regular marker keeps its contents and mode.
+A known-missing parent or marker means absent for `status`, `lift` and `start`,
+but `inhibit` never creates parent directories. Other filesystem errors refuse
+the operation before a successful marker report, unmask or start.

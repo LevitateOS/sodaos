@@ -396,3 +396,24 @@ A07.V and R04 retain their original correctness/qualification duties.
 | --- | --- | --- | --- |
 | DOC-R02-CURRENT-1 → R02.targets / Coordinator | Reconcile only current mismatches in `proposed-tree.md`, `port-assessment.md`, `package-ownership.md` and `ideal-filetree-plan.md`: remove retired build OCI/JSON engine leaves, name delivery's canonical OCI owner and retained build policy callers, mark completed helper/Go retirements and release-wiring/acceptance-companion/live-input wire selectors, distinguish current host entrypoint from its proposed placement, and correct completed L10.N4/L16.G status. Luna low prepares an unapplied proposal; coordinator applies/stages, with independent Luna medium review. | Current source/manifests and existing C04/C08/C10/L18 cutover receipts, D03-F3 selector correction and `3ccbc127` wire receipt. Build's `src/oci.rs` is also absent; inspect actual consumers rather than preserve a forwarding leaf. Historical offsets/counts remain historical. Generated/data/license and live wire/fixture duties remain. | Every changed live claim matches its defining owner/actual caller, with retained/current/proposed/held dispositions explicit. No full tree regeneration, unrelated move, reopened language decision or native qualification. R02.targets and R02.joins remain open for their full original census/mapping scope. |
 | DEAD-REL-TO-SLASH-1 → R02 / C | Luna low removes only the unused `to_slash` definition in `lib/soda-release-build/src/lib.rs`; coordinator owns verification and commit. | Independent current-caller review found no consumer or test in the unpublished build crate. The live image `sys::to_slash` and all `path_clean` definitions/callers remain. | Exact definition-only deletion, unchanged manifests/locks and retained helpers, zero build-helper references, affected build-library check and independent review. No replacement helper or broader R02 closure. |
+
+## Forgejo recovery marker custody
+
+Current source and independent Luna medium review confirm that the string-prefix
+mapping admits `/data/../outside` and follows intermediate symlinks. The actual
+domain verbs can therefore write or remove a marker outside the selected data
+volume. Metadata errors also become false absence through `Path::exists()`.
+These corrections are independent of CFG01 parser selection; completed C05
+structural/correctness receipts retain their original scope.
+
+| Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
+| --- | --- | --- | --- |
+| CUSTODY-CFG-MARKER-1 → L17 / C | Luna medium owns only `cmd/soda-forgejo-domain/src/config.rs`, `domain.rs`, `tests/config.rs`, `tests/domain.rs` and task-owned fixture cleanup in `tests/fixtures.rs`. First prove the existing real-filesystem dispatch failures; then retain an admitted directory descriptor for marker observation/create/remove through the selected typed file API. Coordinator owns manifest/lock, guide, checks and commits; independent Luna medium reviews. | Existing `/data` mapping, marker name/mode, writer quiescence and inhibit/lift/start ordering. Use already selected rustix 1.1.5 `std`/`fs`; no version/package upgrade, parser rewrite, new state owner, service or generic custody framework. | Original-source regressions show traversal/intermediate-link effects and false absence; repaired actual verbs refuse and preserve outside fixture bytes. Known NotFound remains absence; other errors cannot unmask/start or report successful observation. Real retained-descriptor checks cover path replacement between admission and use, and fresh marker mode/EOF/error handling. Preserve mask-before-marker and remove-before-unmask ordering. Local filesystem and fake service-command evidence only; deployed/native qualification, CFG01 semantic/deployment fit and the whole L17 task remain open. |
+
+Completed at that scope: unchanged production/graph produced five failing
+regressions, then all 26 package tests and the locked offline development binary
+build passed. Independent Luna medium review found no actionable issues in the
+frozen source. The configuration parser is unchanged; all 291 dependency
+package/version identities remain, with only the domain command's direct rustix
+edge added. Creation preserves an existing regular marker's bytes and mode.
+Local fixture and source evidence does not close L17 or installed qualification.

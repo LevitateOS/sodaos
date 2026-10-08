@@ -1,6 +1,4 @@
-use std::fs;
 use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
 
 use crate::config::marker_path;
 use crate::system::{Paths, Sys, CONTAINER, STOP_TIMEOUT, UNIT};
@@ -84,12 +82,11 @@ fn cmd_inhibit(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Resu
         return Err(format!("systemctl mask failed:\n{out}"));
     }
     let marker = marker_path(paths)?;
-    fs::write(&marker, "offline recovery\n").map_err(|e| e.to_string())?;
-    fs::set_permissions(&marker, fs::Permissions::from_mode(0o600)).map_err(|e| e.to_string())?;
+    marker.create()?;
     let _ = writeln!(
         stdout,
         "inhibited: {UNIT} masked (runtime), marker {}",
-        marker.display()
+        marker.path().display()
     );
     Ok(())
 }
@@ -129,10 +126,21 @@ fn cmd_status(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Resul
             return Err(err);
         }
     };
-    if marker.exists() {
-        let _ = writeln!(stdout, "marker: present at {}", marker.display());
-    } else {
-        let _ = writeln!(stdout, "marker: absent (expected at {})", marker.display());
+    match marker.is_present() {
+        Ok(true) => {
+            let _ = writeln!(stdout, "marker: present at {}", marker.path().display());
+        }
+        Ok(false) => {
+            let _ = writeln!(
+                stdout,
+                "marker: absent (expected at {})",
+                marker.path().display()
+            );
+        }
+        Err(err) => {
+            let _ = writeln!(stdout, "marker: unknown (unsafe or unobservable path)");
+            return Err(err);
+        }
     }
     Ok(())
 }
@@ -141,9 +149,8 @@ fn cmd_lift(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<
     // O04-F1: an unresolvable marker mapping refuses before any unmask
     // mutation; only a known-absent marker reads as already absent.
     let marker = marker_path(paths)?;
-    if marker.exists() {
-        fs::remove_file(&marker).map_err(|e| e.to_string())?;
-        let _ = writeln!(stdout, "marker removed: {}", marker.display());
+    if marker.remove()? {
+        let _ = writeln!(stdout, "marker removed: {}", marker.path().display());
     } else {
         let _ = writeln!(stdout, "marker already absent");
     }
@@ -159,10 +166,10 @@ fn cmd_start(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result
     // O04-F1: an unresolvable marker mapping refuses before any start
     // mutation; only a known marker gates the inhibited precondition.
     let marker = marker_path(paths)?;
-    if marker.exists() {
+    if marker.is_present()? {
         return Err(format!(
             "restart inhibited: marker {} present; reconcile, then run lift",
-            marker.display()
+            marker.path().display()
         ));
     }
     if unit_masked(sys) {
