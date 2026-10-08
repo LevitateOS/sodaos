@@ -40,7 +40,7 @@ pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
             },
         );
     }
-    let payload = deliver::Payload {
+    let payload = soda_release_image::model::Payload {
         format: 3,
         id: format!("44.20260817.3.2.soda-{}", &revision[..12]),
         revision: revision.clone(),
@@ -51,16 +51,25 @@ pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
         schema: 10,
         presentation_sha256: hash.clone(),
         host_packages_sha256: hash.clone(),
-        images: image_map,
+        images: image_map
+            .into_iter()
+            .map(|(name, image)| {
+                (
+                    name,
+                    soda_release_image::model::PayloadImage {
+                        reference: image.reference,
+                        config: image.config,
+                        manifest: image.manifest,
+                        archive_sha256: image.archive_sha256,
+                    },
+                )
+            })
+            .collect(),
         upgrade_from: Vec::new(),
     };
     payload.validate().unwrap();
-    // Serialize through the deliver test helper shape.
-    let mut image_entries = serde_json::Map::new();
-    for (name, image) in &payload.images {
-        image_entries.insert(name.clone(), serde_json::json!({"Reference":image.reference,"Config":image.config,"Manifest":image.manifest,"ArchiveSHA256":image.archive_sha256}));
-    }
-    let raw = serde_json::to_vec(&serde_json::json!({"Format":payload.format,"ID":payload.id,"Revision":payload.revision,"Architecture":payload.architecture,"CoreOS":payload.core_os,"Base":payload.base,"RepositoryPrefix":payload.repository_prefix,"Schema":payload.schema,"PresentationSHA256":payload.presentation_sha256,"HostPackagesSHA256":payload.host_packages_sha256,"Images":image_entries,"UpgradeFrom":[]})).unwrap();
+    let mut raw = serde_json::to_vec_pretty(&payload).unwrap();
+    raw.push(b'\n');
     let release_path = format!("{root}{}", deliver::PATH);
     std::fs::create_dir_all(std::path::Path::new(&release_path).parent().unwrap()).unwrap();
     std::fs::write(&release_path, &raw).unwrap();
@@ -93,6 +102,13 @@ fn requirement_authenticates_all_images() {
     let payload = deliver::load(&release_path).unwrap();
     let (_, unique_bytes) = deliver::verify_content(&payload, &images).unwrap();
     assert_eq!(candidate_requirement(&media, &root).unwrap(), unique_bytes);
+    let original_payload = std::fs::read(&release_path).unwrap();
+    let mut equivalent_payload = original_payload.clone();
+    equivalent_payload.push(b' ');
+    std::fs::write(&release_path, &equivalent_payload).unwrap();
+    assert_eq!(deliver::load(&release_path).unwrap(), payload);
+    assert!(candidate_requirement(&media, &root).is_err());
+    std::fs::write(&release_path, original_payload).unwrap();
     // Five media mutations refuse.
     let mut bad = media.clone();
     bad.host_manifest = "latest".to_string();

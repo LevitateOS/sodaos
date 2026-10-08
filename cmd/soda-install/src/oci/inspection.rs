@@ -101,37 +101,39 @@ fn inspect_oci_config(
 ) -> Result<OciImage, Error> {
     let data = config_blob.data.as_deref().unwrap_or(b"");
     let cfg = parse_oci_config(data)?;
-    if cfg.rootfs_type != "layers" {
+    if cfg.rootfs.kind != "layers" {
         return Err(Error::msg("OCI rootfs/layer count mismatch"));
     }
-    validate_oci_rootfs(&cfg.diff_ids, layers)?;
+    validate_oci_rootfs(&cfg.rootfs.diff_ids, layers)?;
     // Compressed layer contents are not extracted here. Their blob identities
     // are checked; native import remains the proof of decompression/rootfs use.
-    if cfg.os != "linux" || cfg.arch != want {
+    if cfg.os != "linux" || cfg.architecture != want {
         return Err(Error::msg(format!("OCI must be linux/{want}")));
     }
-    validate_oci_attribution(&cfg.labels, revision)?;
+    let empty_labels = BTreeMap::new();
+    let labels = cfg
+        .config
+        .as_ref()
+        .and_then(|config| config.labels.as_ref())
+        .unwrap_or(&empty_labels);
+    validate_oci_attribution(labels, revision)?;
     Ok(OciImage {
         manifest: image_digest.to_string(),
         config: config_digest.to_string(),
-        architecture: cfg.arch,
-        revision: cfg
-            .labels
+        architecture: cfg.architecture,
+        revision: labels
             .get("org.opencontainers.image.revision")
             .cloned()
             .unwrap_or_default(),
-        source: cfg
-            .labels
+        source: labels
             .get("org.opencontainers.image.source")
             .cloned()
             .unwrap_or_default(),
-        base_name: cfg
-            .labels
+        base_name: labels
             .get("org.opencontainers.image.base.name")
             .cloned()
             .unwrap_or_default(),
-        base_digest: cfg
-            .labels
+        base_digest: labels
             .get("org.opencontainers.image.base.digest")
             .cloned()
             .unwrap_or_default(),

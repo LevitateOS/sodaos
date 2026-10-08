@@ -131,21 +131,60 @@ fn layout_refuses_substitution() {
 }
 
 #[test]
-fn descriptor_size_accepts_negative_zero_but_rejects_noninteger_tokens() {
-    for (token, accepted) in [
-        ("-0", true),
-        ("-1", true),
-        ("1.0", false),
-        ("1e0", false),
-        ("9223372036854775808", false),
-    ] {
-        let data = format!(
-            r#"{{"schemaVersion":2,"config":{{"mediaType":"{CONFIG_MEDIA_TYPE}","size":{token}}}}}"#
+fn layout_retains_original_hash_with_unknown_number_extension() {
+    let (dir, revisions) = layout_fixture();
+    let path = format!("{dir}/index.json");
+    let mut data = std::fs::read(&path).unwrap();
+    assert_eq!(data.pop(), Some(b'}'));
+    data.extend_from_slice(br#", "x-extension":{"number":1e400}}"#);
+    std::fs::write(&path, &data).unwrap();
+
+    let layout = inspect_oci_layout(&dir, "x86_64", &revisions).unwrap();
+    assert_eq!(layout.files["index.json"], buildx::sha256_hex(&data));
+}
+
+#[test]
+fn layout_rejects_invalid_utf8_and_trailing_json() {
+    for trailing in [false, true] {
+        let (dir, revisions) = layout_fixture();
+        let path = format!("{dir}/index.json");
+        let mut data = std::fs::read(&path).unwrap();
+        if trailing {
+            data.extend_from_slice(b" {} ");
+        } else {
+            assert_eq!(data.pop(), Some(b'}'));
+            data.extend_from_slice(b",\"x-extension\":\"\xff\"}");
+        }
+        std::fs::write(&path, data).unwrap();
+        assert!(
+            inspect_oci_layout(&dir, "x86_64", &revisions).is_err(),
+            "trailing={trailing}"
         );
-        assert_eq!(
-            super::metadata::parse_oci_manifest(data.as_bytes()).is_ok(),
-            accepted,
-            "token {token}"
+    }
+}
+
+#[test]
+fn manifest_requires_fields_and_rejects_explicit_null_defaults() {
+    let config = format!(
+        r#"{{"mediaType":"{CONFIG_MEDIA_TYPE}","digest":"sha256:{}","size":1}}"#,
+        "a".repeat(64)
+    );
+    let valid = format!(
+        r#"{{"schemaVersion":2,"config":{config},"layers":[],"extension":{{"number":1e400}}}}"#
+    );
+    assert!(super::metadata::parse_oci_manifest(valid.as_bytes()).is_ok());
+
+    for invalid in [
+        format!(r#"{{"schemaVersion":2,"layers":[]}}"#),
+        format!(r#"{{"schemaVersion":2,"mediaType":null,"config":{config},"layers":[]}}"#),
+        format!(
+            r#"{{"schemaVersion":2,"config":{{"mediaType":"{CONFIG_MEDIA_TYPE}","digest":"sha256:{}","size":1,"urls":null}},"layers":[]}}"#,
+            "a".repeat(64)
+        ),
+    ] {
+        assert!(
+            super::metadata::parse_oci_manifest(invalid.as_bytes()).is_err(),
+            "accepted {invalid}"
         );
     }
 }

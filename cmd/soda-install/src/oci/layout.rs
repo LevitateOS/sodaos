@@ -4,6 +4,8 @@ use std::io::Read;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
 
+use serde::Deserialize;
+
 use crate::buildx;
 use crate::errors::{self, Error};
 
@@ -32,12 +34,15 @@ pub(super) struct Blob {
     pub(super) data: Option<Vec<u8>>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct Descriptor {
+    #[serde(rename = "mediaType")]
+    pub(super) media_type: String,
     pub(super) digest: String,
     pub(super) size: i64,
-    pub(super) media_type: String,
+    #[serde(default)]
     pub(super) urls: Vec<String>,
+    #[serde(default)]
     pub(super) annotations: BTreeMap<String, String>,
 }
 
@@ -179,10 +184,18 @@ fn copy_oci_blob(
         return Err(Error::msg("OCI blob checksum mismatch"));
     }
     let body = if retain {
-        let text = String::from_utf8_lossy(&body);
-        serde_json::from_str::<serde_json::Value>(&text)
-            .ok()
-            .map(|_| body)
+        if let Ok(text) = std::str::from_utf8(&body) {
+            let mut deserializer = serde_json::Deserializer::from_str(text);
+            if serde::de::IgnoredAny::deserialize(&mut deserializer).is_ok()
+                && deserializer.end().is_ok()
+            {
+                Some(body)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     } else {
         None
     };

@@ -85,7 +85,7 @@ fn payload_validation_matrix() {
 fn load_refuses_trailing_data() {
     let dir = crate::oci::test_support::temp_dir("soda-deliver-trailing");
     let path = std::path::PathBuf::from(format!("{dir}/release.json"));
-    let mut raw = serde_json::to_vec(&payload_json(&fixture())).unwrap();
+    let mut raw = producer_payload_bytes(&fixture());
     raw.extend_from_slice(br#" {"unexpected":true}"#);
     std::fs::write(&path, &raw).unwrap();
     assert!(load(path.to_str().unwrap()).is_err());
@@ -93,49 +93,104 @@ fn load_refuses_trailing_data() {
 }
 
 #[test]
-fn payload_chooses_raw_alias_before_type_conversion() {
-    let encoded = serde_json::to_string(&payload_json(&fixture())).unwrap();
-    let overridden = encoded.replacen("\"Format\":3", "\"Format\":\"bad\",\"format\":3", 1);
-    let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&overridden).unwrap();
-    assert_eq!(decode_payload(&raw).unwrap().format, 3);
-    let nulled = encoded.replacen("\"Format\":3", "\"Format\":3,\"format\":null", 1);
-    let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&nulled).unwrap();
-    assert_eq!(decode_payload(&raw).unwrap().format, 0);
-    for number in ["3.0", "3e0", "9223372036854775808"] {
-        let invalid = encoded.replacen("\"Format\":3", &format!("\"Format\":{number}"), 1);
-        let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&invalid).unwrap();
-        assert!(decode_payload(&raw).is_err(), "accepted Format {number}");
-    }
-    let mut value = payload_json(&fixture());
-    value["Images"]["dashboard"] = serde_json::Value::Null;
-    value["UpgradeFrom"] = serde_json::json!([null]);
-    let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&value.to_string()).unwrap();
-    let decoded = decode_payload(&raw).unwrap();
-    assert_eq!(decoded.images["dashboard"], Image::default());
-    assert_eq!(decoded.upgrade_from, vec![String::new()]);
+fn load_accepts_current_release_image_producer_output() {
+    let dir = crate::oci::test_support::temp_dir("soda-deliver-current-producer");
+    let path = std::path::PathBuf::from(format!("{dir}/release.json"));
+    let expected = fixture();
+    let bytes = producer_payload_bytes(&expected);
+    std::fs::write(&path, &bytes).unwrap();
+
+    assert_eq!(load(path.to_str().unwrap()).unwrap(), expected);
+    assert!(bytes.ends_with(b"\n"));
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    assert_eq!(
+        buildx::hash_file(path.to_str().unwrap()).unwrap(),
+        buildx::sha256_hex(&bytes)
+    );
+
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
-fn payload_validates_each_duplicate_image_value() {
-    for earlier in ["[]", "{\"Reference\":false}"] {
-        let text = format!("{{\"Images\":{{\"dashboard\":{earlier},\"dashboard\":{{}}}}}}");
-        let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&text).unwrap();
-        assert!(decode_payload(&raw).is_err());
+fn load_refuses_nonproducer_shapes_and_invalid_utf8() {
+    let dir = crate::oci::test_support::temp_dir("soda-deliver-invalid-producer");
+    let path = std::path::PathBuf::from(format!("{dir}/release.json"));
+    let canonical = producer_payload_bytes(&fixture());
+    let text = std::str::from_utf8(&canonical).unwrap();
+    let cases = [
+        text.replacen(r#""Format": 3,"#, r#""format": 3,"#, 1),
+        text.replacen(r#""Format": 3,"#, r#""Format": null,"#, 1),
+        text.replacen(
+            r#"  "Schema": 10,
+"#,
+            "",
+            1,
+        ),
+        text.replacen(r#""Schema": 10,"#, r#""Schema": "10","#, 1),
+        text.replacen(r#""Format": 3,"#, "\"Format\": 3,\n  \"Unknown\": true,", 1),
+        text.replacen(r#""Reference":"#, r#""reference":"#, 1),
+    ];
+    for invalid in cases {
+        std::fs::write(&path, invalid.as_bytes()).unwrap();
+        assert_eq!(
+            load(path.to_str().unwrap()).unwrap_err().to_string(),
+            "invalid payload document"
+        );
     }
-    let raw: Box<serde_json::value::RawValue> = serde_json::from_str(
-        r#"{"Images":{"dashboard":{"Reference":"first"},"dashboard":{"Reference":"last"}},"Schema":-0}"#,
-    ).unwrap();
-    let payload = decode_payload(&raw).unwrap();
-    assert_eq!(payload.images["dashboard"].reference, "last");
-    assert_eq!(payload.schema, 0);
+
+    let mut invalid_utf8 = canonical;
+    let host = b"quay.io";
+    let host_start = invalid_utf8
+        .windows(host.len())
+        .position(|window| window == host)
+        .expect("producer Base host");
+    invalid_utf8.splice(
+        host_start..host_start + host.len(),
+        b"quay\xff.io".iter().copied(),
+    );
+    std::fs::write(&path, invalid_utf8).unwrap();
+    assert_eq!(
+        load(path.to_str().unwrap()).unwrap_err().to_string(),
+        "invalid payload document"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
-fn payload_json(payload: &Payload) -> serde_json::Value {
-    let mut images = serde_json::Map::new();
-    for (name, image) in &payload.images {
-        images.insert(name.clone(), serde_json::json!({"Reference":image.reference,"Config":image.config,"Manifest":image.manifest,"ArchiveSHA256":image.archive_sha256}));
+fn producer_payload(payload: &Payload) -> soda_release_image::model::Payload {
+    soda_release_image::model::Payload {
+        format: payload.format,
+        id: payload.id.clone(),
+        revision: payload.revision.clone(),
+        architecture: payload.architecture.clone(),
+        core_os: payload.core_os.clone(),
+        base: payload.base.clone(),
+        repository_prefix: payload.repository_prefix.clone(),
+        schema: payload.schema,
+        presentation_sha256: payload.presentation_sha256.clone(),
+        host_packages_sha256: payload.host_packages_sha256.clone(),
+        images: payload
+            .images
+            .iter()
+            .map(|(name, image)| {
+                (
+                    name.clone(),
+                    soda_release_image::model::PayloadImage {
+                        reference: image.reference.clone(),
+                        config: image.config.clone(),
+                        manifest: image.manifest.clone(),
+                        archive_sha256: image.archive_sha256.clone(),
+                    },
+                )
+            })
+            .collect(),
+        upgrade_from: payload.upgrade_from.clone(),
     }
-    serde_json::json!({"Format":payload.format,"ID":payload.id,"Revision":payload.revision,"Architecture":payload.architecture,"CoreOS":payload.core_os,"Base":payload.base,"RepositoryPrefix":payload.repository_prefix,"Schema":payload.schema,"PresentationSHA256":payload.presentation_sha256,"HostPackagesSHA256":payload.host_packages_sha256,"Images":images,"UpgradeFrom":[]})
+}
+
+fn producer_payload_bytes(payload: &Payload) -> Vec<u8> {
+    let mut bytes = serde_json::to_vec_pretty(&producer_payload(payload)).unwrap();
+    bytes.push(b'\n');
+    bytes
 }
 
 fn payload_fixture() -> (Payload, String) {

@@ -1864,6 +1864,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "signature 2.2.0",
+ "soda-release-image",
  "ssh-key",
  "tempfile",
  "url",

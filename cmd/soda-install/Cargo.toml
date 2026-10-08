@@ -28,3 +28,6 @@ ed25519-dalek = { version = "2", default-features = false, features = ["alloc", 
 ssh-key = { version = "=0.7.0-rc.11", default-features = false, features = ["std", "ecdsa"] }
 x509-cert = { version = "=0.2.5", default-features = false, features = ["std", "pem"] }
 url = "=2.5.8"
+
+[dev-dependencies]
+soda-release-image = { path = "../../lib/soda-release-image" }
