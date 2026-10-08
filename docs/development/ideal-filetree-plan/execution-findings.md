@@ -278,7 +278,7 @@ native profile holds only its dependent action. This reconciliation completes
 planning allocation and independent scope challenge, not code corrections or
 qualification. Implementation still requires the matching scoped instruction.
 
-## A08 browser verification allocation
+## A08 browser verification (complete at browser scope)
 
 A08.V retains its original stale-callback, renderer/slot lifetime, restoration/layout
 and read-only Factory viewing scope. The existing workspace driver compiles the
@@ -289,3 +289,19 @@ mount the Factory viewer.
 | Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
 | --- | --- | --- | --- |
 | TEST-A08-FACTORY-BROWSER-1 → A08.V / B | Luna low writes only `tests/frontend/fixtures/workspace-model.ts` and `tests/frontend/workspace-navigation.test.ts`; coordinator owns checks/docs/commits, independent Luna medium reviews. Add opt-in synthetic Factory responses matching the actual Go inventory/detail/status/output producers, using the existing browser driver and production viewer. | Locked terminal digests match; official `build:forgejo` and the real exact-selection restoration subject pass. Chromium sandbox remains enabled; loopback permission is required. Preserve all existing fixture defaults and production code. | Actual UI mounts the Factory view and renders status/output; exact run/repository/generation/cursor bind the sole client handshake. Keyboard/paste and presentation resize send no input/resize frames or HTTP writes. Refresh/hide retain the owner; closing detaches without mutating the run, and stale callbacks cannot resurrect it. Run the existing stale-callback, lifetime and restoration/layout subjects and independently assess the whole original A08.V scope. Local Chromium over synthetic peers does not prove installed/native authority or output; R04 remains separate. |
+
+Complete in `95e682b2` after independent Luna medium source and whole-original-scope
+acceptance review. The [frozen source receipt](../../../.artifacts/luna-batch-20261007-0caf6b91/a08-browser-source-receipt.json)
+records strict test TypeScript, exact two-file format/lint, the focused Factory
+Chromium case and all 87 tests in the nine selected files, with zero skips/failures.
+The suite combines actual browser callback/lifetime/restoration/layout subjects
+with helper/decoder checks; the passing count alone is not the coverage argument.
+The Factory case mounts the production viewer and real xterm beside a human
+terminal, verifies status/output and exact read-only attachment, exercises
+keyboard/nonempty paste and resize without client frames beyond the handshake,
+retains the renderer through refresh/hide, and closes the view without mutating
+the run or the human terminal. A late status callback cannot resurrect it.
+Earlier socket-permission, synchronous fixture-reply and strict compiler failures
+remain in separate receipts; they are not counted as passes. Fixture defaults,
+production code, browser sandbox and dependency/compiler settings are unchanged.
+A08.V is complete; native/installed authority and output remain open under R04.
