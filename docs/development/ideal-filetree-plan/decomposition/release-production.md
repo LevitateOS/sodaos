@@ -232,7 +232,17 @@ Open detail: Do not substitute BuildExecution or image run_build_command merely 
 Observed size: 856 lines, including tests where embedded. Separate admitted live-input records and validation, Tailnet release/base selection, CoreOS stream selection and registry image-index resolution. Reuse the existing http module for the already shared capped metadata/text fetch rather than create another transport package. Keep test fixtures shared only where production unit tests already consume them; retain actual resolver and validation cases with their owner.
 
 - `lib/soda-release-build/src/coreos_stream.rs` — Stable CoreOS stream endpoint, stream document and release-location parsing, stream triple validation, ISO/QEMU/full resolution entrypoints and their existing stub cases.
-- `lib/soda-release-build/src/live_inputs.rs` — TailnetInputs/ResolvedCoreOS/LiveInputs emit/decode, exact write/read and admitted-input validation; existing round-trip/refusal case stays with this owner.
+- `lib/release-inputs/src/reader/stream.rs` — Canonical `CoreOSImage`, `ResolvedCoreOS`, `TailnetInputs` and `LiveInputs` records plus wire validation. Use required exact PascalCase fields, reject unknown record fields, represent full string-key maps with `BTreeMap`, and serialize fresh maps in sorted-key order. Keep the actual resolver allowances: ISO/QEMU may retain extra architecture entries when `x86_64` is present; `Container` requires exactly one `x86_64` entry.
+- `lib/soda-release-build/src/live_inputs.rs` — Retain bounded read, fresh exclusive `0644` write with LF, and validation invocation; remove its duplicate wire records, custom decoders, and validator remapping. Build-side network resolution, hashing, and admitted-file lifecycle remain in their current owners.
+- `lib/soda-release-build/src/coreos.rs` — Use the canonical `CoreOSImage` in verified download/hash inputs; keep signer, signature and verified-base policy local.
+- `lib/soda-release-build/src/coreos_stream.rs` — Use canonical records in the existing stream, ISO/QEMU and registry resolution path; retain upstream fetch/decode and selection policy.
+- `lib/soda-release-build/src/coreos_iso.rs` — Use the canonical `CoreOSImage` while preserving bounded download, signature verification and ISO output custody.
+- `lib/soda-release-build/src/tailnet_inputs.rs` — Produce the canonical `TailnetInputs` without changing version/base resolution.
+- `lib/soda-release-build/src/production_inputs.rs` — Read the shared Tailnet record through the retained bounded live-input reader.
+- `lib/soda-release-build/src/test_support.rs` — Build the existing canonical production fixture for resolver and pipeline tests.
+- `lib/soda-release-image/src/model/live_inputs.rs` — Consume the canonical wire records and validation rather than maintain duplicate decoders and schemas; retain image-domain consumers and unrelated payload/base policy.
+- `lib/soda-release-tools/src/pipeline.rs` — Remove `coreos_image_of`, `sorted_pairs`, `sorted_images`, `resolved_coreos_of`, `tailnet_of` and `live_inputs_of`; no clone/sort DTO bridge remains.
+- `lib/soda-release-tools/src/worker/runtime.rs` — Construct and record the canonical live-input value at the existing controller-side resolution call.
 - `lib/soda-release-build/src/tailnet_inputs.rs` — Tailnet endpoints, newest stable archive selection, checksum/base-tag selection, resolve_tailnet_inputs and its existing release-selection case.
 - `lib/soda-release-build/src/coreos_registry.rs` — Existing registry image-index request, bounded body decode and matching x86_64 digest selection.
 - `lib/soda-release-build/src/http.rs` — Existing transport plus current fetch_capped_json/fetch_capped_text helpers reused by CoreOS and Tailnet callers.
@@ -240,7 +250,7 @@ Observed size: 856 lines, including tests where embedded. Separate admitted live
 
 Evidence: 24-65: current endpoint accessors; 67-257: TailnetInputs/ResolvedCoreOS/LiveInputs plus decode/read/write/validation; 258-301: fetch_capped_json/fetch_capped_text; existing http.rs is 296 lines including its current unit tests; 302-438: Tailnet resolution, release scan and newest base tag; 439-559: stream document/location/triple parsing; 560-645: resolve_registry_digests_with; 646-706: ISO/QEMU/full CoreOS resolution; 707-856: fixture_live_inputs, stream/index fixtures and four existing cases; production.rs:843-844 imports fixture/read/write
 
-Open detail: Existing release-inputs reader validators are used here at 198-203,216-228,544-556 and693. Keep those actual calls; moving types does not prove the independently mirrored image DTOs equivalent.
+Open detail: SIMP-REL-WIRE-1 is ready for the selected owner cut. Keep the actual existing `write_live_inputs` → `RealProduction::read_live_inputs` path and tests as the producer/consumer check; no native qualification or change to original signed/raw-byte handling is implied. SIMP-REL-ORDERED-1 and SIMP-INSTALL-OCI-1 remain separate.
 
 ## rust/soda-release-build/src/files.rs
 
@@ -506,14 +516,14 @@ Observed size: 1475 lines, including tests where embedded. Keep artifact records
 - `lib/soda-release-image/src/model/payload.rs` — Current PayloadImage/Payload parse/emit/load and exact identity/base/independent-image/no-upgrade admission closure.
 - `lib/soda-release-image/src/model/candidate.rs` — Current ForgejoToolchain/package provenance and Candidate parsing/emission/payload/source/host/content binding.
 - `lib/soda-release-image/src/model/trust.rs` — Trust role/timing/minimum-sequence policy, library-validated P-256 key/raw-DER fingerprint, Permit and SecretFiles models; no custom DER/SPKI reader.
-- `lib/soda-release-image/src/model/live_inputs.rs` — Current CoreOSImage/ResolvedCoreOS/TailnetInputs/LiveInputs decoding, container selection and validators.
+- `lib/soda-release-image/src/model/live_inputs.rs` — Replace duplicate CoreOSImage/ResolvedCoreOS/TailnetInputs/LiveInputs wire records, decode and shared validators with the canonical `soda-build-tools::reader::stream` types. Keep image-domain base selection and consumer checks that are not part of the shared live-input contract.
 - `lib/soda-release-image/src/model/tests.rs` — Existing primitive/URL/payload cases remain unit scoped; attach each case to its actual concerned module without exporting parser helpers for tests.
 - `lib/soda-release-image/src/jsonio.rs` — Serde admission/formatting and field-token policy for concrete image DTOs; no syntax engine or universal field binder.
 - `lib/soda-release-image/src/ordered_json.rs` — Application metadata order, duplicates, raw numeric identity and null-pruned comparison; grammar and emission use Serde. The build-context owner retains stable top-level sorting.
 
 Evidence: 12-104: current constants, identity/digest/architecture/repository gates;105-290: URL/IPv4/IPv6/loopback implementation; 291-365: Image/ProducedImage;366-608: PayloadImage/Payload JSON/load/identity/base/image/upgrade validation; 609-695: ForgejoToolchain/APK provenance;696-939: Candidate and exact payload/source/host/content binding; 940-1176: Trust and private PEM/DER/SPKI/role-key admission;1177-1244: Permit/SecretFiles; 1245-1427: admitted CoreOS/Tailnet inputs;1428-1475: three unit groups; actual consumers are build,complete,host,inspect,layout,payload_stage,prepare,record,media and foreign trait signatures
 
-Open detail: Existing build/deliver owners remain reuse candidates only after their actual shape/profile comparison. Image upgrade_from [] versus deliver nil-to-null and the different ProducedImage records remain real gates. CF-05's two custom SPKI readers are retired behind the shared admitted-key adapter; trust policy stays in these model owners. JSON01/N7/N8 do not authorize aliases, FFI/RPC, signed-literal normalization or another schema owner.
+Open detail: SIMP-REL-WIRE-1 selects `lib/release-inputs/src/reader/stream.rs` for the shared live-input records; the distinct image upgrade-from and delivery nil-to-null policy remains outside this transfer, as do the different ProducedImage records. CF-05's two custom SPKI readers are retired behind the shared admitted-key adapter; trust policy stays in these model owners. JSON01/N7/N8 do not authorize aliases, FFI/RPC, signed-literal normalization or another schema owner.
 
 ## rust/soda-release-image/src/prepare.rs
 
