@@ -2,6 +2,7 @@ use super::*;
 use serde::Deserialize;
 
 #[derive(Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Envelope {
     #[serde(default)]
     command_id: String,
@@ -15,10 +16,8 @@ struct Envelope {
     target: String,
 }
 
-const FIELDS: &[&str] = &["command_id", "type", "target"];
-
 fn decode_envelope(input: &str) -> Result<Envelope, String> {
-    decode(input.as_bytes(), MAX_DOCUMENT, FIELDS, &[])
+    decode_typed(input.as_bytes(), MAX_DOCUMENT)
 }
 
 #[test]
@@ -64,6 +63,16 @@ fn typed_http_request_preserves_wire_codecs_and_rejects_unknowns() {
 }
 
 #[test]
+fn typed_request_rejects_non_object_roots() {
+    for input in ["[]", "null", "42"] {
+        assert!(
+            decode_typed::<crate::wire::Request>(input.as_bytes(), MAX_DOCUMENT).is_err(),
+            "accepted non-object root {input}"
+        );
+    }
+}
+
+#[test]
 fn strict_vectors_match_go() {
     // Mirrors scripts/fixtures/portcontracts/strictjson_vectors.json.
     for (input, ok) in [
@@ -102,18 +111,16 @@ fn strict_vectors_match_go() {
 fn limits_match_go() {
     let big = format!("{{\"type\":\"{}\"}}", "a".repeat(1 << 20));
     assert!(decode_envelope(&big).unwrap_err().contains("size limit"));
-    assert!(
-        decode::<Envelope>(&[b'{', b'"', 0xff], MAX_DOCUMENT, FIELDS, &[])
-            .unwrap_err()
-            .contains("valid UTF-8")
-    );
+    assert!(decode_typed::<Envelope>(&[b'{', b'"', 0xff], MAX_DOCUMENT)
+        .unwrap_err()
+        .contains("valid UTF-8"));
     for (depth, ok) in [(99, true), (100, true), (101, false)] {
         let mut nested = String::from("{\"type\":");
         nested.push_str(&"[".repeat(depth));
         nested.push('0');
         nested.push_str(&"]".repeat(depth));
         nested.push('}');
-        let result = decode::<serde_json::Value>(nested.as_bytes(), MAX_DOCUMENT, &["type"], &[]);
+        let result = decode_typed::<serde_json::Value>(nested.as_bytes(), MAX_DOCUMENT);
         assert_eq!(result.is_ok(), ok, "nesting depth {depth}");
         if !ok {
             assert!(result.unwrap_err().contains("nested too deeply"));
@@ -122,15 +129,9 @@ fn limits_match_go() {
 }
 
 #[test]
-fn case_fold_matches_go_fallback() {
-    let envelope = decode_envelope(r#"{"TYPE":"status"}"#).unwrap();
-    assert_eq!(envelope.wire_type, "status");
-    // Exact wins; a colliding fold is rejected as unknown.
+fn typed_field_names_are_exact_and_null_codec_is_preserved() {
+    assert!(decode_envelope(r#"{"TYPE":"status"}"#).is_err());
     assert!(decode_envelope(r#"{"TYPE":"a","type":"b"}"#).is_err());
-
-    // Preserve the existing sorted-map last-wins remapping behavior.
-    let envelope = decode_envelope(r#"{"TYPE":"upper","Type":"mixed"}"#).unwrap();
-    assert_eq!(envelope.wire_type, "mixed");
     assert_eq!(decode_envelope(r#"{"type":null}"#).unwrap().wire_type, "");
 }
 

@@ -12,19 +12,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-const SETTINGS_FIELDS: &[&str] = &[
-    "database_dsn_file",
-    "key_file",
-    "admin_socket",
-    "runtime_socket",
-    "host_socket",
-    "codex",
-    "muse",
-];
-
-const PROVIDER_FIELDS: &[&str] = &["binary", "version", "sha256", "root"];
-
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ProviderSettings {
     #[serde(default)]
     binary: String,
@@ -37,6 +26,7 @@ struct ProviderSettings {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Settings {
     #[serde(default)]
     database_dsn_file: String,
@@ -117,13 +107,9 @@ fn load(path: &str) -> Result<Settings, String> {
     if raw.len() > soda_identity::strict::MAX_DOCUMENT {
         return Err("read identity settings: document exceeds size limit".to_string());
     }
-    let settings: Settings = soda_identity::strict::decode(
-        &raw,
-        soda_identity::strict::MAX_DOCUMENT,
-        SETTINGS_FIELDS,
-        &[("codex", PROVIDER_FIELDS), ("muse", PROVIDER_FIELDS)],
-    )
-    .map_err(|e| format!("decode identity settings: {e}"))?;
+    let settings: Settings =
+        soda_identity::strict::decode_typed(&raw, soda_identity::strict::MAX_DOCUMENT)
+            .map_err(|e| format!("decode identity settings: {e}"))?;
     for path in [
         &settings.database_dsn_file,
         &settings.key_file,
@@ -151,6 +137,68 @@ mod settings_load_tests {
         assert!(total_len >= bytes.len());
         bytes.resize(total_len, b' ');
         bytes
+    }
+
+    fn load_text(input: &str) -> Result<Settings, String> {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(&path, input).unwrap();
+        load(path.to_str().unwrap())
+    }
+
+    #[test]
+    fn canonical_settings_fields_and_provider_defaults_load() {
+        let settings = load_text(
+            r#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host"}"#,
+        )
+        .unwrap();
+        assert_eq!(settings.database_dsn_file, "/dsn");
+        assert_eq!(settings.key_file, "/key");
+        assert_eq!(settings.admin_socket, "/admin");
+        assert_eq!(settings.runtime_socket, "/runtime");
+        assert_eq!(settings.host_socket, "/host");
+        assert!(settings.codex.binary.is_empty());
+        assert!(settings.codex.version.is_empty());
+        assert!(settings.codex.sha256.is_empty());
+        assert!(settings.codex.root.is_empty());
+        assert!(settings.muse.binary.is_empty());
+
+        let settings = load_text(
+            r#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host","codex":{"binary":"/codex","version":"1.2.3","sha256":"abc","root":"/codex-root"},"muse":{"binary":"/muse","version":"4.5.6","sha256":"def","root":"/muse-root"}}"#,
+        )
+        .unwrap();
+        assert_eq!(settings.codex.binary, "/codex");
+        assert_eq!(settings.codex.version, "1.2.3");
+        assert_eq!(settings.codex.sha256, "abc");
+        assert_eq!(settings.codex.root, "/codex-root");
+        assert_eq!(settings.muse.binary, "/muse");
+        assert_eq!(settings.muse.version, "4.5.6");
+        assert_eq!(settings.muse.sha256, "def");
+        assert_eq!(settings.muse.root, "/muse-root");
+    }
+
+    #[test]
+    fn load_rejects_noncanonical_json_profiles() {
+        let inputs = [
+            r#"{"Database_Dsn_File":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host"}"#,
+            r#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host","codex":{"Binary":"/codex"}}"#,
+            r#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host","future":true}"#,
+            r#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host","codex":{"future":true}}"#,
+            r#"{"database_dsn_file":null,"key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host"}"#,
+            r#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host","codex":{"binary":null}}"#,
+            r#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host","codex":null}"#,
+            r#"{"database_dsn_file":"/dsn","database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host"}"#,
+            "{",
+            r#"{"database_dsn_file":"/dsn","key_file":"/key","admin_socket":"/admin","runtime_socket":"/runtime","host_socket":"/host"} {}"#,
+            r#"["/dsn","/key","/admin","/runtime","/host"]"#,
+        ];
+        for input in inputs {
+            let error = load_text(input).unwrap_err();
+            assert!(
+                error.starts_with("decode identity settings:"),
+                "unexpected error for {input}: {error}"
+            );
+        }
     }
 
     #[test]
