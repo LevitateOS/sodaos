@@ -14,6 +14,10 @@ export async function restrictedText(file: string, limit: number) {
   return Bun.file(file).text();
 }
 const quote = (text: string) => "'" + text.replaceAll("'", "'\\''") + "'";
+export function matrixShellCommand(marker: string, name: string, initialize: boolean) {
+  const code = `(p=$PPID; s=$(cat /proc/$p/stat) || exit 1; set -f; set -- $s; set +f; [ $# -ge 22 ] || exit 1; [ -t 0 ] && tty=true || tty=false; printf '%s{"pid": %s, "start": "%s", "login": "%s", "marker": "%s", "tty": %s, "term": "%s"}\\n' ${JSON.stringify(marker + ':')} "$p" "\${22}" "$(id -un)" "$SODA_MATRIX_MARKER" "$tty" "$TERM")`;
+  return (initialize ? 'export SODA_MATRIX_MARKER=' + quote(name) + '; ' : '') + 'sh -c ' + quote(code);
+}
 export function sshArgs(request: MatrixInput, project: MatrixProject, actor: number) {
   const alias = project.ssh[actor];
   assert(alias);
@@ -199,9 +203,7 @@ export function observeMatrixShell(page: Page) {
     async shell(session: MatrixSession, initialize: boolean): Promise<MatrixFacts> {
       const marker = 'SODA_FACT_' + crypto.randomUUID().replaceAll('-', '');
       buffers.delete(session.id);
-      const code = `(p=$$; s=$(cat /proc/$p/stat) || exit 1; set -f; set -- $s; set +f; [ $# -ge 22 ] || exit 1; [ -t 0 ] && tty=true || tty=false; printf '%s{"pid": %s, "start": "%s", "login": "%s", "marker": "%s", "tty": %s, "term": "%s"}\\n' ${JSON.stringify(marker + ':')} "$p" "\${22}" "$(id -un)" "$SODA_MATRIX_MARKER" "$tty" "$TERM")`;
-      const command =
-        (initialize ? 'export SODA_MATRIX_MARKER=' + quote(session.name) + '; ' : '') + 'sh -c ' + quote(code);
+      const command = matrixShellCommand(marker, session.name, initialize);
       const screen = page.locator('.soda-workspace-terminal:visible .xterm-helper-textarea');
       await screen.focus();
       await page.keyboard.insertText(command);
