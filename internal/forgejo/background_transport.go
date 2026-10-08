@@ -54,7 +54,7 @@ func (b *ServiceBackground) call(ctx context.Context, path string, payload any, 
 		if !errors.As(err, &status) || status.Status != http.StatusUnauthorized {
 			return err
 		}
-		rebound, rebindErr := b.bootstrap(ctx, true)
+		rebound, rebindErr := b.bootstrap(ctx, true, admission)
 		if rebindErr != nil {
 			return rebindErr
 		}

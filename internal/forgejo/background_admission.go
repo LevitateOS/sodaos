@@ -72,35 +72,49 @@ func (b *ServiceBackground) admissionForCall(ctx context.Context) (string, error
 	if admission != "" {
 		return admission, nil
 	}
-	return b.bootstrap(ctx, false)
+	return b.bootstrap(ctx, false, "")
 }
 
 // bootstrap replaces the service admission under the mutex: concurrent
-// calls share one bootstrap instead of revoking each other. Force
-// refreshes even when an admission is cached; otherwise a cached
-// admission is reused.
-func (b *ServiceBackground) bootstrap(ctx context.Context, force bool) (string, error) {
+// calls share one bootstrap instead of revoking each other. A rejected
+// admission refreshes only while it remains current; explicit force
+// refreshes pass no rejected admission and always bootstrap.
+func (b *ServiceBackground) bootstrap(ctx context.Context, force bool, rejected string) (string, error) {
 	b.mu.Lock()
 	if b.socket == "" {
 		b.mu.Unlock()
 		return "", errors.New("service callback socket is not configured")
 	}
-	if !force && b.admission != "" {
-		admission := b.admission
-		b.mu.Unlock()
-		return admission, nil
-	}
-	if call := b.bootstrapCall; call != nil {
+	if call := b.bootstrapCall; call != nil && (force || rejected != "" || b.admission == "") {
 		b.mu.Unlock()
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
 		case <-call.done:
+			if rejected != "" {
+				if call.err != nil {
+					return "", call.err
+				}
+				b.mu.Lock()
+				admission := b.admission
+				b.mu.Unlock()
+				return admission, nil
+			}
 			if force && !call.force {
-				return b.bootstrap(ctx, true)
+				return b.bootstrap(ctx, true, "")
 			}
 			return call.admission, call.err
 		}
+	}
+	if rejected != "" && b.admission != "" && b.admission != rejected {
+		admission := b.admission
+		b.mu.Unlock()
+		return admission, nil
+	}
+	if !force && b.admission != "" {
+		admission := b.admission
+		b.mu.Unlock()
+		return admission, nil
 	}
 	call := &backgroundBootstrap{done: make(chan struct{}), force: force}
 	b.bootstrapCall = call

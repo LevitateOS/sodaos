@@ -158,7 +158,7 @@ func (b *ServiceBackground) PublishPushEnv(ctx context.Context, operationID stri
 	b.mu.Unlock()
 	if admission == "" || rebind {
 		var err error
-		admission, err = b.bootstrap(ctx, true)
+		admission, err = b.bootstrap(ctx, true, "")
 		if err != nil {
 			return nil, err
 		}
