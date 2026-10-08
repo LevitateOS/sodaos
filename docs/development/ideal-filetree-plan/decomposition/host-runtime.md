@@ -73,8 +73,15 @@ records 32 existing smoke, 19 production-backend and four binary tests passing
 with no failures or ignored cases, both selected host binaries compiling, and
 exact affected-file formatting. All daemon units remain below 500 lines. The
 obsolete `GMUX_PATCHES.md` skeleton checklist is retired; its current duties
-live in source and the existing tests. `iclient.rs` to `daemon/broker.rs` and
-configuration placement remain separate pending joins. These checks do not
+live in source and the existing tests. The remaining `daemon/broker.rs` join
+is the [allocated dbackend broker adapters](../port-assessment.md#host-cutover-integration),
+using the single existing `iclient::BrokerClient`; configuration placement is
+also pending. The client is 612 lines of production code, with no embedded
+tests: its API/transport cohort (1–72 and 480–612) and request/wire cohort
+(73–479) need a separate target allocation before any client relocation.
+Do not combine that client with the broker adapters in one file. The current
+`identity_transport` suite already imports the actual public client and host
+types; the former copied-module oracle is retired. These source joins do not
 close wider R02 allocation or installed/native qualification.
 
 ## Current Forgejo Tailnet helper allocation
