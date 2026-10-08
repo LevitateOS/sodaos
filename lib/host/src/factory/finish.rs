@@ -6,9 +6,10 @@ use super::candidate::run_reason;
 use super::deadline::cleanup_deadline;
 use super::receipt::{receipt_state, receipt_stop_owned, FactoryReceipt};
 use super::{
-    Binding, Factory, FactoryBroker, FactoryError, FactoryState, FactoryTerminal, Lease, Secret,
+    Factory, FactoryBroker, FactoryError, FactoryState, FactoryTerminal, Lease, Secret,
     FACTORY_COMPLETED, FACTORY_FAILED, IDENTITY_FACTORY,
 };
+use crate::terminal::Binding;
 
 impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     /// `failRun`: record a refusal that never acquired native or broker

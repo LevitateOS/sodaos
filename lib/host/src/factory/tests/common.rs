@@ -6,6 +6,7 @@ use super::mocks::{FakeBroker, FakeExec, FakeTerminal};
 use crate::factory::receipt::FactoryReceipt;
 use crate::factory::*;
 use crate::preparation::{self, Preparation, PrepareState};
+use crate::terminal::Binding;
 
 pub(in crate::factory) static TAG_COUNTER: AtomicU64 = AtomicU64::new(0);
 

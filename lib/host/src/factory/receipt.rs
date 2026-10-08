@@ -2,12 +2,13 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use super::{
-    factory_unit_name, valid_factory_phase, Binding, Factory, FactoryBroker, FactoryError,
-    FactoryRun, FactoryState, FactoryTerminal, Lease, RunLock, FACTORY_STOPPED, FACTORY_UNCERTAIN,
+    factory_unit_name, valid_factory_phase, Factory, FactoryBroker, FactoryError, FactoryRun,
+    FactoryState, FactoryTerminal, Lease, RunLock, FACTORY_STOPPED, FACTORY_UNCERTAIN,
     IDENTITY_FACTORY, MAX_FACTORY_OUTPUT,
 };
 use crate::json;
 use crate::project::Executor;
+use crate::terminal::Binding;
 use serde::de::{self, MapAccess, Visitor};
 use serde::Deserialize;
 use std::fmt;

@@ -43,9 +43,13 @@ mod time;
 
 pub use self::time::parse_rfc3339;
 
+mod binding;
+
+pub use self::binding::Binding;
+
 mod lease;
 
-pub use self::lease::{parse_string_i64, AcquireRequest, Binding, Delivery, Lease};
+pub use self::lease::{parse_string_i64, AcquireRequest, Delivery, Lease};
 
 mod inspect;
 

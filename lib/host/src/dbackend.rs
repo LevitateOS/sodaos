@@ -21,7 +21,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::daemon::backend::{BackendError, ExecBackend, TerminalSession};
-use crate::daemon::broker::{cv_binding_to_pfactory, cv_binding_to_texec, cv_lease_to_texec};
+use crate::daemon::broker::cv_lease_to_texec;
 use crate::{
     domain, json, pfactory, project, tcontrol,
     terminal::{self, factory::tcodex},
@@ -314,7 +314,7 @@ impl pfactory::FactoryTerminal for TerminalSeam {
         pin: &str,
         max_secs: i64,
         deadline: Instant,
-    ) -> Result<pfactory::Binding, pfactory::FactoryError> {
+    ) -> Result<terminal::Binding, pfactory::FactoryError> {
         let service = self.service();
         let trun = cv_run_to_tcodex(run);
         let tlease = cv_lease_to_texec(lease);
@@ -327,8 +327,7 @@ impl pfactory::FactoryTerminal for TerminalSeam {
                 .factory_codex_reserve(&trun, &tlease, pin, max_secs, deadline)
                 .map(|(binding, _paths)| binding)
         };
-        out.map(|binding| cv_binding_to_pfactory(&binding))
-            .map_err(pfactory::FactoryError::Msg)
+        out.map_err(pfactory::FactoryError::Msg)
     }
     fn start(
         &self,
@@ -419,33 +418,31 @@ impl pfactory::FactoryTerminal for TerminalSeam {
                 .map_err(pfactory::FactoryError::Msg)
         }
     }
-    fn live(&self, binding: &pfactory::Binding, deadline: Instant) -> bool {
+    fn live(&self, binding: &terminal::Binding, deadline: Instant) -> bool {
         let service = self.service();
-        let tbinding = cv_binding_to_texec(binding);
-        if tbinding.scope == tcodex::FACTORY_SCOPE_MUSE {
-            service.factory_muse_live(&tbinding, deadline)
+        if binding.scope == tcodex::FACTORY_SCOPE_MUSE {
+            service.factory_muse_live(binding, deadline)
         } else {
-            service.factory_codex_live(&tbinding, deadline)
+            service.factory_codex_live(binding, deadline)
         }
     }
     fn output(
         &self,
         project: &str,
-        binding: &pfactory::Binding,
+        binding: &terminal::Binding,
         offset: i64,
         limit: i64,
         deadline: Instant,
     ) -> Result<pfactory::OutputSlice, pfactory::FactoryError> {
         let service = self.service();
-        let tbinding = cv_binding_to_texec(binding);
-        if tbinding.scope == tcodex::FACTORY_SCOPE_MUSE {
+        if binding.scope == tcodex::FACTORY_SCOPE_MUSE {
             service
-                .factory_muse_output(project, &tbinding, offset, limit, deadline)
+                .factory_muse_output(project, binding, offset, limit, deadline)
                 .map(|s| cv_slice_to_pfactory(&s))
                 .map_err(pfactory::FactoryError::Msg)
         } else {
             service
-                .factory_codex_output(project, &tbinding, offset, limit, deadline)
+                .factory_codex_output(project, binding, offset, limit, deadline)
                 .map(|s| cv_slice_to_pfactory(&s))
                 .map_err(pfactory::FactoryError::Msg)
         }

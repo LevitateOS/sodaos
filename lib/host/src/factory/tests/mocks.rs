@@ -5,6 +5,7 @@ use std::time::Instant;
 use super::common::{sample_binding, sample_lease};
 use crate::factory::*;
 use crate::project::Executor;
+use crate::terminal::Binding;
 
 pub(in crate::factory) type ExecCall = (Vec<u8>, String, Vec<String>);
 

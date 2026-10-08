@@ -2144,6 +2144,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── identity_protocol.rs
 │   │   │   │   ├── identity_wire.rs
 │   │   │   │   ├── launch.rs
+│   │   │   │   ├── binding.rs
 │   │   │   │   ├── lease.rs
 │   │   │   │   ├── mod.rs
 │   │   │   │   ├── native.rs

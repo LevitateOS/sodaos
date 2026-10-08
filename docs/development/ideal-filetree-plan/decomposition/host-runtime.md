@@ -52,6 +52,7 @@ together.
 | Current source and duty | Desired owner and retained contract |
 | --- | --- |
 | `lib/host/src/sha256.rs` 1–45: selected `sha2::Sha256` digest plus canonical lowercase hex | Retain as `lib/host/src/sha256.rs`. It is the single host profile used by SSH fingerprints, Tailnet revisions, preparation inputs, Factory assignments, terminal/Muse harness pins, and broker/native identities. Callers keep each raw-byte recipe, admission rule and error/custody boundary; no SHA rounds or generic hash package return. |
+| `lib/host/src/terminal/binding.rs` 1–223: canonical terminal `Binding` DTO, nested serde profile, validation and encoding | Keep one defining owner under `terminal`; `factory` imports this type directly. The duplicate Factory grammar/encoder and broker binding conversion helpers are retired. Factory receipt kind/run-ID checks remain at `factory/receipt.rs`; Lease/Delivery whole-document decoders remain strict and distinct. |
 | Former `lib/host/src/nist.rs` 9–53 and tests 55–162 | Source join complete in existing `lib/host/src/ssh/mod.rs` and `lib/host/src/ssh/tests.rs`. The private predicate takes upstream `ssh_key::EcdsaCurve`, retains explicit 32/48/66-byte exact-length and uncompressed-prefix gates, then validates with the typed p256/p384/p521 parsers. All SSH ECDSA call sites now use that predicate; no custom `Curve`, name dispatch, `Option<Vec<u8>>` re-encoding or `nist` module remains. The moved matrix plus existing SSH/SK caller cases preserve the original malformed, compressed/hybrid, wrong-curve, infinity and off-curve coverage. |
 | `lib/host/src/daemon/{mod,admission,backend,routes,server}.rs` | Source join complete: one module root directly defines the admission, backend, route and server owners, with private HTTP/WebSocket helpers. The 34-route table lives with dispatch; public response types come from their defining response module. `main.rs`, `dbackend.rs` and the existing smoke test use those modules directly. No gmux forwarding modules remain. The 128-connection/16-callback gates, authority, cancellation/shutdown joins and terminal lifetime are unchanged; HTTP head/body conversion stays separate from the server. |
 
@@ -75,8 +76,10 @@ exact affected-file formatting. All daemon units remain below 500 lines. The
 obsolete `GMUX_PATCHES.md` skeleton checklist is retired; its current duties
 live in source and the existing tests. The `daemon/broker.rs` join directly
 implements `FactoryBroker` and `MuseHooks` for the existing
-`iclient::BrokerClient`, with the five shared pfactory/terminal converters and
-the existing lease/binding round-trip test at their defining owner.
+`iclient::BrokerClient`, with the three lease/request converters and the
+existing lease round-trip test at their defining owner. Factory and Muse
+operations pass the same canonical terminal `Binding` directly; there are no
+binding conversion helpers or Factory `Binding` facade.
 `BrokerSeam` and `HooksSeam` are removed; dbackend and the Muse launch caller
 construct the client directly. `DaemonBackend` still implements `IdentityBroker`
 and keeps its native 180-second deadline policy in dbackend. The client remains
@@ -85,6 +88,16 @@ the host JSON profile. Nested execution bindings use canonical
 `terminal::Binding` deserialization; `Lease::decode` and `Delivery::decode`
 remain strict. The current `identity_transport` suite imports the actual
 public client and host types.
+
+The canonical Binding source receipt
+`.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/canonical-binding/checks-receipt.json`
+records 22 existing test bodies passing with no failures or ignored cases: one
+terminal golden, one strict decode matrix, three persisted FactoryReceipt
+cases, the existing distinct-Lease round trip and 16 actual-client cases
+against the scripted broker. All host targets compile offline and the exact
+11-file format check passes. These receipts cover persisted receipt bytes and
+the scripted client boundary; they do not establish full-service, native or
+installed behavior. Wider R02 allocation remains open.
 
 The source/development receipt
 `.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/broker-trait-join/checks-receipt.json`

@@ -30,6 +30,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::time::Instant;
 
 use crate::project::Executor;
+use crate::terminal::Binding;
 
 mod artifacts;
 mod candidate;
@@ -56,7 +57,7 @@ pub use self::confirmation::{
     factory_candidate_status_error, factory_export_status_error, factory_not_found_status,
     factory_output_status_error,
 };
-pub use self::identity::{AcquireRequest, Binding, Lease};
+pub use self::identity::{AcquireRequest, Lease};
 pub use self::requests::{
     FactoryCandidateInspect, FactoryCandidateState, FactoryExport, FactoryExportState,
     FactoryInspect, FactoryOutput, FactoryOutputState, FactoryStop, FactoryTakeover,

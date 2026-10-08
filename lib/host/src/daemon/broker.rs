@@ -19,39 +19,7 @@ pub(crate) fn cv_lease_to_texec(l: &pfactory::Lease) -> terminal::Lease {
         deadline: terminal::parse_rfc3339(&l.deadline),
         grant_id: l.grant_id.clone(),
         grant_revision: l.grant_revision,
-        binding: l.binding.as_ref().map(cv_binding_to_texec),
-    }
-}
-
-pub(crate) fn cv_binding_to_texec(b: &pfactory::Binding) -> terminal::Binding {
-    terminal::Binding {
-        child_id: b.child_id.clone(),
-        uid: b.uid,
-        gid: b.gid,
-        scope: b.scope.clone(),
-        credential_root: b.credential_root.clone(),
-        invocation_id: b.invocation_id.clone(),
-        kind: b.kind.clone(),
-        id: b.id.clone(),
-        project: b.project.clone(),
-        login: b.login.clone(),
-        generation: b.generation,
-    }
-}
-
-pub(crate) fn cv_binding_to_pfactory(b: &terminal::Binding) -> pfactory::Binding {
-    pfactory::Binding {
-        child_id: b.child_id.clone(),
-        uid: b.uid,
-        gid: b.gid,
-        scope: b.scope.clone(),
-        credential_root: b.credential_root.clone(),
-        invocation_id: b.invocation_id.clone(),
-        kind: b.kind.clone(),
-        id: b.id.clone(),
-        project: b.project.clone(),
-        login: b.login.clone(),
-        generation: b.generation,
+        binding: l.binding.clone(),
     }
 }
 
@@ -86,7 +54,7 @@ fn cv_lease_to_pfactory(l: &terminal::Lease) -> pfactory::Lease {
         deadline: l.deadline_raw.clone(),
         grant_id: l.grant_id.clone(),
         grant_revision: l.grant_revision,
-        binding: l.binding.as_ref().map(cv_binding_to_pfactory),
+        binding: l.binding.clone(),
     }
 }
 
@@ -105,11 +73,10 @@ impl pfactory::FactoryBroker for BrokerClient {
     fn register(
         &self,
         lease_id: &str,
-        binding: &pfactory::Binding,
+        binding: &terminal::Binding,
         deadline: Instant,
     ) -> Result<Vec<u8>, pfactory::FactoryError> {
-        let terminal_binding = cv_binding_to_texec(binding);
-        BrokerClient::register(self, lease_id, &terminal_binding, deadline)
+        BrokerClient::register(self, lease_id, binding, deadline)
             .map(|delivery| delivery.credential.unwrap_or_default())
             .map_err(pfactory::FactoryError::Msg)
     }
@@ -117,12 +84,11 @@ impl pfactory::FactoryBroker for BrokerClient {
     fn return_lease(
         &self,
         lease_id: &str,
-        binding: &pfactory::Binding,
+        binding: &terminal::Binding,
         credential: &[u8],
         deadline: Instant,
     ) -> Result<(), pfactory::FactoryError> {
-        let terminal_binding = cv_binding_to_texec(binding);
-        BrokerClient::return_lease(self, lease_id, &terminal_binding, credential, deadline)
+        BrokerClient::return_lease(self, lease_id, binding, credential, deadline)
             .map_err(pfactory::FactoryError::Msg)
     }
 
@@ -215,7 +181,7 @@ mod tests {
             deadline: "2026-10-05T00:00:00Z".to_string(),
             grant_id: "g".to_string(),
             grant_revision: 2,
-            binding: Some(pfactory::Binding {
+            binding: Some(crate::terminal::Binding {
                 child_id: "child".to_string(),
                 uid: 1001,
                 gid: 1001,
