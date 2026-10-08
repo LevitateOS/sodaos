@@ -319,3 +319,19 @@ request waiting without starting that existing host cutoff.
 | Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
 | --- | --- | --- | --- |
 | CON-M03-FAILURE-TRIGGER-1 → A07.C-muse / A | Luna medium owns only `lib/host/src/muse/launch.rs`, `lib/host/src/main.rs`, `lib/host/src/muse/tests.rs` and `lib/host/tests/muse_serve_oracle.rs`. Consolidate the listener/worker shutdown flag with the existing main-owned Arc; main observes it. Propagate non-benign pidfd termination failure through that flag and the existing unconfirmed-cleanup result. Rebind the four known serve callers. Coordinator owns checks/docs/commits; independent Luna medium reviews. | Current-source flag/caller/exit trace and retained 65/200-second failure policy; existing control cancellation and real pidfd identity subjects. Distinguish ESRCH after an already-exited child. No new supervisor, timeout/profile, manifest or state owner. | A signal failure while cleanup is unconfirmed reaches the same flag watched by main, starts the established host failure path and cannot become successful cleanup if child wait later completes. Successful signal and already-exited ESRCH do not cause spurious host failure. Same-owner regressions cover error/result propagation and real listener/worker flag identity; existing Muse/control/oracle subjects and daemon compile remain green. Native signal/reap, installed service activation and systemd group retirement remain separate; A07.C-muse stays open until its whole original scope is qualified. |
+
+CON-M03-FAILURE-TRIGGER-1 is complete at source scope in `c41081f3`.
+The original-source listener regression failed because a terminal listener error
+did not signal main; the corrected same-owner regression passes. The shared Arc
+replaces the separate worker flag, and main now observes it. Actual pidfd success
+and post-reap ESRCH remain benign; a non-benign syscall failure sets the flag and
+keeps the caller's cleanup result unconfirmed even if wait later completes.
+The [frozen receipt](../../../.artifacts/luna-batch-20261007-0caf6b91/muse-failure-pass-receipt.json)
+records 54 unit and 210 oracle test events with zero failures/ignored, daemon
+compilation and four-file formatting. The oracle also compiles existing source
+module tests: these counts are not distinct workflow claims. The zero-match
+`control::tests` selection is excluded; actual control-loop subjects ran in the
+nonzero Muse selections. Independent Luna medium scope, source and final receipt
+reviews passed. Native forced cleanup, activation and systemd group retirement
+remain unqualified; A07.C-muse, A07.V and R04 stay open. Supervisor panic before
+its final signal is not covered by this signal-error receipt.
