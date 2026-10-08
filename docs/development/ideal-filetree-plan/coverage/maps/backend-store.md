@@ -7,6 +7,11 @@ One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
 
+Selective source delta at `df05b6cf` (2026-10-08): the current mixed-owner
+explicit retry leaf is mapped below. `Store.IssueAssignments` is retired in
+`5e3d4825`; its original `519b76bd` spans remain historical baseline evidence.
+`storeAssignedLimit` and `AssignedAssignments` still own bounded recovery.
+
 <a id="coverage-fa3146f813f8"></a>
 
 ## [internal/store/corruption.go](../../../../../internal/store/corruption.go)
@@ -49,6 +54,21 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–11, 15–115; file scaffold; Assignment; AssignmentByRun; IssueAssignments; FinishAssignment; AssignedAssignments | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 12–14; storeAssignedLimit | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current declaration duty: storeAssignedLimit — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+The historical `Store.IssueAssignments` selector above is retired in
+`5e3d4825`. [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch)
+production and test callers now use latest or exact assignment reads; the
+original spans remain historical.
+
+## [internal/store/factory_explicit_retry.go](../../../../../internal/store/factory_explicit_retry.go)
+
+Current source at `df05b6cf`; selective mixed-responsibility map.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–14; file scaffold; errExplicitRetryIneligible | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Explicit retry admission refusal and shared file scaffold. |
+| 16–26; LatestIssueAssignment | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Indexed sequence-ordered single-row selection for dispatch and current assignment views. |
+| 28–249; RecordExplicitRetryCommand; PendingExplicitRetry; RecordExplicitRetryPacket; validateExplicitRetryFactsTx | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Atomic retry intent/receipt, dispatch consumer, current packet admission and prior head/run/accounting facts. Source correction `cf5fb2ff`; full target and native joins remain separate. |
 
 <a id="coverage-082686001ffc"></a>
 

@@ -1764,6 +1764,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── factory_dispatch_queue.go
 │   │   ├── factory_dispatch_queue_test.go
 │   │   ├── factory_dispatch_test.go
+│   │   ├── factory_explicit_retry.go
 │   │   ├── factory_grants.go
 │   │   ├── factory_grants_test.go
 │   │   ├── factory_inventory.go
@@ -1833,6 +1834,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       │   ├── extension_terminal_stream.go
 │       │   ├── extension_test.go
 │       │   ├── factory_assignments.go
+│       │   ├── factory_connection_usage_budget.go
 │       │   ├── factory_assignments_test.go
 │       │   ├── factory_intake.go
 │       │   ├── factory_intake_test.go

@@ -7,6 +7,10 @@ One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
 
+Selective source delta at `df05b6cf` (2026-10-08): the current F03
+connection-usage-budget API leaf is mapped below; untouched entries retain
+their `519b76bd` baseline spans and evidence.
+
 <a id="coverage-e071a157de6e"></a>
 
 ## [internal/web/api/access_keys.go](../../../../../internal/web/api/access_keys.go)
@@ -574,3 +578,11 @@ exact-blob current maintained map; full spans retained
 | --- | --- | --- | --- |
 | 1–23, 50–53, 99–212; whole file; validTerminalGeometry; validTerminalOrigin; validSecFetchHeaders; checkTerminalRequestHeaders; terminalHandshake; readTerminalHandshake; validHandshakeDimensions; validHandshakeAction; validHandshakeRepository; refuseTerminal; pumpTerminalInput; pumpNativeToExtension | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 13 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 24–49, 54–98, 213–241; TerminalID, newTerminalID, TerminalCreationScope, TerminalView, terminalDTO, reservedTerminal, terminalMetadata, terminalSessionMutation, parseTerminalSessionAction, validTerminalSessionMutation, API.CloseTerminals, API.dropTerminalPeer | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Human terminal identity/metadata and view-bound lifecycle tracking; declarations/fields: `TerminalID`, `newTerminalID`, `TerminalCreationScope`, `TerminalView`, `terminalDTO`, `reservedTerminal`, `terminalMetadata`, `terminalSessionMutation`, `parseTerminalSessionAction`, `validTerminalSessionMutation`, `API.CloseTerminals`, `API.dropTerminalPeer`, `API.unregisterTerminalPeer`, `peerIDInUse` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+
+## [internal/web/api/factory_connection_usage_budget.go](../../../../../internal/web/api/factory_connection_usage_budget.go)
+
+Current source at `df05b6cf`; selective single-responsibility map.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–74; file scaffold; connectionUsageBudgetRequest; apiFactoryConnectionUsageBudget | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Broker connection-owner budget read and revision-checked command-backed update. Current application accounting policy; no native/installed qualification claim. |
