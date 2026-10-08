@@ -15,7 +15,7 @@ SVGs in `assets/branding/source/` are canonical. PNGs and the ICO are derivative
 
 ## Color and backgrounds
 
-[`palette.css`](../../assets/branding/theme/palette.css) is the shared color source. Light mode uses warm ivory, white surfaces, dark ink, and primary blue; dark mode uses navy surfaces, light ink, brighter blue links, and darker filled actions. Preserve separate action/link roles for contrast.
+[`palette.css`](../../assets/branding/theme/palette.css) is the shared color source. Light mode uses a white canvas and surfaces, dark ink, and red actions and links; dark mode uses a near-black canvas and surfaces, light ink, red actions, and pink/red links. Preserve separate action/link roles for contrast.
 
 Static login backgrounds are in `assets/branding/cockpit/`; the animated wave demo is in `assets/animated-wave-background/`. The application-specific themes are reference assets until explicitly integrated and tested against their host application versions.
 

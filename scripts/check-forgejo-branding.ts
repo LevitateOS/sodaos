@@ -136,7 +136,7 @@ try {
     for (const theme of [`soda-${scheme}`, 'soda-auto']) {
       assert.deepEqual(await visit(page, theme), baseline, `${theme} must preserve native diff, error and ANSI colors`);
       const body = await colors(page.locator('body'));
-      assert.equal(body.background, scheme === 'light' ? 'rgb(255, 253, 248)' : 'rgb(12, 16, 23)');
+      assert.equal(body.background, scheme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(16, 16, 16)');
       assert(contrast(body.color, body.background) >= 4.5);
       await checkButtons(page);
       await checkFocusAndImages(page);
@@ -146,13 +146,13 @@ try {
     await page.emulateMedia({colorScheme: scheme === 'light' ? 'dark' : 'light'});
     assert.equal(
       (await colors(page.locator('body'))).background,
-      scheme === 'light' ? 'rgb(12, 16, 23)' : 'rgb(255, 253, 248)'
+      scheme === 'light' ? 'rgb(16, 16, 16)' : 'rgb(255, 255, 255)'
     );
     // Explicit user choice must not follow the opposite OS preference.
     await visit(page, `soda-${scheme}`);
     assert.equal(
       (await colors(page.locator('body'))).background,
-      scheme === 'light' ? 'rgb(255, 253, 248)' : 'rgb(12, 16, 23)'
+      scheme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(16, 16, 16)'
     );
     assert.deepEqual(errors, []);
     await context.close();
