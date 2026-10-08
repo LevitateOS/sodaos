@@ -34,11 +34,9 @@ impl Production {
     pub(crate) fn pull_frozen_image(
         &self,
         inputs: &[ResolvedInput],
-        label: &str,
         reference: &str,
         iid_name: &str,
     ) -> Result<(String, String), Error> {
-        self.step(&format!("Select frozen {label}"))?;
         for input in inputs {
             if input.requested != reference {
                 continue;
@@ -71,13 +69,11 @@ impl Production {
 
     fn pull_resolved_input(
         &self,
-        label: &str,
         reference: &str,
         iid_name: &str,
         platform: &str,
         inputs: &mut Vec<ResolvedInput>,
     ) -> Result<(String, String), Error> {
-        self.step(&format!("Pull and resolve {label}"))?;
         let id = self.call_capture(
             &self.source,
             "podman",
@@ -170,7 +166,7 @@ impl Production {
         let tail_base = tailnet.base.clone();
         let mut inputs = Vec::new();
         for reference in [&rocky, &forgejo, &proxy, &tail_base] {
-            self.pull_resolved_input(reference, reference, "", &platform, &mut inputs)?;
+            self.pull_resolved_input(reference, "", &platform, &mut inputs)?;
         }
         self.inputs = inputs;
         Ok(())

@@ -17,7 +17,6 @@ impl Production {
         {
             return Err(Error::msg("explicit Rust crate and binary required"));
         }
-        self.step(&format!("Compile {bin}"))?;
         let manifest = PathBuf::from(&self.source).join("Cargo.toml");
         self.call_execute(
             &self.source,
@@ -47,7 +46,6 @@ impl Production {
     /// every install path.
     pub fn compile(&self, name: &str, pkg: &str, dest: &str) -> Result<(), Error> {
         self.validate()?;
-        self.step(&format!("Compile {name}"))?;
         self.call_execute(
             &self.source,
             "go",
@@ -84,15 +82,12 @@ impl Production {
     /// Runs before any production compilation.
     pub fn dependencies(&self) -> Result<(), Error> {
         self.validate()?;
-        self.step("Check frontend toolchain")?;
         self.require_pinned_bun()?;
-        self.step("Verify Go dependencies")?;
         self.call_execute(
             &self.source,
             "go",
             &["mod".to_string(), "verify".to_string()],
         )?;
-        self.step("Install frontend dependencies")?;
         self.call_execute(
             &self.source,
             "bun",

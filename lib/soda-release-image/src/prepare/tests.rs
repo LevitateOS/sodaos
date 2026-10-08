@@ -35,9 +35,6 @@ fn oracle_base_inputs_require_exact_revision() {
         fn capture(&self, _: &str, _: &str, _: &[String]) -> Result<String, Error> {
             Ok(String::new())
         }
-        fn next(&self, _: &str) -> Result<(), Error> {
-            Ok(())
-        }
         fn resolve_inputs(&mut self) -> Result<(), Error> {
             Ok(())
         }

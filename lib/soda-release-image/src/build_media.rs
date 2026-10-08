@@ -27,7 +27,6 @@ pub fn prepare_build_media(
     if !request.wants_media() {
         return Ok((MediaTools::default(), media::MediaLock::default()));
     }
-    production.next("P2 / Verify native media tooling")?;
     let tools = admit_media_tools(
         production.source(),
         &sys::join(&[&request.out, "evidence"]),
@@ -47,7 +46,6 @@ pub fn finish_build_media(
     if !request.wants_media() {
         return Ok(());
     }
-    production.next("P6 / Prepare candidate live Ignition")?;
     prepare_media_inputs(production.source(), production.out(), tools, production)?;
     media::assemble_media(production, request, lock, next)?;
     Ok(())
@@ -214,9 +212,6 @@ mod tests {
                 panic!("dispatched")
             }
             fn capture(&self, _: &str, _: &str, _: &[String]) -> Result<String, Error> {
-                panic!("dispatched")
-            }
-            fn next(&self, _: &str) -> Result<(), Error> {
                 panic!("dispatched")
             }
             fn resolve_inputs(&mut self) -> Result<(), Error> {

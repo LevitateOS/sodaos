@@ -261,8 +261,8 @@ fn run_build_inner(
         live_inputs: request.live_inputs.clone(),
     };
     let mut production = make_production(runner.clone(), inputs);
-    // Borrow progress phases through a shared handle: the Go Production.Next
-    // is progress.Next. Phase callbacks below call progress directly.
+    // The production factory has no progress hook. Phase callbacks below
+    // report active build steps directly through the progress owner.
     let (context_dir, base, media_tooling, mut assembler) = {
         // phase = progress.Phase
         let phase_result: Result<

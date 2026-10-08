@@ -1,8 +1,8 @@
-//! Oracle vectors generated from the Go owner (`internal/release/build`).
+//! Selected current behavior expectations and retained fixture values.
 //!
-//! Produced by the throwaway `zz-oracle-tmp` driver (deleted after
-//! generation; see tests/oracle.rs). Every constant below is Go ground
-//! truth: byte outputs or error texts the Rust port must reproduce.
+//! Some values originated in the former Go owner. They remain only where a
+//! current producer or consumer assertion uses them; they do not require
+//! general byte-for-byte compatibility with that implementation.
 
 #![allow(dead_code)]
 
@@ -75,98 +75,43 @@ if [ -n "${FORGEJO_VERSION:-}" ]; then
 fi
 go build -buildvcs=false -tags 'bindata sqlite sqlite_unlock_notify' -ldflags "${LDFLAGS}" -trimpath -o /work/out/forgejo-bin .
 "###;
-pub const PRODUCTION_SEQUENCE: &str = r###"STEP Check frontend toolchain
-bun --version
-STEP Verify Go dependencies
+pub const PRODUCTION_SEQUENCE: &str = r###"bun --version
 go mod verify
-STEP Install frontend dependencies
 bun install --frozen-lockfile
-STEP Pull and resolve docker.io/rockylinux/rockylinux:10.2
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/rockylinux/rockylinux:10.2
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Pull and resolve codeberg.org/forgejo/forgejo:15.0.9
 podman --remote=false pull --quiet --platform=linux/amd64 codeberg.org/forgejo/forgejo:15.0.9
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Pull and resolve docker.io/library/caddy:2
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/library/caddy:2
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Pull and resolve docker.io/tailscale/alpine-base:3.22
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/tailscale/alpine-base:3.22
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Compile soda-muse
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-muse --bin soda-muse
-STEP Compile soda-identity-compose
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-identity-compose --bin soda-identity-compose
-STEP Compile project-terminal
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal --bin project-terminal
-STEP Compile project-account
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal --bin project-account
-STEP Compile project-factory-roles
 cargo build --release --locked --manifest-path $ROOT/Cargo.toml -p soda-project-terminal --bin project-factory-roles
-STEP Build frontend assets
 bun scripts/build-forgejo.ts --out $ROOT/.artifacts/native/x86_64/forgejo-js
-STEP Fetch terminal assets
 cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out $ROOT/.artifacts/native/x86_64/terminal-assets
-STEP Build Soda extension browser assets
 bun scripts/build-soda-extension.ts --out $ROOT/.artifacts/native/x86_64/soda-extension-assets --terminal-assets $ROOT/.artifacts/native/x86_64/terminal-assets
-STEP Prepare Forgejo translations
 cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock frontend/forgejo/locale.lock.json --out $ROOT/.artifacts/native/x86_64/forgejo-locales/locale_en-US.ini
-STEP Fetch upstream Muse binary
 cargo run --release --locked -p soda-release-assets --bin soda-fetch-muse -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools/bin/muse-native
-STEP Fetch upstream Tea binary
 cargo run --release --locked -p soda-release-assets --bin soda-fetch-tea -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools
-STEP Stage appliance files
 cargo run --release --locked -p soda-release-assets --bin soda-stage -- --arch x86_64 --host-context $ROOT/.artifacts/native/x86_64/context --forgejo-context $ROOT/.artifacts/native/x86_64/forgejo-context
-STEP Select frozen Rocky base
-STEP Build image: dashboard
 podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/dashboard.iid --file system/containers/dashboard/Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
-STEP Export and verify image: dashboard
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/dashboard.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Build image: project-os
 podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/project-os.iid --file system/project/Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
-STEP Export and verify image: project-os
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/project-os.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Select frozen Forgejo
-STEP Build image: forgejo
 podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=codeberg.org/forgejo/forgejo@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=codeberg.org/forgejo/forgejo@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/forgejo.iid --file Containerfile .
-STEP Export and verify image: forgejo
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/forgejo.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Build image: extension
 podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 --label=org.opencontainers.image.base.digest=sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 --iidfile $ROOT/.artifacts/native/x86_64/extension.iid --file Containerfile .
-STEP Export and verify image: extension
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/extension.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Select frozen Proxy
-STEP Export and verify image: proxy
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/proxy.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-STEP Select frozen Tailnet base
-STEP Build image: tailnet
 podman --remote=false build --pull=never --rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/tailnet.iid --file system/containers/tailnet/Containerfile --build-arg=TAILSCALE_VERSION=1.98.2 --build-arg=TARGETARCH=amd64 --build-arg=ARCHIVE_SHA256=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee .
-STEP Export and verify image: tailnet
 podman --remote=false save --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/tailnet.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 "###;
-pub const PROGRESS_BYTES: &str = r###"LOG      $TMP/timing.log
-START    P3
-START    Compile once
-DONE     Compile once | section 00:00:03 | total 00:00:00
-DONE     P3 | phase 00:00:05 | total 00:00:00
-START    P4
-FAILED   P4 | phase 00:00:04 | total 00:00:00
-
-SECTION SUMMARY
-  DONE     Compile once | section 00:00:03 | total 00:00:00
-  DONE     P3 | phase 00:00:05 | total 00:00:00
-  FAILED   P4 | phase 00:00:04 | total 00:00:00
-FAILED   Release fixture | total 00:00:00 | exit 1
-"###;
-
-pub const EXIT_NIL: i32 = 0;
-pub const EXIT_7: i32 = 7;
-pub const EXIT_SIGTERM: i32 = 143;
-pub const EXIT_CANCELED: i32 = 130;
-pub const EXIT_GENERIC: i32 = 1;
 pub const MISC_OCI_ARCH: &str = "expected x86_64";
 pub const MISC_HTTPS_HTTP: bool = false;
 pub const MISC_TAILNET: &str = "invalid Tailnet version";
-pub const READ_UNKNOWN_FIELD: &str = r###"json: unknown field "bogus""###;
 pub const READ_TRAILING: &str = "trailing JSON data";
 pub const READ_OK_MODE: u32 = 420;

@@ -42,8 +42,6 @@ pub trait Production {
     fn execute(&self, dir: &str, name: &str, args: &[String]) -> Result<(), Error>;
     /// `p.Capture`: run a build command, returning trimmed stdout.
     fn capture(&self, dir: &str, name: &str, args: &[String]) -> Result<String, Error>;
-    /// `p.Next`: emit a step label.
-    fn next(&self, label: &str) -> Result<(), Error>;
 
     /// `p.ResolveInputs`: freeze image inputs on the production.
     fn resolve_inputs(&mut self) -> Result<(), Error>;

@@ -62,11 +62,6 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
     prod.arch = "x86_64".to_string();
     prod.revision = FIXTURE_REVISION.to_string();
     prod.live_inputs = live_path.to_string_lossy().into_owned();
-    let calls_next = calls.clone();
-    prod.next = Some(Box::new(move |label| {
-        calls_next.lock().unwrap().push(format!("STEP {label}"));
-        Ok(())
-    }));
     prod.capture = Some(Box::new(move |_dir, name, args| {
         calls_capture
             .lock()
@@ -177,10 +172,6 @@ fn oracle_production_sequence() {
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-tea -- --arch x86_64 --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock frontend/forgejo/locale.lock.json --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-stage -- --arch x86_64 --host-context ",
-        "STEP Build image: dashboard\n",
-        "STEP Build image: project-os\n",
-        "STEP Build image: tailnet\n",
-        "STEP Build image: forgejo\n",
         "bun scripts/build-soda-extension.ts --out ",
     ] {
         assert_eq!(text.matches(needle).count(), 1, "needle: {needle}\n{text}");
@@ -224,8 +215,6 @@ fn oracle_production_failure_stops() {
     let err = prod.images("forgejo-context").unwrap_err();
     assert_eq!(err.message(), "fixture build refused");
     let text = calls.lock().unwrap().join("\n");
-    assert!(!text.contains("STEP Build image: project-os"));
-    assert!(!text.contains("STEP Export and verify"));
     assert!(PathBuf::from(&prod.out).join("app-inputs.json").exists());
 }
 

@@ -15,7 +15,6 @@ mod tests;
 /// Command execution and capture hooks, like Go's `BuildExec`/`BuildCapture`.
 pub type BuildExec = Box<dyn Fn(&str, &str, &[String]) -> Result<(), Error> + Send + Sync>;
 pub type BuildCapture = Box<dyn Fn(&str, &str, &[String]) -> Result<String, Error> + Send + Sync>;
-pub type NextFn = Box<dyn Fn(&str) -> Result<(), Error> + Send + Sync>;
 
 /// Production attempt: explicit native inputs plus execution hooks.
 #[derive(Default)]
@@ -32,18 +31,10 @@ pub struct Production {
     pub live_inputs: String,
     pub execute: Option<BuildExec>,
     pub capture: Option<BuildCapture>,
-    pub next: Option<NextFn>,
     pub(crate) inputs: Vec<ResolvedInput>,
 }
 
 impl Production {
-    pub fn step(&self, label: &str) -> Result<(), Error> {
-        match &self.next {
-            Some(next) => next(label),
-            None => Ok(()),
-        }
-    }
-
     pub fn call_execute(&self, dir: &str, name: &str, args: &[String]) -> Result<(), Error> {
         match &self.execute {
             Some(execute) => execute(dir, name, args),

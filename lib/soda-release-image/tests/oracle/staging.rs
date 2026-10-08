@@ -93,9 +93,6 @@ impl soda_release_image::foreign::Production for Stub {
     ) -> Result<String, soda_release_image::error::Error> {
         unreachable!()
     }
-    fn next(&self, _: &str) -> Result<(), soda_release_image::error::Error> {
-        unreachable!()
-    }
     fn resolve_inputs(&mut self) -> Result<(), soda_release_image::error::Error> {
         unreachable!()
     }

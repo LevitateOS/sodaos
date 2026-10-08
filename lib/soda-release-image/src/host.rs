@@ -113,7 +113,6 @@ pub fn export_host_archive(
     id: &str,
     production: &dyn Production,
 ) -> Result<(), Error> {
-    production.next("P6 / Export and verify host OCI")?;
     let archive = sys::join(&[out, "host.oci"]);
     production.execute(
         context,

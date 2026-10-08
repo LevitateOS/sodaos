@@ -38,7 +38,6 @@ pub fn stage_candidate_forgejo(
     sys::create_dir(&forgejo_context, 0o700)?;
     production.stage_fork_binary(&forgejo_context)?;
     production.assets(context, &forgejo_context)?;
-    production.next("Verify immutable Forgejo presentation")?;
     payload.presentation_sha256 = complete::stage_presentation(&forgejo_context, context)?;
     let recipe = fs::read(sys::join(&[
         source,
@@ -119,7 +118,6 @@ pub fn inspect_candidate_forgejo(
     images: &HashMap<String, model::ProducedImage>,
     production: &dyn Production,
 ) -> Result<(), Error> {
-    production.next("Inspect immutable Forgejo presentation")?;
     let empty = model::ProducedImage::default();
     let config = images.get("forgejo").unwrap_or(&empty).config.clone();
     // Read-only upstream binary, not its database/bootstrap entrypoint.
@@ -261,7 +259,6 @@ pub fn seal_candidate_payload(
     out: &str,
     production: &dyn Production,
 ) -> Result<(), Error> {
-    production.next("Assemble host payload and ordinary Podman image references")?;
     payload.validate()?;
     complete::complete(
         source,

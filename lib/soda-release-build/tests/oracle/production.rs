@@ -1,5 +1,4 @@
-//! Production oracle vectors: the full native sequence with recorded
-//! observations against Go ground truth.
+//! Production oracle: current native command sequence and emitted artifacts.
 
 use super::{data_path, oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
 use soda_release_build::live_inputs::write_live_inputs;
@@ -66,11 +65,6 @@ fn oracle_production_sequence() {
     prod.arch = "x86_64".to_string();
     prod.revision = FIXTURE_REVISION.to_string();
     prod.live_inputs = live_path.to_string_lossy().into_owned();
-    let calls_next = calls.clone();
-    prod.next = Some(Box::new(move |label| {
-        calls_next.lock().unwrap().push(format!("STEP {label}"));
-        Ok(())
-    }));
     let calls_capture = calls.clone();
     let config = seed_image.config.clone();
     prod.capture = Some(Box::new(move |_dir, name, args| {

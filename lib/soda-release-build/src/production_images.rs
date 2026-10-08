@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Image-pipeline hook shapes shared by the export stages.
-type PullFn<'a> = &'a dyn Fn(&str, &str, &str) -> Result<(String, String), Error>;
+type PullFn<'a> = &'a dyn Fn(&str, &str) -> Result<(String, String), Error>;
 type BuildFn<'a> = &'a dyn Fn(&str, &str, &str, &str, &[String]) -> Result<String, Error>;
 type ExportFn<'a> = &'a mut dyn FnMut(&str, &str, &str) -> Result<(), Error>;
 
@@ -44,7 +44,6 @@ impl Production {
         args: &[String],
     ) -> Result<String, Error> {
         let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
-        self.step(&format!("Build image: {name}"))?;
         let iid = PathBuf::from(&self.out).join(format!("{name}.iid"));
         let base_digest = pinned.split_once('@').map(|(_, d)| d).unwrap_or(pinned);
         let mut cmd = vec![
@@ -86,7 +85,6 @@ impl Production {
         id: &str,
         revision: &str,
     ) -> Result<ProducedImage, Error> {
-        self.step(&format!("Export and verify image: {name}"))?;
         let file = archives.join(format!("{name}.oci"));
         self.call_execute(
             &self.source,
@@ -121,7 +119,7 @@ impl Production {
         if rocky != dashboard {
             return Err(Error::msg("dashboard and Project OS base owners disagree"));
         }
-        let (_, pinned) = pull("Rocky base", &rocky, "base")?;
+        let (_, pinned) = pull(&rocky, "base")?;
         let native_rel = lexical_rel(Path::new(&self.source), Path::new(&self.native));
         if native_rel.starts_with("..") {
             return Err(Error::msg("native assets must be inside source context"));
@@ -167,7 +165,7 @@ impl Production {
         let forgejo =
             unit_image(&PathBuf::from(&self.source).join("system/host/services/forgejo.container"))
                 .map_err(|e| Error::msg(e.to_string()))?;
-        let (_, pinned) = pull("Forgejo", &forgejo, "forgejo-base")?;
+        let (_, pinned) = pull(&forgejo, "forgejo-base")?;
         let id = build("forgejo", forgejo_context, "Containerfile", &pinned, &[])?;
         export("forgejo", &id, &self.revision)
     }
@@ -177,7 +175,7 @@ impl Production {
             &PathBuf::from(&self.source).join("system/host/services/soda-proxy.container"),
         )
         .map_err(|e| Error::msg(e.to_string()))?;
-        let (id, _) = pull("Proxy", &proxy, "proxy")?;
+        let (id, _) = pull(&proxy, "proxy")?;
         export("proxy", &id, "")
     }
 
@@ -189,7 +187,7 @@ impl Production {
         export: ExportFn,
     ) -> Result<(), Error> {
         let tail = self.live_tailnet_inputs()?;
-        let (_, pinned) = pull("Tailnet base", &tail.base, "tailnet-base")?;
+        let (_, pinned) = pull(&tail.base, "tailnet-base")?;
         let id = build(
             "tailnet",
             &self.source,
@@ -230,10 +228,9 @@ impl Production {
     ) -> Result<HashMap<String, ProducedImage>, Error> {
         let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
         let mut result: HashMap<String, ProducedImage> = HashMap::new();
-        let pull =
-            |label: &str, reference: &str, iid_name: &str| -> Result<(String, String), Error> {
-                self.pull_frozen_image(inputs, label, reference, iid_name)
-            };
+        let pull = |reference: &str, iid_name: &str| -> Result<(String, String), Error> {
+            self.pull_frozen_image(inputs, reference, iid_name)
+        };
         let build = |name: &str,
                      dir: &str,
                      file: &str,

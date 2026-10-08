@@ -77,9 +77,6 @@ fn oracle_link_prepared_assets_runs_no_commands() {
         fn capture(&self, _: &str, _: &str, _: &[String]) -> Result<String, Error> {
             panic!("command run")
         }
-        fn next(&self, _: &str) -> Result<(), Error> {
-            Ok(())
-        }
         fn resolve_inputs(&mut self) -> Result<(), Error> {
             Ok(())
         }

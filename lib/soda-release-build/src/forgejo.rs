@@ -122,7 +122,6 @@ pub fn record_forgejo_toolchain(prod: &Production, root: &Path) -> Result<(), Er
 /// Compiles the exact archived fork under musl.
 pub fn build_forgejo_binary(prod: &Production) -> Result<String, Error> {
     validate_forgejo_build(prod)?;
-    prod.step("Build patched Forgejo binary")?;
     let root = PathBuf::from(&prod.native).join("forgejo-build");
     std::fs::create_dir(&root).map_err(|e| io_error("mkdir", &root, e))?;
     crate::files::chmod(&root, 0o700)?;
@@ -296,7 +295,6 @@ mod tests {
         prod.native = native_clone.to_string_lossy().into_owned();
         prod.out = out.to_string_lossy().into_owned();
         prod.arch = "x86_64".to_string();
-        prod.next = Some(Box::new(|_| Ok(())));
         prod.execute = Some(Box::new(move |dir, name, args| {
             assert_eq!(dir, source_clone.to_string_lossy());
             assert_eq!(name, "podman");

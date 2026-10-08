@@ -425,9 +425,6 @@ mod tests {
                 .to_string_lossy();
             Ok(test_metadata(&snapshot))
         }
-        fn next(&self, _: &str) -> Result<(), Error> {
-            Ok(())
-        }
         fn resolve_inputs(&mut self) -> Result<(), Error> {
             Ok(())
         }

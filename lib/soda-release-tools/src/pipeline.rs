@@ -11,11 +11,8 @@
 //!   pipeline runs synchronously on the worker thread, so no thread boundary
 //!   is ever crossed and no `unsafe` is needed. A call from any other thread
 //!   fails closed with `production runner unavailable on this thread`.
-//! - Go binds `Production.Next` to `progress.Next`, emitting every step label
-//!   as a progress section. The factory signature carries no progress handle,
-//!   so the inner `Next` hook stays `None` and step labels are dropped; the
-//!   pipeline's own phase labels still flow through the [`ImageProgress`]
-//!   adapter below.
+//! - Build step labels are not wired as production callbacks. The pipeline
+//!   reports active phase labels directly through [`ImageProgress`].
 //! - [`run_worker_stage`] drops the image `Result.Checks` vector: the worker
 //!   [`build_spec::ImageResult`] shape has no such field.
 //! - Interrupts seed the image [`Cancel`] by peeking at (then restoring) the
@@ -244,10 +241,6 @@ impl ImageProduction for RealProduction {
         self.inner.call_capture(dir, name, args).map_err(build_err)
     }
 
-    fn next(&self, label: &str) -> Result<(), ImageError> {
-        self.inner.step(label).map_err(build_err)
-    }
-
     fn resolve_inputs(&mut self) -> Result<(), ImageError> {
         self.inner.resolve_inputs().map_err(build_err)
     }
@@ -465,7 +458,6 @@ pub fn make_production(runner: Runner, inputs: ProductionInputs) -> Box<dyn Imag
     inner.capture = Some(Box::new(|dir, name, args| {
         with_current_runner(|runner| runner.capture(dir, name, args))
     }));
-    inner.next = None;
     Box::new(RealProduction::new(inner))
 }
 
@@ -681,11 +673,6 @@ mod tests {
                 .push(format!("CAP {dir} {name} {}", args.join(" ")));
             Ok("captured".to_string())
         }));
-        let next_calls = Arc::clone(&calls);
-        inner.next = Some(Box::new(move |label| {
-            next_calls.lock().unwrap().push(format!("NEXT {label}"));
-            Ok(())
-        }));
         (inner, calls)
     }
 
@@ -710,13 +697,11 @@ mod tests {
     fn hooks_call_through() {
         let (inner, calls) = fixture_inner();
         let production = RealProduction::new(inner);
-        ImageProduction::next(&production, "Compile it").unwrap();
         ImageProduction::execute(&production, "/d", "podman", &["pull".to_string()]).unwrap();
         let out =
             ImageProduction::capture(&production, "/d", "podman", &["id".to_string()]).unwrap();
         assert_eq!(out, "captured");
         let calls = calls.lock().unwrap().join("\n");
-        assert!(calls.contains("NEXT Compile it"), "{calls}");
         assert!(calls.contains("EXEC /d podman pull"), "{calls}");
         assert!(calls.contains("CAP /d podman id"), "{calls}");
     }
@@ -726,7 +711,6 @@ mod tests {
         let (mut inner, _) = fixture_inner();
         inner.execute = Some(Box::new(|_, _, _| Err(BuildError::msg("boom"))));
         inner.capture = Some(Box::new(|_, _, _| Err(BuildError::msg("snap"))));
-        inner.next = Some(Box::new(|_| Err(BuildError::msg("crackle"))));
         let production = RealProduction::new(inner);
         assert_eq!(
             ImageProduction::execute(&production, "/d", "x", &[])
@@ -739,10 +723,6 @@ mod tests {
                 .unwrap_err()
                 .0,
             "snap"
-        );
-        assert_eq!(
-            ImageProduction::next(&production, "step").unwrap_err().0,
-            "crackle"
         );
         let bare = RealProduction::new(BuildProduction::default());
         assert_eq!(
@@ -757,8 +737,6 @@ mod tests {
                 .0,
             "explicit native production inputs required"
         );
-        // No `Next` hook wired (as in `make_production`): steps are dropped.
-        assert!(ImageProduction::next(&bare, "step").is_ok());
     }
 
     #[test]
@@ -993,7 +971,6 @@ mod tests {
             .capture(env!("CARGO_MANIFEST_DIR"), "echo", &["hello".to_string()])
             .unwrap();
         assert_eq!(out, "hello");
-        assert!(production.next("dropped step").is_ok());
     }
 
     #[test]
