@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"math"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -40,20 +41,21 @@ const MergeFastForward = "fast-forward-only"
 // binds a client-generated command ID to normalized admitted fields; the
 // same ID with different content conflicts instead of executing twice.
 const (
-	CommandPolicy           = "policy"
-	CommandOperatorGrant    = "operator-grant"
-	CommandCapacity         = "capacity"
-	CommandSponsorship      = "sponsorship"
-	CommandEnvironmentGrant = "environment-grant"
-	CommandRequirement      = "preparation-requirement"
-	CommandApproval         = "preparation-approval"
-	CommandReopen           = "reopen"
-	CommandAcceptance       = "acceptance"
-	CommandWithdrawal       = "withdrawal"
-	CommandPause            = "pause"
-	CommandResume           = "resume"
-	CommandRetry            = "retry"
-	CommandTakeover         = "takeover"
+	CommandPolicy                = "policy"
+	CommandOperatorGrant         = "operator-grant"
+	CommandCapacity              = "capacity"
+	CommandSponsorship           = "sponsorship"
+	CommandConnectionUsageBudget = "connection-usage-budget"
+	CommandEnvironmentGrant      = "environment-grant"
+	CommandRequirement           = "preparation-requirement"
+	CommandApproval              = "preparation-approval"
+	CommandReopen                = "reopen"
+	CommandAcceptance            = "acceptance"
+	CommandWithdrawal            = "withdrawal"
+	CommandPause                 = "pause"
+	CommandResume                = "resume"
+	CommandRetry                 = "retry"
+	CommandTakeover              = "takeover"
 )
 
 // SettingsCommandType reports whether typ is a grant/settings command. The
@@ -62,7 +64,7 @@ const (
 // through the admitted browser controls, never the operator endpoint.
 func SettingsCommandType(typ string) bool {
 	switch typ {
-	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship,
+	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship, CommandConnectionUsageBudget,
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
 		CommandAcceptance, CommandWithdrawal,
 		CommandPause, CommandResume, CommandRetry, CommandTakeover:
@@ -213,6 +215,35 @@ func (c Capacity) Validate() error {
 	return nil
 }
 
+// DefaultConnectionUsageBudgetMinutes is recorded when the first active
+// sponsorship enables a provider connection for factory use. The owner may
+// later revise it; it is an initial value, not a ceiling.
+const DefaultConnectionUsageBudgetMinutes int64 = 360
+
+// UsageMicrosPerMinute is the persisted rolling-window accounting unit.
+const UsageMicrosPerMinute int64 = 60_000_000
+
+// ConnectionUsageBudget is the provider owner's rolling connection-wide
+// factory session-time limit. Its key is the canonical broker connection ID;
+// credential and owner metadata remain with the broker.
+type ConnectionUsageBudget struct {
+	Connection     string `json:"connection"`
+	Revision       int64  `json:"revision"`
+	RollingMinutes int64  `json:"rolling_minutes"`
+}
+
+func (b ConnectionUsageBudget) Validate() error {
+	if b.Connection == "" || len(b.Connection) > 128 || strings.TrimSpace(b.Connection) != b.Connection ||
+		strings.IndexFunc(b.Connection, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 ||
+		b.Revision < 0 || b.RollingMinutes < 1 {
+		return errors.New("invalid connection usage budget")
+	}
+	if b.RollingMinutes > math.MaxInt64/UsageMicrosPerMinute {
+		return errors.New("connection usage budget exceeds microsecond accounting range")
+	}
+	return nil
+}
+
 // OperatorGrant permits one repository to use appliance capacity within its
 // own limit. It grants no repository access or merge rights.
 type OperatorGrant struct {
@@ -237,30 +268,33 @@ func (g OperatorGrant) Validate() error {
 // and acceptance revisions behind it. Fountain treats these revisions as
 // opaque; a changed grant closes dispatch rather than renewing old work.
 type AuthorityRef struct {
-	RequirementsID string `json:"requirements_id,omitempty"`
-	ApprovalID     string `json:"approval_id,omitempty"`
-	Policy         int64  `json:"policy"`
-	Operator       int64  `json:"operator"`
-	Capacity       int64  `json:"capacity"`
-	Sponsorship    int64  `json:"sponsorship"`
-	Environment    int64  `json:"environment"`
+	RequirementsID        string `json:"requirements_id,omitempty"`
+	ApprovalID            string `json:"approval_id,omitempty"`
+	SponsorshipConnection string `json:"sponsorship_connection,omitempty"`
+	Policy                int64  `json:"policy"`
+	Operator              int64  `json:"operator"`
+	Capacity              int64  `json:"capacity"`
+	Sponsorship           int64  `json:"sponsorship"`
+	ConnectionUsageBudget int64  `json:"connection_usage_budget"`
+	Environment           int64  `json:"environment"`
 }
 
 // Missing-authority reason codes. Bounded and credential-free: controls
 // expose which authorization is missing or withdrawn, never secrets.
 const (
-	MissingPolicy            = "policy_missing"
-	MissingPolicyDisabled    = "policy_disabled"
-	MissingPolicyPaused      = "policy_paused"
-	MissingOperatorGrant     = "operator_grant_missing"
-	MissingOperatorWithdrawn = "operator_grant_withdrawn"
-	MissingCapacity          = "capacity_missing"
-	MissingSponsorship       = "sponsorship_missing"
-	MissingSponsorshipGone   = "sponsorship_withdrawn"
-	MissingEnvironment       = "environment_grant_missing"
-	MissingEnvironmentGone   = "environment_grant_withdrawn"
-	MissingPreparation       = "preparation_not_ready"
-	MissingDispatch          = "dispatch_closed"
+	MissingPolicy                = "policy_missing"
+	MissingPolicyDisabled        = "policy_disabled"
+	MissingPolicyPaused          = "policy_paused"
+	MissingOperatorGrant         = "operator_grant_missing"
+	MissingOperatorWithdrawn     = "operator_grant_withdrawn"
+	MissingCapacity              = "capacity_missing"
+	MissingSponsorship           = "sponsorship_missing"
+	MissingSponsorshipGone       = "sponsorship_withdrawn"
+	MissingConnectionUsageBudget = "connection_usage_budget_missing"
+	MissingEnvironment           = "environment_grant_missing"
+	MissingEnvironmentGone       = "environment_grant_withdrawn"
+	MissingPreparation           = "preparation_not_ready"
+	MissingDispatch              = "dispatch_closed"
 )
 
 // EffectiveAuthority is the visible enablement verdict for one repository:
@@ -290,14 +324,15 @@ type GrantReceipt struct {
 // record means no grant was ever recorded. PreparationReady applies only
 // when a Project exists for the repository.
 type AuthorityInput struct {
-	Policy           *RepositoryPolicy
-	Operator         *OperatorGrant
-	Appliance        *Capacity
-	Sponsorship      *Sponsorship
-	Environment      *project.EnvironmentGrant
-	ProjectExists    bool
-	PreparationReady bool
-	DispatchOpen     bool
+	Policy                *RepositoryPolicy
+	Operator              *OperatorGrant
+	Appliance             *Capacity
+	Sponsorship           *Sponsorship
+	ConnectionUsageBudget *ConnectionUsageBudget
+	Environment           *project.EnvironmentGrant
+	ProjectExists         bool
+	PreparationReady      bool
+	DispatchOpen          bool
 }
 
 // DispatchRegistration is one outstanding dispatch captured by withdrawal in

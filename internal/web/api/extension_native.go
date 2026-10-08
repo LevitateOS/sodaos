@@ -186,6 +186,8 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/operator-grant", protect(s.apiFactoryOperatorGrant, http.MethodPut))
 	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/environment-grant", protect(s.apiFactoryEnvironmentGrant, http.MethodPut))
 	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/sponsorships/{connection}", protect(s.apiFactorySponsorship, http.MethodPut))
+	mux.HandleFunc("GET /api/factory/connections/{connection}/usage-budget", protect(s.apiFactoryConnectionUsageBudget, http.MethodGet))
+	mux.HandleFunc("PUT /api/factory/connections/{connection}/usage-budget", protect(s.apiFactoryConnectionUsageBudget, http.MethodPut))
 	mux.HandleFunc("PUT /api/factory/capacity", protect(s.apiFactoryCapacity, http.MethodPut))
 	mux.HandleFunc("POST /api/repositories/{repositoryID}/factory/actions", protect(s.apiFactoryActions, http.MethodPost))
 	mux.HandleFunc("POST /api/factory/runs/{runID}/actions", protect(s.apiFactoryRunActions, http.MethodPost))

@@ -2,8 +2,11 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"math"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -124,8 +127,10 @@ func (s *Store) RecordRunUsage(ctx context.Context, u factory.Usage) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_usage(run,repository,connection,minutes,data) VALUES($1,$2,$3,$4,$5)
-		ON CONFLICT(run) DO NOTHING`, u.RunID, u.Repository, u.Connection, u.Minutes, string(data))
+	startedAt := floorUsageMicro(u.StartedAt.UTC())
+	endedAt := ceilUsageMicro(u.EndedAt.UTC())
+	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_usage(run,repository,connection,minutes,data,started_at,ended_at) VALUES($1,$2,$3,$4,$5,$6,$7)
+		ON CONFLICT(run) DO NOTHING`, u.RunID, u.Repository, u.Connection, u.Minutes, string(data), startedAt, endedAt)
 	return err
 }
 
@@ -138,6 +143,118 @@ func (s *Store) RunUsage(ctx context.Context, runID string) (factory.Usage, erro
 		err = json.Unmarshal(data, &u)
 	}
 	return u, err
+}
+
+const usageMicrosPerMinute int64 = factory.UsageMicrosPerMinute
+
+// ConnectionUsageCharge returns settled rolling-window usage in microseconds
+// plus the conservative charge for every held reservation on this connection.
+func (s *Store) ConnectionUsageCharge(ctx context.Context, connection string, now time.Time) (int64, error) {
+	return connectionUsageCharge(ctx, s.db, connection, now)
+}
+
+func connectionUsageCharge(ctx context.Context, q grantCommandSQL, connection string, now time.Time) (int64, error) {
+	windowEnd := ceilUsageMicro(now.UTC())
+	windowStart := floorUsageMicro(now.UTC().Add(-24 * time.Hour))
+	actualNow := now.UTC()
+	actualWindowStart := actualNow.Add(-24 * time.Hour)
+	var settled int64
+	err := q.QueryRowContext(ctx, `SELECT LEAST(COALESCE(SUM(GREATEST(0,
+		FLOOR(EXTRACT(EPOCH FROM (LEAST(ended_at,$3)-GREATEST(started_at,$2)))*1000000))),0),$4)::bigint
+		FROM factory_usage WHERE connection=$1 AND ended_at>$2 AND started_at<$3`,
+		connection, windowStart, windowEnd, int64(math.MaxInt64)).Scan(&settled)
+	if err != nil {
+		return 0, err
+	}
+	charge := settled
+	var heldDuration time.Duration
+	rows, err := q.QueryContext(ctx, `SELECT (r.data->>'planned_minutes')::integer, f.data->>'started'
+		FROM factory_reservations r
+		LEFT JOIN factory_assignments a ON a.id=r.assignment
+		LEFT JOIN factory_runs f ON f.id=a.run
+		WHERE r.connection=$1 AND r.state='held' ORDER BY r.seq LIMIT $2`, connection, MaxHeldReservations+1)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for rows.Next() {
+		count++
+		if count > MaxHeldReservations {
+			_ = rows.Close()
+			return 0, errors.New("held connection usage exceeds accounting bound")
+		}
+		var planned int
+		var rawStarted sql.NullString
+		if err = rows.Scan(&planned, &rawStarted); err != nil {
+			_ = rows.Close()
+			return 0, err
+		}
+		if planned < 1 || planned > 180 || !rawStarted.Valid || rawStarted.String == "" {
+			_ = rows.Close()
+			return 0, errors.New("held connection usage has no valid run start")
+		}
+		started, parseErr := time.Parse(time.RFC3339Nano, rawStarted.String)
+		if parseErr != nil {
+			_ = rows.Close()
+			return 0, errors.New("held connection usage has an invalid run start")
+		}
+		started = started.UTC()
+		elapsed := actualNow.Sub(started)
+		if elapsed < 0 {
+			elapsed = 0
+		}
+		openStart := started
+		if openStart.Before(actualWindowStart) {
+			openStart = actualWindowStart
+		}
+		openDuration := actualNow.Sub(openStart)
+		if openDuration < 0 {
+			openDuration = 0
+		}
+		remaining := time.Duration(planned)*time.Minute - elapsed
+		if remaining < 0 {
+			remaining = 0
+		}
+		heldDuration += openDuration + remaining
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return 0, err
+	}
+	if err = rows.Close(); err != nil {
+		return 0, err
+	}
+	return saturatingUsageAdd(charge, usageDurationMicrosCeil(heldDuration)), nil
+}
+
+func floorUsageMicro(at time.Time) time.Time {
+	return at.Truncate(time.Microsecond)
+}
+
+func ceilUsageMicro(at time.Time) time.Time {
+	floor := floorUsageMicro(at)
+	if floor.Equal(at) {
+		return floor
+	}
+	return floor.Add(time.Microsecond)
+}
+
+func usageDurationMicrosCeil(duration time.Duration) int64 {
+	if duration <= 0 {
+		return 0
+	}
+	micros := int64(duration / time.Microsecond)
+	if duration%time.Microsecond != 0 {
+		micros++
+	}
+	return micros
+}
+
+func saturatingUsageAdd(left, right int64) int64 {
+	if right > math.MaxInt64-left {
+		return math.MaxInt64
+	}
+	return left + right
 }
 
 // UsageTotal sums confirmed consumption for one repository connection.

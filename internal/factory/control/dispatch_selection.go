@@ -22,7 +22,7 @@ func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64,
 		if !sponsorship.Active {
 			continue
 		}
-		if sponsorship.Revision != effective.Authority.Sponsorship {
+		if sponsorship.Revision != effective.Authority.Sponsorship || sponsorship.Connection != effective.Authority.SponsorshipConnection {
 			return factory.Sponsorship{}, waitFor(WaitAuthority, "sponsorship changed during dispatch"), nil
 		}
 		codes := false
@@ -31,6 +31,10 @@ func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64,
 		}
 		if !codes {
 			return factory.Sponsorship{}, waitFor(WaitSponsorshipRole, "sponsorship permits no coding role"), nil
+		}
+		budget, err := deps.Store.ConnectionUsageBudget(ctx, sponsorship.Connection)
+		if err != nil || budget.Revision != effective.Authority.ConnectionUsageBudget {
+			return factory.Sponsorship{}, waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
 		}
 		return sponsorship, nil, nil
 	}
@@ -81,6 +85,25 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	}
 	if remaining > MaxDispatchDeadline {
 		remaining = MaxDispatchDeadline
+	}
+	budget, err := deps.Store.ConnectionUsageBudget(ctx, plan.sponsorship.Connection)
+	if err != nil {
+		return waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
+	}
+	if budget.Revision != plan.effective.Authority.ConnectionUsageBudget {
+		return waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
+	}
+	charge, err := deps.Store.ConnectionUsageCharge(ctx, plan.sponsorship.Connection, time.Now())
+	if err != nil {
+		return nil, waitFor(DispatchErrStore, "connection usage unreadable")
+	}
+	left := budget.RollingMinutes*factory.UsageMicrosPerMinute - charge
+	if left < factory.UsageMicrosPerMinute {
+		return waitFor(WaitAllowance, "connection rolling usage budget is exhausted"), nil
+	}
+	connectionMinutes := left / factory.UsageMicrosPerMinute
+	if connectionMinutes < int64(remaining) {
+		remaining = int(connectionMinutes)
 	}
 	plan.planned = remaining
 	plan.deadline = time.Now().Add(time.Duration(remaining) * time.Minute)

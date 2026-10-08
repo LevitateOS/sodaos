@@ -114,6 +114,31 @@ func (s *Store) Sponsorships(ctx context.Context, repository int64) ([]factory.S
 	return sponsorshipsQuery(ctx, s.db, repository)
 }
 
+// SaveConnectionUsageBudget records one broker connection's rolling
+// factory allowance under CAS revision.
+func (s *Store) SaveConnectionUsageBudget(ctx context.Context, budget factory.ConnectionUsageBudget) error {
+	if err := budget.Validate(); err != nil {
+		return err
+	}
+	next := budget
+	next.Revision++
+	return s.saveRevisionedGrant(ctx, "factory_connection_usage_budgets", "connection", budget.Connection, budget.Revision, next, "connection usage budget")
+}
+
+// ConnectionUsageBudget returns the rolling limit for one canonical broker
+// connection ID.
+func (s *Store) ConnectionUsageBudget(ctx context.Context, connection string) (factory.ConnectionUsageBudget, error) {
+	var budget factory.ConnectionUsageBudget
+	err := s.loadGrant(ctx, "factory_connection_usage_budgets", "connection", connection, &budget)
+	if err == nil {
+		if budget.Connection != connection {
+			return factory.ConnectionUsageBudget{}, errors.New("connection usage budget key mismatch")
+		}
+		err = budget.Validate()
+	}
+	return budget, err
+}
+
 func sponsorshipsQuery(ctx context.Context, q grantCommandSQL, repository int64) ([]factory.Sponsorship, error) {
 	rows, err := q.QueryContext(ctx, `SELECT data FROM factory_sponsorships WHERE repository=$1 ORDER BY connection LIMIT 33`, repository)
 	if err != nil {

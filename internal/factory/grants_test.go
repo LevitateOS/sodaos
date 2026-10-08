@@ -111,9 +111,10 @@ func TestEvaluateAuthority(t *testing.T) {
 		Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
 	}
 	env := project.EnvironmentGrant{Repository: 42, Owner: 7, Active: true}
+	budget := ConnectionUsageBudget{Connection: "c", Revision: 2, RollingMinutes: 720}
 	full := AuthorityInput{
 		Policy: &policy, Operator: &operator, Appliance: &capacity,
-		Sponsorship: &sponsorship, Environment: &env, DispatchOpen: true,
+		Sponsorship: &sponsorship, ConnectionUsageBudget: &budget, Environment: &env, DispatchOpen: true,
 	}
 	if got := EvaluateAuthority(full); !got.Effective || len(got.Missing) != 0 {
 		t.Fatal(got)
@@ -125,7 +126,7 @@ func TestEvaluateAuthority(t *testing.T) {
 	paused.Paused = true
 	got := EvaluateAuthority(AuthorityInput{
 		Policy: &paused, Operator: &operator, Appliance: &capacity,
-		Sponsorship: &sponsorship, Environment: &env, DispatchOpen: true,
+		Sponsorship: &sponsorship, ConnectionUsageBudget: &budget, Environment: &env, DispatchOpen: true,
 	})
 	if got.Effective || len(got.Missing) != 1 || got.Missing[0] != MissingPolicyPaused {
 		t.Fatalf("paused policy: %+v", got)
@@ -138,6 +139,27 @@ func TestEvaluateAuthority(t *testing.T) {
 	serial, err := json.Marshal(EvaluateAuthority(closed))
 	if err != nil || strings.Contains(string(serial), "secret") {
 		t.Fatal(string(serial), err)
+	}
+}
+
+func TestConnectionUsageBudgetMicrosecondRange(t *testing.T) {
+	valid := ConnectionUsageBudget{Connection: "c", RollingMinutes: 720}
+	if err := valid.Validate(); err != nil {
+		t.Fatal("owner increase above the initial value rejected:", err)
+	}
+	tooLarge := valid
+	tooLarge.RollingMinutes = int64(^uint64(0)>>1)/UsageMicrosPerMinute + 1
+	if err := tooLarge.Validate(); err == nil {
+		t.Fatal("unrepresentable microsecond budget accepted")
+	}
+	sponsorship := Sponsorship{Connection: "c", Active: true}
+	missing := EvaluateAuthority(AuthorityInput{Sponsorship: &sponsorship, DispatchOpen: true})
+	budgetMissing := false
+	for _, reason := range missing.Missing {
+		budgetMissing = budgetMissing || reason == MissingConnectionUsageBudget
+	}
+	if missing.Effective || !budgetMissing {
+		t.Fatalf("sponsorship without canonical budget remained effective: %+v", missing)
 	}
 }
 

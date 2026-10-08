@@ -56,6 +56,19 @@ func (c *Coordinator) ApplySponsorship(ctx context.Context, commandID, principal
 	return c.applyGrant(ctx, commandID, principal, factory.CommandSponsorship, grantTarget("sponsorship/"+sponsorship.Connection, sponsorship.Repository), sponsorship, sponsorship.Repository)
 }
 
+// ApplyConnectionUsageBudget records the provider owner's rolling limit for
+// one canonical broker connection. The budget is not repository-scoped.
+func (c *Coordinator) ApplyConnectionUsageBudget(ctx context.Context, commandID, principal string, expected int64, budget factory.ConnectionUsageBudget) (factory.GrantReceipt, error) {
+	if budget.Revision != expected {
+		return factory.GrantReceipt{}, store.ErrStaleRevision
+	}
+	if err := budget.Validate(); err != nil {
+		return factory.GrantReceipt{}, err
+	}
+	return c.applyGrant(ctx, commandID, principal, factory.CommandConnectionUsageBudget,
+		"connection/"+budget.Connection+"/usage-budget", budget, 0)
+}
+
 // ApplyEnvironmentGrant records the owner's standing environment permission.
 // Withdrawing it closes dispatch for that repository.
 func (c *Coordinator) ApplyEnvironmentGrant(ctx context.Context, commandID, principal string, expected int64, grant project.EnvironmentGrant) (factory.GrantReceipt, error) {
@@ -93,6 +106,8 @@ func (c *Coordinator) applyGrant(ctx context.Context, commandID, principal, typ,
 		stored, created, err = c.Store.ApplyOperatorGrantCommand(bounded, cmd, change, time.Now())
 	case factory.Sponsorship:
 		stored, created, err = c.Store.ApplySponsorshipCommand(bounded, cmd, change, time.Now())
+	case factory.ConnectionUsageBudget:
+		stored, created, err = c.Store.ApplyConnectionUsageBudgetCommand(bounded, cmd, change, time.Now())
 	case project.EnvironmentGrant:
 		stored, created, err = c.Store.ApplyEnvironmentGrantCommand(bounded, cmd, change, time.Now())
 	default:

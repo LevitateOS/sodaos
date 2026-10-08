@@ -93,6 +93,8 @@ func admissionWait(err error) *planWait {
 		return waitFor(WaitSponsorship, "sponsorship runs at its limit")
 	case errors.Is(err, store.ErrAllowanceExhausted):
 		return waitFor(WaitAllowance, "sponsorship allowance is exhausted")
+	case errors.Is(err, store.ErrConnectionUsageBudget):
+		return waitFor(WaitAllowance, "connection rolling usage budget is exhausted")
 	case errors.Is(err, store.ErrAdmissionChanged):
 		return waitFor(WaitAuthority, "grants changed during dispatch")
 	default:

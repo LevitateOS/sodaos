@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 26
+const schemaFormatVersion = 27
 
 // schemaStatements creates the current PostgreSQL schema in dependency
 // order: tables, indexes, guard functions, then triggers. JSON payloads
@@ -16,7 +16,7 @@ const schemaFormatVersion = 26
 // instead of the SQLite rowid.
 var schemaStatements = []string{
 	`CREATE TABLE schema_version(version INTEGER PRIMARY KEY)`,
-	`INSERT INTO schema_version(version) VALUES(26)`,
+	`INSERT INTO schema_version(version) VALUES(27)`,
 	`CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')`,
 	`CREATE TABLE keys(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint))`,
 	`CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready BOOLEAN NOT NULL DEFAULT FALSE, creation_profile JSONB CHECK(creation_profile IS NULL OR octet_length(creation_profile::text)<=1024))`,
@@ -37,6 +37,7 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')`,
 	`CREATE TABLE factory_capacity(id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, data JSONB NOT NULL)`,
 	`CREATE TABLE factory_operator_grants(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL, data JSONB NOT NULL)`,
 	`CREATE TABLE factory_sponsorships(repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL, PRIMARY KEY(repository,connection))`,
+	`CREATE TABLE factory_connection_usage_budgets(connection TEXT PRIMARY KEY, revision INTEGER NOT NULL, data JSONB NOT NULL)`,
 	`CREATE TABLE factory_dispatch(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL, open BOOLEAN NOT NULL, data JSONB NOT NULL)`,
 	`CREATE TABLE factory_dispatch_regs(seq BIGINT GENERATED ALWAYS AS IDENTITY, id TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), revision INTEGER NOT NULL, data JSONB NOT NULL)`,
 	`CREATE INDEX factory_dispatch_regs_repository ON factory_dispatch_regs(repository)`,
@@ -45,7 +46,9 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')`,
 	`CREATE TABLE factory_assignments(seq BIGINT GENERATED ALWAYS AS IDENTITY, id TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), run TEXT NOT NULL, stage TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL)`,
 	`CREATE UNIQUE INDEX factory_unfinished_assignment ON factory_assignments(repository,issue) WHERE stage='assigned'`,
 	`CREATE TABLE factory_reservations(seq BIGINT GENERATED ALWAYS AS IDENTITY, assignment TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, state TEXT NOT NULL, data JSONB NOT NULL)`,
-	`CREATE TABLE factory_usage(run TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, minutes INTEGER NOT NULL CHECK(minutes>=0), data JSONB NOT NULL)`,
+	`CREATE INDEX factory_reservations_connection_state ON factory_reservations(connection,state)`,
+	`CREATE TABLE factory_usage(run TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, minutes INTEGER NOT NULL CHECK(minutes>=0), started_at TIMESTAMPTZ NOT NULL, ended_at TIMESTAMPTZ NOT NULL CHECK(ended_at>=started_at), data JSONB NOT NULL)`,
+	`CREATE INDEX factory_usage_connection_ended ON factory_usage(connection,ended_at)`,
 	`CREATE TABLE issue_acceptance_decisions(id TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), predecessor TEXT NOT NULL DEFAULT '', data JSONB NOT NULL)`,
 	`CREATE TABLE issue_acceptance_heads(repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), decision TEXT NOT NULL, PRIMARY KEY(repository,issue))`,
 	`CREATE TABLE issue_acceptance_withdrawals(repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), decision TEXT NOT NULL, withdrawer INTEGER NOT NULL CHECK(withdrawer>0), PRIMARY KEY(repository,issue,decision))`,
@@ -206,11 +209,12 @@ func verifyRequiredColumns(ctx context.Context, t *sql.Tx) error {
 		`SELECT id,revision,data FROM factory_capacity LIMIT 0`,
 		`SELECT repository,revision,data FROM factory_operator_grants LIMIT 0`,
 		`SELECT repository,connection,revision,data FROM factory_sponsorships LIMIT 0`,
+		`SELECT connection,revision,data FROM factory_connection_usage_budgets LIMIT 0`,
 		`SELECT repository,revision,open,data FROM factory_dispatch LIMIT 0`,
 		`SELECT seq,id,repository,revision,data FROM factory_dispatch_regs LIMIT 0`,
 		`SELECT seq,id,repository,issue,run,stage,revision,data FROM factory_assignments LIMIT 0`,
 		`SELECT seq,assignment,repository,connection,state,data FROM factory_reservations LIMIT 0`,
-		`SELECT run,repository,connection,minutes,data FROM factory_usage LIMIT 0`,
+		`SELECT run,repository,connection,minutes,started_at,ended_at,data FROM factory_usage LIMIT 0`,
 		`SELECT run,member,project,data FROM factory_takeovers LIMIT 0`,
 		`SELECT id,repository,issue,predecessor,data FROM issue_acceptance_decisions LIMIT 0`,
 		`SELECT repository,issue,decision FROM issue_acceptance_heads LIMIT 0`,

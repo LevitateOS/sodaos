@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/levitateos/sodaos/internal/factory"
@@ -23,11 +24,12 @@ var ErrAssignmentActive = errors.New("issue already carries an unfinished assign
 // refusal means a concurrent admission consumed the room this attempt
 // planned against; the dispatcher waits instead of launching.
 var (
-	ErrCapacityFull       = errors.New("appliance runs at its limit")
-	ErrRepositoryFull     = errors.New("repository runs at its limit")
-	ErrSponsorshipFull    = errors.New("sponsorship runs at its limit")
-	ErrAllowanceExhausted = errors.New("sponsorship allowance is exhausted")
-	ErrAdmissionChanged   = errors.New("admission grants changed during dispatch")
+	ErrCapacityFull          = errors.New("appliance runs at its limit")
+	ErrRepositoryFull        = errors.New("repository runs at its limit")
+	ErrSponsorshipFull       = errors.New("sponsorship runs at its limit")
+	ErrAllowanceExhausted    = errors.New("sponsorship allowance is exhausted")
+	ErrConnectionUsageBudget = errors.New("connection rolling usage budget is exhausted")
+	ErrAdmissionChanged      = errors.New("admission grants changed during dispatch")
 )
 
 // RecordDispatchPacket stores one dispatch atomically: the gate
@@ -40,7 +42,7 @@ var (
 //
 // The packet is also the atomic admission gate: the limit rows are
 // locked, the packet records, and then appliance, repository,
-// sponsorship and allowance limits are rechecked inside the same
+// sponsorship, repository allowance and connection rolling usage limits are rechecked inside the same
 // transaction. Concurrent passes serialize here, so only room that
 // actually exists is admitted; the losers wait instead of launching.
 func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
@@ -127,11 +129,12 @@ type admissionGrants struct {
 	policy      factory.RepositoryPolicy
 	operator    factory.OperatorGrant
 	sponsorship factory.Sponsorship
+	usageBudget factory.ConnectionUsageBudget
 }
 
 func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, connection string) (admissionGrants, error) {
 	var grants admissionGrants
-	var cdata, pdata, gdata, sdata []byte
+	var cdata, pdata, gdata []byte
 	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&cdata); err != nil {
 		return admissionGrants{}, admissionChanged(err)
 	}
@@ -150,11 +153,55 @@ func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, con
 	if err := json.Unmarshal(gdata, &grants.operator); err != nil {
 		return admissionGrants{}, err
 	}
-	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_sponsorships WHERE repository=$1 AND connection=$2 FOR UPDATE`, repository, connection).Scan(&sdata); err != nil {
+	rows, err := t.QueryContext(ctx, `SELECT connection,data FROM factory_sponsorships WHERE repository=$1 ORDER BY connection LIMIT 33 FOR UPDATE`, repository)
+	if err != nil {
+		return admissionGrants{}, err
+	}
+	rowCount := 0
+	selected := false
+	for rows.Next() {
+		rowCount++
+		var candidate factory.Sponsorship
+		var candidateConnection string
+		var data []byte
+		if err = rows.Scan(&candidateConnection, &data); err != nil {
+			_ = rows.Close()
+			return admissionGrants{}, err
+		}
+		if err = json.Unmarshal(data, &candidate); err != nil {
+			_ = rows.Close()
+			return admissionGrants{}, err
+		}
+		if candidate.Connection != candidateConnection {
+			_ = rows.Close()
+			return admissionGrants{}, ErrAdmissionChanged
+		}
+		if candidate.Active {
+			if !selected {
+				grants.sponsorship = candidate
+				selected = true
+			}
+		}
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return admissionGrants{}, err
+	}
+	if err = rows.Close(); err != nil {
+		return admissionGrants{}, err
+	}
+	if rowCount >= 33 || !selected || grants.sponsorship.Connection != connection {
+		return admissionGrants{}, ErrAdmissionChanged
+	}
+	var budgetData []byte
+	if err = t.QueryRowContext(ctx, `SELECT data FROM factory_connection_usage_budgets WHERE connection=$1 FOR UPDATE`, connection).Scan(&budgetData); err != nil {
 		return admissionGrants{}, admissionChanged(err)
 	}
-	if err := json.Unmarshal(sdata, &grants.sponsorship); err != nil {
+	if err = json.Unmarshal(budgetData, &grants.usageBudget); err != nil {
 		return admissionGrants{}, err
+	}
+	if grants.usageBudget.Connection != connection || grants.usageBudget.Validate() != nil {
+		return admissionGrants{}, ErrAdmissionChanged
 	}
 	return grants, nil
 }
@@ -190,6 +237,7 @@ func checkDispatchAuthorityTx(ctx context.Context, t *sql.Tx, d factory.Dispatch
 	current := factory.AuthorityRef{
 		Policy: grants.policy.Revision, Operator: grants.operator.Revision,
 		Capacity: grants.capacity.Revision, Sponsorship: grants.sponsorship.Revision,
+		SponsorshipConnection: grants.sponsorship.Connection, ConnectionUsageBudget: grants.usageBudget.Revision,
 		Environment: environment.Revision, RequirementsID: requirement, ApprovalID: approval,
 	}
 	if current != a.Authority {
@@ -198,8 +246,8 @@ func checkDispatchAuthorityTx(ctx context.Context, t *sql.Tx, d factory.Dispatch
 	return nil
 }
 
-// checkAdmissionTx enforces appliance, repository, sponsorship and
-// allowance limits inside the admission transaction. The limit rows are
+// checkAdmissionTx enforces appliance, repository, sponsorship,
+// repository allowance and connection rolling usage limits inside the admission transaction. The limit rows are
 // locked first so concurrent admissions serialize here; the packet's own
 // held reservation is already recorded, so every comparison accounts for
 // it and refuses exactly when the pre-packet state plus this admission
@@ -214,6 +262,13 @@ func checkAdmissionTx(ctx context.Context, t *sql.Tx, repository int64, connecti
 }
 
 func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, connection, projectID string, grants admissionGrants) error {
+	charge, err := connectionUsageCharge(ctx, t, connection, time.Now())
+	if err != nil {
+		return err
+	}
+	if charge > grants.usageBudget.RollingMinutes*usageMicrosPerMinute {
+		return ErrConnectionUsageBudget
+	}
 	heldTotal, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held'`, grants.capacity.MaxConcurrentRuns+1)
 	if err != nil {
 		return err

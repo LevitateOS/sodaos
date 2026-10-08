@@ -65,21 +65,25 @@ func loadNativeST09(t *testing.T) nativeST09Config {
 	}
 	return cfg
 }
+
 func nativeMust(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
 	}
 }
+
 func nativeSecret(t *testing.T, path string) string {
 	t.Helper()
 	s, err := config.Secret(path)
 	nativeMust(t, err)
 	return s
 }
+
 func nativeRepoURL(c nativeST09Config) string {
 	return strings.TrimRight(c.FountainURL, "/") + "/" + c.Owner + "/" + c.Repo + ".git"
 }
+
 func nativeAPI(t *testing.T, c nativeST09Config, credential, method, path string, body, target any) {
 	t.Helper()
 	var input io.Reader
@@ -114,7 +118,7 @@ func nativeGit(t *testing.T, c nativeST09Config, dir string, extra []string, arg
 	t.Helper()
 	home := t.TempDir()
 	askpass := filepath.Join(home, "askpass")
-	nativeMust(t, os.WriteFile(askpass, []byte("#!/bin/sh\ncase \"$1\" in\n *Username*) printf '%s\\n' soda-publisher ;;\n *Password*) cat \"$SODA_PUBLISH_TOKEN_FILE\" ;;\n *) exit 1 ;;\nesac\n"), 0700))
+	nativeMust(t, os.WriteFile(askpass, []byte("#!/bin/sh\ncase \"$1\" in\n *Username*) printf '%s\\n' soda-publisher ;;\n *Password*) cat \"$SODA_PUBLISH_TOKEN_FILE\" ;;\n *) exit 1 ;;\nesac\n"), 0o700))
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	prefix := []string{"-c", "http.followRedirects=false", "-c", "core.hooksPath=/dev/null"}
@@ -128,6 +132,7 @@ func nativeGit(t *testing.T, c nativeST09Config, dir string, extra []string, arg
 	}
 	return strings.TrimSpace(string(out)), nil
 }
+
 func nativeGitOK(t *testing.T, c nativeST09Config, dir string, args ...string) string {
 	t.Helper()
 	out, err := nativeGit(t, c, dir, nil, args...)
@@ -147,9 +152,10 @@ func nativeNewCandidate(t *testing.T, c nativeST09Config) nativeCandidate {
 	base := nativeGitOK(t, c, dir, "rev-parse", "HEAD")
 	return nativeAppendCandidate(t, c, nativeCandidate{dir: dir, base: base})
 }
+
 func nativeAppendCandidate(t *testing.T, c nativeST09Config, n nativeCandidate) nativeCandidate {
 	t.Helper()
-	nativeMust(t, os.WriteFile(filepath.Join(n.dir, "README.md"), []byte("ST09 candidate "+factory.NewID()+"\n"), 0600))
+	nativeMust(t, os.WriteFile(filepath.Join(n.dir, "README.md"), []byte("ST09 candidate "+factory.NewID()+"\n"), 0o600))
 	nativeGitOK(t, c, n.dir, "add", "README.md")
 	nativeGitOK(t, c, n.dir, "-c", "user.name=soda-tester", "-c", "user.email=soda-tester@localhost", "commit", "-m", "ST09 candidate")
 	n.head = nativeGitOK(t, c, n.dir, "rev-parse", "HEAD")
@@ -160,6 +166,7 @@ func nativeAppendCandidate(t *testing.T, c nativeST09Config, n nativeCandidate) 
 	nativeMust(t, err)
 	return n
 }
+
 func nativeTip(t *testing.T, c nativeST09Config, ref string) string {
 	t.Helper()
 	out := nativeGitOK(t, c, "", "ls-remote", nativeRepoURL(c), ref)
@@ -178,18 +185,23 @@ type nativeHost struct{ bundle []byte }
 func (*nativeHost) FactoryLaunch(context.Context, project.FactoryLaunch) (project.FactoryState, error) {
 	return project.FactoryState{}, errors.New("unexpected launch")
 }
+
 func (*nativeHost) FactoryStop(context.Context, project.FactoryStop) (project.FactoryState, error) {
 	return project.FactoryState{}, errors.New("unexpected stop")
 }
+
 func (*nativeHost) FactoryInspect(context.Context, project.FactoryInspect) (project.FactoryState, error) {
 	return project.FactoryState{}, errors.New("unexpected inspect")
 }
+
 func (*nativeHost) FactoryHarness(context.Context) (project.FactoryHarnessPin, error) {
 	return project.FactoryHarnessPin{}, errors.New("unexpected harness")
 }
+
 func (*nativeHost) FactoryTakeover(context.Context, project.FactoryTakeover) (project.TakeoverResult, error) {
 	return project.TakeoverResult{}, errors.New("unexpected takeover")
 }
+
 func (h *nativeHost) FactoryExport(_ context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
 	return project.FactoryExportState{ID: in.ID, Project: in.Project, Phase: project.FactoryCompleted, Container: strings.Repeat("c", 64), Candidate: in.Candidate, Bundle: base64.StdEncoding.EncodeToString(h.bundle)}, nil
 }
@@ -199,6 +211,7 @@ type nativeBroker struct{}
 func (nativeBroker) GetExecution(context.Context, string, string) (identity.Execution, error) {
 	return identity.Execution{}, identity.ErrNotFound
 }
+
 func (nativeBroker) CloseExecution(context.Context, string, string) error {
 	return errors.New("unexpected broker closure")
 }
@@ -228,6 +241,7 @@ func nativeSeed(t *testing.T, c nativeST09Config, n nativeCandidate) *nativeFixt
 	nativeMust(t, db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: c.CreatorID, MaxConcurrentRuns: 2, MaxQueued: 10}))
 	nativeMust(t, db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: c.Repository, GrantedBy: c.CreatorID, MaxConcurrent: 2, Active: true}))
 	nativeMust(t, db.SaveSponsorship(ctx, factory.Sponsorship{Repository: c.Repository, GrantedBy: c.CreatorID, Generation: 1, Connection: "fixture-connection", GrantID: "fixture-grant", Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true}))
+	nativeMust(t, db.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{Connection: "fixture-connection", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes}))
 	nativeMust(t, db.SaveEnvironmentGrant(ctx, project.EnvironmentGrant{Repository: c.Repository, Owner: c.CreatorID, Profile: &project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6", Interface: "headless", Architecture: "amd64", Image: "sha256:" + strings.Repeat("b", 64), Revision: n.base}, Active: true}))
 	requirement, approval := "d"+factory.NewID()[:24], "d"+factory.NewID()[:24]
 	digest := strings.Repeat("d", 64)
@@ -245,11 +259,12 @@ func nativeSeed(t *testing.T, c nativeST09Config, n nativeCandidate) *nativeFixt
 	fx.background = forgejo.NewServiceBackground(c.Socket, uint32(os.Getuid()), "")
 	rest := forgejo.New(c.FountainURL)
 	root := t.TempDir()
-	nativeMust(t, os.Chmod(root, 0700))
+	nativeMust(t, os.Chmod(root, 0o700))
 	fx.pub = forgejo.NewPublisher(fx.background, rest, c.FountainURL, root, c.TokenFile)
 	fx.wire()
 	return fx
 }
+
 func (fx *nativeFixture) wire() {
 	observer := forgejo.NewServiceObserver(fx.cfg.Socket, uint32(os.Getuid()), fx.cfg.TokenFile, forgejo.New(fx.cfg.FountainURL))
 	observer.ShareBackground(fx.background)
@@ -257,6 +272,7 @@ func (fx *nativeFixture) wire() {
 	fx.coord.Publication = fx.pub
 	fx.coord.AcceptanceReads = api.NewServiceReadinessSource(observer)
 }
+
 func (fx *nativeFixture) assignment(t *testing.T, n nativeCandidate) factory.Assignment {
 	t.Helper()
 	ctx := context.Background()
@@ -319,6 +335,7 @@ func (fx *nativeFixture) assignment(t *testing.T, n nativeCandidate) factory.Ass
 	nativeMust(t, fx.db.FinishAssignment(ctx, a))
 	return a
 }
+
 func (fx *nativeFixture) drive(t *testing.T, a factory.Assignment) factory.Publication {
 	t.Helper()
 	var p factory.Publication
@@ -340,6 +357,7 @@ func (fx *nativeFixture) drive(t *testing.T, a factory.Assignment) factory.Publi
 	}
 	return p
 }
+
 func nativeReceipt(t *testing.T, label string, value any) {
 	t.Helper()
 	root := os.Getenv("ST09_RECEIPT_DIR")
@@ -349,10 +367,10 @@ func nativeReceipt(t *testing.T, label string, value any) {
 	if !filepath.IsAbs(root) {
 		t.Fatal("native receipt directory must be absolute")
 	}
-	nativeMust(t, os.MkdirAll(root, 0700))
+	nativeMust(t, os.MkdirAll(root, 0o700))
 	raw, err := json.MarshalIndent(value, "", "  ")
 	nativeMust(t, err)
-	nativeMust(t, os.WriteFile(filepath.Join(root, label+".json"), append(raw, '\n'), 0600))
+	nativeMust(t, os.WriteFile(filepath.Join(root, label+".json"), append(raw, '\n'), 0o600))
 }
 
 func (fx *nativeFixture) work(t *testing.T, a factory.Assignment, n nativeCandidate, publicationID string) factory.PublicationWork {
@@ -361,6 +379,7 @@ func (fx *nativeFixture) work(t *testing.T, a factory.Assignment, n nativeCandid
 	nativeMust(t, err)
 	return factory.PublicationWork{Bundle: n.bundle, AssignmentID: a.ID, Publication: publicationID, RunID: a.Run, Run: run, Candidate: n.head, BaseSHA: n.base, TargetBranch: fx.cfg.BaseBranch, OperationID: factory.PublicationOperationID(publicationID, factory.OpRefPublish, 1), AuthRevision: factory.AuthRevisionFor(a.ID, publicationID, 0), ExpectedOld: "absent", ComparisonRef: fx.cfg.BaseBranch, PRTitle: factory.PRTitleFor(a.Issue), PRBody: factory.PRBodyFor(a.ID, a.Acceptance, a.Run, n.head, n.base), Repository: a.Repository, Issue: a.Issue, ActorID: fx.cfg.ActorID}
 }
+
 func (fx *nativeFixture) observe(t *testing.T, w factory.PublicationWork) factory.PublicationWork {
 	t.Helper()
 	observation, err := fx.pub.ObservePublication(context.Background(), w)
@@ -368,6 +387,7 @@ func (fx *nativeFixture) observe(t *testing.T, w factory.PublicationWork) factor
 	w.NativeRev, w.ComparisonOID, w.NotAfter = observation.NativeRev, observation.Comparison, time.Now().Add(10*time.Minute).Unix()
 	return w
 }
+
 func (fx *nativeFixture) terminal(t *testing.T, id string) factory.OperationOutcome {
 	t.Helper()
 	for i := 0; i < 50; i++ {

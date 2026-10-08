@@ -38,8 +38,17 @@ func EvaluateAuthority(in AuthorityInput) EffectiveAuthority {
 	case !in.Sponsorship.Active:
 		missing = append(missing, MissingSponsorshipGone)
 		ref.Sponsorship = in.Sponsorship.Revision
+		ref.SponsorshipConnection = in.Sponsorship.Connection
 	default:
 		ref.Sponsorship = in.Sponsorship.Revision
+		ref.SponsorshipConnection = in.Sponsorship.Connection
+	}
+	if in.Sponsorship != nil {
+		if in.ConnectionUsageBudget == nil || in.ConnectionUsageBudget.Connection != in.Sponsorship.Connection {
+			missing = append(missing, MissingConnectionUsageBudget)
+		} else {
+			ref.ConnectionUsageBudget = in.ConnectionUsageBudget.Revision
+		}
 	}
 	switch {
 	case in.Environment == nil:

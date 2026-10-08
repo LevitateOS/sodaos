@@ -37,6 +37,11 @@ func seedDispatchLimits(t *testing.T, db *Store) {
 			t.Fatal(err)
 		}
 	}
+	if err := db.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{
+		Connection: "conn", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	projectID := dispatchTestProjectID()
 	if err := db.UpsertUser(ctx, User{ID: 7, Login: "soda-tester"}); err != nil {
 		t.Fatal(err)
@@ -76,6 +81,7 @@ func dispatchTestApprovalID() string    { return "d" + strings.Repeat("e", 24) }
 func dispatchTestAuthority() factory.AuthorityRef {
 	return factory.AuthorityRef{
 		Policy: 1, Operator: 1, Capacity: 1, Sponsorship: 1, Environment: 1,
+		SponsorshipConnection: "conn", ConnectionUsageBudget: 1,
 		RequirementsID: dispatchTestRequirementID(), ApprovalID: dispatchTestApprovalID(),
 	}
 }
@@ -130,9 +136,14 @@ func dispatchCurrentAuthority(t *testing.T, db *Store, a factory.Assignment) fac
 	if err != nil {
 		t.Fatal(err)
 	}
+	budget, err := db.ConnectionUsageBudget(context.Background(), a.Connection)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return factory.AuthorityRef{
 		Policy: policy.Revision, Operator: operator.Revision, Capacity: capacity.Revision,
-		Sponsorship: sponsorship.Revision, Environment: environment.Revision,
+		Sponsorship: sponsorship.Revision, SponsorshipConnection: sponsorship.Connection,
+		ConnectionUsageBudget: budget.Revision, Environment: environment.Revision,
 		RequirementsID: requirement, ApprovalID: approval,
 	}
 }
@@ -184,7 +195,7 @@ func dispatchTestPacket(t *testing.T, now time.Time) (factory.Assignment, factor
 
 func TestRecordDispatchPacket(t *testing.T) {
 	ctx := context.Background()
-	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
 	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
@@ -223,7 +234,7 @@ func isAssignmentActive(err error) bool {
 
 func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 	ctx := context.Background()
-	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	t.Run("capacity", func(t *testing.T) {
 		db := grantStoreFixture(t)
 		seedDispatchLimits(t, db)
@@ -272,6 +283,81 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 			t.Fatalf("over-budget packet accepted: %v", err)
 		}
 	})
+	t.Run("connection rolling window spans repositories", func(t *testing.T) {
+		now := time.Now().UTC()
+		for _, tc := range []struct {
+			name string
+			end  time.Time
+			want error
+		}{
+			{"in window", now.Add(-time.Minute), ErrConnectionUsageBudget},
+			{"outside window", now.Add(-24*time.Hour - time.Minute), nil},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				db := dispatchStoreFixture(t)
+				start := tc.end.Add(-360 * time.Minute)
+				usage := factory.Usage{RunID: factory.NewID(), Repository: 8, Connection: "conn", Minutes: 360, StartedAt: start, EndedAt: tc.end}
+				if err := db.RecordRunUsage(ctx, usage); err != nil {
+					t.Fatal(err)
+				}
+				a, r, run, view := dispatchTestPacket(t, now)
+				err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view)
+				if !errors.Is(err, tc.want) {
+					t.Fatalf("rolling-window packet error = %v, want %v", err, tc.want)
+				}
+				if tc.want != nil {
+					assertDispatchPacketAbsent(t, db, a)
+				}
+			})
+		}
+	})
+	t.Run("held session keeps growing past its plan", func(t *testing.T) {
+		now := time.Now().UTC()
+		db := dispatchStoreFixture(t)
+		firstAt := now.Add(-4 * time.Hour)
+		a, reservation, run, view := dispatchTestPacket(t, firstAt)
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+			t.Fatal(err)
+		}
+		budget, err := db.ConnectionUsageBudget(ctx, "conn")
+		if err != nil {
+			t.Fatal(err)
+		}
+		budget.RollingMinutes = 200
+		if err := db.SaveConnectionUsageBudget(ctx, budget); err != nil {
+			t.Fatal(err)
+		}
+		second, r2, run2, view2 := dispatchTestPacket(t, now)
+		second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		second.Authority.ConnectionUsageBudget = budget.Revision + 1
+		r2.AssignmentID = second.ID
+		view2.Issue, view2.Attempt = 4, second.ID
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(second), second, r2, run2, view2); !errors.Is(err, ErrConnectionUsageBudget) {
+			t.Fatalf("over-plan held usage was not charged: %v", err)
+		}
+		assertDispatchPacketAbsent(t, db, second)
+	})
+	t.Run("held session with missing run start fails closed", func(t *testing.T) {
+		now := time.Now().UTC()
+		db := dispatchStoreFixture(t)
+		a, reservation, run, view := dispatchTestPacket(t, now)
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+			t.Fatal(err)
+		}
+		missingRun := factory.NewID()
+		if _, err := db.db.ExecContext(ctx, `UPDATE factory_assignments SET run=$2,
+			data=jsonb_set(data,'{run}',to_jsonb($2::text)) WHERE id=$1`, a.ID, missingRun); err != nil {
+			t.Fatal(err)
+		}
+		second, r2, run2, view2 := dispatchTestPacket(t, now)
+		second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		r2.AssignmentID = second.ID
+		view2.Issue, view2.Attempt = 4, second.ID
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(second), second, r2, run2, view2); err == nil {
+			t.Fatal("held session without a run start was ignored")
+		}
+		assertDispatchPacketAbsent(t, db, second)
+	})
 	t.Run("missing grants", func(t *testing.T) {
 		db := grantStoreFixture(t)
 		a, r, run, view := dispatchTestPacket(t, now)
@@ -280,4 +366,51 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		assertDispatchPacketAbsent(t, db, a)
 	})
+}
+
+func TestRecordRunUsageStoresOutwardMicrosecondProjections(t *testing.T) {
+	ctx := context.Background()
+	db := grantStoreFixture(t)
+	started := time.Now().UTC().Truncate(time.Second).Add(123456789 * time.Nanosecond)
+	ended := started.Add(121*time.Second + time.Nanosecond)
+	usage := factory.Usage{
+		RunID: factory.NewID(), Repository: 7, Connection: "conn", Minutes: 3,
+		StartedAt: started, EndedAt: ended,
+	}
+	if err := db.RecordRunUsage(ctx, usage); err != nil {
+		t.Fatal(err)
+	}
+	var storedStart, storedEnd time.Time
+	if err := db.db.QueryRowContext(ctx, `SELECT started_at,ended_at FROM factory_usage WHERE run=$1`, usage.RunID).Scan(&storedStart, &storedEnd); err != nil {
+		t.Fatal(err)
+	}
+	if !storedStart.Equal(floorUsageMicro(started)) || !storedEnd.Equal(ceilUsageMicro(ended)) {
+		t.Fatalf("SQL interval projections = %s..%s, want %s..%s", storedStart, storedEnd, floorUsageMicro(started), ceilUsageMicro(ended))
+	}
+	canonical, err := db.RunUsage(ctx, usage.RunID)
+	if err != nil || !canonical.StartedAt.Equal(started) || !canonical.EndedAt.Equal(ended) {
+		t.Fatalf("canonical interval lost precision: %+v %v", canonical, err)
+	}
+}
+
+func TestConnectionUsageBudgetAdmitsExactPlannedMinutes(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	budget, err := db.ConnectionUsageBudget(ctx, "conn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	budget.RollingMinutes = 30
+	if err = db.SaveConnectionUsageBudget(ctx, budget); err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now().UTC().Truncate(time.Second).Add(-time.Second + time.Nanosecond)
+	assignment, reservation, run, view := dispatchTestPacket(t, started)
+	assignment.Authority.ConnectionUsageBudget = budget.Revision + 1
+	if reservation.PlannedMinutes != 30 {
+		t.Fatalf("fixture planned %d minutes", reservation.PlannedMinutes)
+	}
+	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(assignment), assignment, reservation, run, view); err != nil {
+		t.Fatalf("unused exact-minute connection budget refused its complete reservation: %v", err)
+	}
 }

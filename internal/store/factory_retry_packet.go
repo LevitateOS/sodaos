@@ -35,6 +35,11 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, run
 		return factory.Assignment{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	// Match dispatch and grant-command lock order before reading the current
+	// selected connection sponsorship and its budget.
+	if _, _, _, err = ensureDispatchGateTx(ctx, tx, a.Repository); err != nil {
+		return factory.Assignment{}, err
+	}
 	var raw []byte
 	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ID).Scan(&raw); err != nil {
 		return factory.Assignment{}, err

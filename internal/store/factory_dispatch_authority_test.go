@@ -276,6 +276,17 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				}
 			}
 		}},
+		{"connection budget revision", func(t *testing.T, db *Store, a *factory.Assignment, _ *factory.DispatchRegistration) func() {
+			budget, err := db.ConnectionUsageBudget(context.Background(), a.Connection)
+			if err != nil {
+				t.Fatal(err)
+			}
+			budget.RollingMinutes--
+			if err := db.SaveConnectionUsageBudget(context.Background(), budget); err != nil {
+				t.Fatal(err)
+			}
+			return func() {}
+		}},
 		{"sponsorship without coder", func(t *testing.T, db *Store, a *factory.Assignment, d *factory.DispatchRegistration) func() {
 			grant, err := db.Sponsorship(context.Background(), a.Repository, a.Connection)
 			if err != nil {
