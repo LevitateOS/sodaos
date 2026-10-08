@@ -273,6 +273,19 @@ type EffectiveAuthority struct {
 	DispatchOpen bool         `json:"dispatch_open"`
 }
 
+// GrantReceipt is the immutable outcome of one grant command. Withdrawal
+// fields report the durable requested state at commit; later external
+// outcomes remain on their publication and merge records.
+type GrantReceipt struct {
+	PublicationsPending bool               `json:"publications_pending"`
+	MergesPending       bool               `json:"merges_pending"`
+	Effective           EffectiveAuthority `json:"effective"`
+	Captured            []string           `json:"captured,omitempty"`
+	CommandID           string             `json:"command_id"`
+	Revision            int64              `json:"revision"`
+	Withdrawn           bool               `json:"withdrawn"`
+}
+
 // AuthorityInput gathers the current records for one repository. A nil
 // record means no grant was ever recorded. PreparationReady applies only
 // when a Project exists for the repository.

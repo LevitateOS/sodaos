@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -267,6 +268,73 @@ func (s *Store) OutstandingPublications(ctx context.Context, repository int64, l
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// requestPublicationWithdrawalsTx durably latches every outstanding
+// publication under the caller's repository gate lock. It refuses an
+// oversized set rather than leaving later records uncancelled.
+func requestPublicationWithdrawalsTx(ctx context.Context, tx *sql.Tx, repository int64) (bool, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT assignment,revision,COALESCE((data->>'withdraw_requested')::boolean,FALSE) FROM factory_publications
+		WHERE repository=$1 AND (
+			stage IN ('open','fenced') OR
+			(stage='published' AND (EXISTS (
+				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'corrections','[]'::jsonb)) AS correction
+				WHERE COALESCE(correction->>'effect','') IN ('','pending','indeterminate')
+				   OR COALESCE(correction->>'cancellation','') IN ('pending','indeterminate')
+				   OR (correction->>'effect'='committed' AND COALESCE(correction->>'completion','') <> 'complete')
+			) OR EXISTS (
+				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'review_operations','[]'::jsonb)) AS review_op
+				WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
+				   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
+				   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
+			)))
+		) ORDER BY seq LIMIT $2 FOR UPDATE`, repository, storePublicationLimit+1)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = rows.Close() }()
+	type publicationIntent struct {
+		assignment string
+		revision   int64
+		requested  bool
+	}
+	var publications []publicationIntent
+	for rows.Next() {
+		var item publicationIntent
+		if err = rows.Scan(&item.assignment, &item.revision, &item.requested); err != nil {
+			return false, err
+		}
+		publications = append(publications, item)
+	}
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+	if err = rows.Close(); err != nil {
+		return false, err
+	}
+	if len(publications) > storePublicationLimit {
+		return false, errors.New("too many outstanding publications to withdraw")
+	}
+	for _, p := range publications {
+		if p.requested {
+			continue
+		}
+		revision := p.revision + 1
+		updated, updateErr := tx.ExecContext(ctx, `UPDATE factory_publications SET revision=$1,
+			data=jsonb_set(jsonb_set(data,'{withdraw_requested}','true'::jsonb,true),'{revision}',to_jsonb($1::integer),true)
+			WHERE assignment=$2 AND revision=$3`, revision, p.assignment, p.revision)
+		if updateErr != nil {
+			return false, updateErr
+		}
+		n, affectedErr := updated.RowsAffected()
+		if affectedErr != nil {
+			return false, affectedErr
+		}
+		if n != 1 {
+			return false, ErrStaleRevision
+		}
+	}
+	return len(publications) > 0, nil
 }
 
 // OpenPublications lists every open or fenced publication across

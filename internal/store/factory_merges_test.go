@@ -12,7 +12,7 @@ import (
 
 func mergeTestRecord() factory.Merge {
 	return factory.Merge{
-		Authority:     factory.AuthorityRef{Policy: 1, Operator: 1, Environment: 1, Sponsorship: 1, RequirementsID: "d" + strings.Repeat("c", 24), ApprovalID: "d" + strings.Repeat("e", 24)},
+		Authority:     dispatchTestAuthority(),
 		Operation:     factory.MergeOperation{Kind: factory.OpMerge},
 		ID:            factory.NewID(),
 		PublicationID: factory.NewID(),
@@ -72,8 +72,7 @@ func TestRecordMergeRoundTrip(t *testing.T) {
 func seedMergeAssignment(t *testing.T, db *Store, m factory.Merge) {
 	t.Helper()
 	p := publicationTestRecord()
-	p.AssignmentID, p.Repository, p.Issue, p.ProjectID, p.Acceptance, p.Authority =
-		m.AssignmentID, m.Repository, m.Issue, m.ProjectID, m.Acceptance, m.Authority
+	p.AssignmentID, p.Repository, p.Issue, p.ProjectID, p.Acceptance, p.Authority = m.AssignmentID, m.Repository, m.Issue, m.ProjectID, m.Acceptance, m.Authority
 	seedPublicationAssignment(t, db, p)
 }
 

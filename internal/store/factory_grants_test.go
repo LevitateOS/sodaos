@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -231,5 +232,137 @@ func TestSettingsCommandReplay(t *testing.T) {
 	changed.Digest = factory.SettingsDigest(changed.Type, changed.Target, changed.Payload)
 	if _, _, err = db.RecordFactoryCommand(ctx, changed, grantTestTime()); !errors.Is(err, ErrCommandConflict) {
 		t.Fatal("changed payload reused the command identity", err)
+	}
+}
+
+func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T) {
+	db := grantStoreFixture(t)
+	ctx := context.Background()
+	registration := factory.DispatchRegistration{ID: factory.NewID(), Repository: 42, Authority: factory.AuthorityRef{Policy: 1}}
+	if err := db.RegisterDispatch(ctx, registration); err != nil {
+		t.Fatal("register dispatch", err)
+	}
+	publication := publicationTestRecord()
+	publication.Repository = 42
+	if err := db.RecordPublication(ctx, publication); err != nil {
+		t.Fatal("record publication", err)
+	}
+	merge := mergeTestRecord()
+	merge.Repository = 42
+	if err := db.RecordMerge(ctx, merge); err != nil {
+		t.Fatal("record merge", err)
+	}
+
+	policy := grantTestPolicy()
+	policy.Paused = true
+	payload, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := "repository/42/policy"
+	cmd := factory.Command{
+		ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Principal: "native:7",
+		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
+	}
+	stored, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime())
+	if err != nil || !created || stored.Finished == "" {
+		t.Fatalf("apply policy command: %+v created=%t err=%v", stored, created, err)
+	}
+	var receipt factory.GrantReceipt
+	if err = json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
+		t.Fatal("decode durable receipt", err)
+	}
+	if !receipt.Withdrawn || receipt.Revision != 1 || len(receipt.Captured) != 1 || receipt.Captured[0] != registration.ID {
+		t.Fatalf("receipt omitted policy withdrawal: %+v", receipt)
+	}
+	if !receipt.PublicationsPending {
+		t.Fatalf("receipt omitted publication intent: %+v", receipt)
+	}
+	if !receipt.MergesPending {
+		t.Fatalf("receipt omitted merge intent: %+v", receipt)
+	}
+	if len(stored.Outcome) > 64<<10 {
+		t.Fatalf("bounded grant receipt grew to %d bytes", len(stored.Outcome))
+	}
+	withdrawnPublication, err := db.PublicationByAssignment(ctx, publication.AssignmentID)
+	if err != nil || !withdrawnPublication.WithdrawRequested {
+		t.Fatalf("publication intent not committed: %+v %v", withdrawnPublication, err)
+	}
+	withdrawnMerge, err := db.MergeByPublication(ctx, merge.PublicationID)
+	if err != nil || !withdrawnMerge.WithdrawRequested {
+		t.Fatalf("merge intent not committed: %+v %v", withdrawnMerge, err)
+	}
+	replay, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime().Add(time.Minute))
+	if err != nil || created || replay.Outcome != stored.Outcome || replay.Finished != stored.Finished {
+		t.Fatalf("command replay changed immutable receipt: %+v created=%t err=%v", replay, created, err)
+	}
+}
+
+func TestPolicyCommandReceiptStaysBoundedAcrossOutstandingWork(t *testing.T) {
+	db := grantStoreFixture(t)
+	ctx := context.Background()
+	for i := 0; i < factory.MaxCapturedDispatch; i++ {
+		registration := factory.DispatchRegistration{ID: factory.NewID(), Repository: 42}
+		if err := db.RegisterDispatch(ctx, registration); err != nil {
+			t.Fatalf("register dispatch %d: %v", i, err)
+		}
+	}
+	for i := 0; i < storePublicationLimit; i++ {
+		publication := publicationTestRecord()
+		publication.Repository = 42
+		if err := db.RecordPublication(ctx, publication); err != nil {
+			t.Fatalf("record publication %d: %v", i, err)
+		}
+	}
+	for i := 0; i < storeMergeLimit; i++ {
+		merge := mergeTestRecord()
+		merge.Repository = 42
+		if err := db.RecordMerge(ctx, merge); err != nil {
+			t.Fatalf("record merge %d: %v", i, err)
+		}
+	}
+
+	policy := grantTestPolicy()
+	policy.Paused = true
+	payload, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := "repository/42/policy"
+	cmd := factory.Command{
+		ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Principal: "native:7",
+		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
+	}
+	stored, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime())
+	if err != nil || !created || stored.Finished == "" {
+		t.Fatalf("apply bounded policy command: %+v created=%t err=%v", stored, created, err)
+	}
+	var receipt factory.GrantReceipt
+	if err = json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
+		t.Fatal("decode durable receipt", err)
+	}
+	if len(receipt.Captured) != factory.MaxCapturedDispatch || !receipt.PublicationsPending || !receipt.MergesPending {
+		t.Fatalf("receipt omitted bounded outstanding work: captured=%d publications=%t merges=%t", len(receipt.Captured), receipt.PublicationsPending, receipt.MergesPending)
+	}
+	if len(stored.Outcome) > 64<<10 {
+		t.Fatalf("maximum-work grant receipt grew to %d bytes", len(stored.Outcome))
+	}
+	policyAfter, err := db.RepositoryPolicy(ctx, 42)
+	if err != nil || !policyAfter.Paused || policyAfter.Revision != 1 {
+		t.Fatalf("policy decision did not commit with bounded receipt: %+v %v", policyAfter, err)
+	}
+	open, _, _, err := db.DispatchState(ctx, 42)
+	if err != nil || open {
+		t.Fatalf("dispatch gate did not close with bounded receipt: open=%t err=%v", open, err)
+	}
+	var publicationCount, mergeCount int
+	if err = db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_publications WHERE repository=42 AND COALESCE((data->>'withdraw_requested')::boolean,FALSE)`).Scan(&publicationCount); err != nil {
+		t.Fatal("count latched publication intents", err)
+	}
+	if err = db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_merges WHERE repository=42 AND COALESCE((data->>'withdraw_requested')::boolean,FALSE)`).Scan(&mergeCount); err != nil {
+		t.Fatal("count latched merge intents", err)
+	}
+	if publicationCount != storePublicationLimit || mergeCount != storeMergeLimit {
+		t.Fatalf("atomic cancellation intent counts: publications=%d merges=%d", publicationCount, mergeCount)
 	}
 }

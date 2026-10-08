@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -200,6 +201,60 @@ func (s *Store) OutstandingMerges(ctx context.Context, repository int64, limit i
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// requestMergeWithdrawalsTx durably latches every open or fenced merge under
+// the caller's repository gate lock. An oversized set aborts the whole
+// settings transaction rather than silently truncating cancellation intent.
+func requestMergeWithdrawalsTx(ctx context.Context, tx *sql.Tx, repository int64) (bool, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT publication,revision,COALESCE((data->>'withdraw_requested')::boolean,FALSE) FROM factory_merges
+		WHERE repository=$1 AND stage IN ('open','fenced') ORDER BY seq LIMIT $2 FOR UPDATE`, repository, storeMergeLimit+1)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = rows.Close() }()
+	type mergeIntent struct {
+		publication string
+		revision    int64
+		requested   bool
+	}
+	var merges []mergeIntent
+	for rows.Next() {
+		var item mergeIntent
+		if err = rows.Scan(&item.publication, &item.revision, &item.requested); err != nil {
+			return false, err
+		}
+		merges = append(merges, item)
+	}
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+	if err = rows.Close(); err != nil {
+		return false, err
+	}
+	if len(merges) > storeMergeLimit {
+		return false, errors.New("too many outstanding merges to withdraw")
+	}
+	for _, m := range merges {
+		if m.requested {
+			continue
+		}
+		revision := m.revision + 1
+		updated, updateErr := tx.ExecContext(ctx, `UPDATE factory_merges SET revision=$1,
+			data=jsonb_set(jsonb_set(data,'{withdraw_requested}','true'::jsonb,true),'{revision}',to_jsonb($1::integer),true)
+			WHERE publication=$2 AND revision=$3`, revision, m.publication, m.revision)
+		if updateErr != nil {
+			return false, updateErr
+		}
+		n, affectedErr := updated.RowsAffected()
+		if affectedErr != nil {
+			return false, affectedErr
+		}
+		if n != 1 {
+			return false, ErrStaleRevision
+		}
+	}
+	return len(merges) > 0, nil
 }
 
 // OpenMerges lists every open or fenced merge across repositories,

@@ -157,11 +157,12 @@ func TestPublicationGrantChangeReportsNativePendingSeparatelyFromDispatch(t *tes
 	policy.MaxConcurrent++
 	command := factory.NewID()
 	receipt, err := fx.coord.ApplyPolicy(ctx, command, "native:7", policy.Revision, policy)
-	if err != nil || receipt.Withdrawn || !receipt.Effective.Effective || !receipt.Publications.Pending || !reflect.DeepEqual(receipt.Publications.Operations, []string{p.Publish.OperationID}) {
+	if err != nil || receipt.Withdrawn || !receipt.Effective.Effective || !receipt.PublicationsPending || receipt.MergesPending {
 		t.Fatalf("grant receipt: %+v %v", receipt, err)
 	}
 	open, _, _, err := fx.db.DispatchState(ctx, a.Repository)
-	if err != nil || !open || !fx.publication(t, a).WithdrawRequested {
+	current := fx.publication(t, a)
+	if err != nil || !open || !current.WithdrawRequested || current.ID != p.ID || current.Publish.OperationID != p.Publish.OperationID {
 		t.Fatalf("grant change mixed dispatch with native cancellation: open=%v err=%v", open, err)
 	}
 	again, err := fx.coord.ApplyPolicy(ctx, command, "native:7", policy.Revision, policy)
