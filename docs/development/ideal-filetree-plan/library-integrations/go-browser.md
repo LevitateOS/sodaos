@@ -12,6 +12,13 @@ lifecycle observer and its exclusive tests/dispatcher; SQLite remains only for
 the two staged fixture callers. Earlier numeric
 selectors and findings keep their original source scope.
 
+`469f47f5` replaces the live private-input reopen/read bridge with same-FD
+bounded admission in installed.go. `dbdb0615` removes uncalled Go command,
+evidence and worker machinery and its exclusive tests; the current Rust
+harness remains canonical. Go StartCommand/Process remains in acceptance
+for live bounded installed probes, with its original cleanup regression.
+No library selection or module changes accompany these cuts.
+
 Numeric selectors refer to the pinned source. Multiple duties in one file remain separate responsibilities in the [coverage maps](../coverage/maps/README.md); this integration map does not transfer their defining owner.
 
 The [adapter challenge](adapter-challenges.md) at `2dc3bce9` selects SDK snapshot
@@ -351,7 +358,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | Test/helper source | Named selectors | Purpose |
 | --- | --- | --- |
 | [cmd/soda-tailnet/command_test.go](../../../../cmd/soda-tailnet/command_test.go) | Contains; ErrorIs; NoError; NotContains; True | Test assertions only; no production imports. |
-| [internal/acceptance/worker_linux_test.go](../../../../internal/acceptance/worker_linux_test.go) | Contains; Error; NoError; NotContains | Test assertions only; no production imports. |
 | [internal/filelock/filelock_test.go](../../../../internal/filelock/filelock_test.go) | ErrorIs; NoError | Test assertions only; no production imports. |
 | [internal/strictjson/decode_test.go](../../../../internal/strictjson/decode_test.go) | Equal; Error; ErrorContains; NoError | Test assertions only; no production imports. |
 | [internal/tailnet/tailnet_test.go](../../../../internal/tailnet/tailnet_test.go) | Empty; Equal; ErrorAs; ErrorContains; ErrorIs; Less; NoError; True | Test assertions only; no production imports. |
@@ -532,7 +538,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | [internal/acceptance/developer_access.go](../../../../internal/acceptance/developer_access.go) | RawMessage; Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** decodeAccessRequest; requestString; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/developer_access_transfer.go](../../../../internal/acceptance/developer_access_transfer.go) | MarshalIndent | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** writeAccessResults; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/developer_access_users.go](../../../../internal/acceptance/developer_access_users.go) | RawMessage; Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** checkAccessUserAdmin; loadAccessBrowser; validateAccessUser; validateAccessUsers; **chain:** Developer acceptance/evidence support integration. |
-| [internal/acceptance/evidence.go](../../../../internal/acceptance/evidence.go) | Marshal; MarshalIndent; NewDecoder | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** CreateEvidence; encodeScrubbedJSON; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/personal_git.go](../../../../internal/acceptance/personal_git.go) | MarshalIndent; RawMessage; Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** loadExerciseRepo; loadGitTarget; parseGitTarget; writeGitOutcomes; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_access.go](../../../../internal/acceptance/workload_access.go) | MarshalIndent; RawMessage; Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** finishAccessResults; loadAccessTarget; parseAccessTarget; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_exec.go](../../../../internal/acceptance/workload_exec.go) | Unmarshal | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** loadExecTarget; **chain:** Developer acceptance/evidence support integration. |
@@ -601,7 +606,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | [internal/acceptance/developer_access_journey_test.go](../../../../internal/acceptance/developer_access_journey_test.go) | Unmarshal | Developer acceptance/evidence support integration. |
 | [internal/acceptance/developer_access_request_test.go](../../../../internal/acceptance/developer_access_request_test.go) | Marshal | Developer acceptance/evidence support integration. |
 | [internal/acceptance/developer_access_test.go](../../../../internal/acceptance/developer_access_test.go) | RawMessage | Developer acceptance/evidence support integration. |
-| [internal/acceptance/evidence_finalize_test.go](../../../../internal/acceptance/evidence_finalize_test.go) | Marshal; Number; RawMessage; Unmarshal | Developer acceptance/evidence support integration. |
 | [internal/acceptance/personal_git_test.go](../../../../internal/acceptance/personal_git_test.go) | MarshalIndent; RawMessage; Unmarshal | Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_access_test.go](../../../../internal/acceptance/workload_access_test.go) | MarshalIndent | Developer acceptance/evidence support integration. |
 | [internal/avatar/avatar_test.go](../../../../internal/avatar/avatar_test.go) | RawMessage; Unmarshal | Avatar rendering facade. |
@@ -722,7 +726,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | Current source | Function / upstream API selectors | Remaining types, conversions and policy | Reverse callers / hosting targets |
 | --- | --- | --- | --- |
 | [internal/acceptance/developer_access.go](../../../../internal/acceptance/developer_access.go) | New | none | **standard subpackage:** crypto/sha256; **role:** Developer acceptance/evidence support integration.; **entrypoints:** developerAccessDigest; **chain:** Developer acceptance/evidence support integration. |
-| [internal/acceptance/evidence.go](../../../../internal/acceptance/evidence.go) | New | none | **standard subpackage:** crypto/sha256; **role:** Developer acceptance/evidence support integration.; **entrypoints:** hashAt; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/installed.go](../../../../internal/acceptance/installed.go) | Reader | none | **standard subpackage:** crypto/rand; **role:** Developer acceptance/evidence support integration.; **entrypoints:** uuidHex; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/personal_git.go](../../../../internal/acceptance/personal_git.go) | Reader | none | **standard subpackage:** crypto/rand; **role:** Developer acceptance/evidence support integration.; **entrypoints:** tokenPassphrase; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/service_https.go](../../../../internal/acceptance/service_https.go) | Config; VersionTLS12; CertPool; NewCertPool | none | **standard subpackage:** crypto/tls; crypto/x509; **role:** Developer acceptance/evidence support integration.; **entrypoints:** CheckServiceHTTPS; httpsClient; **chain:** Developer acceptance/evidence support integration. |
@@ -795,7 +798,6 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 
 | Current source | Function / upstream API selectors | Remaining types, conversions and policy | Reverse callers / hosting targets |
 | --- | --- | --- | --- |
-| [internal/acceptance/evidence.go](../../../../internal/acceptance/evidence.go) | Parse | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** redactURLs; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/personal_git.go](../../../../internal/acceptance/personal_git.go) | Parse; URL | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** validateGitURL; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/service_https.go](../../../../internal/acceptance/service_https.go) | Parse; URL | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** HTTPSOrigin; httpsClient; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_access.go](../../../../internal/acceptance/workload_access.go) | URL | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** fetchAccessURL; **chain:** Developer acceptance/evidence support integration. |
@@ -837,15 +839,12 @@ deletion is demonstrated. Developer/type-only entries are not product adapters.
 | [cmd/soda-dashboard/main.go](../../../../cmd/soda-dashboard/main.go) | Second | none | **role:** Process entrypoint or command adapter.; **entrypoints:** run; **chain:** Process entrypoint or command adapter. |
 | [cmd/soda-dashboard/operator.go](../../../../cmd/soda-dashboard/operator.go) | Minute; Second | none | **role:** Process entrypoint or command adapter.; **entrypoints:** operatorHTTPServer; **chain:** Process entrypoint or command adapter. |
 | [cmd/soda-tailnet/command.go](../../../../cmd/soda-tailnet/command.go) | Second | none | **role:** Process entrypoint or command adapter.; **entrypoints:** execute; **chain:** Process entrypoint or command adapter. |
-| [internal/acceptance/command.go](../../../../internal/acceptance/command.go) | After; Duration; Hour; Minute; Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** Command; WaitReady; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/developer_access_session.go](../../../../internal/acceptance/developer_access_session.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** accessChecked; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/developer_access_transfer.go](../../../../internal/acceptance/developer_access_transfer.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** checkAccessSudo; checkCrossUserDenial; **chain:** Developer acceptance/evidence support integration. |
-| [internal/acceptance/evidence.go](../../../../internal/acceptance/evidence.go) | Time | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** CheckSecrets; Close; CreateEvidence; Error; Hashes; Path; PrivateFile; PublishObservation; RedactError; RedactString; Unwrap; Write; WriteJSON; Writer; encodeScrubbedJSON; ensureEvidenceParents; flush; hashAt; longestSecret; matchingSecretLen; mkdirEvidenceParent; open; redactPendingSecrets; redactURLs; retainSecretOverlap; scanEvidenceBytes; scanEvidencePath; scanRegularEvidence; scrubJSON; secretOverlapsBlock; urlRedactionEnd; validEvidenceName; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/installed.go](../../../../internal/acceptance/installed.go) | Duration | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** Error; RestrictUmask; Unwrap; fail; failDetail; failParen; machineArch; ownedByCaller; privateDir; privateFile; runBounded; runBoundedDirEnv; runBoundedEnv; uuidHex; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/personal_git.go](../../../../internal/acceptance/personal_git.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** gitChecked; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/process.go](../../../../internal/acceptance/process.go) | After; Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** StartCommand; Stop; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/service_https.go](../../../../internal/acceptance/service_https.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** httpsClient; **chain:** Developer acceptance/evidence support integration. |
-| [internal/acceptance/worker_linux.go](../../../../internal/acceptance/worker_linux.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** Run; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_access.go](../../../../internal/acceptance/workload_access.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** accessRemote; clientPSQL; fetchAccessURL; **chain:** Developer acceptance/evidence support integration. |
 | [internal/acceptance/workload_exec.go](../../../../internal/acceptance/workload_exec.go) | Second | none | **role:** Developer acceptance/evidence support integration.; **entrypoints:** checkMemberDenied; execDifferentUID; **chain:** Developer acceptance/evidence support integration. |
 | [internal/factory/allowance.go](../../../../internal/factory/allowance.go) | Minute; Time | none | **role:** Direct package consumer.; **entrypoints:** Validate; **chain:** Direct package consumer. |

@@ -30,21 +30,22 @@ Evidence: TestValidateAccessUser at 58; TestAccessSSHOptions at 140; TestLoadAcc
 
 ## internal/acceptance/evidence.go
 
-Observed size: 466 lines, including tests where embedded. Retire the obsolete
-Evidence/Execute/Remote/Command closure and its tests. Its remaining production
-use is PrivateFile, called by installed probes; preserve that real operation
-in probe input support before removing the rest. The current caller census
+Historical observed size: 466 lines, including tests where embedded. The
+Evidence/Execute/Remote/Command/Worker closure and its exclusive tests are
+retired in `dbdb0615`. Its sole live private-input operation now belongs to
+installed.go, with same-FD bounded admission completed in `469f47f5`. The current caller census
 retains Go StartCommand/Process in this same acceptance package for live
 bounded installed probes; only the uncalled StartProcess adapter retires.
 No new process package or replacement evidence facade is proposed.
 
 - `internal/acceptance/installed.go` — Existing restricted regular-file input operation folded into its actual private-input caller; retain absolute-path/regular/restricted-mode and effective min(caller cap, 1 MiB) admission on the same opened descriptor; refuse final links/FIFOs, bound reads before growth, check read/close errors and retain existing probe tests.
 
-Evidence: CreateEvidence at 30; WriteJSON at 188; PublishObservation at 241; Hashes at 217; scanEvidenceBytes at 277; CheckSecrets at 327; PrivateFile at 454; RedactError at 361; redactingWriter at 370; redactPendingSecrets at 409.
+Historical selectors: CreateEvidence at 30; WriteJSON at 188; PublishObservation at 241; Hashes at 217; scanEvidenceBytes at 277; CheckSecrets at 327; PrivateFile at 454; RedactError at 361; redactingWriter at 370; redactPendingSecrets at 409.
 
-Disposition: Rust acceptance is the retained harness. Remove the obsolete
-Go release-build hashing import with Evidence; do not keep legacy machinery
-to retain its unit tests.
+Disposition complete: Rust acceptance is the retained evidence/command
+harness. Obsolete Go hashing/redaction/worker duties and exclusive tests are
+removed; actual installed-probe process custody and private-input tests remain.
+No native qualification is inferred from this source cut.
 
 ## internal/acceptance/personal_git.go
 
