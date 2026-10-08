@@ -352,3 +352,19 @@ R04 and the broader native subjects remain open.
 | Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
 | --- | --- | --- | --- |
 | TEST-C03-CALLER-FRAMING-1 → C03.V / A | Luna low owns only `lib/host/tests/tcontrol_oracle.rs`, extending the existing real Unix-socket `native_local_request_over_real_socket` subject across Content-Length, legal chunked and close-delimited EOF replies, plus premature EOF under a declared Content-Length. Coordinator owns checks/docs/commits; independent Luna medium reviews. | Existing fixed native status/preferences fixtures, production `native::observe`→`local_request`→selected Hyper client, established 64 KiB and deadline profile. Existing framing/error/cap/trickle checks and unchanged Go capture receipt remain separate evidence. No source engine or new test driver. | Each framing mode delivers both native documents into the actual observation parser and preserves the admitted view and authentication URL; a complete valid-looking status JSON with a larger declared Content-Length must fail observation when the peer closes, rather than produce a successful view or authentication URL. Non-success status and expired/missing endpoint refusal remain. Existing shared-client malformed/cap/deadline subjects stay green. Assess the whole original C03.V scope after execution; this fixture alone does not establish actual route availability, installed native output fit or provider qualification. Keep C03.V open until that assessment. |
+
+C03.V development verification completed in `18563c7c`. The [current receipt](../../../.artifacts/luna-batch-20261007-0caf6b91/c03-caller-pass-receipt.json)
+pins the caller, production owners, dependency graph and reused Go sources. The
+existing socket subject now delivers both documents in all three framing modes
+and rejects valid JSON with an incomplete declared length. The focused case,
+59-event oracle, five shared-client checks and exact format check passed; the
+focused case repeats inside the oracle, which also compiles source-module tests.
+Independent Luna medium reviewed source, actual logs and the original scope.
+This proves development parsing/refusal and capture subjects; actual installed
+routes, native output fit and provider qualification remain with C04.V/R04.
+
+### C06 real child delivery
+
+| Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
+| --- | --- | --- | --- |
+| TEST-C06-CHILD-DELIVERY-1 → C06.V / C | Luna low owns only `scripts/pg_backup_test.go`: use its existing maintenance-binary builder to invoke actual init-roles and restore `--globals` against a child-local PATH executable fixture named `podman`. One fixed bounded SQL input exceeds the local pipe capacity; no database/container or production refactor. Coordinator owns checks/docs/commits; independent Luna medium reviews. | Current O01/O06 `delivery_exit` repair and actual stdin/write/close/wait callers. Fixture alone handles readiness and psql: successful child drains to EOF, early-closing child exits zero or a selected nonzero code. Task-owned synthetic inputs and paths under `/home`; no global environment mutation or new test driver. | Both actual binaries succeed after complete delivery and reap; incomplete delivery with exit zero fails; the nonzero child code is preserved. Keep existing disposable `TestPostgresBackupRoundTrip` as the separate backup/restore contract proof. Its Podman prerequisite remains failed, so no skip or fake command establishes database/native behavior and C06.V stays open. |
