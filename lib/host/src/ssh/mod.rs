@@ -8,6 +8,7 @@ mod tests;
 pub use self::base64::{b64_corrupt, b64_decode, b64_decode_go, b64_encode, b64_encode_raw};
 
 use ssh_key::public::KeyData;
+use ssh_key::EcdsaCurve;
 use ssh_key::{Certificate, PublicKey};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +25,26 @@ pub const ALGO_ECDSA521: &str = "ecdsa-sha2-nistp521";
 pub const ALGO_SKECDSA: &str = "sk-ecdsa-sha2-nistp256@openssh.com";
 pub const ALGO_ED25519: &str = "ssh-ed25519";
 pub const ALGO_SKED25519: &str = "sk-ssh-ed25519@openssh.com";
+
+// Enforce SSH's exact-width uncompressed SEC1 profile before validating the
+// point with the selected typed curve implementation. ssh-key identifies the
+// curve; this gate retains the host's encoding policy.
+fn valid_ecdsa_point(curve: EcdsaCurve, point: &[u8]) -> bool {
+    let coord_len = match curve {
+        EcdsaCurve::NistP256 => 32,
+        EcdsaCurve::NistP384 => 48,
+        EcdsaCurve::NistP521 => 66,
+    };
+    if point.len() != 1 + 2 * coord_len || point.first() != Some(&0x04) {
+        return false;
+    }
+
+    match curve {
+        EcdsaCurve::NistP256 => p256::PublicKey::from_sec1_bytes(point).is_ok(),
+        EcdsaCurve::NistP384 => p384::PublicKey::from_sec1_bytes(point).is_ok(),
+        EcdsaCurve::NistP521 => p521::PublicKey::from_sec1_bytes(point).is_ok(),
+    }
+}
 
 fn check_key_data(data: &KeyData) -> Result<(), String> {
     match data {
@@ -55,23 +76,14 @@ fn check_key_data(data: &KeyData) -> Result<(), String> {
             }
         }
         KeyData::Ecdsa(key) => {
-            let (curve, point) = match key {
-                ssh_key::public::EcdsaPublicKey::NistP256(_) => {
-                    (&crate::nist::P256, key.as_sec1_bytes())
-                }
-                ssh_key::public::EcdsaPublicKey::NistP384(_) => {
-                    (&crate::nist::P384, key.as_sec1_bytes())
-                }
-                ssh_key::public::EcdsaPublicKey::NistP521(_) => {
-                    (&crate::nist::P521, key.as_sec1_bytes())
-                }
-            };
-            crate::nist::decode_point(curve, point)
-                .ok_or_else(|| "invalid public key".to_string())?;
+            if !valid_ecdsa_point(key.curve(), key.as_sec1_bytes()) {
+                return Err("invalid public key".to_string());
+            }
         }
         KeyData::SkEcdsaSha2NistP256(key) => {
-            crate::nist::decode_point(&crate::nist::P256, key.ec_point().as_bytes())
-                .ok_or_else(|| "invalid public key".to_string())?;
+            if !valid_ecdsa_point(EcdsaCurve::NistP256, key.ec_point().as_bytes()) {
+                return Err("invalid public key".to_string());
+            }
         }
         KeyData::Certificate(_) | KeyData::Other(_) => {
             return Err("invalid public key".to_string());

@@ -257,6 +257,99 @@ fn sk_types_parse() {
     assert_eq!(canonical(&line).0, format!("{line}\n"));
 }
 
+fn unhex(hex: &str) -> Vec<u8> {
+    let bytes = hex.as_bytes();
+    assert!(bytes.len().is_multiple_of(2));
+    let value = |c: u8| match c {
+        b'0'..=b'9' => c - b'0',
+        b'a'..=b'f' => c - b'a' + 10,
+        b'A'..=b'F' => c - b'A' + 10,
+        _ => panic!("bad hex"),
+    };
+    bytes
+        .chunks_exact(2)
+        .map(|pair| value(pair[0]) << 4 | value(pair[1]))
+        .collect()
+}
+
+#[test]
+fn generator_points_parse_and_remain_uncompressed() {
+    let vectors = [
+        (
+            EcdsaCurve::NistP256,
+            32,
+            "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+            "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+            "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff",
+        ),
+        (
+            EcdsaCurve::NistP384,
+            48,
+            "aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab7",
+            "3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f",
+            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff",
+        ),
+        (
+            EcdsaCurve::NistP521,
+            66,
+            "c6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d3dbaa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5bd66",
+            "011839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e662c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650",
+            "01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        ),
+    ];
+
+    for (curve, coord_len, x, y, prime_hex) in vectors {
+        let mut point = vec![0x04];
+        for coordinate in [x, y] {
+            let raw = unhex(coordinate);
+            point.extend(vec![0; coord_len - raw.len()]);
+            point.extend(raw);
+        }
+        assert!(valid_ecdsa_point(curve, &point));
+
+        // Each named curve rejects a point from either other
+        // curve, and both compressed and hybrid encodings stay refused.
+        for other in [
+            EcdsaCurve::NistP256,
+            EcdsaCurve::NistP384,
+            EcdsaCurve::NistP521,
+        ] {
+            if other != curve {
+                assert!(!valid_ecdsa_point(other, &point));
+            }
+        }
+
+        let mut compressed = vec![0x02];
+        compressed.extend_from_slice(&point[1..1 + coord_len]);
+        assert!(!valid_ecdsa_point(curve, &compressed));
+
+        let mut hybrid = point.clone();
+        hybrid[0] = 0x06;
+        assert!(!valid_ecdsa_point(curve, &hybrid));
+        assert!(!valid_ecdsa_point(curve, &point[..point.len() - 1]));
+
+        let mut overlong = point.clone();
+        overlong.push(0);
+        assert!(!valid_ecdsa_point(curve, &overlong));
+        assert!(!valid_ecdsa_point(curve, &[0x00]));
+
+        let mut off_curve = point.clone();
+        off_curve[1] ^= 1;
+        assert!(!valid_ecdsa_point(curve, &off_curve));
+
+        let prime = unhex(prime_hex);
+        assert_eq!(prime.len(), coord_len);
+        for coordinate_start in [1, 1 + coord_len] {
+            let mut at_prime = vec![0; 1 + 2 * coord_len];
+            at_prime[0] = 0x04;
+            at_prime[coordinate_start..coordinate_start + coord_len].copy_from_slice(&prime);
+            assert!(!valid_ecdsa_point(curve, &at_prime));
+            at_prime[coordinate_start..coordinate_start + coord_len].fill(0xff);
+            assert!(!valid_ecdsa_point(curve, &at_prime));
+        }
+    }
+}
+
 #[test]
 fn sk_ecdsa_p256_validates_point_and_curve_id() {
     let point = ordinary_p256_point();
@@ -268,16 +361,21 @@ fn sk_ecdsa_p256_validates_point_and_curve_id() {
     let line = format!("{ALGO_SKECDSA} {}", b64_encode(&blob));
     assert_eq!(canonical(&line).0, format!("{line}\n"));
 
-    let mut off_curve = vec![0; point.len()];
-    off_curve[0] = 0x04;
-    let mut blob = Vec::new();
-    put_string(&mut blob, ALGO_SKECDSA.as_bytes());
-    put_string(&mut blob, b"nistp256");
-    put_string(&mut blob, &off_curve);
-    put_string(&mut blob, b"ssh:test");
-    assert!(
-        parse_authorized_key(format!("{ALGO_SKECDSA} {}", b64_encode(&blob)).as_bytes()).is_err()
-    );
+    let mut infinity = vec![0; point.len()];
+    infinity[0] = 0x04;
+    let mut off_curve = infinity.clone();
+    off_curve[1] = 1;
+    for invalid_point in [infinity, off_curve] {
+        let mut blob = Vec::new();
+        put_string(&mut blob, ALGO_SKECDSA.as_bytes());
+        put_string(&mut blob, b"nistp256");
+        put_string(&mut blob, &invalid_point);
+        put_string(&mut blob, b"ssh:test");
+        assert!(
+            parse_authorized_key(format!("{ALGO_SKECDSA} {}", b64_encode(&blob)).as_bytes())
+                .is_err()
+        );
+    }
 
     let mut blob = Vec::new();
     put_string(&mut blob, ALGO_SKECDSA.as_bytes());

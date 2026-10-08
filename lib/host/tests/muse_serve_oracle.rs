@@ -26,9 +26,6 @@ mod muse_serve;
 #[path = "../src/net.rs"]
 #[allow(dead_code)]
 mod net;
-#[path = "../src/nist.rs"]
-#[allow(dead_code)]
-mod nist;
 #[path = "../src/project/mod.rs"]
 #[allow(dead_code)]
 mod project;

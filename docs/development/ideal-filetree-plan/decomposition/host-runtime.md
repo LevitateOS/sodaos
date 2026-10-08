@@ -45,20 +45,27 @@ not reopen protocol-engine extraction.
 ## Current host adapter destinations after L03 and L09
 
 These target joins keep selected libraries at the mechanics boundary and Soda
-policy at its existing callers. They describe the desired physical layout;
-current adapters remain until their callers, imports and tests move together.
+policy at its existing callers. They distinguish completed source ownership
+from pending physical moves; for pending joins, callers, imports and tests move
+together.
 
 | Current source and duty | Desired owner and retained contract |
 | --- | --- |
 | `lib/host/src/sha256.rs` 1–45: selected `sha2::Sha256` digest plus canonical lowercase hex | Retain as `lib/host/src/sha256.rs`. It is the single host profile used by SSH fingerprints, Tailnet revisions, preparation inputs, Factory assignments, terminal/Muse harness pins, and broker/native identities. Callers keep each raw-byte recipe, admission rule and error/custody boundary; no SHA rounds or generic hash package return. |
-| `lib/host/src/nist.rs` 9–53: exact curve name/coordinate length and uncompressed SEC1 prefix/length gate before typed p256/p384/p521 parsing; tests 55–162 | Join the existing `lib/host/src/ssh/mod.rs` validation and `lib/host/src/ssh/tests.rs` cases. Production call sites are `ssh/mod.rs` 60–73; retain all three curve checks and rejection of compressed/hybrid, wrong-curve, malformed, infinity and off-curve points. Keep the current adapter/tests until that caller and its cases are rebound; do not reintroduce field arithmetic or add a curve module. |
+| Former `lib/host/src/nist.rs` 9–53 and tests 55–162 | Source join complete in existing `lib/host/src/ssh/mod.rs` and `lib/host/src/ssh/tests.rs`. The private predicate takes upstream `ssh_key::EcdsaCurve`, retains explicit 32/48/66-byte exact-length and uncompressed-prefix gates, then validates with the typed p256/p384/p521 parsers. All SSH ECDSA call sites now use that predicate; no custom `Curve`, name dispatch, `Option<Vec<u8>>` re-encoding or `nist` module remains. The moved matrix plus existing SSH/SK caller cases preserve the original malformed, compressed/hybrid, wrong-curve, infinity and off-curve coverage. |
 | `lib/host/src/gmux_server.rs` 1–439: `Server`, accept/connection handling, backend and connection permits, shutdown/task joins, systemd fd3 and explicit bind listener | Reallocate to `lib/host/src/daemon/server.rs`. Keep the 128-connection/16-callback gates, per-socket/route admission, cancellation and shutdown joins, terminal-upgrade lifetime, listener authority and current error policy. Existing `lib/host/src/daemon/http.rs` 1–102 remains the request/path/body adapter; it is not merged with the server cohort. Hyper remains responsible for HTTP framing/parsing. Bind `lib/host/src/lib.rs` module declarations 11–14 and `main.rs` imports 17–18, construction 246–254, listener selection 240–242 and root-gate test 440–448 in the same physical cutover. |
 
-The SSH test destination also needs an implementation sizing check: current
-`ssh/tests.rs` has 401 lines and the point-profile test block spans 108 lines
-before shared scaffolding is removed. Reuse equivalent fixture helpers or
-settle a focused test allocation before the physical join; keep the current
-point adapter and its cases until that scope and caller rebinding are complete.
+The NIST caller/test join is complete at source scope. After rustfmt,
+`ssh/mod.rs` is 195 lines and `ssh/tests.rs` is 499 lines, within the per-file
+500-line target. The retained source/development receipt
+`.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/nist-join-candidate/checks-receipt.json`
+records SSH (16 pass), account (10 pass), the directly included Muse oracle's
+repeated SSH bodies (16 pass, not distinct subjects), daemon binary check and
+exact four-file format pass. The original cases are now one moved generator
+matrix plus extensions to the existing SK-ECDSA caller regression; no test-count
+increase is claimed. These checks establish source/development behavior only;
+broader R02 allocation, installed/native qualification and provider evidence
+remain open.
 
 The other planned daemon joins remain application adapters: `gmux_admission.rs`
 maps to `daemon/admission.rs`; `gmux_backend.rs` to `daemon/backend.rs`;
