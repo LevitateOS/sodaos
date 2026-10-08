@@ -67,8 +67,11 @@ Go pipeline: Rust orchestrates the release producer.
 
 The selected reuse defining owners are `lib/soda-release-deliver/src/payload.rs`
 and `content.rs` for delivered payload wire/load/admission and six-image binding,
-and existing `lib/soda-release-build/src/oci/{mod,schema,archive,layers}.rs`
-plus `oci_layout.rs` for pure OCI identity/layout and content scanning. C's actual
+and `lib/soda-release-deliver/src/oci/` for live layout and shared layer scanning.
+Build retains `lib/soda-release-build/src/oci.rs` and its archive/manifest/content
+submodules. `DEAD-REL-OCI-LAYOUT-1` supersedes the earlier selection of build’s
+uncalled `oci_layout.rs`; its exclusive oracle/fixture does not make it a current
+product owner. The four Rust crate and native command owners remain. C's actual
 guarantee comparison and A's independent source-fit challenge establish that
 direction; they do not prove the private copies equivalent. D11-A3 retains the
 exact decoder, error, null, duplicate, result, no-follow/confinement and decoded
