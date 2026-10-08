@@ -205,9 +205,19 @@ coverage beyond the catalog and its explicit review receipts:
 - `lib/host/src/daemon/response.rs` — 342-425: status reasons, error/not-found/JSON/Tailnet response wire.
 - `lib/host/src/daemon/websocket.rs` — 426-523: upgrade/accept key and inline RFC6455 SHA-1/base64; pending terminal pumping belongs this same transport owner.
 
-**rust/soda-host/src/gmux_server.rs** (364 lines on the inspected branch).
-
-- `lib/host/src/daemon/http.rs` — 1-364: accept loop, handle_connection, read_request, drain_head, percent_decode and systemd_listener; keep the existing algorithm cohesive.
+**Historical allocation, superseded by the current target join:** the inspected
+`rust/soda-host/src/gmux_server.rs` snapshot had 364 lines and assigned the
+whole source to `lib/host/src/daemon/http.rs` (accept loop, connection handler,
+request parsing, drain and systemd listener). Current selected source is
+`lib/host/src/gmux_server.rs` 1–439: Soda server/lifetime, bounded backend and
+connection admission, cancellation/task joins and listener custody now target
+`lib/host/src/daemon/server.rs`. The separate current
+`lib/host/src/daemon/http.rs` 1–102 owns path/head/body conversion. L09 is
+complete through `21387814`: Hyper owns HTTP/1 parsing/framing, so no custom
+HTTP engine is planned. The source-path move still requires rebinding current
+callers, imports and tests together: `lib/host/src/lib.rs` declarations 11–14,
+`main.rs` imports 17–18, listener selection 240–242, `Server::new` 246–254,
+and root-gate test 440–448. This plan records no installed/native qualification.
 
 **rust/soda-host/src/pfactory.rs** (6081 lines at 0d8d3b8e).
 

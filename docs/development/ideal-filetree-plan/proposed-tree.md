@@ -46,7 +46,8 @@ target allocation or refresh R02 counts.
 | Host helper binary and host daemon entrypoint | The Tailnet helper binary is current at `cmd/soda-forgejo-tailnet/main.rs`, selected from `lib/host/Cargo.toml`. `cmd/soda-host/main.rs` remains a proposed same-package placement; current `soda-host` selection is `lib/host/src/main.rs`. |
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
 | A-owned `lib/unix-http/{Cargo.toml,src/lib.rs}` | Shared bounded Hyper Unix client and driver/deadline custody; callers retain socket, status and credential policy |
-| Host `daemon/{http,response,websocket}`, `json/{mod,number}`, `ssh/mod` | Routes/body limits, single upgrade/pump lifecycle, Serde schemas and ssh-key algorithm/fingerprint policy |
+| Host `daemon/{admission,backend,broker,http,response,routes,server,websocket}`, `json/{mod,number}`, `sha256.rs`, `ssh/mod` | Soda-owned listener/server lifetime, request admission, route and broker contracts, one upgrade/pump lifecycle, Serde schemas, ssh-key algorithm/fingerprint policy, and the shared sha2-backed raw digest/lowercase-hex profile |
+| Host SSH NIST point gate | The current `nist.rs` shape/prefix gate and point tests join existing `ssh/mod.rs` and `ssh/tests.rs` at the physical caller/test cutover; typed p256/p384/p521 parsing remains, with no standalone curve engine or target leaf |
 | Installer `netip`, `sshkey/authorized_keys`, `pemx`, `x509` | std IP prefix/admission; ssh-key policy; bounded PEM envelope and typed local-CA/raw-TBS verification. Certificate-only URL/calendar and setup urlx grammar are retired; setup retains a narrow typed origin/display adapter |
 | Release `json*`, Compose/Muse/guest wire and Acceptance structured data | Concrete Serde admission/emission and bounded ordered/raw application data; `lib/json` is retired with no target allocation |
 | Release/build/import OCI adapters | Delivery owns low-level scanning; callers retain admitted content/layout/descriptor policy and original blob custody |
@@ -1944,6 +1945,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── mod.rs
 │   │   │   │   ├── response.rs
 │   │   │   │   ├── routes.rs
+│   │   │   │   ├── server.rs
 │   │   │   │   └── websocket.rs
 │   │   │   ├── domain/
 │   │   │   │   ├── account.rs
@@ -2148,7 +2150,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── request.rs
 │   │   │   │   └── target.rs
 │   │   │   ├── lib.rs
-│   │   │   └── net.rs
+│   │   │   ├── net.rs
+│   │   │   └── sha256.rs
 │   │   ├── tests/
 │   │   │   ├── common/
 │   │   │   │   ├── backend.rs

@@ -18,11 +18,11 @@ small integration proofs before transport replacement.
 
 | Finding and existing surface | Current target responsibility |
 | --- | --- |
-| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): `daemon/{http,response}.rs`, `gmux_server.rs`, `iclient.rs`, `tcontrol_native.rs` | Adopt complete Hyper HTTP engines inside the existing processes. Retain systemd listener custody, each socket's actual authority, route admission, request/response limits, status/secrecy mapping and bounded synchronous backend adapters. Preserve the existing Go library-backed clients. |
-| [N6](../../../research/library-reuse-investigation.md#n6): `daemon/websocket.rs`, `dbackend.rs`, terminal attachment | Adopt tungstenite with one nonblocking protocol owner, bounded child-output queue and readiness wakeup. Retain route/Origin/query admission, session expiry, inflight/TerminalGate lifetime, child close/reap and shutdown. Handshake SHA-1/Base64 and handwritten frame state disappear with this engine. |
+| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): host daemon and identity clients | Complete at L09 through `21387814`: Hyper owns HTTP/1 parsing/framing and the four clients use the selected Unix HTTP adapter. Host `daemon/{server,http,response,routes,websocket}` and `daemon/broker.rs` retain Soda listener custody, per-socket authority, route/admission limits, status/secrecy and broker request semantics; no generic HTTP engine is a target. Physical source reallocation remains pending the scoped caller/path cutover. |
+| [N6](../../../research/library-reuse-investigation.md#n6): `daemon/websocket.rs`, `dbackend.rs`, terminal attachment | Complete at L09 through `21387814`: tungstenite owns WebSocket protocol parsing, with one nonblocking transport owner. Retain route/Origin/query admission, session expiry, inflight/TerminalGate lifetime, bounded child-output queue, readiness wakeup, child close/reap and shutdown. Handshake SHA-1/Base64 and handwritten frame state are retired. |
 | [N4](../../../research/library-reuse-investigation.md#n4), [N7](../../../research/library-reuse-investigation.md#n7): `tcontrol_provider.rs`, native/provider URL helpers | Retain the selected host curl/Executor request policy and URL/form/percent primitives. Preserve credential scope/lifetime, neutral errors, no uncertain replay, the resolver-inclusive deadline and raw lexical admission; generic authority/escape algorithms are superseded. Source selection is complete, with provider/native qualification separate. |
 | [N8](../../../research/library-reuse-investigation.md#n8), [N9](../../../research/library-reuse-investigation.md#n9): Tailnet address/time and terminal/Factory deadline codecs | Use std IP types and the selected time codec. Retain zone/mask, DNS/name and purpose-specific address policy, lease/deadline bounds, zero-time handling and original signed text; calendar/IP engines are superseded. |
-| [CF-01](../../../research/library-reuse-investigation.md#cf-01)–[CF-04](../../../research/library-reuse-investigation.md#cf-04): SHA, NIST, SSH and Base64 helpers | Adopt RustCrypto, ssh-key and explicit Base64 profiles. Retain admitted algorithms/options, uncompressed curve gates, canonical public-key output, raw-byte digest recipes and managed-key revision/ownership policy. Do not extract separate crypto/SSH engines. |
+| [CF-01](../../../research/library-reuse-investigation.md#cf-01)–[CF-04](../../../research/library-reuse-investigation.md#cf-04): SHA, NIST, SSH and Base64 helpers | Complete at L03/L05 through `52eee7ee`/`7b42671d`: sha2 and typed p256/p384/p521, ssh-key and explicit Base64 profiles replace the local engines. Retain admitted algorithms/options, uncompressed curve gates, canonical public-key output, raw-byte digest recipes and managed-key revision/ownership policy. Do not extract separate crypto/SSH engines. |
 | [N10](../../../research/library-reuse-investigation.md#n10), [N11](../../../research/library-reuse-investigation.md#n11): Muse packet/peer helpers and obsolete daemon peer adapter | Use typed descriptor/socket mechanics where they simplify the active owner. Retain exact stdio-FD admission, kernel peer/pidfd pinning, cgroup/account custody and cleanup. L18/N11 retired the unused daemon peer duplicate at `eaed66a9`; active Muse attestation tests remain. HTTP does not replace the Muse packet channel. |
 | [JSON01](../../../research/library-reuse-investigation.md#json01): host and maintenance JSON scanners/binders | Adopt serde/serde_json with explicit caller DTO/Visitor profiles. Keep ordered aliases, null/byte-field admission, caps and canonical raw-byte boundaries; generic scanner/string/number state machines are superseded. |
 
@@ -41,6 +41,31 @@ grace. Full affected development tests/builds pass; installed systemd and native
 executor/provider qualification remain separate. Typed syscall or randomness
 changes elsewhere were not prerequisites. Historical decompositions below do
 not reopen protocol-engine extraction.
+
+## Current host adapter destinations after L03 and L09
+
+These target joins keep selected libraries at the mechanics boundary and Soda
+policy at its existing callers. They describe the desired physical layout;
+current adapters remain until their callers, imports and tests move together.
+
+| Current source and duty | Desired owner and retained contract |
+| --- | --- |
+| `lib/host/src/sha256.rs` 1–45: selected `sha2::Sha256` digest plus canonical lowercase hex | Retain as `lib/host/src/sha256.rs`. It is the single host profile used by SSH fingerprints, Tailnet revisions, preparation inputs, Factory assignments, terminal/Muse harness pins, and broker/native identities. Callers keep each raw-byte recipe, admission rule and error/custody boundary; no SHA rounds or generic hash package return. |
+| `lib/host/src/nist.rs` 9–53: exact curve name/coordinate length and uncompressed SEC1 prefix/length gate before typed p256/p384/p521 parsing; tests 55–162 | Join the existing `lib/host/src/ssh/mod.rs` validation and `lib/host/src/ssh/tests.rs` cases. Production call sites are `ssh/mod.rs` 60–73; retain all three curve checks and rejection of compressed/hybrid, wrong-curve, malformed, infinity and off-curve points. Keep the current adapter/tests until that caller and its cases are rebound; do not reintroduce field arithmetic or add a curve module. |
+| `lib/host/src/gmux_server.rs` 1–439: `Server`, accept/connection handling, backend and connection permits, shutdown/task joins, systemd fd3 and explicit bind listener | Reallocate to `lib/host/src/daemon/server.rs`. Keep the 128-connection/16-callback gates, per-socket/route admission, cancellation and shutdown joins, terminal-upgrade lifetime, listener authority and current error policy. Existing `lib/host/src/daemon/http.rs` 1–102 remains the request/path/body adapter; it is not merged with the server cohort. Hyper remains responsible for HTTP framing/parsing. Bind `lib/host/src/lib.rs` module declarations 11–14 and `main.rs` imports 17–18, construction 246–254, listener selection 240–242 and root-gate test 440–448 in the same physical cutover. |
+
+The SSH test destination also needs an implementation sizing check: current
+`ssh/tests.rs` has 401 lines and the point-profile test block spans 108 lines
+before shared scaffolding is removed. Reuse equivalent fixture helpers or
+settle a focused test allocation before the physical join; keep the current
+point adapter and its cases until that scope and caller rebinding are complete.
+
+The other planned daemon joins remain application adapters: `gmux_admission.rs`
+maps to `daemon/admission.rs`; `gmux_backend.rs` to `daemon/backend.rs`;
+`gmux_routes.rs` to existing `daemon/{response,routes,websocket}.rs`; and
+`iclient.rs` to `daemon/broker.rs`. Their current route, error, identity-wire,
+credential and response contracts remain with the Soda owners. These are
+physical rebindings, not additional library-engine work or native qualification.
 
 ## Current Forgejo Tailnet helper allocation
 
