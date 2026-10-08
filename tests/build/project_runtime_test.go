@@ -40,8 +40,8 @@ func TestRuntimeCreationImageIdentityHasRecipeAndOSGuard(t *testing.T) {
 	Check(t, strings.Contains(recipe, `org.soda.profile="rocky-headless"`), "missing profile label")
 	Check(t, strings.Contains(recipe, `org.soda.interface="headless"`), "missing interface label")
 	Check(t, strings.Contains(recipe, `RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2"`), "missing os guard")
-	build := strings.ReplaceAll(ReadFile(t, "lib/soda-release-build/src/production.rs"), " ", "")
-	Check(t, strings.Contains(build, `"--label=org.opencontainers.image.revision={}"`), "missing revision label")
+	imageBuild := strings.ReplaceAll(ReadFile(t, "lib/soda-release-build/src/production_images.rs"), " ", "")
+	Check(t, strings.Contains(imageBuild, `"--label=org.opencontainers.image.revision={}"`), "missing revision label")
 	Check(t, !strings.Contains(recipe, "fedora-kde"), "fedora-kde present")
 }
 
