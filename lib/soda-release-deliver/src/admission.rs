@@ -7,11 +7,22 @@ use sha2::{Digest as _, Sha256};
 
 use crate::buildx::{read_at, Root};
 use crate::document::read_file;
-use crate::finalize::Config;
 use crate::model::{Candidate, MediaBinding};
 use crate::payload::Payload;
 use crate::prepare::{read_media_binding, Qualification};
 use crate::Error;
+
+/// Release identity and qualification inputs admitted before protected work.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "PascalCase")]
+pub struct Config {
+    #[serde(deserialize_with = "crate::json_serde::null_u64")]
+    pub serial: u64,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
+    pub class: String,
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
+    pub notes: String,
+}
 
 /// `QualificationScope`: the only evidence scope finalization admits.
 pub const QUALIFICATION_SCOPE: &str = "native-install-upgrade-recovery";

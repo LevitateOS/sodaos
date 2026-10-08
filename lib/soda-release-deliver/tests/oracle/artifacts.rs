@@ -1,9 +1,9 @@
 use base64::Engine;
 use serde_json::Value as JsonValue;
 use soda_release_deliver::admission::admit_qualification;
+use soda_release_deliver::admission::Config;
 use soda_release_deliver::check::check_candidate;
 use soda_release_deliver::document::{read_document, write_document};
-use soda_release_deliver::finalize::Config;
 use soda_release_deliver::model::{Channel, Release};
 use soda_release_deliver::oci::{inspect_oci, inspect_oci_content};
 use soda_release_deliver::payload::load;
@@ -275,7 +275,6 @@ fn admit_qualification_accepts_bound_evidence() {
         serial: 7,
         class: "normal".to_string(),
         notes: "admit me".to_string(),
-        ..Config::default()
     };
     let qualification =
         admit_qualification(&config, &dir, &media_path, &evidence_path).expect("admit");

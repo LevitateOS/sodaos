@@ -1,9 +1,6 @@
-//! Rust port of `internal/release/deliver`: native Sigstore release and
-//! channel semantics (admission, prepare, sign, fetch, publish, finalize).
-//!
-//! The Go package remains the owner of record; this crate mirrors its exact
-//! validation behavior, error text, and JSON shapes. It never installs an
-//! image, changes host trust, or reboots.
+//! Release-delivery library for qualification admission, protected signing,
+//! authenticated fetch, and ledger-backed publication. It does not install
+//! an image, change host trust, or reboot.
 
 use sha2::{Digest as _, Sha256};
 
@@ -13,7 +10,6 @@ pub mod check;
 pub mod content;
 pub mod document;
 pub mod fetch;
-pub mod finalize;
 pub mod import;
 pub(crate) mod json_serde;
 pub mod model;
