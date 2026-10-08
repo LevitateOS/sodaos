@@ -98,7 +98,7 @@ Lead A; [P01](reviews/P01.md), [P02](reviews/P02.md), [P03](reviews/P03.md), [P0
 
 Lead A; [P05](reviews/P05.md), [P08](reviews/P08.md), [P09](reviews/P09.md), [P12](reviews/P12.md). B01/B03 grant/Store handoffs; A00 native extraction.
 
-- [ ] **A02.M** Keep Go preparation decisions/Store CAS/API and Rust `lib/host/src/{preparation,prepare,project}` lifecycle definitions with their current processes and distinct heads/markers.
+- [x] **A02.M** [Source ownership closed at current source baseline `0fec7006`, after independent Luna low and medium proofs.] Go preparation API/domain/coordinator/Store remain separate owners, with requirement-head and approval-head CAS kept distinct. Rust preparation records/markers, prepare tools and Project lifecycle remain in their current processes. No merge or duplicate owner is introduced. A02.C remains complete; A02.V, R04 and B03 dispatch/qualification remain open.
 - [x] **A02.C** Source scope complete: P05-F1 in `8d9485af` clears only the Project-stop cause after verified quiescence, preserving other active causes and the first-closure receipt. P09-F1 in `97100abd`/`228e8d06`/`b143808f` adds bounded guest-native root/wheel observation, exact running-container binding, and current-session/member-bound approval with the fixed-operator exception. Current web tests prove repo ownership alone is insufficient and uncertain observations do not admit approval. No Podman Project, installed appliance, or native provider qualification was run; A02.V and R04 remain open.
 - [ ] **A02.V** Exercise existing real start/stop/preparation/approval subjects, separate head revisions and failure paths; coordinate actual dispatch reopening with B03.
 
@@ -116,7 +116,7 @@ Lead A; [P06](reviews/P06.md), [P07](reviews/P07.md). Shared guest-package owner
 
 Lead A; [P10](reviews/P10.md), [P11](reviews/P11.md). C owns system/Containerfile/compiler joins and the Muse-maintain command/stage implementation; A owns host tool-observation counterparts.
 
-- [ ] **A04.M** Retain mise/profile/systemd/OCI/workload substrates and selected Project definitions; preserve native tool observation and Muse staging authority. Manual archive-header extraction is superseded by L13/CF-07; stream/FD/deadline/child custody remains in the current maintenance owner.
+- [x] **A04.M** [Source ownership closed at current source baseline `0fec7006`, after independent Luna low and medium proofs.] Retain mise/profile/systemd/OCI/workload substrates and selected Project definitions. Host launcher/tool observation remains in `prepare/tools.rs`; Muse staging remains in `muse/stage.rs`; Codex `stream_identity_harness` remains with terminal transfer and its Bash pipeline through the existing bounded `Executor`. Manual archive-header extraction is superseded by L13/CF-07. Source maintenance allocation, imports and callers are reconciled; no new code or tests are required. A04.V, R04, installed Bash availability, staging/workload/volume behavior and native qualification remain open.
 - [ ] **A04.V** Preserve actual script subjects, read-only readiness, ordered bus/tool staging and volume lifetime. Rebind existing source assertions with their true implementation owners.
 
 ### A05 Broker custody and execution state

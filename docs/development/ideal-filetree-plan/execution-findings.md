@@ -111,6 +111,17 @@ These receipts do not claim installed, provider or native-worker qualification.
 The first twelve dispatched packets are complete. The all-tasks goal continues
 through the remaining ready correctness work, profile decisions and caller cuts.
 
+## Current-source ownership closure (2026-10-08)
+
+Independent Luna low and medium proofs reviewed the current source at baseline
+`0fec7006`. These scoped source assessments close the A02.M/A04.M ownership and
+caller-allocation work; they do not replace their separate verification packets.
+
+| Existing packet | Current defining owners and retained substrate | Assessment and open evidence |
+| --- | --- | --- |
+| A02.M / A | Go preparation API/domain/coordinator/Store remain separate in [`internal/web/api/preparation_decisions.go`](../../../internal/web/api/preparation_decisions.go), [`internal/project/preparation.go`](../../../internal/project/preparation.go), [`internal/factory/control/preparation_decisions.go`](../../../internal/factory/control/preparation_decisions.go) and [`internal/store/project_grants.go`](../../../internal/store/project_grants.go), which owns the distinct requirement-head and approval-head `AdmitRequirementDecision`/`AdmitApprovalDecision` CAS operations. `internal/store/preparation.go` remains the lifecycle grant/maintenance-hold owner. Rust preparation records/markers, preparation tools and Project lifecycle remain with [`lib/host/src/preparation/decisions.rs`](../../../lib/host/src/preparation/decisions.rs), [`lib/host/src/preparation/state.rs`](../../../lib/host/src/preparation/state.rs), [`lib/host/src/prepare/mod.rs`](../../../lib/host/src/prepare/mod.rs), [`lib/host/src/prepare/tools.rs`](../../../lib/host/src/prepare/tools.rs) and [`lib/host/src/project/mod.rs`](../../../lib/host/src/project/mod.rs). | Source ownership and caller allocation complete at `0fec7006`; no Go/Rust merge or duplicate owner. A02.C remains complete. A02.V, B03 dispatch/qualification and R04 remain open; no installed or native Project behavior is established. |
+| A04.M / A | Host launcher/tool observation remains in [`lib/host/src/prepare/tools.rs`](../../../lib/host/src/prepare/tools.rs); Muse staging remains in [`lib/host/src/muse/stage.rs`](../../../lib/host/src/muse/stage.rs); Codex `stream_identity_harness` remains in [`lib/host/src/terminal/native.rs`](../../../lib/host/src/terminal/native.rs) with its Bash transfer pipeline in [`lib/host/src/terminal/transfer.rs`](../../../lib/host/src/terminal/transfer.rs) and existing bounded [`Executor`](../../../lib/host/src/project/executor.rs). Retain selected Project image/rootfs, mise, systemd, OCI, workload and volume substrates including [`system/project/Containerfile`](../../../system/project/Containerfile) and [`system/project/rootfs/etc/mise/config.toml`](../../../system/project/rootfs/etc/mise/config.toml). | Source maintenance allocation/import/caller scope complete at `0fec7006`; archive-header extraction remains superseded by L13/CF-07. A04.V and R04 remain open. Installed Bash availability and staging, workload, volume and native behavior are unproved. No new code or tests are required by this source assessment. |
+
 ## Rank 1: correctness and trustworthy evidence
 
 Uncompleted rows remain pending follow-ups; the completion table below records
