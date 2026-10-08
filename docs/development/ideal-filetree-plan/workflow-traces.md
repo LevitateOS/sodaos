@@ -227,12 +227,15 @@ media/qualification → digest/repository/expiry permit and protected signer inp
 → local signing/verification. Separate publisher locks ledger → saves pending
 before immutable upload → verifies anonymous roundtrip/channel history → marks
 complete/receipt. An uncertain effect remains pending, without blind replay.
-**D09-E3** is a bounded exported `finalize` composition concern: its optional
-channel helper omits referenced-release publication and hardcodes previous absent.
-No production caller of `finalize` was found; it is not an observed active delivery
-failure. No in-repository production CLI caller for Soda release sign/publish/
-channel fetch was established. `soda-artifacts` actually exposes inspect-oci,
-convert-butane, fetch-coreos and fetch-coreos-iso: upstream-input actions.
+**D09-E3** was a bounded exported `finalize` composition concern: its optional
+channel helper omitted referenced-release publication and hardcoded previous absent.
+The uncalled wrapper and loader were retired in source at `65c12153` after current
+workspace caller closure; this was not an observed active delivery failure. The
+actual qualification and publish/channel/ledger/native paths remain unchanged, and
+no in-repository production CLI caller for Soda release sign/publish/channel fetch
+was established. `soda-artifacts` actually exposes inspect-oci, convert-butane,
+fetch-coreos and fetch-coreos-iso: upstream-input actions. See the [completion
+receipt](execution-findings.md#rank-2-costly-boundary-and-profile-decisions).
 
 **Fetch/install/import — WF-C11.** Public fetch API → trust/channel/architecture
 admission and locked highwater → digest-pinned signed offer → persisted monotonic

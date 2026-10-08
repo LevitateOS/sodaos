@@ -453,7 +453,7 @@ Observed size: 533 lines, including tests where embedded. Ledger state and chann
 - `lib/soda-release-deliver/src/publish/ledger.rs` — Ledger type/decode/validation/emission, phase rule and explicit private init_ledger.
 - `lib/soda-release-deliver/src/publish/channel.rs` — Protected channel history/offer admission, anonymous tag observation, prior-channel verification and tag promotion.
 
-D09-E3 allocates retirement of the uncalled exported finalize/config helper while preserving the actual publish/channel/ledger history path. Its current-source caller evidence, exact removal boundary and pending C10.C/Q7 checks are recorded in the [execution finding](../execution-findings.md#rank-2-costly-boundary-and-profile-decisions).
+D09-E3 source retirement is complete in `65c12153`; the actual publish/channel/ledger history path remains with these owners. Current evidence and still-open C10.C/Q7 gates are recorded in the [execution finding](../execution-findings.md#rank-2-costly-boundary-and-profile-decisions).
 
 Library boundary: JSON01 replaces ledger codec mechanics, and FS01/TMP01 replace typed file/temporary allocation mechanics. Keep lock custody, pending uncertainty, immutable upload, optional promotion, observation and durable completion in the same operation. REL01 delegates document.rs's new delivery-document tar production to tar Builder with explicit deterministic metadata. Existing authenticated archive bytes remain untouched during reading; new descriptor hashes bind newly emitted bytes. Historical Go checksum-field bytes are not an independent requirement.
 
