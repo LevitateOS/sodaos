@@ -155,3 +155,128 @@ test('search and This page change navigation only; New defaults to selected orig
   await page.getByRole('button', {name: 'Cancel', exact: true}).click();
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), calls);
 });
+test('Factory view binds one read-only run while refresh and hide retain its renderer', async (t) => {
+  const page = await fixture(t),
+    runId = 'd'.repeat(32);
+  await page.evaluate(async () => {
+    window.workspaceFixture.enableFactoryRun();
+    await window.workspaceFixture.api.refresh();
+  });
+  await openSession(page, 'Build');
+  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+
+  const watch = (watching: boolean) =>
+    page.getByRole('button', {
+      name: new RegExp(`^${watching ? 'Watching' : 'Watch'} · soda-coder · issue #42 · active$`),
+    });
+  await watch(false).click();
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('.soda-factory .xterm-rows')?.textContent?.includes('Fixture factory output')
+  );
+  assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #42/);
+  assert.equal(await page.locator('.soda-factory .soda-terminal-context span[title="running · live"]').count(), 1);
+  const screen = await page.locator('.soda-factory .xterm').elementHandle();
+
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  assert(await screen?.evaluate((element) => element.isConnected));
+  await page.locator('.soda-factory summary[aria-label="Factory view actions"]').click();
+  await page.locator('.soda-factory').getByRole('button', {name: 'Hide view', exact: true}).click();
+  assert(await screen?.evaluate((element) => element.isConnected));
+  assert.equal(await page.locator('.soda-factory-box[hidden] .xterm').count(), 1);
+
+  const original = await page.evaluate(() => ({
+    sockets: window.workspaceFixture.sockets.map((socket) => ({
+      url: String(socket.url),
+      closed: socket.closed,
+      sent: socket.sent,
+    })),
+    calls: window.workspaceFixture.calls.map((call) => ({path: call.path, method: call.method})),
+  }));
+  const firstFactory = original.sockets.findIndex((socket) => socket.url.endsWith(`/factory/runs/${runId}/output`));
+  assert(firstFactory >= 0);
+  assert.equal(original.sockets[firstFactory]?.closed, 0);
+  assert.deepEqual(original.sockets[firstFactory]?.sent, [
+    {run_id: runId, repository_id: '7', session_generation: 'fixture-generation', cursor: 0},
+  ]);
+  assert.deepEqual(
+    original.calls.filter((call) => call.method !== 'GET'),
+    []
+  );
+  assert(original.calls.some((call) => call.path.endsWith(`/api/factory/runs/${runId}`)));
+
+  await watch(true).click();
+  await page.waitForFunction((index) => window.workspaceFixture.sockets[index]?.closed === 1, firstFactory);
+  assert.equal(await page.evaluate((index) => window.workspaceFixture.sockets[index]?.closed, firstFactory), 1);
+  await watch(false).click();
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('.soda-factory .xterm-rows')?.textContent?.includes('Fixture factory output')
+  );
+  assert.equal(await page.locator('.soda-factory-box:not([hidden])').count(), 1);
+  const factorySockets = await page.evaluate((id) => {
+    const indices = window.workspaceFixture.sockets.flatMap((socket, index) =>
+      String(socket.url).endsWith(`/factory/runs/${id}/output`) ? [index] : []
+    );
+    return {
+      indices,
+      current: indices.at(-1) ?? -1,
+    };
+  }, runId);
+  const factoryIndex = factorySockets.current;
+  assert.equal(factorySockets.indices.length, 2);
+  assert(factoryIndex >= 0);
+  assert.equal(await page.evaluate((index) => window.workspaceFixture.sockets[index]?.closed, factoryIndex), 0);
+  const terminalScreen = page.locator('.soda-factory .xterm');
+  await terminalScreen.click();
+  await page.keyboard.type('ignored keyboard input');
+  const helper = page.locator('.soda-factory .xterm-helper-textarea');
+  assert.equal(await helper.count(), 1);
+  await helper.evaluate((element) => {
+    const clipboard = new DataTransfer();
+    clipboard.setData('text/plain', 'ignored pasted input');
+    element.dispatchEvent(new ClipboardEvent('paste', {clipboardData: clipboard, bubbles: true, cancelable: true}));
+  });
+  await page.setViewportSize({width: 1280, height: 900});
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  );
+  const stream = await page.evaluate((index) => {
+    const socket = window.workspaceFixture.sockets[index];
+    return {
+      url: String(socket?.url),
+      sent: socket?.sent,
+      received: socket?.received,
+      methods: window.workspaceFixture.calls.map((call) => call.method),
+    };
+  }, factoryIndex);
+  assert(new URL(stream.url).pathname.endsWith(`/api/factory/runs/${runId}/output`));
+  assert.deepEqual(stream.sent, [
+    {run_id: runId, repository_id: '7', session_generation: 'fixture-generation', cursor: 0},
+  ]);
+  assert.equal(stream.received?.[0]?.run_id, runId);
+  assert.deepEqual(
+    {type: stream.received?.[1]?.type, cursor: stream.received?.[1]?.cursor, next: stream.received?.[1]?.next},
+    {type: 'output', cursor: 0, next: new TextEncoder().encode('Fixture factory output\r\n').length}
+  );
+  assert(stream.methods?.every((method) => method === 'GET'));
+
+  await page.locator('.soda-factory-box:not([hidden])').getByRole('button', {name: 'Close view', exact: true}).click();
+  await page.waitForFunction((index) => window.workspaceFixture.sockets[index]?.closed === 1, factoryIndex);
+  await page.evaluate((index) => {
+    const socket = window.workspaceFixture.sockets[index],
+      status = socket?.received.find((frame) => frame.type === 'status');
+    if (socket && status) socket.receive(status);
+  }, factoryIndex);
+  assert.equal(await page.locator('.soda-factory-box:not([hidden])').count(), 0);
+  assert.equal(await watch(false).count(), 1);
+  const afterClose = await page.evaluate(() => ({
+    closed: window.workspaceFixture.sockets.map((socket) => socket.closed),
+    methods: window.workspaceFixture.calls.map((call) => call.method),
+  }));
+  assert.equal(afterClose.closed.length, 3);
+  assert.equal(afterClose.closed[0], 0, 'closing a Factory view leaves the terminal socket open');
+  assert.deepEqual(afterClose.closed.slice(1), [1, 1]);
+  assert.equal(afterClose.closed[factoryIndex], 1);
+  assert(afterClose.methods.every((method) => method === 'GET'));
+});

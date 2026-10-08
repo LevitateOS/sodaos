@@ -48,6 +48,14 @@ export function createWorkspaceModel(
   const alpha = spaces[0],
     beta = spaces[1];
   if (!alpha || !beta) throw Error('Missing fixture projects');
+  const factoryRunId = 'd'.repeat(32),
+    factoryOutput = 'Fixture factory output\r\n',
+    factoryBinding = {
+      container: 'a'.repeat(64),
+      unit: `soda-factory-${factoryRunId}.service`,
+      invocation: 'f'.repeat(32),
+    };
+  let factoryRunEnabled = false;
   alpha.terminals.push(
     metadata('a'.repeat(32), projectA, '7', 'Build'),
     metadata('b'.repeat(32), projectA, '7', 'Edit')
@@ -66,6 +74,7 @@ export function createWorkspaceModel(
         }
       }
   }
+  const factoryRepositoryId = alpha.environment.repository_id;
   if (firstUse) spaces.splice(0);
   const profile = {
     id: 'rocky-headless',
@@ -99,6 +108,25 @@ export function createWorkspaceModel(
         items: spaces.map((space) => ({...space, terminals: space.terminals.filter((t) => t.state !== 'ended')})),
         complete,
       });
+    const factoryStatusPath = new URL(path, origin).pathname.match(/\/api\/factory\/runs\/([a-f0-9]{32})$/);
+    if (factoryStatusPath) {
+      if (!factoryRunEnabled || factoryStatusPath[1] !== factoryRunId) return new Response(null, {status: 404});
+      return Response.json({
+        run: {
+          started: new Date(now * 1000).toISOString(),
+          deadline: new Date((now + 3600) * 1000).toISOString(),
+          id: factoryRunId,
+          project_id: alpha.environment.id,
+          role: 'soda-coder',
+          harness: 'fixture',
+          model: 'fixture',
+          input_sha: 'e'.repeat(40),
+          reconciled: false,
+        },
+        view: {repository: alpha.environment.repository_id, issue: '42', attempt: 'attempt-1'},
+        state: {phase: 'running', live: true, terminal: false, output_truncated: false, ...factoryBinding},
+      });
+    }
     if (firstUse) {
       const url = new URL(path, origin);
       if (url.pathname.endsWith('/api/repositories')) {
@@ -208,6 +236,7 @@ export function createWorkspaceModel(
     bufferedAmount = 0;
     closed = 0;
     sent: Record<string, unknown>[] = [];
+    received: Record<string, unknown>[] = [];
     private attachment: TerminalMetadata | undefined;
     onopen?: () => void;
     onclose?: () => void;
@@ -225,6 +254,40 @@ export function createWorkspaceModel(
     send(text: string) {
       const frame = object(JSON.parse(text));
       this.sent.push(frame);
+      if (String(this.url).includes(`/factory/runs/${factoryRunId}/output`)) {
+        if (
+          factoryRunEnabled &&
+          frame.run_id === factoryRunId &&
+          frame.repository_id === factoryRepositoryId &&
+          frame.session_generation === generation &&
+          frame.cursor === 0
+        ) {
+          // WebSocket replies arrive after send returns, never synchronously.
+          queueMicrotask(() => {
+            if (this.closed) return;
+            this.receive({
+              type: 'status',
+              run_id: factoryRunId,
+              phase: 'running',
+              ...factoryBinding,
+              reason: '',
+              live: true,
+              terminal: false,
+              exit_code: null,
+            });
+            const bytes = new TextEncoder().encode(factoryOutput);
+            this.receive({
+              type: 'output',
+              data: btoa(String.fromCharCode(...bytes)),
+              cursor: frame.cursor,
+              next: Number(frame.cursor) + bytes.length,
+              gap: false,
+              truncated: false,
+            });
+          });
+        } else this.close();
+        return;
+      }
       if (frame.type === 'input' && typeof frame.data === 'string')
         this.onmessage?.({data: JSON.stringify({type: 'output', data: frame.data})});
       if (frame.action !== 'attach' && frame.action !== 'create') return;
@@ -256,6 +319,10 @@ export function createWorkspaceModel(
     end(id: string) {
       if (this.attachment?.id === id) this.close();
     }
+    receive(frame: Record<string, unknown>) {
+      this.received.push(frame);
+      this.onmessage?.({data: JSON.stringify(frame)});
+    }
     close() {
       this.closed++;
       this.readyState = 3;
@@ -275,6 +342,17 @@ export function createWorkspaceModel(
     sockets,
     setCreateOutcome(value: typeof createOutcome) {
       createOutcome = value;
+    },
+    enableFactoryRun() {
+      factoryRunEnabled = true;
+      if (!alpha.factory_runs.some((run) => run.id === factoryRunId))
+        alpha.factory_runs.push({
+          id: factoryRunId,
+          role: 'soda-coder',
+          issue: '42',
+          attempt: 'attempt-1',
+          reconciled: false,
+        });
     },
     setJoinFailure(value: boolean | string) {
       joinFailure = value === true ? 'account_incomplete' : value;
