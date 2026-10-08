@@ -38,7 +38,7 @@ Current path and release/build/install consumer trace; bounded selector; current
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–109; lines 1–4: use super and attached body; lines 5–5: use soda_release_build and attached body; lines 6–6: use soda_release_build and attached body; lines 7–9: use std and attached body; lines 10–21: fn oracle_go_fixture_identity and attached body; lines 22–55: fn oracle_go_fixture_rejections and attached body; lines 56–83: fn oracle_go_fixture_content and attached body; lines 84–109: fn oracle_go_layout and attached body | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Declaration block for use super in the current test-or-fixture source; all authored source is accounted by these blocks and module imports, attributes, and file-level dispatch context.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–77; imports/header 1–5; `oracle_go_fixture_identity` 7–22; `oracle_go_fixture_rejections` 24–50; `oracle_go_fixture_content` 52–77 | [D05](../../slices/release-and-installation.md#d05-artifact-verification) | retained | Current archive identity, architecture/revision/tamper refusal and requested-content/missing-member checks call the defining `soda_release_deliver::oci` inspectors. The shared `go-fixture.oci`, entrypoint helpers and frozen non-error vectors remain. The unused `oracle_go_layout` case and its exclusive fixtures/constants were retired in `34479f48`; they are outside this current selector. |
 
 <a id="coverage-e3be2bc21d28"></a>
 

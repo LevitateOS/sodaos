@@ -2256,6 +2256,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── go-fixture.oci
 │   │   │   ├── oracle/
 │   │   │   │   ├── inputs.rs
+│   │   │   │   ├── oci.rs
 │   │   │   │   └── production.rs
 │   │   │   ├── oracle.rs
 │   │   │   └── oracle_vectors.rs
