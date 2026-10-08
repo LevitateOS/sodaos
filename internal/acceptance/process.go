@@ -7,8 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"os/exec"
 	"sync"
 	"syscall"
@@ -25,16 +23,6 @@ type Process struct {
 	sealed     bool
 	once       sync.Once
 	stopErr    error
-}
-
-func StartProcess(ctx context.Context, c Command, out, stderr io.Writer) (*Process, error) {
-	cmd := exec.Command(c.Name, c.Args...)
-	cmd.Dir = c.Dir
-	cmd.Env = append(os.Environ(), c.Env...)
-	cmd.Stdin = c.Stdin
-	cmd.Stdout = out
-	cmd.Stderr = stderr
-	return StartCommand(ctx, cmd)
 }
 
 // StartCommand gives an explicitly configured native command the same pinned

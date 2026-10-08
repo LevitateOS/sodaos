@@ -213,6 +213,33 @@ fn snapshot_gate_requires_root_container() {
 }
 
 #[test]
+fn workload_snapshot_requires_an_explicit_collection_policy() {
+    let original = obj();
+
+    let mut empty = original.clone();
+    let error = super::workloads::snapshot_workloads(&mut empty, "").unwrap_err();
+    assert_eq!(error.kind, SnapshotKind::AssertionError);
+    assert_eq!(
+        error.detail,
+        "Caller must declare required workload observations"
+    );
+    assert_eq!(empty, original);
+
+    let mut invalid = original.clone();
+    let error = super::workloads::snapshot_workloads(&mut invalid, "invalid").unwrap_err();
+    assert_eq!(error.kind, SnapshotKind::AssertionError);
+    assert_eq!(
+        error.detail,
+        "Caller must declare required workload observations"
+    );
+    assert_eq!(invalid, original);
+
+    let mut disabled = original.clone();
+    super::workloads::snapshot_workloads(&mut disabled, "0").unwrap();
+    assert_eq!(disabled, original);
+}
+
+#[test]
 #[cfg(target_os = "linux")]
 fn snapshot_command_reports_failures() {
     let ok = command(&arg_list(&["echo", "  hi  "]), &[]).unwrap();

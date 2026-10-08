@@ -94,7 +94,10 @@ func TestOwnedLeaderExitAndCancellationStopResistantDescendant(t *testing.T) {
 	for _, mode := range []string{"leader-exit", "leader-term", "leader-resistant"} {
 		t.Run(mode, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "descendant.pid")
-			p, err := StartProcess(context.Background(), Command{Name: os.Args[0], Args: []string{"-test.run=^TestOwnedChildFixture$"}, Env: []string{"SODA_OWNED_CHILD_TEST=" + mode, "SODA_OWNED_CHILD_PID=" + path}}, io.Discard, io.Discard)
+			cmd := exec.Command(os.Args[0], "-test.run=^TestOwnedChildFixture$")
+			cmd.Env = append(os.Environ(), "SODA_OWNED_CHILD_TEST="+mode, "SODA_OWNED_CHILD_PID="+path)
+			cmd.Stdout, cmd.Stderr = io.Discard, io.Discard
+			p, err := StartCommand(context.Background(), cmd)
 			if err != nil {
 				t.Fatal(err)
 			}

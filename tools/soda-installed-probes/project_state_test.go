@@ -8,7 +8,6 @@ package main
 
 import (
 	"os"
-	"strings"
 	"testing"
 	"time"
 )
@@ -22,20 +21,4 @@ func TestProjectStateRefusesOutsideRootContainer(t *testing.T) {
 	checkProbe(t, result.code == 1, "exit = %d", result.code)
 	checkProbe(t, result.stdout == "", "stdout=%q", result.stdout)
 	checkProbe(t, result.stderr == "Project snapshot failed: AssertionError \n", "stderr=%q", result.stderr)
-}
-
-func TestProjectStateSnapshotContracts(t *testing.T) {
-	source := readProbeSource(t, "tools/acceptance/src/project_state.rs")
-	for _, want := range []string{
-		"SODA_EXPECT_WORKLOADS",
-		"Caller must declare required workload observations",
-		"Snapshot output exceeded bound",
-		"Snapshot file too large",
-		"4 * 1024 * 1024",
-		"512 * 1024 * 1024",
-		"Project snapshot failed: ",
-		`name == "config" || name == "known_hosts"`,
-	} {
-		checkProbe(t, strings.Contains(source, want), "missing contract %q", want)
-	}
 }
