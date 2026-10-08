@@ -305,3 +305,17 @@ Earlier socket-permission, synchronous fixture-reply and strict compiler failure
 remain in separate receipts; they are not counted as passes. Fixture defaults,
 production code, browser sandbox and dependency/compiler settings are unchanged.
 A08.V is complete; native/installed authority and output remain open under R04.
+
+## Muse supervisor failure propagation allocation
+
+Independent current-source challenge confirms NativeAttach retains an unconfirmed
+child under the existing host failure cutoff: it signals the actual server flag,
+and main exits at the cutoff without waiting for unfinished server/runtime joins.
+This is a whole-host failure policy; forced native cleanup remains unqualified.
+Muse currently discards its final pidfd signal result and has a separate worker
+cancel flag that cannot notify main. A failed signal can therefore leave the
+request waiting without starting that existing host cutoff.
+
+| Finding → existing subtask / accountable owner | Exact scope | Prerequisites | Acceptance / limits |
+| --- | --- | --- | --- |
+| CON-M03-FAILURE-TRIGGER-1 → A07.C-muse / A | Luna medium owns only `lib/host/src/muse/launch.rs`, `lib/host/src/main.rs`, `lib/host/src/muse/tests.rs` and `lib/host/tests/muse_serve_oracle.rs`. Consolidate the listener/worker shutdown flag with the existing main-owned Arc; main observes it. Propagate non-benign pidfd termination failure through that flag and the existing unconfirmed-cleanup result. Rebind the four known serve callers. Coordinator owns checks/docs/commits; independent Luna medium reviews. | Current-source flag/caller/exit trace and retained 65/200-second failure policy; existing control cancellation and real pidfd identity subjects. Distinguish ESRCH after an already-exited child. No new supervisor, timeout/profile, manifest or state owner. | A signal failure while cleanup is unconfirmed reaches the same flag watched by main, starts the established host failure path and cannot become successful cleanup if child wait later completes. Successful signal and already-exited ESRCH do not cause spurious host failure. Same-owner regressions cover error/result propagation and real listener/worker flag identity; existing Muse/control/oracle subjects and daemon compile remain green. Native signal/reap, installed service activation and systemd group retirement remain separate; A07.C-muse stays open until its whole original scope is qualified. |
