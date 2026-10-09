@@ -301,8 +301,9 @@ Each run receives a recorded assignment assembled from:
    dependency outcomes, identified by their [accepted-input revision](#accepted-requirements-and-native-records)
    and current readiness evidence.
 3. Repository instructions from the approved base, relevant source/docs/tests,
-   environment setup and verification commands. Include only context relevant to
-   the objective; do not dump unrelated conversations or private account files.
+   environment setup and verification commands. Include only bounded context
+   relevant to the objective; exclude credentials, private account files and
+   unrelated conversations.
 4. Stage inputs: the recorded base for coding; the candidate diff, exact head/base
    and verification results for review; consolidated findings for correction.
 5. Required output: changed revision or findings, checks actually run, unresolved
