@@ -150,7 +150,7 @@ default owner, not permission to edit every file under that directory.
 
 | Current/target shared surface | Default physical writer | Handoff rule |
 | --- | --- | --- |
-| `lib/host/**`; host binary at `lib/host/src/main.rs`, proposed entrypoint at `cmd/soda-host/main.rs`; provider-neutral Factory terminal models/pumps | A | The crate move is complete. A owns current module roots and their private/oracle fixtures. B/C submit exact native changes; any remaining entrypoint/application split uses current library adapters. |
+| `lib/host/**`; current `soda-host` entrypoint at `lib/host/src/main.rs`; provider-neutral Factory terminal models/pumps | A | The crate and entrypoint remain at their current package/bin owners; the optional `cmd/soda-host` placement is superseded by the [canonical host ownership decision](package-ownership.md#recommended-package-changes). A owns current module roots and their private/oracle fixtures, including the retained Factory terminal and pump duties. B/C submit exact native changes to these owners. |
 | `cmd/soda-identity/**`, including private `providers/{codex,muse}` | A | Broker/provider consolidation is complete. Preserve one Controller/State/Store/Tx and provider-support owner; no predecessor package recreation. |
 | Project terminal/account/factory-role crates → `cmd/soda-project-terminal/**` | A | One guest-package module/fixture owner; preserve the three installed executable identities. |
 | Go `cmd/`, `internal/` application/domain/Store/API/client files; `frontend/spaces/**`, `frontend/tailnet/**` | B | A/C send exact changes. B owns current `grants`, `dispatch`, `review_cycle`, `merge`, Store and API monoliths before releasing extracted leaves. |
