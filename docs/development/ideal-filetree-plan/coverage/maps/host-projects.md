@@ -60,13 +60,13 @@ Current declaration and caller allocation inspected at `e0e2413f`; earlier body 
 
 ## [lib/host/src/pops.rs](../../../../../lib/host/src/pops.rs)
 
-Current declaration and caller allocation inspected at `e0e2413f`; earlier body and test evidence retains its recorded scope.
+Current declaration/caller ownership retains its `e0e2413f` scope. Spans reflect the module-comment cleanup based on `6f54a93d`; executable source is unchanged.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–123, 146–166, 168–188, 190–210, 212–228, 253–315; module/import scaffold; PrepareReq; PrepareCandidateReq; PrepareContextReq; InspectPreparationReq; StopPreparationReq; HoldPreparationReq and their decode methods; Ops; Ops.runtime; Ops.prepare; Ops.prepare_candidate; Ops.prepare_context; Ops.inspect_preparation; Ops.stop_preparation; Ops.hold_preparation | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Shared native JSON operation adapters, deadline forwarding and runtime construction. Preparation and Factory context policy stay at their defining Runtime/domain owners. Opening wiring comments are historical and separately need correction; they do not describe current module admission. |
-| 124–133, 229–233; AccessKeysReq.decode; Ops.access_keys | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Account key preview/apply route adapter; canonical wire DTOs remain H01-owned. |
-| 135–144, 235–239, 241–251; AccountReq.decode; Ops.account; Ops.project_access | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Provisioning and read-only privilege observation route adapters, consuming the canonical IPC/account DTOs. The current project_access span corrects the former 228–238 locator. |
+| 1–14, 37–57, 59–79, 81–101, 103–119, 144–206; module/import scaffold; PrepareReq; PrepareCandidateReq; PrepareContextReq; InspectPreparationReq; StopPreparationReq; HoldPreparationReq and their decode methods; Ops; Ops.runtime; Ops.prepare; Ops.prepare_candidate; Ops.prepare_context; Ops.inspect_preparation; Ops.stop_preparation; Ops.hold_preparation | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Shared native JSON operation adapters, deadline forwarding and runtime construction. Preparation and Factory context policy stay at their defining Runtime/domain owners. |
+| 15–24, 120–124; AccessKeysReq; AccessKeysReq.decode; Ops.access_keys | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Account key preview/apply route adapter; canonical wire DTOs remain H01-owned. |
+| 26–35, 126–130, 132–142; AccountReq; AccountReq.decode; Ops.account; Ops.project_access | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Provisioning and read-only privilege observation route adapters, consuming the canonical IPC/account DTOs. |
 
 <a id="coverage-6501cae87408"></a>
 
@@ -207,12 +207,12 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 ## [lib/host/tests/project_operations/accounts.rs](../../../../../lib/host/tests/project_operations/accounts.rs)
 
-Current P03 selectors in this section verified; unaffected prior intervals are historical hints pending R02.
+Current named test and caller allocation inspected at `6f54a93d`; earlier test/body receipts keep their original scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 53–114; project_access_uses_bound_container_and_confirms_false; project_access_refuses_unconfirmed_or_invalid_observations | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Read-only route tests cover bound running-container selection, confirmed false, and refusal on unconfirmed/invalid observations. — Current source selectors. |
-| 1–52; account_provisions_login; account_refuses_stopped_and_root | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing account-operation tests. — Current source selectors. |
+| 1–52; file scaffold; account_provisions_login; account_refuses_stopped_and_root | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Complete account-provisioning confirmation and stopped/root admission tests consume Ops.account; key-bearing inputs are cross-duty fixtures. Current declaration/caller allocation corrects the prior H01 owner without renewing executed evidence. |
 
 <a id="coverage-aea250dcca40"></a>
 
@@ -258,9 +258,9 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 ## [lib/host/tests/project_operations/requests.rs](../../../../../lib/host/tests/project_operations/requests.rs)
 
-Current P03 selectors in this section verified; unaffected prior intervals are historical hints pending R02.
+Current named test and caller allocation inspected at `6f54a93d`; earlier test/body receipts keep their original scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 63–83; project_access_request_has_exact_bound_identity_shape | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Canonical required-field request decoding test. — Current source selector. |
-| 1–139; current module/import/attribute shell; declaration access_keys_req_strict_shape; declaration account_req_strict_shape; declaration prepare_req_strict_shape; declaration prepare_candidate_req_strict_shape; declaration inspect_stop_hold_req_shapes; declaration oversize_body_rejected_before_shape | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing request-shape checks. — Current source selectors. |
+| 1–60, 85–163; file scaffold; access_keys_req_strict_shape; account_req_strict_shape; prepare_req_strict_shape; prepare_candidate_req_strict_shape; inspect_stop_hold_req_shapes; oversize_body_rejected_before_shape | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Native request-shape/decoder tests retain one IPC owner; the separate ProjectAccess test is P03. Current complete named selectors include the oversize case beyond the old 139 locator; no new test result is claimed. |
