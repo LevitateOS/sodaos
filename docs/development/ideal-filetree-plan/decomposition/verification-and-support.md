@@ -50,16 +50,13 @@ No native qualification is inferred from this source cut.
 ## internal/acceptance/personal_git.go
 
 Observed size: 487 lines, including tests where embedded. Keep the Go probe's
-orchestration, exported contracts and execution order. The embedded remote
-Python program is an implementation predecessor: replace it with the Rust
-user-scoped payload in the existing acceptance package, keeping the actual
-SSH login, passphrase custody and key/agent lifetime. Merely moving its string
-to personal_git_keys.go would not complete the Python cutover.
+orchestration, exported contracts and execution order. The remote Python
+predecessor is retired. The current embedded POSIX shell program still has a
+planned Rust user-scoped payload replacement in the existing acceptance package,
+keeping actual SSH login, passphrase custody and key/agent lifetime. Moving the
+string to another Go file would not complete the remote-payload cutover.
 
-- `internal/acceptance/personal_git.go` — Explicit prepare/exercise admission and orchestration.
-- `internal/acceptance/personal_git_keys.go` — Passphrase custody and exported public-key checks.
-- `internal/acceptance/personal_git_transport.go` — Target decoding, SSH invocation and exact Git URL checks.
-- `internal/acceptance/personal_git_exercise.go` — Per-user clone/commit/push exercise and outcome records.
+- `internal/acceptance/personal_git.go` — Current prepare/exercise admission, passphrase/public-key custody, target/SSH/Git URL policy, per-user exercise and outcome orchestration. Optional filename-only sibling splits are superseded.
 - `tools/acceptance/src/personal_git.rs` — Native replacement for the existing remote key/agent operation, called through the existing ephemeral acceptance payload; no new installed service.
 
 Evidence: RunPersonalGit at 451; runPersonalGit at 458; preparePassfile at 176; gitKeyUser at 213; fetchExportedKey at 238; loadGitTarget at 82; gitSSHBase at 126; validateGitURL at 267; exerciseCommand at 316; exerciseUser at 381; writeGitOutcomes at 405.

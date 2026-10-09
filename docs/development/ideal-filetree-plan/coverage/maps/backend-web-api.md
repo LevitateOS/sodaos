@@ -1,5 +1,7 @@
 # Backend web api
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -586,3 +588,15 @@ Current source at `df05b6cf`; selective single-responsibility map.
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–74; file scaffold; connectionUsageBudgetRequest; apiFactoryConnectionUsageBudget | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Broker connection-owner budget read and revision-checked command-backed update. Current application accounting policy; no native/installed qualification claim. |
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-internal-web-api-factory-connection-usage-budget-go"></a>
+
+### [internal/web/api/factory_connection_usage_budget.go](../../../../../internal/web/api/factory_connection_usage_budget.go)
+
+F03 endpoint for owner-scoped budget reads and revision-checked command-backed updates.

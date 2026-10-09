@@ -1,5 +1,7 @@
 # Soda release tools verification
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -57,3 +59,15 @@ No historical source body is counted as current coverage.
 <a id="rustsoda-release-toolstestsclirs-1"></a>
 
 Former source `lib/soda-release-tools/tests/cli.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-lib-soda-release-tools-tests-cli-soda-candidate-check-rs"></a>
+
+### [lib/soda-release-tools/tests/cli/soda_candidate_check.rs](../../../../../lib/soda-release-tools/tests/cli/soda_candidate_check.rs)
+
+D05: candidate-check CLI integration tests.

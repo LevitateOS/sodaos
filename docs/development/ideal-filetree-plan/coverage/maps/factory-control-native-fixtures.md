@@ -1,5 +1,7 @@
 # Factory control native fixtures
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -178,3 +180,9 @@ semantics move out of the production Store package into existing `control_test`.
 | --- | --- | --- | --- |
 | 1–16; file scaffold | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Test-only database/sql driver and fixture support; acceptance SQLite remains independent |
 | 17–61; seedStagedDependencyEdge | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Same bound SQL/schema/optional-column fixture write used by the existing ST12/ST15 callers. Both callers compile; no native flow execution claimed |
+
+<a id="r02-current-path-internal-factory-control-merge-native-deadline-test-go"></a>
+
+### [internal/factory/control/merge_native_deadline_test.go](../../../../../internal/factory/control/merge_native_deadline_test.go)
+
+F12: `fixedDeadlineContext` lines 21–26 and `TestNativeMergeCallContext*` lines 28–165, covering deadline propagation, late result rejection and elapsed-deadline behavior. F09: `TestNativeAPIContextCancelsStalledHTTPRequest` lines 167–215, testing the current `nativeAPIContext` caller defined in `publication_native_fixture_test.go`. Imports at lines 1–19 are shared test scaffold without a separately assigned behavior. This is a mixed-file split, not a single-owner assignment.

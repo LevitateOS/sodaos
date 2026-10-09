@@ -1,5 +1,15 @@
 # Host runtime
 
+Current path reconciliation at `45ebf4c4` retains the defining source modules
+and callers in the [current target tree](../proposed-tree.md) and
+[host cutover assessment](../port-assessment.md#host-cutover-integration).
+Historical branch ranges and future filenames below remain review locators;
+optional filename-only proposals are superseded by those current owners.
+The selected `main.rs` owns runtime construction, activation and shutdown;
+N04 enrollment and N05 saved-Project duties keep distinct allocations in the
+current control/policy modules with one protected state owner. Behavioral
+corrections and native/installed checks remain separate.
+
 L11 leaves caller-owned IP, URL/percent and timestamp admission adapters around std, url/percent-encoding and `lib/wire-time`; calendar/IP grammar engines have no further split allocation. L10.N4 retains provider curl/Executor at its proved resolver-inclusive deadline and custody boundary, as described in [L10](../library-adoption.md#l10-external-http-adapters); installed/provider qualification remains separate. Completed host structural checkpoints retain their original scope.
 
 [Decomposition scope and baseline](README.md). This page groups historical

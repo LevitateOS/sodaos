@@ -159,28 +159,29 @@ retired with the same source cut.
 These integration leaves retain existing callers. The daemon rows describe the
 historical PR26 gaps; the Tailnet rows below now record the current Rust source
 after the N03 primary review and A's independent presence/caller challenge.
-Target moves and concern splits are **decided-pending**. Existing implementation
-presence does not close behavioral findings, runtime admission questions or
-installed proof:
+Current source/target mapping at `45ebf4c4` retains the existing defining
+owners below. Earlier directory and filename changes are superseded where
+the application unit already exists. Distinct enrollment and saved-Project
+duties remain explicitly allocated; behavioral and installed proof is separate:
 
 | Target | Existing responsibility and evidence |
 | --- | --- |
 | `lib/host/src/main.rs` | Retained current `soda-host` entrypoint selected by the single `lib/host/Cargo.toml` package/bin target. Cargo metadata receipt confirms the selected source path. |
 | `cmd/soda-host/main.rs` | Superseded optional placement; no desired target leaf. The [host ownership assessment](package-ownership.md#recommended-package-changes) retains the current package/bin/service and shipping behavior. |
-| `lib/host/src/daemon/mod.rs` | Retain/extract current Rust main.rs:185–440 host construction, root/fd3 activation, Muse listener, signal shutdown and bounded Muse→mux drain ordering. The former Go daemon is absent; this is current same-host ownership, not a pending port. H01 records shutdown/caller limits. |
+| `lib/host/src/daemon/mod.rs` | Current service module root. Runtime construction, fd3 activation, Muse listener, signals and drain remain with selected `main.rs`; the optional boot extraction is superseded by the direct entrypoint assessment at `cf2c18e4`. No extra state owner or forwarding boot layer. |
 | `lib/host/src/daemon/config.rs` | Current defining owner after the source join: the byte-identical 288-line host Config/defaults/serde/release-overlay/validation module now lives here, with its existing 238-line test child at `daemon/config/tests.rs`. `main.rs` calls `daemon::config` directly; the `BackendConfig` projection and runtime policy are unchanged. The original `tests/data/iconfig` fixture path remains package-relative and unchanged. Receipt `.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/config-owner-join/checks-receipt.json` records nine config and four binary tests, all host targets compiling and the exact six-file format check passing; it is not installed, native or systemd qualification, and the broader R02/main/backend joins remain open. |
 | `lib/host/src/daemon/backend.rs` | Retain the defining BackendError/TerminalSession/ExecBackend/StubBackend route contract (221 lines). Concrete construction and the production implementation remain under `dbackend::DaemonBackend`; no concrete runtime or second state owner is extracted here. |
 | `lib/host/src/daemon/websocket.rs` | Retain the defining 14-line HTTP upgrade adapter. The coupled concrete terminal pump is allocated to private `dbackend/websocket.rs`, with its current first-frame/expiry/write/cancellation/child ownership unchanged. Existing L09 source repair and its evidence remain distinct from installed transport qualification. |
 | `lib/host/src/dbackend/{mod,backend,factory_terminal,tailnet,websocket,test_support}.rs` | Current owner allocation: root keeps public BackendConfig/MuseConfig/DaemonBackend paths, state, construction and IdentityBroker; children own ExecBackend, FactoryTerminal, Tailnet and the coupled terminal pump; one private test-support owner serves the three existing test descendants. Source/development receipt records 54 passing cases, all host targets compiling and the exact nine-file format check. Native, installed, systemd, configured Project/Factory and full-service joins remain open. |
 | `lib/host/src/daemon/broker.rs` | Current defining join: `daemon/broker.rs:1–201` directly implements `FactoryBroker` and `MuseHooks` for the existing `iclient::BrokerClient`; it owns three distinct lease/request converters and the existing lease round-trip test. Canonical `terminal::Binding` passes directly, with the duplicate Factory binding and its converters removed. `BrokerSeam`/`HooksSeam` and their constructors are deleted. `dbackend/mod.rs` retains `DaemonBackend`'s `IdentityBroker` and 180-second native deadline policy; `main.rs` constructs the actual client directly for Muse launch. The soda-identity service and sockets are unchanged. |
-| `lib/host/src/tailnet/control/mod.rs` | Retain/move current `tcontrol.rs:45-341` in the existing host crate/process. `dbackend/mod.rs` constructs the concrete Control and its private `backend.rs`/`tailnet.rs` children dispatch it; `main.rs:193-224` supplies backend configuration. No missing-port instruction. Configured Project-runtime admission is a separate N04/N06 question. |
-| `lib/host/src/tailnet/control/native.rs` | Retain/move current `tcontrol_native.rs`: real bounded LocalAPI request, status observation, host actions/readback and CLI passthrough. [N03](reviews/N03.md) owns the actual HTTP-framing finding and target review; presence is not protocol correctness or native proof. |
-| `lib/host/src/tailnet/control/provider.rs` | Retain/move current `tcontrol_provider.rs` and its actual caller from `tcontrol_enroll.rs`: bounded OAuth token/key operations already exist. N04/N06 allocate current duties and assertions; do not create a second provider executor. |
-| `lib/host/src/tailnet/control/policy.rs` | Retain/move current `tcontrol_policy.rs`: protected state/locking, exact policy records and publication already exist. N04/N05 reconcile precise policy/Project extraction seams and callers. |
-| `lib/host/src/tailnet/control/enrollment.rs` | Extract the actual enrollment duties from current `tcontrol.rs`, `tcontrol_policy.rs` and `tcontrol_enroll.rs`; this is a same-package responsibility split, not an absent implementation. N04/N06 own exact admission, revision and consumption targets. |
-| `lib/host/src/tailnet/control/project.rs` | Extract the actual saved Project policy/RunBinding duties from current `tcontrol_policy.rs:742-921`, `tcontrol.rs` and `tcontrol_enroll.rs:152-214`. N05/N06 own precise allocations; preserve the real companion boundary. |
-| `lib/host/src/tailnet/control/wire.rs` | Retain/move current `tcontrol_wire.rs` rather than manufacture another set of records. Go `control_types.go`, `control_validation.go` and the surviving read-only status client/selection contract remain Go responsibilities. |
-| `lib/host/src/tailnet/control/tests.rs` | Reallocate current `tcontrol_oracle.rs` assertions by their actual host/policy/Project responsibility. Retire only superseded privileged Go Control execution assertions with the corresponding cutover; retain live Go DTO/client/validation tests. N03/N04/N05/N06 record exact units and evidence limits. |
+| `lib/host/src/tcontrol.rs` | Current control construction/router and native status/endpoint callers, selected directly by the host library and dbackend. No new facade or control-directory root. |
+| `lib/host/src/tcontrol_native.rs` | Current bounded native observation/CLI endpoint adapter and its actual host callers. Retain native producer and installed qualification limits. |
+| `lib/host/src/tcontrol_provider.rs` | Current typed provider HTTP adapter; retain credential custody, deadline and uncertain-operation policy. No second provider executor. |
+| `lib/host/src/tcontrol_policy.rs` | Current protected policy/credential records and one lock/state owner. N04 owns enrollment/update admission; N05 owns `load_project`, `project` and `run_binding` saved-Project duties. Individual responsibility allocation remains distinct within the file. |
+| N04 enrollment unit: `tcontrol_enroll.rs`, policy/control enrollment methods | Current successors of the former enrollment target: `check_credential`, `project_key`, `enroll_run` plus policy `enrollment`/`update` and direct control admission. Preserve N04/N06 provider/custody, revision/consume and same-run rechecks. A path rename supplies no new authority boundary. |
+| N05 saved-Project unit: `tcontrol_policy.rs`, direct `tcontrol.rs` methods | Current successors of the former Project target: `load_project`, `project`, `run_binding` and direct Project/RunBinding/enrollment routing. Preserve N05/N06 CAS/view/binding and companion duties with the existing protected state owner. Physical extraction is optional, not an unimplemented native policy engine. |
+| `lib/host/src/tcontrol_wire.rs` | Current host records/codec owner. Retain Go `control_types.go`, `control_validation.go`, read-only status/selection and their actual consumers; no duplicated canonical types. |
+| `lib/host/tests/tcontrol_oracle.rs` | Existing assertions retain their N03/N04/N05/N06 responsibility allocations; Go DTO/client/validation tests remain. No invented test-file leaf or native qualification from a filename. |
 
 The existing service, fd3 operation listener, Muse unixpacket listener and
 same-binary Tailnet action remain the execution boundaries. The Rust backend
@@ -251,49 +252,30 @@ Existing test allocation: common; wire; launch; stop; artifacts; candidate; conf
 
 Existing test allocation: common; protocol; identity_wire; target; identity; launch. Source grouping: 2656-2752 fixture closure; name/id/request/base64/frame goldens2753-3316; identity wire3317-3553; target/argv3554-3957; native identity3958-4554; stream/start/launch4555-4826.
 
-**rust/soda-host/src/tcodex.rs** (3,089 lines at f7e9cf9d).
+**Codex, Muse and Project current owner mapping (`45ebf4c4`).**
 
-The [current shared Factory terminal allocation](decomposition/host-runtime.md#current-shared-factory-terminal-ownership)
-is authoritative for both-family run/native/binding/lifecycle/output/artifact
-units and their private tests. Remove the inherited `terminal/codex/run.rs`
-target. Shared models and mechanics have direct shared owners; providers do not
-import them through a Codex facade. The current whole defining units below
-replace the former 3,263-line branch selectors.
+The former `terminal/codex/{paths,commands,reserve,start,stop,artifacts}.rs`
+and Muse argument/caller/program/cleanup destination proposals are superseded.
+Their historical body selectors remain evidence for the inspected source, not
+instructions to create those filenames. Retain the current complete units:
 
-- `lib/host/src/terminal/codex/mod.rs` — Codex module/private test declarations and imports only; the existing Service definition remains terminal/mod.rs, and shared native methods move to terminal/factory/native.rs.
-- `lib/host/src/terminal/codex/paths.rs` — complete provider run-path/guest functions228–252, Codex path declaration/builder284–323 and binding436–471. Preserve the fourth .codex tuple element; generic unit/takeover paths move to their shared owners.
-- `lib/host/src/terminal/codex/commands.rs` — supervisor345–372, Codex reserve-exec506–541, setup556–569 and start gate591–600. Shared quoting/unit argv/install/stage-file/retirement/output/export/takeover builders move to their selected shared owners, not duplicate commands.
-- `lib/host/src/terminal/codex/reserve.rs` — complete native reserve/setup/stage/stage-host835–1043, retaining Codex harness policy and direct shared native imports.
-- `lib/host/src/terminal/codex/start.rs` — start1045–1081, wait1105–1125 and validate1127–1133. Shared stage-file1083–1103 moves to factory/native.rs, preserving opaque bytes and marker order.
-- `lib/host/src/terminal/codex/stop.rs` — provider stop1135–1147 and capture/finish/unbound/live1229–1276. Shared retirement/observation/container helpers have one factory/lifecycle.rs owner.
-- `lib/host/src/terminal/codex/artifacts.rs` — provider output adapter1278–1296 only. Generic export/takeover/DTO/size and broker family dispatch move to the selected shared owners.
+- `terminal/factory/tcodex.rs` defines Codex paths, command builders and executor
+  methods; `terminal/factory/codex/{mod,tests}.rs` owns its test declarations and
+  actual assertions. Shared run, native, binding, lifecycle, output and artifact
+  units remain in `terminal/factory/`, with their shared tests.
+- `muse/{args,connection,resolve,argv,validate,inspect,observe,operate,ops,request}.rs`
+  and the existing wire, codec, config, runtime-types, nested, execution, socket,
+  launch, spawn, stage and stop modules retain their defining application duties.
+  Existing tests consume those subjects; no second process or state owner.
+- `project/{executor,connection,create,inspect,os,profile,confirmation}.rs` and
+  `project/mod.rs` retain Project operations and lifecycle/confirmation duties.
+  The optional `lifecycle.rs` and separate test-file proposals are superseded by
+  these owners and the existing actual tests.
 
-Existing Codex test allocation remains common/wire/reserve/lifecycle/artifacts,
-with actual whole defining cases and single private fixtures preserved. Move
-ONLY the inspected generic run case1670–1796 and export/takeover cases2839–2916/
-2919–3025 to terminal/factory/tests/{run,artifacts}.rs. Preserve whole mixed
-quote/path/unit-show/script/output/callback cases at their Codex test destinations
-with direct shared subject imports. The current cfg(test)1487/module1488 shell
-and final closing shell3089 occur once at Codex tests/mod.rs; shared factory
-private tests get their own declaration shell, never a second mock/Service.
-
-**rust/soda-host/src/muse.rs** (5038 lines on the inspected branch).
-
-- `lib/host/src/muse/mod.rs` — 450-542,959-997: existing peer/caller/nested/execution records, MuseHooks/MuseRuntime and fixed podman/guest helpers.
-- `lib/host/src/muse/wire.rs` — 28-316: whole NestedRegistration/LaunchRequest/LaunchControl/LaunchExit and validators/specs/codecs.
-- `lib/host/src/muse/arguments.rs` — 317-449: existing provider argument validation and connection selection/authorization.
-- `lib/host/src/muse/caller.rs` — 550-636,998-1220: cgroup/UID/account/mode/registration and project/kernel/registered caller resolution.
-- `lib/host/src/muse/nested.rs` — 637-693,1221-1459: child PID/readonly mount and nested registration/authority/child/namespace/account.
-- `lib/host/src/muse/program.rs` — 694-739,771-958,1460-1519: ELF/arch/signals/environment/command/unit argv and pinned guest binary proof.
-- `lib/host/src/muse/execution.rs` — 740-770,1520-1697,1926-2083: delivery/root validity, prepare/reserve/deliver/control/stop/validate/await/Muse dispatch.
-- `lib/host/src/muse/config.rs` — 1698-1925,2831-2865: admitted files/config/auth mount/copy_nested_config/decode_config_view.
-- `lib/host/src/muse/cleanup.rs` — 2084-2205: cleanup_execution_state/invoke_state/retire_mount/retire_execution_files.
-- `lib/host/src/muse/socket.rs` — 2242-2434,2458-2497: existing listener directory, pidfd/rights/request/descriptors and split-json.
-- `lib/host/src/muse/launch.rs` — 2206-2241,2435-2457,2498-2830: resize/state-container/command-exit and MuseLaunch serve/shell/control/spawn; same process.
-
-Existing test allocation: common; wire; caller; execution; program; socket. Source grouping: 2866-3067 fixture closure; wire/selection3068-3382; native caller vectors3383-3608 and3716-3789; program commands3609-3715; custody/config/retirement3790-4382; config/control/binary4383-4669; socket/control-loop/shutdown4670-5020; environment5021-5038. Shared actual fixtures remain descendant-test accessible.
-
-**project.rs extension** (2177 lines on that branch): `lib/host/src/project/lifecycle.rs`, `lib/host/src/project/confirmation.rs`, `lib/host/src/project/lifecycle_tests.rs`, `lib/host/src/project/confirmation_tests.rs`. Evidence: 86-113,710-780,811-880,888-912: Lifecycle/LifecycleState, exact native unit read/start/stop and confirmation.; 881-887,913-974: address/profile/OS/key pure confirmations.; 1250-1646: existing main project fixtures/tests shifted by pending source.; 1647-2025: unit-state/lifecycle cases.; 2026-2177: address/profile/OS/key confirmations.
+The current [host responsibility maps](coverage/maps/host-runtime-composition.md)
+and [terminal maps](coverage/maps/host-terminals.md) preserve the inspected
+contracts and separately label their historical body scopes. Behavioral findings,
+shutdown/authority custody and native qualification keep their existing tasks.
 
 Keep branch smoke-test coverage at `lib/host/tests/daemon.rs`, using actual
 library imports; move its current StubBackend into test support. Preserve the

@@ -26,9 +26,12 @@ its installed generator/service identity remains R04. The
 assigns all 76 challenged dispositions to existing subtasks with exact owner,
 scope, prerequisites and acceptance; older slice findings remain in their parent
 records. Correctness precedes costly boundary decisions and settled caller cuts.
-Current responsibility coverage is reconciled; full R02.targets desired-tree
-regeneration follows settled replacement boundaries. Broader R03/R04 verification
-retains its separate gates.
+Current path/owner navigation is reconciled at `45ebf4c4`: the target tree
+contains all 2,526 tracked leaves and the still-unimplemented D06 Rust remote
+payload. Current inventories distinguish those paths from retired predecessors;
+the detailed body census remains historical at `519b76bd`. Optional filename
+splits are superseded by defining owners in the current modules. Full R02
+body/caller/join acceptance and R03/R04 qualification retain their separate gates.
 The adoption source `d7eca882` is a historical pin. Subsequent source changes
 and their receipts are recorded separately; the historical “Markdown only”
 comparison does not describe the current checkout. This scoped documentation

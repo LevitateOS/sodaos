@@ -2,7 +2,15 @@
 
 ## Complete source-to-slice coverage
 
-Current responsibility snapshot: **2026-10-07**, source `519b76bd`, with
+Current path navigation is reconciled at `45ebf4c4` (2026-10-09): all 2,526
+tracked paths appear once in the inventories, with no missing or duplicate
+current path rows. Twenty-five additions and fifty-one retirements are mapped
+selectively to their established owners. The desired tree contains these paths
+and the unimplemented D06 Rust personal-Git payload. The detailed duty/body
+snapshot below remains historical at `519b76bd`; current path membership and
+repaired navigation do not requalify its source or runtime conclusions.
+
+Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
 recorded working bytes. The existing **2,545 paths**, reconciled through `f8b22b0b`,
@@ -30,7 +38,7 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 
 | Coverage dimension/check | Current result |
 | --- | ---: |
-| Current paths including eighteen authored documents and one H06 test addition / missing / duplicate rows | 2,564 / 0 / 0 |
+| Historical paths including eighteen authored documents and one H06 test addition / missing / duplicate rows | 2,564 / 0 / 0 |
 | Established slice IDs represented | 80 |
 | Files with current detailed maps | 1,583 |
 | Current mapped page families | 75 |

@@ -193,19 +193,22 @@ hunk editing of a shared file as a substitute for ownership.
   census/range/table reconciliation remains pending. The `rust/` subtree is
   already absent; inspect current `cmd/`, `lib/`, `tools/` and `system/` owners
   rather than schedule that move again. Use these bounded outputs:
-  - [x] **R02.inventory** Current responsibility coverage is reconciled at the
-    `519b76bd` snapshot with `58a99730` root/assets closure and separately counted
-    subsequent authored audit documents. The current inventory/maps cover source
-    and mixed duties, not just counts. Keep selective deltas current after each
-    integration; this completion does not refresh full target allocation.
+  - [x] **R02.inventory** Duty/body coverage retains the `519b76bd` snapshot
+    with `58a99730` root/assets closure. Path navigation is reconciled through
+    `45ebf4c4`: 2,526 current tracked paths, no missing or duplicate rows; 25
+    additions and 51 retirements have explicit current/historical dispositions.
+    Keep selective deltas current; this does not renew historical body reviews.
   - [x] **R02.tasks** Current findings are reconciled from `04286c48` into the
     existing tasks/lanes with named owner/scope/prerequisites/acceptance, explicit
     completed/withdrawn/held dispositions and superseded pending directions.
   - [ ] **R02.targets** Reconcile implemented defining destinations, current
     library adapters and evidenced retirements in the tree, ownership, ports,
     slice cards and decomposition records after replacement boundaries settle.
-    Preserve generated/data/license and
-    live wire/fixture duties; omit superseded engine leaves and obsolete ports.
+    The `45ebf4c4` path refresh maps every current leaf and retains only the
+    explicit unimplemented D06 Rust payload as a future leaf; it supersedes
+    optional Codex/Muse/Project/Tailnet filenames with current owners. Remaining
+    slice/body allocation and join acceptance keep this task open. Preserve
+    generated/data/license and live wire/fixture duties; omit obsolete engines.
   - [ ] **R02.joins** Close actual caller/import/manifest/test/compiler/payload/
     installed-selector mappings and remaining target collisions; retain old
     audit/runtime receipts at their original identities. Task-status upkeep does

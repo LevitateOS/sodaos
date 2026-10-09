@@ -1,5 +1,7 @@
 # Soda release image implementation
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting updated selectively after `274621ce` (2026-10-08); other rows retain their recorded snapshot.
@@ -341,7 +343,13 @@ Current path and release/build/install consumer trace; bounded selector; current
 
 <a id="coverage-a74d9fb161c6"></a>
 
-## [lib/soda-release-image/src/model/images.rs](../../../../../lib/soda-release-image/src/model/images.rs)
+## Former source `lib/soda-release-image/src/model/images.rs` (body snapshot `519b76bd`)
+
+Canonical shared Image definition and codec: [lib/release-inputs/src/reader/image.rs](../../../../../lib/release-inputs/src/reader/image.rs); used by image model and delivery buildx callers.
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
+Shared records are at [lib/release-inputs/src/reader/stream.rs](../../../../../lib/release-inputs/src/reader/stream.rs); build I/O is at [lib/soda-release-build/src/live_inputs.rs](../../../../../lib/soda-release-build/src/live_inputs.rs).
+The canonical shared Image type/codec is [lib/release-inputs/src/reader/image.rs](../../../../../lib/release-inputs/src/reader/image.rs).
 
 Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
@@ -351,7 +359,11 @@ Current path and release/build/install consumer trace; bounded selector; current
 
 <a id="coverage-25e0a610e831"></a>
 
-## [lib/soda-release-image/src/model/live_inputs.rs](../../../../../lib/soda-release-image/src/model/live_inputs.rs)
+## Former source `lib/soda-release-image/src/model/live_inputs.rs` (body snapshot `519b76bd`)
+
+Current shared records: [lib/release-inputs/src/reader/stream.rs](../../../../../lib/release-inputs/src/reader/stream.rs); release-build I/O: [lib/soda-release-build/src/live_inputs.rs](../../../../../lib/soda-release-build/src/live_inputs.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
@@ -401,7 +413,9 @@ Current path and release/build/install consumer trace; bounded selector; current
 
 <a id="coverage-f2b5b6a6ca53"></a>
 
-## [lib/soda-release-image/src/ordered_json.rs](../../../../../lib/soda-release-image/src/ordered_json.rs)
+## Former source `lib/soda-release-image/src/ordered_json.rs` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 

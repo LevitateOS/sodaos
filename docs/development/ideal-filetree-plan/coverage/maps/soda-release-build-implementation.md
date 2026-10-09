@@ -1,5 +1,7 @@
 # Soda release build implementation
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -266,7 +268,11 @@ Current path and release/build/install consumer trace; bounded selector; current
 <a id="rustsoda-release-buildsrcocirs-1"></a>
 <a id="coverage-9f9af3cb3e11"></a>
 
-## [lib/soda-release-build/src/oci.rs](../../../../../lib/soda-release-build/src/oci.rs)
+## Former source `lib/soda-release-build/src/oci.rs` (body snapshot `519b76bd`)
+
+Current canonical OCI archive implementation is under [lib/soda-release-deliver/src/oci/](../../../../../lib/soda-release-deliver/src/oci/mod.rs): module, [archive](../../../../../lib/soda-release-deliver/src/oci/archive.rs), [layers](../../../../../lib/soda-release-deliver/src/oci/layers.rs), and [schema](../../../../../lib/soda-release-deliver/src/oci/schema.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current coherent source duties matched to live consumer and prior semantic unit context
 
@@ -276,7 +282,11 @@ Current coherent source duties matched to live consumer and prior semantic unit 
 
 <a id="coverage-1511215e39c6"></a>
 
-## [lib/soda-release-build/src/oci/archive.rs](../../../../../lib/soda-release-build/src/oci/archive.rs)
+## Former source `lib/soda-release-build/src/oci/archive.rs` (body snapshot `519b76bd`)
+
+Current canonical OCI archive reader: [lib/soda-release-deliver/src/oci/archive.rs](../../../../../lib/soda-release-deliver/src/oci/archive.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
@@ -286,7 +296,11 @@ Current path and release/build/install consumer trace; bounded selector; current
 
 <a id="coverage-7445f5823747"></a>
 
-## [lib/soda-release-build/src/oci/content.rs](../../../../../lib/soda-release-build/src/oci/content.rs)
+## Former source `lib/soda-release-build/src/oci/content.rs` (body snapshot `519b76bd`)
+
+Current content/layer handling: [archive.rs](../../../../../lib/soda-release-deliver/src/oci/archive.rs) and [layers.rs](../../../../../lib/soda-release-deliver/src/oci/layers.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
@@ -296,7 +310,11 @@ Current path and release/build/install consumer trace; bounded selector; current
 
 <a id="coverage-3bd66e4590dd"></a>
 
-## [lib/soda-release-build/src/oci/manifest.rs](../../../../../lib/soda-release-build/src/oci/manifest.rs)
+## Former source `lib/soda-release-build/src/oci/manifest.rs` (body snapshot `519b76bd`)
+
+Current OCI schema/layer owners: [schema.rs](../../../../../lib/soda-release-deliver/src/oci/schema.rs) and [layers.rs](../../../../../lib/soda-release-deliver/src/oci/layers.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current path and release/build/install consumer trace; bounded selector; current Rust declaration/body intervals
 
@@ -306,7 +324,11 @@ Current path and release/build/install consumer trace; bounded selector; current
 
 <a id="coverage-89b047cdc223"></a>
 
-## [lib/soda-release-build/src/oci/tests.rs](../../../../../lib/soda-release-build/src/oci/tests.rs)
+## Former source `lib/soda-release-build/src/oci/tests.rs` (body snapshot `519b76bd`)
+
+Old build-side OCI fixtures/tests were retired; current production parser is under [delivery OCI archive](../../../../../lib/soda-release-deliver/src/oci/archive.rs) and [layers](../../../../../lib/soda-release-deliver/src/oci/layers.rs), without asserting fixture equivalence.
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current cohesive body inspected; single defining duty
 
@@ -316,7 +338,11 @@ Current cohesive body inspected; single defining duty
 
 <a id="coverage-7f8ee5523495"></a>
 
-## [lib/soda-release-build/src/oci_layout.rs](../../../../../lib/soda-release-build/src/oci_layout.rs)
+## Former source `lib/soda-release-build/src/oci_layout.rs` (body snapshot `519b76bd`)
+
+The old layout inspector was retired. Current OCI archive/schema parsing lives at [archive.rs](../../../../../lib/soda-release-deliver/src/oci/archive.rs) and [schema.rs](../../../../../lib/soda-release-deliver/src/oci/schema.rs); not a claim that the inspector was replaced one-for-one.
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Inherited prior inventory row; current Rust declaration/body intervals
 
@@ -421,3 +447,15 @@ Former source `lib/soda-release-build/src/json_go.rs`; consult its pinned earlie
 <a id="rustsoda-release-buildsrcprogressrs-1"></a>
 
 Former source `rust/soda-release-build/src/progress.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-lib-release-inputs-src-reader-image-rs"></a>
+
+### [lib/release-inputs/src/reader/image.rs](../../../../../lib/release-inputs/src/reader/image.rs)
+
+D07 canonical Image type and codec; D02 remains reader parent shell.

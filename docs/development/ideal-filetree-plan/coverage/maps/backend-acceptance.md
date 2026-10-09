@@ -1,5 +1,7 @@
 # Backend acceptance
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -9,7 +11,9 @@ Disposition concerns the duty, not source validity or installed qualification.
 
 <a id="coverage-7d60accc4a2d"></a>
 
-## [internal/acceptance/command.go](../../../../../internal/acceptance/command.go)
+## Former source `internal/acceptance/command.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -91,7 +95,9 @@ current source declaration/method inspection; receiver methods normalized by met
 <a id="coverage-a8e5246b36b5"></a>
 <a id="internalacceptanceevidencego-1"></a>
 
-## [internal/acceptance/evidence.go](../../../../../internal/acceptance/evidence.go)
+## Former source `internal/acceptance/evidence.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -101,7 +107,9 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-2b8ba6d19ae5"></a>
 
-## [internal/acceptance/evidence_finalize_test.go](../../../../../internal/acceptance/evidence_finalize_test.go)
+## Former source `internal/acceptance/evidence_finalize_test.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -111,7 +119,9 @@ current source declaration/method inspection; receiver methods normalized by met
 
 <a id="coverage-ed93c2fafab9"></a>
 
-## [internal/acceptance/evidence_test.go](../../../../../internal/acceptance/evidence_test.go)
+## Former source `internal/acceptance/evidence_test.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -131,7 +141,9 @@ current source declaration/method inspection; receiver methods normalized by met
 
 <a id="coverage-f0c2fb4d73b2"></a>
 
-## [internal/acceptance/lifecycle_state.go](../../../../../internal/acceptance/lifecycle_state.go)
+## Former source `internal/acceptance/lifecycle_state.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -141,7 +153,9 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-045e205e27ac"></a>
 
-## [internal/acceptance/lifecycle_state_test.go](../../../../../internal/acceptance/lifecycle_state_test.go)
+## Former source `internal/acceptance/lifecycle_state_test.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -232,7 +246,9 @@ current source declaration/method inspection; receiver methods normalized by met
 
 <a id="coverage-4284e2e1b560"></a>
 
-## [internal/acceptance/worker_linux.go](../../../../../internal/acceptance/worker_linux.go)
+## Former source `internal/acceptance/worker_linux.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -242,7 +258,9 @@ current source declaration/method inspection; receiver methods normalized by met
 
 <a id="coverage-6b94e1f1471e"></a>
 
-## [internal/acceptance/worker_linux_test.go](../../../../../internal/acceptance/worker_linux_test.go)
+## Former source `internal/acceptance/worker_linux_test.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -289,3 +307,15 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–130; file scaffold; writeExecFixture; stubSSH; bobExitString; TestRunWorkloadExec; TestRunWorkloadExecRefusals | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Checks three current piped script roots and four fail-closed refusal cases; former retired-Python byte equality is removed. — Current complete source and selectors inspected |
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-internal-acceptance-installed-test-go"></a>
+
+### [internal/acceptance/installed_test.go](../../../../../internal/acceptance/installed_test.go)
+
+D06: lines 11–135; fixture helper 11–19, private-input tests 21–135.

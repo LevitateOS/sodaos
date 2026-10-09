@@ -1,5 +1,7 @@
 # Documentation development and design
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -35,7 +37,9 @@ Exact source identity at0d8d3b8e with maintained per-section responsibility unit
 <a id="coverage-179351935467"></a>
 <a id="docsdesignspacespreviewcss-1"></a>
 
-## [docs/design/spaces/preview.css](../../../../../docs/design/spaces/preview.css)
+## Former source `docs/design/spaces/preview.css` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current artifact role, concrete consumer/provenance and established contract owner inspected
 
@@ -46,7 +50,9 @@ Current artifact role, concrete consumer/provenance and established contract own
 <a id="coverage-4528f1d38de0"></a>
 <a id="docsdesignspacespreviewts-1"></a>
 
-## [docs/design/spaces/preview.ts](../../../../../docs/design/spaces/preview.ts)
+## Former source `docs/design/spaces/preview.ts` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current artifact role, concrete consumer/provenance and established contract owner inspected
 

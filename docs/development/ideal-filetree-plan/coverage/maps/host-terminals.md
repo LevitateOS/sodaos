@@ -1,5 +1,7 @@
 # Host terminals
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -157,3 +159,15 @@ current line spans and declarations inspected; prior intervals reused only for b
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–582; current module/import/attribute shell; declaration TerminalRequest; fields action, id, project, login, identity, cols, rows, expires, name, scope; declaration TerminalRequestWire; declaration deserialize; declaration V; declaration Value; declaration expecting; declaration visit_map; declaration TerminalState; fields id, name, created_at, ready, attached, state; declaration TerminalStateWire; declaration TerminalFrame; fields frame_type, data, cols, rows, reason, terminals; declaration TerminalFrameWire; declaration encode_into; declaration encode; declaration decode; declaration valid_terminal_actor; declaration valid_terminal_window; declaration valid_terminal_scope; declaration valid_list_request; declaration valid_sized_terminal_action; declaration valid_idle_terminal_action; declaration valid_terminal_action; declaration valid; declaration valid_typed_input; declaration valid_resize_input; declaration valid_idle_input; declaration input_valid; declaration output_valid; declaration valid_terminal_state_value; declaration valid_terminal_item_flags; declaration valid_terminal_item; declaration valid_metadata_output; declaration valid_output_data; declaration valid_closed_reason; declaration valid_closed_output; declaration json_valid; declaration credential_valid | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Imports and module declarations wire lib/host/src/terminal/wire.rs into its current native target.; 51 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-lib-host-src-terminal-binding-rs"></a>
+
+### [lib/host/src/terminal/binding.rs](../../../../../lib/host/src/terminal/binding.rs)
+
+S05: canonical Binding grammar, Serde profile and encoder.

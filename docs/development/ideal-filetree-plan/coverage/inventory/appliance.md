@@ -2,6 +2,8 @@
 
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
+
 Current path accounting at `519b76bd` (2026-10-07).
 A file may contain several duties; each named duty has one defining owner and disposition.
 Generated/third-party status and runtime use are separate from disposition.
@@ -72,3 +74,4 @@ Generated/third-party status and runtime use are separate from disposition.
 | [system/project/rootfs/etc/systemd/system/soda-project-init.service](../../../../../system/project/rootfs/etc/systemd/system/soda-project-init.service) | configuration / service / selector | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / retained | Complete configuration input; consumers are the manifest/build or service/rootfs selector at this path. |
 | [system/project/rootfs/etc/yum.repos.d/gh-cli.repo](../../../../../system/project/rootfs/etc/yum.repos.d/gh-cli.repo) | configuration / artifact input | [P10](../../slices/projects.md#p10-shared-tools-and-packages) / retained | Complete configuration input; consumers are the manifest/build or service/rootfs selector at this path. |
 | [system/project/rootfs/usr/libexec/soda/project-init](../../../../../system/project/rootfs/usr/libexec/soda/project-init) | configuration / artifact input | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / retained, [P11](../../slices/projects.md#p11-nested-services-and-volumes) / retained, [P10](../../slices/projects.md#p10-shared-tools-and-packages) / retained, [P04](../../slices/projects.md#p04-development-ssh-access) / retained, [P03](../../slices/projects.md#p03-human-membership-and-accounts) / retained, [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) / retained | [current units](../maps/project-system-definitions.md#coverage-514d0954f107) |
+| [system/containers/forgejo/setup](../../../../../system/containers/forgejo/setup) | program source | [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / retained | [current path allocation](../maps/appliance-definitions.md#r02-current-path-system-containers-forgejo-setup) — Forgejo setup environment wrapper and invocation of setup-upstream. |

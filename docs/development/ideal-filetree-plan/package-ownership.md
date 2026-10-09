@@ -1,5 +1,36 @@
 # Package ownership and execution topology
 
+## Current package and path mapping
+
+Source `45ebf4c4` (2026-10-09): 2526 tracked paths and 28 tracked Cargo
+packages (`cmd`: 14, `lib`: 8, `tools`: 6). These are source/package counts,
+separate from the historical audit and runtime evidence below.
+
+| Current root | Tracked paths |
+| --- | ---: |
+| (root files) | 20 |
+| .agents | 1 |
+| .githooks | 1 |
+| assets | 175 |
+| cmd | 336 |
+| docs | 318 |
+| frontend | 345 |
+| internal | 438 |
+| lib | 420 |
+| scripts | 80 |
+| system | 65 |
+| tests | 138 |
+| tools | 189 |
+
+Current crate, binary, module and caller selectors govern the target tree.
+The Project-terminal package uses `src/main.rs` and its two `src/bin` helpers;
+there is no selected `src/lib.rs`. `lib/host/Cargo.toml` keeps `src/main.rs`
+as the daemon entrypoint. Current Tailnet enrollment/Project methods remain
+at their explicit defining owners; optional directory changes are superseded.
+The D06 Rust personal-Git payload remains planned, with its real caller and
+credential cutover unresolved. Historical root/port counts below are preserved
+as earlier observations, rather than current source facts.
+
 ## Source coverage
 
 Structural reconciliation baseline: `d7e565aa1019753997a99fd430ba103d7a472b48`, with **1705 tracked paths** at that commit. Latest slice coverage is recorded separately at `0d8d3b8e` in the [coverage index](coverage/README.md). The table and full structural counts below remain historical; latest upkeep reconciles the five source/test changes after `26d420f2` and the documentation split without claiming a new full structural review.
@@ -25,7 +56,7 @@ qualification. The root-count table and deleted-source citations below are
 historical; they cannot authorize recreating predecessors or count as current
 cutover tasks. Actual per-slice records reconcile remaining responsibilities.
 
-| Current root | Tracked paths | Proposed disposition |
+| Historical root | Tracked paths | Historical proposed disposition |
 | --- | ---: | --- |
 | `(root files)` | 24 | Retain live tool inputs and ownership files; omit two tracked ELF outputs and the two Python-only tooling inputs at their cutover. |
 | `.agents` | 1 | Retain ownership; include every leaf in the [proposed tree](proposed-tree.md). |

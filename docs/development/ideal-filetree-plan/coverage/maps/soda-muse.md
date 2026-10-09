@@ -1,5 +1,7 @@
 # Soda muse
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -59,7 +61,10 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 <a id="coverage-872e0d1da647"></a>
 
-## [cmd/soda-muse/src/launch_json.rs](../../../../../cmd/soda-muse/src/launch_json.rs)
+## Former source `cmd/soda-muse/src/launch_json.rs` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
+Launch wire parsing/formatting is now at [launch_wire.rs](../../../../../cmd/soda-muse/src/launch_wire.rs); caller-owned serde output remains in account/config modules.
 
 current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 

@@ -1,5 +1,7 @@
 # Host service admission
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07), with selective
@@ -227,7 +229,10 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 <a id="coverage-70bdbbe6110d"></a>
 
-## [lib/host/src/nist.rs](../../../../../lib/host/src/nist.rs)
+## Former source `lib/host/src/nist.rs` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
+Current ECDSA point validation is defined in [lib/host/src/ssh/mod.rs](../../../../../lib/host/src/ssh/mod.rs) (P04).
 
 current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
@@ -301,3 +306,15 @@ current line spans and declarations inspected; prior intervals reused only for b
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–254; current module/import/attribute shell; declaration error_codes_map_like_go; declaration substring_contract_holds; declaration response_limit_is_512kib; declaration LIMIT; declaration strict_response_decode; declaration deadline_and_transport_failures; declaration framing_edge_cases_match_go_transport | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/tests/identity_transport/responses.rs into its current native target.; 8 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-lib-host-src-daemon-config-tests-rs"></a>
+
+### [lib/host/src/daemon/config/tests.rs](../../../../../lib/host/src/daemon/config/tests.rs)
+
+H01: current daemon config test module and fixtures.

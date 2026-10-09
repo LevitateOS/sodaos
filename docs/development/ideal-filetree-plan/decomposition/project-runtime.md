@@ -1,5 +1,13 @@
 # Project runtime
 
+Current path reconciliation at `45ebf4c4` retains the
+`cmd/soda-project-terminal` package, its `src/main.rs` executable, and its two
+`src/bin` helpers with their actual modules and tests. There is no selected
+`src/lib.rs`. Historical predecessor ranges and optional filename proposals
+below are superseded by the [current target tree](../proposed-tree.md), without
+changing the retained PTY, descriptor, credential or child-custody contracts.
+Native and installed verification retains its existing tasks.
+
 L11 implements the narrow timex lease adapter through `lib/wire-time`, with explicit preepoch expiry refusal and strict producer fixtures. The permissive Python ISO parser and its equivalence vectors are retired. Local PTY/process budgets use an Instant origin while wait, kill/reap and signal ownership stay here.
 
 [Decomposition scope and baseline](README.md). This page groups historical

@@ -1,5 +1,7 @@
 # Appliance definitions
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -172,3 +174,15 @@ Former source `appliance/forgejo/templates/admin/auth/edit.tmpl`; consult its pi
 <a id="applianceforgejotemplatesreposettingsoptionstmpl-1"></a>
 
 Former source `appliance/forgejo/templates/repo/settings/options.tmpl`; consult its pinned earlier Git source and the current coverage disposition.
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-system-containers-forgejo-setup"></a>
+
+### [system/containers/forgejo/setup](../../../../../system/containers/forgejo/setup)
+
+O04: top-level setup wrapper, lines 1–17; setup-upstream is sourced current script.

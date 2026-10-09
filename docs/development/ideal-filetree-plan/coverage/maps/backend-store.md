@@ -1,5 +1,7 @@
 # Backend store
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -665,3 +667,27 @@ Former source `internal/store/identity.go`; consult its pinned earlier Git sourc
 <a id="coverage-fc987cc9b8c7"></a>
 
 Former source `internal/store/identity_events.go`; consult its pinned earlier Git source and the current coverage disposition.
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-internal-store-factory-dispatch-authority-test-go"></a>
+
+### [internal/store/factory_dispatch_authority_test.go](../../../../../internal/store/factory_dispatch_authority_test.go)
+
+F07: current Store.RecordDispatchPacket authority admission tests; file-wide test unit.
+
+<a id="r02-current-path-internal-store-factory-explicit-retry-go"></a>
+
+### [internal/store/factory_explicit_retry.go](../../../../../internal/store/factory_explicit_retry.go)
+
+F08 owns the retry receipt and eligibility facts; F07 owns serialized retry packet admission through the regular dispatch checks.
+
+<a id="r02-current-path-internal-store-factory-grant-commands-go"></a>
+
+### [internal/store/factory_grant_commands.go](../../../../../internal/store/factory_grant_commands.go)
+
+Persists and applies validated, revisioned Factory policy/capacity/operator-grant/sponsorship/budget and Project environment-grant commands, including withdrawal effects; slice owners are listed in the current inventory row.

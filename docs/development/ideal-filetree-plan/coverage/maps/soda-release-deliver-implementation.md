@@ -1,5 +1,7 @@
 # Soda release deliver implementation
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -120,7 +122,9 @@ Current path and release/build/install consumer trace; bounded selector; current
 <a id="coverage-fe28f76842f6"></a>
 <a id="coverage-2bd1953b7092"></a>
 
-## [lib/soda-release-deliver/src/finalize.rs](../../../../../lib/soda-release-deliver/src/finalize.rs)
+## Former source `lib/soda-release-deliver/src/finalize.rs` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Current coherent source duties matched to live consumer and prior semantic unit context
 
@@ -132,7 +136,9 @@ Current coherent source duties matched to live consumer and prior semantic unit 
 
 <a id="coverage-154077b76116"></a>
 
-## [lib/soda-release-deliver/src/import.rs](../../../../../lib/soda-release-deliver/src/import.rs)
+## Former source `lib/soda-release-deliver/src/import.rs` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 Inherited prior inventory row; current Rust declaration/body intervals
 

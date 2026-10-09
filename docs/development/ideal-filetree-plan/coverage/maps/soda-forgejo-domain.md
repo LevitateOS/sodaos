@@ -1,5 +1,7 @@
 # Soda forgejo domain
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -19,7 +21,11 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 <a id="coverage-5863d40181c9"></a>
 
-## [cmd/soda-forgejo-domain/src/config.rs](../../../../../cmd/soda-forgejo-domain/src/config.rs)
+## Former source `cmd/soda-forgejo-domain/src/config.rs` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
+Marker tests now live in [cmd/soda-forgejo-domain/src/tests/marker.rs](../../../../../cmd/soda-forgejo-domain/src/tests/marker.rs); former INI-emulation tests were retired.
+Marker/path parsing duties now live in [cmd/soda-forgejo-domain/src/marker.rs](../../../../../cmd/soda-forgejo-domain/src/marker.rs); former local INI emulation was retired.
 
 current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
@@ -69,7 +75,9 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 <a id="coverage-8c008d5b9cea"></a>
 
-## [cmd/soda-forgejo-domain/src/tests/config.rs](../../../../../cmd/soda-forgejo-domain/src/tests/config.rs)
+## Former source `cmd/soda-forgejo-domain/src/tests/config.rs` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
@@ -117,3 +125,21 @@ No historical source body is counted as current coverage.
 <a id="rustsoda-forgejo-domainsrcmainrs-1"></a>
 
 Former source `rust/soda-forgejo-domain/src/main.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-cmd-soda-forgejo-domain-src-marker-rs"></a>
+
+### [cmd/soda-forgejo-domain/src/marker.rs](../../../../../cmd/soda-forgejo-domain/src/marker.rs)
+
+O04: lines 1–189; parser 16–32, MarkerLocation 37–110, open helpers 113–151, marker_path 153–189.
+
+<a id="r02-current-path-cmd-soda-forgejo-domain-src-tests-marker-rs"></a>
+
+### [cmd/soda-forgejo-domain/src/tests/marker.rs](../../../../../cmd/soda-forgejo-domain/src/tests/marker.rs)
+
+O04: lines 1–100, marker-domain current tests.

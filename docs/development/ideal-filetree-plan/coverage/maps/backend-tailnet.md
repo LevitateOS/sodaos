@@ -1,5 +1,7 @@
 # Backend tailnet
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -10,7 +12,11 @@ Disposition concerns the duty, not source validity or installed qualification.
 <a id="coverage-bc084df91e04"></a>
 <a id="internaltailnetcontrolgo-1"></a>
 
-## [internal/tailnet/control.go](../../../../../internal/tailnet/control.go)
+## Former source `internal/tailnet/control.go` (body snapshot `519b76bd`)
+
+Current native successor paths: [tcontrol.rs](../../../../../lib/host/src/tcontrol.rs) and [tcontrol_native.rs](../../../../../lib/host/src/tcontrol_native.rs). This is a superseded Go implementation, not a line/body equivalence claim.
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -23,7 +29,11 @@ exact-blob current maintained map; full spans retained
 <a id="coverage-64d467a68567"></a>
 <a id="internaltailnetcontrol_testgo-1"></a>
 
-## [internal/tailnet/control_test.go](../../../../../internal/tailnet/control_test.go)
+## Former source `internal/tailnet/control_test.go` (body snapshot `519b76bd`)
+
+Current native control implementation: [tcontrol.rs](../../../../../lib/host/src/tcontrol.rs); former Go test body remains historical.
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -59,7 +69,11 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-5d74b2a27b1e"></a>
 
-## [internal/tailnet/enrollment.go](../../../../../internal/tailnet/enrollment.go)
+## Former source `internal/tailnet/enrollment.go` (body snapshot `519b76bd`)
+
+Current enrollment successors: [tcontrol_enroll.rs](../../../../../lib/host/src/tcontrol_enroll.rs) and [tailnet/companion/enroll.rs](../../../../../lib/host/src/tailnet/companion/enroll.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -70,7 +84,11 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-fa785a431b37"></a>
 
-## [internal/tailnet/enrollment_recovery_test.go](../../../../../internal/tailnet/enrollment_recovery_test.go)
+## Former source `internal/tailnet/enrollment_recovery_test.go` (body snapshot `519b76bd`)
+
+Current native enrollment owners: [tcontrol_enroll.rs](../../../../../lib/host/src/tcontrol_enroll.rs) and [tailnet/companion/enroll.rs](../../../../../lib/host/src/tailnet/companion/enroll.rs); historical test body is not asserted equivalent.
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -81,7 +99,11 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-35824d4c64a9"></a>
 
-## [internal/tailnet/enrollment_test.go](../../../../../internal/tailnet/enrollment_test.go)
+## Former source `internal/tailnet/enrollment_test.go` (body snapshot `519b76bd`)
+
+Current native enrollment owners: [tcontrol_enroll.rs](../../../../../lib/host/src/tcontrol_enroll.rs) and [tailnet/companion/enroll.rs](../../../../../lib/host/src/tailnet/companion/enroll.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -92,7 +114,11 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-181b94f8f7cb"></a>
 
-## [internal/tailnet/policy.go](../../../../../internal/tailnet/policy.go)
+## Former source `internal/tailnet/policy.go` (body snapshot `519b76bd`)
+
+Current host policy owner: [tcontrol_policy.rs](../../../../../lib/host/src/tcontrol_policy.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -102,7 +128,9 @@ current source declaration/method inspection; receiver methods normalized by met
 
 <a id="coverage-f781e065cc03"></a>
 
-## [internal/tailnet/policy_enrollment.go](../../../../../internal/tailnet/policy_enrollment.go)
+## Former source `internal/tailnet/policy_enrollment.go` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -112,7 +140,11 @@ current source declaration/method inspection; receiver methods normalized by met
 
 <a id="coverage-002214a2576a"></a>
 
-## [internal/tailnet/policy_project.go](../../../../../internal/tailnet/policy_project.go)
+## Former source `internal/tailnet/policy_project.go` (body snapshot `519b76bd`)
+
+Current project/policy dispatch owner: [dbackend/tailnet.rs](../../../../../lib/host/src/dbackend/tailnet.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -122,7 +154,11 @@ current source declaration/method inspection; receiver methods normalized by met
 
 <a id="coverage-af5f21b95c6e"></a>
 
-## [internal/tailnet/policy_test.go](../../../../../internal/tailnet/policy_test.go)
+## Former source `internal/tailnet/policy_test.go` (body snapshot `519b76bd`)
+
+Current related owners: [tcontrol_policy.rs](../../../../../lib/host/src/tcontrol_policy.rs) and [dbackend/tailnet/tests.rs](../../../../../lib/host/src/dbackend/tailnet/tests.rs); no old body equivalence asserted.
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -144,7 +180,11 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-be321241d74e"></a>
 
-## [internal/tailnet/project_runtime_test.go](../../../../../internal/tailnet/project_runtime_test.go)
+## Former source `internal/tailnet/project_runtime_test.go` (body snapshot `519b76bd`)
+
+Current runtime tests: [tailnet/runtime/project_tests.rs](../../../../../lib/host/src/tailnet/runtime/project_tests.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 exact-blob current maintained map; full spans retained
 
@@ -155,7 +195,11 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-d1e1e5018762"></a>
 
-## [internal/tailnet/project_status.go](../../../../../internal/tailnet/project_status.go)
+## Former source `internal/tailnet/project_status.go` (body snapshot `519b76bd`)
+
+Current project status owner: [tailnet/domain/status.rs](../../../../../lib/host/src/tailnet/domain/status.rs).
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
@@ -182,3 +226,15 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–119; file scaffold; statusClient; TestClientReadsCanonicalMagicDNSIdentity; TestClientReadsTailnetEndpoint; TestEndpointDoesNotAdvertiseUnavailableAccess; TestStatusRejectsInvalidMagicDNSIdentity; TestStatusReportsUnavailableCLI; TestEndpointUsesIPv4WhenMagicDNSIsDisabled; TestStatusRejectsMalformedOutputAndPreservesAuthPending; TestStatusCommandFailureAndCancellation | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-internal-tailnet-control-validation-test-go"></a>
+
+### [internal/tailnet/control_validation_test.go](../../../../../internal/tailnet/control_validation_test.go)
+
+N03: lines 8–81, HostView unicast and pending-host login URL validation tests.

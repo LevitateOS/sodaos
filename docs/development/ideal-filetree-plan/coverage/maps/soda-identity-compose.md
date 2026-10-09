@@ -1,5 +1,7 @@
 # Soda identity compose
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -29,7 +31,10 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 <a id="coverage-08b2c8f80476"></a>
 
-## [cmd/soda-identity-compose/src/launch_json.rs](../../../../../cmd/soda-identity-compose/src/launch_json.rs)
+## Former source `cmd/soda-identity-compose/src/launch_json.rs` (body snapshot `519b76bd`)
+
+Historical locator and selector/body evidence are pinned to `519b76bd`; these selectors do not describe a current path or current body.
+Launch serialization and parsing are allocated to [compose.rs](../../../../../cmd/soda-identity-compose/src/compose.rs) and [launch_wire.rs](../../../../../cmd/soda-identity-compose/src/launch_wire.rs); no body equivalence is implied.
 
 current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 

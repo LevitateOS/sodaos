@@ -1,5 +1,7 @@
 # Host runtime composition
 
+Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
@@ -54,15 +56,15 @@ location; slice links identify the existing responsibility owner.
 
 | Current unit | Current spans | Existing slice owner and responsibility |
 | --- | --- | --- |
-| `dbackend/mod.rs` (283 lines) | 1–113 shell, shared decode/error/deadline helpers; 114–129 BackendConfig; 131–145 MuseConfig/TerminalSeam; 147–215 concrete state/open; 218–228 companion operations; 230–259 lazy Factory; 261–283 IdentityBroker | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) owns shell/shared helpers/state/open and trait shell; [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) owns BackendConfig; [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) owns MuseConfig/TerminalSeam; [N06](../../slices/networking.md#n06-project-companion-lifecycle) owns companion operations; [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) owns lazy Factory; [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) owns acquire 262–268; [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) owns register 269–276; [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) owns reconcile 277–282. |
-| `dbackend/backend.rs` (334 lines) | 23–31 targeted ID; 34–159 Project/preparation routes; 161–242 Factory routes; 243–290 identity routes; 291–314 Tailnet route; 315–333 terminal accept/pump entry | [P01](../../slices/projects.md#p01-repository-association-and-creation) create 44–57; [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) profile/inspect/OS 35–42, 59–76; [P03](../../slices/projects.md#p03-human-membership-and-accounts) account/project access 104–119; [P04](../../slices/projects.md#p04-development-ssh-access) connection/access keys 78–85, 96–102; [P05](../../slices/projects.md#p05-project-startstop) lifecycle 87–94; [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) prepare/candidate/inspect/stop preparation 121–151; [P12](../../slices/projects.md#p12-maintenance-holds) hold 153–159; [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) launch 161–172; [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) inspect/stop/takeover/harness 173–202, 213–222; [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) output 203–212; [F09](../../slices/factory-coordination.md#f09-publication-progression) export 223–232; [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) candidate inspection 233–242; [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) identity launch/action 243–290; [N03](../../slices/networking.md#n03-host-tailnet-control) settings/options/host/enrollment dispatch 291–314; [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) terminal accept/pump entry 315–333. |
-| `dbackend/backend/tests.rs` (129 lines) | 8–18 profile; 20–36 create; 39–48 targeted ID; 51–63 lifecycle; 66–77 Factory lazy-root refusal; 79–91 identity launch; 93–122 error mapping; 124–129 terminal session IDs | Existing focused assertions for [P01](../../slices/projects.md#p01-repository-association-and-creation), [P02](../../slices/projects.md#p02-profile-and-runtime-readiness), [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime), [P05](../../slices/projects.md#p05-project-startstop), [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention), [I09](../../slices/identity-brokering.md#i09-provider-execution-integration), [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) and [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment), respectively; these remain existing test subjects, not new cases. |
-| `dbackend/factory_terminal.rs` (264 lines) | 11–38 run/output conversions; 42–59 harness selection; 60–81 reserve; 82–166 start/wait/stop/capture; 167–194 live/output; 196–224 takeover/export; 227–264 lease scope and configured service | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) owns reserve and run conversion; [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) owns harness selection, start/wait/stop/capture and scoped lease selection; [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) owns live/output conversion; [F09](../../slices/factory-coordination.md#f09-publication-progression) owns takeover/export. Lease conversion remains a direct call to the single [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) converter in `daemon/broker.rs`. |
-| `dbackend/tailnet.rs` (279 lines) | 12–43 body/error mapping and revision validation; 45–160 request decode/validation; 162–240 ProjectView encoding; 242–279 project/policy dispatch and incarnation fence | [N03](../../slices/networking.md#n03-host-tailnet-control) owns host Tailnet request/error behavior; [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) owns the shared strict JSON boundary; [N05](../../slices/networking.md#n05-project-tailnet-selection) owns project/policy request, view and dispatch behavior. |
-| `dbackend/tailnet/tests.rs` (167 lines) | 12–25 scratch fixture; 27–37 settings/options; 39–49 malformed host/enrollment bodies; 51–74 bad inputs; 76–120 validation; 123–143 view encoding; 145–167 error mapping | Existing [N03](../../slices/networking.md#n03-host-tailnet-control) request/error tests, [N04](../../slices/networking.md#n04-project-enrollment-policy) malformed host/enrollment test, and [N05](../../slices/networking.md#n05-project-tailnet-selection) validation/view tests remain with the Tailnet owner. |
-| `dbackend/websocket.rs` (422 lines) | 12–21 closed frame; 25–127 request admission/managed end/attach; 129–416 coupled output/input pump and bounded shutdown; 418–422 wake reader | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) owns the defining pump, attachment and transport lifetime. The HTTP upgrade stays at `daemon/websocket.rs`; the route contract stays at `daemon/backend.rs`. |
-| `dbackend/websocket/tests.rs` (233 lines) | 10–57 short-I/O and synthetic child fixture; 60–123 Ping/short-write/close behavior; 125–156 full-queue cancellation/reap; 158–203 stalled-write expiry/reap; 205–233 input backpressure expiry/reap | Existing [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) pump and child-custody test subjects. |
-| `dbackend/test_support.rs` (42 lines) | 1–42 shared backend constructors/config | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) owns the one private setup fixture for actual backend/Tailnet test consumers; no production seam or additional behavior. |
+| [lib/host/src/dbackend/mod.rs](../../../../../lib/host/src/dbackend/mod.rs) (283 lines) | 1–113 shell, shared decode/error/deadline helpers; 114–129 BackendConfig; 131–145 MuseConfig/TerminalSeam; 147–215 concrete state/open; 218–228 companion operations; 230–259 lazy Factory; 261–283 IdentityBroker | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) owns shell/shared helpers/state/open and trait shell; [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) owns BackendConfig; [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) owns MuseConfig/TerminalSeam; [N06](../../slices/networking.md#n06-project-companion-lifecycle) owns companion operations; [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) owns lazy Factory; [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) owns acquire 262–268; [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) owns register 269–276; [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) owns reconcile 277–282. |
+| [lib/host/src/dbackend/backend.rs](../../../../../lib/host/src/dbackend/backend.rs) (334 lines) | 23–31 targeted ID; 34–159 Project/preparation routes; 161–242 Factory routes; 243–290 identity routes; 291–314 Tailnet route; 315–333 terminal accept/pump entry | [P01](../../slices/projects.md#p01-repository-association-and-creation) create 44–57; [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) profile/inspect/OS 35–42, 59–76; [P03](../../slices/projects.md#p03-human-membership-and-accounts) account/project access 104–119; [P04](../../slices/projects.md#p04-development-ssh-access) connection/access keys 78–85, 96–102; [P05](../../slices/projects.md#p05-project-startstop) lifecycle 87–94; [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) prepare/candidate/inspect/stop preparation 121–151; [P12](../../slices/projects.md#p12-maintenance-holds) hold 153–159; [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) launch 161–172; [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) inspect/stop/takeover/harness 173–202, 213–222; [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) output 203–212; [F09](../../slices/factory-coordination.md#f09-publication-progression) export 223–232; [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) candidate inspection 233–242; [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) identity launch/action 243–290; [N03](../../slices/networking.md#n03-host-tailnet-control) settings/options/host/enrollment dispatch 291–314; [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) terminal accept/pump entry 315–333. |
+| [lib/host/src/dbackend/backend/tests.rs](../../../../../lib/host/src/dbackend/backend/tests.rs) (129 lines) | 8–18 profile; 20–36 create; 39–48 targeted ID; 51–63 lifecycle; 66–77 Factory lazy-root refusal; 79–91 identity launch; 93–122 error mapping; 124–129 terminal session IDs | Existing focused assertions for [P01](../../slices/projects.md#p01-repository-association-and-creation), [P02](../../slices/projects.md#p02-profile-and-runtime-readiness), [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime), [P05](../../slices/projects.md#p05-project-startstop), [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention), [I09](../../slices/identity-brokering.md#i09-provider-execution-integration), [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) and [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment), respectively; these remain existing test subjects, not new cases. |
+| [lib/host/src/dbackend/factory_terminal.rs](../../../../../lib/host/src/dbackend/factory_terminal.rs) (264 lines) | 11–38 run/output conversions; 42–59 harness selection; 60–81 reserve; 82–166 start/wait/stop/capture; 167–194 live/output; 196–224 takeover/export; 227–264 lease scope and configured service | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) owns reserve and run conversion; [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) owns harness selection, start/wait/stop/capture and scoped lease selection; [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) owns live/output conversion; [F09](../../slices/factory-coordination.md#f09-publication-progression) owns takeover/export. Lease conversion remains a direct call to the single [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) converter in `daemon/broker.rs`. |
+| [lib/host/src/dbackend/tailnet.rs](../../../../../lib/host/src/dbackend/tailnet.rs) (279 lines) | 12–43 body/error mapping and revision validation; 45–160 request decode/validation; 162–240 ProjectView encoding; 242–279 project/policy dispatch and incarnation fence | [N03](../../slices/networking.md#n03-host-tailnet-control) owns host Tailnet request/error behavior; [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) owns the shared strict JSON boundary; [N05](../../slices/networking.md#n05-project-tailnet-selection) owns project/policy request, view and dispatch behavior. |
+| [lib/host/src/dbackend/tailnet/tests.rs](../../../../../lib/host/src/dbackend/tailnet/tests.rs) (167 lines) | 12–25 scratch fixture; 27–37 settings/options; 39–49 malformed host/enrollment bodies; 51–74 bad inputs; 76–120 validation; 123–143 view encoding; 145–167 error mapping | Existing [N03](../../slices/networking.md#n03-host-tailnet-control) request/error tests, [N04](../../slices/networking.md#n04-project-enrollment-policy) malformed host/enrollment test, and [N05](../../slices/networking.md#n05-project-tailnet-selection) validation/view tests remain with the Tailnet owner. |
+| [lib/host/src/dbackend/websocket.rs](../../../../../lib/host/src/dbackend/websocket.rs) (422 lines) | 12–21 closed frame; 25–127 request admission/managed end/attach; 129–416 coupled output/input pump and bounded shutdown; 418–422 wake reader | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) owns the defining pump, attachment and transport lifetime. The HTTP upgrade stays at `daemon/websocket.rs`; the route contract stays at `daemon/backend.rs`. |
+| [lib/host/src/dbackend/websocket/tests.rs](../../../../../lib/host/src/dbackend/websocket/tests.rs) (233 lines) | 10–57 short-I/O and synthetic child fixture; 60–123 Ping/short-write/close behavior; 125–156 full-queue cancellation/reap; 158–203 stalled-write expiry/reap; 205–233 input backpressure expiry/reap | Existing [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) pump and child-custody test subjects. |
+| [lib/host/src/dbackend/test_support.rs](../../../../../lib/host/src/dbackend/test_support.rs) (42 lines) | 1–42 shared backend constructors/config | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) owns the one private setup fixture for actual backend/Tailnet test consumers; no production seam or additional behavior. |
 
 The source/development receipt
 `.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/dbackend-private-owners/checks-receipt.json`
@@ -150,3 +152,75 @@ current line spans and declarations inspected; prior intervals reused only for b
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–14; current module/import/attribute shell; declaration common; declaration requests; declaration responses | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/tests/identity_transport/main.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+
+## Current path reconciliation at `45ebf4c4`
+
+This section reconciles current path ownership only. Existing numeric/body selectors above remain pinned to `519b76bd` unless a row explicitly gives a narrow current inspection.
+
+
+<a id="r02-current-path-lib-host-src-daemon-broker-rs"></a>
+
+### [lib/host/src/daemon/broker.rs](../../../../../lib/host/src/daemon/broker.rs)
+
+H01/I04/I05/I06 current broker-adapter allocation, including direct lease conversion and register/close duties.
+
+<a id="r02-current-path-lib-host-src-daemon-config-rs"></a>
+
+### [lib/host/src/daemon/config.rs](../../../../../lib/host/src/daemon/config.rs)
+
+H01/H04/D11/I09/N06/N02 current daemon configuration and Tailnet/service configuration units.
+
+<a id="r02-current-path-lib-host-src-dbackend-backend-rs"></a>
+
+### [lib/host/src/dbackend/backend.rs](../../../../../lib/host/src/dbackend/backend.rs)
+
+P01/P02/P03/P04/P05/P07/P12/F07/F08/S06/F09/F11/I09/N03/S05: concrete daemon backend routes (current source allocation table).
+
+<a id="r02-current-path-lib-host-src-dbackend-backend-tests-rs"></a>
+
+### [lib/host/src/dbackend/backend/tests.rs](../../../../../lib/host/src/dbackend/backend/tests.rs)
+
+P01/P02/H01/P05/F08/I09/S05: concrete backend assertions (current source allocation table).
+
+<a id="r02-current-path-lib-host-src-dbackend-factory-terminal-rs"></a>
+
+### [lib/host/src/dbackend/factory_terminal.rs](../../../../../lib/host/src/dbackend/factory_terminal.rs)
+
+F07/F08/S06/F09, with I04 lease converter call (current source allocation table).
+
+<a id="r02-current-path-lib-host-src-dbackend-mod-rs"></a>
+
+### [lib/host/src/dbackend/mod.rs](../../../../../lib/host/src/dbackend/mod.rs)
+
+H01/H04/I09/N06/F08/I04/I05/I06: module shell, shared helpers, config, traits/state, companion, Factory and broker adapters (current source allocation table).
+
+<a id="r02-current-path-lib-host-src-dbackend-tailnet-rs"></a>
+
+### [lib/host/src/dbackend/tailnet.rs](../../../../../lib/host/src/dbackend/tailnet.rs)
+
+N03/H03/N05: request validation, body mapping, project view and project/policy dispatch (current source allocation table).
+
+<a id="r02-current-path-lib-host-src-dbackend-tailnet-tests-rs"></a>
+
+### [lib/host/src/dbackend/tailnet/tests.rs](../../../../../lib/host/src/dbackend/tailnet/tests.rs)
+
+N03/N04/N05: current Tailnet adapter tests (current source allocation table).
+
+<a id="r02-current-path-lib-host-src-dbackend-test-support-rs"></a>
+
+### [lib/host/src/dbackend/test_support.rs](../../../../../lib/host/src/dbackend/test_support.rs)
+
+H01: shared private backend test setup (current source allocation table).
+
+<a id="r02-current-path-lib-host-src-dbackend-websocket-rs"></a>
+
+### [lib/host/src/dbackend/websocket.rs](../../../../../lib/host/src/dbackend/websocket.rs)
+
+S05: current terminal websocket/PTY relay, bounded pump and shutdown (current source allocation table).
+
+<a id="r02-current-path-lib-host-src-dbackend-websocket-tests-rs"></a>
+
+### [lib/host/src/dbackend/websocket/tests.rs](../../../../../lib/host/src/dbackend/websocket/tests.rs)
+
+S05: current pump, child custody and backpressure test units (current source allocation table).
