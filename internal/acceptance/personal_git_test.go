@@ -158,6 +158,58 @@ func TestTokenPassphrase(t *testing.T) {
 	}
 }
 
+func TestLoadPassphraseBoundsAndValidatesPrivateInput(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "passphrase")
+	valid := strings.Repeat("A", 43)
+	for _, tc := range []struct {
+		name  string
+		value string
+		valid bool
+	}{
+		{name: "valid 43 bytes", value: valid, valid: true},
+		{name: "short", value: valid[:42]},
+		{name: "long", value: valid + "A"},
+		{name: "invalid character", value: valid[:42] + "."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(path, []byte(tc.value), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(path, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			got, err := loadPassphrase(path)
+			if tc.valid {
+				if err != nil || got != valid {
+					t.Fatalf("loadPassphrase() = %q, %v", got, err)
+				}
+			} else if err == nil || got != "" {
+				t.Fatalf("loadPassphrase() = %q, %v; want refusal", got, err)
+			}
+		})
+	}
+
+	if err := os.WriteFile(path, []byte(valid), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "passphrase-link")
+	if err := os.Symlink(path, link); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := loadPassphrase(link); err == nil || got != "" {
+		t.Fatalf("symlink loadPassphrase() = %q, %v; want refusal", got, err)
+	}
+
+	nonregular := filepath.Join(dir, "directory")
+	if err := os.Mkdir(nonregular, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := loadPassphrase(nonregular); err == nil || got != "" {
+		t.Fatalf("nonregular loadPassphrase() = %q, %v; want refusal", got, err)
+	}
+}
+
 func TestLoadGitTarget(t *testing.T) {
 	dir := t.TempDir()
 	target, err := loadGitTarget(dir)

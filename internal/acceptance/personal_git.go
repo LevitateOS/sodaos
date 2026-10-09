@@ -201,15 +201,25 @@ func preparePassfile(path string) error {
 }
 
 // loadPassphrase reads and validates a stored passphrase.
-func loadPassphrase(path string) (string, error) {
-	st, err := os.Stat(path)
+func loadPassphrase(path string) (passphrase string, resultErr error) {
+	file, limit, err := openPrivateInput(path, 43)
 	if err != nil {
 		return "", err
 	}
-	if !ownedByCaller(st) || st.Mode().Perm()&0o077 != 0 {
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			passphrase = ""
+			resultErr = errors.Join(resultErr, closeErr)
+		}
+	}()
+	st, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !ownedByCaller(st) {
 		return "", errors.New("passphrase must be a caller-owned restricted file")
 	}
-	data, err := os.ReadFile(path)
+	data, err := readPrivateInput(file, limit, path)
 	if err != nil {
 		return "", err
 	}
