@@ -1,9 +1,9 @@
 //! Identity-broker adapters for factory orchestration and Muse runtime hooks.
 
-use crate::{iclient::BrokerClient, muse, pfactory, terminal};
+use crate::{factory, iclient::BrokerClient, muse, terminal};
 use std::time::Instant;
 
-pub(crate) fn cv_lease_to_texec(l: &pfactory::Lease) -> terminal::Lease {
+pub(crate) fn cv_lease_to_texec(l: &factory::Lease) -> terminal::Lease {
     terminal::Lease {
         repository_id: l.repository_id,
         provider_id: l.provider_id.clone(),
@@ -23,7 +23,7 @@ pub(crate) fn cv_lease_to_texec(l: &pfactory::Lease) -> terminal::Lease {
     }
 }
 
-fn cv_acquire_to_texec(r: &pfactory::AcquireRequest) -> terminal::AcquireRequest {
+fn cv_acquire_to_texec(r: &factory::AcquireRequest) -> terminal::AcquireRequest {
     let (secs, nanos) = terminal::parse_rfc3339(&r.deadline).unwrap_or((0, 0));
     terminal::AcquireRequest {
         repository_id: 0,
@@ -39,8 +39,8 @@ fn cv_acquire_to_texec(r: &pfactory::AcquireRequest) -> terminal::AcquireRequest
     }
 }
 
-fn cv_lease_to_pfactory(l: &terminal::Lease) -> pfactory::Lease {
-    pfactory::Lease {
+fn cv_lease_to_factory(l: &terminal::Lease) -> factory::Lease {
+    factory::Lease {
         repository_id: l.repository_id,
         provider_id: l.provider_id.clone(),
         id: l.id.clone(),
@@ -58,16 +58,16 @@ fn cv_lease_to_pfactory(l: &terminal::Lease) -> pfactory::Lease {
     }
 }
 
-impl pfactory::FactoryBroker for BrokerClient {
+impl factory::FactoryBroker for BrokerClient {
     fn acquire(
         &self,
-        req: &pfactory::AcquireRequest,
+        req: &factory::AcquireRequest,
         deadline: Instant,
-    ) -> Result<pfactory::Lease, pfactory::FactoryError> {
+    ) -> Result<factory::Lease, factory::FactoryError> {
         let terminal_request = cv_acquire_to_texec(req);
         BrokerClient::acquire(self, &terminal_request, deadline)
-            .map(|lease| cv_lease_to_pfactory(&lease))
-            .map_err(pfactory::FactoryError::Msg)
+            .map(|lease| cv_lease_to_factory(&lease))
+            .map_err(factory::FactoryError::Msg)
     }
 
     fn register(
@@ -75,10 +75,10 @@ impl pfactory::FactoryBroker for BrokerClient {
         lease_id: &str,
         binding: &terminal::Binding,
         deadline: Instant,
-    ) -> Result<Vec<u8>, pfactory::FactoryError> {
+    ) -> Result<Vec<u8>, factory::FactoryError> {
         BrokerClient::register(self, lease_id, binding, deadline)
             .map(|delivery| delivery.credential.unwrap_or_default())
-            .map_err(pfactory::FactoryError::Msg)
+            .map_err(factory::FactoryError::Msg)
     }
 
     fn return_lease(
@@ -87,9 +87,9 @@ impl pfactory::FactoryBroker for BrokerClient {
         binding: &terminal::Binding,
         credential: &[u8],
         deadline: Instant,
-    ) -> Result<(), pfactory::FactoryError> {
+    ) -> Result<(), factory::FactoryError> {
         BrokerClient::return_lease(self, lease_id, binding, credential, deadline)
-            .map_err(pfactory::FactoryError::Msg)
+            .map_err(factory::FactoryError::Msg)
     }
 
     fn reconcile_lease(&self, _lease_id: &str, _deadline: Instant) {}
@@ -99,10 +99,10 @@ impl pfactory::FactoryBroker for BrokerClient {
         kind: &str,
         execution_id: &str,
         deadline: Instant,
-    ) -> Result<bool, pfactory::FactoryError> {
+    ) -> Result<bool, factory::FactoryError> {
         BrokerClient::get_execution(self, kind, execution_id, deadline)
             .map(|execution| crate::iclient::execution_is_terminal(&execution))
-            .map_err(pfactory::FactoryError::Msg)
+            .map_err(factory::FactoryError::Msg)
     }
 
     fn close_execution(
@@ -110,9 +110,9 @@ impl pfactory::FactoryBroker for BrokerClient {
         kind: &str,
         execution_id: &str,
         deadline: Instant,
-    ) -> Result<(), pfactory::FactoryError> {
+    ) -> Result<(), factory::FactoryError> {
         BrokerClient::close_execution(self, kind, execution_id, deadline)
-            .map_err(pfactory::FactoryError::Msg)
+            .map_err(factory::FactoryError::Msg)
     }
 }
 
@@ -162,12 +162,12 @@ impl muse::MuseHooks for BrokerClient {
 
 #[cfg(test)]
 mod tests {
-    use super::{cv_lease_to_pfactory, cv_lease_to_texec};
-    use crate::pfactory;
+    use super::{cv_lease_to_factory, cv_lease_to_texec};
+    use crate::factory;
 
     #[test]
     fn lease_binding_round_trip() {
-        let lease = pfactory::Lease {
+        let lease = factory::Lease {
             repository_id: 7,
             provider_id: "codex".to_string(),
             id: "l".to_string(),
@@ -195,7 +195,7 @@ mod tests {
                 generation: 1,
             }),
         };
-        let back = cv_lease_to_pfactory(&cv_lease_to_texec(&lease));
+        let back = cv_lease_to_factory(&cv_lease_to_texec(&lease));
         assert_eq!(back, lease);
     }
 }

@@ -65,7 +65,7 @@ impl<E: Executor> Service<E> {
 
     /// `Service.FactoryCodexCapture` shape for Muse runs: echo the
     /// daemon-staged `auth.json` copy (never the CLI's live lookup file)
-    /// for the in-process pfactory return path. The broker ignores these
+    /// for the in-process factory return path. The broker ignores these
     /// bytes for muse (borrow: forget on return), so capture failure here
     /// only reports host-side staging trouble, never rotation state.
     pub fn factory_muse_capture(

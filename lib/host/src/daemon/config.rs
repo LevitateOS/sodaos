@@ -14,7 +14,7 @@
 //! `apply_release_images` uses the landed release payload reader, native
 //! platform predicate, and payload image table.
 
-use crate::{domain, net, pfactory};
+use crate::{domain, factory, net};
 use serde::de::{self, MapAccess, Visitor};
 use serde::Deserialize;
 use std::fmt;
@@ -213,7 +213,7 @@ fn validate_identity_runtime(c: &Config) -> Result<(), String> {
             );
         }
         if !c.codex_harness_version.is_empty()
-            && !pfactory::valid_harness_version(&c.codex_harness_version)
+            && !factory::valid_harness_version(&c.codex_harness_version)
         {
             return Err("invalid staged harness version".to_string());
         }
@@ -228,7 +228,7 @@ fn validate_identity_runtime(c: &Config) -> Result<(), String> {
             );
         }
         if !c.muse_harness_version.is_empty()
-            && !pfactory::valid_harness_version(&c.muse_harness_version)
+            && !factory::valid_harness_version(&c.muse_harness_version)
         {
             return Err("invalid staged harness version".to_string());
         }

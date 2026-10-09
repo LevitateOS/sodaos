@@ -57,7 +57,7 @@ for the moved broker adapters and retained lease round-trip test.
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–5; module/import shell | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Defines the broker application-adapter module and its direct imports. |
-| 6–24, 26–59, 61–71; declaration cv_lease_to_texec; declaration cv_acquire_to_texec; declaration cv_lease_to_pfactory; declaration FactoryBroker; declaration acquire | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | Lease/request conversions and direct FactoryBroker acquire implement execution admission and lease fencing. Lease conversion retains distinct representations while carrying canonical Binding directly. |
+| 6–24, 26–59, 61–71; declaration cv_lease_to_texec; declaration cv_acquire_to_texec; declaration cv_lease_to_factory; declaration FactoryBroker; declaration acquire | [I04](../../slices/identity-brokering.md#i04-execution-admission-and-lease-fencing) | retained | Lease/request conversions and direct FactoryBroker acquire implement execution admission and lease fencing. Lease conversion retains distinct representations while carrying canonical Binding directly. |
 | 73–82, 163–201; declaration register; declaration lease_binding_round_trip | [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) | retained | Registration takes canonical Binding directly; the existing lease round-trip test remains here, with no binding conversion helpers. |
 | 84–117; declaration return_lease; declaration reconcile_lease; declaration execution_is_terminal; declaration close_execution | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | Factory reconciliation remains a no-op; execution-terminal observation and close preserve the existing completion contract. |
 | 119–161; declaration MuseHooks; declaration acquire; declaration attach; declaration end; declaration authorize; declaration nested_authorize; declaration select | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | The existing Muse hooks directly use the client while retaining authorization and connection selection policy. |
@@ -82,24 +82,24 @@ the same-package private child [`daemon/config/tests.rs`](../../../../../lib/hos
 
 ## [lib/host/src/lib.rs](../../../../../lib/host/src/lib.rs)
 
-Current root module declarations, selectively reconciled after the config join.
-The obsolete gmux, nist and iconfig declarations are removed; their retained
+Current root module declarations, selectively reconciled after the config and
+Factory caller joins. The obsolete gmux, nist, iconfig and pfactory declarations
+are removed; their retained
 contracts live at the defining daemon, SSH and configuration owners above.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–6, 8–9, 11–12, 38; module shell; daemon, dbackend, factory, iclient, terminal | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Direct defining host module declarations; configuration is exported through daemon. |
+| 1–6, 8–9, 11–12, 37; module shell; daemon, dbackend, factory, iclient, terminal | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Direct defining host module declarations; configuration is exported through daemon. |
 | 7; account | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Account module declaration. |
-| 10, 21; domain, project | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Project domain/runtime module declarations. |
-| 13, 22, 37; json, sha256, tcontrol_wire | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Retained representation and digest profile declarations; nist is retired. |
+| 10, 20; domain, project | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Project domain/runtime module declarations. |
+| 13, 21, 36; json, sha256, tcontrol_wire | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | Retained representation and digest profile declarations; nist is retired. |
 | 14–15; muse, muse_serve | [I09](../../slices/identity-brokering.md#i09-provider-execution-integration) | retained | Muse runtime and listener declarations. |
 | 16; net | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Network observation module declaration. |
-| 17; pfactory | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Existing Factory compatibility module declaration; no Config or Binding facade is added. |
-| 18–20; pops, preparation, prepare | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Project preparation module declarations. |
-| 23; ssh | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | SSH key profile module declaration. |
-| 24–31; tailnet_companion, tailnet_domain, tailnet_files, tailnet_runtime and path attributes | [N06](../../slices/networking.md#n06-project-companion-lifecycle) | retained | Existing defining Tailnet module bindings. |
-| 32, 34; tcontrol, tcontrol_native | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Host Tailnet control module declarations. |
-| 33, 35–36; tcontrol_enroll, tcontrol_policy, tcontrol_provider | [N04](../../slices/networking.md#n04-project-enrollment-policy) | retained | Tailnet enrollment/policy/provider declarations. |
+| 17–19; pops, preparation, prepare | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Project preparation module declarations. |
+| 22; ssh | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | SSH key profile module declaration. |
+| 23–30; tailnet_companion, tailnet_domain, tailnet_files, tailnet_runtime and path attributes | [N06](../../slices/networking.md#n06-project-companion-lifecycle) | retained | Existing defining Tailnet module bindings. |
+| 31, 33; tcontrol, tcontrol_native | [N03](../../slices/networking.md#n03-host-tailnet-control) | retained | Host Tailnet control module declarations. |
+| 32, 34–35; tcontrol_enroll, tcontrol_policy, tcontrol_provider | [N04](../../slices/networking.md#n04-project-enrollment-policy) | retained | Tailnet enrollment/policy/provider declarations. |
 
 <a id="coverage-f793d9450ffe"></a>
 <a id="coverage-a001ad1f850c"></a>

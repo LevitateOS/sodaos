@@ -203,8 +203,8 @@ fn crate_helpers_match_go_validators() {
     assert!(domain::valid_login("soda-net"));
     assert!(!domain::valid_login("9bad"));
     assert!(!domain::valid_login(&"a".repeat(32)));
-    assert!(pfactory::valid_harness_version("0.153.4"));
-    assert!(!pfactory::valid_harness_version("!!!"));
+    assert!(factory::valid_harness_version("0.153.4"));
+    assert!(!factory::valid_harness_version("!!!"));
     assert!(net::parse_prefix("10.89.0.0/24").is_ok());
     assert!(net::parse_prefix("nope").is_err());
     assert!(net::parse_prefix("10.0.0.1/24").is_ok());

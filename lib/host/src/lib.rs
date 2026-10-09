@@ -14,7 +14,6 @@ pub mod json;
 pub mod muse;
 pub mod muse_serve;
 pub mod net;
-pub mod pfactory;
 pub mod pops;
 pub mod preparation;
 pub mod prepare;

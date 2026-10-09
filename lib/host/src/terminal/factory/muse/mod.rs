@@ -11,7 +11,7 @@
 //! core, parameterized by scope and paths.
 //! Muse borrows: the broker forgets the lease on return and never calls
 //! finish, so the daemon denies `finish` for muse leases (capture only
-//! echoes the staged copy for the in-process pfactory return path, whose
+//! echoes the staged copy for the in-process factory return path, whose
 //! bytes the broker ignores).
 
 pub mod commands;

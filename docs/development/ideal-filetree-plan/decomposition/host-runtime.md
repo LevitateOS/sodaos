@@ -53,6 +53,7 @@ together.
 | --- | --- |
 | `lib/host/src/sha256.rs` 1–45: selected `sha2::Sha256` digest plus canonical lowercase hex | Retain as `lib/host/src/sha256.rs`. It is the single host profile used by SSH fingerprints, Tailnet revisions, preparation inputs, Factory assignments, terminal/Muse harness pins, and broker/native identities. Callers keep each raw-byte recipe, admission rule and error/custody boundary; no SHA rounds or generic hash package return. |
 | `lib/host/src/terminal/binding.rs` 1–223: canonical terminal `Binding` DTO, nested serde profile, validation and encoding | Keep one defining owner under `terminal`; `factory` imports this type directly. The duplicate Factory grammar/encoder and broker binding conversion helpers are retired. Factory receipt kind/run-ID checks remain at `factory/receipt.rs`; Lease/Delivery whole-document decoders remain strict and distinct. |
+| Former `lib/host/src/pfactory.rs` compatibility shell | Retired. Config, concrete backend, broker and existing tests use the defining `factory` module directly. The real lease/output conversions remain; no forwarding namespace or replacement facade is retained. |
 | Former `lib/host/src/nist.rs` 9–53 and tests 55–162 | Source join complete in existing `lib/host/src/ssh/mod.rs` and `lib/host/src/ssh/tests.rs`. The private predicate takes upstream `ssh_key::EcdsaCurve`, retains explicit 32/48/66-byte exact-length and uncompressed-prefix gates, then validates with the typed p256/p384/p521 parsers. All SSH ECDSA call sites now use that predicate; no custom `Curve`, name dispatch, `Option<Vec<u8>>` re-encoding or `nist` module remains. The moved matrix plus existing SSH/SK caller cases preserve the original malformed, compressed/hybrid, wrong-curve, infinity and off-curve coverage. |
 | `lib/host/src/daemon/{mod,admission,backend,routes,server}.rs` | Source join complete: one module root directly defines the admission, backend, route and server owners, with private HTTP/WebSocket helpers. The 34-route table lives with dispatch; public response types come from their defining response module. `main.rs`, `dbackend.rs` and the existing smoke test use those modules directly. No gmux forwarding modules remain. The 128-connection/16-callback gates, authority, cancellation/shutdown joins and terminal lifetime are unchanged; HTTP head/body conversion stays separate from the server. |
 
@@ -158,7 +159,8 @@ unchanged; this paragraph refines the desired allocation only.
 
 ## Current native Factory test allocation
 
-The primary F08 reviewer inspected the whole current `pfactory.rs`. The
+The primary F08 reviewer inspected the whole `pfactory.rs` at the pinned
+historical review baseline. The
 coordinator inspected the actual declaration boundaries, selected assertion
 bodies and support seams; B challenged that exact partition against the full
 source. Retain Rust tests as private `cfg(test)` descendants of the existing

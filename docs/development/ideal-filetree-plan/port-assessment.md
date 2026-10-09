@@ -208,6 +208,12 @@ qualification; no generic HTTP/WebSocket engine is allocated.
 
 **rust/soda-host/src/pfactory.rs** (6081 lines at 0d8d3b8e).
 
+The defining implementation is now `lib/host/src/factory/`. The later
+four-line `lib/host/src/pfactory.rs` re-export shell and its root declaration
+are retired; current configuration, backend, broker and test consumers bind
+directly to `factory`. The historical allocation below remains provenance;
+canonical Binding now lives at `terminal/binding.rs`.
+
 - `lib/host/src/factory/mod.rs` — 1–39,1457–1556,1773–1821: shared preamble/imports, FactoryTerminal/FactoryBroker, Secret/RunLock/Factory, open_factory/harness_pin; one state/lock owner.
 - `lib/host/src/factory/run.rs` — 40–201,365–588: factory phase/run/path validators, FactoryRun and FactoryLaunch.
 - `lib/host/src/factory/deadline.rs` — 202–364: RFC3339Nano parse and current native deadline math.

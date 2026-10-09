@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 use crate::daemon::backend::{BackendError, ExecBackend, TerminalSession};
 use crate::daemon::broker::cv_lease_to_texec;
 use crate::{
-    domain, json, pfactory, project, tcontrol,
+    domain, factory, json, project, tcontrol,
     terminal::{self, factory::tcodex},
 };
 
@@ -87,13 +87,13 @@ fn decode_empty_or_null(body: &[u8]) -> Result<(), String> {
 
 /// `FactoryError` to wire mapping. `stale` is per-method: output reads map
 /// `Stale` to `OutputStale`, export/candidate reads to `ExportStale`.
-fn map_factory_err(err: pfactory::FactoryError, stale: BackendError) -> BackendError {
+fn map_factory_err(err: factory::FactoryError, stale: BackendError) -> BackendError {
     match err {
-        pfactory::FactoryError::NotFound => BackendError::NotFound,
-        pfactory::FactoryError::Stale => stale,
-        pfactory::FactoryError::ExportCandidate => BackendError::ExportCandidate,
-        pfactory::FactoryError::ExportBounds => BackendError::ExportBounds,
-        pfactory::FactoryError::Msg(m) => internal(m),
+        factory::FactoryError::NotFound => BackendError::NotFound,
+        factory::FactoryError::Stale => stale,
+        factory::FactoryError::ExportCandidate => BackendError::ExportCandidate,
+        factory::FactoryError::ExportBounds => BackendError::ExportBounds,
+        factory::FactoryError::Msg(m) => internal(m),
         // Busy, Denied, Uncertain, DeadlineExceeded: Go renders every other
         // factory error as 500 (or 409 identity-unconfirmed behind the
         // identity routes, which the mux owns).
@@ -144,7 +144,7 @@ pub struct TerminalSeam {
     muse_harness_sha256: String,
 }
 
-type Factory = pfactory::Factory<project::Native, TerminalSeam, crate::iclient::BrokerClient>;
+type Factory = factory::Factory<project::Native, TerminalSeam, crate::iclient::BrokerClient>;
 
 /// The real daemon backend. All runtimes share one native executor; the
 /// factory opens lazily like Go's `factoryRun` so a broken receipt root
@@ -258,7 +258,7 @@ impl DaemonBackend {
     }
 }
 
-fn cv_run_to_tcodex(r: &pfactory::FactoryRun) -> crate::terminal::factory::tcodex::FactoryRun {
+fn cv_run_to_tcodex(r: &factory::FactoryRun) -> crate::terminal::factory::tcodex::FactoryRun {
     crate::terminal::factory::tcodex::FactoryRun {
         deadline_raw: r.deadline.clone(),
         actor: r.actor,
@@ -275,10 +275,10 @@ fn cv_run_to_tcodex(r: &pfactory::FactoryRun) -> crate::terminal::factory::tcode
     }
 }
 
-fn cv_slice_to_pfactory(
+fn cv_slice_to_factory(
     s: &crate::terminal::factory::tcodex::FactoryCodexOutputSlice,
-) -> pfactory::OutputSlice {
-    pfactory::OutputSlice {
+) -> factory::OutputSlice {
+    factory::OutputSlice {
         data: s.data.clone(),
         total: s.total,
         offset: s.offset,
@@ -289,19 +289,19 @@ fn cv_slice_to_pfactory(
 
 // -- seam implementations --
 
-impl pfactory::FactoryTerminal for TerminalSeam {
+impl factory::FactoryTerminal for TerminalSeam {
     fn harness_family(&self) -> String {
         self.pin_family().to_string()
     }
     fn harness_version(&self) -> String {
-        if self.pin_family() == pfactory::FACTORY_HARNESS_MUSE {
+        if self.pin_family() == factory::FACTORY_HARNESS_MUSE {
             self.muse_harness_version.clone()
         } else {
             self.harness_version.clone()
         }
     }
     fn harness_sha256(&self) -> String {
-        if self.pin_family() == pfactory::FACTORY_HARNESS_MUSE {
+        if self.pin_family() == factory::FACTORY_HARNESS_MUSE {
             self.muse_harness_sha256.clone()
         } else {
             self.harness_sha256.clone()
@@ -309,16 +309,16 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     }
     fn reserve(
         &self,
-        run: &pfactory::FactoryRun,
-        lease: &pfactory::Lease,
+        run: &factory::FactoryRun,
+        lease: &factory::Lease,
         pin: &str,
         max_secs: i64,
         deadline: Instant,
-    ) -> Result<terminal::Binding, pfactory::FactoryError> {
+    ) -> Result<terminal::Binding, factory::FactoryError> {
         let service = self.service();
         let trun = cv_run_to_tcodex(run);
         let tlease = cv_lease_to_texec(lease);
-        let out = if run.harness == pfactory::FACTORY_HARNESS_MUSE {
+        let out = if run.harness == factory::FACTORY_HARNESS_MUSE {
             service
                 .factory_muse_reserve(&trun, &tlease, pin, max_secs, deadline)
                 .map(|(binding, _paths)| binding)
@@ -327,95 +327,91 @@ impl pfactory::FactoryTerminal for TerminalSeam {
                 .factory_codex_reserve(&trun, &tlease, pin, max_secs, deadline)
                 .map(|(binding, _paths)| binding)
         };
-        out.map_err(pfactory::FactoryError::Msg)
+        out.map_err(factory::FactoryError::Msg)
     }
     fn start(
         &self,
-        lease: &pfactory::Lease,
+        lease: &factory::Lease,
         credential: &[u8],
         prompt: &[u8],
         deadline: Instant,
-    ) -> Result<(), pfactory::FactoryError> {
+    ) -> Result<(), factory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
         if muse_scoped_lease(&tlease) {
             service
                 .factory_muse_start(&tlease, credential, prompt, deadline)
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         } else {
             service
                 .factory_codex_start(&tlease, credential, prompt, deadline)
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         }
     }
     fn wait(
         &self,
-        lease: &pfactory::Lease,
+        lease: &factory::Lease,
         deadline: Instant,
-    ) -> Result<(i64, String), pfactory::FactoryError> {
+    ) -> Result<(i64, String), factory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
         if muse_scoped_lease(&tlease) {
             service
                 .factory_muse_wait(&tlease, deadline)
                 .map(|(code, out)| (code as i64, out))
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         } else {
             service
                 .factory_codex_wait(&tlease, deadline)
                 .map(|(code, out)| (code as i64, out))
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         }
     }
-    fn stop(
-        &self,
-        lease: &pfactory::Lease,
-        deadline: Instant,
-    ) -> Result<(), pfactory::FactoryError> {
+    fn stop(&self, lease: &factory::Lease, deadline: Instant) -> Result<(), factory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
         if muse_scoped_lease(&tlease) {
             service
                 .factory_muse_stop(&tlease, deadline)
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         } else {
             service
                 .factory_codex_stop(&tlease, deadline)
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         }
     }
     fn stop_unbound(
         &self,
-        run: &pfactory::FactoryRun,
+        run: &factory::FactoryRun,
         deadline: Instant,
-    ) -> Result<(), pfactory::FactoryError> {
+    ) -> Result<(), factory::FactoryError> {
         let service = self.service();
         let trun = cv_run_to_tcodex(run);
-        if run.harness == pfactory::FACTORY_HARNESS_MUSE {
+        if run.harness == factory::FACTORY_HARNESS_MUSE {
             service
                 .factory_muse_stop_unbound(&trun, deadline)
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         } else {
             service
                 .factory_codex_stop_unbound(&trun, deadline)
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         }
     }
     fn capture(
         &self,
-        lease: &pfactory::Lease,
+        lease: &factory::Lease,
         deadline: Instant,
-    ) -> Result<Vec<u8>, pfactory::FactoryError> {
+    ) -> Result<Vec<u8>, factory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
         if muse_scoped_lease(&tlease) {
             service
                 .factory_muse_capture(&tlease, deadline)
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         } else {
             service
                 .factory_codex_capture(&tlease, deadline)
-                .map_err(pfactory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)
         }
     }
     fn live(&self, binding: &terminal::Binding, deadline: Instant) -> bool {
@@ -433,18 +429,18 @@ impl pfactory::FactoryTerminal for TerminalSeam {
         offset: i64,
         limit: i64,
         deadline: Instant,
-    ) -> Result<pfactory::OutputSlice, pfactory::FactoryError> {
+    ) -> Result<factory::OutputSlice, factory::FactoryError> {
         let service = self.service();
         if binding.scope == tcodex::FACTORY_SCOPE_MUSE {
             service
                 .factory_muse_output(project, binding, offset, limit, deadline)
-                .map(|s| cv_slice_to_pfactory(&s))
-                .map_err(pfactory::FactoryError::Msg)
+                .map(|s| cv_slice_to_factory(&s))
+                .map_err(factory::FactoryError::Msg)
         } else {
             service
                 .factory_codex_output(project, binding, offset, limit, deadline)
-                .map(|s| cv_slice_to_pfactory(&s))
-                .map_err(pfactory::FactoryError::Msg)
+                .map(|s| cv_slice_to_factory(&s))
+                .map_err(factory::FactoryError::Msg)
         }
     }
     fn takeover_copy(
@@ -456,11 +452,11 @@ impl pfactory::FactoryTerminal for TerminalSeam {
         member: &str,
         run: &str,
         deadline: Instant,
-    ) -> Result<(String, bool), pfactory::FactoryError> {
+    ) -> Result<(String, bool), factory::FactoryError> {
         let service = self.service();
         service
             .factory_takeover_copy(project, recorded, role, preparation, member, run, deadline)
-            .map_err(pfactory::FactoryError::Msg)
+            .map_err(factory::FactoryError::Msg)
     }
     fn export_bundle(
         &self,
@@ -470,11 +466,11 @@ impl pfactory::FactoryTerminal for TerminalSeam {
         preparation: &str,
         candidate: &str,
         deadline: Instant,
-    ) -> Result<Vec<u8>, pfactory::FactoryError> {
+    ) -> Result<Vec<u8>, factory::FactoryError> {
         let service = self.service();
         service
             .factory_export_bundle(project, recorded, role, preparation, candidate, deadline)
-            .map_err(pfactory::FactoryError::Msg)
+            .map_err(factory::FactoryError::Msg)
     }
 }
 
@@ -508,11 +504,11 @@ impl TerminalSeam {
     /// muse harness when configured, else nothing usable.
     fn pin_family(&self) -> &'static str {
         if !self.harness.is_empty() {
-            pfactory::FACTORY_HARNESS_CODEX
+            factory::FACTORY_HARNESS_CODEX
         } else if !self.muse_harness.is_empty() {
-            pfactory::FACTORY_HARNESS_MUSE
+            factory::FACTORY_HARNESS_MUSE
         } else {
-            pfactory::FACTORY_HARNESS_CODEX
+            factory::FACTORY_HARNESS_CODEX
         }
     }
 }
@@ -689,7 +685,7 @@ impl ExecBackend for DaemonBackend {
         // Factory routes stay off the shared mutation gate (Go comment):
         // per-run locks plus broker serialization are the control.
         let factory = self.factory()?;
-        let req = pfactory::FactoryLaunch::decode(body).map_err(internal)?;
+        let req = factory::FactoryLaunch::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .launch(&req, native_deadline())
@@ -699,7 +695,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_inspect(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let req = pfactory::FactoryInspect::decode(body).map_err(internal)?;
+        let req = factory::FactoryInspect::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .inspect(&req, native_deadline())
@@ -709,7 +705,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_stop(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let req = pfactory::FactoryStop::decode(body).map_err(internal)?;
+        let req = factory::FactoryStop::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .stop(&req, native_deadline())
@@ -719,7 +715,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_takeover(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let req = pfactory::FactoryTakeover::decode(body).map_err(internal)?;
+        let req = factory::FactoryTakeover::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .takeover(&req, native_deadline())
@@ -729,7 +725,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_output(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let req = pfactory::FactoryOutput::decode(body).map_err(internal)?;
+        let req = factory::FactoryOutput::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .output(&req, native_deadline())
@@ -749,7 +745,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_export(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let req = pfactory::FactoryExport::decode(body).map_err(internal)?;
+        let req = factory::FactoryExport::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .export(&req, native_deadline())
@@ -759,7 +755,7 @@ impl ExecBackend for DaemonBackend {
 
     fn factory_candidate_inspect(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
-        let req = pfactory::FactoryCandidateInspect::decode(body).map_err(internal)?;
+        let req = factory::FactoryCandidateInspect::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
         let out = factory
             .inspect_candidate(&req, native_deadline())
@@ -2055,7 +2051,7 @@ mod tests {
 
     #[test]
     fn factory_error_mapping() {
-        use pfactory::FactoryError;
+        use crate::factory::FactoryError;
         assert!(matches!(
             map_factory_err(FactoryError::NotFound, BackendError::OutputStale),
             BackendError::NotFound
